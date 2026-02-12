@@ -1,3 +1,10 @@
+# `LibAFL--`, the unbloated fuzzer library
+
+Temporary README.
+
+Add temp stuff to `IDEAS.md`, this is useless atm.
+
+
 # `LibAFL`, the fuzzer library
 
  <img align="right" src="https://raw.githubusercontent.com/AFLplusplus/Website/main/static/libafl_logo.svg" alt="LibAFL logo" width="250" heigh="250">
