@@ -7,3 +7,9 @@ ordered from biggest to lowest priority.
 ## What should be removed
 
 add here things to remove, with alternative ideas to replace if it makes sense.
+
+### llmp
+
+### corpus
+
+###

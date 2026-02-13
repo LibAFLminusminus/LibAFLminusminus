@@ -9,10 +9,6 @@ pub mod windows;
 #[cfg(all(unix, feature = "std"))]
 pub mod unix;
 
-#[cfg(all(feature = "std", unix))]
-/// The hook for inprocess fork executor
-pub mod inprocess_fork;
-
 /// The hook for inprocess executor
 pub mod inprocess;
 
