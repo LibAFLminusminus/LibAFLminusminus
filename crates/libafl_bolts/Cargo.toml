@@ -51,10 +51,8 @@ std = [
   "hostname",
   "libafl_core/nix",
   "libafl_core/std",
-  "ll_mp/std",
   "minibsod",
   "nix",
-  "no_std_time/std",
   "serde/std",
   "serial_test",
   "shmem_providers/std",
@@ -69,8 +67,6 @@ alloc = [
   "fast_rands/alloc",
   "hashbrown",
   "libafl_core/alloc",
-  "ll_mp/alloc",
-  "no_std_time/alloc",
   "postcard",
   "serde_anymap",
   "serde/alloc",
@@ -104,7 +100,7 @@ frida_cli = ["cli"]
 errors_backtrace = ["libafl_core/errors_backtrace"]
 
 ## Enables gzip compression in certain parts of the lib
-gzip = ["miniz_oxide", "alloc", "ll_mp/gzip"]
+gzip = ["miniz_oxide", "alloc"]
 
 ## Replaces `ahash` with the potentially faster [`xxh3`](https://github.com/Cyan4973/xxHash) in some parts of the lib.
 ## This yields a stable and fast hash, but may increase the resulting binary size slightly
@@ -122,20 +118,6 @@ stable_anymap = ["serde_anymap/stable_anymap"]
 
 ## Automatically register all `#[derive(SerdeAny)]` types at startup.
 serdeany_autoreg = ["serde_anymap/serdeany_autoreg"]
-
-#! ### LLMP features
-
-## If set, llmp will bind to 0.0.0.0, allowing cross-device communication. Binds to localhost by default.
-llmp_bind_public = ["ll_mp/llmp_bind_public"]
-
-## Enables llmp compression using GZip
-llmp_compression = ["ll_mp/llmp_compression"]
-
-## Enables debug output for LLMP (also needs a `logger` installed)
-llmp_debug = ["ll_mp/llmp_debug"]
-
-## Reduces the initial map size for llmp
-llmp_small_maps = ["ll_mp/llmp_small_maps"]
 
 #! ### Stable SIMD features
 
@@ -158,9 +140,7 @@ exceptional = { workspace = true }
 fast_rands = { workspace = true }
 libafl_core = { workspace = true, features = ["serde"] }
 libafl_derive = { workspace = true, default-features = true, optional = true }
-ll_mp = { workspace = true }
 minibsod = { workspace = true, optional = true }
-no_std_time = { workspace = true }
 nonzero_macros = { workspace = true }
 ownedref = { workspace = true }
 serde_anymap = { workspace = true, optional = true }

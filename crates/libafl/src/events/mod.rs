@@ -1,31 +1,7 @@
 //! An `EventManager` manages all events that go to other instances of the fuzzer.
 //! The messages are commonly information about new Testcases as well as stats and other [`Event`]s.
-
-pub mod events_hooks;
-pub use events_hooks::*;
-
-pub mod simple;
-pub use simple::*;
-#[cfg(all(unix, feature = "std"))]
-pub mod centralized;
-#[cfg(all(unix, feature = "std"))]
-pub use centralized::*;
 use hashbrown::HashMap;
-#[cfg(feature = "std")]
-pub mod launcher;
-
-pub mod llmp;
-pub use llmp::*;
-#[cfg(feature = "tcp_manager")]
-pub mod tcp;
-
-/// The restarting event manager, capable of resetting the state of the fuzzer
-#[cfg(feature = "std")]
-pub mod restarting;
-#[cfg(feature = "std")]
-pub use restarting::*;
-
-pub mod broker_hooks;
+use ahash::RandomState;
 #[cfg(feature = "introspection")]
 use alloc::boxed::Box;
 use alloc::{borrow::Cow, string::String, vec::Vec};
@@ -36,10 +12,23 @@ use core::{
     time::Duration,
 };
 
-use ahash::RandomState;
-pub use broker_hooks::*;
+pub mod simple;
+pub use simple::*;
+
+#[cfg(feature = "std")]
+pub mod launcher;
 #[cfg(feature = "std")]
 pub use launcher::*;
+
+/// The restarting event manager, capable of resetting the state of the fuzzer
+#[cfg(feature = "std")]
+pub mod restarting;
+#[cfg(feature = "std")]
+pub use restarting::*;
+
+pub mod broker_hooks;
+pub use broker_hooks::*;
+
 use libafl_bolts::current_time;
 #[cfg(all(unix, feature = "std"))]
 use libafl_bolts::os::CTRL_C_EXIT;

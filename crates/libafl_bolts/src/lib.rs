@@ -69,8 +69,6 @@ pub mod compress;
 pub use core_affinity2 as core_affinity;
 #[cfg(feature = "std")]
 pub mod fs;
-#[cfg(feature = "alloc")]
-pub use ll_mp as llmp;
 pub mod math;
 #[cfg(feature = "std")]
 pub use minibsod;

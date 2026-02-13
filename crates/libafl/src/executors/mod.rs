@@ -39,10 +39,6 @@ pub mod nop;
 #[cfg(feature = "simd")]
 pub mod sand;
 
-/// The module for inproc fork executor
-#[cfg(all(feature = "std", unix))]
-pub mod inprocess_fork;
-
 pub mod shadow;
 
 pub mod with_observers;
