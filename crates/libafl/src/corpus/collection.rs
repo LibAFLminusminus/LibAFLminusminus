@@ -1,0 +1,277 @@
+//! A collection of various [`Corpus`].
+
+use alloc::{rc::Rc, string::String};
+use std::path::{Path, PathBuf};
+
+use libafl_bolts::Error;
+use serde::{Deserialize, Serialize};
+
+use crate::{
+    corpus::{
+        Corpus, CorpusId, InMemoryStore, OnDiskStore, SingleCorpus, Testcase,
+        TestcaseFilenameFormat,
+        maps::{self, InMemoryCorpusMap},
+        store::{Store, ondisk::OnDiskStoreBuilder},
+    },
+    inputs::Input,
+};
+
+const DEFAULT_CACHE_LEN: usize = 32;
+
+#[cfg(not(feature = "corpus_btreemap"))]
+type StdInMemoryMap<T> = maps::HashCorpusMap<T>;
+#[cfg(feature = "corpus_btreemap")]
+type StdInMemoryMap<T> = maps::BtreeCorpusMap<T>;
+
+type InnerStdInMemoryCorpusMap<I> = StdInMemoryMap<Testcase<I>>;
+type InnerStdInMemoryStore<I> = InMemoryStore<I, InnerStdInMemoryCorpusMap<I>>;
+type InnerInMemoryCorpus<I> = SingleCorpus<I, InnerStdInMemoryStore<I>>;
+
+type InnerStdOnDiskStore<I> = OnDiskStore<I, StdInMemoryMap<String>>;
+#[cfg(feature = "std")]
+type InnerOnDiskCorpus<I> = SingleCorpus<I, InnerStdOnDiskStore<I>>;
+
+/// The standard fully in-memory corpus map.
+#[repr(transparent)]
+#[derive(Debug, Serialize)]
+pub struct StdInMemoryCorpusMap<I>(InnerStdInMemoryCorpusMap<I>);
+
+/// The standard fully in-memory store.
+#[repr(transparent)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct StdInMemoryStore<I>(InnerStdInMemoryStore<I>);
+
+/// The standard fully on-disk store.
+#[repr(transparent)]
+#[derive(Debug, Serialize)]
+pub struct StdOnDiskStore<I>(InnerStdOnDiskStore<I>);
+
+/// The standard in-memory corpus.
+#[repr(transparent)]
+#[derive(Debug, Serialize, Deserialize)]
+pub struct InMemoryCorpus<I>(InnerInMemoryCorpus<I>);
+
+/// The standard fully on-disk corpus.
+#[cfg(feature = "std")]
+#[repr(transparent)]
+#[derive(Debug, Serialize, Deserialize)]
+pub struct OnDiskCorpus<I>(InnerOnDiskCorpus<I>);
+
+/// The on-disk corpus builder
+#[cfg(feature = "std")]
+#[derive(Debug, Clone, Default)]
+pub struct OnDiskCorpusBuilder(OnDiskStoreBuilder);
+
+impl<I> InMemoryCorpusMap<Testcase<I>> for StdInMemoryCorpusMap<I>
+where
+    I: Input,
+{
+    fn count(&self) -> usize {
+        self.0.count()
+    }
+
+    fn add(&mut self, id: CorpusId, testcase: Testcase<I>) {
+        self.0.add(id, testcase);
+    }
+
+    fn get(&self, id: CorpusId) -> Option<&Testcase<I>> {
+        self.0.get(id)
+    }
+
+    fn get_mut(&mut self, id: CorpusId) -> Option<&mut Testcase<I>> {
+        self.0.get_mut(id)
+    }
+
+    fn remove(&mut self, id: CorpusId) -> Option<Testcase<I>> {
+        self.0.remove(id)
+    }
+
+    fn prev(&self, id: CorpusId) -> Option<CorpusId> {
+        self.0.prev(id)
+    }
+
+    fn next(&self, id: CorpusId) -> Option<CorpusId> {
+        self.0.next(id)
+    }
+
+    fn first(&self) -> Option<CorpusId> {
+        self.0.first()
+    }
+
+    fn last(&self) -> Option<CorpusId> {
+        self.0.last()
+    }
+
+    fn nth(&self, nth: usize) -> CorpusId {
+        self.0.nth(nth)
+    }
+}
+
+impl<I> Store<I> for StdInMemoryStore<I>
+where
+    I: Input,
+{
+    fn count(&self) -> usize {
+        self.0.count()
+    }
+
+    fn count_disabled(&self) -> usize {
+        self.0.count_disabled()
+    }
+
+    fn add_shared<const ENABLED: bool>(&mut self, id: CorpusId, input: Rc<I>) -> Result<(), Error> {
+        self.0.add_shared::<ENABLED>(id, input)
+    }
+
+    fn get_from<const ENABLED: bool>(&self, id: CorpusId) -> Result<Testcase<I>, Error> {
+        self.0.get_from::<ENABLED>(id)
+    }
+
+    fn disable(&mut self, id: CorpusId) -> Result<(), Error> {
+        self.0.disable(id)
+    }
+}
+
+impl<I> Store<I> for StdOnDiskStore<I>
+where
+    I: Input,
+{
+    fn count(&self) -> usize {
+        self.0.count()
+    }
+
+    fn count_disabled(&self) -> usize {
+        self.0.count_disabled()
+    }
+
+    fn add_shared<const ENABLED: bool>(&mut self, id: CorpusId, input: Rc<I>) -> Result<(), Error> {
+        self.0.add_shared::<ENABLED>(id, input)
+    }
+
+    fn get_from<const ENABLED: bool>(&self, id: CorpusId) -> Result<Testcase<I>, Error> {
+        self.0.get_from::<ENABLED>(id)
+    }
+
+    fn disable(&mut self, id: CorpusId) -> Result<(), Error> {
+        self.0.disable(id)
+    }
+}
+
+impl<I> Default for InMemoryCorpus<I> {
+    fn default() -> Self {
+        InMemoryCorpus(InnerInMemoryCorpus::default())
+    }
+}
+
+impl<I> InMemoryCorpus<I> {
+    /// Create a new [`InMemoryCorpus`].
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+impl<I> Corpus<I> for InMemoryCorpus<I>
+where
+    I: Input,
+{
+    fn count(&self) -> usize {
+        self.0.count()
+    }
+
+    fn count_disabled(&self) -> usize {
+        self.0.count_disabled()
+    }
+
+    fn count_all(&self) -> usize {
+        self.0.count_all()
+    }
+
+    fn add_shared<const ENABLED: bool>(&mut self, input: Rc<I>) -> Result<CorpusId, Error> {
+        self.0.add_shared::<ENABLED>(input)
+    }
+
+    fn get_from<const ENABLED: bool>(&self, id: CorpusId) -> Result<Testcase<I>, Error> {
+        self.0.get_from::<ENABLED>(id)
+    }
+
+    fn disable(&mut self, id: CorpusId) -> Result<(), Error> {
+        self.0.disable(id)
+    }
+}
+
+#[cfg(feature = "std")]
+impl OnDiskCorpusBuilder {
+    /// Create a new [`OnDiskCorpusBuilder`].
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Set the root directory, where the testcases will be stored.
+    pub fn root_dir(&mut self, root: &Path) -> &mut Self {
+        self.0.root_dir(root);
+        self
+    }
+
+    /// Set the on-disk filename format
+    pub fn filename_format(&mut self, filename_format: TestcaseFilenameFormat) -> &mut Self {
+        self.0.filename_format(filename_format);
+        self
+    }
+
+    /// Build an [`OnDiskStore`].
+    /// The root directory must be set.
+    pub fn build<I>(&self) -> Result<OnDiskCorpus<I>, Error> {
+        Ok(OnDiskCorpus(SingleCorpus::new(self.0.build()?)))
+    }
+}
+
+#[cfg(feature = "std")]
+impl<I> OnDiskCorpus<I>
+where
+    I: Input,
+{
+    /// Create a new [`OnDiskCorpus`]
+    pub fn new(root: PathBuf, filename_format: TestcaseFilenameFormat) -> Result<Self, Error> {
+        Ok(OnDiskCorpus(InnerOnDiskCorpus::new(
+            InnerStdOnDiskStore::new(root, filename_format)?,
+        )))
+    }
+
+    /// Get a [`OnDiskCorpus`] builder.
+    #[must_use]
+    pub fn builder() -> OnDiskCorpusBuilder {
+        OnDiskCorpusBuilder::default()
+    }
+}
+
+#[cfg(feature = "std")]
+impl<I> Corpus<I> for OnDiskCorpus<I>
+where
+    I: Input,
+{
+    fn count(&self) -> usize {
+        self.0.count()
+    }
+
+    fn count_disabled(&self) -> usize {
+        self.0.count_disabled()
+    }
+
+    fn count_all(&self) -> usize {
+        self.0.count_all()
+    }
+
+    fn add_shared<const ENABLED: bool>(&mut self, input: Rc<I>) -> Result<CorpusId, Error> {
+        self.0.add_shared::<ENABLED>(input)
+    }
+
+    fn get_from<const ENABLED: bool>(&self, id: CorpusId) -> Result<Testcase<I>, Error> {
+        self.0.get_from::<ENABLED>(id)
+    }
+
+    fn disable(&mut self, id: CorpusId) -> Result<(), Error> {
+        self.0.disable(id)
+    }
+}
