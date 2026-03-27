@@ -23,7 +23,6 @@ use libafl_bolts::{
 };
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
-mod stack;
 pub use stack::StageStack;
 
 #[cfg(feature = "introspection")]
@@ -40,141 +39,6 @@ use crate::{
 };
 /// The maximum size of a testcase
 pub const DEFAULT_MAX_SIZE: usize = 1_048_576;
-
-/// Trait for elements offering a corpus
-pub trait HasCorpus<I> {
-    /// The associated type implementing [`Corpus`].
-    type Corpus: Corpus<I>;
-
-    /// The testcase corpus
-    fn corpus(&self) -> &Self::Corpus;
-    /// The testcase corpus (mutable)
-    fn corpus_mut(&mut self) -> &mut Self::Corpus;
-}
-
-/// The trait that implements the very standard capability of a state.
-/// This state contains important information about the current run
-/// and can be used to restart the fuzzing process at any time.
-///
-/// You don't need to implement this completely, but instead can
-/// implement indiviual traits that fit your usecase.
-pub trait State:
-    Serialize
-    + DeserializeOwned
-    + MaybeHasClientPerfMonitor
-    + HasCurrentCorpusId
-    + HasCurrentStageId
-    + Stoppable
-{
-}
-
-impl<C, I, R, SC> State for StdState<C, I, R, SC>
-where
-    C: Serialize + DeserializeOwned,
-    R: Rand + Serialize + for<'de> Deserialize<'de>,
-    SC: Serialize + DeserializeOwned,
-{
-}
-
-/// Interact with the maximum size
-pub trait HasMaxSize {
-    /// The maximum size hint for items and mutations returned
-    fn max_size(&self) -> usize;
-    /// Sets the maximum size hint for the items and mutations
-    fn set_max_size(&mut self, max_size: usize);
-}
-
-/// Trait for elements offering a corpus of solutions
-pub trait HasSolutions<I> {
-    /// The associated type implementing [`Corpus`] for solutions
-    type Solutions: Corpus<I>;
-
-    /// The solutions corpus
-    fn solutions(&self) -> &Self::Solutions;
-    /// The solutions corpus (mutable)
-    fn solutions_mut(&mut self) -> &mut Self::Solutions;
-}
-
-/// Trait for elements offering a rand
-pub trait HasRand {
-    /// The associated type implementing [`Rand`]
-    type Rand: Rand;
-    /// The rand instance
-    fn rand(&self) -> &Self::Rand;
-    /// The rand instance (mutable)
-    fn rand_mut(&mut self) -> &mut Self::Rand;
-}
-
-#[cfg(feature = "introspection")]
-/// Trait for offering a [`ClientPerfStats`]
-pub trait HasClientPerfMonitor {
-    /// [`ClientPerfStats`] itself
-    fn introspection_stats(&self) -> &ClientPerfStats;
-
-    /// Mutatable ref to [`ClientPerfStats`]
-    fn introspection_stats_mut(&mut self) -> &mut ClientPerfStats;
-}
-
-/// Intermediate trait for `HasClientPerfMonitor`
-#[cfg(feature = "introspection")]
-pub trait MaybeHasClientPerfMonitor: HasClientPerfMonitor {}
-
-/// Intermediate trait for `HasClientPerfmonitor`
-#[cfg(not(feature = "introspection"))]
-pub trait MaybeHasClientPerfMonitor {}
-
-#[cfg(not(feature = "introspection"))]
-impl<T> MaybeHasClientPerfMonitor for T {}
-
-#[cfg(feature = "introspection")]
-impl<T> MaybeHasClientPerfMonitor for T where T: HasClientPerfMonitor {}
-
-/// Trait for the execution counter
-pub trait HasExecutions {
-    /// The executions counter
-    fn executions(&self) -> &u64;
-
-    /// The executions counter (mutable)
-    fn executions_mut(&mut self) -> &mut u64;
-}
-
-/// Trait for some stats of AFL
-pub trait HasImported {
-    ///the imported testcases counter
-    fn imported(&self) -> &usize;
-
-    ///the imported testcases counter (mutable)
-    fn imported_mut(&mut self) -> &mut usize;
-}
-
-/// Trait for the starting time
-pub trait HasStartTime {
-    /// The starting time
-    fn start_time(&self) -> &Duration;
-
-    /// The starting time (mutable)
-    fn start_time_mut(&mut self) -> &mut Duration;
-}
-
-/// Trait for the last report time, the last time this node reported progress
-pub trait HasLastFoundTime {
-    /// The last time we found something by ourselves
-    fn last_found_time(&self) -> &Duration;
-
-    /// The last time we found something by ourselves (mutable)
-    fn last_found_time_mut(&mut self) -> &mut Duration;
-}
-
-/// Trait for the last report time, the last time this node reported progress
-pub trait HasLastReportTime {
-    /// The last time we reported progress,if available/used.
-    /// This information is used by fuzzer `maybe_report_progress`.
-    fn last_report_time(&self) -> &Option<Duration>;
-
-    /// The last time we reported progress,if available/used (mutable).
-    /// This information is used by fuzzer `maybe_report_progress`.
-    fn last_report_time_mut(&mut self) -> &mut Option<Duration>;
-}
 
 /// Struct that holds the options for input loading
 #[cfg(feature = "std")]
@@ -247,30 +111,84 @@ pub struct StdState<C, I, R, SC> {
     phantom: PhantomData<I>,
 }
 
-impl<C, I, R, SC> HasRand for StdState<C, I, R, SC>
-where
-    R: Rand,
-{
-    type Rand = R;
-
-    /// The rand instance
-    #[inline]
-    fn rand(&self) -> &Self::Rand {
-        &self.rand
-    }
-
-    /// The rand instance (mutable)
-    #[inline]
-    fn rand_mut(&mut self) -> &mut Self::Rand {
-        &mut self.rand
-    }
-}
-
-impl<C, I, R, SC> HasCorpus<I> for StdState<C, I, R, SC>
+#[cfg(feature = "std")]
+impl<C, I, R, SC> StdState<C, I, R, SC>
 where
     C: Corpus<I>,
+    I: Input,
+    R: Rand,
+    SC: Corpus<I>,
 {
-    type Corpus = C;
+    /// The max size allowed for the input
+    fn max_size(&self) -> usize {
+        self.max_size
+    }
+
+    /// Set the max size.
+    fn max_size_mut(&mut self) -> &mut usize {
+        &mut self.max_size
+    }
+
+    /// The executions counter
+    fn executions(&self) -> u64 {
+        self.executions
+    }
+
+    /// The executions counter (mutable)
+    fn executions_mut(&mut self) -> &mut u64 {
+        &mut self.executions
+    }
+
+    ///the imported testcases counter
+    fn imported(&self) -> usize {
+        self.imported
+    }
+
+    ///the imported testcases counter (mutable)
+    fn imported_mut(&mut self) -> &mut usize {
+        &mut self.imported
+    }
+
+    /// The starting time
+    fn start_time(&self) -> &Duration {
+        &self.start_time
+    }
+
+    /// The starting time (mutable)
+    fn start_time_mut(&mut self) -> &mut Duration {
+        &mut self.start_time
+    }
+
+    /// The last time we found something by ourselves
+    fn last_found_time(&self) -> &Duration {
+        &self.last_found_time
+    }
+
+    /// The last time we found something by ourselves (mutable)
+    fn last_found_time_mut(&mut self) -> &mut Duration {
+        &mut self.last_found_time
+    }
+
+    /// The last time we reported progress,if available/used.
+    /// This information is used by fuzzer `maybe_report_progress`.
+    fn last_report_time(&self) -> &Option<Duration> {
+        &self.last_report_time
+    }
+
+    /// The last time we reported progress,if available/used (mutable).
+    /// This information is used by fuzzer `maybe_report_progress`.
+    fn last_report_time_mut(&mut self) -> &mut Option<Duration> {
+        &mut self.last_report_time
+    }
+
+    /// The solutions corpus
+    fn solutions(&self) -> &Self::Solutions {
+        &self.solutions
+    }
+    /// The solutions corpus (mutable)
+    fn solutions_mut(&mut self) -> &mut Self::Solutions {
+        &mut self.solutions
+    }
 
     /// Returns the corpus
     #[inline]
@@ -283,12 +201,19 @@ where
     fn corpus_mut(&mut self) -> &mut Self::Corpus {
         &mut self.corpus
     }
-}
 
-impl<C, I, R, SC> HasTestcase<I> for StdState<C, I, R, SC>
-where
-    C: Corpus<I>,
-{
+    /// The rand instance
+    #[inline]
+    fn rand(&self) -> &Self::Rand {
+        &self.rand
+    }
+
+    /// The rand instance (mutable)
+    #[inline]
+    fn rand_mut(&mut self) -> &mut Self::Rand {
+        &mut self.rand
+    }
+
     /// To get the testcase
     fn testcase(&self, id: CorpusId) -> Result<Ref<'_, Testcase<I>>, Error> {
         Ok(self.corpus().get(id)?.borrow())
@@ -298,30 +223,7 @@ where
     fn testcase_mut(&self, id: CorpusId) -> Result<RefMut<'_, Testcase<I>>, Error> {
         Ok(self.corpus().get(id)?.borrow_mut())
     }
-}
 
-impl<C, I, R, SC> HasSolutions<I> for StdState<C, I, R, SC>
-where
-    C: Corpus<I>,
-    I: Input,
-    SC: Corpus<I>,
-{
-    type Solutions = SC;
-
-    /// Returns the solutions corpus
-    #[inline]
-    fn solutions(&self) -> &SC {
-        &self.solutions
-    }
-
-    /// Returns the solutions corpus (mutable)
-    #[inline]
-    fn solutions_mut(&mut self) -> &mut SC {
-        &mut self.solutions
-    }
-}
-
-impl<C, I, R, SC> HasMetadata for StdState<C, I, R, SC> {
     /// Get all the metadata into an [`hashbrown::HashMap`]
     #[inline]
     fn metadata_map(&self) -> &SerdeAnyMap {
@@ -333,9 +235,7 @@ impl<C, I, R, SC> HasMetadata for StdState<C, I, R, SC> {
     fn metadata_map_mut(&mut self) -> &mut SerdeAnyMap {
         &mut self.metadata
     }
-}
 
-impl<C, I, R, SC> HasNamedMetadata for StdState<C, I, R, SC> {
     /// Get all the metadata into an [`hashbrown::HashMap`]
     #[inline]
     fn named_metadata_map(&self) -> &NamedSerdeAnyMap {
@@ -347,89 +247,19 @@ impl<C, I, R, SC> HasNamedMetadata for StdState<C, I, R, SC> {
     fn named_metadata_map_mut(&mut self) -> &mut NamedSerdeAnyMap {
         &mut self.named_metadata
     }
-}
 
-impl<C, I, R, SC> HasExecutions for StdState<C, I, R, SC> {
-    /// The executions counter
-    #[inline]
-    fn executions(&self) -> &u64 {
-        &self.executions
+    fn request_stop(&mut self) {
+        self.stop_requested = true;
     }
 
-    /// The executions counter (mutable)
-    #[inline]
-    fn executions_mut(&mut self) -> &mut u64 {
-        &mut self.executions
-    }
-}
-
-impl<C, I, R, SC> HasImported for StdState<C, I, R, SC> {
-    /// Return the number of new paths that imported from other fuzzers
-    #[inline]
-    fn imported(&self) -> &usize {
-        &self.imported
+    fn discard_stop_request(&mut self) {
+        self.stop_requested = false;
     }
 
-    /// Return the number of new paths that imported from other fuzzers
-    #[inline]
-    fn imported_mut(&mut self) -> &mut usize {
-        &mut self.imported
-    }
-}
-
-impl<C, I, R, SC> HasLastFoundTime for StdState<C, I, R, SC> {
-    /// Return the number of new paths that imported from other fuzzers
-    #[inline]
-    fn last_found_time(&self) -> &Duration {
-        &self.last_found_time
+    fn stop_requested(&self) -> bool {
+        self.stop_requested
     }
 
-    /// Return the number of new paths that imported from other fuzzers
-    #[inline]
-    fn last_found_time_mut(&mut self) -> &mut Duration {
-        &mut self.last_found_time
-    }
-}
-
-impl<C, I, R, SC> HasLastReportTime for StdState<C, I, R, SC> {
-    /// The last time we reported progress,if available/used.
-    /// This information is used by fuzzer `maybe_report_progress`.
-    fn last_report_time(&self) -> &Option<Duration> {
-        &self.last_report_time
-    }
-
-    /// The last time we reported progress,if available/used (mutable).
-    /// This information is used by fuzzer `maybe_report_progress`.
-    fn last_report_time_mut(&mut self) -> &mut Option<Duration> {
-        &mut self.last_report_time
-    }
-}
-
-impl<C, I, R, SC> HasMaxSize for StdState<C, I, R, SC> {
-    fn max_size(&self) -> usize {
-        self.max_size
-    }
-
-    fn set_max_size(&mut self, max_size: usize) {
-        self.max_size = max_size;
-    }
-}
-
-impl<C, I, R, SC> HasStartTime for StdState<C, I, R, SC> {
-    /// The starting time
-    #[inline]
-    fn start_time(&self) -> &Duration {
-        &self.start_time
-    }
-
-    /// The starting time (mutable)
-    #[inline]
-    fn start_time_mut(&mut self) -> &mut Duration {
-        &mut self.start_time
-    }
-}
-
-impl<C, I, R, SC> HasCurrentCorpusId for StdState<C, I, R, SC> {
     fn set_corpus_id(&mut self, id: CorpusId) -> Result<(), Error> {
         self.corpus_id = Some(id);
         Ok(())
@@ -443,37 +273,9 @@ impl<C, I, R, SC> HasCurrentCorpusId for StdState<C, I, R, SC> {
     fn current_corpus_id(&self) -> Result<Option<CorpusId>, Error> {
         Ok(self.corpus_id)
     }
-}
 
-/// Has information about the current [`Testcase`] we are fuzzing
-pub trait HasCurrentTestcase<I>: HasCorpus<I> {
-    /// Gets the current [`Testcase`] we are fuzzing
-    ///
-    /// Will return [`Error::key_not_found`] if no `corpus_id` is currently set.
-    fn current_testcase(&self) -> Result<Ref<'_, Testcase<I>>, Error>;
-    //fn current_testcase(&self) -> Result<&Testcase<I>, Error>;
+    // to romain: are these 3 methods safely handling of the corpus?
 
-    /// Gets the current [`Testcase`] we are fuzzing (mut)
-    ///
-    /// Will return [`Error::key_not_found`] if no `corpus_id` is currently set.
-    fn current_testcase_mut(&self) -> Result<RefMut<'_, Testcase<I>>, Error>;
-    //fn current_testcase_mut(&self) -> Result<&mut Testcase<I>, Error>;
-
-    /// Gets a cloned representation of the current [`Testcase`].
-    ///
-    /// Will return [`Error::key_not_found`] if no `corpus_id` is currently set.
-    ///
-    /// # Note
-    /// This allocates memory and copies the contents!
-    /// For performance reasons, if you just need to access the testcase, use [`Self::current_testcase`] instead.
-    fn current_input_cloned(&self) -> Result<I, Error>;
-}
-
-impl<I, T> HasCurrentTestcase<I> for T
-where
-    T: HasCorpus<I> + HasCurrentCorpusId,
-    I: Clone,
-{
     fn current_testcase(&self) -> Result<Ref<'_, Testcase<I>>, Error> {
         let Some(corpus_id) = self.current_corpus_id()? else {
             return Err(Error::key_not_found(
@@ -486,7 +288,7 @@ where
 
     fn current_testcase_mut(&self) -> Result<RefMut<'_, Testcase<I>>, Error> {
         let Some(corpus_id) = self.current_corpus_id()? else {
-            return Err(Error::illegal_state(
+            return Err(Error::key_not_found(
                 "We are not currently processing a testcase",
             ));
         };
@@ -496,99 +298,19 @@ where
 
     fn current_input_cloned(&self) -> Result<I, Error> {
         let mut testcase = self.current_testcase_mut()?;
-        Ok(testcase.borrow_mut().load_input(self.corpus())?.clone())
-    }
-}
-
-/// A trait for types that want to expose a stop API
-pub trait Stoppable {
-    /// Check if stop is requested
-    fn stop_requested(&self) -> bool;
-
-    /// Request to stop
-    fn request_stop(&mut self);
-
-    /// Discard the stop request
-    fn discard_stop_request(&mut self);
-}
-
-impl<C, I, R, SC> Stoppable for StdState<C, I, R, SC> {
-    fn request_stop(&mut self) {
-        self.stop_requested = true;
+        Ok(testcase.borrow_mut().load_input(self.corpus())?.clone()) // to romain
     }
 
-    fn discard_stop_request(&mut self) {
-        self.stop_requested = false;
+    #[cfg(feature = "introspection")]
+    fn introspection_stats(&self) -> &ClientPerfStats {
+        &self.introspection_stats
     }
 
-    fn stop_requested(&self) -> bool {
-        self.stop_requested
-    }
-}
-
-impl<C, I, R, SC> HasCurrentStageId for StdState<C, I, R, SC> {
-    fn set_current_stage_id(&mut self, idx: StageId) -> Result<(), Error> {
-        self.stage_stack.set_current_stage_id(idx)
+    #[cfg(feature = "introspection")]
+    fn introspection_stats_mut(&mut self) -> &mut ClientPerfStats {
+        &mut self.introspection_stats
     }
 
-    fn clear_stage_id(&mut self) -> Result<(), Error> {
-        self.stage_stack.clear_stage_id()
-    }
-
-    fn current_stage_id(&self) -> Result<Option<StageId>, Error> {
-        self.stage_stack.current_stage_id()
-    }
-
-    fn on_restart(&mut self) -> Result<(), Error> {
-        self.stage_stack.on_restart()
-    }
-}
-
-/// Trait for types which track the current stage
-pub trait HasCurrentStageId {
-    /// Set the current stage; we have started processing this stage
-    fn set_current_stage_id(&mut self, id: StageId) -> Result<(), Error>;
-
-    /// Clear the current stage; we are done processing this stage
-    fn clear_stage_id(&mut self) -> Result<(), Error>;
-
-    /// Fetch the current stage -- typically used after a state recovery or transfer
-    fn current_stage_id(&self) -> Result<Option<StageId>, Error>;
-
-    /// Notify of a reset from which we may recover
-    fn on_restart(&mut self) -> Result<(), Error> {
-        Ok(())
-    }
-}
-
-/// Trait for types which track nested stages. Stages which themselves contain stage tuples should
-/// ensure that they constrain the state with this trait accordingly.
-pub trait HasNestedStage: HasCurrentStageId {
-    /// Enter a stage scope, potentially resuming to an inner stage status.
-    fn enter_inner_stage(&mut self) -> Result<(), Error>;
-
-    /// Exit a stage scope
-    fn exit_inner_stage(&mut self) -> Result<(), Error>;
-}
-
-impl<C, I, R, SC> HasNestedStage for StdState<C, I, R, SC> {
-    fn enter_inner_stage(&mut self) -> Result<(), Error> {
-        self.stage_stack.enter_inner_stage()
-    }
-
-    fn exit_inner_stage(&mut self) -> Result<(), Error> {
-        self.stage_stack.exit_inner_stage()
-    }
-}
-
-#[cfg(feature = "std")]
-impl<C, I, R, SC> StdState<C, I, R, SC>
-where
-    C: Corpus<I>,
-    I: Input,
-    R: Rand,
-    SC: Corpus<I>,
-{
     /// Decide if the state must load the inputs
     pub fn must_load_initial_inputs(&self) -> bool {
         self.corpus().count() == 0
@@ -1181,17 +903,6 @@ impl StdState<InMemoryCorpus<NopInput>, NopInput, StdRand, InMemoryCorpus<NopInp
     }
 }
 
-#[cfg(feature = "introspection")]
-impl<C, I, R, SC> HasClientPerfMonitor for StdState<C, I, R, SC> {
-    fn introspection_stats(&self) -> &ClientPerfStats {
-        &self.introspection_stats
-    }
-
-    fn introspection_stats_mut(&mut self) -> &mut ClientPerfStats {
-        &mut self.introspection_stats
-    }
-}
-
 /// A very simple state without any bells or whistles, for testing.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct NopState<I> {
@@ -1215,133 +926,6 @@ impl<I> NopState<I> {
             stop_requested: false,
             phantom: PhantomData,
         }
-    }
-}
-
-impl<I> HasMaxSize for NopState<I> {
-    fn max_size(&self) -> usize {
-        16_384
-    }
-
-    fn set_max_size(&mut self, _max_size: usize) {
-        unimplemented!("NopState doesn't allow setting a max size")
-    }
-}
-
-impl<I> HasCorpus<I> for NopState<I> {
-    type Corpus = InMemoryCorpus<I>;
-
-    fn corpus(&self) -> &Self::Corpus {
-        unimplemented!("Unimplemented for NopState!");
-    }
-
-    fn corpus_mut(&mut self) -> &mut Self::Corpus {
-        unimplemented!("Unimplemented for No[State!");
-    }
-}
-
-impl<I> HasExecutions for NopState<I> {
-    fn executions(&self) -> &u64 {
-        &self.execution
-    }
-
-    fn executions_mut(&mut self) -> &mut u64 {
-        &mut self.execution
-    }
-}
-
-impl<I> Stoppable for NopState<I> {
-    fn request_stop(&mut self) {
-        self.stop_requested = true;
-    }
-
-    fn discard_stop_request(&mut self) {
-        self.stop_requested = false;
-    }
-
-    fn stop_requested(&self) -> bool {
-        self.stop_requested
-    }
-}
-
-impl<I> HasLastReportTime for NopState<I> {
-    fn last_report_time(&self) -> &Option<Duration> {
-        unimplemented!();
-    }
-
-    fn last_report_time_mut(&mut self) -> &mut Option<Duration> {
-        unimplemented!();
-    }
-}
-
-impl<I> HasMetadata for NopState<I> {
-    fn metadata_map(&self) -> &SerdeAnyMap {
-        &self.metadata
-    }
-
-    fn metadata_map_mut(&mut self) -> &mut SerdeAnyMap {
-        &mut self.metadata
-    }
-}
-
-impl<I> HasNamedMetadata for NopState<I> {
-    fn named_metadata_map(&self) -> &NamedSerdeAnyMap {
-        &self.named_metadata
-    }
-
-    fn named_metadata_map_mut(&mut self) -> &mut NamedSerdeAnyMap {
-        &mut self.named_metadata
-    }
-}
-
-impl<I> HasRand for NopState<I> {
-    type Rand = StdRand;
-
-    fn rand(&self) -> &Self::Rand {
-        &self.rand
-    }
-
-    fn rand_mut(&mut self) -> &mut Self::Rand {
-        &mut self.rand
-    }
-}
-
-impl<I> HasCurrentCorpusId for NopState<I> {
-    fn set_corpus_id(&mut self, _id: CorpusId) -> Result<(), Error> {
-        Ok(())
-    }
-
-    fn clear_corpus_id(&mut self) -> Result<(), Error> {
-        Ok(())
-    }
-
-    fn current_corpus_id(&self) -> Result<Option<CorpusId>, Error> {
-        Ok(None)
-    }
-}
-
-impl<I> HasCurrentStageId for NopState<I> {
-    fn set_current_stage_id(&mut self, _idx: StageId) -> Result<(), Error> {
-        Ok(())
-    }
-
-    fn clear_stage_id(&mut self) -> Result<(), Error> {
-        Ok(())
-    }
-
-    fn current_stage_id(&self) -> Result<Option<StageId>, Error> {
-        Ok(None)
-    }
-}
-
-#[cfg(feature = "introspection")]
-impl<I> HasClientPerfMonitor for NopState<I> {
-    fn introspection_stats(&self) -> &ClientPerfStats {
-        unimplemented!();
-    }
-
-    fn introspection_stats_mut(&mut self) -> &mut ClientPerfStats {
-        unimplemented!();
     }
 }
 
