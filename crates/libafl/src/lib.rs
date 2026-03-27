@@ -71,7 +71,6 @@ pub mod inputs;
 pub mod monitors;
 pub mod mutators;
 pub mod observers;
-pub mod schedulers;
 pub mod stages;
 pub mod state;
 

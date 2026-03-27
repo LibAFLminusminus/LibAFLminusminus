@@ -35,10 +35,10 @@ use libafl_bolts::{
 pub use tuneable::*;
 
 use crate::{
-    Error, HasMetadata,
     corpus::{Corpus, CorpusId, HasTestcase, SchedulerTestcaseMetadata, Testcase},
     random_corpus_id,
     state::{HasCorpus, HasRand},
+    Error, HasMetadata,
 };
 
 /// The scheduler also implements `on_remove` and `on_replace` if it implements this stage.
@@ -207,7 +207,6 @@ pub trait Scheduler<I, S> {
 
     /// Gets the next entry
     fn next(&mut self, state: &mut S) -> Result<CorpusId, Error>;
-    // Increment corpus.current() here if it has no inner
 
     /// Set current fuzzed corpus id and `scheduled_count`
     fn set_current_scheduled(
@@ -215,9 +214,6 @@ pub trait Scheduler<I, S> {
         state: &mut S,
         next_id: Option<CorpusId>,
     ) -> Result<(), Error>;
-
-    //    *state.corpus_mut().current_mut() = next_id;
-    //    Ok(())
 }
 
 /// Feed the fuzzer simply with a random testcase on request
