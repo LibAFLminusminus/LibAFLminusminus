@@ -23,28 +23,28 @@ use serde::{Deserialize, Serialize};
 pub use shadow::ShadowExecutor;
 pub use with_observers::WithObservers;
 
-use crate::Error;
 #[cfg(feature = "std")]
 use crate::observers::{StdErrObserver, StdOutObserver};
+use crate::Error;
 
-pub mod combined;
-#[cfg(feature = "std")]
-pub mod command;
-pub mod differential;
-#[cfg(all(feature = "std", unix))]
-pub mod forkserver;
-pub mod inprocess;
-pub mod nop;
-/// SAND(<https://github.com/wtdcode/sand-aflpp>) implementation
-#[cfg(feature = "simd")]
-pub mod sand;
+// pub mod combined;
+// #[cfg(feature = "std")]
+// pub mod command;
+// pub mod differential;
+// #[cfg(all(feature = "std", unix))]
+// pub mod forkserver;
+// pub mod inprocess;
+// pub mod nop;
+// /// SAND(<https://github.com/wtdcode/sand-aflpp>) implementation
+// #[cfg(feature = "simd")]
+// pub mod sand;
 
-pub mod shadow;
+// pub mod shadow;
 
-pub mod with_observers;
+// pub mod with_observers;
 
-/// The module for all the hooks
-pub mod hooks;
+// /// The module for all the hooks
+// pub mod hooks;
 
 /// How an execution finished.
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -72,77 +72,53 @@ pub enum ExitKind {
     // Custom(Box<dyn SerdeAny>),
 }
 
-/// How one of the diffing executions finished.
-#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[cfg_attr(
-    any(not(feature = "serdeany_autoreg"), miri),
-    expect(clippy::unsafe_derive_deserialize)
-)] // for SerdeAny
-pub enum DiffExitKind {
-    /// The run exited normally.
-    Ok,
-    /// The run resulted in a target crash.
-    Crash,
-    /// The run hit an out of memory error.
-    Oom,
-    /// The run timed out
-    Timeout,
-    /// One of the executors itelf repots a differential, we can't go into further details.
-    Diff,
-    // The run resulted in a custom `ExitKind`.
-    // Custom(Box<dyn SerdeAny>),
-}
-
 libafl_bolts::impl_serdeany!(ExitKind);
 
-impl From<ExitKind> for DiffExitKind {
-    fn from(exitkind: ExitKind) -> Self {
-        match exitkind {
-            ExitKind::Ok => DiffExitKind::Ok,
-            ExitKind::Crash => DiffExitKind::Crash,
-            ExitKind::Oom => DiffExitKind::Oom,
-            ExitKind::Timeout => DiffExitKind::Timeout,
-            ExitKind::Diff { .. } => DiffExitKind::Diff,
-        }
+/// restarting runner gives S to InProcessRunner and takes care of snapshot / restore of S when
+/// there is a crash.
+pub type InProcessRunner<S> = RestartingRunner<InProcessRunner<S>, S>;
+
+struct DirectRunner<T, S> {
+    task: T,
+    state: S,
+}
+
+/// takes care of state snapshot / restore in case
+struct RestartingRunner<T, S> {
+    inner: InProcessRunner<T, S>,
+}
+
+struct InProcessRunner<T, S> {
+    task: T,
+    state: S,
+}
+
+// restarting(inprocess(task)) where task is user-defined
+impl InProcessRunner<T, S> {
+    pub fn new(task: T, state: S) {
+        InProcessRunner { task, state }
     }
 }
 
-libafl_bolts::impl_serdeany!(DiffExitKind);
+/// Environment used to run a task
+pub trait Runner<S> {
+    /// Start the target
+    fn run_task(&mut self, state: &mut S) -> Result<!, Error>;
+}
 
-/// Holds a tuple of Observers
-pub trait HasObservers {
+/// Runs the fuzzer harness.
+pub trait Executor<P> {
     /// The observer
     type Observers;
+
+    /// Instruct the target about the input and run
+    fn run_target(&mut self, input: &I, parameters: &mut P) -> ExitKind;
 
     /// Get the linked observers
     fn observers(&self) -> RefIndexable<&Self::Observers, Self::Observers>;
 
     /// Get the linked observers (mutable)
     fn observers_mut(&mut self) -> RefIndexable<&mut Self::Observers, Self::Observers>;
-}
-
-/// An executor takes the given inputs, and runs the harness/target.
-pub trait Executor<EM, I, S, Z> {
-    /// Instruct the target about the input and run
-    fn run_target(
-        &mut self,
-        fuzzer: &mut Z,
-        state: &mut S,
-        mgr: &mut EM,
-        input: &I,
-    ) -> Result<ExitKind, Error>;
-}
-
-/// A trait that allows to get an `Executor`'s timeout threshold
-pub trait HasTimeout {
-    /// Get a timeout
-    fn timeout(&self) -> Duration;
-}
-
-/// A trait that allows to set an `Executor`'s timeout threshold
-pub trait SetTimeout {
-    /// Set timeout
-    fn set_timeout(&mut self, timeout: Duration);
 }
 
 /// Like [`crate::observers::ObserversTuple`], a list of executors
@@ -155,63 +131,6 @@ pub trait ExecutorsTuple<EM, I, S, Z> {
         mgr: &mut EM,
         input: &I,
     ) -> Result<ExitKind, Error>;
-}
-
-/// Since in most cases, the executors types can not be determined during compilation
-/// time (for instance, the number of executors might change), this implementation would
-/// act as a small helper.
-impl<E, EM, I, S, Z> ExecutorsTuple<EM, I, S, Z> for Vec<E>
-where
-    E: Executor<EM, I, S, Z>,
-{
-    fn run_target_all(
-        &mut self,
-        fuzzer: &mut Z,
-        state: &mut S,
-        mgr: &mut EM,
-        input: &I,
-    ) -> Result<ExitKind, Error> {
-        let mut kind = ExitKind::Ok;
-        for e in self.iter_mut() {
-            kind = e.run_target(fuzzer, state, mgr, input)?;
-            if kind == ExitKind::Crash {
-                return Ok(kind);
-            }
-        }
-        Ok(kind)
-    }
-}
-
-impl<EM, I, S, Z> ExecutorsTuple<EM, I, S, Z> for () {
-    fn run_target_all(
-        &mut self,
-        _fuzzer: &mut Z,
-        _state: &mut S,
-        _mgr: &mut EM,
-        _input: &I,
-    ) -> Result<ExitKind, Error> {
-        Ok(ExitKind::Ok)
-    }
-}
-
-impl<Head, Tail, EM, I, S, Z> ExecutorsTuple<EM, I, S, Z> for (Head, Tail)
-where
-    Head: Executor<EM, I, S, Z>,
-    Tail: ExecutorsTuple<EM, I, S, Z>,
-{
-    fn run_target_all(
-        &mut self,
-        fuzzer: &mut Z,
-        state: &mut S,
-        mgr: &mut EM,
-        input: &I,
-    ) -> Result<ExitKind, Error> {
-        let kind = self.0.run_target(fuzzer, state, mgr, input)?;
-        if kind == ExitKind::Crash {
-            return Ok(kind);
-        }
-        self.1.run_target_all(fuzzer, state, mgr, input)
-    }
 }
 
 /// The common signals we want to handle
