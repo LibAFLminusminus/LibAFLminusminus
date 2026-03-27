@@ -247,6 +247,306 @@ pub struct StdState<C, I, R, SC> {
     phantom: PhantomData<I>,
 }
 
+/// The [`Testcase`] metadata.
+#[derive(Serialize, Deserialize, Clone, Debug, Default, TypedBuilder)]
+pub struct TestcaseMetadata {
+    /// Map of metadata associated with this [`Testcase`]
+    #[builder(default)]
+    metadata: SerdeAnyMap,
+    /// The filename format used to name the [`Testcase`] file on-disk.
+    #[builder(default)]
+    filename_format: TestcaseFilenameFormat,
+    /// Time needed to execute the input
+    #[builder(default)]
+    exec_time: Option<Duration>,
+    /// Number of fuzzing iterations of this particular input updated in `perform_mutational`
+    #[builder(default = 0)]
+    scheduled_count: usize,
+    /// Number of executions done at discovery time
+    executions: u64,
+    /// Parent [`CorpusId`], if known
+    #[builder(default)]
+    parent_id: Option<CorpusId>,
+    /// If the testcase is "disabled"
+    #[builder(default = false)]
+    disabled: bool,
+    /// has found crash (or timeout) or not
+    #[builder(default = 0)]
+    objectives_found: usize,
+    /// Vector of `Feedback` names that deemed this `Testcase` as corpus worthy
+    #[cfg(feature = "track_hit_feedbacks")]
+    #[builder(default)]
+    hit_feedbacks: Vec<Cow<'static, str>>,
+    /// Vector of `Feedback` names that deemed this `Testcase` as solution worthy
+    #[cfg(feature = "track_hit_feedbacks")]
+    #[builder(default)]
+    hit_objectives: Vec<Cow<'static, str>>,
+}
+
+impl HasMetadata for TestcaseMetadata {
+    fn metadata_map(&self) -> &SerdeAnyMap {
+        &self.metadata
+    }
+
+    fn metadata_map_mut(&mut self) -> &mut SerdeAnyMap {
+        &mut self.metadata
+    }
+}
+
+impl TestcaseMetadata {
+    /// Get the executions
+    #[inline]
+    #[must_use]
+    pub fn executions(&self) -> u64 {
+        self.executions
+    }
+
+    /// Get the execution time of the testcase
+    #[inline]
+    #[must_use]
+    pub fn exec_time(&self) -> &Option<Duration> {
+        &self.exec_time
+    }
+
+    /// Get the `scheduled_count`
+    #[inline]
+    #[must_use]
+    pub fn scheduled_count(&self) -> usize {
+        self.scheduled_count
+    }
+
+    /// Get `disabled`
+    #[inline]
+    #[must_use]
+    pub fn disabled(&mut self) -> bool {
+        self.disabled
+    }
+
+    /// Get the hit feedbacks
+    #[inline]
+    #[must_use]
+    #[cfg(feature = "track_hit_feedbacks")]
+    pub fn hit_feedbacks(&self) -> &Vec<Cow<'static, str>> {
+        &self.hit_feedbacks
+    }
+
+    /// Get the hit objectives
+    #[inline]
+    #[must_use]
+    #[cfg(feature = "track_hit_feedbacks")]
+    pub fn hit_objectives(&self) -> &Vec<Cow<'static, str>> {
+        &self.hit_objectives
+    }
+
+    /// Get the id of the parent, that this testcase was derived from
+    #[must_use]
+    pub fn parent_id(&self) -> Option<CorpusId> {
+        self.parent_id
+    }
+
+    /// Gets how many objectives were found by mutating this testcase
+    #[must_use]
+    pub fn objectives_found(&self) -> usize {
+        self.objectives_found
+    }
+
+    /// Get the executions (mutable)
+    #[inline]
+    #[must_use]
+    pub fn executions_mut(&mut self) -> &mut u64 {
+        &mut self.executions
+    }
+
+    /// Set the executions
+    #[inline]
+    pub fn set_executions(&mut self, executions: u64) {
+        self.executions = executions;
+    }
+
+    /// Get a mutable reference to the execution time
+    #[must_use]
+    pub fn exec_time_mut(&mut self) -> &mut Option<Duration> {
+        &mut self.exec_time
+    }
+
+    /// Sets the execution time of the current testcase
+    #[inline]
+    pub fn set_exec_time(&mut self, time: Duration) {
+        self.exec_time = Some(time);
+    }
+
+    /// Set the `scheduled_count`
+    #[inline]
+    pub fn set_scheduled_count(&mut self, scheduled_count: usize) {
+        self.scheduled_count = scheduled_count;
+    }
+
+    /// Set the testcase as disabled
+    #[inline]
+    pub fn set_disabled(&mut self, disabled: bool) {
+        self.disabled = disabled;
+    }
+
+    /// Get the hit feedbacks (mutable)
+    #[cfg(feature = "track_hit_feedbacks")]
+    #[inline]
+    #[must_use]
+    pub fn hit_feedbacks_mut(&mut self) -> &mut Vec<Cow<'static, str>> {
+        &mut self.hit_feedbacks
+    }
+
+    /// Get the hit objectives (mutable)
+    #[cfg(feature = "track_hit_feedbacks")]
+    #[inline]
+    #[must_use]
+    pub fn hit_objectives_mut(&mut self) -> &mut Vec<Cow<'static, str>> {
+        &mut self.hit_objectives
+    }
+
+    /// Sets the id of the parent, that this testcase was derived from
+    pub fn set_parent_id(&mut self, parent_id: CorpusId) {
+        self.parent_id = Some(parent_id);
+    }
+
+    /// Sets the id of the parent, that this testcase was derived from
+    pub fn set_parent_id_optional(&mut self, parent_id: Option<CorpusId>) {
+        self.parent_id = parent_id;
+    }
+
+    /// Adds one objective to the `objectives_found` counter. Mostly called from crash handler or executor.
+    pub fn found_objective(&mut self) {
+        let count = self.objectives_found.saturating_add(1);
+        self.objectives_found = count;
+    }
+
+    /// Get the filename
+    #[must_use]
+    pub fn get_filename(&self, id: &str) -> String {
+        match &self.filename_format {
+            TestcaseFilenameFormat::Id => id.to_string(),
+            TestcaseFilenameFormat::Prefix(prefix) => format!("{prefix}-{id}"),
+            TestcaseFilenameFormat::Custom(custom_name) => custom_name.clone(),
+        }
+    }
+
+    /// Set the filename of the corpus input
+    pub fn set_filename(&mut self, filename: TestcaseFilenameFormat) {
+        self.filename_format = filename;
+    }
+}
+
+/// The Metadata for each testcase used in power schedules.
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[cfg_attr(
+    any(not(feature = "serdeany_autoreg"), miri),
+    expect(clippy::unsafe_derive_deserialize)
+)] // for SerdeAny
+pub struct SchedulerTestcaseMetadata {
+    /// Number of bits set in bitmap, updated in `calibrate_case`
+    bitmap_size: u64,
+    /// Number of queue cycles behind
+    handicap: u64,
+    /// Path depth, initialized in `on_add`
+    depth: u64,
+    /// Offset in `n_fuzz`
+    n_fuzz_entry: usize,
+    /// Cycles used to calibrate this (not really needed if it were not for `on_replace` and `on_remove`)
+    cycle_and_time: (Duration, usize),
+}
+
+impl SchedulerTestcaseMetadata {
+    /// Create new [`struct@SchedulerTestcaseMetadata`]
+    #[must_use]
+    pub fn new(depth: u64) -> Self {
+        Self {
+            bitmap_size: 0,
+            handicap: 0,
+            depth,
+            n_fuzz_entry: 0,
+            cycle_and_time: (Duration::default(), 0),
+        }
+    }
+
+    /// Create new [`struct@SchedulerTestcaseMetadata`] given `n_fuzz_entry`
+    #[must_use]
+    pub fn with_n_fuzz_entry(depth: u64, n_fuzz_entry: usize) -> Self {
+        Self {
+            bitmap_size: 0,
+            handicap: 0,
+            depth,
+            n_fuzz_entry,
+            cycle_and_time: (Duration::default(), 0),
+        }
+    }
+
+    /// Get the bitmap size
+    #[inline]
+    #[must_use]
+    pub fn bitmap_size(&self) -> u64 {
+        self.bitmap_size
+    }
+
+    /// Set the bitmap size
+    #[inline]
+    pub fn set_bitmap_size(&mut self, val: u64) {
+        self.bitmap_size = val;
+    }
+
+    /// Get the handicap
+    #[inline]
+    #[must_use]
+    pub fn handicap(&self) -> u64 {
+        self.handicap
+    }
+
+    /// Set the handicap
+    #[inline]
+    pub fn set_handicap(&mut self, val: u64) {
+        self.handicap = val;
+    }
+
+    /// Get the depth
+    #[inline]
+    #[must_use]
+    pub fn depth(&self) -> u64 {
+        self.depth
+    }
+
+    /// Set the depth
+    #[inline]
+    pub fn set_depth(&mut self, val: u64) {
+        self.depth = val;
+    }
+
+    /// Get the `n_fuzz_entry`
+    #[inline]
+    #[must_use]
+    pub fn n_fuzz_entry(&self) -> usize {
+        self.n_fuzz_entry
+    }
+
+    /// Set the `n_fuzz_entry`
+    #[inline]
+    pub fn set_n_fuzz_entry(&mut self, val: usize) {
+        self.n_fuzz_entry = val;
+    }
+
+    /// Get the cycles
+    #[inline]
+    #[must_use]
+    pub fn cycle_and_time(&self) -> (Duration, usize) {
+        self.cycle_and_time
+    }
+
+    #[inline]
+    /// Setter for cycles
+    pub fn set_cycle_and_time(&mut self, cycle_and_time: (Duration, usize)) {
+        self.cycle_and_time = cycle_and_time;
+    }
+}
+
+libafl_bolts::impl_serdeany!(SchedulerTestcaseMetadata);
+
 impl<C, I, R, SC> HasRand for StdState<C, I, R, SC>
 where
     R: Rand,
