@@ -78,8 +78,6 @@ pub struct StdState<C, I, R, SC> {
     corpus: C,
     // Solutions corpus
     solutions: SC,
-    /// Metadata stored for this state by one of the components
-    metadata: SerdeAnyMap,
     /// Metadata stored with names
     named_metadata: NamedSerdeAnyMap,
     /// `MaxSize` testcase size for mutators that appreciate it
@@ -523,18 +521,6 @@ where
     /// To get mutable testcase
     fn testcase_mut(&self, id: CorpusId) -> &mut Testcase<I> {
         self.corpus().get(id)?.borrow_mut()
-    }
-
-    /// Get all the metadata into an [`hashbrown::HashMap`]
-    #[inline]
-    fn metadata_map(&self) -> &SerdeAnyMap {
-        &self.metadata
-    }
-
-    /// Get all the metadata into an [`hashbrown::HashMap`] (mutable)
-    #[inline]
-    fn metadata_map_mut(&mut self) -> &mut SerdeAnyMap {
-        &mut self.metadata
     }
 
     /// Get all the metadata into an [`hashbrown::HashMap`]
@@ -1161,7 +1147,6 @@ where
             executions: 0,
             imported: 0,
             start_time: libafl_bolts::current_time(),
-            metadata: SerdeAnyMap::default(),
             named_metadata: NamedSerdeAnyMap::default(),
             corpus,
             solutions,
