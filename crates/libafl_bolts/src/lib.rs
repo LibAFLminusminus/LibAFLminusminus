@@ -91,9 +91,6 @@ pub use fast_rands as rands;
 pub use libafl_core::{
     AsIter, AsIterMut, AsSlice, AsSliceMut, ClientId, Error, HasLen, HasRefCnt, Named, Truncate,
 };
-#[cfg(feature = "alloc")]
-pub use no_std_time::format_duration;
-pub use no_std_time::{current_milliseconds, current_nanos, current_time};
 pub use ownedref::{self, subrange};
 #[cfg(feature = "alloc")]
 pub use serde_anymap::impl_serdeany;
@@ -136,11 +133,12 @@ use alloc::string::String;
 use alloc::string::ToString;
 #[cfg(all(not(feature = "xxh3"), feature = "alloc"))]
 use core::hash::BuildHasher;
-#[cfg(any(feature = "xxh3", feature = "alloc"))]
+#[cfg(feature = "xxh3")]
 use core::hash::{Hash, Hasher};
-#[cfg(all(unix, feature = "std"))]
+#[cfg(unix)]
 use core::mem;
-#[cfg(all(unix, feature = "std"))]
+use std::time::SystemTime;
+#[cfg(unix)]
 use std::{
     fs::File,
     io::Write,
@@ -415,7 +413,7 @@ impl log::Log for SimpleStdoutLogger {
     fn log(&self, record: &Record) {
         println!(
             "[{:?}, {:?}:{:?}] {}: {}",
-            current_time(),
+            SystemTime::now(),
             std::process::id(),
             get_thread_id(),
             record.level(),
@@ -477,7 +475,7 @@ impl log::Log for SimpleStderrLogger {
     fn log(&self, record: &Record) {
         eprintln!(
             "[{:?}, {:?}] {}: {}",
-            current_time(),
+            SystemTime::now(),
             std::process::id(),
             record.level(),
             record.args()
@@ -544,7 +542,7 @@ impl log::Log for SimpleFdLogger {
         writeln!(
             f,
             "[{:?}, {:#?}] {}: {}",
-            current_time(),
+            SystemTime::now(),
             std::process::id(),
             record.level(),
             record.args()
