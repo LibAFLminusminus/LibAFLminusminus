@@ -411,25 +411,6 @@ impl SchedulerTestcaseMetadata {
 
 libafl_bolts::impl_serdeany!(SchedulerTestcaseMetadata);
 
-impl<C, I, R, SC> HasRand for StdState<C, I, R, SC>
-where
-    R: Rand,
-{
-    type Rand = R;
-
-    /// The rand instance
-    #[inline]
-    fn rand(&self) -> &Self::Rand {
-        &self.rand
-    }
-
-    /// The rand instance (mutable)
-    #[inline]
-    fn rand_mut(&mut self) -> &mut Self::Rand {
-        &mut self.rand
-    }
-}
-
 
 #[cfg(feature = "std")]
 impl<C, I, R, SC> StdState<C, I, R, SC>
@@ -502,46 +483,46 @@ where
     }
 
     /// The solutions corpus
-    fn solutions(&self) -> &Self::Solutions {
+    fn solutions(&self) -> &SC {
         &self.solutions
     }
     /// The solutions corpus (mutable)
-    fn solutions_mut(&mut self) -> &mut Self::Solutions {
+    fn solutions_mut(&mut self) -> &mut SC {
         &mut self.solutions
     }
 
     /// Returns the corpus
     #[inline]
-    fn corpus(&self) -> &Self::Corpus {
+    fn corpus(&self) -> &C {
         &self.corpus
     }
 
     /// Returns the mutable corpus
     #[inline]
-    fn corpus_mut(&mut self) -> &mut Self::Corpus {
+    fn corpus_mut(&mut self) -> &mut C {
         &mut self.corpus
     }
 
     /// The rand instance
     #[inline]
-    fn rand(&self) -> &Self::Rand {
+    fn rand(&self) -> &R {
         &self.rand
     }
 
     /// The rand instance (mutable)
     #[inline]
-    fn rand_mut(&mut self) -> &mut Self::Rand {
+    fn rand_mut(&mut self) -> &mut R {
         &mut self.rand
     }
 
     /// To get the testcase
-    fn testcase(&self, id: CorpusId) -> Result<Ref<'_, Testcase<I>>, Error> {
-        Ok(self.corpus().get(id)?.borrow())
+    fn testcase(&self, id: CorpusId) -> &Testcase<I> {
+        self.corpus().get(id)?.borrow()
     }
 
     /// To get mutable testcase
-    fn testcase_mut(&self, id: CorpusId) -> Result<RefMut<'_, Testcase<I>>, Error> {
-        Ok(self.corpus().get(id)?.borrow_mut())
+    fn testcase_mut(&self, id: CorpusId) -> &mut Testcase<I> {
+        self.corpus().get(id)?.borrow_mut()
     }
 
     /// Get all the metadata into an [`hashbrown::HashMap`]
@@ -596,7 +577,7 @@ where
 
     // to romain: are these 3 methods safely handling of the corpus?
 
-    fn current_testcase(&self) -> Result<Ref<'_, Testcase<I>>, Error> {
+    fn current_testcase(&self) -> Result<&Testcase<I>, Error> {
         let Some(corpus_id) = self.current_corpus_id()? else {
             return Err(Error::key_not_found(
                 "We are not currently processing a testcase",
@@ -606,7 +587,7 @@ where
         Ok(self.corpus().get(corpus_id)?.borrow())
     }
 
-    fn current_testcase_mut(&self) -> Result<RefMut<'_, Testcase<I>>, Error> {
+    fn current_testcase_mut(&self) -> Result<&mut Testcase<I>, Error> {
         let Some(corpus_id) = self.current_corpus_id()? else {
             return Err(Error::key_not_found(
                 "We are not currently processing a testcase",
