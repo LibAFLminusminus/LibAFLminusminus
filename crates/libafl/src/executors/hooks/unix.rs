@@ -113,26 +113,14 @@ pub mod unix_signal_handler {
                 );
                 libc::exit(SIGNAL_RECURSION_EXIT);
             }
-
-            if (*data).is_valid() {
-                // We are fuzzing!
-                let executor = (*data).executor_mut::<E>();
-                let state = (*data).state_mut::<S>();
-                let input = (*data).take_current_input::<I>();
-                let fuzzer = (*data).fuzzer_mut::<Z>();
-
-                run_observers_and_save_state::<E, EM, I, OF, S, Z>(
-                    executor,
-                    state,
-                    input,
-                    fuzzer,
-                    ExitKind::Crash,
-                );
-
-                libafl_bolts::os::exit(128 + 6); // SIGABRT exit code
+            if !data.is_valid() {
+                log::warn!("panic hook called, but currently not fuzzing.");
+                return;
             }
+            // We are fuzzing!
+            prepare_exit(data, ExitKind::Crash);
 
-            (*data).signal_handler_exit();
+            libafl_bolts::os::exit(128 + 6); // SIGABRT exit code
         }));
     }
 
@@ -158,26 +146,21 @@ pub mod unix_signal_handler {
         I: Input + Clone,
     {
         unsafe {
+            let (max_depth_reached, signal_depth) = (*data).signal_handler_enter();
+
+            if max_depth_reached {
+                log::error!(
+                    "The in process signal handler has been triggered {signal_depth} times recursively, which is not expected. Exiting with error code {SIGNAL_RECURSION_EXIT}..."
+                );
+                libc::exit(SIGNAL_RECURSION_EXIT);
+            }
             if !data.is_valid() {
                 log::warn!("TIMEOUT or SIGUSR2 happened, but currently not fuzzing.");
                 return;
             }
-
-            let executor = data.executor_mut::<E>();
-            let state = data.state_mut::<S>();
-            let fuzzer = data.fuzzer_mut::<Z>();
-            let input = data.take_current_input::<I>();
-
             log::error!("Timeout in fuzz run.");
 
-            run_observers_and_save_state::<E, EM, I, OF, S, Z>(
-                executor,
-                state,
-                input,
-                fuzzer,
-                event_mgr,
-                ExitKind::Timeout,
-            );
+            prepare_exit(data, ExitKind::Timeout);
             log::info!("Exiting");
             libafl_bolts::os::exit(55);
         }
@@ -205,6 +188,14 @@ pub mod unix_signal_handler {
         I: Input + Clone,
     {
         unsafe {
+            let (max_depth_reached, signal_depth) = (*data).signal_handler_enter();
+            if max_depth_reached {
+                log::error!(
+                    "The in process signal handler has been triggered {signal_depth} times recursively, which is not expected. Exiting with error code {SIGNAL_RECURSION_EXIT}..."
+                );
+                libc::exit(SIGNAL_RECURSION_EXIT);
+            }
+
             #[cfg(all(target_os = "android", target_arch = "aarch64"))]
             let _context = _context.map(|p| {
                 &mut *(((core::ptr::from_mut(p) as *mut libc::c_void as usize) + 128)
@@ -213,19 +204,12 @@ pub mod unix_signal_handler {
 
             log::error!("Crashed with {signal}");
             if data.is_valid() {
-                let executor = data.executor_mut::<E>();
-                // disarms timeout in case of timeout
-                let state = data.state_mut::<S>();
-                let fuzzer = data.fuzzer_mut::<Z>();
-                let input = data.take_current_input::<I>();
-
                 log::error!("Child crashed!");
 
                 {
                     let mut bsod = Vec::new();
                     {
                         let mut writer = std::io::BufWriter::new(&mut bsod);
-                        let _ = writeln!(writer, "input: {:?}", input.generate_name(None));
                         let bsod = libafl_bolts::minibsod::generate_minibsod(
                             &mut writer,
                             signal,
@@ -241,14 +225,7 @@ pub mod unix_signal_handler {
                         log::error!("{r}");
                     }
                 }
-
-                run_observers_and_save_state::<E, EM, I, OF, S, Z>(
-                    executor,
-                    state,
-                    input,
-                    fuzzer,
-                    ExitKind::Crash,
-                );
+                prepare_exit(data, ExitKind::Crash);
             } else {
                 {
                     log::error!("Double crash\n");

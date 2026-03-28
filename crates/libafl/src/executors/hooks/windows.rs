@@ -21,6 +21,8 @@ pub mod windows_asan_handler {
         state::{HasCurrentTestcase, HasExecutions, HasSolutions},
     };
 
+    // On windows, there's no SA_NODEFER so nested signal never occurs so we need no depth check
+
     /// # Safety
     /// ASAN deatch handler
     pub unsafe extern "C" fn asan_death_handler<E, EM, I, OF, S, Z>()
@@ -35,7 +37,6 @@ pub mod windows_asan_handler {
     {
         unsafe {
             let data = &raw mut GLOBAL_STATE;
-            let (max_depth_reached, _signal_depth) = (*data).signal_handler_enter();
 
             if max_depth_reached {
                 log::error!(
@@ -168,7 +169,6 @@ pub mod windows_exception_handler {
         ) {
             unsafe {
                 let data = &raw mut GLOBAL_STATE;
-                let (max_depth_reached, _signal_depth) = (*data).signal_handler_enter();
 
                 if max_depth_reached {
                     log::error!("We crashed inside a crash handler, but this should never happen!");
@@ -179,7 +179,6 @@ pub mod windows_exception_handler {
                     let func: HandlerFuncPtr = transmute((*data).crash_handler);
                     (func)(exception_pointers, data);
                 }
-                (*data).signal_handler_exit();
             }
         }
 
@@ -208,12 +207,6 @@ pub mod windows_exception_handler {
         let old_hook = panic::take_hook();
         panic::set_hook(Box::new(move |panic_info| unsafe {
             let data = &raw mut GLOBAL_STATE;
-            let (max_depth_reached, _signal_depth) = (*data).signal_handler_enter();
-
-            if max_depth_reached {
-                log::error!("We crashed inside a crash handler, but this should never happen!");
-                ExitProcess(SIGNAL_RECURSION_EXIT as u32);
-            }
 
             // Have we set a timer_before?
             if (*data).ptp_timer.is_some() {
@@ -250,7 +243,6 @@ pub mod windows_exception_handler {
                 libafl_bolts::os::exit(1);
             }
             old_hook(panic_info);
-            (*data).signal_handler_exit();
         }));
     }
 
