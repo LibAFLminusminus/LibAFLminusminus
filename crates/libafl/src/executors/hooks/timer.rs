@@ -79,8 +79,6 @@ pub struct TimerStruct {
     #[cfg(windows)]
     critical: CRITICAL_SECTION,
     #[cfg(target_os = "linux")]
-    pub(crate) batch_mode: bool,
-    #[cfg(target_os = "linux")]
     pub(crate) exec_tmout: Duration,
     #[cfg(all(unix, not(target_os = "linux")))]
     itimerval: Itimerval,
@@ -88,18 +86,6 @@ pub struct TimerStruct {
     pub(crate) timerid: libc::timer_t,
     #[cfg(target_os = "linux")]
     pub(crate) itimerspec: libc::itimerspec,
-    #[cfg(target_os = "linux")]
-    pub(crate) executions: u32,
-    #[cfg(target_os = "linux")]
-    pub(crate) avg_mul_k: u32,
-    #[cfg(target_os = "linux")]
-    pub(crate) last_signal_time: Duration,
-    #[cfg(target_os = "linux")]
-    pub(crate) avg_exec_time: Duration,
-    #[cfg(target_os = "linux")]
-    pub(crate) start_time: Duration,
-    #[cfg(target_os = "linux")]
-    pub(crate) tmout_start_time: Duration,
 }
 
 #[cfg(windows)]
@@ -225,31 +211,10 @@ impl TimerStruct {
         }
 
         Self {
-            batch_mode: false,
             itimerspec,
             timerid,
             exec_tmout,
-            executions: 0,
-            avg_mul_k: 1,
-            last_signal_time: Duration::ZERO,
-            avg_exec_time: Duration::ZERO,
-            start_time: Duration::ZERO,
-            tmout_start_time: Duration::ZERO,
         }
-    }
-
-    #[cfg(target_os = "linux")]
-    #[must_use]
-    /// Constructor but use batch mode
-    /// More efficient timeout mechanism with imprecise timing.
-    ///
-    /// The timeout will trigger after t seconds and at most within 2*t seconds.
-    /// This means the actual timeout may occur anywhere in the range [t, 2*t],
-    /// providing a flexible but bounded execution time limit.
-    pub fn batch_mode(exec_tmout: Duration) -> Self {
-        let mut me = Self::new(exec_tmout);
-        me.batch_mode = true;
-        me
     }
 
     #[cfg(all(unix, not(target_os = "linux")))]
@@ -296,18 +261,8 @@ impl TimerStruct {
     /// Set up timer
     #[cfg(target_os = "linux")]
     pub fn set_timer(&mut self) {
-        unsafe {
-            if self.batch_mode {
-                if self.executions == 0 {
-                    libc::timer_settime(self.timerid, 0, &raw mut self.itimerspec, null_mut());
-                    self.tmout_start_time = current_time();
-                }
-                self.start_time = current_time();
-            } else {
-                #[cfg(not(miri))]
-                libc::timer_settime(self.timerid, 0, &raw mut self.itimerspec, null_mut());
-            }
-        }
+        #[cfg(not(miri))]
+        libc::timer_settime(self.timerid, 0, &raw mut self.itimerspec, null_mut());
     }
 
     #[cfg(all(unix, not(target_os = "linux")))]
@@ -326,34 +281,9 @@ impl TimerStruct {
     pub fn unset_timer(&mut self) {
         // # Safety
         // Just API calls, no user-provided inputs
-        if self.batch_mode {
-            unsafe {
-                let elapsed = current_time().saturating_sub(self.tmout_start_time);
-                // elapsed may be > than tmout in case of received but ingored signal
-                if elapsed > self.exec_tmout
-                    || self.exec_tmout.saturating_sub(elapsed) < self.avg_exec_time * self.avg_mul_k
-                {
-                    let disarmed: libc::itimerspec = zeroed();
-                    libc::timer_settime(self.timerid, 0, &raw const disarmed, null_mut());
-                    // set timer the next exec
-                    if self.executions > 0 {
-                        self.avg_exec_time = elapsed / self.executions;
-                        self.executions = 0;
-                    }
-                    // readjust K
-                    if elapsed > self.exec_tmout * self.avg_mul_k && self.avg_mul_k > 1 {
-                        self.avg_mul_k -= 1;
-                    }
-                } else {
-                    self.executions += 1;
-                }
-            }
-        } else {
-            #[cfg(not(miri))]
-            unsafe {
-                let disarmed: libc::itimerspec = zeroed();
-                libc::timer_settime(self.timerid, 0, &raw const disarmed, null_mut());
-            }
+        unsafe {
+            let disarmed: libc::itimerspec = zeroed();
+            libc::timer_settime(self.timerid, 0, &raw const disarmed, null_mut());
         }
     }
 

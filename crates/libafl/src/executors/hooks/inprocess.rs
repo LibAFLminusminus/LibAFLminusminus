@@ -182,7 +182,7 @@ impl<I, S> InProcessHooks<I, S> {
 
 /// The global state of the in-process harness.
 #[derive(Debug)]
-pub struct InProcessExecutorHandlerData {
+pub struct SignalHandlerData {
     /// the pointer to the state
     pub state_ptr: *mut c_void,
     /// the pointer to the fuzzer
@@ -202,10 +202,10 @@ pub struct InProcessExecutorHandlerData {
     pub(crate) critical: *mut c_void,
 }
 
-unsafe impl Send for InProcessExecutorHandlerData {}
-unsafe impl Sync for InProcessExecutorHandlerData {}
+unsafe impl Send for SignalHandlerData {}
+unsafe impl Sync for SignalHandlerData {}
 
-impl InProcessExecutorHandlerData {
+impl SignalHandlerData {
     #[cfg(feature = "std")]
     const SIGNAL_HANDLER_MAX_DEPTH: usize = 3;
 
@@ -320,7 +320,7 @@ impl InProcessExecutorHandlerData {
 }
 
 /// Exception handling needs some nasty globals.
-pub(crate) static mut GLOBAL_STATE: InProcessExecutorHandlerData = InProcessExecutorHandlerData {
+pub(crate) static mut GLOBAL_STATE: SignalHandlerData = SignalHandlerData {
     // The state ptr for signal handling
     state_ptr: null_mut(),
     // The fuzzer ptr for signal handling

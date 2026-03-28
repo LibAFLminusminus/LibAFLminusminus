@@ -324,12 +324,10 @@ pub fn run_observers_and_save_state<E, EM, I, OF, S, Z>(
     state: &mut S,
     input: &I,
     fuzzer: &mut Z,
-    event_mgr: &mut EM,
     exitkind: ExitKind,
 ) where
     E: HasObservers,
     E::Observers: ObserversTuple<I, S>,
-    EM: EventFirer<I, S> + EventRestarter<S>,
     OF: Feedback<EM, I, E::Observers, S>,
     S: HasExecutions + HasSolutions<I> + HasCorpus<I> + HasCurrentTestcase<I>,
     Z: HasObjective<Objective = OF>,
@@ -343,7 +341,7 @@ pub fn run_observers_and_save_state<E, EM, I, OF, S, Z>(
 
     let is_solution = fuzzer
         .objective_mut()
-        .is_interesting(state, event_mgr, input, &*observers, &exitkind)
+        .is_interesting(state, input, &*observers, &exitkind)
         .expect("In run_observers_and_save_state objective failure.");
 
     if is_solution {
@@ -358,28 +356,13 @@ pub fn run_observers_and_save_state<E, EM, I, OF, S, Z>(
 
         fuzzer
             .objective_mut()
-            .append_metadata(state, event_mgr, &*observers, &mut new_testcase)
+            .append_metadata(state, &*observers, &mut new_testcase)
             .expect("Failed adding metadata");
         state
             .solutions_mut()
             .add(new_testcase)
             .expect("In run_observers_and_save_state solutions failure.");
-
-        let event = Event::Objective {
-            input: fuzzer.share_objectives().then_some(input.clone()),
-            objective_size: state.solutions().count(),
-        };
-
-        event_mgr
-            .fire(
-                state,
-                EventWithStats::with_current_time(event, *state.executions()),
-            )
-            .expect("Could not send off events in run_observers_and_save_state");
     }
-
-    // Serialize the state and wait safely for the broker to read pending messages
-    event_mgr.on_restart(state).unwrap();
 }
 
 #[cfg(test)]

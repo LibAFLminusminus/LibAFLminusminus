@@ -87,7 +87,6 @@ pub mod windows_asan_handler {
 
                 let state = (*data).state_mut::<S>();
                 let fuzzer = (*data).fuzzer_mut::<Z>();
-                let event_mgr = (*data).event_mgr_mut::<EM>();
 
                 log::error!("Child crashed!");
 
@@ -99,7 +98,6 @@ pub mod windows_asan_handler {
                     state,
                     input,
                     fuzzer,
-                    event_mgr,
                     ExitKind::Crash,
                 );
             }
@@ -238,7 +236,6 @@ pub mod windows_exception_handler {
                 let executor = (*data).executor_mut::<E>();
                 let state = (*data).state_mut::<S>();
                 let fuzzer = (*data).fuzzer_mut::<Z>();
-                let event_mgr = (*data).event_mgr_mut::<EM>();
 
                 let input = (*data).take_current_input::<I>();
 
@@ -247,7 +244,6 @@ pub mod windows_exception_handler {
                     state,
                     input,
                     fuzzer,
-                    event_mgr,
                     ExitKind::Crash,
                 );
 
@@ -303,7 +299,6 @@ pub mod windows_exception_handler {
             let executor = unsafe { data.executor_mut::<E>() };
             let state = unsafe { data.state_mut::<S>() };
             let fuzzer = unsafe { data.fuzzer_mut::<Z>() };
-            let event_mgr = unsafe { data.event_mgr_mut::<EM>() };
 
             if data.current_input_ptr.is_null() {
                 log::error!("TIMEOUT or SIGUSR2 happened, but currently not fuzzing. Exiting");
@@ -318,7 +313,6 @@ pub mod windows_exception_handler {
                     state,
                     input,
                     fuzzer,
-                    event_mgr,
                     ExitKind::Timeout,
                 );
 
@@ -441,7 +435,6 @@ pub mod windows_exception_handler {
 
             let state = unsafe { data.state_mut::<S>() };
             let fuzzer = unsafe { data.fuzzer_mut::<Z>() };
-            let event_mgr = unsafe { data.event_mgr_mut::<EM>() };
 
             if is_crash {
                 log::error!("Child crashed!");
@@ -459,7 +452,6 @@ pub mod windows_exception_handler {
                     state,
                     input,
                     fuzzer,
-                    event_mgr,
                     ExitKind::Crash,
                 );
                 {
