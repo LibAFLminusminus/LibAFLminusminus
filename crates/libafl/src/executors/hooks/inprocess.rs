@@ -319,6 +319,37 @@ impl SignalHandlerData {
     }
 }
 
+unsafe fn prepare_exit<E, EM, I, OF, S, Z>(
+    data: *mut InProcessExecutorHandlerData,
+    exit_kind: ExitKind,
+) where
+    E: Executor<EM, I, S, Z> + HasObservers,
+    E::Observers: ObserversTuple<I, S>,
+    OF: Feedback<EM, I, E::Observers, S>,
+    S: HasExecutions + HasSolutions<I> + HasCurrentTestcase<I>,
+    Z: HasObjective<Objective = OF>,
+    I: Input + Clone,
+{
+    unsafe {
+        if (*data).is_valid() {
+            let executor = (*data).executor_mut::<E>();
+            let state = (*data).state_mut::<S>();
+            let input = (*data).take_current_input::<I>();
+            let fuzzer = (*data).fuzzer_mut::<Z>();
+
+            run_observers_and_save_state::<E, EM, I, OF, S, Z>(
+                executor,
+                state,
+                input,
+                fuzzer,
+                exit_kind,
+            );
+        }
+    }
+}
+
+
+
 /// Exception handling needs some nasty globals.
 pub(crate) static mut GLOBAL_STATE: SignalHandlerData = SignalHandlerData {
     // The state ptr for signal handling
