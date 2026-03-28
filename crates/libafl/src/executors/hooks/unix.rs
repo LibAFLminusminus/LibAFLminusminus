@@ -120,14 +120,12 @@ pub mod unix_signal_handler {
                 let state = (*data).state_mut::<S>();
                 let input = (*data).take_current_input::<I>();
                 let fuzzer = (*data).fuzzer_mut::<Z>();
-                let event_mgr = (*data).event_mgr_mut::<EM>();
 
                 run_observers_and_save_state::<E, EM, I, OF, S, Z>(
                     executor,
                     state,
                     input,
                     fuzzer,
-                    event_mgr,
                     ExitKind::Crash,
                 );
 
@@ -160,16 +158,6 @@ pub mod unix_signal_handler {
         I: Input + Clone,
     {
         unsafe {
-            // this stuff is for batch timeout
-            if !data.executor_ptr.is_null()
-                && data
-                    .executor_mut::<E>()
-                    .inprocess_hooks_mut()
-                    .handle_timeout(data)
-            {
-                return;
-            }
-
             if !data.is_valid() {
                 log::warn!("TIMEOUT or SIGUSR2 happened, but currently not fuzzing.");
                 return;
@@ -177,7 +165,6 @@ pub mod unix_signal_handler {
 
             let executor = data.executor_mut::<E>();
             let state = data.state_mut::<S>();
-            let event_mgr = data.event_mgr_mut::<EM>();
             let fuzzer = data.fuzzer_mut::<Z>();
             let input = data.take_current_input::<I>();
 
@@ -218,8 +205,6 @@ pub mod unix_signal_handler {
         I: Input + Clone,
     {
         unsafe {
-            let msg = "DEBUG: inproc_crash_handler enter\n";
-            libc::write(2, msg.as_ptr() as *const _, msg.len());
             #[cfg(all(target_os = "android", target_arch = "aarch64"))]
             let _context = _context.map(|p| {
                 &mut *(((core::ptr::from_mut(p) as *mut libc::c_void as usize) + 128)
@@ -231,7 +216,6 @@ pub mod unix_signal_handler {
                 let executor = data.executor_mut::<E>();
                 // disarms timeout in case of timeout
                 let state = data.state_mut::<S>();
-                let event_mgr = data.event_mgr_mut::<EM>();
                 let fuzzer = data.fuzzer_mut::<Z>();
                 let input = data.take_current_input::<I>();
 
@@ -263,7 +247,6 @@ pub mod unix_signal_handler {
                     state,
                     input,
                     fuzzer,
-                    event_mgr,
                     ExitKind::Crash,
                 );
             } else {
