@@ -15,7 +15,6 @@ members = [
   "crates/libafl_derive",
   "crates/libafl_frida",
   "crates/libafl_intelpt",
-  "crates/libafl_libfuzzer",
   "crates/libafl_nyx",
   "crates/libafl_qemu",
   "crates/libafl_qemu/libafl_qemu_build",
@@ -51,7 +50,6 @@ default-members = [
 
 exclude = [
   "bindings/pylibafl",
-  "crates/libafl_libfuzzer_runtime",
   "docs",
   "fuzzers",
   "scripts",
@@ -81,7 +79,6 @@ libafl_core = { path = "./crates/libafl_core", version = "0.16.0", default-featu
 libafl_derive = { path = "./crates/libafl_derive", version = "0.16.0", default-features = false }
 libafl_frida = { path = "./crates/libafl_frida", version = "0.16.0", default-features = false }
 libafl_intelpt = { path = "./crates/libafl_intelpt", version = "0.16.0", default-features = false }
-libafl_libfuzzer = { path = "./crates/libafl_libfuzzer", version = "0.16.0", default-features = false }
 libafl_nyx = { path = "./crates/libafl_nyx", version = "0.16.0", default-features = false }
 libafl_qemu = { path = "./crates/libafl_qemu", version = "0.16.0", default-features = false }
 libafl_qemu_build = { path = "./crates/libafl_qemu/libafl_qemu_build", version = "0.16.0", default-features = false }

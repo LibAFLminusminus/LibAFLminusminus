@@ -131,6 +131,8 @@ pub trait Executor<EM, I, S, Z> {
         mgr: &mut EM,
         input: &I,
     ) -> Result<ExitKind, Error>;
+
+    fn timer(&self) -> &TimerStruct;
 }
 
 /// A trait that allows to get an `Executor`'s timeout threshold
