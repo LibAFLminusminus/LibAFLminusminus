@@ -20,7 +20,9 @@ pub mod nop;
 pub use nop::NopCorpus;
 
 pub mod store;
-pub use store::{InMemoryStore, OnDiskStore, Store, maps};
+pub use store::{maps, InMemoryStore, OnDiskStore, Store};
+
+pub mod schedulers;
 
 pub mod collection;
 pub use collection::{
@@ -88,7 +90,13 @@ macro_rules! random_corpus_id_with_disabled {
 }
 
 /// Corpus with all current [`Testcase`]s, or solutions
-pub trait Corpus<I>: Sized {
+pub trait Corpus<I, SC>: Sized {
+    /// Get the reference to the corpus' scheduler
+    fn scheduler(&self) -> &SC;
+
+    /// Get the mutable reference to the corpus' scheduler
+    fn scheduler_mut(&mut self) -> &mut SC;
+
     /// Returns the number of all enabled entries
     fn count(&self) -> usize;
 

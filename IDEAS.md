@@ -30,7 +30,7 @@
 | monitors  (P3)                                          | rewrite   | rewrite   | remove TUI, and other useless shits. it would be nice to have a "statsmonitor" to dump fuzzer stats at runtime, like in json or smth.                                                |
 | mutators  (P3)                                          | rewrite   | rewrite   | the code is shit too. i think it's not a priority for now, but yes. it's easy to fix later.                                                               |
 | observers                                           | keep      | keep      |                                                                                    |
-| schedulers  (P3)                                        | rewrite   | rewrite   | the code is shit. this shit is dependent on other modules too. rewrite queuesched.                      |
+| schedulers  (P3)                                        | rewrite   | rewrite   | the code is shit. this shit is dependent on other modules too. rewrite queuesched. PUT SCHEDULER IN CORPUS !!!!!!                      |
 | stages  (P3)                                            | rewrite   | rewrite   | too many shits                                                                     |
 | state   (P1)                                            | rewrite      | rewrite      | remove HasState*. just 1 struct                                                                                   |
 | libafl_asan                                         | ?         | keep      | does it work?? yes, i tried for another project. but could be improved. and clippy is not enabled on this one, so enabling it will add more work.                                                                     |
