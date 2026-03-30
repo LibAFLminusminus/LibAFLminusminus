@@ -33,9 +33,9 @@ use crate::{
 
 /// The internal state of `GenericInProcessExecutor`.
 pub struct GenericInProcessExecutorInner<EM, HT, I, OT, S, Z> {
-    /// The observers, observing each run
+    /// The observers, observing each run -> handled by executor
     pub(super) observers: OT,
-    /// Crash and timeout hooks
+    /// Crash and timeout hooks -> handled by runner
     pub(super) hooks: (InProcessHooks<I, S>, HT),
     /// `EM` and `Z` need to be tracked here to remain stable,
     /// else we can run into type confusions between [`Self::enter_target`] and [`Self::leave_target`].
