@@ -399,6 +399,7 @@ pub trait SignalHandler {
         info: &mut siginfo_t,
         _context: Option<&mut ucontext_t>,
     );
+
     /// Return a list of signals to handle
     fn signals(&self) -> Vec<Signal>;
 }

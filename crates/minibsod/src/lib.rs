@@ -638,7 +638,7 @@ fn dump_registers<W: Write>(
 ))]
 fn write_crash<W: Write>(
     writer: &mut BufWriter<W>,
-    signal: Signal,
+    signal: &Signal,
     ucontext: &ucontext_t,
 ) -> Result<(), std::io::Error> {
     writeln!(
@@ -1164,7 +1164,7 @@ fn write_minibsod<W: Write>(writer: &mut BufWriter<W>) -> Result<(), std::io::Er
 #[allow(clippy::non_ascii_literal)]
 pub fn generate_minibsod<W: Write>(
     writer: &mut BufWriter<W>,
-    signal: Signal,
+    signal: &Signal,
     _siginfo: &siginfo_t,
     ucontext: Option<&ucontext_t>,
 ) -> Result<(), std::io::Error> {
@@ -1189,7 +1189,7 @@ pub fn generate_minibsod<W: Write>(
 /// Generates a mini-BSOD given a signal and context and dump it to a [`Vec`]
 #[cfg(unix)]
 pub fn generate_minibsod_to_vec(
-    signal: Signal,
+    signal: &Signal,
     siginfo: &siginfo_t,
     ucontext: Option<&ucontext_t>,
 ) -> Result<Vec<u8>, std::io::Error> {
