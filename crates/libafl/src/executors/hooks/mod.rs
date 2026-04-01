@@ -12,10 +12,6 @@ pub mod unix;
 /// The hook for inprocess executor
 pub mod inprocess;
 
-/// Timer-related stuff
-#[cfg(feature = "std")]
-pub mod timer;
-
 /// Intel Processor Trace (PT)
 #[cfg(all(feature = "intel_pt", target_os = "linux"))]
 pub mod intel_pt;

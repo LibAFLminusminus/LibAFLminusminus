@@ -35,10 +35,10 @@ use libafl_bolts::{
 pub use tuneable::*;
 
 use crate::{
+    Error, HasMetadata,
     corpus::{Corpus, CorpusId, HasTestcase, SchedulerTestcaseMetadata, Testcase},
     random_corpus_id,
     state::{HasCorpus, HasRand},
-    Error, HasMetadata,
 };
 
 /// The scheduler also implements `on_remove` and `on_replace` if it implements this stage.
@@ -282,3 +282,23 @@ impl<S> Default for RandScheduler<S> {
 ///
 /// The current `Std` is a [`RandScheduler`], although this may change in the future, if another [`Scheduler`] delivers better results.
 pub type StdScheduler<S> = RandScheduler<S>;
+
+pub struct NopScheduler;
+
+impl<I, S> Scheduler<I, S> for NopScheduler {
+    fn on_add(&mut self, _state: &mut S, _id: CorpusId) -> Result<(), Error> {
+        panic!("NopScheduler does not schedule")
+    }
+
+    fn next(&mut self, state: &mut S) -> Result<CorpusId, Error> {
+        panic!("NopScheduler does not schedule")
+    }
+
+    fn set_current_scheduled(
+        &mut self,
+        state: &mut S,
+        next_id: Option<CorpusId>,
+    ) -> Result<(), Error> {
+        panic!("NopScheduler does not schedule")
+    }
+}

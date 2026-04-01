@@ -2,7 +2,7 @@ use core::time::Duration;
 
 use libafl_core::Error;
 
-use crate::runners::{Runner, inprocess::InProcessRunner};
+use crate::runners::{Runner, RunnerDriver, inprocess::InProcessRunner};
 
 pub struct RestartingRunner<CH, S, T, TH> {
     inner: InProcessRunner<CH, S, T, TH>,
@@ -13,8 +13,12 @@ where
     T: FnOnce(&mut S) -> Result<(), Error>,
 {
     // TODO: handle fork, state snapshot restore
-    fn run_task(&mut self, state: &mut S) -> Result<(), Error> {
-        self.inner.run_task(state)
+    fn run_task<'a>(
+        &'a mut self,
+        driver: RunnerDriver<'a, Self, S>,
+        state: &mut S,
+    ) -> Result<(), Error> {
+        self.inner.run_task(driver, state)
     }
 
     fn set_timeout(&mut self, _timeout: Duration) -> Result<(), Error> {

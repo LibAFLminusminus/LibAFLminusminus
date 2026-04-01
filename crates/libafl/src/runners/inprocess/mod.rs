@@ -1,4 +1,7 @@
-use crate::{executors::hooks::timer::TimerStruct, runners::Runner};
+use crate::{
+    executors::hooks::timer::TimerStruct,
+    runners::{Runner, RunnerDriver},
+};
 use core::{convert::Infallible, pin::Pin, time::Duration};
 use libafl_core::Error;
 use std::boxed::Box;
@@ -105,15 +108,19 @@ impl<CH, TH> InProcessSignalHandler<CH, TH> {
 
 impl<CH, S, T, TH> Runner<S> for InProcessRunner<CH, S, T, TH>
 where
-    T: FnOnce(&mut S) -> Result<Infallible, Error>,
+    T: for<'a> FnOnce(RunnerDriver<'a, Self, S>, &mut S) -> Result<Infallible, Error>,
     CH: FnMut(&mut S) -> Result<(), Error>,
     TH: FnMut(&mut S) -> Result<(), Error>,
 {
     // TODO: handle signals
-    fn run_task(&mut self, state: &mut S) -> Result<(), Error> {
+    fn run_task<'a>(
+        &'a mut self,
+        driver: RunnerDriver<'a, Self, S>,
+        state: &mut S,
+    ) -> Result<(), Error> {
         self.signal_handler.init();
 
-        self.task(state)
+        self.task(driver, state)
     }
 
     fn set_timeout(&mut self, timeout: Duration) -> Result<(), Error> {

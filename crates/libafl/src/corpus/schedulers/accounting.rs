@@ -13,13 +13,12 @@ use serde::{Deserialize, Serialize};
 use super::IndexesLenTimeMinimizerScheduler;
 use crate::{
     Error, HasMetadata,
-    corpus::{Corpus, CorpusId},
-    observers::CanTrack,
-    schedulers::{
+    corpus::schedulers::{
         RemovableScheduler, Scheduler,
         minimizer::{DEFAULT_SKIP_NON_FAVORED_PROB, IsFavoredMetadata, MinimizerScheduler},
     },
-    state::{HasCorpus, HasRand},
+    corpus::{Corpus, CorpusId},
+    observers::CanTrack,
 };
 
 /// A testcase metadata holding a list of indexes of a map

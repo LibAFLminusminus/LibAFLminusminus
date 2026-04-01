@@ -27,9 +27,6 @@ use crate::Error;
 #[cfg(feature = "std")]
 use crate::observers::{StdErrObserver, StdOutObserver};
 
-/// old inprocess executor implementation
-pub mod old_inprocess;
-
 /// The module for all the executor hooks
 pub mod hooks;
 
@@ -100,16 +97,18 @@ libafl_bolts::impl_serdeany!(DiffExitKind);
 /// Runs the fuzzer harness.
 pub trait Executor<I, O, P> {
     /// Instruct the target about the input and run
-    fn run_target(&mut self, input: &I, parameters: &mut P) -> ExitKind;
+    fn run_target(&mut self, input: &I) -> ExitKind;
 
     /// Get the linked observers
     fn observers(&self) -> RefIndexable<&O, O>;
 
     /// Get the linked observers (mutable)
     fn observers_mut(&mut self) -> RefIndexable<&mut O, O>;
+}
 
-    /// Points to the timer for this executor
-    fn timer(&self) -> &TimerStruct;
+pub struct StdExecutor<H, OT> {
+    harness: H,
+    observers: OT,
 }
 
 /// Like [`crate::observers::ObserversTuple`], a list of executors
