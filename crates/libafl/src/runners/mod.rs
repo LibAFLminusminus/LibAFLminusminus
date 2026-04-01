@@ -1,4 +1,4 @@
-use core::{marker::PhantomData, ptr::NonNull, time::Duration};
+use core::{marker::PhantomData, pin::Pin, ptr::NonNull, time::Duration};
 
 use libafl_bolts::Error;
 
@@ -9,11 +9,27 @@ pub mod restarting;
 pub trait Runner<S> {
     /// Start the task.
     /// A runner task is terminal: it is called only once and the runner will immediately exit when the task returns.
-    fn run_task<'a>(
-        &'a mut self,
-        driver: RunnerDriver<'a, Self, S>,
+    ///
+    /// # Safety
+    ///
+    /// The driver MUST be linked to the current runner.
+    unsafe fn run_task_impl(
+        &mut self,
+        driver: Pin<&mut RunnerDriver<Self, S>>,
         state: &mut S,
     ) -> Result<(), Error>;
+
+    fn run_task(&mut self, state: &mut S) -> Result<(), Error> {
+        let mut driver = self.create_driver()?;
+
+        let pinned_driver = Pin::new(&mut driver);
+
+        // sigsetjmp
+
+        unsafe { self.run_task_impl(pinned_driver, state) }
+    }
+
+    fn on_signal()
 
     /// Set a timeout value for the runner.
     ///
@@ -23,6 +39,8 @@ pub trait Runner<S> {
     /// Unset a previously set timeout.
     /// If no timeout has been set before, it's a no-op.
     fn unset_timeout(&mut self) -> Result<(), Error>;
+
+    fn creat_driver(&mut self) -> RunnerDriver<Self, S>;
 }
 
 /// Object enabling interacting with a runner's environment from the task.
@@ -69,9 +87,9 @@ impl<S, T> Runner<S> for DirectRunner<S, T>
 where
     T: FnOnce(&mut RunnerDriver<Self, S>, &mut S) -> Result<(), Error>,
 {
-    fn run_task<'a>(
+    fn run_task(
         &mut self,
-        driver: &mut RunnerDriver<Self, S>,
+        driver: Pin<&mut RunnerDriver<Self, S>>,
         state: &mut S,
     ) -> Result<(), Error> {
         self.task(state)
