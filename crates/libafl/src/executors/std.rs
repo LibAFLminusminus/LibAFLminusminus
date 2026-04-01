@@ -21,7 +21,7 @@ where
     OT: ObserversTuple<S>,
     S: State<I>,
 {
-    fn execute_impl(&mut self, state: &mut S, input: &I) -> Result<ExitKind, Error> {
+    unsafe fn execute_impl(&mut self, state: &mut S, input: &I) -> Result<ExitKind, Error> {
         todo!()
     }
 
