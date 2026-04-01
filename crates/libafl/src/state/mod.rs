@@ -38,7 +38,9 @@ use crate::{
     stages::StageId,
 };
 
-pub trait State<I> {}
+pub trait State<C, I, R, S> {
+    fn rand(&self) -> &R;
+}
 
 /// The maximum size of a testcase
 pub const DEFAULT_MAX_SIZE: usize = 1_048_576;

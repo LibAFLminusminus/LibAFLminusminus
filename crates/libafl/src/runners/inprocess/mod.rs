@@ -29,6 +29,7 @@ pub struct InProcessSignalHandler<CH, TH> {
     crash_handler: CH,
     timeout_handler: TH,
     in_target: bool,
+    // this should hold any pointer to data needed in signal handling.
 }
 
 unsafe impl<CH, TH> Send for InProcessSignalHandler<CH, TH>
@@ -106,14 +107,14 @@ impl<CH, TH> InProcessSignalHandler<CH, TH> {
 
 impl<CH, S, T, TH> Runner<S> for InProcessRunner<CH, S, T, TH>
 where
-    T: for<'a> FnOnce(RunnerDriver<'a, Self, S>, &mut S) -> Result<Infallible, Error>,
+    T: FnOnce(&mut RunnerDriver<Self, S>, &mut S) -> Result<Infallible, Error>,
     CH: FnMut(&mut S) -> Result<(), Error>,
     TH: FnMut(&mut S) -> Result<(), Error>,
 {
     // TODO: handle signals
     fn run_task<'a>(
         &'a mut self,
-        driver: RunnerDriver<'a, Self, S>,
+        driver: &mut RunnerDriver<Self, S>,
         state: &mut S,
     ) -> Result<(), Error> {
         self.signal_handler.init();
