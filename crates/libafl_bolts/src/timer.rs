@@ -13,8 +13,6 @@ use core::{
     sync::atomic::{Ordering, compiler_fence},
 };
 
-#[cfg(target_os = "linux")]
-use libafl_bolts::current_time;
 #[cfg(windows)]
 use windows::Win32::{
     Foundation::FILETIME,
@@ -78,8 +76,6 @@ pub struct TimerStruct {
     ptp_timer: PTP_TIMER,
     #[cfg(windows)]
     critical: CRITICAL_SECTION,
-    #[cfg(target_os = "linux")]
-    pub(crate) exec_tmout: Duration,
     #[cfg(all(unix, not(target_os = "linux")))]
     itimerval: Itimerval,
     #[cfg(target_os = "linux")]
@@ -213,7 +209,6 @@ impl TimerStruct {
         Self {
             itimerspec,
             timerid,
-            exec_tmout,
         }
     }
 
@@ -262,7 +257,9 @@ impl TimerStruct {
     #[cfg(target_os = "linux")]
     pub fn set_timer(&mut self) {
         #[cfg(not(miri))]
-        libc::timer_settime(self.timerid, 0, &raw mut self.itimerspec, null_mut());
+        unsafe {
+            libc::timer_settime(self.timerid, 0, &raw mut self.itimerspec, null_mut());
+        }
     }
 
     #[cfg(all(unix, not(target_os = "linux")))]
