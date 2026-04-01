@@ -37,6 +37,9 @@ use crate::{
     inputs::{Input, NopInput},
     stages::StageId,
 };
+
+pub trait State<I> {}
+
 /// The maximum size of a testcase
 pub const DEFAULT_MAX_SIZE: usize = 1_048_576;
 
@@ -408,7 +411,6 @@ impl SchedulerTestcaseMetadata {
 }
 
 libafl_bolts::impl_serdeany!(SchedulerTestcaseMetadata);
-
 
 #[cfg(feature = "std")]
 impl<C, I, R, SC> StdState<C, I, R, SC>

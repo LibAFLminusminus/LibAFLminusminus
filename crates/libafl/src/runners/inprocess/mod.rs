@@ -1,8 +1,6 @@
-use crate::{
-    executors::hooks::timer::TimerStruct,
-    runners::{Runner, RunnerDriver},
-};
+use crate::runners::{Runner, RunnerDriver};
 use core::{convert::Infallible, pin::Pin, time::Duration};
+use libafl_bolts::TimerStruct;
 use libafl_core::Error;
 use std::boxed::Box;
 

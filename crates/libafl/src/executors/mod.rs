@@ -18,6 +18,7 @@ use crate::{
     Error,
     observers::Observer,
     runners::{Runner, RunnerDriver},
+    state::State,
 };
 
 /// The module for all the executor hooks
@@ -111,7 +112,7 @@ pub trait Executor<I, O, R, S>
 where
     O: Observer<S>,
     R: Runner<S>,
-    S: State,
+    S: State<I>,
 {
     /// Run the target with the given input.
     /// This is a "raw" run: it only runs the target and nothing else is done.
