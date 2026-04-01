@@ -123,7 +123,12 @@ where
     ///
     /// You most likely do NOT want to use this function.
     /// Prefer `run_target` in most cases.
-    fn execute_impl(&mut self, state: &mut S, input: &I) -> Result<ExitKind, Error>;
+    ///
+    ///
+    /// # Safety
+    ///
+    /// This function is subject to timeouts, and signals can be raised asynchronously from this point onwards.
+    unsafe fn execute_impl(&mut self, state: &mut S, input: &I) -> Result<ExitKind, Error>;
 
     /// Run the target with the given input.
     /// State and observers are updated accordingly.
@@ -147,7 +152,7 @@ where
             false
         };
 
-        let mut exit_kind = self.execute_impl(state, input)?;
+        let mut exit_kind = unsafe { self.execute_impl(state, input)? };
 
         if has_timeout {
             driver.unset_timeout()?;
