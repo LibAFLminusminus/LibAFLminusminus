@@ -147,7 +147,7 @@ where
             false
         };
 
-        let mut exit_kind = self.run_target_and_update_state(state, input)?;
+        let mut exit_kind = self.execute_impl(state, input)?;
 
         if has_timeout {
             driver.unset_timeout()?;
