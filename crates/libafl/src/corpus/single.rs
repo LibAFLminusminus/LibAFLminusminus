@@ -13,9 +13,11 @@ use super::{Corpus, CorpusCounter, CorpusId, Testcase, store::Store};
 /// You average corpus.
 /// It has one backing store, used to store / retrieve testcases.
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct SingleCorpus<I, S> {
+pub struct SingleCorpus<I, S, SC> {
     /// The backing testcase store
     store: S,
+    /// The scheduler
+    scheduler: SC,
     /// The corpus ID counter
     counter: CorpusCounter,
     /// The keys in order (use `Vec::binary_search`)
@@ -25,20 +27,22 @@ pub struct SingleCorpus<I, S> {
     phantom: PhantomData<I>,
 }
 
-impl<I, S> Default for SingleCorpus<I, S>
+impl<I, S, SC> Default for SingleCorpus<I, S, SC>
 where
     S: Default,
+    SC: Default,
 {
     fn default() -> Self {
-        Self::new(S::default())
+        Self::new(S::default(), SC::default())
     }
 }
 
-impl<I, S> SingleCorpus<I, S> {
+impl<I, S, SC> SingleCorpus<I, S, SC> {
     /// Create a new [`SingleCorpus`]
-    pub fn new(store: S) -> Self {
+    pub fn new(store: S, scheduler: SC) -> Self {
         Self {
             store,
+            scheduler,
             counter: CorpusCounter::default(),
             keys: Vec::default(),
             current: None,
@@ -47,10 +51,18 @@ impl<I, S> SingleCorpus<I, S> {
     }
 }
 
-impl<I, S> Corpus<I> for SingleCorpus<I, S>
+impl<I, S, SC> Corpus<I, SC> for SingleCorpus<I, S, SC>
 where
     S: Store<I>,
 {
+    fn scheduler(&self) -> &SC {
+        &self.scheduler
+    }
+
+    fn scheduler_mut(&mut self) -> &mut SC {
+        &mut self.scheduler
+    }
+
     fn count(&self) -> usize {
         self.store.count()
     }

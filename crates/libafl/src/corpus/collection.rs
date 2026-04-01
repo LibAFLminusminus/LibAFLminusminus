@@ -171,7 +171,7 @@ impl<I> InMemoryCorpus<I> {
     }
 }
 
-impl<I> Corpus<I> for InMemoryCorpus<I>
+impl<I, SC> Corpus<I, SC> for InMemoryCorpus<I>
 where
     I: Input,
 {

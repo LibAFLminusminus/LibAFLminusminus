@@ -17,7 +17,7 @@ pub struct NopCorpus<I> {
     phantom: PhantomData<I>,
 }
 
-impl<I> Corpus<I> for NopCorpus<I> {
+impl<I> Corpus<I, NopScheduler> for NopCorpus<I> {
     /// Returns the number of all enabled entries
     #[inline]
     fn count(&self) -> usize {
