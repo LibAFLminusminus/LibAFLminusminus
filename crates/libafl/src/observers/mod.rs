@@ -14,7 +14,6 @@ pub mod stacktrace;
 #[cfg(feature = "regex")]
 pub use stacktrace::*;
 
-pub mod concolic;
 pub mod map;
 pub use map::*;
 
@@ -37,7 +36,7 @@ use crate::{Error, executors::ExitKind};
 
 /// Observers observe different information about the target.
 /// They can then be used by various sorts of feedback.
-pub trait Observer<I, S>: Named {
+pub trait Observer<S>: Named {
     /// The testcase finished execution, calculate any changes.
     /// Reserved for future use.
     #[inline]
@@ -47,125 +46,85 @@ pub trait Observer<I, S>: Named {
 
     /// Called right before execution starts.
     #[inline]
-    fn pre_exec(&mut self, _state: &mut S, _input: &I) -> Result<(), Error> {
+    fn pre_exec(&mut self, _state: &mut S) -> Result<(), Error> {
         Ok(())
     }
 
     /// Called right after execution finishes.
     #[inline]
-    fn post_exec(
-        &mut self,
-        _state: &mut S,
-        _input: &I,
-        _exit_kind: &ExitKind,
-    ) -> Result<(), Error> {
+    fn post_exec(&mut self, _state: &mut S, _exit_kind: &ExitKind) -> Result<(), Error> {
         Ok(())
     }
 
     /// Called right before execution starts in the child process, if any.
     #[inline]
-    fn pre_exec_child(&mut self, _state: &mut S, _input: &I) -> Result<(), Error> {
+    fn pre_exec_child(&mut self, _state: &mut S) -> Result<(), Error> {
         Ok(())
     }
 
     /// Called right after execution finishes in the child process, if any.
     #[inline]
-    fn post_exec_child(
-        &mut self,
-        _state: &mut S,
-        _input: &I,
-        _exit_kind: &ExitKind,
-    ) -> Result<(), Error> {
+    fn post_exec_child(&mut self, _state: &mut S, _exit_kind: &ExitKind) -> Result<(), Error> {
         Ok(())
     }
 }
 
 /// A haskell-style tuple of observers
-pub trait ObserversTuple<I, S>: MatchName {
+pub trait ObserversTuple<S>: MatchName {
     /// This is called right before the next execution.
-    fn pre_exec_all(&mut self, state: &mut S, input: &I) -> Result<(), Error>;
+    fn pre_exec_all(&mut self, state: &mut S) -> Result<(), Error>;
 
     /// This is called right after the last execution
-    fn post_exec_all(
-        &mut self,
-        state: &mut S,
-        input: &I,
-        exit_kind: &ExitKind,
-    ) -> Result<(), Error>;
+    fn post_exec_all(&mut self, state: &mut S, exit_kind: &ExitKind) -> Result<(), Error>;
 
     /// This is called right before the next execution in the child process, if any.
-    fn pre_exec_child_all(&mut self, state: &mut S, input: &I) -> Result<(), Error>;
+    fn pre_exec_child_all(&mut self, state: &mut S) -> Result<(), Error>;
 
     /// This is called right after the last execution in the child process, if any.
-    fn post_exec_child_all(
-        &mut self,
-        state: &mut S,
-        input: &I,
-        exit_kind: &ExitKind,
-    ) -> Result<(), Error>;
+    fn post_exec_child_all(&mut self, state: &mut S, exit_kind: &ExitKind) -> Result<(), Error>;
 }
 
-impl<I, S> ObserversTuple<I, S> for () {
-    fn pre_exec_all(&mut self, _state: &mut S, _input: &I) -> Result<(), Error> {
+impl<S> ObserversTuple<S> for () {
+    fn pre_exec_all(&mut self, _state: &mut S) -> Result<(), Error> {
         Ok(())
     }
 
-    fn post_exec_all(
-        &mut self,
-        _state: &mut S,
-        _input: &I,
-        _exit_kind: &ExitKind,
-    ) -> Result<(), Error> {
+    fn post_exec_all(&mut self, _state: &mut S, _exit_kind: &ExitKind) -> Result<(), Error> {
         Ok(())
     }
 
-    fn pre_exec_child_all(&mut self, _state: &mut S, _input: &I) -> Result<(), Error> {
+    fn pre_exec_child_all(&mut self, _state: &mut S) -> Result<(), Error> {
         Ok(())
     }
 
-    fn post_exec_child_all(
-        &mut self,
-        _state: &mut S,
-        _input: &I,
-        _exit_kind: &ExitKind,
-    ) -> Result<(), Error> {
+    fn post_exec_child_all(&mut self, _state: &mut S, _exit_kind: &ExitKind) -> Result<(), Error> {
         Ok(())
     }
 }
 
-impl<Head, Tail, I, S> ObserversTuple<I, S> for (Head, Tail)
+impl<Head, Tail, S> ObserversTuple<S> for (Head, Tail)
 where
-    Head: Observer<I, S>,
-    Tail: ObserversTuple<I, S>,
+    Head: Observer<S>,
+    Tail: ObserversTuple<S>,
 {
-    fn pre_exec_all(&mut self, state: &mut S, input: &I) -> Result<(), Error> {
-        self.0.pre_exec(state, input)?;
-        self.1.pre_exec_all(state, input)
+    fn pre_exec_all(&mut self, state: &mut S) -> Result<(), Error> {
+        self.0.pre_exec(state)?;
+        self.1.pre_exec_all(state)
     }
 
-    fn post_exec_all(
-        &mut self,
-        state: &mut S,
-        input: &I,
-        exit_kind: &ExitKind,
-    ) -> Result<(), Error> {
-        self.0.post_exec(state, input, exit_kind)?;
-        self.1.post_exec_all(state, input, exit_kind)
+    fn post_exec_all(&mut self, state: &mut S, exit_kind: &ExitKind) -> Result<(), Error> {
+        self.0.post_exec(state, exit_kind)?;
+        self.1.post_exec_all(state, exit_kind)
     }
 
-    fn pre_exec_child_all(&mut self, state: &mut S, input: &I) -> Result<(), Error> {
-        self.0.pre_exec_child(state, input)?;
-        self.1.pre_exec_child_all(state, input)
+    fn pre_exec_child_all(&mut self, state: &mut S) -> Result<(), Error> {
+        self.0.pre_exec_child(state)?;
+        self.1.pre_exec_child_all(state)
     }
 
-    fn post_exec_child_all(
-        &mut self,
-        state: &mut S,
-        input: &I,
-        exit_kind: &ExitKind,
-    ) -> Result<(), Error> {
-        self.0.post_exec_child(state, input, exit_kind)?;
-        self.1.post_exec_child_all(state, input, exit_kind)
+    fn post_exec_child_all(&mut self, state: &mut S, exit_kind: &ExitKind) -> Result<(), Error> {
+        self.0.post_exec_child(state, exit_kind)?;
+        self.1.post_exec_child_all(state, exit_kind)
     }
 }
 
@@ -196,7 +155,7 @@ pub trait ObserverWithHashField {
 /// `DifferentialObserver::{pre,post}_observe_{first,second}` as necessary for first and second,
 /// respectively.
 #[expect(unused_variables)]
-pub trait DifferentialObserver<OTA, OTB, I, S>: Observer<I, S> {
+pub trait DifferentialObserver<OTA, OTB, I, S>: Observer<S> {
     /// Perform an operation with the first set of observers before they are `pre_exec`'d.
     fn pre_observe_first(&mut self, observers: &mut OTA) -> Result<(), Error> {
         Ok(())
@@ -219,7 +178,7 @@ pub trait DifferentialObserver<OTA, OTB, I, S>: Observer<I, S> {
 }
 
 /// Differential observers tuple, for when you're using multiple differential observers.
-pub trait DifferentialObserversTuple<OTA, OTB, I, S>: ObserversTuple<I, S> {
+pub trait DifferentialObserversTuple<OTA, OTB, I, S>: ObserversTuple<S> {
     /// Perform an operation with the first set of observers before they are `pre_exec`'d on all the
     /// differential observers in this tuple.
     fn pre_observe_first_all(&mut self, observers: &mut OTA) -> Result<(), Error>;
@@ -349,39 +308,29 @@ impl TimeObserver {
     }
 }
 
-impl<I, S> Observer<I, S> for TimeObserver {
+impl<S> Observer<S> for TimeObserver {
     #[cfg(feature = "std")]
-    fn pre_exec(&mut self, _state: &mut S, _input: &I) -> Result<(), Error> {
+    fn pre_exec(&mut self, _state: &mut S) -> Result<(), Error> {
         self.last_runtime = None;
         self.start_time = Instant::now();
         Ok(())
     }
 
     #[cfg(not(feature = "std"))]
-    fn pre_exec(&mut self, _state: &mut S, _input: &I) -> Result<(), Error> {
+    fn pre_exec(&mut self, _state: &mut S) -> Result<(), Error> {
         self.last_runtime = None;
         self.start_time = current_time();
         Ok(())
     }
 
     #[cfg(feature = "std")]
-    fn post_exec(
-        &mut self,
-        _state: &mut S,
-        _input: &I,
-        _exit_kind: &ExitKind,
-    ) -> Result<(), Error> {
+    fn post_exec(&mut self, _state: &mut S, _exit_kind: &ExitKind) -> Result<(), Error> {
         self.last_runtime = Some(self.start_time.elapsed());
         Ok(())
     }
 
     #[cfg(not(feature = "std"))]
-    fn post_exec(
-        &mut self,
-        _state: &mut S,
-        _input: &I,
-        _exit_kind: &ExitKind,
-    ) -> Result<(), Error> {
+    fn post_exec(&mut self, _state: &mut S, _exit_kind: &ExitKind) -> Result<(), Error> {
         self.last_runtime = Some(current_time().saturating_sub(self.start_time));
         Ok(())
     }

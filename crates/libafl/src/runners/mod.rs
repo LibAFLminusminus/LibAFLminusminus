@@ -28,12 +28,12 @@ pub trait Runner<S> {
 /// Object enabling interacting with a runner's environment from the task.
 /// It can be used to perform runner-level operations generically.
 /// It does not expose the runner directly
-struct RunnerDriver<'a, R, S> {
+pub struct RunnerDriver<R, S> {
     runner: NonNull<R>,
-    _marker: PhantomData<(&'a R, S)>,
+    _marker: PhantomData<S>,
 }
 
-impl<'a, R, S> RunnerDriver<'a, R, S>
+impl<R, S> RunnerDriver<R, S>
 where
     R: Runner<S>,
 {
@@ -48,8 +48,8 @@ where
     /// Set a timeout value for the runner.
     ///
     /// Once set, [`on_timeout`] will be executed after the input duration.
-    pub fn set_timeout(&mut self, timeout: Duration) -> Result<(), Error> {
-        unsafe { self.runner_mut().set_timeout(timeout) }
+    pub fn set_timeout(&mut self, timeout: &Duration) -> Result<(), Error> {
+        unsafe { self.runner_mut().set_timeout(timeout.clone()) }
     }
 
     /// Unset a previously set timeout.
@@ -67,11 +67,11 @@ struct DirectRunner<S, T> {
 
 impl<S, T> Runner<S> for DirectRunner<S, T>
 where
-    T: FnOnce(&mut S) -> Result<(), Error>,
+    T: FnOnce(&mut RunnerDriver<Self, S>, &mut S) -> Result<(), Error>,
 {
     fn run_task<'a>(
-        &'a mut self,
-        driver: RunnerDriver<'a, Self, S>,
+        &mut self,
+        driver: &mut RunnerDriver<Self, S>,
         state: &mut S,
     ) -> Result<(), Error> {
         self.task(state)
