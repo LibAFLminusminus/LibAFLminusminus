@@ -100,6 +100,11 @@ pub use target_args::*;
 
 pub mod simd;
 
+#[cfg(feature = "std")]
+pub mod timer;
+#[cfg(feature = "std")]
+pub use timer::TimerStruct;
+
 /// The purpose of this module is to alleviate imports of the bolts by adding a glob import.
 #[cfg(feature = "prelude")]
 pub mod bolts_prelude {
@@ -137,7 +142,10 @@ use core::hash::BuildHasher;
 use core::hash::{Hash, Hasher};
 #[cfg(unix)]
 use core::mem;
+use core::time;
 use std::time::SystemTime;
+#[cfg(feature = "std")]
+use std::time::UNIX_EPOCH;
 #[cfg(unix)]
 use std::{
     fs::File,
@@ -157,6 +165,13 @@ use log::{Metadata, Record};
 #[cfg(feature = "xxh3")]
 use xxhash_rust::xxh3::xxh3_64;
 
+/// Current time
+#[cfg(feature = "std")]
+#[must_use]
+#[inline]
+pub fn current_time() -> time::Duration {
+    SystemTime::now().duration_since(UNIX_EPOCH).unwrap()
+}
 /// Returns the standard input [`Hasher`]
 ///
 /// Returns the hasher for the input with a given hash, depending on features:
