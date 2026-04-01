@@ -252,6 +252,17 @@ imho, we should have
 - Corpus: an unordered map of CorpusId -> Testcase
 - Scheduler: provides the next CorpusId. ordering should be done by the scheduler.
 
+solution: integrate scheduler inside corpus. Id can only be given by corpus.
+Corpus does NOT order testcases anymore.
+Scheduler ALWAYS orders things, no more implicit ordering.
+
+# Runner and executor
+
+Executor is now split into 2 parts:
+- Runner: the environment-dependent task runner. it handles signals, timeouts, etc... it does NOT depend on fuzzer objects
+- Executor: what the fuzzer runs. it takes care of observer resets, timeout configuration in the runner, exec count, etc...
+
+executor and runner share a "Driver", which enables the executor to configure the runner generically (independently of the underlying runner).
 
 # Notes
 
