@@ -5,45 +5,57 @@ use core::{fmt::Debug, time::Duration};
 #[cfg(feature = "std")]
 use std::path::PathBuf;
 
-pub use combined::CombinedExecutor;
-#[cfg(feature = "std")]
-pub use command::CommandExecutor;
-pub use differential::DiffExecutor;
-#[cfg(all(feature = "std", unix))]
-pub use forkserver::{Forkserver, ForkserverExecutor};
-pub use inprocess::InProcessExecutor;
-#[cfg(all(feature = "std", unix))]
-pub use inprocess_fork::InProcessForkExecutor;
 #[cfg(unix)]
 use libafl_bolts::os::unix_signals::Signal;
 use libafl_bolts::tuples::RefIndexable;
 #[cfg(feature = "std")]
 use libafl_bolts::{core_affinity::CoreId, tuples::Handle};
 use serde::{Deserialize, Serialize};
-pub use shadow::ShadowExecutor;
-pub use with_observers::WithObservers;
 
-use crate::Error;
 #[cfg(feature = "std")]
 use crate::observers::{StdErrObserver, StdOutObserver};
+use crate::{
+    Error,
+    observers::Observer,
+    runners::{Runner, RunnerDriver},
+};
 
 /// The module for all the executor hooks
 pub mod hooks;
 
 // pub mod combined;
+// pub use combined::CombinedExecutor;
+
 // #[cfg(feature = "std")]
 // pub mod command;
+// #[cfg(feature = "std")]
+// pub use command::CommandExecutor;
+
 // pub mod differential;
+// pub use differential::DiffExecutor;
+
 // #[cfg(all(feature = "std", unix))]
 // pub mod forkserver;
+// #[cfg(all(feature = "std", unix))]
+// pub use forkserver::{Forkserver, ForkserverExecutor};
+
 // pub mod nop;
 // /// SAND(<https://github.com/wtdcode/sand-aflpp>) implementation
 // #[cfg(feature = "simd")]
 // pub mod sand;
 
 // pub mod shadow;
+// pub use shadow::ShadowExecutor;
 
 // pub mod with_observers;
+// pub use with_observers::WithObservers;
+
+// pub use inprocess::InProcessExecutor;
+// #[cfg(all(feature = "std", unix))]
+// pub use inprocess_fork::InProcessForkExecutor;
+
+mod std;
+pub use std::StdExecutor;
 
 /// How an execution finished.
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -95,20 +107,65 @@ pub enum DiffExitKind {
 libafl_bolts::impl_serdeany!(DiffExitKind);
 
 /// Runs the fuzzer harness.
-pub trait Executor<I, O, P> {
-    /// Instruct the target about the input and run
-    fn run_target(&mut self, input: &I) -> ExitKind;
+pub trait Executor<I, O, R, S>
+where
+    O: Observer<S>,
+    R: Runner<S>,
+    S: State,
+{
+    /// Run the target with the given input.
+    /// This is a "raw" run: it only runs the target and nothing else is done.
+    /// More particularly:
+    ///     - observers are untouched
+    ///     - state is not updated
+    ///     - timeout is not re-armed
+    ///
+    /// You most likely do NOT want to use this function.
+    /// Prefer `run_target` in most cases.
+    fn execute_impl(&mut self, state: &mut S, input: &I) -> Result<ExitKind, Error>;
+
+    /// Run the target with the given input.
+    /// State and observers are updated accordingly.
+    ///
+    /// This is the main function to run an input.
+    fn execute(
+        &mut self,
+        state: &mut S,
+        driver: &mut RunnerDriver<R, S>,
+        input: &I,
+    ) -> Result<ExitKind, Error> {
+        *state.executions_mut() += 1;
+
+        self.observers_mut().pre_exec(state)?;
+
+        let has_timeout = if let Some(tmout) = self.timeout() {
+            driver.set_timeout(tmout)?;
+
+            true
+        } else {
+            false
+        };
+
+        let mut exit_kind = self.run_target_and_update_state(state, input)?;
+
+        if has_timeout {
+            driver.unset_timeout()?;
+        }
+
+        self.observers_mut()
+            .post_exec(state, &mut exit_kind)
+            .map(|_| exit_kind)
+    }
 
     /// Get the linked observers
     fn observers(&self) -> RefIndexable<&O, O>;
 
     /// Get the linked observers (mutable)
     fn observers_mut(&mut self) -> RefIndexable<&mut O, O>;
-}
 
-pub struct StdExecutor<H, OT> {
-    harness: H,
-    observers: OT,
+    /// Timeout for the current fuzzing run.
+    /// It is read at each run, so that it can change between executions.
+    fn timeout(&self) -> Option<&Duration>;
 }
 
 /// Like [`crate::observers::ObserversTuple`], a list of executors
