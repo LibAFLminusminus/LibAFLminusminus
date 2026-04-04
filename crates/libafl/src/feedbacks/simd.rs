@@ -22,11 +22,10 @@ use crate::state::HasClientPerfMonitor;
 use crate::{
     HasNamedMetadata,
     corpus::Testcase,
-    events::EventFirer,
     executors::ExitKind,
     feedbacks::MapFeedbackMetadata,
     observers::{CanTrack, MapObserver},
-    state::HasExecutions,
+    state::State,
 };
 
 /// Stable Rust wrapper for SIMD accelerated map feedback. Unfortunately, we have to
@@ -187,13 +186,12 @@ where
 }
 
 // Delegate implementations to inner mapping except is_interesting
-impl<C, O, EM, I, OT, S, R, V> Feedback<EM, I, OT, S> for SimdMapFeedback<C, O, R, V>
+impl<C, O, I, OT, S, R, V> Feedback<I, OT, S> for SimdMapFeedback<C, O, R, V>
 where
     C: CanTrack + AsRef<O>,
-    EM: EventFirer<I, S>,
     O: MapObserver<Entry = u8> + for<'a> AsSlice<'a, Entry = u8> + for<'a> AsIter<'a, Item = u8>,
     OT: MatchName,
-    S: HasNamedMetadata + HasExecutions,
+    S: State,
     R: SimdReducer<V>,
     V: VectorType + Copy + Eq,
     R::PrimitiveReducer: Reducer<u8>,
@@ -201,7 +199,6 @@ where
     fn is_interesting(
         &mut self,
         state: &mut S,
-        _manager: &mut EM,
         _input: &I,
         observers: &OT,
         _exit_kind: &ExitKind,
@@ -214,7 +211,6 @@ where
     fn is_interesting_introspection(
         &mut self,
         state: &mut S,
-        manager: &mut EM,
         input: &I,
         observers: &OT,
         exit_kind: &ExitKind,
@@ -223,14 +219,13 @@ where
         S: HasClientPerfMonitor,
     {
         self.map
-            .is_interesting_introspection(state, manager, input, observers, exit_kind)
+            .is_interesting_introspection(state, input, observers, exit_kind)
     }
 
     #[cfg(feature = "track_hit_feedbacks")]
     fn last_result(&self) -> Result<bool, Error> {
         // cargo +nightly doc asks so
         <MapFeedback<C, DifferentIsNovel, O, <R as SimdReducer<V>>::PrimitiveReducer> as Feedback<
-            EM,
             I,
             OT,
             S,
@@ -241,7 +236,6 @@ where
     fn append_hit_feedbacks(&self, list: &mut Vec<Cow<'static, str>>) -> Result<(), Error> {
         // cargo +nightly doc asks so
         <MapFeedback<C, DifferentIsNovel, O, <R as SimdReducer<V>>::PrimitiveReducer> as Feedback<
-            EM,
             I,
             OT,
             S,
@@ -252,11 +246,10 @@ where
     fn append_metadata(
         &mut self,
         state: &mut S,
-        manager: &mut EM,
         observers: &OT,
         testcase: &mut Testcase<I>,
     ) -> Result<(), Error> {
         self.map
-            .append_metadata(state, manager, observers, testcase)
+            .append_metadata(state, observers, testcase)
     }
 }

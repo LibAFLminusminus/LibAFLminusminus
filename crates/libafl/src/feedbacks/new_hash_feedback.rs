@@ -148,7 +148,7 @@ where
     }
 }
 
-impl<O, EM, I, OT, S> Feedback<EM, I, OT, S> for NewHashFeedback<O>
+impl<O, I, OT, S> Feedback<I, OT, S> for NewHashFeedback<O>
 where
     O: ObserverWithHashField + Named,
     OT: MatchName,
@@ -157,7 +157,6 @@ where
     fn is_interesting(
         &mut self,
         state: &mut S,
-        _manager: &mut EM,
         _input: &I,
         observers: &OT,
         _exit_kind: &ExitKind,

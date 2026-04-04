@@ -56,15 +56,14 @@ impl<S> StateInitializer<S> for BoolValueFeedback<'_> {
     }
 }
 
-impl<EM, I, OT, S> Feedback<EM, I, OT, S> for BoolValueFeedback<'_>
+impl<I, OT, S> Feedback<I, OT, S> for BoolValueFeedback<'_>
 where
-    OT: ObserversTuple<I, S>,
+    OT: ObserversTuple<S>,
     S: HasNamedMetadata,
 {
     fn is_interesting(
         &mut self,
         _state: &mut S,
-        _manager: &mut EM,
         _input: &I,
         observers: &OT,
         _exit_kind: &crate::executors::ExitKind,
@@ -84,7 +83,6 @@ where
     fn append_metadata(
         &mut self,
         _state: &mut S,
-        _manager: &mut EM,
         _observers: &OT,
         _testcase: &mut crate::corpus::Testcase<I>,
     ) -> Result<(), Error> {
@@ -132,7 +130,7 @@ mod test {
         let exit_ok = ExitKind::Ok;
 
         let false_eval = bool_feedback
-            .is_interesting(&mut state, &mut mgr, &input, &observers, &exit_ok)
+            .is_interesting(&mut state, &input, &observers, &exit_ok)
             .unwrap();
         assert!(!false_eval);
 
@@ -143,7 +141,7 @@ mod test {
         }
 
         let true_eval = bool_feedback
-            .is_interesting(&mut state, &mut mgr, &input, &observers, &exit_ok)
+            .is_interesting(&mut state, &input, &observers, &exit_ok)
             .unwrap();
         assert!(true_eval);
     }

@@ -141,7 +141,7 @@ where
     }
 }
 
-impl<EM, I, OT, S, T> Feedback<EM, I, OT, S> for ListFeedback<T>
+impl<I, OT, S, T> Feedback<I, OT, S> for ListFeedback<T>
 where
     OT: MatchName,
     S: HasNamedMetadata,
@@ -158,7 +158,6 @@ where
     fn is_interesting(
         &mut self,
         state: &mut S,
-        _manager: &mut EM,
         _input: &I,
         observers: &OT,
         _exit_kind: &ExitKind,
@@ -174,7 +173,6 @@ where
     fn append_metadata(
         &mut self,
         state: &mut S,
-        _manager: &mut EM,
         _observers: &OT,
         _testcase: &mut crate::corpus::Testcase<I>,
     ) -> Result<(), Error> {

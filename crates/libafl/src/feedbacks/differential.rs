@@ -139,7 +139,7 @@ where
 
 impl<C, O1, O2, S> StateInitializer<S> for DiffFeedback<C, O1, O2> {}
 
-impl<C, EM, I, O1, O2, OT, S> Feedback<EM, I, OT, S> for DiffFeedback<C, O1, O2>
+impl<C, I, O1, O2, OT, S> Feedback<I, OT, S> for DiffFeedback<C, O1, O2>
 where
     OT: MatchName,
     C: DiffComparator<O1, O2>,
@@ -147,7 +147,6 @@ where
     fn is_interesting(
         &mut self,
         _state: &mut S,
-        _manager: &mut EM,
         _input: &I,
         observers: &OT,
         _exit_kind: &ExitKind,
@@ -182,7 +181,6 @@ mod tests {
     use libafl_bolts::{Named, tuples::tuple_list};
 
     use crate::{
-        events::NopEventManager,
         executors::ExitKind,
         feedbacks::{DiffFeedback, Feedback, differential::DiffResult},
         inputs::BytesInput,
@@ -203,7 +201,7 @@ mod tests {
             }
         }
     }
-    impl<I, S> Observer<I, S> for DummyObserver {}
+    impl<S> Observer<S> for DummyObserver {}
     impl PartialEq for DummyObserver {
         fn eq(&self, other: &Self) -> bool {
             self.value == other.value
@@ -236,7 +234,6 @@ mod tests {
             DiffFeedback::<_, _, _>::is_interesting(
                 &mut diff_feedback,
                 &mut nop_state,
-                &mut NopEventManager::default(),
                 &BytesInput::new(vec![0]),
                 &observers,
                 &ExitKind::Ok

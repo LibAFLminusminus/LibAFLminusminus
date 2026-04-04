@@ -8,8 +8,6 @@ use alloc::borrow::Cow;
 use alloc::vec::Vec;
 use core::{fmt::Debug, marker::PhantomData};
 
-#[cfg(feature = "std")]
-pub use concolic::ConcolicFeedback;
 pub use differential::DiffFeedback;
 use libafl_bolts::{
     Named,
@@ -34,8 +32,6 @@ pub mod bool;
 pub use bool::BoolValueFeedback;
 
 #[cfg(feature = "std")]
-pub mod concolic;
-#[cfg(feature = "std")]
 /// The module for `CustomFilenameToTestcaseFeedback`
 pub mod custom_filename;
 pub mod differential;
@@ -50,7 +46,6 @@ pub mod new_hash_feedback;
 pub mod simd;
 #[cfg(feature = "std")]
 pub mod stdio;
-pub mod transferred;
 
 #[cfg(feature = "std")]
 pub use capture_feedback::CaptureTimeoutFeedback;
@@ -78,12 +73,11 @@ pub trait StateInitializer<S> {
 /// Feedbacks evaluate the observers.
 /// Basically, they reduce the information provided by an observer to a value,
 /// indicating the "interestingness" of the last run.
-pub trait Feedback<EM, I, OT, S>: StateInitializer<S> + Named {
+pub trait Feedback<I, OT, S>: StateInitializer<S> + Named {
     /// `is_interesting ` return if an input is worth the addition to the corpus
     fn is_interesting(
         &mut self,
         _state: &mut S,
-        _manager: &mut EM,
         _input: &I,
         _observers: &OT,
         _exit_kind: &ExitKind,
@@ -97,7 +91,6 @@ pub trait Feedback<EM, I, OT, S>: StateInitializer<S> + Named {
     fn is_interesting_introspection(
         &mut self,
         state: &mut S,
-        manager: &mut EM,
         input: &I,
         observers: &OT,
         exit_kind: &ExitKind,
@@ -144,7 +137,6 @@ pub trait Feedback<EM, I, OT, S>: StateInitializer<S> + Named {
     fn append_metadata(
         &mut self,
         _state: &mut S,
-        _manager: &mut EM,
         _observers: &OT,
         _testcase: &mut Testcase<I>,
     ) -> Result<(), Error> {
@@ -213,31 +205,29 @@ where
     }
 }
 
-impl<A, B, FL, EM, I, OT, S> Feedback<EM, I, OT, S> for CombinedFeedback<A, B, FL>
+impl<A, B, FL, I, OT, S> Feedback<I, OT, S> for CombinedFeedback<A, B, FL>
 where
-    A: Feedback<EM, I, OT, S>,
-    B: Feedback<EM, I, OT, S>,
+    A: Feedback<I, OT, S>,
+    B: Feedback<I, OT, S>,
     FL: FeedbackLogic,
 {
     fn is_interesting(
         &mut self,
         state: &mut S,
-        manager: &mut EM,
         input: &I,
         observers: &OT,
         exit_kind: &ExitKind,
     ) -> Result<bool, Error> {
         FL::is_pair_interesting(
-            |state, manager, input, observers, exit_kind| {
+            |state, input, observers, exit_kind| {
                 self.first
-                    .is_interesting(state, manager, input, observers, exit_kind)
+                    .is_interesting(state, input, observers, exit_kind)
             },
-            |state, manager, input, observers, exit_kind| {
+            |state, input, observers, exit_kind| {
                 self.second
-                    .is_interesting(state, manager, input, observers, exit_kind)
+                    .is_interesting(state, input, observers, exit_kind)
             },
             state,
-            manager,
             input,
             observers,
             exit_kind,
@@ -248,7 +238,6 @@ where
     fn is_interesting_introspection(
         &mut self,
         state: &mut S,
-        manager: &mut EM,
         input: &I,
         observers: &OT,
         exit_kind: &ExitKind,
@@ -259,14 +248,13 @@ where
         FL::is_pair_interesting(
             |state, manager, input, observers, exit_kind| {
                 self.first
-                    .is_interesting_introspection(state, manager, input, observers, exit_kind)
+                    .is_interesting_introspection(state, input, observers, exit_kind)
             },
             |state, manager, input, observers, exit_kind| {
                 self.second
-                    .is_interesting_introspection(state, manager, input, observers, exit_kind)
+                    .is_interesting_introspection(state, input, observers, exit_kind)
             },
             state,
-            manager,
             input,
             observers,
             exit_kind,
@@ -293,14 +281,13 @@ where
     fn append_metadata(
         &mut self,
         state: &mut S,
-        manager: &mut EM,
         observers: &OT,
         testcase: &mut Testcase<I>,
     ) -> Result<(), Error> {
         self.first
-            .append_metadata(state, manager, observers, testcase)?;
+            .append_metadata(state, observers, testcase)?;
         self.second
-            .append_metadata(state, manager, observers, testcase)
+            .append_metadata(state, observers, testcase)
     }
 }
 
@@ -328,18 +315,17 @@ pub trait FeedbackLogic {
     /// `first` and `second` are closures which invoke the corresponding
     /// [`Feedback::is_interesting`] methods of the associated feedbacks. Implementors may choose to
     /// use the closure or not, depending on eagerness logic
-    fn is_pair_interesting<EM, I, OT, S, F1, F2>(
+    fn is_pair_interesting<I, OT, S, F1, F2>(
         first: F1,
         second: F2,
         state: &mut S,
-        manager: &mut EM,
         input: &I,
         observers: &OT,
         exit_kind: &ExitKind,
     ) -> Result<bool, Error>
     where
-        F1: FnOnce(&mut S, &mut EM, &I, &OT, &ExitKind) -> Result<bool, Error>,
-        F2: FnOnce(&mut S, &mut EM, &I, &OT, &ExitKind) -> Result<bool, Error>;
+        F1: FnOnce(&mut S, &I, &OT, &ExitKind) -> Result<bool, Error>,
+        F2: FnOnce(&mut S, &I, &OT, &ExitKind) -> Result<bool, Error>;
 
     /// Get the result of the last `Self::is_interesting` run
     #[cfg(feature = "track_hit_feedbacks")]
@@ -401,21 +387,20 @@ impl FeedbackLogic for LogicEagerOr {
         "Eager OR"
     }
 
-    fn is_pair_interesting<EM, I, OT, S, F1, F2>(
+    fn is_pair_interesting<I, OT, S, F1, F2>(
         first: F1,
         second: F2,
         state: &mut S,
-        manager: &mut EM,
         input: &I,
         observers: &OT,
         exit_kind: &ExitKind,
     ) -> Result<bool, Error>
     where
-        F1: FnOnce(&mut S, &mut EM, &I, &OT, &ExitKind) -> Result<bool, Error>,
-        F2: FnOnce(&mut S, &mut EM, &I, &OT, &ExitKind) -> Result<bool, Error>,
+        F1: FnOnce(&mut S, &I, &OT, &ExitKind) -> Result<bool, Error>,
+        F2: FnOnce(&mut S, &I, &OT, &ExitKind) -> Result<bool, Error>,
     {
-        Ok(first(state, manager, input, observers, exit_kind)?
-            | second(state, manager, input, observers, exit_kind)?)
+        Ok(first(state, input, observers, exit_kind)?
+            | second(state, input, observers, exit_kind)?)
     }
     #[cfg(feature = "track_hit_feedbacks")]
     fn last_result(first: Result<bool, Error>, second: Result<bool, Error>) -> Result<bool, Error> {
@@ -446,25 +431,24 @@ impl FeedbackLogic for LogicFastOr {
         "Fast OR"
     }
 
-    fn is_pair_interesting<EM, I, OT, S, F1, F2>(
+    fn is_pair_interesting<I, OT, S, F1, F2>(
         first: F1,
         second: F2,
         state: &mut S,
-        manager: &mut EM,
         input: &I,
         observers: &OT,
         exit_kind: &ExitKind,
     ) -> Result<bool, Error>
     where
-        F1: FnOnce(&mut S, &mut EM, &I, &OT, &ExitKind) -> Result<bool, Error>,
-        F2: FnOnce(&mut S, &mut EM, &I, &OT, &ExitKind) -> Result<bool, Error>,
+        F1: FnOnce(&mut S, &I, &OT, &ExitKind) -> Result<bool, Error>,
+        F2: FnOnce(&mut S, &I, &OT, &ExitKind) -> Result<bool, Error>,
     {
-        let a = first(state, manager, input, observers, exit_kind)?;
+        let a = first(state, input, observers, exit_kind)?;
         if a {
             return Ok(true);
         }
 
-        second(state, manager, input, observers, exit_kind)
+        second(state, input, observers, exit_kind)
     }
     #[cfg(feature = "track_hit_feedbacks")]
     fn last_result(first: Result<bool, Error>, second: Result<bool, Error>) -> Result<bool, Error> {
@@ -501,21 +485,20 @@ impl FeedbackLogic for LogicEagerAnd {
         "Eager AND"
     }
 
-    fn is_pair_interesting<EM, I, OT, S, F1, F2>(
+    fn is_pair_interesting<I, OT, S, F1, F2>(
         first: F1,
         second: F2,
         state: &mut S,
-        manager: &mut EM,
         input: &I,
         observers: &OT,
         exit_kind: &ExitKind,
     ) -> Result<bool, Error>
     where
-        F1: FnOnce(&mut S, &mut EM, &I, &OT, &ExitKind) -> Result<bool, Error>,
-        F2: FnOnce(&mut S, &mut EM, &I, &OT, &ExitKind) -> Result<bool, Error>,
+        F1: FnOnce(&mut S, &I, &OT, &ExitKind) -> Result<bool, Error>,
+        F2: FnOnce(&mut S, &I, &OT, &ExitKind) -> Result<bool, Error>,
     {
-        Ok(first(state, manager, input, observers, exit_kind)?
-            & second(state, manager, input, observers, exit_kind)?)
+        Ok(first(state, input, observers, exit_kind)?
+            & second(state, input, observers, exit_kind)?)
     }
 
     #[cfg(feature = "track_hit_feedbacks")]
@@ -548,21 +531,20 @@ impl FeedbackLogic for LogicFastAnd {
         "Fast AND"
     }
 
-    fn is_pair_interesting<EM, I, OT, S, F1, F2>(
+    fn is_pair_interesting<I, OT, S, F1, F2>(
         first: F1,
         second: F2,
         state: &mut S,
-        manager: &mut EM,
         input: &I,
         observers: &OT,
         exit_kind: &ExitKind,
     ) -> Result<bool, Error>
     where
-        F1: FnOnce(&mut S, &mut EM, &I, &OT, &ExitKind) -> Result<bool, Error>,
-        F2: FnOnce(&mut S, &mut EM, &I, &OT, &ExitKind) -> Result<bool, Error>,
+        F1: FnOnce(&mut S, &I, &OT, &ExitKind) -> Result<bool, Error>,
+        F2: FnOnce(&mut S, &I, &OT, &ExitKind) -> Result<bool, Error>,
     {
-        Ok(first(state, manager, input, observers, exit_kind)?
-            && second(state, manager, input, observers, exit_kind)?)
+        Ok(first(state, input, observers, exit_kind)?
+            && second(state, input, observers, exit_kind)?)
     }
 
     #[cfg(feature = "track_hit_feedbacks")]
@@ -627,21 +609,20 @@ where
     }
 }
 
-impl<A, EM, I, OT, S> Feedback<EM, I, OT, S> for NotFeedback<A>
+impl<A, I, OT, S> Feedback<I, OT, S> for NotFeedback<A>
 where
-    A: Feedback<EM, I, OT, S>,
+    A: Feedback<I, OT, S>,
 {
     fn is_interesting(
         &mut self,
         state: &mut S,
-        manager: &mut EM,
         input: &I,
         observers: &OT,
         exit_kind: &ExitKind,
     ) -> Result<bool, Error> {
         Ok(!self
             .inner
-            .is_interesting(state, manager, input, observers, exit_kind)?)
+            .is_interesting(state, input, observers, exit_kind)?)
     }
 
     #[cfg(feature = "track_hit_feedbacks")]
@@ -653,12 +634,11 @@ where
     fn append_metadata(
         &mut self,
         state: &mut S,
-        manager: &mut EM,
         observers: &OT,
         testcase: &mut Testcase<I>,
     ) -> Result<(), Error> {
         self.inner
-            .append_metadata(state, manager, observers, testcase)
+            .append_metadata(state, observers, testcase)
     }
 }
 
@@ -752,7 +732,7 @@ macro_rules! feedback_not {
 impl<S> StateInitializer<S> for () {}
 
 /// Hack to use () as empty Feedback
-impl<EM, I, OT, S> Feedback<EM, I, OT, S> for () {
+impl<I, OT, S> Feedback<I, OT, S> for () {
     #[cfg(feature = "track_hit_feedbacks")]
     fn last_result(&self) -> Result<bool, Error> {
         Ok(false)
@@ -821,14 +801,13 @@ pub struct ExitKindFeedback<L> {
 
 impl<L, S> StateInitializer<S> for ExitKindFeedback<L> where L: ExitKindLogic {}
 
-impl<EM, I, L, OT, S> Feedback<EM, I, OT, S> for ExitKindFeedback<L>
+impl<I, L, OT, S> Feedback<I, OT, S> for ExitKindFeedback<L>
 where
     L: ExitKindLogic,
 {
     fn is_interesting(
         &mut self,
         _state: &mut S,
-        _manager: &mut EM,
         _input: &I,
         _observers: &OT,
         exit_kind: &ExitKind,
@@ -906,7 +885,7 @@ pub struct TimeFeedback {
 }
 impl<S> StateInitializer<S> for TimeFeedback {}
 
-impl<EM, I, OT, S> Feedback<EM, I, OT, S> for TimeFeedback
+impl<I, OT, S> Feedback<I, OT, S> for TimeFeedback
 where
     OT: MatchName,
 {
@@ -920,7 +899,6 @@ where
     fn append_metadata(
         &mut self,
         _state: &mut S,
-        _manager: &mut EM,
         observers: &OT,
         testcase: &mut Testcase<I>,
     ) -> Result<(), Error> {
@@ -964,12 +942,11 @@ pub enum ConstFeedback {
 
 impl<S> StateInitializer<S> for ConstFeedback {}
 
-impl<EM, I, OT, S> Feedback<EM, I, OT, S> for ConstFeedback {
+impl<I, OT, S> Feedback<I, OT, S> for ConstFeedback {
     #[inline]
     fn is_interesting(
         &mut self,
         _state: &mut S,
-        _manager: &mut EM,
         _input: &I,
         _observers: &OT,
         _exit_kind: &ExitKind,

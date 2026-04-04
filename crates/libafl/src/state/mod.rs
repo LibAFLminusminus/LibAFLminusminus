@@ -33,20 +33,20 @@ use crate::{
     inputs::{Input, NopInput},
 };
 
-pub trait State<C, I, R, SC, SO> {
+pub trait State {
     fn max_size(&self) -> usize;
     /// Set the max size.
-    fn max_size_mut(&mut self);
+    fn max_size_mut(&mut self) -> &mut usize;
 
     /// The executions counter
-    fn executions(&self);
+    fn executions(&self) -> u64;
 
     /// The executions counter (mutable)
-    fn executions_mut(&mut self);
+    fn executions_mut(&mut self) -> &mut u64;
     ///the imported testcases counter
     fn imported(&self) -> usize;
     ///the imported testcases counter (mutable)
-    fn imported_mut(&mut self);
+    fn imported_mut(&mut self) -> &mut usize;
     /// The starting time
     fn start_time(&self) -> &Duration;
     /// The starting time (mutable)
@@ -61,26 +61,6 @@ pub trait State<C, I, R, SC, SO> {
     /// The last time we reported progress,if available/used (mutable).
     /// This information is used by fuzzer `maybe_report_progress`.
     fn last_report_time_mut(&mut self) -> &mut Option<Duration>;
-    /// The solutions corpus
-    fn solutions(&self) -> &SO;
-    /// The solutions corpus (mutable)
-    fn solutions_mut(&mut self) -> &mut SO;
-    /// Returns the corpus
-    #[inline]
-    fn corpus(&self) -> &C;
-    /// Returns the mutable corpus
-    #[inline]
-    fn corpus_mut(&mut self) -> &mut C;
-    /// The rand instance
-    #[inline]
-    fn rand(&self) -> &R;
-    /// The rand instance (mutable)
-    #[inline]
-    fn rand_mut(&mut self) -> &mut R;
-    /// To get the testcase
-    fn testcase(&self, id: CorpusId) -> &Testcase<I>;
-    /// To get mutable testcase
-    fn testcase_mut(&self, id: CorpusId) -> &mut Testcase<I>;
     /// Get all the metadata into an [`hashbrown::HashMap`]
     #[inline]
     fn named_metadata_map(&self) -> &NamedSerdeAnyMap;
@@ -96,12 +76,6 @@ pub trait State<C, I, R, SC, SO> {
     fn set_corpus_id(&mut self, id: CorpusId) -> Result<(), Error>;
 
     fn current_corpus_id(&self) -> Result<Option<CorpusId>, Error>;
-
-    // to romain: are these 3 methods safely handling of the corpus?
-
-    fn current_testcase(&self) -> Result<&Testcase<I>, Error>;
-
-    fn current_testcase_mut(&self) -> Result<&mut Testcase<I>, Error>;
 
     #[cfg(feature = "introspection")]
     fn introspection_stats(&self) -> &ClientPerfStats;
@@ -481,15 +455,8 @@ impl SchedulerTestcaseMetadata {
 
 libafl_bolts::impl_serdeany!(SchedulerTestcaseMetadata);
 
-#[cfg(feature = "std")]
-impl<C, I, R, SC, SO> StdState<C, I, R, SC, SO>
-where
-    C: Corpus<I, SC>,
-    I: Input,
-    R: Rand,
-    SO: Corpus<I, SC>,
-{
-    /// The max size allowed for the input
+impl<C, I, R, SC, SO> State for StdState<C, I, R, SC, SO> {
+        /// The max size allowed for the input
     fn max_size(&self) -> usize {
         self.max_size
     }
@@ -551,49 +518,6 @@ where
         &mut self.last_report_time
     }
 
-    /// The solutions corpus
-    fn solutions(&self) -> &SO {
-        &self.solutions
-    }
-    /// The solutions corpus (mutable)
-    fn solutions_mut(&mut self) -> &mut SO {
-        &mut self.solutions
-    }
-
-    /// Returns the corpus
-    #[inline]
-    fn corpus(&self) -> &C {
-        &self.corpus
-    }
-
-    /// Returns the mutable corpus
-    #[inline]
-    fn corpus_mut(&mut self) -> &mut C {
-        &mut self.corpus
-    }
-
-    /// The rand instance
-    #[inline]
-    fn rand(&self) -> &R {
-        &self.rand
-    }
-
-    /// The rand instance (mutable)
-    #[inline]
-    fn rand_mut(&mut self) -> &mut R {
-        &mut self.rand
-    }
-
-    /// To get the testcase
-    fn testcase(&self, id: CorpusId) -> &Testcase<I> {
-        self.corpus().get(id)?.borrow()
-    }
-
-    /// To get mutable testcase
-    fn testcase_mut(&self, id: CorpusId) -> &mut Testcase<I> {
-        self.corpus().get(id)?.borrow_mut()
-    }
-
     /// Get all the metadata into an [`hashbrown::HashMap`]
     #[inline]
     fn named_metadata_map(&self) -> &NamedSerdeAnyMap {
@@ -627,7 +551,84 @@ where
         Ok(self.corpus_id)
     }
 
-    // to romain: are these 3 methods safely handling of the corpus?
+
+    #[cfg(feature = "introspection")]
+    fn introspection_stats(&self) -> &ClientPerfStats {
+        &self.introspection_stats
+    }
+
+    #[cfg(feature = "introspection")]
+    fn introspection_stats_mut(&mut self) -> &mut ClientPerfStats {
+        &mut self.introspection_stats
+    }
+}
+
+pub trait HasSolutions<SO> {
+    fn solutions(&self) -> &SO;
+
+    fn solutions_mut(&mut self) -> &mut SO;
+}
+
+impl<C, I, R, SC, SO> HasSolutions<SO> for StdState<C, I, R, SC, SO> {
+    fn solutions(&self) -> &SO {
+        &self.solutions
+    }
+
+    fn solutions_mut(&mut self) -> &mut SO {
+        &mut self.solutions
+    }
+}
+
+pub trait HasCorpus<C> {
+    fn corpus(&self) -> &C;
+
+    fn corpus_mut(&mut self) -> &mut C;
+}
+
+impl<C, I, R, SC, SO> HasCorpus<C> for StdState<C, I, R, SC, SO> {
+    fn corpus(&self) -> &C {
+        &self.corpus
+    }
+
+    fn corpus_mut(&mut self) -> &mut C {
+        &mut self.corpus
+    }
+}
+
+pub trait HasRand<R> {
+    fn rand(&self) -> &R;
+
+    fn rand_mut(&mut self) -> &mut R;
+}
+
+impl<C, I, R, SC, SO> HasRand<R> for StdState<C, I, R, SC, SO> {
+    fn rand(&self) -> &R {
+        &self.rand
+    }
+
+    fn rand_mut(&mut self) -> &mut R {
+        &mut self.rand
+    }
+}
+
+
+#[cfg(feature = "std")]
+impl<C, I, R, SC, SO> StdState<C, I, R, SC, SO>
+where
+    C: Corpus<I, SC>,
+    I: Input,
+    R: Rand,
+    SO: Corpus<I, SC>,
+{
+    /// To get the testcase
+    fn testcase(&self, id: CorpusId) -> &Testcase<I> {
+        self.corpus().get(id)?.borrow()
+    }
+
+    /// To get mutable testcase
+    fn testcase_mut(&self, id: CorpusId) -> &mut Testcase<I> {
+        self.corpus().get(id)?.borrow_mut()
+    }
 
     fn current_testcase(&self) -> Result<&Testcase<I>, Error> {
         let Some(corpus_id) = self.current_corpus_id()? else {

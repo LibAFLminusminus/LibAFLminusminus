@@ -33,6 +33,8 @@ workspace = true
 default = [
   "derive",
   "errors_backtrace",
+  "value_bloom_feedback",
+  "nautilus",
   "fork",
   "gzip",
   "libafl_bolts/xxh3",

@@ -74,7 +74,7 @@ impl<N> Debug for CustomFilenameToTestcaseFeedback<N> {
 
 impl<N, S> StateInitializer<S> for CustomFilenameToTestcaseFeedback<N> {}
 
-impl<EM, I, OT, N, S> Feedback<EM, I, OT, S> for CustomFilenameToTestcaseFeedback<N>
+impl<I, OT, N, S> Feedback<I, OT, S> for CustomFilenameToTestcaseFeedback<N>
 where
     N: CustomFilenameGenerator<I, S>,
 {
@@ -87,7 +87,6 @@ where
     fn append_metadata(
         &mut self,
         state: &mut S,
-        _manager: &mut EM,
         _observers: &OT,
         testcase: &mut Testcase<I>,
     ) -> Result<(), Error> {

@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     Error, HasMetadata,
     common::nautilus::grammartec::{chunkstore::ChunkStore, context::Context},
-    corpus::{Corpus, Testcase},
+    corpus::Testcase,
     feedbacks::{Feedback, StateInitializer},
     generators::NautilusContext,
     inputs::NautilusInput,
@@ -92,14 +92,13 @@ impl Named for NautilusFeedback<'_> {
 
 impl<S> StateInitializer<S> for NautilusFeedback<'_> {}
 
-impl<EM, OT, S> Feedback<EM, NautilusInput, OT, S> for NautilusFeedback<'_>
+impl<OT, S> Feedback<NautilusInput, OT, S> for NautilusFeedback<'_>
 where
     S: HasMetadata + HasCorpus<NautilusInput>,
 {
     fn append_metadata(
         &mut self,
         state: &mut S,
-        _manager: &mut EM,
         _observers: &OT,
         testcase: &mut Testcase<NautilusInput>,
     ) -> Result<(), Error> {
@@ -136,11 +135,10 @@ impl<'a> NautilusUnparseToMetadataFeedback<'a> {
 }
 impl<S> StateInitializer<S> for NautilusUnparseToMetadataFeedback<'_> {}
 
-impl<EM, OT, S> Feedback<EM, NautilusInput, OT, S> for NautilusUnparseToMetadataFeedback<'_> {
+impl<OT, S> Feedback<NautilusInput, OT, S> for NautilusUnparseToMetadataFeedback<'_> {
     fn append_metadata(
         &mut self,
         _state: &mut S,
-        _manager: &mut EM,
         _observers: &OT,
         testcase: &mut Testcase<NautilusInput>,
     ) -> Result<(), Error> {
