@@ -563,13 +563,20 @@ impl<C, I, R, SC, SO> State for StdState<C, I, R, SC, SO> {
     }
 }
 
-pub trait HasSolutions<SO> {
-    fn solutions(&self) -> &SO;
+pub trait HasSolutions<I, SC> {
+    type Solution: Corpus<I, NopScheduler>;
 
-    fn solutions_mut(&mut self) -> &mut SO;
+    fn solutions(&self) -> &Self::Solution;
+
+    fn solutions_mut(&mut self) -> &mut Self::Solution;
 }
 
-impl<C, I, R, SC, SO> HasSolutions<SO> for StdState<C, I, R, SC, SO> {
+impl<C, I, R, SC, SO> HasSolutions<I, SC> for StdState<C, I, R, SC, SO> 
+where 
+    SO: Corpus<I, NopScheduler>,
+{
+    type Solution = SO;
+
     fn solutions(&self) -> &SO {
         &self.solutions
     }
@@ -579,13 +586,19 @@ impl<C, I, R, SC, SO> HasSolutions<SO> for StdState<C, I, R, SC, SO> {
     }
 }
 
-pub trait HasCorpus<C> {
-    fn corpus(&self) -> &C;
+pub trait HasCorpus<I, SC> {
+    type Corpus: Corpus<I, SC>;
+    fn corpus(&self) -> &Self::Corpus;
 
-    fn corpus_mut(&mut self) -> &mut C;
+    fn corpus_mut(&mut self) -> &mut Self::Corpus;
 }
 
-impl<C, I, R, SC, SO> HasCorpus<C> for StdState<C, I, R, SC, SO> {
+impl<C, I, R, SC, SO> HasCorpus<I, SC> for StdState<C, I, R, SC, SO> 
+where 
+    C: Corpus<I, SC>,
+{
+    type Corpus = C;
+
     fn corpus(&self) -> &C {
         &self.corpus
     }
@@ -595,13 +608,20 @@ impl<C, I, R, SC, SO> HasCorpus<C> for StdState<C, I, R, SC, SO> {
     }
 }
 
-pub trait HasRand<R> {
-    fn rand(&self) -> &R;
+pub trait HasRand {
+    type Rand: Rand;
 
-    fn rand_mut(&mut self) -> &mut R;
+    fn rand(&self) -> &Self::Rand;
+
+    fn rand_mut(&mut self) -> &mut Self::Rand;
 }
 
-impl<C, I, R, SC, SO> HasRand<R> for StdState<C, I, R, SC, SO> {
+impl<C, I, R, SC, SO> HasRand for StdState<C, I, R, SC, SO> 
+where
+    R: Rand,
+{
+    type Rand = R;
+
     fn rand(&self) -> &R {
         &self.rand
     }
