@@ -28,12 +28,10 @@ use crate::feedbacks::premature_last_result_err;
 use crate::{
     Error, HasMetadata, HasNamedMetadata,
     corpus::Testcase,
-    events::{Event, EventFirer, EventWithStats},
     executors::ExitKind,
     feedbacks::{Feedback, HasObserverHandle, StateInitializer},
-    monitors::stats::{AggregatorOps, UserStats, UserStatsValue, user_stats::TAG_MAP},
     observers::{CanTrack, MapObserver},
-    state::HasExecutions,
+    state::State,
 };
 
 #[cfg(feature = "simd")]
@@ -330,21 +328,19 @@ where
     }
 }
 
-impl<C, EM, I, N, O, OT, R, S> Feedback<EM, I, OT, S> for MapFeedback<C, N, O, R>
+impl<C, I, N, O, OT, R, S> Feedback<I, OT, S> for MapFeedback<C, N, O, R>
 where
     C: CanTrack + AsRef<O>,
-    EM: EventFirer<I, S>,
     N: IsNovel<O::Entry>,
     O: MapObserver + for<'it> AsIter<'it, Item = O::Entry>,
     O::Entry: 'static + Default + Debug + DeserializeOwned + Serialize,
     OT: MatchName,
     R: Reducer<O::Entry>,
-    S: HasNamedMetadata + HasExecutions,
+    S: HasNamedMetadata + State,
 {
     fn is_interesting(
         &mut self,
         state: &mut S,
-        _manager: &mut EM,
         _input: &I,
         observers: &OT,
         _exit_kind: &ExitKind,
@@ -366,7 +362,6 @@ where
     fn append_metadata(
         &mut self,
         state: &mut S,
-        manager: &mut EM,
         observers: &OT,
         testcase: &mut Testcase<I>,
     ) -> Result<(), Error> {
@@ -438,25 +433,6 @@ where
         // at this point you are executing this code, the testcase is always interesting
         let covered = map_state.num_covered_map_indexes;
         let len = history_map.len();
-        // opt: if not tracking optimisations, we technically don't show the *current* history
-        // map but the *last* history map; this is better than walking over and allocating
-        // unnecessarily
-        manager.fire(
-            state,
-            EventWithStats::with_current_time(
-                Event::UpdateUserStats {
-                    name: self.stats_name.clone(),
-                    value: UserStats::with_tag(
-                        UserStatsValue::Ratio(covered as u64, len as u64),
-                        AggregatorOps::Avg,
-                        TAG_MAP,
-                    ),
-                    phantom: PhantomData,
-                },
-                *state.executions(),
-            ),
-        )?;
-
         Ok(())
     }
 }

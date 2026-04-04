@@ -60,7 +60,7 @@ impl StdOutToMetadataFeedback {
 
 impl<S> StateInitializer<S> for StdOutToMetadataFeedback {}
 
-impl<EM, I, OT, S> Feedback<EM, I, OT, S> for StdOutToMetadataFeedback
+impl<I, OT, S> Feedback<I, OT, S> for StdOutToMetadataFeedback
 where
     OT: MatchName,
 {
@@ -74,7 +74,6 @@ where
     fn append_metadata(
         &mut self,
         _state: &mut S,
-        _manager: &mut EM,
         observers: &OT,
         testcase: &mut Testcase<I>,
     ) -> Result<(), Error> {
@@ -116,7 +115,7 @@ pub struct StdErrToMetadataFeedback {
 
 impl<S> StateInitializer<S> for StdErrToMetadataFeedback {}
 
-impl<EM, I, OT, S> Feedback<EM, I, OT, S> for StdErrToMetadataFeedback
+impl<I, OT, S> Feedback<I, OT, S> for StdErrToMetadataFeedback
 where
     OT: MatchName,
 {
@@ -130,7 +129,6 @@ where
     fn append_metadata(
         &mut self,
         _state: &mut S,
-        _manager: &mut EM,
         observers: &OT,
         testcase: &mut Testcase<I>,
     ) -> Result<(), Error> {

@@ -11,7 +11,6 @@ use crate::{
     executors::ExitKind,
     feedbacks::{Feedback, StateInitializer},
     stages::verify_timeouts::TimeoutsToVerify,
-    state::HasCorpus,
 };
 
 /// A Feedback that captures all timeouts and stores them in State for re-evaluation later.
@@ -37,16 +36,15 @@ impl Named for CaptureTimeoutFeedback {
 
 impl<S> StateInitializer<S> for CaptureTimeoutFeedback {}
 
-impl<EM, I, OT, S> Feedback<EM, I, OT, S> for CaptureTimeoutFeedback
+impl<I, OT, S> Feedback<I, OT, S> for CaptureTimeoutFeedback
 where
-    S: HasCorpus<I> + HasMetadata,
+    S: HasMetadata,
     I: Debug + Serialize + DeserializeOwned + Default + 'static + Clone,
 {
     #[inline]
     fn is_interesting(
         &mut self,
         state: &mut S,
-        _manager: &mut EM,
         input: &I,
         _observers: &OT,
         exit_kind: &ExitKind,
@@ -62,7 +60,6 @@ where
     fn append_metadata(
         &mut self,
         _state: &mut S,
-        _manager: &mut EM,
         _observers: &OT,
         _testcase: &mut Testcase<I>,
     ) -> Result<(), Error> {

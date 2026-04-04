@@ -71,13 +71,12 @@ impl<S: HasNamedMetadata, T> StateInitializer<S> for ValueBloomFeedback<'_, T> {
     }
 }
 
-impl<EM, I, OT: ObserversTuple<I, S>, S: HasNamedMetadata, T: Hash> Feedback<EM, I, OT, S>
+impl<I, OT: ObserversTuple<S>, S: HasNamedMetadata, T: Hash> Feedback<I, OT, S>
     for ValueBloomFeedback<'_, T>
 {
     fn is_interesting(
         &mut self,
         state: &mut S,
-        _manager: &mut EM,
         _input: &I,
         observers: &OT,
         _exit_kind: &ExitKind,
@@ -156,12 +155,12 @@ mod test {
         vbf.init_state(&mut state).unwrap();
 
         let first_eval = vbf
-            .is_interesting(&mut state, &mut mgr, &input, &observers, &exit_ok)
+            .is_interesting(&mut state, &input, &observers, &exit_ok)
             .unwrap();
         assert!(first_eval);
 
         let second_eval = vbf
-            .is_interesting(&mut state, &mut mgr, &input, &observers, &exit_ok)
+            .is_interesting(&mut state, &input, &observers, &exit_ok)
             .unwrap();
 
         assert!(!second_eval);
@@ -173,7 +172,7 @@ mod test {
         }
 
         let next_eval = vbf
-            .is_interesting(&mut state, &mut mgr, &input, &observers, &exit_ok)
+            .is_interesting(&mut state, &input, &observers, &exit_ok)
             .unwrap();
         assert!(next_eval);
     }
