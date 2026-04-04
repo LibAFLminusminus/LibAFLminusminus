@@ -94,7 +94,7 @@ impl<S> StateInitializer<S> for NautilusFeedback<'_> {}
 
 impl<OT, S> Feedback<NautilusInput, OT, S> for NautilusFeedback<'_>
 where
-    S: HasMetadata + HasCorpus<NautilusInput>,
+    S: HasMetadata,
 {
     fn append_metadata(
         &mut self,
