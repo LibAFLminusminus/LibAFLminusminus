@@ -1,19 +1,15 @@
 //! The fuzzer, and state are the core pieces of every good fuzzer
 
+use alloc::string::String;
 #[cfg(feature = "std")]
 use alloc::vec::Vec;
-use core::{
-    borrow::BorrowMut,
-    cell::{Ref, RefMut},
-    fmt::Debug,
-    marker::PhantomData,
-    time::Duration,
-};
+use core::{borrow::BorrowMut, fmt::Debug, marker::PhantomData, time::Duration};
 #[cfg(feature = "std")]
 use std::{
     fs,
     path::{Path, PathBuf},
 };
+use typed_builder::TypedBuilder;
 
 #[cfg(feature = "std")]
 use libafl_bolts::core_affinity::{CoreId, Cores};
@@ -23,23 +19,95 @@ use libafl_bolts::{
 };
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
-pub use stack::StageStack;
-
 #[cfg(feature = "introspection")]
 use crate::monitors::stats::ClientPerfStats;
 use crate::{
     Error, HasMetadata, HasNamedMetadata,
-    corpus::{Corpus, CorpusId, HasCurrentCorpusId, HasTestcase, InMemoryCorpus, Testcase},
-    events::{Event, EventFirer, EventWithStats, LogSeverity},
+    corpus::{
+        Corpus, CorpusId, InMemoryCorpus, Testcase, TestcaseFilenameFormat,
+        schedulers::NopScheduler,
+    },
     feedbacks::StateInitializer,
     fuzzer::{Evaluator, ExecuteInputResult},
     generators::Generator,
     inputs::{Input, NopInput},
-    stages::StageId,
 };
 
-pub trait State<C, I, R, S> {
+pub trait State<C, I, R, SC, SO> {
+    fn max_size(&self) -> usize;
+    /// Set the max size.
+    fn max_size_mut(&mut self);
+
+    /// The executions counter
+    fn executions(&self);
+
+    /// The executions counter (mutable)
+    fn executions_mut(&mut self);
+    ///the imported testcases counter
+    fn imported(&self) -> usize;
+    ///the imported testcases counter (mutable)
+    fn imported_mut(&mut self);
+    /// The starting time
+    fn start_time(&self) -> &Duration;
+    /// The starting time (mutable)
+    fn start_time_mut(&mut self) -> &mut Duration;
+    /// The last time we found something by ourselves
+    fn last_found_time(&self) -> &Duration;
+    /// The last time we found something by ourselves (mutable)
+    fn last_found_time_mut(&mut self) -> &mut Duration;
+    /// The last time we reported progress,if available/used.
+    /// This information is used by fuzzer `maybe_report_progress`.
+    fn last_report_time(&self) -> &Option<Duration>;
+    /// The last time we reported progress,if available/used (mutable).
+    /// This information is used by fuzzer `maybe_report_progress`.
+    fn last_report_time_mut(&mut self) -> &mut Option<Duration>;
+    /// The solutions corpus
+    fn solutions(&self) -> &SO;
+    /// The solutions corpus (mutable)
+    fn solutions_mut(&mut self) -> &mut SO;
+    /// Returns the corpus
+    #[inline]
+    fn corpus(&self) -> &C;
+    /// Returns the mutable corpus
+    #[inline]
+    fn corpus_mut(&mut self) -> &mut C;
+    /// The rand instance
+    #[inline]
     fn rand(&self) -> &R;
+    /// The rand instance (mutable)
+    #[inline]
+    fn rand_mut(&mut self) -> &mut R;
+    /// To get the testcase
+    fn testcase(&self, id: CorpusId) -> &Testcase<I>;
+    /// To get mutable testcase
+    fn testcase_mut(&self, id: CorpusId) -> &mut Testcase<I>;
+    /// Get all the metadata into an [`hashbrown::HashMap`]
+    #[inline]
+    fn named_metadata_map(&self) -> &NamedSerdeAnyMap;
+    /// Get all the metadata into an [`hashbrown::HashMap`] (mutable)
+    #[inline]
+    fn named_metadata_map_mut(&mut self) -> &mut NamedSerdeAnyMap;
+    fn request_stop(&mut self);
+
+    fn discard_stop_request(&mut self);
+
+    fn stop_requested(&self) -> bool;
+
+    fn set_corpus_id(&mut self, id: CorpusId) -> Result<(), Error>;
+
+    fn current_corpus_id(&self) -> Result<Option<CorpusId>, Error>;
+
+    // to romain: are these 3 methods safely handling of the corpus?
+
+    fn current_testcase(&self) -> Result<&Testcase<I>, Error>;
+
+    fn current_testcase_mut(&self) -> Result<&mut Testcase<I>, Error>;
+
+    #[cfg(feature = "introspection")]
+    fn introspection_stats(&self) -> &ClientPerfStats;
+
+    #[cfg(feature = "introspection")]
+    fn introspection_stats_mut(&mut self) -> &mut ClientPerfStats;
 }
 
 /// The maximum size of a testcase
@@ -70,7 +138,7 @@ impl<I, S, Z> Debug for LoadConfig<'_, I, S, Z> {
         R: serde::Serialize + for<'a> serde::Deserialize<'a>,
         SC: serde::Serialize + for<'a> serde::Deserialize<'a>,
     ")]
-pub struct StdState<C, I, R, SC> {
+pub struct StdState<C, I, R, SC, SO> {
     /// RNG instance
     rand: R,
     /// How many times the executor ran the harness/target
@@ -82,7 +150,7 @@ pub struct StdState<C, I, R, SC> {
     /// The corpus
     corpus: C,
     // Solutions corpus
-    solutions: SC,
+    solutions: SO,
     /// Metadata stored with names
     named_metadata: NamedSerdeAnyMap,
     /// `MaxSize` testcase size for mutators that appreciate it
@@ -110,8 +178,7 @@ pub struct StdState<C, I, R, SC> {
     /// Request the fuzzer to stop at the start of the next stage
     /// or at the beginning of the next fuzzing iteration
     stop_requested: bool,
-    stage_stack: StageStack,
-    phantom: PhantomData<I>,
+    phantom: PhantomData<(I, SC)>,
 }
 
 /// The [`Testcase`] metadata.
@@ -415,12 +482,12 @@ impl SchedulerTestcaseMetadata {
 libafl_bolts::impl_serdeany!(SchedulerTestcaseMetadata);
 
 #[cfg(feature = "std")]
-impl<C, I, R, SC> StdState<C, I, R, SC>
+impl<C, I, R, SC, SO> StdState<C, I, R, SC, SO>
 where
-    C: Corpus<I>,
+    C: Corpus<I, SC>,
     I: Input,
     R: Rand,
-    SC: Corpus<I>,
+    SO: Corpus<I, SC>,
 {
     /// The max size allowed for the input
     fn max_size(&self) -> usize {
@@ -485,11 +552,11 @@ where
     }
 
     /// The solutions corpus
-    fn solutions(&self) -> &SC {
+    fn solutions(&self) -> &SO {
         &self.solutions
     }
     /// The solutions corpus (mutable)
-    fn solutions_mut(&mut self) -> &mut SC {
+    fn solutions_mut(&mut self) -> &mut SO {
         &mut self.solutions
     }
 
@@ -553,11 +620,6 @@ where
 
     fn set_corpus_id(&mut self, id: CorpusId) -> Result<(), Error> {
         self.corpus_id = Some(id);
-        Ok(())
-    }
-
-    fn clear_corpus_id(&mut self) -> Result<(), Error> {
-        self.corpus_id = None;
         Ok(())
     }
 
@@ -683,17 +745,15 @@ where
     /// Loads initial inputs from the passed-in `in_dirs`.
     /// If `forced` is true, will add all testcases, no matter what.
     /// This method takes a list of files.
-    fn load_initial_inputs_custom_by_filenames<E, EM, Z>(
+    fn load_initial_inputs_custom_by_filenames<E, Z>(
         &mut self,
         fuzzer: &mut Z,
         executor: &mut E,
-        manager: &mut EM,
         file_list: &[PathBuf],
         load_config: LoadConfig<I, Self, Z>,
     ) -> Result<(), Error>
     where
-        EM: EventFirer<I, Self>,
-        Z: Evaluator<E, EM, I, Self>,
+        Z: Evaluator<E, I, Self>,
     {
         if let Some(remaining) = self.remaining_initial_files.as_ref() {
             // everything was loaded
@@ -704,20 +764,18 @@ where
             self.remaining_initial_files = Some(file_list.to_vec());
         }
 
-        self.continue_loading_initial_inputs_custom(fuzzer, executor, manager, load_config)
+        self.continue_loading_initial_inputs_custom(fuzzer, executor, load_config)
     }
 
-    fn load_file<E, EM, Z>(
+    fn load_file<E, Z>(
         &mut self,
         path: &Path,
-        manager: &mut EM,
         fuzzer: &mut Z,
         executor: &mut E,
         config: &mut LoadConfig<I, Self, Z>,
     ) -> Result<ExecuteInputResult, Error>
     where
-        EM: EventFirer<I, Self>,
-        Z: Evaluator<E, EM, I, Self>,
+        Z: Evaluator<E, I, Self>,
     {
         log::info!("Loading file {} ...", path.display());
         let input = match (config.loader)(fuzzer, self, path) {
@@ -731,10 +789,10 @@ where
             }
         };
         if config.forced {
-            let _ = fuzzer.add_input(self, executor, manager, input)?;
+            let _ = fuzzer.add_input(self, executor, input)?;
             Ok(ExecuteInputResult::Corpus)
         } else {
-            let (res, _) = fuzzer.evaluate_input(self, executor, manager, &input)?;
+            let (res, _) = fuzzer.evaluate_input(self, executor, &input)?;
             if res == ExecuteInputResult::None {
                 fuzzer.add_disabled_input(self, input)?;
                 log::warn!(
@@ -748,21 +806,19 @@ where
     /// Loads initial inputs from the passed-in `in_dirs`.
     /// This method takes a list of files and a `LoadConfig`
     /// which specifies the special handling of initial inputs
-    fn continue_loading_initial_inputs_custom<E, EM, Z>(
+    fn continue_loading_initial_inputs_custom<E, Z>(
         &mut self,
         fuzzer: &mut Z,
         executor: &mut E,
-        manager: &mut EM,
         mut config: LoadConfig<I, Self, Z>,
     ) -> Result<(), Error>
     where
-        EM: EventFirer<I, Self>,
-        Z: Evaluator<E, EM, I, Self>,
+        Z: Evaluator<E, I, Self>,
     {
         loop {
             match self.next_file() {
                 Ok(path) => {
-                    let res = self.load_file(&path, manager, fuzzer, executor, &mut config)?;
+                    let res = self.load_file(&path, fuzzer, executor, &mut config)?;
                     if config.exit_on_solution && matches!(res, ExecuteInputResult::Solution) {
                         return Err(Error::invalid_corpus(format!(
                             "Input {} resulted in a solution.",
@@ -775,17 +831,6 @@ where
             }
         }
 
-        manager.fire(
-            self,
-            EventWithStats::with_current_time(
-                Event::Log {
-                    severity_level: LogSeverity::Debug,
-                    message: format!("Loaded {} initial testcases.", self.corpus().count()), // get corpus count
-                    phantom: PhantomData::<I>,
-                },
-                *self.executions(),
-            ),
-        )?;
         Ok(())
     }
 
@@ -815,21 +860,18 @@ where
     /// This is rarely the right method, use `load_initial_inputs`,
     /// and potentially fix your `Feedback`, instead.
     /// This method takes a list of files, instead of folders.
-    pub fn load_initial_inputs_by_filenames<E, EM, Z>(
+    pub fn load_initial_inputs_by_filenames<E, Z>(
         &mut self,
         fuzzer: &mut Z,
         executor: &mut E,
-        manager: &mut EM,
         file_list: &[PathBuf],
     ) -> Result<(), Error>
     where
-        EM: EventFirer<I, Self>,
-        Z: Evaluator<E, EM, I, Self>,
+        Z: Evaluator<E, I, Self>,
     {
         self.load_initial_inputs_custom_by_filenames(
             fuzzer,
             executor,
-            manager,
             file_list,
             LoadConfig {
                 loader: &mut |_, _, path| I::from_file(path),
@@ -842,22 +884,19 @@ where
     /// Loads all intial inputs, even if they are not considered `interesting`.
     /// This is rarely the right method, use `load_initial_inputs`,
     /// and potentially fix your `Feedback`, instead.
-    pub fn load_initial_inputs_forced<E, EM, Z>(
+    pub fn load_initial_inputs_forced<E, Z>(
         &mut self,
         fuzzer: &mut Z,
         executor: &mut E,
-        manager: &mut EM,
         in_dirs: &[PathBuf],
     ) -> Result<(), Error>
     where
-        EM: EventFirer<I, Self>,
-        Z: Evaluator<E, EM, I, Self>,
+        Z: Evaluator<E, I, Self>,
     {
         self.canonicalize_input_dirs(in_dirs)?;
         self.continue_loading_initial_inputs_custom(
             fuzzer,
             executor,
-            manager,
             LoadConfig {
                 loader: &mut |_, _, path| I::from_file(path),
                 forced: true,
@@ -868,21 +907,18 @@ where
     /// Loads initial inputs from the passed-in `in_dirs`.
     /// If `forced` is true, will add all testcases, no matter what.
     /// This method takes a list of files, instead of folders.
-    pub fn load_initial_inputs_by_filenames_forced<E, EM, Z>(
+    pub fn load_initial_inputs_by_filenames_forced<E, Z>(
         &mut self,
         fuzzer: &mut Z,
         executor: &mut E,
-        manager: &mut EM,
         file_list: &[PathBuf],
     ) -> Result<(), Error>
     where
-        EM: EventFirer<I, Self>,
-        Z: Evaluator<E, EM, I, Self>,
+        Z: Evaluator<E, I, Self>,
     {
         self.load_initial_inputs_custom_by_filenames(
             fuzzer,
             executor,
-            manager,
             file_list,
             LoadConfig {
                 loader: &mut |_, _, path| I::from_file(path),
@@ -893,22 +929,19 @@ where
     }
 
     /// Loads initial inputs from the passed-in `in_dirs`.
-    pub fn load_initial_inputs<E, EM, Z>(
+    pub fn load_initial_inputs<E, Z>(
         &mut self,
         fuzzer: &mut Z,
         executor: &mut E,
-        manager: &mut EM,
         in_dirs: &[PathBuf],
     ) -> Result<(), Error>
     where
-        EM: EventFirer<I, Self>,
-        Z: Evaluator<E, EM, I, Self>,
+        Z: Evaluator<E, I, Self>,
     {
         self.canonicalize_input_dirs(in_dirs)?;
         self.continue_loading_initial_inputs_custom(
             fuzzer,
             executor,
-            manager,
             LoadConfig {
                 loader: &mut |_, _, path| I::from_file(path),
                 forced: false,
@@ -919,22 +952,19 @@ where
 
     /// Loads initial inputs from the passed-in `in_dirs`.
     /// Will return a `CorpusError` if a solution is found
-    pub fn load_initial_inputs_disallow_solution<E, EM, Z>(
+    pub fn load_initial_inputs_disallow_solution<E, Z>(
         &mut self,
         fuzzer: &mut Z,
         executor: &mut E,
-        manager: &mut EM,
         in_dirs: &[PathBuf],
     ) -> Result<(), Error>
     where
-        EM: EventFirer<I, Self>,
-        Z: Evaluator<E, EM, I, Self>,
+        Z: Evaluator<E, I, Self>,
     {
         self.canonicalize_input_dirs(in_dirs)?;
         self.continue_loading_initial_inputs_custom(
             fuzzer,
             executor,
-            manager,
             LoadConfig {
                 loader: &mut |_, _, path| I::from_file(path),
                 forced: false,
@@ -958,24 +988,21 @@ where
     }
     /// Loads initial inputs by dividing the from the passed-in `in_dirs`
     /// in a multicore fashion. Divides the corpus in chunks spread across cores.
-    pub fn load_initial_inputs_multicore<E, EM, Z>(
+    pub fn load_initial_inputs_multicore<E, Z>(
         &mut self,
         fuzzer: &mut Z,
         executor: &mut E,
-        manager: &mut EM,
         in_dirs: &[PathBuf],
         core_id: &CoreId,
         cores: &Cores,
     ) -> Result<(), Error>
     where
-        EM: EventFirer<I, Self>,
-        Z: Evaluator<E, EM, I, Self>,
+        Z: Evaluator<E, I, Self>,
     {
         if self.multicore_inputs_processed.unwrap_or(false) {
             self.continue_loading_initial_inputs_custom(
                 fuzzer,
                 executor,
-                manager,
                 LoadConfig {
                     loader: &mut |_, _, path| I::from_file(path),
                     forced: false,
@@ -1035,108 +1062,91 @@ where
                 self.remaining_initial_files = Some(collected_inputs);
             }
             self.multicore_inputs_processed = Some(true);
-            return self
-                .load_initial_inputs_multicore(fuzzer, executor, manager, in_dirs, core_id, cores);
+            return self.load_initial_inputs_multicore(fuzzer, executor, in_dirs, core_id, cores);
         }
         Ok(())
     }
 }
 
-impl<C, I, R, SC> StdState<C, I, R, SC>
+impl<C, I, R, SC, SO> StdState<C, I, R, SC, SO>
 where
-    C: Corpus<I>,
+    C: Corpus<I, SC>,
     I: Input,
     R: Rand,
-    SC: Corpus<I>,
+    SO: Corpus<I, SC>,
 {
-    fn generate_initial_internal<G, E, EM, Z>(
+    fn generate_initial_internal<G, E, Z>(
         &mut self,
         fuzzer: &mut Z,
         executor: &mut E,
         generator: &mut G,
-        manager: &mut EM,
         num: usize,
         forced: bool,
     ) -> Result<(), Error>
     where
-        EM: EventFirer<I, Self>,
         G: Generator<I, Self>,
-        Z: Evaluator<E, EM, I, Self>,
+        Z: Evaluator<E, I, Self>,
     {
         let mut added = 0;
         for _ in 0..num {
             let input = generator.generate(self)?;
             if forced {
-                let _ = fuzzer.add_input(self, executor, manager, input)?;
+                let _ = fuzzer.add_input(self, executor, input)?;
                 added += 1;
             } else {
-                let (res, _) = fuzzer.evaluate_input(self, executor, manager, &input)?;
+                let input;
+                let (res, _) = fuzzer.evaluate_input(self, executor, &input)?;
                 if res != ExecuteInputResult::None {
                     added += 1;
                 }
             }
         }
-        manager.fire(
-            self,
-            EventWithStats::with_current_time(
-                Event::Log {
-                    severity_level: LogSeverity::Debug,
-                    message: format!("Loaded {added} over {num} initial testcases"),
-                    phantom: PhantomData,
-                },
-                *self.executions(),
-            ),
-        )?;
         Ok(())
     }
 
     /// Generate `num` initial inputs, using the passed-in generator and force the addition to corpus.
-    pub fn generate_initial_inputs_forced<G, E, EM, Z>(
+    pub fn generate_initial_inputs_forced<G, E, Z>(
         &mut self,
         fuzzer: &mut Z,
         executor: &mut E,
         generator: &mut G,
-        manager: &mut EM,
         num: usize,
     ) -> Result<(), Error>
     where
-        EM: EventFirer<I, Self>,
         G: Generator<I, Self>,
-        Z: Evaluator<E, EM, I, Self>,
+        Z: Evaluator<E, I, Self>,
     {
-        self.generate_initial_internal(fuzzer, executor, generator, manager, num, true)
+        self.generate_initial_internal(fuzzer, executor, generator, num, true)
     }
 
     /// Generate `num` initial inputs, using the passed-in generator.
-    pub fn generate_initial_inputs<G, E, EM, Z>(
+    pub fn generate_initial_inputs<G, E, Z>(
         &mut self,
         fuzzer: &mut Z,
         executor: &mut E,
         generator: &mut G,
-        manager: &mut EM,
         num: usize,
     ) -> Result<(), Error>
     where
-        EM: EventFirer<I, Self>,
         G: Generator<I, Self>,
-        Z: Evaluator<E, EM, I, Self>,
+        Z: Evaluator<E, I, Self>,
     {
-        self.generate_initial_internal(fuzzer, executor, generator, manager, num, false)
+        self.generate_initial_internal(fuzzer, executor, generator, num, false)
     }
 }
 
-impl<C, I, R, SC> StdState<C, I, R, SC>
+impl<C, I, R, SC, SO> StdState<C, I, R, SC, SO>
 where
-    C: Corpus<I>,
+    C: Corpus<I, SC>,
     I: Input,
     R: Rand,
-    SC: Corpus<I>,
+    SO: Corpus<I, SC>,
 {
     /// Creates a new `State`, taking ownership of all of the individual components during fuzzing.
     pub fn new<F, O>(
         rand: R,
         corpus: C,
-        solutions: SC,
+        solutions: SO,
         feedback: &mut F,
         objective: &mut O,
     ) -> Result<Self, Error>
@@ -1144,7 +1154,7 @@ where
         F: StateInitializer<Self>,
         O: StateInitializer<Self>,
         C: Serialize + DeserializeOwned,
-        SC: Serialize + DeserializeOwned,
+        SO: Serialize + DeserializeOwned,
     {
         let mut state = Self {
             rand,
@@ -1165,7 +1175,6 @@ where
             last_report_time: None,
             last_found_time: libafl_bolts::current_time(),
             corpus_id: None,
-            stage_stack: StageStack::default(),
             phantom: PhantomData,
             #[cfg(feature = "std")]
             multicore_inputs_processed: None,
@@ -1176,7 +1185,7 @@ where
     }
 }
 
-impl StdState<InMemoryCorpus<NopInput>, NopInput, StdRand, InMemoryCorpus<NopInput>> {
+impl StdState<InMemoryCorpus<NopInput>, NopInput, StdRand, NopScheduler, InMemoryCorpus<NopInput>> {
     /// Create an empty [`StdState`] that has very minimal uses.
     /// Potentially good for testing.
     pub fn nop() -> Result<
