@@ -625,10 +625,10 @@ where
 #[cfg(feature = "std")]
 impl<C, I, R, SC, SO> StdState<C, I, R, SC, SO>
 where
-    C: Corpus<I, SC>,
+    C: Corpus<I>,
     I: Input,
     R: Rand,
-    SO: Corpus<I, SC>,
+    SO: Corpus<I>,
 {
     /// To get the testcase
     fn testcase(&self, id: CorpusId) -> &Testcase<I> {
@@ -1081,10 +1081,10 @@ where
 
 impl<C, I, R, SC, SO> StdState<C, I, R, SC, SO>
 where
-    C: Corpus<I, SC>,
+    C: Corpus<I>,
     I: Input,
     R: Rand,
-    SO: Corpus<I, SC>,
+    SO: Corpus<I>,
 {
     fn generate_initial_internal<G, E, Z>(
         &mut self,
@@ -1148,10 +1148,10 @@ where
 
 impl<C, I, R, SC, SO> StdState<C, I, R, SC, SO>
 where
-    C: Corpus<I, SC>,
+    C: Corpus<I>,
     I: Input,
     R: Rand,
-    SO: Corpus<I, SC>,
+    SO: Corpus<I>,
 {
     /// Creates a new `State`, taking ownership of all of the individual components during fuzzing.
     pub fn new<F, O>(
@@ -1196,7 +1196,7 @@ where
     }
 }
 
-impl StdState<InMemoryCorpus<NopInput>, NopInput, StdRand, NopScheduler, InMemoryCorpus<NopInput>> {
+impl StdState<InMemoryCorpus<NopInput, NopScheduler>, NopInput, StdRand, NopScheduler, InMemoryCorpus<NopInput, NopScheduler>> {
     /// Create an empty [`StdState`] that has very minimal uses.
     /// Potentially good for testing.
     pub fn nop() -> Result<
