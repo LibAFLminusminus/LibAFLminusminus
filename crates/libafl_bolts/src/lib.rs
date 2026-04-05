@@ -656,7 +656,7 @@ pub mod pybind {
             match &$wrapper {
                 $(
                     $wrapper_type::$wrapper_option(py_wrapper) => {
-                        Python::with_gil(|py| -> PyResult<_> {
+                        Python::attach(|py| -> PyResult<_> {
                             let borrowed = py_wrapper.borrow(py);
                             let $name = &borrowed.inner;
                             Ok($body)
@@ -670,7 +670,7 @@ pub mod pybind {
             match &$wrapper {
                 $(
                     $wrapper_type::$wrapper_option(py_wrapper) => {
-                        Python::with_gil(|py| -> PyResult<_> {
+                        Python::attach(|py| -> PyResult<_> {
                             let borrowed = py_wrapper.borrow(py);
                             let $name = &borrowed.inner;
                             Ok($body)
@@ -697,7 +697,7 @@ pub mod pybind {
                     where
                         S: Serializer,
                     {
-                        let buf = Python::with_gil(|py| -> PyResult<Vec<u8>> {
+                        let buf = Python::attach(|py| -> PyResult<Vec<u8>> {
                             let pickle = PyModule::import(py, "pickle")?;
                             let buf: Vec<u8> =
                                 pickle.getattr("dumps")?.call1((&self.$inner,))?.extract()?;
@@ -722,9 +722,9 @@ pub mod pybind {
                     where
                         E: serde::de::Error,
                     {
-                        let obj = Python::with_gil(|py| -> PyResult<PyObject> {
+                        let obj = Python::attach(|py| -> PyResult<PyObject> {
                             let pickle = PyModule::import(py, "pickle")?;
-                            let obj = pickle.getattr("loads")?.call1((v,))?.to_object(py);
+                            let obj = pickle.getattr("loads")?.call1((v,))?.unbind();
                             Ok(obj)
                         })
                         .unwrap();
