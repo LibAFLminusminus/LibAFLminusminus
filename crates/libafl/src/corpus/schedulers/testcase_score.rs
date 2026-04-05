@@ -6,12 +6,8 @@ use num_traits::Zero;
 
 use crate::{
     Error, HasMetadata,
-    corpus::{Corpus, SchedulerTestcaseMetadata, Testcase},
+    corpus::{Corpus, Testcase},
     feedbacks::MapIndexesMetadata,
-    schedulers::{
-        minimizer::{IsFavoredMetadata, TopRatedsMetadata},
-        powersched::{BaseSchedule, SchedulerMetadata},
-    },
     state::HasCorpus,
 };
 
@@ -34,7 +30,6 @@ pub struct LenTimeMulTestcasePenalty {}
 
 impl<I, S> TestcasePenalty<I, S> for LenTimeMulTestcasePenalty
 where
-    S: HasCorpus<I>,
     I: HasLen,
 {
     #[expect(clippy::cast_precision_loss)]

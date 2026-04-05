@@ -207,13 +207,6 @@ pub trait Scheduler<I, S> {
 
     /// Gets the next entry
     fn next(&mut self, state: &mut S) -> Result<CorpusId, Error>;
-
-    /// Set current fuzzed corpus id and `scheduled_count`
-    fn set_current_scheduled(
-        &mut self,
-        state: &mut S,
-        next_id: Option<CorpusId>,
-    ) -> Result<(), Error>;
 }
 
 /// Feed the fuzzer simply with a random testcase on request
@@ -250,15 +243,6 @@ where
             <Self as Scheduler<I, S>>::set_current_scheduled(self, state, Some(id))?;
             Ok(id)
         }
-    }
-
-    fn set_current_scheduled(
-        &mut self,
-        state: &mut S,
-        next_id: Option<CorpusId>,
-    ) -> Result<(), Error> {
-        *state.corpus_mut().current_mut() = next_id;
-        Ok(())
     }
 }
 

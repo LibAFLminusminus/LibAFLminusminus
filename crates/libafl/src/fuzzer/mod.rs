@@ -47,18 +47,6 @@ use crate::{
 /// Send a monitor update all 15 (or more) seconds
 pub(crate) const STATS_TIMEOUT_DEFAULT: Duration = Duration::from_secs(15);
 
-/// Holds a scheduler
-pub trait HasScheduler<I, S> {
-    /// The [`Scheduler`] for this fuzzer
-    type Scheduler: Scheduler<I, S>;
-
-    /// The scheduler
-    fn scheduler(&self) -> &Self::Scheduler;
-
-    /// The scheduler (mutable)
-    fn scheduler_mut(&mut self) -> &mut Self::Scheduler;
-}
-
 /// Holds an feedback
 pub trait HasFeedback {
     /// The feedback type

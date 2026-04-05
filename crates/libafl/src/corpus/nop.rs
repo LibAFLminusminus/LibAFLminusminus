@@ -7,17 +7,29 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     Error,
-    corpus::{Corpus, CorpusId, Testcase},
+    corpus::{Corpus, CorpusId, HasScheduler, Testcase, schedulers::NopScheduler},
 };
 
 /// A corpus which does not store any [`Testcase`]s.
 #[derive(Default, Serialize, Deserialize, Clone, Debug)]
-pub struct NopCorpus<I> {
+pub struct NopCorpus<I, S> {
     empty: Option<CorpusId>,
-    phantom: PhantomData<I>,
+    phantom: PhantomData<(I, S)>,
 }
 
-impl<I> Corpus<I, NopScheduler> for NopCorpus<I> {
+impl<I, S> HasScheduler<I, S> for NopCorpus<I, S> {
+    type Scheduler = NopScheduler;
+
+    fn scheduler(&self) -> &Self::Scheduler {
+        &NopScheduler::new()
+    }
+
+    fn scheduler_mut(&mut self) -> &mut Self::Scheduler {
+        &mut NopScheduler::new()
+    }
+}
+
+impl<I, S> Corpus<I> for NopCorpus<I, S> {
     /// Returns the number of all enabled entries
     #[inline]
     fn count(&self) -> usize {
@@ -44,13 +56,9 @@ impl<I> Corpus<I, NopScheduler> for NopCorpus<I> {
     fn get_from<const ENABLED: bool>(&self, _id: CorpusId) -> Result<Testcase<I>, Error> {
         Err(Error::unsupported("Unsupported by NopCorpus"))
     }
-
-    fn disable(&mut self, _id: CorpusId) -> Result<(), Error> {
-        Err(Error::unsupported("Unsupported by NopCorpus"))
-    }
 }
 
-impl<I> NopCorpus<I> {
+impl<I, S> NopCorpus<I, S> {
     /// Creates a new [`NopCorpus`].
     #[must_use]
     pub fn new() -> Self {

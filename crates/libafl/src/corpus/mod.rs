@@ -23,6 +23,7 @@ pub mod store;
 pub use store::{maps, InMemoryStore, OnDiskStore, Store};
 
 pub mod schedulers;
+pub use schedulers::Scheduler;
 
 pub mod collection;
 pub use collection::{
@@ -89,13 +90,17 @@ macro_rules! random_corpus_id_with_disabled {
     }};
 }
 
-/// Corpus with all current [`Testcase`]s, or solutions
-pub trait Corpus<I, SC>: Sized {
+pub trait HasScheduler<I, S> {
+    type Scheduler: Scheduler<I, S>;
     /// Get the reference to the corpus' scheduler
-    fn scheduler(&self) -> &SC;
+    fn scheduler(&self) -> &Self::Scheduler;
 
     /// Get the mutable reference to the corpus' scheduler
-    fn scheduler_mut(&mut self) -> &mut SC;
+    fn scheduler_mut(&mut self) -> &mut Self::Scheduler;
+}
+
+/// Corpus with all current [`Testcase`]s, or solutions
+pub trait Corpus<I>: Sized {
 
     /// Returns the number of all enabled entries
     fn count(&self) -> usize;
@@ -143,9 +148,6 @@ pub trait Corpus<I, SC>: Sized {
 
     /// Get testcase by id
     fn get_from<const ENABLED: bool>(&self, id: CorpusId) -> Result<Testcase<I>, Error>;
-
-    /// Disable a corpus entry
-    fn disable(&mut self, id: CorpusId) -> Result<(), Error>;
 
     /// An iterator over very active corpus id
     fn ids(&self) -> CorpusIdIterator<'_, Self, I> {

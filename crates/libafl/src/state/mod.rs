@@ -311,16 +311,6 @@ impl TestcaseMetadata {
         &mut self.hit_objectives
     }
 
-    /// Sets the id of the parent, that this testcase was derived from
-    pub fn set_parent_id(&mut self, parent_id: CorpusId) {
-        self.parent_id = Some(parent_id);
-    }
-
-    /// Sets the id of the parent, that this testcase was derived from
-    pub fn set_parent_id_optional(&mut self, parent_id: Option<CorpusId>) {
-        self.parent_id = parent_id;
-    }
-
     /// Adds one objective to the `objectives_found` counter. Mostly called from crash handler or executor.
     pub fn found_objective(&mut self) {
         let count = self.objectives_found.saturating_add(1);
@@ -564,7 +554,7 @@ impl<C, I, R, SC, SO> State for StdState<C, I, R, SC, SO> {
 }
 
 pub trait HasSolutions<I, SC> {
-    type Solution: Corpus<I, NopScheduler>;
+    type Solution: Corpus<I>;
 
     fn solutions(&self) -> &Self::Solution;
 
@@ -573,7 +563,7 @@ pub trait HasSolutions<I, SC> {
 
 impl<C, I, R, SC, SO> HasSolutions<I, SC> for StdState<C, I, R, SC, SO> 
 where 
-    SO: Corpus<I, NopScheduler>,
+    SO: Corpus<I>,
 {
     type Solution = SO;
 
@@ -586,16 +576,16 @@ where
     }
 }
 
-pub trait HasCorpus<I, SC> {
-    type Corpus: Corpus<I, SC>;
+pub trait HasCorpus<I> {
+    type Corpus: Corpus<I>;
     fn corpus(&self) -> &Self::Corpus;
 
     fn corpus_mut(&mut self) -> &mut Self::Corpus;
 }
 
-impl<C, I, R, SC, SO> HasCorpus<I, SC> for StdState<C, I, R, SC, SO> 
+impl<C, I, R, SC, SO> HasCorpus<I> for StdState<C, I, R, SC, SO> 
 where 
-    C: Corpus<I, SC>,
+    C: Corpus<I>,
 {
     type Corpus = C;
 
