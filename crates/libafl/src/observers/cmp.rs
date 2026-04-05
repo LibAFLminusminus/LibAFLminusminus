@@ -250,17 +250,17 @@ where
     }
 }
 
-impl<CM, I, S> Observer<I, S> for StdCmpObserver<'_, CM>
+impl<CM, S> Observer<S> for StdCmpObserver<'_, CM>
 where
     CM: Serialize + CmpMap + HasLen,
     S: HasMetadata,
 {
-    fn pre_exec(&mut self, _state: &mut S, _input: &I) -> Result<(), Error> {
+    fn pre_exec(&mut self, _state: &mut S) -> Result<(), Error> {
         self.cmp_map.as_mut().reset()?;
         Ok(())
     }
 
-    fn post_exec(&mut self, state: &mut S, _input: &I, _exit_kind: &ExitKind) -> Result<(), Error> {
+    fn post_exec(&mut self, state: &mut S, _exit_kind: &ExitKind) -> Result<(), Error> {
         if self.add_meta {
             let meta = state.metadata_or_insert_with(CmpValuesMetadata::new);
 

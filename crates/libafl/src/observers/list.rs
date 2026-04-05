@@ -42,8 +42,8 @@ impl<T> ListObserver<T> {
     }
 }
 
-impl<I, S, T> Observer<I, S> for ListObserver<T> {
-    fn pre_exec(&mut self, _state: &mut S, _input: &I) -> Result<(), Error> {
+impl<S, T> Observer<S> for ListObserver<T> {
+    fn pre_exec(&mut self, _state: &mut S) -> Result<(), Error> {
         self.list.as_mut().clear();
         Ok(())
     }

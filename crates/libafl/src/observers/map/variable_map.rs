@@ -28,12 +28,12 @@ pub struct VariableMapObserver<'a, T> {
     name: Cow<'static, str>,
 }
 
-impl<I, S, T> Observer<I, S> for VariableMapObserver<'_, T>
+impl<S, T> Observer<S> for VariableMapObserver<'_, T>
 where
     Self: MapObserver,
 {
     #[inline]
-    fn pre_exec(&mut self, _state: &mut S, _input: &I) -> Result<(), Error> {
+    fn pre_exec(&mut self, _state: &mut S) -> Result<(), Error> {
         self.reset_map()
     }
 }

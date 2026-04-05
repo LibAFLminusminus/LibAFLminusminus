@@ -115,39 +115,19 @@ impl<M> DerefMut for HitcountsMapObserver<M> {
     }
 }
 
-impl<I, S, M> Observer<I, S> for HitcountsMapObserver<M>
+impl<S, M> Observer<S> for HitcountsMapObserver<M>
 where
-    M: MapObserver<Entry = u8> + Observer<I, S> + for<'a> AsSliceMut<'a, Entry = u8>,
+    M: MapObserver<Entry = u8> + Observer<S> + for<'a> AsSliceMut<'a, Entry = u8>,
 {
     #[inline]
-    fn flush(&mut self) -> Result<(), Error> {
-        self.base.flush()
+    fn pre_exec(&mut self, state: &mut S) -> Result<(), Error> {
+        self.base.pre_exec(state)
     }
 
     #[inline]
-    fn pre_exec(&mut self, state: &mut S, input: &I) -> Result<(), Error> {
-        self.base.pre_exec(state, input)
-    }
-
-    #[inline]
-    fn post_exec(&mut self, state: &mut S, input: &I, exit_kind: &ExitKind) -> Result<(), Error> {
+    fn post_exec(&mut self, state: &mut S, exit_kind: &ExitKind) -> Result<(), Error> {
         classify_counts(&mut self.as_slice_mut());
-        self.base.post_exec(state, input, exit_kind)
-    }
-
-    #[inline]
-    fn pre_exec_child(&mut self, state: &mut S, input: &I) -> Result<(), Error> {
-        self.base.pre_exec_child(state, input)
-    }
-
-    #[inline]
-    fn post_exec_child(
-        &mut self,
-        state: &mut S,
-        input: &I,
-        exit_kind: &ExitKind,
-    ) -> Result<(), Error> {
-        self.base.post_exec_child(state, input, exit_kind)
+        self.base.post_exec(state, exit_kind)
     }
 }
 
@@ -303,9 +283,9 @@ where
     }
 }
 
-impl<M, OTA, OTB, I, S> DifferentialObserver<OTA, OTB, I, S> for HitcountsMapObserver<M>
+impl<M, OTA, OTB, S> DifferentialObserver<OTA, OTB, S> for HitcountsMapObserver<M>
 where
-    M: DifferentialObserver<OTA, OTB, I, S>
+    M: DifferentialObserver<OTA, OTB, S>
         + MapObserver<Entry = u8>
         + for<'a> AsSliceMut<'a, Entry = u8>,
 {
@@ -348,42 +328,22 @@ impl<M> DerefMut for HitcountsIterableMapObserver<M> {
     }
 }
 
-impl<I, S, M> Observer<I, S> for HitcountsIterableMapObserver<M>
+impl<S, M> Observer<S> for HitcountsIterableMapObserver<M>
 where
-    M: MapObserver<Entry = u8> + Observer<I, S> + for<'it> AsIterMut<'it, Item = u8>,
+    M: MapObserver<Entry = u8> + Observer<S> + for<'it> AsIterMut<'it, Item = u8>,
 {
     #[inline]
-    fn flush(&mut self) -> Result<(), Error> {
-        self.base.flush()
+    fn pre_exec(&mut self, state: &mut S) -> Result<(), Error> {
+        self.base.pre_exec(state)
     }
 
     #[inline]
-    fn pre_exec(&mut self, state: &mut S, input: &I) -> Result<(), Error> {
-        self.base.pre_exec(state, input)
-    }
-
-    #[inline]
-    fn post_exec(&mut self, state: &mut S, input: &I, exit_kind: &ExitKind) -> Result<(), Error> {
+    fn post_exec(&mut self, state: &mut S, exit_kind: &ExitKind) -> Result<(), Error> {
         for mut item in self.as_iter_mut() {
             *item = unsafe { *COUNT_CLASS_LOOKUP.get_unchecked((*item) as usize) };
         }
 
-        self.base.post_exec(state, input, exit_kind)
-    }
-
-    #[inline]
-    fn pre_exec_child(&mut self, state: &mut S, input: &I) -> Result<(), Error> {
-        self.base.pre_exec_child(state, input)
-    }
-
-    #[inline]
-    fn post_exec_child(
-        &mut self,
-        state: &mut S,
-        input: &I,
-        exit_kind: &ExitKind,
-    ) -> Result<(), Error> {
-        self.base.post_exec_child(state, input, exit_kind)
+        self.base.post_exec(state, exit_kind)
     }
 }
 
@@ -481,9 +441,9 @@ where
     }
 }
 
-impl<M, OTA, OTB, I, S> DifferentialObserver<OTA, OTB, I, S> for HitcountsIterableMapObserver<M>
+impl<M, OTA, OTB, S> DifferentialObserver<OTA, OTB, S> for HitcountsIterableMapObserver<M>
 where
-    M: DifferentialObserver<OTA, OTB, I, S>
+    M: DifferentialObserver<OTA, OTB, S>
         + MapObserver<Entry = u8>
         + for<'it> AsIterMut<'it, Item = u8>,
 {
