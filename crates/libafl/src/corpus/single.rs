@@ -8,7 +8,9 @@ use core::marker::PhantomData;
 use libafl_bolts::Error;
 use serde::{Deserialize, Serialize};
 
-use super::{Corpus, CorpusCounter, CorpusId, Testcase, store::Store};
+use crate::corpus::{Scheduler, schedulers::RemovableScheduler};
+
+use super::{Corpus, CorpusCounter, CorpusId, Testcase, store::Store, HasScheduler};
 
 /// You average corpus.
 /// It has one backing store, used to store / retrieve testcases.
@@ -51,10 +53,12 @@ impl<I, S, SC> SingleCorpus<I, S, SC> {
     }
 }
 
-impl<I, S, SC> Corpus<I, SC> for SingleCorpus<I, S, SC>
-where
-    S: Store<I>,
+impl<I, S, SC> HasScheduler<I, S> for SingleCorpus<I, S, SC> 
+where 
+    SC: Scheduler<I, S>
 {
+    type Scheduler = SC;
+
     fn scheduler(&self) -> &SC {
         &self.scheduler
     }
@@ -62,7 +66,17 @@ where
     fn scheduler_mut(&mut self) -> &mut SC {
         &mut self.scheduler
     }
+}
 
+pub trait DisableEntry {
+    /// Disable a corpus entry
+    fn disable(&mut self, id: CorpusId) -> Result<(), Error>;
+}
+
+impl<I, S, SC> Corpus<I> for SingleCorpus<I, S, SC>
+where
+    S: Store<I>,
+{
     fn count(&self) -> usize {
         self.store.count()
     }
@@ -86,6 +100,13 @@ where
         self.store.get_from::<ENABLED>(id)
     }
 
+}
+
+impl<I, S, SC> DisableEntry for SingleCorpus<I, S, SC>
+where
+    S: Store<I>,
+    SC: RemovableScheduler<I, S> 
+{
     fn disable(&mut self, id: CorpusId) -> Result<(), Error> {
         self.store.disable(id)
     }

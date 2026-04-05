@@ -11,6 +11,7 @@ use crate::{
         Corpus, CorpusId, InMemoryStore, OnDiskStore, SingleCorpus, Testcase,
         TestcaseFilenameFormat,
         maps::{self, InMemoryCorpusMap},
+        single::DisableEntry,
         store::{Store, ondisk::OnDiskStoreBuilder},
     },
     inputs::Input,
@@ -25,11 +26,11 @@ type StdInMemoryMap<T> = maps::BtreeCorpusMap<T>;
 
 type InnerStdInMemoryCorpusMap<I> = StdInMemoryMap<Testcase<I>>;
 type InnerStdInMemoryStore<I> = InMemoryStore<I, InnerStdInMemoryCorpusMap<I>>;
-type InnerInMemoryCorpus<I> = SingleCorpus<I, InnerStdInMemoryStore<I>>;
+type InnerInMemoryCorpus<I, SC> = SingleCorpus<I, InnerStdInMemoryStore<I>, SC>;
 
 type InnerStdOnDiskStore<I> = OnDiskStore<I, StdInMemoryMap<String>>;
 #[cfg(feature = "std")]
-type InnerOnDiskCorpus<I> = SingleCorpus<I, InnerStdOnDiskStore<I>>;
+type InnerOnDiskCorpus<I, SC> = SingleCorpus<I, InnerStdOnDiskStore<I>, SC>;
 
 /// The standard fully in-memory corpus map.
 #[repr(transparent)]
@@ -49,13 +50,13 @@ pub struct StdOnDiskStore<I>(InnerStdOnDiskStore<I>);
 /// The standard in-memory corpus.
 #[repr(transparent)]
 #[derive(Debug, Serialize, Deserialize)]
-pub struct InMemoryCorpus<I>(InnerInMemoryCorpus<I>);
+pub struct InMemoryCorpus<I, SC>(InnerInMemoryCorpus<I, SC>);
 
 /// The standard fully on-disk corpus.
 #[cfg(feature = "std")]
 #[repr(transparent)]
 #[derive(Debug, Serialize, Deserialize)]
-pub struct OnDiskCorpus<I>(InnerOnDiskCorpus<I>);
+pub struct OnDiskCorpus<I, SC>(InnerOnDiskCorpus<I, SC>);
 
 /// The on-disk corpus builder
 #[cfg(feature = "std")]
@@ -157,13 +158,13 @@ where
     }
 }
 
-impl<I> Default for InMemoryCorpus<I> {
+impl<I, SC> Default for InMemoryCorpus<I, SC> {
     fn default() -> Self {
         InMemoryCorpus(InnerInMemoryCorpus::default())
     }
 }
 
-impl<I> InMemoryCorpus<I> {
+impl<I, SC> InMemoryCorpus<I, SC> {
     /// Create a new [`InMemoryCorpus`].
     #[must_use]
     pub fn new() -> Self {
@@ -171,7 +172,7 @@ impl<I> InMemoryCorpus<I> {
     }
 }
 
-impl<I, SC> Corpus<I, SC> for InMemoryCorpus<I>
+impl<I, SC> Corpus<I> for InMemoryCorpus<I, SC>
 where
     I: Input,
 {
@@ -194,7 +195,9 @@ where
     fn get_from<const ENABLED: bool>(&self, id: CorpusId) -> Result<Testcase<I>, Error> {
         self.0.get_from::<ENABLED>(id)
     }
+}
 
+impl<I, SC> DisableEntry for InMemoryCorpus<I, SC> {
     fn disable(&mut self, id: CorpusId) -> Result<(), Error> {
         self.0.disable(id)
     }
@@ -222,20 +225,25 @@ impl OnDiskCorpusBuilder {
 
     /// Build an [`OnDiskStore`].
     /// The root directory must be set.
-    pub fn build<I>(&self) -> Result<OnDiskCorpus<I>, Error> {
-        Ok(OnDiskCorpus(SingleCorpus::new(self.0.build()?)))
+    pub fn build<I, SC>(&self, scheduler: SC) -> Result<OnDiskCorpus<I, SC>, Error> {
+        Ok(OnDiskCorpus(SingleCorpus::new(self.0.build()?, scheduler)))
     }
 }
 
 #[cfg(feature = "std")]
-impl<I> OnDiskCorpus<I>
+impl<I, SC> OnDiskCorpus<I, SC>
 where
     I: Input,
 {
     /// Create a new [`OnDiskCorpus`]
-    pub fn new(root: PathBuf, filename_format: TestcaseFilenameFormat) -> Result<Self, Error> {
+    pub fn new(
+        root: PathBuf,
+        filename_format: TestcaseFilenameFormat,
+        scheduler: SC,
+    ) -> Result<Self, Error> {
         Ok(OnDiskCorpus(InnerOnDiskCorpus::new(
             InnerStdOnDiskStore::new(root, filename_format)?,
+            scheduler,
         )))
     }
 
@@ -247,7 +255,7 @@ where
 }
 
 #[cfg(feature = "std")]
-impl<I> Corpus<I> for OnDiskCorpus<I>
+impl<I, SC> Corpus<I> for OnDiskCorpus<I, SC>
 where
     I: Input,
 {
@@ -270,7 +278,9 @@ where
     fn get_from<const ENABLED: bool>(&self, id: CorpusId) -> Result<Testcase<I>, Error> {
         self.0.get_from::<ENABLED>(id)
     }
+}
 
+impl<I, SC> DisableEntry for OnDiskCorpus<I, SC> {
     fn disable(&mut self, id: CorpusId) -> Result<(), Error> {
         self.0.disable(id)
     }

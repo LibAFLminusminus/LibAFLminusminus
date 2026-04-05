@@ -5,7 +5,6 @@ use alloc::borrow::ToOwned;
 use crate::{
     Error,
     corpus::{Corpus, CorpusId, Testcase},
-    schedulers::{HasQueueCycles, RemovableScheduler, Scheduler},
     state::HasCorpus,
 };
 
