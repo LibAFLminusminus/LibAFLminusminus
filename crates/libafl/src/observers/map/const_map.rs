@@ -26,12 +26,12 @@ pub struct ConstMapObserver<'a, T, const N: usize> {
     name: Cow<'static, str>,
 }
 
-impl<I, S, T, const N: usize> Observer<I, S> for ConstMapObserver<'_, T, N>
+impl<S, T, const N: usize> Observer<S> for ConstMapObserver<'_, T, N>
 where
     Self: MapObserver,
 {
     #[inline]
-    fn pre_exec(&mut self, _state: &mut S, _input: &I) -> Result<(), Error> {
+    fn pre_exec(&mut self, _state: &mut S) -> Result<(), Error> {
         self.reset_map()
     }
 }

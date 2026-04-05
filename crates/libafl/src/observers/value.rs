@@ -66,7 +66,7 @@ impl<'a, T> ValueObserver<'a, T> {
 }
 
 /// This *does not* reset the value inside the observer.
-impl<I, S, T> Observer<I, S> for ValueObserver<'_, T> {}
+impl<S, T> Observer<S> for ValueObserver<'_, T> {}
 
 impl<T> Named for ValueObserver<'_, T> {
     fn name(&self) -> &Cow<'static, str> {
@@ -80,7 +80,7 @@ impl<T: Hash> ObserverWithHashField for ValueObserver<'_, T> {
     }
 }
 
-impl<OTA, OTB, I, S, T> DifferentialObserver<OTA, OTB, I, S> for ValueObserver<'_, T> {}
+impl<OTA, OTB, S, T> DifferentialObserver<OTA, OTB, S> for ValueObserver<'_, T> {}
 
 /// A simple observer with a single [`RefCell`]'d value.
 #[derive(Serialize, Deserialize, Debug)]
@@ -144,7 +144,7 @@ impl<'a, T> RefCellValueObserver<'a, T> {
 }
 
 /// This *does not* reset the value inside the observer.
-impl<I, S, T> Observer<I, S> for RefCellValueObserver<'_, T> {}
+impl<S, T> Observer<S> for RefCellValueObserver<'_, T> {}
 
 impl<T> Named for RefCellValueObserver<'_, T> {
     fn name(&self) -> &Cow<'static, str> {
@@ -161,7 +161,7 @@ where
     }
 }
 
-impl<OTA, OTB, I, S, T> DifferentialObserver<OTA, OTB, I, S> for RefCellValueObserver<'_, T> {}
+impl<OTA, OTB, S, T> DifferentialObserver<OTA, OTB, S> for RefCellValueObserver<'_, T> {}
 
 /// [`Iterator`] over [`RefCellValueObserver`] of a [`Deref`] to `[T]`.
 #[derive(Debug)]

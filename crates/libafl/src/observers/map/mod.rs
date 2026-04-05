@@ -28,9 +28,6 @@ pub use hitcount_map::*;
 pub mod multi_map;
 pub use multi_map::*;
 
-pub mod owned_map;
-pub use owned_map::*;
-
 /// A trait indicating tracking of observed map values after testcase execution
 ///
 /// Trait marker which indicates that this [`MapObserver`] is tracked for indices or novelties.
@@ -135,40 +132,23 @@ where
     }
 }
 
-impl<S, I, T, const ITH: bool, const NTH: bool> Observer<I, S> for ExplicitTracking<T, ITH, NTH>
+impl<S, T, const ITH: bool, const NTH: bool> Observer<S> for ExplicitTracking<T, ITH, NTH>
 where
-    T: Observer<I, S>,
+    T: Observer<S>,
 {
-    fn flush(&mut self) -> Result<(), Error> {
-        self.0.flush()
+    fn pre_exec(&mut self, state: &mut S) -> Result<(), Error> {
+        self.0.pre_exec(state)
     }
 
-    fn pre_exec(&mut self, state: &mut S, input: &I) -> Result<(), Error> {
-        self.0.pre_exec(state, input)
-    }
-
-    fn post_exec(&mut self, state: &mut S, input: &I, exit_kind: &ExitKind) -> Result<(), Error> {
-        self.0.post_exec(state, input, exit_kind)
-    }
-
-    fn pre_exec_child(&mut self, state: &mut S, input: &I) -> Result<(), Error> {
-        self.0.pre_exec_child(state, input)
-    }
-
-    fn post_exec_child(
-        &mut self,
-        state: &mut S,
-        input: &I,
-        exit_kind: &ExitKind,
-    ) -> Result<(), Error> {
-        self.0.post_exec_child(state, input, exit_kind)
+    fn post_exec(&mut self, state: &mut S, exit_kind: &ExitKind) -> Result<(), Error> {
+        self.0.post_exec(state, exit_kind)
     }
 }
 
-impl<T, OTA, OTB, I, S, const ITH: bool, const NTH: bool> DifferentialObserver<OTA, OTB, I, S>
+impl<T, OTA, OTB, S, const ITH: bool, const NTH: bool> DifferentialObserver<OTA, OTB, S>
     for ExplicitTracking<T, ITH, NTH>
 where
-    T: DifferentialObserver<OTA, OTB, I, S>,
+    T: DifferentialObserver<OTA, OTB, S>,
 {
     fn pre_observe_first(&mut self, observers: &mut OTA) -> Result<(), Error> {
         self.as_mut().pre_observe_first(observers)
@@ -444,17 +424,17 @@ pub struct StdMapObserver<'a, T, const DIFFERENTIAL: bool> {
     name: Cow<'static, str>,
 }
 
-impl<I, S, T> Observer<I, S> for StdMapObserver<'_, T, false>
+impl<S, T> Observer<S> for StdMapObserver<'_, T, false>
 where
     Self: MapObserver,
 {
     #[inline]
-    fn pre_exec(&mut self, _state: &mut S, _input: &I) -> Result<(), Error> {
+    fn pre_exec(&mut self, _state: &mut S) -> Result<(), Error> {
         self.reset_map()
     }
 }
 
-impl<I, S, T> Observer<I, S> for StdMapObserver<'_, T, true> {}
+impl<S, T> Observer<S> for StdMapObserver<'_, T, true> {}
 
 impl<T, const DIFFERENTIAL: bool> Named for StdMapObserver<'_, T, DIFFERENTIAL> {
     #[inline]
@@ -784,4 +764,4 @@ where
     }
 }
 
-impl<OTA, OTB, I, S, T> DifferentialObserver<OTA, OTB, I, S> for StdMapObserver<'_, T, true> {}
+impl<OTA, OTB, S, T> DifferentialObserver<OTA, OTB, S> for StdMapObserver<'_, T, true> {}

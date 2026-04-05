@@ -30,17 +30,17 @@ pub struct MultiMapObserver<'a, T, const DIFFERENTIAL: bool> {
     iter_idx: usize,
 }
 
-impl<I, S, T> Observer<I, S> for MultiMapObserver<'_, T, false>
+impl<S, T> Observer<S> for MultiMapObserver<'_, T, false>
 where
     Self: MapObserver,
 {
     #[inline]
-    fn pre_exec(&mut self, _state: &mut S, _input: &I) -> Result<(), Error> {
+    fn pre_exec(&mut self, _state: &mut S) -> Result<(), Error> {
         self.reset_map()
     }
 }
 
-impl<I, S, T> Observer<I, S> for MultiMapObserver<'_, T, true> {
+impl<S, T> Observer<S> for MultiMapObserver<'_, T, true> {
     // in differential mode, we are *not* responsible for resetting the map!
 }
 
@@ -260,4 +260,4 @@ where
     }
 }
 
-impl<OTA, OTB, I, S, T> DifferentialObserver<OTA, OTB, I, S> for MultiMapObserver<'_, T, true> {}
+impl<OTA, OTB, S, T> DifferentialObserver<OTA, OTB, S> for MultiMapObserver<'_, T, true> {}

@@ -288,11 +288,11 @@ impl<T> Named for OutputObserver<T> {
     }
 }
 
-impl<I, S, T> Observer<I, S> for OutputObserver<T>
+impl<S, T> Observer<S> for OutputObserver<T>
 where
     T: 'static,
 {
-    fn pre_exec_child(&mut self, _state: &mut S, _input: &I) -> Result<(), Error> {
+    fn pre_exec(&mut self, _state: &mut S) -> Result<(), Error> {
         if let Some(file) = self.file.as_mut() {
             file.seek(SeekFrom::Start(0))?;
         }
@@ -300,14 +300,9 @@ where
         Ok(())
     }
 
-    fn pre_exec(&mut self, _state: &mut S, _input: &I) -> Result<(), Error> {
-        self.pre_exec_child(_state, _input)
-    }
-
-    fn post_exec_child(
+    fn post_exec(
         &mut self,
         _state: &mut S,
-        _input: &I,
         _exit_kind: &crate::executors::ExitKind,
     ) -> Result<(), Error> {
         if let Some(file) = self.file.as_mut()
@@ -323,15 +318,6 @@ where
             self.observe(buf);
         }
         Ok(())
-    }
-
-    fn post_exec(
-        &mut self,
-        _state: &mut S,
-        _input: &I,
-        _exit_kind: &crate::executors::ExitKind,
-    ) -> Result<(), Error> {
-        self.post_exec_child(_state, _input, _exit_kind)
     }
 }
 
