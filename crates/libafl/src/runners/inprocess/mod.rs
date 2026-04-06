@@ -16,39 +16,43 @@ pub use unix::OsSignalHandler;
 /// To exit, simply exit the process.
 /// There are special exit codes used to convey what caused the exit.
 /// TODO: document these exit code
-pub struct InProcessRunner<CH, S, T, TH> {
+pub struct InProcessRunner<CH, D, S, T, TH> {
     state: S,
     task: T,
-    signal_handler: Pin<Box<OsSignalHandler<CH, TH>>>,
+    signal_handler: Pin<Box<OsSignalHandler<CH, D, TH>>>,
     timer: Option<TimerStruct>,
 }
 
-pub struct InProcessSignalHandler<CH, TH> {
+pub struct InProcessSignalHandler<CH, D, TH> {
     signal_handler_depth: usize,
     signal_handler_max_depth: usize,
     crash_handler: CH,
     timeout_handler: TH,
+    signal_data: D,
     in_target: bool,
     // this should hold any pointer to data needed in signal handling.
 }
 
-unsafe impl<CH, TH> Send for InProcessSignalHandler<CH, TH>
+unsafe impl<CH, D, TH> Send for InProcessSignalHandler<CH, D, TH>
 where
     CH: Send,
+    D: Send,
     TH: Send,
 {
 }
 
-unsafe impl<CH, TH> Sync for InProcessSignalHandler<CH, TH>
+unsafe impl<CH, D, TH> Sync for InProcessSignalHandler<CH, D, TH>
 where
     CH: Sync,
+    D: Sync,
     TH: Sync,
 {
 }
 
-impl<CH, S, T, TH> InProcessRunner<CH, S, T, TH> {
-    pub fn new(state: S, task: T, crash_handler: CH, timeout_handler: TH) -> Self {
-        let signal_handler = InProcessSignalHandler::new(crash_handler, timeout_handler);
+impl<CH, D, S, T, TH> InProcessRunner<CH, D, S, T, TH> {
+    pub fn new(state: S, task: T, crash_handler: CH, signal_data: D, timeout_handler: TH) -> Self {
+        let signal_handler =
+            InProcessSignalHandler::new(crash_handler, signal_data, timeout_handler);
 
         InProcessRunner {
             state,
@@ -59,13 +63,14 @@ impl<CH, S, T, TH> InProcessRunner<CH, S, T, TH> {
     }
 }
 
-impl<CH, TH> InProcessSignalHandler<CH, TH> {
-    pub fn new(crash_handler: CH, timeout_handler: TH) -> Self {
+impl<CH, D, TH> InProcessSignalHandler<CH, D, TH> {
+    pub fn new(crash_handler: CH, signal_data: D, timeout_handler: TH) -> Self {
         Self {
             crash_handler,
             timeout_handler,
             signal_handler_depth: 0,
             signal_handler_max_depth: 3,
+            signal_data,
             in_target: false,
         }
     }
@@ -81,11 +86,11 @@ impl<CH, TH> InProcessSignalHandler<CH, TH> {
     }
 
     pub fn handle_timeout(&mut self) {
-        self.timeout_handler()
+        self.timeout_handler(&mut self.signal_data)
     }
 
     pub fn handle_crash(&mut self) {
-        self.crash_handler()
+        self.crash_handler(&mut self.signal_data)
     }
 
     pub fn max_depth(&self) -> usize {
@@ -105,16 +110,16 @@ impl<CH, TH> InProcessSignalHandler<CH, TH> {
     }
 }
 
-impl<CH, S, T, TH> Runner<S> for InProcessRunner<CH, S, T, TH>
+impl<CH, D, S, T, TH> Runner<S> for InProcessRunner<CH, D, S, T, TH>
 where
-    T: FnOnce(&mut RunnerDriver<Self, S>, &mut S) -> Result<Infallible, Error>,
+    T: FnOnce(&mut RunnerDriver<S>, &mut S) -> Result<Infallible, Error>,
     CH: FnMut(&mut S) -> Result<(), Error>,
     TH: FnMut(&mut S) -> Result<(), Error>,
 {
     // TODO: handle signals
-    fn run_task<'a>(
-        &'a mut self,
-        driver: &mut RunnerDriver<Self, S>,
+    unsafe fn run_impl(
+        &mut self,
+        driver: &mut RunnerDriver<S>,
         state: &mut S,
     ) -> Result<(), Error> {
         self.signal_handler.init();
