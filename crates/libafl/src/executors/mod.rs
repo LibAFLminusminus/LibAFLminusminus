@@ -1,13 +1,12 @@
 //! Executors take input, and run it in the target.
 
+#[cfg(feature = "std")]
+use ::std::path::PathBuf;
 use alloc::vec::Vec;
 use core::{fmt::Debug, time::Duration};
-#[cfg(feature = "std")]
-use std::path::PathBuf;
 
 #[cfg(unix)]
 use libafl_bolts::os::unix_signals::Signal;
-use libafl_bolts::tuples::RefIndexable;
 #[cfg(feature = "std")]
 use libafl_bolts::{core_affinity::CoreId, tuples::Handle};
 use serde::{Deserialize, Serialize};
@@ -16,13 +15,13 @@ use serde::{Deserialize, Serialize};
 use crate::observers::{StdErrObserver, StdOutObserver};
 use crate::{
     Error,
-    observers::Observer,
+    observers::{Observer, ObserversTuple},
     runners::{Runner, RunnerDriver},
     state::State,
 };
 
-/// The module for all the executor hooks
-pub mod hooks;
+// /// The module for all the executor hooks
+// pub mod hooks;
 
 // pub mod combined;
 // pub use combined::CombinedExecutor;
@@ -108,10 +107,9 @@ pub enum DiffExitKind {
 libafl_bolts::impl_serdeany!(DiffExitKind);
 
 /// Runs the fuzzer harness.
-pub trait Executor<I, O, R, S>
+pub trait Executor<I, OT, S>
 where
-    O: Observer<S>,
-    R: Runner<S>,
+    OT: ObserversTuple<S>,
     S: State<I>,
 {
     /// Run the target with the given input.
@@ -137,7 +135,7 @@ where
     fn execute(
         &mut self,
         state: &mut S,
-        driver: &mut RunnerDriver<R, S>,
+        driver: &mut RunnerDriver<S>,
         input: &I,
     ) -> Result<ExitKind, Error> {
         *state.executions_mut() += 1;
@@ -164,10 +162,10 @@ where
     }
 
     /// Get the linked observers
-    fn observers(&self) -> RefIndexable<&O, O>;
+    fn observers_tuple(&self) -> &OT;
 
     /// Get the linked observers (mutable)
-    fn observers_mut(&mut self) -> RefIndexable<&mut O, O>;
+    fn observers_tuple_mut(&mut self) -> &mut OT;
 
     /// Timeout for the current fuzzing run.
     /// It is read at each run, so that it can change between executions.
@@ -205,8 +203,8 @@ pub fn common_signals() -> Vec<Signal> {
     ]
 }
 
-#[cfg(feature = "std")]
 /// The inner shared members of [`StdChildArgs`]
+#[cfg(feature = "std")]
 #[derive(Debug, Clone)]
 pub struct StdChildArgsInner {
     /// The timeout of the children
@@ -299,9 +297,7 @@ pub trait StdChildArgs: Sized {
 #[cfg(test)]
 /// Tester for executor
 pub mod test {
-    use super::nop::NopExecutor;
     use crate::{
-        events::NopEventManager,
         executors::{Executor, ExitKind},
         fuzzer::NopFuzzer,
         inputs::BytesInput,
@@ -313,7 +309,6 @@ pub mod test {
         let empty_input = BytesInput::new(vec![]);
         let mut executor = NopExecutor::ok();
         let mut fuzzer: NopFuzzer = NopFuzzer::new();
-        let mut mgr: NopEventManager = NopEventManager::new();
         let mut state: NopState<BytesInput> = NopState::new();
 
         assert_eq!(

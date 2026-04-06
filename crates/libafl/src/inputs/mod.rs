@@ -1,35 +1,6 @@
 //! Inputs are the actual contents sent to a target for each exeuction.
 
-pub mod bytes;
-pub use bytes::BytesInput;
-
-pub mod value;
-pub use value::ValueInput;
-
-pub mod encoded;
-pub use encoded::*;
-
-pub mod gramatron;
-pub use gramatron::*;
-
-pub mod generalized;
-pub use generalized::*;
-
-pub mod bytessub;
-pub use bytessub::BytesSubInput;
-
-#[cfg(feature = "multipart_inputs")]
-pub mod multi;
-#[cfg(feature = "multipart_inputs")]
-pub use multi::*;
-#[cfg(feature = "multipart_inputs")]
-pub mod list;
-#[cfg(feature = "multipart_inputs")]
-pub use list::*;
-
-#[cfg(feature = "nautilus")]
-pub mod nautilus;
-
+use crate::corpus::CorpusId;
 use alloc::{
     boxed::Box,
     string::String,
@@ -42,6 +13,7 @@ use core::{
     marker::PhantomData,
     ops::{DerefMut, RangeBounds},
 };
+use serde::{Deserialize, Serialize};
 #[cfg(feature = "std")]
 use std::{fs::File, io::Read, path::Path};
 
@@ -52,11 +24,57 @@ use libafl_bolts::{
     ownedref::{OwnedMutSlice, OwnedSlice},
     subrange::{SubRangeMutSlice, SubRangeSlice},
 };
-#[cfg(feature = "nautilus")]
-pub use nautilus::*;
-use serde::{Deserialize, Serialize};
 
-use crate::corpus::CorpusId;
+#[cfg(not(feature = "remove_me"))]
+pub mod bytes;
+#[cfg(not(feature = "remove_me"))]
+pub use bytes::BytesInput;
+
+#[cfg(not(feature = "remove_me"))]
+pub mod value;
+#[cfg(not(feature = "remove_me"))]
+pub use value::ValueInput;
+
+#[cfg(not(feature = "remove_me"))]
+pub mod encoded;
+#[cfg(not(feature = "remove_me"))]
+pub use encoded::*;
+
+#[cfg(not(feature = "remove_me"))]
+pub mod gramatron;
+#[cfg(not(feature = "remove_me"))]
+pub use gramatron::*;
+
+#[cfg(not(feature = "remove_me"))]
+pub mod generalized;
+#[cfg(not(feature = "remove_me"))]
+pub use generalized::*;
+
+#[cfg(not(feature = "remove_me"))]
+pub mod bytessub;
+#[cfg(not(feature = "remove_me"))]
+pub use bytessub::BytesSubInput;
+
+#[cfg(not(feature = "remove_me"))]
+#[cfg(feature = "multipart_inputs")]
+pub mod multi;
+#[cfg(not(feature = "remove_me"))]
+#[cfg(feature = "multipart_inputs")]
+pub use multi::*;
+#[cfg(not(feature = "remove_me"))]
+#[cfg(feature = "multipart_inputs")]
+pub mod list;
+#[cfg(not(feature = "remove_me"))]
+#[cfg(feature = "multipart_inputs")]
+pub use list::*;
+
+#[cfg(feature = "nautilus")]
+#[cfg(not(feature = "remove_me"))]
+pub mod nautilus;
+
+#[cfg(feature = "nautilus")]
+#[cfg(not(feature = "remove_me"))]
+pub use nautilus::*;
 
 /// An input for the target
 #[cfg(not(feature = "std"))]
@@ -136,6 +154,7 @@ pub struct ToBytesInputConverter<I, T = BytesInputConverter> {
     phantom: PhantomData<I>,
 }
 
+#[cfg(not(feature = "remove_me"))]
 impl<I, S, T> InputConverter<S> for ToBytesInputConverter<I, T>
 where
     T: ToTargetBytesConverter<I, S>,
@@ -188,13 +207,13 @@ macro_rules! none_input_converter {
 
 /// An input for tests, mainly. There is no real use much else.
 #[derive(Copy, Clone, Serialize, Deserialize, Debug, Default, Hash)]
-pub struct NopInput {}
+pub struct NopInput;
 
 impl NopInput {
     /// Creates a new [`NopInput`]
     #[must_use]
     pub fn new() -> Self {
-        Self {}
+        Self
     }
 }
 
@@ -292,6 +311,7 @@ pub trait HasMutatorBytes: HasLen {
         SubRangeMutSlice::new(OwnedMutSlice::from(self.mutator_bytes_mut()), range)
     }
 
+    #[cfg(not(feature = "remove_me"))]
     /// Creates a [`BytesSubInput`] from this input, that can be used for local mutations.
     fn sub_input<R>(&mut self, range: R) -> BytesSubInput<'_, Self>
     where
@@ -423,6 +443,7 @@ where
     }
 }
 
+#[cfg(not(feature = "remove_me"))]
 impl<I, S> FromTargetBytesConverter<I, S> for BytesInputConverter
 where
     I: From<BytesInput>,
@@ -439,6 +460,7 @@ pub struct FromBytesInputConverter<I, T = BytesInputConverter> {
     phantom: PhantomData<I>,
 }
 
+#[cfg(not(feature = "remove_me"))]
 impl<I, S, T> InputConverter<S> for FromBytesInputConverter<I, T>
 where
     T: FromTargetBytesConverter<I, S>,

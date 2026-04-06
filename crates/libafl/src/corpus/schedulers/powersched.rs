@@ -11,11 +11,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     Error, HasMetadata,
-    corpus::{Corpus, CorpusId, HasTestcase, Testcase},
-    schedulers::{
+    corpus::schedulers::{
         AflScheduler, HasQueueCycles, RemovableScheduler, Scheduler, on_add_metadata_default,
-        on_evaluation_metadata_default, on_next_metadata_default,
+        on_evaluation_metadata_default,
     },
+    corpus::{Corpus, CorpusId, HasTestcase, Testcase},
     state::HasCorpus,
 };
 
@@ -361,22 +361,11 @@ where
                 }
                 None => state.corpus().first().unwrap(),
             };
-            <Self as Scheduler<I, S>>::set_current_scheduled(self, state, Some(id))?;
+            panic!("set_current_scheduled: review what to do now");
+            // <Self as Scheduler<I, S>>::set_current_scheduled(self, state, Some(id))?;
 
             Ok(id)
         }
-    }
-
-    /// Set current fuzzed corpus id and `scheduled_count`
-    fn set_current_scheduled(
-        &mut self,
-        state: &mut S,
-        next_id: Option<CorpusId>,
-    ) -> Result<(), Error> {
-        on_next_metadata_default(state)?;
-
-        *state.corpus_mut().current_mut() = next_id;
-        Ok(())
     }
 }
 

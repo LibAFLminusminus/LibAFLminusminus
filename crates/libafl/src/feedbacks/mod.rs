@@ -1,59 +1,78 @@
 //! The feedbacks reduce observer state after each run to a single `is_interesting`-value.
 //! If a testcase is interesting, it may be added to a Corpus.
 
-// TODO: make S of Feedback<S> an associated type when specialisation + AT is stable
-
+#[cfg(feature = "introspection")]
+use crate::state::HasClientPerfMonitor;
 use alloc::borrow::Cow;
 #[cfg(feature = "track_hit_feedbacks")]
 use alloc::vec::Vec;
 use core::{fmt::Debug, marker::PhantomData};
 
+use crate::{Error, corpus::Testcase, executors::ExitKind, observers::TimeObserver};
 use libafl_bolts::{
     Named,
     tuples::{Handle, Handled, MatchName, MatchNameRef},
 };
-pub use list::*;
-pub use map::*;
-#[cfg(feature = "nautilus")]
-pub use nautilus::*;
-#[cfg(feature = "std")]
-pub use new_hash_feedback::NewHashFeedback;
-#[cfg(feature = "std")]
-pub use new_hash_feedback::NewHashFeedbackMetadata;
 use serde::{Deserialize, Serialize};
 
-use crate::{Error, corpus::Testcase, executors::ExitKind, observers::TimeObserver};
+#[cfg(not(feature = "remove_me"))]
+pub mod list;
+#[cfg(not(feature = "remove_me"))]
+pub use list::*;
+
+#[cfg(not(feature = "remove_me"))]
+pub use map::*;
+#[cfg(not(feature = "remove_me"))]
+pub mod map;
+
+/// The module for list feedback
+#[cfg(feature = "nautilus")]
+#[cfg(not(feature = "remove_me"))]
+pub mod nautilus;
+#[cfg(feature = "nautilus")]
+#[cfg(not(feature = "remove_me"))]
+pub use nautilus::*;
 
 #[cfg(feature = "std")]
-pub mod capture_feedback;
+#[cfg(not(feature = "remove_me"))]
+pub mod new_hash_feedback;
+#[cfg(feature = "std")]
+#[cfg(not(feature = "remove_me"))]
+pub use new_hash_feedback::NewHashFeedback;
+#[cfg(feature = "std")]
+#[cfg(not(feature = "remove_me"))]
+pub use new_hash_feedback::NewHashFeedbackMetadata;
 
+#[cfg(feature = "std")]
+#[cfg(not(feature = "remove_me"))]
+pub mod capture_feedback;
+#[cfg(feature = "std")]
+#[cfg(not(feature = "remove_me"))]
+pub use capture_feedback::CaptureTimeoutFeedback;
+
+#[cfg(not(feature = "remove_me"))]
 pub mod bool;
+#[cfg(not(feature = "remove_me"))]
 pub use bool::BoolValueFeedback;
 
 #[cfg(feature = "std")]
+#[cfg(not(feature = "remove_me"))]
 /// The module for `CustomFilenameToTestcaseFeedback`
 pub mod custom_filename;
-/// The module for list feedback
-pub mod list;
-pub mod map;
-#[cfg(feature = "nautilus")]
-pub mod nautilus;
-#[cfg(feature = "std")]
-pub mod new_hash_feedback;
+
 #[cfg(feature = "simd")]
+#[cfg(not(feature = "remove_me"))]
 pub mod simd;
+
 #[cfg(feature = "std")]
+#[cfg(not(feature = "remove_me"))]
 pub mod stdio;
 
-#[cfg(feature = "std")]
-pub use capture_feedback::CaptureTimeoutFeedback;
-
-#[cfg(feature = "introspection")]
-use crate::state::HasClientPerfMonitor;
-
 #[cfg(feature = "value_bloom_feedback")]
+#[cfg(not(feature = "remove_me"))]
 pub mod value_bloom;
 #[cfg(feature = "value_bloom_feedback")]
+#[cfg(not(feature = "remove_me"))]
 pub use value_bloom::ValueBloomFeedback;
 
 /// Feedback which initializes a state.
@@ -282,10 +301,8 @@ where
         observers: &OT,
         testcase: &mut Testcase<I>,
     ) -> Result<(), Error> {
-        self.first
-            .append_metadata(state, observers, testcase)?;
-        self.second
-            .append_metadata(state, observers, testcase)
+        self.first.append_metadata(state, observers, testcase)?;
+        self.second.append_metadata(state, observers, testcase)
     }
 }
 
@@ -397,8 +414,10 @@ impl FeedbackLogic for LogicEagerOr {
         F1: FnOnce(&mut S, &I, &OT, &ExitKind) -> Result<bool, Error>,
         F2: FnOnce(&mut S, &I, &OT, &ExitKind) -> Result<bool, Error>,
     {
-        Ok(first(state, input, observers, exit_kind)?
-            | second(state, input, observers, exit_kind)?)
+        Ok(
+            first(state, input, observers, exit_kind)?
+                | second(state, input, observers, exit_kind)?,
+        )
     }
     #[cfg(feature = "track_hit_feedbacks")]
     fn last_result(first: Result<bool, Error>, second: Result<bool, Error>) -> Result<bool, Error> {
@@ -495,8 +514,10 @@ impl FeedbackLogic for LogicEagerAnd {
         F1: FnOnce(&mut S, &I, &OT, &ExitKind) -> Result<bool, Error>,
         F2: FnOnce(&mut S, &I, &OT, &ExitKind) -> Result<bool, Error>,
     {
-        Ok(first(state, input, observers, exit_kind)?
-            & second(state, input, observers, exit_kind)?)
+        Ok(
+            first(state, input, observers, exit_kind)?
+                & second(state, input, observers, exit_kind)?,
+        )
     }
 
     #[cfg(feature = "track_hit_feedbacks")]
@@ -635,8 +656,7 @@ where
         observers: &OT,
         testcase: &mut Testcase<I>,
     ) -> Result<(), Error> {
-        self.inner
-            .append_metadata(state, observers, testcase)
+        self.inner.append_metadata(state, observers, testcase)
     }
 }
 
