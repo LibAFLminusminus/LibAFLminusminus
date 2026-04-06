@@ -8,7 +8,6 @@ use alloc::borrow::Cow;
 use alloc::vec::Vec;
 use core::{fmt::Debug, marker::PhantomData};
 
-pub use differential::DiffFeedback;
 use libafl_bolts::{
     Named,
     tuples::{Handle, Handled, MatchName, MatchNameRef},
@@ -34,7 +33,6 @@ pub use bool::BoolValueFeedback;
 #[cfg(feature = "std")]
 /// The module for `CustomFilenameToTestcaseFeedback`
 pub mod custom_filename;
-pub mod differential;
 /// The module for list feedback
 pub mod list;
 pub mod map;

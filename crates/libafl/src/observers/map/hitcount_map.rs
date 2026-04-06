@@ -15,7 +15,7 @@ use crate::{
     Error,
     executors::ExitKind,
     observers::{
-        ConstLenMapObserver, DifferentialObserver, Observer, VarLenMapObserver, map::MapObserver,
+        ConstLenMapObserver, Observer, VarLenMapObserver, map::MapObserver,
     },
 };
 
@@ -283,29 +283,6 @@ where
     }
 }
 
-impl<M, OTA, OTB, S> DifferentialObserver<OTA, OTB, S> for HitcountsMapObserver<M>
-where
-    M: DifferentialObserver<OTA, OTB, S>
-        + MapObserver<Entry = u8>
-        + for<'a> AsSliceMut<'a, Entry = u8>,
-{
-    fn pre_observe_first(&mut self, observers: &mut OTA) -> Result<(), Error> {
-        self.base.pre_observe_first(observers)
-    }
-
-    fn post_observe_first(&mut self, observers: &mut OTA) -> Result<(), Error> {
-        self.base.post_observe_first(observers)
-    }
-
-    fn pre_observe_second(&mut self, observers: &mut OTB) -> Result<(), Error> {
-        self.base.pre_observe_second(observers)
-    }
-
-    fn post_observe_second(&mut self, observers: &mut OTB) -> Result<(), Error> {
-        self.base.post_observe_second(observers)
-    }
-}
-
 /// Map observer with hitcounts postprocessing
 /// Less optimized version for non-slice iterators.
 /// Slice-backed observers should use a [`HitcountsMapObserver`].
@@ -438,29 +415,6 @@ where
 {
     fn truncate(&mut self, new_len: usize) {
         self.base.truncate(new_len);
-    }
-}
-
-impl<M, OTA, OTB, S> DifferentialObserver<OTA, OTB, S> for HitcountsIterableMapObserver<M>
-where
-    M: DifferentialObserver<OTA, OTB, S>
-        + MapObserver<Entry = u8>
-        + for<'it> AsIterMut<'it, Item = u8>,
-{
-    fn pre_observe_first(&mut self, observers: &mut OTA) -> Result<(), Error> {
-        self.base.pre_observe_first(observers)
-    }
-
-    fn post_observe_first(&mut self, observers: &mut OTA) -> Result<(), Error> {
-        self.base.post_observe_first(observers)
-    }
-
-    fn pre_observe_second(&mut self, observers: &mut OTB) -> Result<(), Error> {
-        self.base.pre_observe_second(observers)
-    }
-
-    fn post_observe_second(&mut self, observers: &mut OTB) -> Result<(), Error> {
-        self.base.post_observe_second(observers)
     }
 }
 

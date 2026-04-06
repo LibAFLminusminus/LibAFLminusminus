@@ -4,7 +4,7 @@ use alloc::{borrow::Cow, vec::Vec};
 use core::{
     fmt::Debug,
     hash::{Hash, Hasher},
-    ops::{Deref, DerefMut},
+    ops::Deref,
 };
 
 use libafl_bolts::{AsSlice, AsSliceMut, HasLen, Named, Truncate, ownedref::OwnedMutSlice};
@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use crate::{
     Error,
     executors::ExitKind,
-    observers::{DifferentialObserver, Observer},
+    observers::Observer,
 };
 
 pub mod const_map;
@@ -145,27 +145,6 @@ where
     }
 }
 
-impl<T, OTA, OTB, S, const ITH: bool, const NTH: bool> DifferentialObserver<OTA, OTB, S>
-    for ExplicitTracking<T, ITH, NTH>
-where
-    T: DifferentialObserver<OTA, OTB, S>,
-{
-    fn pre_observe_first(&mut self, observers: &mut OTA) -> Result<(), Error> {
-        self.as_mut().pre_observe_first(observers)
-    }
-
-    fn post_observe_first(&mut self, observers: &mut OTA) -> Result<(), Error> {
-        self.as_mut().post_observe_first(observers)
-    }
-
-    fn pre_observe_second(&mut self, observers: &mut OTB) -> Result<(), Error> {
-        self.as_mut().pre_observe_second(observers)
-    }
-
-    fn post_observe_second(&mut self, observers: &mut OTB) -> Result<(), Error> {
-        self.as_mut().post_observe_second(observers)
-    }
-}
 
 impl<T, const ITH: bool, const NTH: bool> AsRef<T> for ExplicitTracking<T, ITH, NTH> {
     fn as_ref(&self) -> &T {
@@ -418,13 +397,13 @@ where
 /// A well-known example is the AFL-Style coverage map.
 #[derive(Clone, Serialize, Deserialize, Debug)]
 #[expect(clippy::unsafe_derive_deserialize)]
-pub struct StdMapObserver<'a, T, const DIFFERENTIAL: bool> {
+pub struct StdMapObserver<'a, T> {
     map: OwnedMutSlice<'a, T>,
     initial: T,
     name: Cow<'static, str>,
 }
 
-impl<S, T> Observer<S> for StdMapObserver<'_, T, false>
+impl<S, T> Observer<S> for StdMapObserver<'_, T>
 where
     Self: MapObserver,
 {
@@ -434,23 +413,21 @@ where
     }
 }
 
-impl<S, T> Observer<S> for StdMapObserver<'_, T, true> {}
-
-impl<T, const DIFFERENTIAL: bool> Named for StdMapObserver<'_, T, DIFFERENTIAL> {
+impl<T> Named for StdMapObserver<'_, T> {
     #[inline]
     fn name(&self) -> &Cow<'static, str> {
         &self.name
     }
 }
 
-impl<T, const DIFFERENTIAL: bool> HasLen for StdMapObserver<'_, T, DIFFERENTIAL> {
+impl<T> HasLen for StdMapObserver<'_, T> {
     #[inline]
     fn len(&self) -> usize {
         self.map.as_slice().len()
     }
 }
 
-impl<T, const DIFFERENTIAL: bool> Hash for StdMapObserver<'_, T, DIFFERENTIAL>
+impl<T> Hash for StdMapObserver<'_, T>
 where
     T: Hash,
 {
@@ -460,19 +437,19 @@ where
     }
 }
 
-impl<T, const DIFFERENTIAL: bool> AsRef<Self> for StdMapObserver<'_, T, DIFFERENTIAL> {
+impl<T> AsRef<Self> for StdMapObserver<'_, T> {
     fn as_ref(&self) -> &Self {
         self
     }
 }
 
-impl<T, const DIFFERENTIAL: bool> AsMut<Self> for StdMapObserver<'_, T, DIFFERENTIAL> {
+impl<T> AsMut<Self> for StdMapObserver<'_, T> {
     fn as_mut(&mut self) -> &mut Self {
         self
     }
 }
 
-impl<T, const DIFFERENTIAL: bool> MapObserver for StdMapObserver<'_, T, DIFFERENTIAL>
+impl<T> MapObserver for StdMapObserver<'_, T>
 where
     T: PartialEq + Copy + Hash + Serialize + DeserializeOwned + Debug,
 {
@@ -542,26 +519,21 @@ where
     }
 }
 
-impl<T, const DIFFERENTIAL: bool> Truncate for StdMapObserver<'_, T, DIFFERENTIAL> {
+impl<T> Truncate for StdMapObserver<'_, T> {
     fn truncate(&mut self, new_len: usize) {
         self.map.truncate(new_len);
     }
 }
 
-impl<T, const DIFFERENTIAL: bool> Deref for StdMapObserver<'_, T, DIFFERENTIAL> {
+impl<T> Deref for StdMapObserver<'_, T> {
     type Target = [T];
     fn deref(&self) -> &[T] {
         &self.map
     }
 }
 
-impl<T, const DIFFERENTIAL: bool> DerefMut for StdMapObserver<'_, T, DIFFERENTIAL> {
-    fn deref_mut(&mut self) -> &mut [T] {
-        &mut self.map
-    }
-}
 
-impl<'a, T, const DIFFERENTIAL: bool> StdMapObserver<'a, T, DIFFERENTIAL>
+impl<'a, T> StdMapObserver<'a, T>
 where
     T: Default,
 {
@@ -571,20 +543,20 @@ where
     /// Will get a pointer to the map and dereference it at any point in time.
     /// The map must not move in memory!
     #[must_use]
-    unsafe fn maybe_differential<S>(name: S, map: &'a mut [T]) -> Self
+    unsafe fn new<S>(name: S, map: &'a mut [T]) -> Self
     where
         S: Into<Cow<'static, str>>,
     {
         unsafe {
             let len = map.len();
             let ptr = map.as_mut_ptr();
-            Self::maybe_differential_from_mut_ptr(name, ptr, len)
+            Self::from_mut_ptr(name, ptr, len)
         }
     }
 
     /// Creates a new [`MapObserver`] from an [`OwnedMutSlice`]
     #[must_use]
-    fn maybe_differential_from_mut_slice<S>(name: S, map: OwnedMutSlice<'a, T>) -> Self
+    fn from_mut_slice<S>(name: S, map: OwnedMutSlice<'a, T>) -> Self
     where
         S: Into<Cow<'static, str>>,
     {
@@ -597,7 +569,7 @@ where
 
     /// Creates a new [`MapObserver`] with an owned map
     #[must_use]
-    fn maybe_differential_owned<S>(name: S, map: Vec<T>) -> Self
+    fn owned<S>(name: S, map: Vec<T>) -> Self
     where
         S: Into<Cow<'static, str>>,
     {
@@ -613,7 +585,7 @@ where
     /// # Safety
     /// Will dereference the owned slice with up to len elements.
     #[must_use]
-    fn maybe_differential_from_ownedref<S>(name: S, map: OwnedMutSlice<'a, T>) -> Self
+    fn from_ownedref<S>(name: S, map: OwnedMutSlice<'a, T>) -> Self
     where
         S: Into<Cow<'static, str>>,
     {
@@ -628,12 +600,12 @@ where
     ///
     /// # Safety
     /// Will dereference the `map_ptr` with up to len elements.
-    unsafe fn maybe_differential_from_mut_ptr<S>(name: S, map_ptr: *mut T, len: usize) -> Self
+    unsafe fn from_mut_ptr<S>(name: S, map_ptr: *mut T, len: usize) -> Self
     where
         S: Into<Cow<'static, str>>,
     {
         unsafe {
-            Self::maybe_differential_from_mut_slice(
+            Self::from_mut_slice(
                 name,
                 OwnedMutSlice::from_raw_parts_mut(map_ptr, len),
             )
@@ -655,113 +627,3 @@ where
         &mut self.map
     }
 }
-
-impl<'a, T> StdMapObserver<'a, T, false>
-where
-    T: Default,
-{
-    /// Creates a new [`MapObserver`]
-    ///
-    /// # Safety
-    /// The observer will keep a pointer to the map.
-    /// Hence, the map may never move in memory.
-    #[must_use]
-    pub unsafe fn new<S>(name: S, map: &'a mut [T]) -> Self
-    where
-        S: Into<Cow<'static, str>>,
-    {
-        unsafe { Self::maybe_differential(name, map) }
-    }
-
-    /// Creates a new [`MapObserver`] from an [`OwnedMutSlice`]
-    pub fn from_mut_slice<S>(name: S, map: OwnedMutSlice<'a, T>) -> Self
-    where
-        S: Into<Cow<'static, str>>,
-    {
-        Self::maybe_differential_from_mut_slice(name, map)
-    }
-
-    /// Creates a new [`MapObserver`] with an owned map
-    #[must_use]
-    pub fn owned<S>(name: S, map: Vec<T>) -> Self
-    where
-        S: Into<Cow<'static, str>>,
-    {
-        Self::maybe_differential_owned(name, map)
-    }
-
-    /// Creates a new [`MapObserver`] from an [`OwnedMutSlice`] map.
-    ///
-    /// # Note
-    /// Will dereference the owned slice with up to len elements.
-    #[must_use]
-    pub fn from_ownedref<S>(name: S, map: OwnedMutSlice<'a, T>) -> Self
-    where
-        S: Into<Cow<'static, str>>,
-    {
-        Self::maybe_differential_from_ownedref(name, map)
-    }
-
-    /// Creates a new [`MapObserver`] from a raw pointer
-    ///
-    /// # Safety
-    /// Will dereference the `map_ptr` with up to len elements.
-    pub unsafe fn from_mut_ptr<S>(name: S, map_ptr: *mut T, len: usize) -> Self
-    where
-        S: Into<Cow<'static, str>>,
-    {
-        unsafe { Self::maybe_differential_from_mut_ptr(name, map_ptr, len) }
-    }
-}
-
-impl<'a, T> StdMapObserver<'a, T, true>
-where
-    T: Default,
-{
-    /// Creates a new [`MapObserver`] in differential mode
-    ///
-    /// # Safety
-    /// Will get a pointer to the map and dereference it at any point in time.
-    /// The map must not move in memory!
-    #[must_use]
-    pub unsafe fn differential<S>(name: S, map: &'a mut [T]) -> Self
-    where
-        S: Into<Cow<'static, str>>,
-    {
-        unsafe { Self::maybe_differential(name, map) }
-    }
-
-    /// Creates a new [`MapObserver`] with an owned map in differential mode
-    #[must_use]
-    pub fn differential_owned<S>(name: S, map: Vec<T>) -> Self
-    where
-        S: Into<Cow<'static, str>>,
-    {
-        Self::maybe_differential_owned(name, map)
-    }
-
-    /// Creates a new [`MapObserver`] from an [`OwnedMutSlice`] map in differential mode.
-    ///
-    /// # Note
-    /// Will dereference the owned slice with up to len elements.
-    #[must_use]
-    pub fn differential_from_ownedref<S>(name: S, map: OwnedMutSlice<'a, T>) -> Self
-    where
-        S: Into<Cow<'static, str>>,
-    {
-        Self::maybe_differential_from_ownedref(name, map)
-    }
-
-    /// Creates a new [`MapObserver`] from a raw pointer in differential mode
-    ///
-    /// # Safety
-    /// Will dereference the `map_ptr` with up to len elements.
-    pub unsafe fn differential_from_mut_ptr<S>(name: S, map_ptr: *mut T, len: usize) -> Self
-    where
-        S: Into<Cow<'static, str>>,
-    {
-        unsafe { Self::maybe_differential_from_mut_ptr(name, map_ptr, len) }
-    }
-}
-
-impl<OTA, OTB, S, T> DifferentialObserver<OTA, OTB, S> for StdMapObserver<'_, T, true> {}
