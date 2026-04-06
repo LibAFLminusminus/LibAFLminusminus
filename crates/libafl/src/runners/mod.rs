@@ -1,4 +1,4 @@
-use core::{marker::PhantomData, pin::Pin, ptr::NonNull, time::Duration};
+use core::{ptr::NonNull, time::Duration};
 
 use libafl_bolts::Error;
 
@@ -7,29 +7,32 @@ pub mod restarting;
 
 /// Environment used to run a task
 pub trait Runner<S> {
-    /// Start the task.
+    /// Run the runner.
     /// A runner task is terminal: it is called only once and the runner will immediately exit when the task returns.
+    ///
+    /// This trait function should NEVER be called by a user directly.
+    /// The user is intended to use `run`, as it will always perform the right action.
+    ///
+    /// This function is only useful for trait writers to implement their custom [`Runner`].
     ///
     /// # Safety
     ///
     /// The driver MUST be linked to the current runner.
-    unsafe fn run_task_impl(
-        &mut self,
-        driver: Pin<&mut RunnerDriver<Self, S>>,
-        state: &mut S,
-    ) -> Result<(), Error>;
+    /// Using a `driver` that is not instanciated with self as the runner will lead to Undefined Behaviour.
+    /// Use [`Self::run`], this function should not need to be called directly.
+    unsafe fn run_impl(&mut self, driver: &mut RunnerDriver<S>, state: &mut S)
+    -> Result<(), Error>;
 
-    fn run_task(&mut self, state: &mut S) -> Result<(), Error> {
-        let mut driver = self.create_driver()?;
+    fn run(&mut self, state: &mut S) -> Result<(), Error>
+    where
+        Self: Sized,
+    {
+        let driver = unsafe { RunnerDriver::new(self as *mut Self as *mut dyn Runner<S>) };
 
-        let pinned_driver = Pin::new(&mut driver);
-
-        // sigsetjmp
-
-        unsafe { self.run_task_impl(pinned_driver, state) }
+        unsafe { self.run_task_impl(driver) }
     }
 
-    fn on_signal()
+    // fn on_signal()
 
     /// Set a timeout value for the runner.
     ///
@@ -39,27 +42,27 @@ pub trait Runner<S> {
     /// Unset a previously set timeout.
     /// If no timeout has been set before, it's a no-op.
     fn unset_timeout(&mut self) -> Result<(), Error>;
-
-    fn creat_driver(&mut self) -> RunnerDriver<Self, S>;
 }
 
 /// Object enabling interacting with a runner's environment from the task.
 /// It can be used to perform runner-level operations generically.
 /// It does not expose the runner directly
-pub struct RunnerDriver<R, S> {
-    runner: NonNull<R>,
-    _marker: PhantomData<S>,
+pub struct RunnerDriver<S> {
+    runner: NonNull<dyn Runner<S>>,
 }
 
-impl<R, S> RunnerDriver<R, S>
-where
-    R: Runner<S>,
-{
-    unsafe fn runner(&self) -> &R {
+impl<S> RunnerDriver<S> {
+    unsafe fn new(runner: *mut dyn Runner<S>) -> Self {
+        Self {
+            runner: NonNull::new(runner).expect("runner ptr must be non-null"),
+        }
+    }
+
+    unsafe fn runner(&self) -> &dyn Runner<S> {
         unsafe { self.runner.as_ref() }
     }
 
-    unsafe fn runner_mut(&mut self) -> &mut R {
+    unsafe fn runner_mut(&mut self) -> &mut dyn Runner<S> {
         unsafe { self.runner.as_mut() }
     }
 
@@ -85,14 +88,14 @@ struct DirectRunner<S, T> {
 
 impl<S, T> Runner<S> for DirectRunner<S, T>
 where
-    T: FnOnce(&mut RunnerDriver<Self, S>, &mut S) -> Result<(), Error>,
+    T: FnOnce(&mut RunnerDriver<S>, &mut S) -> Result<(), Error>,
 {
-    fn run_task(
+    unsafe fn run_impl(
         &mut self,
-        driver: Pin<&mut RunnerDriver<Self, S>>,
+        driver: &mut RunnerDriver<S>,
         state: &mut S,
     ) -> Result<(), Error> {
-        self.task(state)
+        self.task(driver, state)
     }
 
     fn set_timeout(&mut self, _timeout: Duration) -> Result<(), Error> {
