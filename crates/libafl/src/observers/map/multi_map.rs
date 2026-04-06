@@ -16,12 +16,12 @@ use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use crate::{
     Error,
-    observers::{DifferentialObserver, Observer, map::MapObserver},
+    observers::{Observer, map::MapObserver},
 };
 
 /// The Multi Map Observer merge different maps into one observer
 #[derive(Serialize, Deserialize, Debug)]
-pub struct MultiMapObserver<'a, T, const DIFFERENTIAL: bool> {
+pub struct MultiMapObserver<'a, T> {
     maps: Vec<OwnedMutSlice<'a, T>>,
     intervals: IntervalTree<usize, usize>,
     len: usize,
@@ -30,7 +30,7 @@ pub struct MultiMapObserver<'a, T, const DIFFERENTIAL: bool> {
     iter_idx: usize,
 }
 
-impl<S, T> Observer<S> for MultiMapObserver<'_, T, false>
+impl<S, T> Observer<S> for MultiMapObserver<'_, T>
 where
     Self: MapObserver,
 {
@@ -40,25 +40,21 @@ where
     }
 }
 
-impl<S, T> Observer<S> for MultiMapObserver<'_, T, true> {
-    // in differential mode, we are *not* responsible for resetting the map!
-}
-
-impl<T, const DIFFERENTIAL: bool> Named for MultiMapObserver<'_, T, DIFFERENTIAL> {
+impl<T> Named for MultiMapObserver<'_, T> {
     #[inline]
     fn name(&self) -> &Cow<'static, str> {
         &self.name
     }
 }
 
-impl<T, const DIFFERENTIAL: bool> HasLen for MultiMapObserver<'_, T, DIFFERENTIAL> {
+impl<T> HasLen for MultiMapObserver<'_, T> {
     #[inline]
     fn len(&self) -> usize {
         self.len
     }
 }
 
-impl<T, const DIFFERENTIAL: bool> Hash for MultiMapObserver<'_, T, DIFFERENTIAL>
+impl<T> Hash for MultiMapObserver<'_, T>
 where
     T: Hash,
 {
@@ -71,19 +67,19 @@ where
     }
 }
 
-impl<T, const DIFFERENTIAL: bool> AsRef<Self> for MultiMapObserver<'_, T, DIFFERENTIAL> {
+impl<T> AsRef<Self> for MultiMapObserver<'_, T> {
     fn as_ref(&self) -> &Self {
         self
     }
 }
 
-impl<T, const DIFFERENTIAL: bool> AsMut<Self> for MultiMapObserver<'_, T, DIFFERENTIAL> {
+impl<T> AsMut<Self> for MultiMapObserver<'_, T> {
     fn as_mut(&mut self) -> &mut Self {
         self
     }
 }
 
-impl<T, const DIFFERENTIAL: bool> MapObserver for MultiMapObserver<'_, T, DIFFERENTIAL>
+impl<T> MapObserver for MultiMapObserver<'_, T>
 where
     T: PartialEq + Copy + Hash + Serialize + DeserializeOwned + Debug,
 {
@@ -160,13 +156,13 @@ where
     }
 }
 
-impl<'a, T, const DIFFERENTIAL: bool> MultiMapObserver<'a, T, DIFFERENTIAL>
+impl<'a, T> MultiMapObserver<'a, T>
 where
     T: Default,
 {
-    /// Creates a new [`MultiMapObserver`], maybe in differential mode
+    /// Creates a new [`MultiMapObserver`]
     #[must_use]
-    fn maybe_differential(name: &'static str, maps: Vec<OwnedMutSlice<'a, T>>) -> Self {
+    fn new(name: &'static str, maps: Vec<OwnedMutSlice<'a, T>>) -> Self {
         let mut idx = 0;
         let mut intervals = IntervalTree::new();
         for (v, x) in maps.iter().enumerate() {
@@ -182,28 +178,6 @@ where
             initial: T::default(),
             iter_idx: 0,
         }
-    }
-}
-
-impl<'a, T> MultiMapObserver<'a, T, true>
-where
-    T: Default,
-{
-    /// Creates a new [`MultiMapObserver`] in differential mode
-    #[must_use]
-    pub fn differential(name: &'static str, maps: Vec<OwnedMutSlice<'a, T>>) -> Self {
-        Self::maybe_differential(name, maps)
-    }
-}
-
-impl<'a, T> MultiMapObserver<'a, T, false>
-where
-    T: Default,
-{
-    /// Creates a new [`MultiMapObserver`]
-    #[must_use]
-    pub fn new(name: &'static str, maps: Vec<OwnedMutSlice<'a, T>>) -> Self {
-        Self::maybe_differential(name, maps)
     }
 
     /// Creates a new [`MultiMapObserver`] with an owned map
@@ -233,7 +207,7 @@ where
     }
 }
 
-impl<'a, 'it, T, const DIFFERENTIAL: bool> AsIter<'it> for MultiMapObserver<'a, T, DIFFERENTIAL>
+impl<'a, 'it, T> AsIter<'it> for MultiMapObserver<'a, T>
 where
     T: 'a,
     'a: 'it,
@@ -247,7 +221,7 @@ where
     }
 }
 
-impl<'a, 'it, T, const DIFFERENTIAL: bool> AsIterMut<'it> for MultiMapObserver<'a, T, DIFFERENTIAL>
+impl<'a, 'it, T> AsIterMut<'it> for MultiMapObserver<'a, T>
 where
     T: 'a,
     'a: 'it,
@@ -259,5 +233,3 @@ where
         self.maps.iter_mut().flatten()
     }
 }
-
-impl<OTA, OTB, S, T> DifferentialObserver<OTA, OTB, S> for MultiMapObserver<'_, T, true> {}
