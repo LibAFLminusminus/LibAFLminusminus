@@ -11,21 +11,21 @@ use libc::siginfo_t;
 
 use crate::{executors::common_signals, runners::inprocess::InProcessSignalHandler};
 
-pub type OsSignalHandler<CH, TH> = UnixSignalHandler<CH, TH>;
+pub type OsSignalHandler<CH, D, TH> = UnixSignalHandler<CH, D, TH>;
 
-pub struct UnixSignalHandler<CH, TH> {
-    inner: InProcessSignalHandler<CH, TH>,
+pub struct UnixSignalHandler<CH, D, TH> {
+    inner: InProcessSignalHandler<CH, D, TH>,
 }
 
-pub(crate) type SignalHandlerFn<CH, TH> = unsafe fn(
+pub(crate) type SignalHandlerFn<CH, D, TH> = unsafe fn(
     Signal,
     &mut siginfo_t,
     Option<&mut ucontext_t>,
-    signal_handler: InProcessSignalHandler<CH, TH>,
+    signal_handler: InProcessSignalHandler<CH, D, TH>,
 );
 
-impl<CH, TH> UnixSignalHandler<CH, TH> {
-    pub fn new(signal_handler: InProcessSignalHandler<CH, TH>) -> Self {
+impl<CH, D, TH> UnixSignalHandler<CH, D, TH> {
+    pub fn new(signal_handler: InProcessSignalHandler<CH, D, TH>) -> Self {
         Self {
             inner: signal_handler,
         }
@@ -160,14 +160,14 @@ impl<CH, TH> UnixSignalHandler<CH, TH> {
         }
     }
 
-    pub fn inner(&self) -> &InProcessSignalHandler<CH, TH> {
+    pub fn inner(&self) -> &InProcessSignalHandler<CH, D, TH> {
         &self.inner
     }
 
     pub fn setup_panic_hook(self: &mut Pin<Box<Self>>) {
         let old_hook = panic::take_hook();
 
-        let mut signal_handler: *mut Self = self.get_mut() as *mut UnixSignalHandler<CH, TH>;
+        let mut signal_handler: *mut Self = self.get_mut() as *mut UnixSignalHandler<CH, D, TH>;
 
         // # Safety
         // The panic handler should only run when all other execution stopped.
@@ -200,7 +200,7 @@ impl<CH, TH> UnixSignalHandler<CH, TH> {
     }
 }
 
-impl<CH, TH> SignalHandler for UnixSignalHandler<CH, TH> {
+impl<CH, D, TH> SignalHandler for UnixSignalHandler<CH, D, TH> {
     /// # Safety
     /// This will access global state.
     unsafe fn handle(
