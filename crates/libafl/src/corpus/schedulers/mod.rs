@@ -3,42 +3,36 @@
 use alloc::{borrow::ToOwned, string::ToString};
 use core::{hash::Hash, marker::PhantomData};
 
+#[cfg(not(feature = "remove_me"))]
 pub mod testcase_score;
+#[cfg(not(feature = "remove_me"))]
 pub use testcase_score::{LenTimeMulTestcasePenalty, TestcasePenalty, TestcaseScore};
 
 pub mod queue;
 pub use queue::QueueScheduler;
 
+#[cfg(not(feature = "remove_me"))]
 pub mod minimizer;
+#[cfg(not(feature = "remove_me"))]
 pub use minimizer::{
     IndexesLenTimeMinimizerScheduler, LenTimeMinimizerScheduler, MinimizerScheduler,
 };
 
+#[cfg(not(feature = "remove_me"))]
 pub mod powersched;
+#[cfg(not(feature = "remove_me"))]
 pub use powersched::{PowerQueueScheduler, SchedulerMetadata};
 
-pub mod probabilistic_sampling;
-pub use probabilistic_sampling::ProbabilitySamplingScheduler;
-
-pub mod accounting;
-pub use accounting::CoverageAccountingScheduler;
-
-pub mod weighted;
-pub use weighted::{StdWeightedScheduler, WeightedScheduler};
-
-pub mod tuneable;
 use libafl_bolts::{
     generic_hash_std,
-    rands::Rand,
     tuples::{Handle, MatchName, MatchNameRef},
 };
-pub use tuneable::*;
 
 use crate::{
-    Error, HasMetadata,
-    corpus::{Corpus, CorpusId, HasTestcase, SchedulerTestcaseMetadata, Testcase},
+    Error,
+    corpus::{Corpus, CorpusId, HasTestcase, Testcase},
     random_corpus_id,
-    state::{HasCorpus, HasRand},
+    state::{HasCorpus, HasRand, SchedulerTestcaseMetadata},
 };
 
 /// The scheduler also implements `on_remove` and `on_replace` if it implements this stage.
@@ -103,6 +97,7 @@ where
 }
 
 /// Called when a [`Testcase`] is evaluated
+#[cfg(not(feature = "remove_me"))]
 pub fn on_evaluation_metadata_default<CS, O, OT, S>(
     scheduler: &mut CS,
     state: &mut S,
@@ -111,7 +106,6 @@ pub fn on_evaluation_metadata_default<CS, O, OT, S>(
 where
     CS: AflScheduler,
     CS::ObserverRef: AsRef<O>,
-    S: HasMetadata,
     O: Hash,
     OT: MatchName,
 {
@@ -239,8 +233,11 @@ where
                     .to_owned(),
             ))
         } else {
+            panic!(
+                "There was a call to set_current_scheduled here, what should we do? (cf comments below)"
+            );
             let id = random_corpus_id!(state.corpus(), state.rand_mut());
-            <Self as Scheduler<I, S>>::set_current_scheduled(self, state, Some(id))?;
+            // <Self as Scheduler<I, S>>::set_current_scheduled(self, state, Some(id))?;
             Ok(id)
         }
     }
@@ -275,14 +272,6 @@ impl<I, S> Scheduler<I, S> for NopScheduler {
     }
 
     fn next(&mut self, state: &mut S) -> Result<CorpusId, Error> {
-        panic!("NopScheduler does not schedule")
-    }
-
-    fn set_current_scheduled(
-        &mut self,
-        state: &mut S,
-        next_id: Option<CorpusId>,
-    ) -> Result<(), Error> {
         panic!("NopScheduler does not schedule")
     }
 }

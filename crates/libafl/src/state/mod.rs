@@ -22,18 +22,21 @@ use serde::{Deserialize, Serialize, de::DeserializeOwned};
 #[cfg(feature = "introspection")]
 use crate::monitors::stats::ClientPerfStats;
 use crate::{
-    Error, HasMetadata, HasNamedMetadata,
+    Error,
     corpus::{
         Corpus, CorpusId, InMemoryCorpus, Testcase, TestcaseFilenameFormat,
         schedulers::NopScheduler,
     },
     feedbacks::StateInitializer,
-    fuzzer::{Evaluator, ExecuteInputResult},
-    generators::Generator,
     inputs::{Input, NopInput},
 };
 
-pub trait State {
+#[cfg(not(feature = "remove_me"))]
+use crate::fuzzer::{Evaluator, ExecuteInputResult};
+#[cfg(not(feature = "remove_me"))]
+use crate::generators::Generator;
+
+pub trait State<I> {
     fn max_size(&self) -> usize;
     /// Set the max size.
     fn max_size_mut(&mut self) -> &mut usize;
@@ -189,16 +192,6 @@ pub struct TestcaseMetadata {
     #[cfg(feature = "track_hit_feedbacks")]
     #[builder(default)]
     hit_objectives: Vec<Cow<'static, str>>,
-}
-
-impl HasMetadata for TestcaseMetadata {
-    fn metadata_map(&self) -> &SerdeAnyMap {
-        &self.metadata
-    }
-
-    fn metadata_map_mut(&mut self) -> &mut SerdeAnyMap {
-        &mut self.metadata
-    }
 }
 
 impl TestcaseMetadata {
@@ -445,8 +438,8 @@ impl SchedulerTestcaseMetadata {
 
 libafl_bolts::impl_serdeany!(SchedulerTestcaseMetadata);
 
-impl<C, I, R, SC, SO> State for StdState<C, I, R, SC, SO> {
-        /// The max size allowed for the input
+impl<C, I, R, SC, SO> State<I> for StdState<C, I, R, SC, SO> {
+    /// The max size allowed for the input
     fn max_size(&self) -> usize {
         self.max_size
     }
@@ -541,7 +534,6 @@ impl<C, I, R, SC, SO> State for StdState<C, I, R, SC, SO> {
         Ok(self.corpus_id)
     }
 
-
     #[cfg(feature = "introspection")]
     fn introspection_stats(&self) -> &ClientPerfStats {
         &self.introspection_stats
@@ -561,8 +553,8 @@ pub trait HasSolutions<I, SC> {
     fn solutions_mut(&mut self) -> &mut Self::Solution;
 }
 
-impl<C, I, R, SC, SO> HasSolutions<I, SC> for StdState<C, I, R, SC, SO> 
-where 
+impl<C, I, R, SC, SO> HasSolutions<I, SC> for StdState<C, I, R, SC, SO>
+where
     SO: Corpus<I>,
 {
     type Solution = SO;
@@ -583,8 +575,8 @@ pub trait HasCorpus<I> {
     fn corpus_mut(&mut self) -> &mut Self::Corpus;
 }
 
-impl<C, I, R, SC, SO> HasCorpus<I> for StdState<C, I, R, SC, SO> 
-where 
+impl<C, I, R, SC, SO> HasCorpus<I> for StdState<C, I, R, SC, SO>
+where
     C: Corpus<I>,
 {
     type Corpus = C;
@@ -606,7 +598,7 @@ pub trait HasRand {
     fn rand_mut(&mut self) -> &mut Self::Rand;
 }
 
-impl<C, I, R, SC, SO> HasRand for StdState<C, I, R, SC, SO> 
+impl<C, I, R, SC, SO> HasRand for StdState<C, I, R, SC, SO>
 where
     R: Rand,
 {
@@ -620,7 +612,6 @@ where
         &mut self.rand
     }
 }
-
 
 #[cfg(feature = "std")]
 impl<C, I, R, SC, SO> StdState<C, I, R, SC, SO>
@@ -756,6 +747,7 @@ where
     /// Loads initial inputs from the passed-in `in_dirs`.
     /// If `forced` is true, will add all testcases, no matter what.
     /// This method takes a list of files.
+    #[cfg(not(feature = "remove_me"))]
     fn load_initial_inputs_custom_by_filenames<E, Z>(
         &mut self,
         fuzzer: &mut Z,
@@ -778,6 +770,7 @@ where
         self.continue_loading_initial_inputs_custom(fuzzer, executor, load_config)
     }
 
+    #[cfg(not(feature = "remove_me"))]
     fn load_file<E, Z>(
         &mut self,
         path: &Path,
@@ -817,6 +810,7 @@ where
     /// Loads initial inputs from the passed-in `in_dirs`.
     /// This method takes a list of files and a `LoadConfig`
     /// which specifies the special handling of initial inputs
+    #[cfg(not(feature = "remove_me"))]
     fn continue_loading_initial_inputs_custom<E, Z>(
         &mut self,
         fuzzer: &mut Z,
@@ -871,6 +865,7 @@ where
     /// This is rarely the right method, use `load_initial_inputs`,
     /// and potentially fix your `Feedback`, instead.
     /// This method takes a list of files, instead of folders.
+    #[cfg(not(feature = "remove_me"))]
     pub fn load_initial_inputs_by_filenames<E, Z>(
         &mut self,
         fuzzer: &mut Z,
@@ -895,6 +890,7 @@ where
     /// Loads all intial inputs, even if they are not considered `interesting`.
     /// This is rarely the right method, use `load_initial_inputs`,
     /// and potentially fix your `Feedback`, instead.
+    #[cfg(not(feature = "remove_me"))]
     pub fn load_initial_inputs_forced<E, Z>(
         &mut self,
         fuzzer: &mut Z,
@@ -918,6 +914,7 @@ where
     /// Loads initial inputs from the passed-in `in_dirs`.
     /// If `forced` is true, will add all testcases, no matter what.
     /// This method takes a list of files, instead of folders.
+    #[cfg(not(feature = "remove_me"))]
     pub fn load_initial_inputs_by_filenames_forced<E, Z>(
         &mut self,
         fuzzer: &mut Z,
@@ -940,6 +937,7 @@ where
     }
 
     /// Loads initial inputs from the passed-in `in_dirs`.
+    #[cfg(not(feature = "remove_me"))]
     pub fn load_initial_inputs<E, Z>(
         &mut self,
         fuzzer: &mut Z,
@@ -963,6 +961,7 @@ where
 
     /// Loads initial inputs from the passed-in `in_dirs`.
     /// Will return a `CorpusError` if a solution is found
+    #[cfg(not(feature = "remove_me"))]
     pub fn load_initial_inputs_disallow_solution<E, Z>(
         &mut self,
         fuzzer: &mut Z,
@@ -999,6 +998,7 @@ where
     }
     /// Loads initial inputs by dividing the from the passed-in `in_dirs`
     /// in a multicore fashion. Divides the corpus in chunks spread across cores.
+    #[cfg(not(feature = "remove_me"))]
     pub fn load_initial_inputs_multicore<E, Z>(
         &mut self,
         fuzzer: &mut Z,
@@ -1086,6 +1086,7 @@ where
     R: Rand,
     SO: Corpus<I>,
 {
+    #[cfg(not(feature = "remove_me"))]
     fn generate_initial_internal<G, E, Z>(
         &mut self,
         fuzzer: &mut Z,
@@ -1116,6 +1117,7 @@ where
     }
 
     /// Generate `num` initial inputs, using the passed-in generator and force the addition to corpus.
+    #[cfg(not(feature = "remove_me"))]
     pub fn generate_initial_inputs_forced<G, E, Z>(
         &mut self,
         fuzzer: &mut Z,
@@ -1131,6 +1133,7 @@ where
     }
 
     /// Generate `num` initial inputs, using the passed-in generator.
+    #[cfg(not(feature = "remove_me"))]
     pub fn generate_initial_inputs<G, E, Z>(
         &mut self,
         fuzzer: &mut Z,
@@ -1196,11 +1199,25 @@ where
     }
 }
 
-impl StdState<InMemoryCorpus<NopInput, NopScheduler>, NopInput, StdRand, NopScheduler, InMemoryCorpus<NopInput, NopScheduler>> {
+impl
+    StdState<
+        InMemoryCorpus<NopInput, NopScheduler>,
+        NopInput,
+        StdRand,
+        NopScheduler,
+        InMemoryCorpus<NopInput, NopScheduler>,
+    >
+{
     /// Create an empty [`StdState`] that has very minimal uses.
     /// Potentially good for testing.
     pub fn nop() -> Result<
-        StdState<InMemoryCorpus<NopInput>, NopInput, StdRand, InMemoryCorpus<NopInput>>,
+        StdState<
+            InMemoryCorpus<NopInput, NopScheduler>,
+            NopInput,
+            StdRand,
+            NopScheduler,
+            InMemoryCorpus<NopInput, NopScheduler>,
+        >,
         Error,
     > {
         StdState::new(

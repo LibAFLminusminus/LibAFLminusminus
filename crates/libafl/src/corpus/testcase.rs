@@ -5,6 +5,7 @@
 use alloc::{borrow::Cow, vec::Vec};
 use alloc::{rc::Rc, string::String};
 use core::{fmt::Debug, hash::Hasher};
+use std::string::ToString;
 
 use libafl_bolts::{HasLen, hasher_std};
 use serde::{Deserialize, Serialize};

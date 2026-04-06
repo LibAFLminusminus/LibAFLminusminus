@@ -10,11 +10,7 @@ use core::{
 use libafl_bolts::{AsSlice, AsSliceMut, HasLen, Named, Truncate, ownedref::OwnedMutSlice};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
-use crate::{
-    Error,
-    executors::ExitKind,
-    observers::Observer,
-};
+use crate::{Error, executors::ExitKind, observers::Observer};
 
 pub mod const_map;
 pub use const_map::*;
@@ -144,7 +140,6 @@ where
         self.0.post_exec(state, exit_kind)
     }
 }
-
 
 impl<T, const ITH: bool, const NTH: bool> AsRef<T> for ExplicitTracking<T, ITH, NTH> {
     fn as_ref(&self) -> &T {
@@ -532,7 +527,6 @@ impl<T> Deref for StdMapObserver<'_, T> {
     }
 }
 
-
 impl<'a, T> StdMapObserver<'a, T>
 where
     T: Default,
@@ -543,7 +537,7 @@ where
     /// Will get a pointer to the map and dereference it at any point in time.
     /// The map must not move in memory!
     #[must_use]
-    unsafe fn new<S>(name: S, map: &'a mut [T]) -> Self
+    pub unsafe fn new<S>(name: S, map: &'a mut [T]) -> Self
     where
         S: Into<Cow<'static, str>>,
     {
@@ -556,7 +550,7 @@ where
 
     /// Creates a new [`MapObserver`] from an [`OwnedMutSlice`]
     #[must_use]
-    fn from_mut_slice<S>(name: S, map: OwnedMutSlice<'a, T>) -> Self
+    pub fn from_mut_slice<S>(name: S, map: OwnedMutSlice<'a, T>) -> Self
     where
         S: Into<Cow<'static, str>>,
     {
@@ -569,7 +563,7 @@ where
 
     /// Creates a new [`MapObserver`] with an owned map
     #[must_use]
-    fn owned<S>(name: S, map: Vec<T>) -> Self
+    pub fn owned<S>(name: S, map: Vec<T>) -> Self
     where
         S: Into<Cow<'static, str>>,
     {
@@ -585,7 +579,7 @@ where
     /// # Safety
     /// Will dereference the owned slice with up to len elements.
     #[must_use]
-    fn from_ownedref<S>(name: S, map: OwnedMutSlice<'a, T>) -> Self
+    pub fn from_ownedref<S>(name: S, map: OwnedMutSlice<'a, T>) -> Self
     where
         S: Into<Cow<'static, str>>,
     {
@@ -600,16 +594,11 @@ where
     ///
     /// # Safety
     /// Will dereference the `map_ptr` with up to len elements.
-    unsafe fn from_mut_ptr<S>(name: S, map_ptr: *mut T, len: usize) -> Self
+    pub unsafe fn from_mut_ptr<S>(name: S, map_ptr: *mut T, len: usize) -> Self
     where
         S: Into<Cow<'static, str>>,
     {
-        unsafe {
-            Self::from_mut_slice(
-                name,
-                OwnedMutSlice::from_raw_parts_mut(map_ptr, len),
-            )
-        }
+        unsafe { Self::from_mut_slice(name, OwnedMutSlice::from_raw_parts_mut(map_ptr, len)) }
     }
 
     /// Gets the initial value for this map, mutably

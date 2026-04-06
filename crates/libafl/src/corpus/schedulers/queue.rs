@@ -4,7 +4,10 @@ use alloc::borrow::ToOwned;
 
 use crate::{
     Error,
-    corpus::{Corpus, CorpusId, Testcase},
+    corpus::{
+        Corpus, CorpusId, Scheduler, Testcase,
+        schedulers::{HasQueueCycles, RemovableScheduler},
+    },
     state::HasCorpus,
 };
 
@@ -64,18 +67,10 @@ where
                 self.queue_cycles += 1;
                 self.runs_in_current_cycle = 0;
             }
-            <Self as Scheduler<I, S>>::set_current_scheduled(self, state, Some(id))?;
+            panic!("set_current_scheduler: what to do with this guy?");
+            // <Self as Scheduler<I, S>>::set_current_scheduled(self, state, Some(id))?;
             Ok(id)
         }
-    }
-
-    fn set_current_scheduled(
-        &mut self,
-        state: &mut S,
-        next_id: Option<CorpusId>,
-    ) -> Result<(), Error> {
-        *state.corpus_mut().current_mut() = next_id;
-        Ok(())
     }
 }
 
@@ -111,10 +106,10 @@ mod tests {
     use libafl_bolts::rands::StdRand;
 
     use crate::{
+        corpus::schedulers::{QueueScheduler, RemovableScheduler, Scheduler},
         corpus::{Corpus, InMemoryCorpus, OnDiskCorpus, Testcase},
         feedbacks::ConstFeedback,
         inputs::bytes::BytesInput,
-        schedulers::{QueueScheduler, RemovableScheduler, Scheduler},
         state::{HasCorpus, StdState},
     };
 

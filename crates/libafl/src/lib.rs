@@ -43,6 +43,7 @@ Welcome to `LibAFL`
         while_true
     )
 )]
+#![cfg_attr(feature = "remove_me", allow(warnings))]
 
 #[cfg(feature = "std")]
 #[macro_use]
@@ -60,26 +61,35 @@ extern crate libafl_derive;
 #[doc(hidden)]
 pub use libafl_derive::*;
 
+#[cfg(not(feature = "remove_me"))]
 pub mod common;
+#[cfg(not(feature = "remove_me"))]
 pub use common::*;
 pub mod corpus;
 pub mod executors;
 pub mod feedbacks;
+#[cfg(not(feature = "remove_me"))]
 pub mod fuzzer;
+#[cfg(not(feature = "remove_me"))]
 pub mod generators;
 pub mod inputs;
+#[cfg(not(feature = "remove_me"))]
 pub mod monitors;
+#[cfg(not(feature = "remove_me"))]
 pub mod mutators;
 pub mod observers;
 pub mod runners;
+#[cfg(not(feature = "remove_me"))]
 pub mod stages;
 pub mod state;
 
+#[cfg(not(feature = "remove_me"))]
 pub use fuzzer::*;
 pub use libafl_bolts::{Error, nonzero};
 
 /// The purpose of this module is to alleviate imports of many components by adding a glob import.
 #[cfg(feature = "prelude")]
+#[cfg(not(feature = "remove_me"))]
 pub mod prelude {
     #![expect(ambiguous_glob_reexports)]
 

@@ -5,10 +5,17 @@ use libafl_bolts::{HasLen, HasRefCnt};
 use num_traits::Zero;
 
 use crate::{
-    Error, HasMetadata,
-    corpus::{Corpus, Testcase},
+    Error,
+    corpus::{
+        Corpus, Testcase,
+        schedulers::{
+            SchedulerMetadata,
+            minimizer::{IsFavoredMetadata, TopRatedsMetadata},
+            powersched::BaseSchedule,
+        },
+    },
     feedbacks::MapIndexesMetadata,
-    state::HasCorpus,
+    state::{HasCorpus, SchedulerTestcaseMetadata},
 };
 
 /// Compute the favor factor of a [`Testcase`]. Higher is better.

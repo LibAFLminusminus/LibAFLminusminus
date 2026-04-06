@@ -25,8 +25,7 @@ use windows::Win32::System::Threading::{CRITICAL_SECTION, PTP_TIMER};
 use crate::executors::hooks::timer::TimerStruct;
 use crate::{
     Error, HasObjective,
-    events::{EventFirer, EventRestarter},
-    executors::{Executor, HasObservers, hooks::ExecutorHook, inprocess::HasInProcessHooks},
+    executors::{Executor, hooks::ExecutorHook, inprocess::HasInProcessHooks},
     feedbacks::Feedback,
     state::{HasExecutions, HasSolutions},
 };
@@ -338,17 +337,11 @@ unsafe fn prepare_exit<E, EM, I, OF, S, Z>(
             let fuzzer = (*data).fuzzer_mut::<Z>();
 
             run_observers_and_save_state::<E, EM, I, OF, S, Z>(
-                executor,
-                state,
-                input,
-                fuzzer,
-                exit_kind,
+                executor, state, input, fuzzer, exit_kind,
             );
         }
     }
 }
-
-
 
 /// Exception handling needs some nasty globals.
 pub(crate) static mut GLOBAL_STATE: SignalHandlerData = SignalHandlerData {

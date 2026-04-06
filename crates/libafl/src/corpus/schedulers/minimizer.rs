@@ -11,11 +11,13 @@ use serde::{Deserialize, Serialize};
 use super::HasQueueCycles;
 use crate::{
     Error, HasMetadata,
+    corpus::schedulers::{
+        LenTimeMulTestcasePenalty, RemovableScheduler, Scheduler, TestcasePenalty,
+    },
     corpus::{Corpus, CorpusId, Testcase},
     feedbacks::MapIndexesMetadata,
     observers::CanTrack,
     require_index_tracking,
-    schedulers::{LenTimeMulTestcasePenalty, RemovableScheduler, Scheduler, TestcasePenalty},
     state::{HasCorpus, HasRand},
 };
 
@@ -223,16 +225,6 @@ where
             id = self.base.next(state)?;
         }
         Ok(id)
-    }
-
-    /// Set current fuzzed corpus id and `scheduled_count`
-    fn set_current_scheduled(
-        &mut self,
-        _state: &mut S,
-        _next_id: Option<CorpusId>,
-    ) -> Result<(), Error> {
-        // We do nothing here, the inner scheduler will take care of it
-        Ok(())
     }
 }
 
@@ -456,18 +448,20 @@ pub type IndexesLenTimeMinimizerScheduler<CS, I, O> =
 
 #[cfg(test)]
 mod tests {
+    use std::rc::Rc;
+
     use libafl_bolts::rands::StdRand;
 
     use crate::{
         HasMetadata,
+        corpus::schedulers::{
+            IndexesLenTimeMinimizerScheduler, MinimizerScheduler, QueueScheduler, Scheduler,
+            minimizer::TopRatedsMetadata,
+        },
         corpus::{Corpus, InMemoryCorpus, Testcase},
         feedbacks::MapIndexesMetadata,
         inputs::NopInput,
         observers::{CanTrack, StdMapObserver},
-        schedulers::{
-            IndexesLenTimeMinimizerScheduler, MinimizerScheduler, QueueScheduler, Scheduler,
-            minimizer::TopRatedsMetadata,
-        },
         state::{HasCorpus, StdState},
     };
 
@@ -484,7 +478,7 @@ mod tests {
             MinimizerScheduler::new(&observer, QueueScheduler::new());
 
         let mut corpus = InMemoryCorpus::new();
-        let t1 = Testcase::new(NopInput {});
+        let t1 = Testcase::new(Rc::new(NopInput));
         let _id1 = corpus.add(t1).unwrap();
 
         let mut state =
@@ -495,7 +489,7 @@ mod tests {
 
         top_rateds.map.insert(0, 999_usize.into());
 
-        let mut t2 = Testcase::new(NopInput {});
+        let mut t2 = Testcase::new(Rc::new(NopInput));
         let map_meta = MapIndexesMetadata::new(vec![0]);
         t2.add_metadata(map_meta);
         let id2 = state.corpus_mut().add(t2).unwrap();
