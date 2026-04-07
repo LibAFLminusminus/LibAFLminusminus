@@ -264,6 +264,12 @@ Executor is now split into 2 parts:
 
 executor and runner share a "Driver", which enables the executor to configure the runner generically (independently of the underlying runner).
 
+# State vs Input
+
+for now, state and input are separated.
+we can put input directly in state to avoid having to pass both around.
+state holds input (i.e. current testcase).
+
 # Notes
 
 - merge restarting with inprocess executor
@@ -273,8 +279,3 @@ executor and runner share a "Driver", which enables the executor to configure th
 - remove useless traits
 - documentation
 - remove nostd
-
-# why sigsetjmp / siglongjmp cannot work
-
-it would basically make impossible to take back on crash / timeout without fully restarting the process.
-for crash it's most likely fine, but it can be problematic on timeout.
