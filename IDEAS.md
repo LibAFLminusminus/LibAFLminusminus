@@ -69,12 +69,13 @@
 
 ## Work queue
 
-Romain:
-- [ ] corpus
-
-Toka:
-- [ ] state
-- [ ] fuzzer
+- [ ] make libafl build again with remove_me feature
+- [ ] metadata upd
+- [ ] fix scheduler
+- [ ] workdir impl
+- [ ] monidor impl
+- [ ] laucher impl
+- [ ] fix other crates
 
 # Structural problems
 
