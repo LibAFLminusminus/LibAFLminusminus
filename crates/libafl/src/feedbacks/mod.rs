@@ -8,7 +8,7 @@ use alloc::borrow::Cow;
 use alloc::vec::Vec;
 use core::{fmt::Debug, marker::PhantomData};
 
-use crate::{Error, corpus::Testcase, executors::ExitKind, observers::TimeObserver};
+use crate::{Error, corpus::Testcase, executors::ExitKind, observers::TimeObserver, state::State};
 use libafl_bolts::{
     Named,
     tuples::{Handle, Handled, MatchName, MatchNameRef},
@@ -906,6 +906,7 @@ impl<S> StateInitializer<S> for TimeFeedback {}
 impl<I, OT, S> Feedback<I, OT, S> for TimeFeedback
 where
     OT: MatchName,
+    S: State<I>,
 {
     #[cfg(feature = "track_hit_feedbacks")]
     fn last_result(&self) -> Result<bool, Error> {
@@ -916,7 +917,7 @@ where
     #[inline]
     fn append_metadata(
         &mut self,
-        _state: &mut S,
+        state: &mut S,
         observers: &OT,
         testcase: &mut Testcase<I>,
     ) -> Result<(), Error> {
@@ -926,7 +927,8 @@ where
             ));
         };
 
-        *testcase.exec_time_mut() = *observer.last_runtime();
+        *state.testcase_md_mut(testcase).exec_time_mut() = *observer.last_runtime();
+
         Ok(())
     }
 }

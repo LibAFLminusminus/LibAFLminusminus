@@ -13,12 +13,7 @@ use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "std")]
 use crate::observers::{StdErrObserver, StdOutObserver};
-use crate::{
-    Error,
-    observers::{Observer, ObserversTuple},
-    runners::{Runner, RunnerDriver},
-    state::State,
-};
+use crate::{Error, observers::ObserversTuple, runners::RunnerDriver, state::State};
 
 // /// The module for all the executor hooks
 // pub mod hooks;
@@ -140,7 +135,7 @@ where
     ) -> Result<ExitKind, Error> {
         *state.executions_mut() += 1;
 
-        self.observers_mut().pre_exec(state)?;
+        self.observers_tuple_mut().pre_exec_all(state)?;
 
         let has_timeout = if let Some(tmout) = self.timeout() {
             driver.set_timeout(tmout)?;
@@ -156,8 +151,8 @@ where
             driver.unset_timeout()?;
         }
 
-        self.observers_mut()
-            .post_exec(state, &mut exit_kind)
+        self.observers_tuple_mut()
+            .post_exec_all(state, &mut exit_kind)
             .map(|_| exit_kind)
     }
 

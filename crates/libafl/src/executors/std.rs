@@ -21,7 +21,7 @@ where
     S: State<I>,
 {
     unsafe fn execute_impl(&mut self, state: &mut S, input: &I) -> Result<ExitKind, Error> {
-        self.harness(state, input)
+        (self.harness)(state, input)
     }
 
     fn observers_tuple(&self) -> &OT {

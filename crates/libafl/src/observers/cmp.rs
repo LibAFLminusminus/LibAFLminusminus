@@ -260,8 +260,10 @@ where
     }
 
     fn post_exec(&mut self, state: &mut S, _exit_kind: &ExitKind) -> Result<(), Error> {
+        #[cfg(not(feature = "remove_me"))]
         if self.add_meta {
-            let meta = state.metadata_or_insert_with(CmpValuesMetadata::new);
+            // TOKA
+            let meta = state.metadata_or_insert_with(CmpValuesMetadata::new); // TODO: toka
 
             meta.add_from(self.usable_count(), self.cmp_map_mut());
         }

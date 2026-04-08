@@ -10,22 +10,32 @@ use crate::Error;
 pub mod testcase;
 pub use testcase::{HasTestcase, Testcase, TestcaseFilenameFormat};
 
+#[cfg(not(feature = "remove_me"))]
 pub mod single;
+#[cfg(not(feature = "remove_me"))]
 pub use single::SingleCorpus;
 
 // pub mod dynamic;
 // pub use dynamic::DynamicCorpus;
 
+#[cfg(not(feature = "remove_me"))]
 pub mod nop;
+#[cfg(not(feature = "remove_me"))]
 pub use nop::NopCorpus;
 
+#[cfg(not(feature = "remove_me"))]
 pub mod store;
-pub use store::{maps, InMemoryStore, OnDiskStore, Store};
+#[cfg(not(feature = "remove_me"))]
+pub use store::{InMemoryStore, OnDiskStore, Store, maps};
 
+#[cfg(not(feature = "remove_me"))]
 pub mod schedulers;
+#[cfg(not(feature = "remove_me"))]
 pub use schedulers::Scheduler;
 
+#[cfg(not(feature = "remove_me"))]
 pub mod collection;
+#[cfg(not(feature = "remove_me"))]
 pub use collection::{
     InMemoryCorpus, OnDiskCorpus, StdInMemoryCorpusMap, StdInMemoryStore, StdOnDiskStore,
 };
@@ -90,18 +100,17 @@ macro_rules! random_corpus_id_with_disabled {
     }};
 }
 
-pub trait HasScheduler<I, S> {
-    type Scheduler: Scheduler<I, S>;
-    /// Get the reference to the corpus' scheduler
-    fn scheduler(&self) -> &Self::Scheduler;
-
-    /// Get the mutable reference to the corpus' scheduler
-    fn scheduler_mut(&mut self) -> &mut Self::Scheduler;
-}
+// pub trait HasScheduler<I, S> {
+//     type Scheduler: Scheduler<I, S>;
+//     /// Get the reference to the corpus' scheduler
+//     fn scheduler(&self) -> &Self::Scheduler;
+//
+//     /// Get the mutable reference to the corpus' scheduler
+//     fn scheduler_mut(&mut self) -> &mut Self::Scheduler;
+// }
 
 /// Corpus with all current [`Testcase`]s, or solutions
 pub trait Corpus<I>: Sized {
-
     /// Returns the number of all enabled entries
     fn count(&self) -> usize;
 
@@ -150,6 +159,7 @@ pub trait Corpus<I>: Sized {
     fn get_from<const ENABLED: bool>(&self, id: CorpusId) -> Result<Testcase<I>, Error>;
 
     /// An iterator over very active corpus id
+    #[cfg(not(feature = "remove_me"))]
     fn ids(&self) -> CorpusIdIterator<'_, Self, I> {
         CorpusIdIterator {
             corpus: self,
@@ -194,6 +204,7 @@ impl From<CorpusId> for usize {
     }
 }
 
+#[cfg(not(feature = "remove_me"))]
 impl<C, I> Iterator for CorpusIdIterator<'_, C, I>
 where
     C: Corpus<I>,
@@ -210,6 +221,7 @@ where
     }
 }
 
+#[cfg(not(feature = "remove_me"))]
 impl<C, I> DoubleEndedIterator for CorpusIdIterator<'_, C, I>
 where
     C: Corpus<I>,

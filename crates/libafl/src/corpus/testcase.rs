@@ -4,7 +4,7 @@
 #[cfg(feature = "track_hit_feedbacks")]
 use alloc::{borrow::Cow, vec::Vec};
 use alloc::{rc::Rc, string::String};
-use core::{fmt::Debug, hash::Hasher};
+use core::{borrow::Borrow, fmt::Debug, hash::Hasher};
 use std::string::ToString;
 
 use libafl_bolts::{HasLen, hasher_std};
@@ -32,6 +32,21 @@ pub enum TestcaseFilenameFormat {
     Custom(String),
 }
 
+#[derive(Serialize, Deserialize, Hash, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct TestcaseId(u64);
+
+impl<I> Borrow<TestcaseId> for Testcase<I> {
+    fn borrow(&self) -> &TestcaseId {
+        &self.id
+    }
+}
+
+impl<I> ToString for Testcase<I> {
+    fn to_string(&self) -> String {
+        format!("{:0>8x}", self.id.0)
+    }
+}
+
 impl TestcaseFilenameFormat {
     pub fn to_filename(&self, id: &str) -> String {
         match self {
@@ -52,7 +67,7 @@ pub struct Testcase<I> {
 
     /// The unique id for [`Testcase`].
     /// It should uniquely identify the input.
-    id: String,
+    id: TestcaseId,
 }
 
 impl<I> Clone for Testcase<I> {
@@ -72,7 +87,7 @@ impl<I> Testcase<I> {
     }
 
     /// Get the associated unique ID.
-    pub fn id(&self) -> &String {
+    pub fn id(&self) -> &TestcaseId {
         &self.id
     }
 }
@@ -99,11 +114,11 @@ where
     }
 
     /// Get the unique ID associated to an input.
-    pub fn compute_id(input: &I) -> String {
+    pub fn compute_id(input: &I) -> TestcaseId {
         let mut hasher = hasher_std();
         input.hash(&mut hasher);
         let hash = hasher.finish();
-        format!("{hash:0>8x}")
+        TestcaseId(hash)
     }
 }
 
