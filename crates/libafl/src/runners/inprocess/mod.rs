@@ -63,7 +63,11 @@ impl<CH, D, S, T, TH> InProcessRunner<CH, D, S, T, TH> {
     }
 }
 
-impl<CH, D, TH> InProcessSignalHandler<CH, D, TH> {
+impl<CH, D, TH> InProcessSignalHandler<CH, D, TH>
+where
+    CH: FnMut(&mut D, &mut S) -> Result<(), Error>,
+    TH: FnMut(&mut D, &mut S) -> Result<(), Error>,
+{
     pub fn new(crash_handler: CH, signal_data: D, timeout_handler: TH) -> Self {
         Self {
             crash_handler,
@@ -86,11 +90,11 @@ impl<CH, D, TH> InProcessSignalHandler<CH, D, TH> {
     }
 
     pub fn handle_timeout(&mut self) {
-        self.timeout_handler(&mut self.signal_data)
+        (self.timeout_handler)(&mut self.signal_data)
     }
 
     pub fn handle_crash(&mut self) {
-        self.crash_handler(&mut self.signal_data)
+        (self.crash_handler)(&mut self.signal_data)
     }
 
     pub fn max_depth(&self) -> usize {

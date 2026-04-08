@@ -3,7 +3,8 @@
 use alloc::string::String;
 #[cfg(feature = "std")]
 use alloc::vec::Vec;
-use core::{borrow::BorrowMut, fmt::Debug, marker::PhantomData, time::Duration};
+use core::{borrow::Borrow, borrow::BorrowMut, fmt::Debug, marker::PhantomData, time::Duration};
+use std::collections::HashMap;
 #[cfg(feature = "std")]
 use std::{
     fs,
@@ -25,7 +26,7 @@ use crate::{
     Error,
     corpus::{
         Corpus, CorpusId, InMemoryCorpus, Testcase, TestcaseFilenameFormat,
-        schedulers::NopScheduler,
+        schedulers::NopScheduler, testcase::TestcaseId,
     },
     feedbacks::StateInitializer,
     inputs::{Input, NopInput},
@@ -43,6 +44,15 @@ pub trait State<I> {
 
     /// The executions counter
     fn executions(&self) -> u64;
+
+    /// get testcase metadata, and returns None if not there
+    fn testcase_md<'a>(&'a self, tc: &Testcase<I>) -> Option<&'a TestcaseMetadata>;
+
+    /// get or insert style
+    fn testcase_md_mut<'a>(&'a mut self, tc: &Testcase<I>) -> &'a mut TestcaseMetadata;
+
+    /// To get the testcase
+    fn testcase(&self, id: CorpusId) -> Result<Testcase<I>, Error>;
 
     /// The executions counter (mutable)
     fn executions_mut(&mut self) -> &mut u64;
@@ -65,10 +75,8 @@ pub trait State<I> {
     /// This information is used by fuzzer `maybe_report_progress`.
     fn last_report_time_mut(&mut self) -> &mut Option<Duration>;
     /// Get all the metadata into an [`hashbrown::HashMap`]
-    #[inline]
     fn named_metadata_map(&self) -> &NamedSerdeAnyMap;
     /// Get all the metadata into an [`hashbrown::HashMap`] (mutable)
-    #[inline]
     fn named_metadata_map_mut(&mut self) -> &mut NamedSerdeAnyMap;
     fn request_stop(&mut self);
 
@@ -108,6 +116,12 @@ impl<I, S, Z> Debug for LoadConfig<'_, I, S, Z> {
     }
 }
 
+pub enum MetadataKind {
+    General(MetadataMap),
+    Scheduler(MetadataMap),
+    Testcase(HashSet<MetadataMap>),
+}
+
 /// The state a fuzz run.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(bound = "
@@ -130,6 +144,8 @@ pub struct StdState<C, I, R, SC, SO> {
     solutions: SO,
     /// Metadata stored with names
     named_metadata: NamedSerdeAnyMap,
+    /// Metadata stored for each corpus entry
+    testcase_metadata: HashMap<TestcaseId, TestcaseMetadata>,
     /// `MaxSize` testcase size for mutators that appreciate it
     max_size: usize,
     /// Performance statistics for this fuzzer
@@ -438,7 +454,22 @@ impl SchedulerTestcaseMetadata {
 
 libafl_bolts::impl_serdeany!(SchedulerTestcaseMetadata);
 
-impl<C, I, R, SC, SO> State<I> for StdState<C, I, R, SC, SO> {
+impl<C, I, R, SC, SO> State<I> for StdState<C, I, R, SC, SO>
+where
+    C: Corpus<I>,
+{
+    fn testcase(&self, id: CorpusId) -> Result<Testcase<I>, Error> {
+        self.corpus.get(id)
+    }
+
+    fn testcase_md<'a>(&'a self, tc: &Testcase<I>) -> Option<&'a TestcaseMetadata> {
+        self.testcase_metadata.get(tc.id())
+    }
+
+    fn testcase_md_mut<'a>(&'a mut self, tc: &Testcase<I>) -> &'a mut TestcaseMetadata {
+        self.testcase_metadata.entry(*tc.id()).or_default()
+    }
+
     /// The max size allowed for the input
     fn max_size(&self) -> usize {
         self.max_size
@@ -621,39 +652,19 @@ where
     R: Rand,
     SO: Corpus<I>,
 {
-    /// To get the testcase
-    fn testcase(&self, id: CorpusId) -> &Testcase<I> {
-        self.corpus().get(id)?.borrow()
-    }
-
-    /// To get mutable testcase
-    fn testcase_mut(&self, id: CorpusId) -> &mut Testcase<I> {
-        self.corpus().get(id)?.borrow_mut()
-    }
-
-    fn current_testcase(&self) -> Result<&Testcase<I>, Error> {
+    fn current_testcase(&self) -> Result<Testcase<I>, Error> {
         let Some(corpus_id) = self.current_corpus_id()? else {
             return Err(Error::key_not_found(
                 "We are not currently processing a testcase",
             ));
         };
 
-        Ok(self.corpus().get(corpus_id)?.borrow())
-    }
-
-    fn current_testcase_mut(&self) -> Result<&mut Testcase<I>, Error> {
-        let Some(corpus_id) = self.current_corpus_id()? else {
-            return Err(Error::key_not_found(
-                "We are not currently processing a testcase",
-            ));
-        };
-
-        Ok(self.corpus().get(corpus_id)?.borrow_mut())
+        self.corpus().get(corpus_id)
     }
 
     fn current_input_cloned(&self) -> Result<I, Error> {
-        let mut testcase = self.current_testcase_mut()?;
-        Ok(testcase.borrow_mut().load_input(self.corpus())?.clone()) // to romain
+        let mut testcase = self.current_testcase()?;
+        Ok((*testcase.input()).clone())
     }
 
     #[cfg(feature = "introspection")]

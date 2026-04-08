@@ -98,6 +98,10 @@ pub trait Input: Clone + Serialize + serde::de::DeserializeOwned + Debug + Hash 
 /// An input for the target
 #[cfg(feature = "std")]
 pub trait Input: Clone + Serialize + serde::de::DeserializeOwned + Debug + Hash {
+    fn from_bytes(bytes: &[u8]) -> Result<Self, Error>;
+
+    fn to_bytes(&self) -> Result<OwnedSlice<'_, u8>, Error>;
+
     /// Write this input to the file
     fn to_file<P>(&self, path: P) -> Result<(), Error>
     where
@@ -217,7 +221,16 @@ impl NopInput {
     }
 }
 
-impl Input for NopInput {}
+impl Input for NopInput {
+    fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
+        Ok(NopInput)
+    }
+
+    fn to_bytes(&self) -> Result<OwnedSlice<'_, u8>, Error> {
+        Err(Error::unsupported("NopInput cannot be converted to bytes"))
+    }
+}
+
 impl HasTargetBytes for NopInput {
     fn target_bytes(&self) -> OwnedSlice<'_, u8> {
         OwnedSlice::from(vec![0])
