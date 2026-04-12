@@ -41,9 +41,9 @@ impl<I> Borrow<TestcaseId> for Testcase<I> {
     }
 }
 
-impl<I> ToString for Testcase<I> {
+impl ToString for TestcaseId {
     fn to_string(&self) -> String {
-        format!("{:0>8x}", self.id.0)
+        format!("{:0>8x}", self.0)
     }
 }
 

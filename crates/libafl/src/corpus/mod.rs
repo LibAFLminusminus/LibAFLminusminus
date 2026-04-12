@@ -10,9 +10,7 @@ use crate::Error;
 pub mod testcase;
 pub use testcase::{HasTestcase, Testcase, TestcaseFilenameFormat};
 
-#[cfg(not(feature = "remove_me"))]
 pub mod single;
-#[cfg(not(feature = "remove_me"))]
 pub use single::SingleCorpus;
 
 // pub mod dynamic;
@@ -23,19 +21,13 @@ pub mod nop;
 #[cfg(not(feature = "remove_me"))]
 pub use nop::NopCorpus;
 
-#[cfg(not(feature = "remove_me"))]
 pub mod store;
-#[cfg(not(feature = "remove_me"))]
 pub use store::{InMemoryStore, OnDiskStore, Store, maps};
 
-#[cfg(not(feature = "remove_me"))]
 pub mod schedulers;
-#[cfg(not(feature = "remove_me"))]
 pub use schedulers::Scheduler;
 
-#[cfg(not(feature = "remove_me"))]
 pub mod collection;
-#[cfg(not(feature = "remove_me"))]
 pub use collection::{
     InMemoryCorpus, OnDiskCorpus, StdInMemoryCorpusMap, StdInMemoryStore, StdOnDiskStore,
 };

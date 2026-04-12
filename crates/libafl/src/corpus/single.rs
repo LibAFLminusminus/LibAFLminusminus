@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::corpus::{Scheduler, schedulers::RemovableScheduler};
 
-use super::{Corpus, CorpusCounter, CorpusId, Testcase, store::Store, HasScheduler};
+use super::{Corpus, CorpusCounter, CorpusId, Testcase, store::Store};
 
 /// You average corpus.
 /// It has one backing store, used to store / retrieve testcases.
@@ -53,21 +53,6 @@ impl<I, S, SC> SingleCorpus<I, S, SC> {
     }
 }
 
-impl<I, S, SC> HasScheduler<I, S> for SingleCorpus<I, S, SC> 
-where 
-    SC: Scheduler<I, S>
-{
-    type Scheduler = SC;
-
-    fn scheduler(&self) -> &SC {
-        &self.scheduler
-    }
-
-    fn scheduler_mut(&mut self) -> &mut SC {
-        &mut self.scheduler
-    }
-}
-
 pub trait DisableEntry {
     /// Disable a corpus entry
     fn disable(&mut self, id: CorpusId) -> Result<(), Error>;
@@ -99,13 +84,12 @@ where
     fn get_from<const ENABLED: bool>(&self, id: CorpusId) -> Result<Testcase<I>, Error> {
         self.store.get_from::<ENABLED>(id)
     }
-
 }
 
 impl<I, S, SC> DisableEntry for SingleCorpus<I, S, SC>
 where
     S: Store<I>,
-    SC: RemovableScheduler<I, S> 
+    SC: RemovableScheduler<I, S>,
 {
     fn disable(&mut self, id: CorpusId) -> Result<(), Error> {
         self.store.disable(id)

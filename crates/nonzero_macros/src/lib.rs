@@ -36,7 +36,34 @@
 /// let _ = nonzero!(0); // Panics at compile-time
 /// ```
 #[macro_export]
-macro_rules! nonzero {
+macro_rules! non_zero {
+    ($val:expr) => {
+        core::num::NonZero::new($val).unwrap()
+    };
+}
+
+/// Zero-cost way to construct `NonZero*` types from [`core::num`] at compile-time.
+///
+/// This macro ensures that the value is non-zero at compile-time and returns the corresponding `NonZero` type.
+/// If the value is zero, it will cause a compile-time panic.
+///
+/// # Examples
+///
+/// ```
+/// use core::num::NonZeroUsize;
+///
+/// use nonzero_macros::nonzero;
+///
+/// const VAL: NonZeroUsize = nonzero!(10);
+/// assert_eq!(VAL.get(), 10);
+/// ```
+///
+/// ```compile_fail
+/// use nonzero_macros::nonzero;
+/// let _ = nonzero!(0); // Panics at compile-time
+/// ```
+#[macro_export]
+macro_rules! non_zero_const {
     ($val:expr) => {
         const { core::num::NonZero::new($val).unwrap() }
     };
@@ -67,7 +94,7 @@ macro_rules! nonzero {
 /// assert!(val.is_some());
 /// ```
 #[macro_export]
-macro_rules! try_nonzero {
+macro_rules! try_non_zero {
     ($val:expr) => {
         core::num::NonZero::new($val)
     };

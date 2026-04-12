@@ -116,12 +116,6 @@ impl<I, S, Z> Debug for LoadConfig<'_, I, S, Z> {
     }
 }
 
-pub enum MetadataKind {
-    General(MetadataMap),
-    Scheduler(MetadataMap),
-    Testcase(HashSet<MetadataMap>),
-}
-
 /// The state a fuzz run.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(bound = "
@@ -601,6 +595,7 @@ where
 
 pub trait HasCorpus<I> {
     type Corpus: Corpus<I>;
+
     fn corpus(&self) -> &Self::Corpus;
 
     fn corpus_mut(&mut self) -> &mut Self::Corpus;
