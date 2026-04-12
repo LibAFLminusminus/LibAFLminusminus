@@ -38,6 +38,16 @@ pub trait Runner<S> {
     /// Once set, [`on_timeout`] will be executed after the input duration.
     fn set_timeout(&mut self, timeout: Duration) -> Result<(), Error>;
 
+    /// Arm the timer, with the value previously provided to `set_timeout`
+    ///
+    /// If no timeout has been set previously, it's a no-op.
+    fn arm_timeout(&mut self) -> Result<(), Error>;
+
+    /// Disarm the timer if it has been previously armed with `arm_timeout`.
+    ///
+    /// If not timer has been armed previously, it's a no-op.
+    fn disarm_timeout(&mut self) -> Result<(), Error>;
+
     /// Unset a previously set timeout.
     /// If no timeout has been set before, it's a no-op.
     fn unset_timeout(&mut self) -> Result<(), Error>;
@@ -66,10 +76,16 @@ impl<S> RunnerDriver<S> {
     }
 
     /// Set a timeout value for the runner.
-    ///
-    /// Once set, [`on_timeout`] will be executed after the input duration.
-    pub fn set_timeout(&mut self, timeout: &Duration) -> Result<(), Error> {
+    pub fn set_timeout(&mut self, timeout: Duration) -> Result<(), Error> {
         unsafe { self.runner_mut().set_timeout(timeout.clone()) }
+    }
+
+    pub fn arm_timeout(&mut self) -> Result<(), Error> {
+        unsafe { self.runner_mut().arm_timeout() }
+    }
+
+    pub fn disarm_timeout(&mut self) -> Result<(), Error> {
+        unsafe { self.runner_mut().disarm_timeout() }
     }
 
     /// Unset a previously set timeout.
@@ -94,6 +110,14 @@ where
     }
 
     fn set_timeout(&mut self, _timeout: Duration) -> Result<(), Error> {
+        unimplemented!("The direct runner does not implement timeout")
+    }
+
+    fn arm_timeout(&mut self) -> Result<(), Error> {
+        unimplemented!("The direct runner does not implement timeout")
+    }
+
+    fn disarm_timeout(&mut self) -> Result<(), Error> {
         unimplemented!("The direct runner does not implement timeout")
     }
 
