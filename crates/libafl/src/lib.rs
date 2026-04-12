@@ -85,7 +85,7 @@ pub mod state;
 
 #[cfg(not(feature = "remove_me"))]
 pub use fuzzer::*;
-pub use libafl_bolts::{Error, nonzero};
+pub use libafl_bolts::{Error, non_zero, non_zero_const};
 
 /// The purpose of this module is to alleviate imports of many components by adding a glob import.
 #[cfg(feature = "prelude")]

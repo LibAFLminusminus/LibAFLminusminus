@@ -1,5 +1,7 @@
 //! The queue corpus scheduler implements an AFL-like queue mechanism
 
+use std::{collections::VecDeque, vec::Vec};
+
 use alloc::borrow::ToOwned;
 
 use crate::{
@@ -8,12 +10,14 @@ use crate::{
         Corpus, CorpusId, Scheduler, Testcase,
         schedulers::{HasQueueCycles, RemovableScheduler},
     },
-    state::HasCorpus,
+    state::{HasCorpus, State},
 };
 
 /// Walk the corpus in a queue-like fashion
 #[derive(Debug, Clone)]
 pub struct QueueScheduler {
+    queue: Vec<CorpusId>,
+    current: Option<usize>,
     queue_cycles: u64,
     runs_in_current_cycle: u64,
 }
@@ -34,42 +38,52 @@ impl<I, S> Scheduler<I, S> for QueueScheduler
 where
     S: HasCorpus<I>,
 {
-    fn on_add(&mut self, state: &mut S, id: CorpusId) -> Result<(), Error> {
-        // Set parent id
-        let current_id = *state.corpus().current();
-        state
-            .corpus()
-            .get(id)?
-            .borrow_mut()
-            .set_parent_id_optional(current_id);
+    // fn on_add(&mut self, state: &mut S, id: CorpusId) -> Result<(), Error> {
+    //     // Set parent id
+    //     let current_id = state.current_corpus_id();
+
+    //     state
+    //         .corpus()
+    //         .get(id)?
+    //         .borrow_mut()
+    //         .set_parent_id_optional(current_id);
+
+    //     Ok(())
+    // }
+    fn on_add(&mut self, _state: &mut S, id: CorpusId) -> Result<(), Error> {
+        log::warn!("what to do about parent id?");
+
+        self.queue.push(id);
 
         Ok(())
     }
 
     /// Gets the next entry in the queue
     fn next(&mut self, state: &mut S) -> Result<CorpusId, Error> {
-        if state.corpus().count() == 0 {
-            Err(Error::empty(
-                "No entries in corpus. This often implies the target is not properly instrumented."
-                    .to_owned(),
-            ))
+        if self.queue.is_empty() {
+            Err(Error::empty("Scheduler queue is empty.".to_owned()))
         } else {
-            let id = state
-                .corpus()
-                .current()
-                .map(|id| state.corpus().next(id))
-                .flatten()
-                .unwrap_or_else(|| state.corpus().first().unwrap());
+            let idx = if let Some(current) = &mut self.current {
+                *current += 1;
+                self.runs_in_current_cycle += 1;
 
-            self.runs_in_current_cycle += 1;
+                if *current >= self.queue.len() {
+                    *current = 0;
+                    self.queue_cycles += 1;
+                    self.runs_in_current_cycle = 0;
+                }
 
-            if self.runs_in_current_cycle >= state.corpus().count() as u64 {
-                self.queue_cycles += 1;
-                self.runs_in_current_cycle = 0;
-            }
-            panic!("set_current_scheduler: what to do with this guy?");
-            // <Self as Scheduler<I, S>>::set_current_scheduled(self, state, Some(id))?;
-            Ok(id)
+                *current
+            } else {
+                let idx = 0;
+                self.current = Some(idx);
+
+                debug_assert!(idx < self.queue.len());
+
+                idx
+            };
+
+            Ok(self.queue[idx])
         }
     }
 }
@@ -81,6 +95,8 @@ impl QueueScheduler {
         Self {
             runs_in_current_cycle: 0,
             queue_cycles: 0,
+            current: None,
+            queue: Vec::new(),
         }
     }
 }

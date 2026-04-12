@@ -65,8 +65,8 @@ impl<CH, D, S, T, TH> InProcessRunner<CH, D, S, T, TH> {
 
 impl<CH, D, TH> InProcessSignalHandler<CH, D, TH>
 where
-    CH: FnMut(&mut D, &mut S) -> Result<(), Error>,
-    TH: FnMut(&mut D, &mut S) -> Result<(), Error>,
+    CH: FnMut(&mut D) -> Result<(), Error>,
+    TH: FnMut(&mut D) -> Result<(), Error>,
 {
     pub fn new(crash_handler: CH, signal_data: D, timeout_handler: TH) -> Self {
         Self {

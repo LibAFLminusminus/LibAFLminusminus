@@ -1,7 +1,9 @@
 //! Schedule the access to the Corpus.
 
 use alloc::{borrow::ToOwned, string::ToString};
-use core::{hash::Hash, marker::PhantomData};
+use core::{hash::Hash, marker::PhantomData, num::NonZero};
+use libafl_core::non_zero;
+use std::vec::Vec;
 
 #[cfg(not(feature = "remove_me"))]
 pub mod testcase_score;
@@ -25,6 +27,7 @@ pub use powersched::{PowerQueueScheduler, SchedulerMetadata};
 
 use libafl_bolts::{
     generic_hash_std,
+    rands::Rand,
     tuples::{Handle, MatchName, MatchNameRef},
 };
 
@@ -69,31 +72,32 @@ where
     CS: AflScheduler,
     S: HasTestcase<I> + HasCorpus<I>,
 {
-    let current_id = *state.corpus().current();
+    panic!("What to do there?")
+    // let current_id = *state.corpus().current();
 
-    let mut depth = match current_id {
-        Some(parent_idx) => state.corpus().get_from_all(parent_idx).map_or_else(
-            |_| {
-                log::warn!("Parent testcase with id {parent_idx} not found! Removed?");
-                Ok::<u64, Error>(0)
-            },
-            |v| Ok(v.borrow().metadata::<SchedulerTestcaseMetadata>()?.depth()),
-        )?,
-        None => 0,
-    };
+    // let mut depth = match current_id {
+    //     Some(parent_idx) => state.corpus().get_from_all(parent_idx).map_or_else(
+    //         |_| {
+    //             log::warn!("Parent testcase with id {parent_idx} not found! Removed?");
+    //             Ok::<u64, Error>(0)
+    //         },
+    //         |v| Ok(v.borrow().metadata::<SchedulerTestcaseMetadata>()?.depth()),
+    //     )?,
+    //     None => 0,
+    // };
 
-    // TODO increase perf_score when finding new things like in AFL
-    // https://github.com/google/AFL/blob/master/afl-fuzz.c#L6547
+    // // TODO increase perf_score when finding new things like in AFL
+    // // https://github.com/google/AFL/blob/master/afl-fuzz.c#L6547
 
-    // Attach a `SchedulerTestcaseMetadata` to the queue entry.
-    depth += 1;
-    let mut testcase = state.testcase_mut(id)?;
-    testcase.add_metadata(SchedulerTestcaseMetadata::with_n_fuzz_entry(
-        depth,
-        scheduler.last_hash(),
-    ));
-    testcase.set_parent_id_optional(current_id);
-    Ok(())
+    // // Attach a `SchedulerTestcaseMetadata` to the queue entry.
+    // depth += 1;
+    // let mut testcase = state.testcase_mut(id)?;
+    // testcase.add_metadata(SchedulerTestcaseMetadata::with_n_fuzz_entry(
+    //     depth,
+    //     scheduler.last_hash(),
+    // ));
+    // testcase.set_parent_id_optional(current_id);
+    // Ok(())
 }
 
 /// Called when a [`Testcase`] is evaluated
@@ -132,30 +136,32 @@ pub fn on_next_metadata_default<I, S>(state: &mut S) -> Result<(), Error>
 where
     S: HasCorpus<I> + HasTestcase<I>,
 {
-    let current_id = *state.corpus().current();
+    panic!("What do do there?")
 
-    if let Some(id) = current_id {
-        let Ok(testcase) = state.corpus().get_from_all(id) else {
-            log::info!("Current testcase with id {id} not found! Removed?");
-            return Ok(());
-        };
-        let mut testcase = testcase.borrow_mut();
+    // let current_id = *state.corpus().current();
 
-        if testcase.disabled() {
-            log::info!("Current testcase with id {id} is disabled!");
-            return Ok(());
-        }
+    // if let Some(id) = current_id {
+    //     let Ok(testcase) = state.corpus().get_from_all(id) else {
+    //         log::info!("Current testcase with id {id} not found! Removed?");
+    //         return Ok(());
+    //     };
+    //     let mut testcase = testcase.borrow_mut();
 
-        let tcmeta = testcase.metadata_mut::<SchedulerTestcaseMetadata>()?;
+    //     if testcase.disabled() {
+    //         log::info!("Current testcase with id {id} is disabled!");
+    //         return Ok(());
+    //     }
 
-        if tcmeta.handicap() >= 4 {
-            tcmeta.set_handicap(tcmeta.handicap() - 4);
-        } else if tcmeta.handicap() > 0 {
-            tcmeta.set_handicap(tcmeta.handicap() - 1);
-        }
-    }
+    //     let tcmeta = testcase.metadata_mut::<SchedulerTestcaseMetadata>()?;
 
-    Ok(())
+    //     if tcmeta.handicap() >= 4 {
+    //         tcmeta.set_handicap(tcmeta.handicap() - 4);
+    //     } else if tcmeta.handicap() > 0 {
+    //         tcmeta.set_handicap(tcmeta.handicap() - 1);
+    //     }
+    // }
+
+    // Ok(())
 }
 
 /// Defines the common metadata operations for the AFL-style schedulers
@@ -206,6 +212,7 @@ pub trait Scheduler<I, S> {
 /// Feed the fuzzer simply with a random testcase on request
 #[derive(Debug, Clone)]
 pub struct RandScheduler<S> {
+    ids: Vec<CorpusId>,
     phantom: PhantomData<S>,
 }
 
@@ -214,29 +221,34 @@ where
     S: HasCorpus<I> + HasRand,
 {
     fn on_add(&mut self, state: &mut S, id: CorpusId) -> Result<(), Error> {
-        // Set parent id
-        let current_id = *state.corpus().current();
-        state
-            .corpus()
-            .get(id)?
-            .borrow_mut()
-            .set_parent_id_optional(current_id);
+        self.ids.push(id);
+
+        log::warn!("what to do about parent id?");
+        // // Set parent id
+        // let current_id = *state.corpus().current();
+        // state
+        //     .corpus()
+        //     .get(id)?
+        //     .borrow_mut()
+        //     .set_parent_id_optional(current_id);
 
         Ok(())
     }
 
     /// Gets the next entry at random
     fn next(&mut self, state: &mut S) -> Result<CorpusId, Error> {
-        if state.corpus().count() == 0 {
+        if self.ids.is_empty() {
             Err(Error::empty(
                 "No entries in corpus. This often implies the target is not properly instrumented."
                     .to_owned(),
             ))
         } else {
-            panic!(
+            let idx = state.rand_mut().below(non_zero!(self.ids.len()));
+            let id = self.ids[idx];
+
+            log::warn!(
                 "There was a call to set_current_scheduled here, what should we do? (cf comments below)"
             );
-            let id = random_corpus_id!(state.corpus(), state.rand_mut());
             // <Self as Scheduler<I, S>>::set_current_scheduled(self, state, Some(id))?;
             Ok(id)
         }
@@ -248,6 +260,7 @@ impl<S> RandScheduler<S> {
     #[must_use]
     pub fn new() -> Self {
         Self {
+            ids: Vec::new(),
             phantom: PhantomData,
         }
     }

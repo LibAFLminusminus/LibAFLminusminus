@@ -5,6 +5,7 @@ use core::{cell::RefCell, marker::PhantomData};
 use std::{
     fs, io,
     path::{Path, PathBuf},
+    string::ToString,
 };
 
 use libafl_bolts::Error;
@@ -12,7 +13,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{InMemoryCorpusMap, Store};
 use crate::{
-    corpus::{CorpusId, Testcase, TestcaseFilenameFormat},
+    corpus::{CorpusId, Testcase, TestcaseFilenameFormat, testcase::TestcaseId},
     inputs::Input,
 };
 
@@ -87,7 +88,15 @@ impl<I> OnDiskTestcaseCell<I> {
 
 impl<I> DiskMgr<I> {
     /// Create a new [`DiskMgr`]
-    pub fn new(root_dir: PathBuf, file_fmt: TestcaseFilenameFormat) -> Result<Self, Error> {
+    pub fn new(root_dir: PathBuf) -> Result<Self, Error> {
+        Self::new_with_format(root_dir, TestcaseFilenameFormat::default())
+    }
+
+    /// Create a new [`DiskMgr`]
+    pub fn new_with_format(
+        root_dir: PathBuf,
+        file_fmt: TestcaseFilenameFormat,
+    ) -> Result<Self, Error> {
         match fs::create_dir_all(&root_dir) {
             Ok(()) => {}
             Err(e) if e.kind() == io::ErrorKind::AlreadyExists => {}
@@ -107,8 +116,9 @@ impl<I> DiskMgr<I> {
         self.root_dir.as_path()
     }
 
-    fn testcase_path(&self, id: &str) -> PathBuf {
-        self.root_dir.join(self.file_fmt.to_filename(id))
+    fn testcase_path(&self, id: &TestcaseId) -> PathBuf {
+        self.root_dir
+            .join(self.file_fmt.to_filename(id.to_string().as_str()))
     }
 }
 
@@ -117,8 +127,8 @@ where
     I: Input,
 {
     /// Save the input only to disk, according to metadata.
-    pub fn save_input(&self, input: &I) -> Result<String, Error> {
-        let testcase_id = Testcase::<I, OnDiskTestcaseCell<I>>::compute_id(input);
+    pub fn save_input(&self, input: &I) -> Result<TestcaseId, Error> {
+        let testcase_id = Testcase::<I>::compute_id(input);
         let testcase_path = self.testcase_path(&testcase_id);
         input.to_file(testcase_path.as_path())?;
 
@@ -126,7 +136,7 @@ where
     }
 
     /// Save the input and the metadata on disk
-    pub fn save_testcase(&self, input: &I) -> Result<String, Error> {
+    pub fn save_testcase(&self, input: &I) -> Result<TestcaseId, Error> {
         let id = self.save_input(input)?;
         Ok(id)
     }
@@ -135,10 +145,10 @@ where
     ///
     /// prerequisite: the testcase should not have been "removed" before.
     /// also, it should only happen if it has been saved before.
-    pub fn load_testcase(self: &Rc<Self>, testcase_id: &String) -> Result<Testcase<I>, Error> {
-        let testcase_md_path = self.as_ref().testcase_md_path(testcase_id);
-        let ser_fmt = self.md_format.clone();
-        let md = ser_fmt.from_file(testcase_md_path.as_path())?;
+    pub fn load_testcase(self: &Rc<Self>, testcase_id: &TestcaseId) -> Result<Testcase<I>, Error> {
+        // let testcase_md_path = self.as_ref().testcase_md_path(testcase_id);
+        // let ser_fmt = self.md_format.clone();
+        // let md = ser_fmt.from_file(testcase_md_path.as_path())?;
 
         let testcase_path = self.as_ref().testcase_path(testcase_id);
         let input = I::from_file(testcase_path.as_path())?;
@@ -166,7 +176,7 @@ where
 {
     /// Create a new [`OnDiskStore`]
     pub fn new(root: PathBuf, filename_format: TestcaseFilenameFormat) -> Result<Self, Error> {
-        let disk_mgr = Rc::new(DiskMgr::new_with_format(root)?);
+        let disk_mgr = Rc::new(DiskMgr::new(root)?);
 
         Ok(Self {
             filename_format,
@@ -182,7 +192,7 @@ where
 impl<I, M> Store<I> for OnDiskStore<I, M>
 where
     I: Input,
-    M: InMemoryCorpusMap<String>,
+    M: InMemoryCorpusMap<TestcaseId>,
 {
     fn count_all(&self) -> usize {
         self.count().saturating_add(self.count_disabled())

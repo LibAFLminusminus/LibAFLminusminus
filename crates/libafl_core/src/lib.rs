@@ -706,8 +706,9 @@ pub trait HasRefCnt {
 }
 
 pub use nonzero_macros;
+
 #[doc(inline)]
-pub use nonzero_macros::{nonnull_raw_mut, nonzero, try_nonzero};
+pub use nonzero_macros::{non_zero, non_zero_const, nonnull_raw_mut, try_non_zero};
 
 /// Create a [`Vec`] of the given type with `nb_elts` elements, initialized in place.
 /// The closure must initialize [`Vec`] (of size `nb_elts` * `sizeo_of::<T>()`).

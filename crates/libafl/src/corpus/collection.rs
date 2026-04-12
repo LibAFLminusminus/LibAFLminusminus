@@ -1,6 +1,6 @@
 //! A collection of various [`Corpus`].
 
-use alloc::{rc::Rc, string::String};
+use alloc::rc::Rc;
 use std::path::{Path, PathBuf};
 
 use libafl_bolts::Error;
@@ -11,8 +11,10 @@ use crate::{
         Corpus, CorpusId, InMemoryStore, OnDiskStore, SingleCorpus, Testcase,
         TestcaseFilenameFormat,
         maps::{self, InMemoryCorpusMap},
+        schedulers::RemovableScheduler,
         single::DisableEntry,
         store::{Store, ondisk::OnDiskStoreBuilder},
+        testcase::TestcaseId,
     },
     inputs::Input,
 };
@@ -28,7 +30,7 @@ type InnerStdInMemoryCorpusMap<I> = StdInMemoryMap<Testcase<I>>;
 type InnerStdInMemoryStore<I> = InMemoryStore<I, InnerStdInMemoryCorpusMap<I>>;
 type InnerInMemoryCorpus<I, SC> = SingleCorpus<I, InnerStdInMemoryStore<I>, SC>;
 
-type InnerStdOnDiskStore<I> = OnDiskStore<I, StdInMemoryMap<String>>;
+type InnerStdOnDiskStore<I> = OnDiskStore<I, StdInMemoryMap<TestcaseId>>;
 #[cfg(feature = "std")]
 type InnerOnDiskCorpus<I, SC> = SingleCorpus<I, InnerStdOnDiskStore<I>, SC>;
 
@@ -158,17 +160,14 @@ where
     }
 }
 
-impl<I, SC> Default for InMemoryCorpus<I, SC> {
-    fn default() -> Self {
-        InMemoryCorpus(InnerInMemoryCorpus::default())
-    }
-}
-
 impl<I, SC> InMemoryCorpus<I, SC> {
     /// Create a new [`InMemoryCorpus`].
     #[must_use]
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(scheduler: SC) -> Self {
+        InMemoryCorpus(InnerInMemoryCorpus::new(
+            InnerStdInMemoryStore::default(),
+            scheduler,
+        ))
     }
 }
 
@@ -197,11 +196,14 @@ where
     }
 }
 
-impl<I, SC> DisableEntry for InMemoryCorpus<I, SC> {
-    fn disable(&mut self, id: CorpusId) -> Result<(), Error> {
-        self.0.disable(id)
-    }
-}
+// impl<I, SC> DisableEntry for InMemoryCorpus<I, SC>
+// where
+//     SC: RemovableScheduler<I, S>,
+// {
+//     fn disable(&mut self, id: CorpusId) -> Result<(), Error> {
+//         self.0.disable(id)
+//     }
+// }
 
 #[cfg(feature = "std")]
 impl OnDiskCorpusBuilder {
@@ -280,8 +282,8 @@ where
     }
 }
 
-impl<I, SC> DisableEntry for OnDiskCorpus<I, SC> {
-    fn disable(&mut self, id: CorpusId) -> Result<(), Error> {
-        self.0.disable(id)
-    }
-}
+// impl<I, SC> DisableEntry for OnDiskCorpus<I, SC> {
+//     fn disable(&mut self, id: CorpusId) -> Result<(), Error> {
+//         self.0.disable(id)
+//     }
+// }

@@ -646,7 +646,7 @@ pub fn has_tls() -> bool {
 
 pub use nonzero_macros;
 #[doc(inline)]
-pub use nonzero_macros::{nonnull_raw_mut, nonzero, try_nonzero};
+pub use nonzero_macros::{non_zero, non_zero_const, nonnull_raw_mut, try_non_zero};
 
 #[cfg(feature = "python")]
 #[allow(missing_docs)] // expect somehow breaks here
