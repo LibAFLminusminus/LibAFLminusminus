@@ -4,7 +4,7 @@ use alloc::string::String;
 #[cfg(feature = "std")]
 use alloc::vec::Vec;
 use core::{borrow::Borrow, borrow::BorrowMut, fmt::Debug, marker::PhantomData, time::Duration};
-use std::collections::HashMap;
+use std::{collections::HashMap, string::ToString};
 #[cfg(feature = "std")]
 use std::{
     fs,
@@ -122,6 +122,7 @@ impl<I, S, Z> Debug for LoadConfig<'_, I, S, Z> {
         C: serde::Serialize + for<'a> serde::Deserialize<'a>,
         R: serde::Serialize + for<'a> serde::Deserialize<'a>,
         SC: serde::Serialize + for<'a> serde::Deserialize<'a>,
+        SO: serde::Serialize + for<'a> serde::Deserialize<'a>,
     ")]
 pub struct StdState<C, I, R, SC, SO> {
     /// RNG instance
@@ -450,7 +451,7 @@ libafl_bolts::impl_serdeany!(SchedulerTestcaseMetadata);
 
 impl<C, I, R, SC, SO> State<I> for StdState<C, I, R, SC, SO>
 where
-    C: Corpus<I>,
+    C: Corpus<I, SC>,
 {
     fn testcase(&self, id: CorpusId) -> Result<Testcase<I>, Error> {
         self.corpus.get(id)
@@ -570,17 +571,17 @@ where
     }
 }
 
-pub trait HasSolutions<I, SC> {
-    type Solution: Corpus<I>;
+pub trait HasSolutions<I> {
+    type Solution: Corpus<I, NopScheduler>;
 
     fn solutions(&self) -> &Self::Solution;
 
     fn solutions_mut(&mut self) -> &mut Self::Solution;
 }
 
-impl<C, I, R, SC, SO> HasSolutions<I, SC> for StdState<C, I, R, SC, SO>
+impl<C, I, R, SC, SO> HasSolutions<I> for StdState<C, I, R, SC, SO>
 where
-    SO: Corpus<I>,
+    SO: Corpus<I, NopScheduler>,
 {
     type Solution = SO;
 
@@ -593,17 +594,17 @@ where
     }
 }
 
-pub trait HasCorpus<I> {
-    type Corpus: Corpus<I>;
+pub trait HasCorpus<I, SC> {
+    type Corpus: Corpus<I, SC>;
 
     fn corpus(&self) -> &Self::Corpus;
 
     fn corpus_mut(&mut self) -> &mut Self::Corpus;
 }
 
-impl<C, I, R, SC, SO> HasCorpus<I> for StdState<C, I, R, SC, SO>
+impl<C, I, R, SC, SO> HasCorpus<I, SC> for StdState<C, I, R, SC, SO>
 where
-    C: Corpus<I>,
+    C: Corpus<I, SC>,
 {
     type Corpus = C;
 
@@ -642,10 +643,10 @@ where
 #[cfg(feature = "std")]
 impl<C, I, R, SC, SO> StdState<C, I, R, SC, SO>
 where
-    C: Corpus<I>,
+    C: Corpus<I, SC>,
     I: Input,
     R: Rand,
-    SO: Corpus<I>,
+    SO: Corpus<I, NopScheduler>,
 {
     fn current_testcase(&self) -> Result<Testcase<I>, Error> {
         let Some(corpus_id) = self.current_corpus_id()? else {
@@ -1087,10 +1088,10 @@ where
 
 impl<C, I, R, SC, SO> StdState<C, I, R, SC, SO>
 where
-    C: Corpus<I>,
+    C: Corpus<I, SC>,
     I: Input,
     R: Rand,
-    SO: Corpus<I>,
+    SO: Corpus<I, NopScheduler>,
 {
     #[cfg(not(feature = "remove_me"))]
     fn generate_initial_internal<G, E, Z>(
@@ -1157,10 +1158,10 @@ where
 
 impl<C, I, R, SC, SO> StdState<C, I, R, SC, SO>
 where
-    C: Corpus<I>,
+    C: Corpus<I, SC>,
     I: Input,
     R: Rand,
-    SO: Corpus<I>,
+    SO: Corpus<I, NopScheduler>,
 {
     /// Creates a new `State`, taking ownership of all of the individual components during fuzzing.
     pub fn new<F, O>(
@@ -1198,6 +1199,7 @@ where
             phantom: PhantomData,
             #[cfg(feature = "std")]
             multicore_inputs_processed: None,
+            testcase_metadata: HashMap::new(),
         };
         feedback.init_state(&mut state)?;
         objective.init_state(&mut state)?;
@@ -1228,8 +1230,8 @@ impl
     > {
         StdState::new(
             StdRand::with_seed(0),
-            InMemoryCorpus::<NopInput>::new(),
-            InMemoryCorpus::new(),
+            InMemoryCorpus::<NopInput, NopScheduler>::new(NopScheduler),
+            InMemoryCorpus::new(NopScheduler),
             &mut (),
             &mut (),
         )

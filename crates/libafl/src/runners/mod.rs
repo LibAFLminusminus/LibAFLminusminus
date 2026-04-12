@@ -25,11 +25,11 @@ pub trait Runner<S> {
 
     fn run(&mut self, state: &mut S) -> Result<(), Error>
     where
-        Self: Sized,
+        Self: Sized + 'static,
     {
-        let driver = unsafe { RunnerDriver::new(self as *mut Self as *mut dyn Runner<S>) };
+        let mut driver = unsafe { RunnerDriver::new(self as *mut Self as *mut dyn Runner<S>) };
 
-        unsafe { self.run_task_impl(driver) }
+        unsafe { self.run_impl(&mut driver, state) }
     }
 
     // fn on_signal()
@@ -88,14 +88,14 @@ struct DirectRunner<S, T> {
 
 impl<S, T> Runner<S> for DirectRunner<S, T>
 where
-    T: FnOnce(&mut RunnerDriver<S>, &mut S) -> Result<(), Error>,
+    T: FnMut(&mut RunnerDriver<S>, &mut S) -> Result<(), Error>,
 {
     unsafe fn run_impl(
         &mut self,
         driver: &mut RunnerDriver<S>,
         state: &mut S,
     ) -> Result<(), Error> {
-        self.task(driver, state)
+        (self.task)(driver, state)
     }
 
     fn set_timeout(&mut self, _timeout: Duration) -> Result<(), Error> {

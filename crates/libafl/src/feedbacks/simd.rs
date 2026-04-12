@@ -249,7 +249,6 @@ where
         observers: &OT,
         testcase: &mut Testcase<I>,
     ) -> Result<(), Error> {
-        self.map
-            .append_metadata(state, observers, testcase)
+        self.map.append_metadata(state, observers, testcase)
     }
 }

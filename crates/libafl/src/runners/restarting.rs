@@ -10,7 +10,10 @@ pub struct RestartingRunner<CH, D, S, T, TH> {
 
 impl<CH, D, S, T, TH> Runner<S> for RestartingRunner<CH, D, S, T, TH>
 where
-    T: FnOnce(&mut RunnerDriver<S>, &mut S) -> Result<(), Error>,
+    T: FnMut(&mut RunnerDriver<S>, &mut S) -> Result<(), Error>,
+    CH: FnMut(&mut D) -> Result<(), Error> + Send + Sync + Unpin + 'static,
+    D: Send + Sync + Unpin + 'static,
+    TH: FnMut(&mut D) -> Result<(), Error> + Send + Sync + Unpin + 'static,
 {
     // TODO: handle fork, state snapshot restore
     unsafe fn run_impl(
@@ -18,7 +21,7 @@ where
         driver: &mut RunnerDriver<S>,
         state: &mut S,
     ) -> Result<(), Error> {
-        self.inner.run_task(driver, state)
+        self.inner.run_impl(driver, state)
     }
 
     fn set_timeout(&mut self, timeout: Duration) -> Result<(), Error> {
@@ -26,6 +29,6 @@ where
     }
 
     fn unset_timeout(&mut self) -> Result<(), Error> {
-        self.inner.unser_timeout()
+        self.inner.unset_timeout()
     }
 }

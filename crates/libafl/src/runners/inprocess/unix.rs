@@ -11,6 +11,41 @@ use libc::siginfo_t;
 
 use crate::{executors::common_signals, runners::inprocess::InProcessSignalHandler};
 
+/// Wrapper to assert `Send + Sync` for a raw pointer.
+///
+/// # Safety
+/// The caller must ensure the pointed-to data is only accessed
+/// in a thread-safe manner.
+struct SignalHandlerPtr<CH, D, TH> {
+    signal_handler: *mut UnixSignalHandler<CH, D, TH>,
+}
+
+unsafe impl<CH, D, TH> Send for SignalHandlerPtr<CH, D, TH>
+where
+    CH: Send,
+    D: Send,
+    TH: Send,
+{
+}
+
+unsafe impl<CH, D, TH> Sync for SignalHandlerPtr<CH, D, TH>
+where
+    CH: Send,
+    D: Send,
+    TH: Send,
+{
+}
+
+impl<CH, D, TH> SignalHandlerPtr<CH, D, TH> {
+    unsafe fn new(signal_handler: *mut UnixSignalHandler<CH, D, TH>) -> Self {
+        Self { signal_handler }
+    }
+
+    fn as_mut_ptr(&self) -> *mut UnixSignalHandler<CH, D, TH> {
+        self.signal_handler
+    }
+}
+
 pub type OsSignalHandler<CH, D, TH> = UnixSignalHandler<CH, D, TH>;
 
 pub struct UnixSignalHandler<CH, D, TH> {
@@ -24,7 +59,12 @@ pub(crate) type SignalHandlerFn<CH, D, TH> = unsafe fn(
     signal_handler: InProcessSignalHandler<CH, D, TH>,
 );
 
-impl<CH, D, TH> UnixSignalHandler<CH, D, TH> {
+impl<CH, D, TH> UnixSignalHandler<CH, D, TH>
+where
+    CH: FnMut(&mut D) -> Result<(), Error> + Send + Sync + Unpin + 'static,
+    D: Send + Sync + Unpin + 'static,
+    TH: FnMut(&mut D) -> Result<(), Error> + Send + Sync + Unpin + 'static,
+{
     pub fn new(signal_handler: InProcessSignalHandler<CH, D, TH>) -> Self {
         Self {
             inner: signal_handler,
@@ -78,7 +118,7 @@ impl<CH, D, TH> UnixSignalHandler<CH, D, TH> {
 
             log::error!("Timeout in fuzz run.");
 
-            self.inner().timeout_handler();
+            (self.inner.timeout_handler)(&mut self.inner.signal_data);
 
             libafl_bolts::os::exit(55);
         }
@@ -121,14 +161,13 @@ impl<CH, D, TH> UnixSignalHandler<CH, D, TH> {
                     }
                 }
 
-                self.inner.crash_handler()
+                (self.inner.crash_handler)(&mut self.inner.signal_data)
+                    .expect("Error while handling crash handler")
             } else {
                 #[cfg(target_os = "android")]
                 let si_addr = (siginfo._pad[0] as i64) | ((_info._pad[1] as i64) << 32);
                 #[cfg(not(target_os = "android"))]
-                let si_addr = {
-                    siginfo.si_addr() as usize;
-                };
+                let si_addr = { siginfo.si_addr() as usize };
 
                 log::error!(
                     "Fuzzer crashed at addr 0x{si_addr:x}, but not in target. This is a fuzzer bug. Exiting."
@@ -167,7 +206,9 @@ impl<CH, D, TH> UnixSignalHandler<CH, D, TH> {
     pub fn setup_panic_hook(self: &mut Pin<Box<Self>>) {
         let old_hook = panic::take_hook();
 
-        let mut signal_handler: *mut Self = self.get_mut() as *mut UnixSignalHandler<CH, D, TH>;
+        let signal_handler_ptr: SignalHandlerPtr<CH, D, TH> = unsafe {
+            SignalHandlerPtr::new(Pin::as_mut(self).get_mut() as *mut UnixSignalHandler<CH, D, TH>)
+        };
 
         // # Safety
         // The panic handler should only run when all other execution stopped.
@@ -175,32 +216,37 @@ impl<CH, D, TH> UnixSignalHandler<CH, D, TH> {
         panic::set_hook(Box::new(move |panic_info| unsafe {
             old_hook(panic_info);
 
-            let signal_handler: &mut Self = &mut *signal_handler;
+            let signal_handler: &mut Self = &mut *signal_handler_ptr.as_mut_ptr();
 
             let max_depth_reached = signal_handler.enter();
 
             if max_depth_reached {
                 log::error!(
                     "The in process signal handler has been triggered {} times recursively, which is not expected. Exiting with error code {SIGNAL_RECURSION_EXIT}...",
-                    signal_handler.inner().max_depth()
+                    signal_handler.inner.max_depth()
                 );
 
                 libc::exit(SIGNAL_RECURSION_EXIT);
             }
 
-            if !signal_handler.inner().is_in_target() {
+            if !signal_handler.inner.is_in_target() {
                 log::warn!("panic hook called, but currently not fuzzing.");
                 return;
             }
 
-            self.inner().crash_handler();
+            (signal_handler.inner.crash_handler)(&mut signal_handler.inner.signal_data);
 
             libafl_bolts::os::exit(128 + 6); // SIGABRT exit code
         }));
     }
 }
 
-impl<CH, D, TH> SignalHandler for UnixSignalHandler<CH, D, TH> {
+impl<CH, D, TH> SignalHandler for UnixSignalHandler<CH, D, TH>
+where
+    CH: FnMut(&mut D) -> Result<(), Error> + Send + Sync + Unpin + 'static,
+    D: Send + Sync + Unpin + 'static,
+    TH: FnMut(&mut D) -> Result<(), Error> + Send + Sync + Unpin + 'static,
+{
     /// # Safety
     /// This will access global state.
     unsafe fn handle(
@@ -217,7 +263,7 @@ impl<CH, D, TH> SignalHandler for UnixSignalHandler<CH, D, TH> {
             if max_depth_reached {
                 log::error!(
                     "The in process signal handler has been triggered {} times recursively, which is not expected. Exiting with error code {SIGNAL_RECURSION_EXIT}...",
-                    self.inner().max_depth()
+                    self.inner.max_depth()
                 );
                 libc::exit(SIGNAL_RECURSION_EXIT);
             }

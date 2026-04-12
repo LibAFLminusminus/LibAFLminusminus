@@ -171,7 +171,7 @@ impl<I, SC> InMemoryCorpus<I, SC> {
     }
 }
 
-impl<I, SC> Corpus<I> for InMemoryCorpus<I, SC>
+impl<I, SC> Corpus<I, SC> for InMemoryCorpus<I, SC>
 where
     I: Input,
 {
@@ -193,6 +193,14 @@ where
 
     fn get_from<const ENABLED: bool>(&self, id: CorpusId) -> Result<Testcase<I>, Error> {
         self.0.get_from::<ENABLED>(id)
+    }
+
+    fn scheduler(&self) -> &SC {
+        self.0.scheduler()
+    }
+
+    fn scheduler_mut(&mut self) -> &mut SC {
+        self.0.scheduler_mut()
     }
 }
 
@@ -257,7 +265,7 @@ where
 }
 
 #[cfg(feature = "std")]
-impl<I, SC> Corpus<I> for OnDiskCorpus<I, SC>
+impl<I, SC> Corpus<I, SC> for OnDiskCorpus<I, SC>
 where
     I: Input,
 {
@@ -279,6 +287,14 @@ where
 
     fn get_from<const ENABLED: bool>(&self, id: CorpusId) -> Result<Testcase<I>, Error> {
         self.0.get_from::<ENABLED>(id)
+    }
+
+    fn scheduler(&self) -> &SC {
+        self.0.scheduler()
+    }
+
+    fn scheduler_mut(&mut self) -> &mut SC {
+        self.0.scheduler_mut()
     }
 }
 

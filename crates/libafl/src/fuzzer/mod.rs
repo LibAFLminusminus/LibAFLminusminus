@@ -151,12 +151,7 @@ pub trait Fuzzer<E, I, S, ST> {
     ) -> Result<CorpusId, Error>;
 
     /// Fuzz forever (or until stopped)
-    fn fuzz_loop(
-        &mut self,
-        stages: &mut ST,
-        executor: &mut E,
-        state: &mut S,
-    ) -> Result<(), Error>;
+    fn fuzz_loop(&mut self, stages: &mut ST, executor: &mut E, state: &mut S) -> Result<(), Error>;
 
     /// Fuzz for n iterations.
     /// Returns the index of the last fuzzed corpus item.
@@ -290,8 +285,7 @@ fn evaluate_execution<I, OT, S, Z>(
     send_events: bool,
 ) -> Result<(ExecuteInputResult, Option<CorpusId>), Error> {
     let exec_res = fuzzer.check_results(state, input, observers, exit_kind)?;
-    let corpus_id =
-        fuzzer.process_execution(state, input, &exec_res, exit_kind, observers)?;
+    let corpus_id = fuzzer.process_execution(state, input, &exec_res, exit_kind, observers)?;
 
     if exec_res != ExecuteInputResult::None {
         *state.last_found_time_mut() = current_time();
@@ -319,7 +313,8 @@ fn add_input<E, I, OT, S, Z>(
     // Maybe a solution
     #[cfg(not(feature = "introspection"))]
     let is_solution: bool =
-        fuzzer.objective_mut()
+        fuzzer
+            .objective_mut()
             .is_interesting(state, &input, &*observers, &exit_kind)?;
 
     #[cfg(feature = "introspection")]
@@ -334,7 +329,8 @@ fn add_input<E, I, OT, S, Z>(
         #[cfg(feature = "track_hit_feedbacks")]
         self.objective_mut()
             .append_hit_feedbacks(testcase.hit_objectives_mut())?;
-        fuzzer.objective_mut()
+        fuzzer
+            .objective_mut()
             .append_metadata(state, &*observers, &mut testcase)?;
         // we don't care about solution id
         let id = state.solutions_mut().add(testcase)?;
@@ -346,22 +342,22 @@ fn add_input<E, I, OT, S, Z>(
     // append_metadata; we *must* invoke is_interesting here to collect it
     #[cfg(not(feature = "introspection"))]
     let _corpus_worthy =
-        fuzzer.feedback_mut()
+        fuzzer
+            .feedback_mut()
             .is_interesting(state, &input, &*observers, &exit_kind)?;
 
     #[cfg(feature = "introspection")]
-    let _corpus_worthy = self.feedback_mut().is_interesting_introspection(
-        state,
-        &input,
-        &*observers,
-        &exit_kind,
-    )?;
+    let _corpus_worthy =
+        self.feedback_mut()
+            .is_interesting_introspection(state, &input, &*observers, &exit_kind)?;
 
     #[cfg(feature = "track_hit_feedbacks")]
-    fuzzer.feedback_mut()
+    fuzzer
+        .feedback_mut()
         .append_hit_feedbacks(testcase.hit_feedbacks_mut())?;
     // Add the input to the main corpus
-    fuzzer.feedback_mut()
+    fuzzer
+        .feedback_mut()
         .append_metadata(state, &*observers, &mut testcase)?;
     let id = state.corpus_mut().add(testcase)?;
     fuzzer.scheduler_mut().on_add(state, id)?;
@@ -369,8 +365,7 @@ fn add_input<E, I, OT, S, Z>(
     Ok(id)
 }
 
-impl<CS, F, I, IC, IF, OF, OT, S> ExecutionProcessor<I, OT, S>
-    for StdFuzzer<CS, F, IC, IF, OF>
+impl<CS, F, I, IC, IF, OF, OT, S> ExecutionProcessor<I, OT, S> for StdFuzzer<CS, F, IC, IF, OF>
 where
     CS: Scheduler<I, S>,
     F: Feedback<EM, I, OT, S>,
@@ -545,12 +540,7 @@ where
         Ok(id)
     }
 
-    fn fuzz_loop(
-        &mut self,
-        stages: &mut ST,
-        executor: &mut E,
-        state: &mut S,
-    ) -> Result<(), Error> {
+    fn fuzz_loop(&mut self, stages: &mut ST, executor: &mut E, state: &mut S) -> Result<(), Error> {
         let monitor_timeout = STATS_TIMEOUT_DEFAULT;
         loop {
             self.fuzz_one(stages, executor, state)?;
@@ -927,8 +917,7 @@ mod tests {
             ExitKind::Ok
         };
         let mut executor =
-            InProcessExecutor::new(&mut harness, (), &mut fuzzer, &mut state)
-                .unwrap();
+            InProcessExecutor::new(&mut harness, (), &mut fuzzer, &mut state).unwrap();
         let input = BytesInput::new(vec![1, 2, 3]);
         assert!(
             fuzzer

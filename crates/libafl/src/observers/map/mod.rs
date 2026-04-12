@@ -4,7 +4,7 @@ use alloc::{borrow::Cow, vec::Vec};
 use core::{
     fmt::Debug,
     hash::{Hash, Hasher},
-    ops::Deref,
+    ops::{Deref, DerefMut},
 };
 
 use libafl_bolts::{AsSlice, AsSliceMut, HasLen, Named, Truncate, ownedref::OwnedMutSlice};
@@ -524,6 +524,12 @@ impl<T> Deref for StdMapObserver<'_, T> {
     type Target = [T];
     fn deref(&self) -> &[T] {
         &self.map
+    }
+}
+
+impl<T> DerefMut for StdMapObserver<'_, T> {
+    fn deref_mut(&mut self) -> &mut [T] {
+        &mut self.map
     }
 }
 

@@ -49,7 +49,12 @@ where
 {
 }
 
-impl<CH, D, S, T, TH> InProcessRunner<CH, D, S, T, TH> {
+impl<CH, D, S, T, TH> InProcessRunner<CH, D, S, T, TH>
+where
+    CH: FnMut(&mut D) -> Result<(), Error> + Send + Sync + Unpin + 'static,
+    D: Send + Sync + Unpin + 'static,
+    TH: FnMut(&mut D) -> Result<(), Error> + Send + Sync + Unpin + 'static,
+{
     pub fn new(state: S, task: T, crash_handler: CH, signal_data: D, timeout_handler: TH) -> Self {
         let signal_handler =
             InProcessSignalHandler::new(crash_handler, signal_data, timeout_handler);
@@ -89,13 +94,13 @@ where
         self.signal_handler_depth -= 1;
     }
 
-    pub fn handle_timeout(&mut self) {
-        (self.timeout_handler)(&mut self.signal_data)
-    }
+    // pub fn handle_timeout(&mut self) {
+    //     (self.timeout_handler)(&mut self.signal_data)
+    // }
 
-    pub fn handle_crash(&mut self) {
-        (self.crash_handler)(&mut self.signal_data)
-    }
+    // pub fn handle_crash(&mut self) {
+    //     (self.crash_handler)(&mut self.signal_data)
+    // }
 
     pub fn max_depth(&self) -> usize {
         self.signal_handler_max_depth
@@ -116,9 +121,10 @@ where
 
 impl<CH, D, S, T, TH> Runner<S> for InProcessRunner<CH, D, S, T, TH>
 where
-    T: FnOnce(&mut RunnerDriver<S>, &mut S) -> Result<Infallible, Error>,
-    CH: FnMut(&mut S) -> Result<(), Error>,
-    TH: FnMut(&mut S) -> Result<(), Error>,
+    T: FnMut(&mut RunnerDriver<S>, &mut S) -> Result<(), Error>,
+    CH: FnMut(&mut D) -> Result<(), Error> + Send + Sync + Unpin + 'static,
+    D: Send + Sync + Unpin + 'static,
+    TH: FnMut(&mut D) -> Result<(), Error> + Send + Sync + Unpin + 'static,
 {
     // TODO: handle signals
     unsafe fn run_impl(
@@ -128,7 +134,7 @@ where
     ) -> Result<(), Error> {
         self.signal_handler.init();
 
-        self.task(driver, state)
+        (self.task)(driver, state)
     }
 
     fn set_timeout(&mut self, timeout: Duration) -> Result<(), Error> {
@@ -138,7 +144,7 @@ where
     }
 
     fn unset_timeout(&mut self) -> Result<(), Error> {
-        let mut timer = self.timer.take();
+        let mut timer = self.timer.take().expect("Could not get timer");
 
         timer.unset_timer();
 

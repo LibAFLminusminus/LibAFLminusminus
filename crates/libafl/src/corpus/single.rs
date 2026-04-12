@@ -58,7 +58,7 @@ pub trait DisableEntry {
     fn disable(&mut self, id: CorpusId) -> Result<(), Error>;
 }
 
-impl<I, S, SC> Corpus<I> for SingleCorpus<I, S, SC>
+impl<I, S, SC> Corpus<I, SC> for SingleCorpus<I, S, SC>
 where
     S: Store<I>,
 {
@@ -83,6 +83,14 @@ where
     /// Get testcase by id
     fn get_from<const ENABLED: bool>(&self, id: CorpusId) -> Result<Testcase<I>, Error> {
         self.store.get_from::<ENABLED>(id)
+    }
+
+    fn scheduler(&self) -> &SC {
+        &self.scheduler
+    }
+
+    fn scheduler_mut(&mut self) -> &mut SC {
+        &mut self.scheduler
     }
 }
 
