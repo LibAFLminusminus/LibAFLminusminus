@@ -24,6 +24,14 @@ where
         self.inner.set_timeout(timeout)
     }
 
+    fn arm_timeout(&mut self) -> Result<(), Error> {
+        self.inner.arm_timeout()
+    }
+
+    fn disarm_timeout(&mut self) -> Result<(), Error> {
+        self.inner.disarm_timeout()
+    }
+
     fn unset_timeout(&mut self) -> Result<(), Error> {
         self.inner.unset_timeout()
     }

@@ -134,11 +134,24 @@ where
     }
 
     fn set_timeout(&mut self, timeout: Duration) -> Result<(), Error> {
-        let mut timer = TimerStruct::new(timeout.clone());
-
-        timer.set_timer();
-
+        let mut timer = TimerStruct::new(timeout);
         self.timer = Some(timer);
+
+        Ok(())
+    }
+
+    fn arm_timeout(&mut self) -> Result<(), Error> {
+        if let Some(timer) = &mut self.timer {
+            timer.set_timer();
+        }
+
+        Ok(())
+    }
+
+    fn disarm_timeout(&mut self) -> Result<(), Error> {
+        if let Some(timer) = &mut self.timer {
+            timer.unset_timer();
+        }
 
         Ok(())
     }
@@ -225,8 +238,9 @@ mod tests {
             || {
                 let task = |driver: &mut RunnerDriver<NopState<NopInput>>,
                             state: &mut NopState<NopInput>| {
-                    driver.set_timeout(&Duration::from_millis(10));
+                    driver.set_timeout(Duration::from_millis(10));
 
+                    driver.arm_timeout();
                     thread::sleep(Duration::from_millis(50));
 
                     panic!("Did not timeout!");
@@ -301,7 +315,9 @@ mod tests {
             || {
                 let task = |driver: &mut RunnerDriver<NopState<NopInput>>,
                             state: &mut NopState<NopInput>| {
-                    driver.set_timeout(&Duration::from_millis(10));
+                    driver.set_timeout(Duration::from_millis(10));
+
+                    driver.arm_timeout()?;
 
                     thread::sleep(Duration::from_millis(50));
 

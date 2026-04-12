@@ -4,6 +4,7 @@ use libafl_core::Error;
 use crate::{
     executors::{Executor, ExitKind},
     observers::ObserversTuple,
+    runners::RunnerDriver,
     state::State,
 };
 
@@ -11,6 +12,7 @@ pub struct StdExecutor<H, I, OT, S> {
     harness: H,
     observers: OT,
     timeout: Option<Duration>,
+    initialized: bool,
     _phantom: PhantomData<(I, S)>,
 }
 
@@ -20,7 +22,21 @@ where
     OT: ObserversTuple<S>,
     S: State<I>,
 {
+    fn init(&mut self, driver: &mut RunnerDriver<S>) -> Result<(), Error> {
+        if !self.initialized {
+            if let Some(tmout) = &self.timeout {
+                driver.set_timeout(tmout.clone());
+            }
+
+            self.initialized = true;
+        }
+
+        Ok(())
+    }
+
     unsafe fn execute_impl(&mut self, state: &mut S, input: &I) -> Result<ExitKind, Error> {
+        debug_assert!(self.initialized);
+
         (self.harness)(state, input)
     }
 
@@ -30,9 +46,5 @@ where
 
     fn observers_tuple_mut(&mut self) -> &mut OT {
         &mut self.observers
-    }
-
-    fn timeout(&self) -> Option<&Duration> {
-        self.timeout.as_ref()
     }
 }

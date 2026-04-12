@@ -107,6 +107,10 @@ where
     OT: ObserversTuple<S>,
     S: State<I>,
 {
+    /// The init function of the executor.
+    /// It must be run once before the first execution of the executor.
+    fn init(&mut self, driver: &mut RunnerDriver<S>) -> Result<(), Error>;
+
     /// Run the target with the given input.
     /// This is a "raw" run: it only runs the target and nothing else is done.
     /// More particularly:
@@ -137,19 +141,11 @@ where
 
         self.observers_tuple_mut().pre_exec_all(state)?;
 
-        let has_timeout = if let Some(tmout) = self.timeout() {
-            driver.set_timeout(tmout)?;
-
-            true
-        } else {
-            false
-        };
+        driver.arm_timeout()?;
 
         let mut exit_kind = unsafe { self.execute_impl(state, input)? };
 
-        if has_timeout {
-            driver.unset_timeout()?;
-        }
+        driver.disarm_timeout()?;
 
         self.observers_tuple_mut()
             .post_exec_all(state, &mut exit_kind)
@@ -161,10 +157,6 @@ where
 
     /// Get the linked observers (mutable)
     fn observers_tuple_mut(&mut self) -> &mut OT;
-
-    /// Timeout for the current fuzzing run.
-    /// It is read at each run, so that it can change between executions.
-    fn timeout(&self) -> Option<&Duration>;
 }
 
 /// Like [`crate::observers::ObserversTuple`], a list of executors
