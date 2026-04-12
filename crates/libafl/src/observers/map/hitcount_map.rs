@@ -14,9 +14,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     Error,
     executors::ExitKind,
-    observers::{
-        ConstLenMapObserver, Observer, VarLenMapObserver, map::MapObserver,
-    },
+    observers::{ConstLenMapObserver, Observer, VarLenMapObserver, map::MapObserver},
 };
 
 /// Hitcounts class lookup

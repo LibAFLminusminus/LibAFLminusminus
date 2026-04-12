@@ -1,22 +1,15 @@
 /// A trait to determine if a input should be run or not
 pub trait InputFilter<EM, I, S> {
     /// should run execution for this input or no
-    fn should_execute(&mut self, input: &I, state: &mut S)
-    -> Result<bool, Error>;
+    fn should_execute(&mut self, input: &I, state: &mut S) -> Result<bool, Error>;
 }
-
-
 
 /// A pseudo-filter that will execute each input.
 #[derive(Debug, Copy, Clone)]
 pub struct NopInputFilter;
 impl<EM, I, S> InputFilter<EM, I, S> for NopInputFilter {
     #[inline]
-    fn should_execute(
-        &mut self,
-        _input: &I,
-        _state: &mut S,
-    ) -> Result<bool, Error> {
+    fn should_execute(&mut self, _input: &I, _state: &mut S) -> Result<bool, Error> {
         Ok(true)
     }
 }
@@ -49,11 +42,7 @@ impl BloomInputFilter {
 #[cfg(feature = "std")]
 impl<EM, I: Hash, S> InputFilter<I, S> for BloomInputFilter {
     #[inline]
-    fn should_execute(
-        &mut self,
-        input: &I,
-        _state: &mut S,
-    ) -> Result<bool, Error> {
+    fn should_execute(&mut self, input: &I, _state: &mut S) -> Result<bool, Error> {
         Ok(!self.bloom.insert(input))
     }
 }
@@ -98,11 +87,7 @@ where
     F: InputFilter<EM, I, S>,
     S: HasMetadata + HasExecutions,
 {
-    fn should_execute(
-        &mut self,
-        input: &I,
-        state: &mut S,
-    ) -> Result<bool, Error> {
+    fn should_execute(&mut self, input: &I, state: &mut S) -> Result<bool, Error> {
         let actual_executions = *state.executions();
         let should_execute = self.inner.should_execute(input, state, manager)?;
 

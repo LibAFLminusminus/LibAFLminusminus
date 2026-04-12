@@ -12,14 +12,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::{Error, corpus::CorpusId, inputs::Input, state::HasCorpus};
 
-/// Shorthand to receive a [`Ref`] or [`RefMut`] to a stored [`Testcase`], by [`CorpusId`].
-/// For a normal state, this should return a [`Testcase`] in the corpus, not the objectives.
-pub trait HasTestcase<I>: HasCorpus<I> {
-    /// Shorthand to receive a [`Ref`] to a stored [`Testcase`], by [`CorpusId`].
-    /// For a normal state, this should return a [`Testcase`] in the corpus, not the objectives.
-    fn testcase(&self, id: CorpusId) -> Result<Testcase<I>, Error>;
-}
-
 /// Indicates how a [`Testcase`] should be named on-disk.
 #[derive(Default, Clone, Serialize, Deserialize, Debug)]
 pub enum TestcaseFilenameFormat {

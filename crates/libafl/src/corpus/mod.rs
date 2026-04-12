@@ -5,10 +5,10 @@ use core::{fmt, marker::PhantomData};
 
 use serde::{Deserialize, Serialize};
 
-use crate::Error;
+use crate::{Error, corpus::schedulers::NopScheduler};
 
 pub mod testcase;
-pub use testcase::{HasTestcase, Testcase, TestcaseFilenameFormat};
+pub use testcase::{Testcase, TestcaseFilenameFormat};
 
 pub mod single;
 pub use single::SingleCorpus;
@@ -92,17 +92,8 @@ macro_rules! random_corpus_id_with_disabled {
     }};
 }
 
-// pub trait HasScheduler<I, S> {
-//     type Scheduler: Scheduler<I, S>;
-//     /// Get the reference to the corpus' scheduler
-//     fn scheduler(&self) -> &Self::Scheduler;
-//
-//     /// Get the mutable reference to the corpus' scheduler
-//     fn scheduler_mut(&mut self) -> &mut Self::Scheduler;
-// }
-
 /// Corpus with all current [`Testcase`]s, or solutions
-pub trait Corpus<I>: Sized {
+pub trait Corpus<I, SC>: Sized {
     /// Returns the number of all enabled entries
     fn count(&self) -> usize;
 
@@ -160,6 +151,10 @@ pub trait Corpus<I>: Sized {
             phantom: PhantomData,
         }
     }
+
+    fn scheduler(&self) -> &SC;
+
+    fn scheduler_mut(&mut self) -> &mut SC;
 }
 
 /// Marker trait for corpus implementations that actually support enable/disable functionality

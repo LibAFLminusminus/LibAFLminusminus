@@ -36,7 +36,7 @@ impl<I, S> RemovableScheduler<I, S> for QueueScheduler {
 
 impl<I, S> Scheduler<I, S> for QueueScheduler
 where
-    S: HasCorpus<I>,
+    S: HasCorpus<I, Self>,
 {
     // fn on_add(&mut self, state: &mut S, id: CorpusId) -> Result<(), Error> {
     //     // Set parent id
@@ -56,6 +56,10 @@ where
         self.queue.push(id);
 
         Ok(())
+    }
+
+    fn current(&self, state: &mut S) -> Option<CorpusId> {
+        self.current.map(|idx| self.queue[idx].clone())
     }
 
     /// Gets the next entry in the queue

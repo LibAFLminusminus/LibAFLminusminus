@@ -3,6 +3,7 @@
 use alloc::{borrow::ToOwned, string::ToString};
 use core::{hash::Hash, marker::PhantomData, num::NonZero};
 use libafl_core::non_zero;
+use serde::{Deserialize, Serialize};
 use std::vec::Vec;
 
 #[cfg(not(feature = "remove_me"))]
@@ -33,7 +34,7 @@ use libafl_bolts::{
 
 use crate::{
     Error,
-    corpus::{Corpus, CorpusId, HasTestcase, Testcase},
+    corpus::{Corpus, CorpusId, Testcase},
     random_corpus_id,
     state::{HasCorpus, HasRand, SchedulerTestcaseMetadata},
 };
@@ -63,14 +64,10 @@ pub trait RemovableScheduler<I, S> {
 }
 
 /// Called when a [`Testcase`] is evaluated
-pub fn on_add_metadata_default<CS, I, S>(
-    scheduler: &mut CS,
-    state: &mut S,
-    id: CorpusId,
-) -> Result<(), Error>
+pub fn on_add_metadata_default<I, S, SC>(state: &mut S, id: CorpusId) -> Result<(), Error>
 where
-    CS: AflScheduler,
-    S: HasTestcase<I> + HasCorpus<I>,
+    SC: AflScheduler,
+    S: HasCorpus<I, SC>,
 {
     panic!("What to do there?")
     // let current_id = *state.corpus().current();
@@ -132,9 +129,9 @@ where
 }
 
 /// Called when choosing the next [`Testcase`]
-pub fn on_next_metadata_default<I, S>(state: &mut S) -> Result<(), Error>
+pub fn on_next_metadata_default<I, S, SC>(state: &mut S) -> Result<(), Error>
 where
-    S: HasCorpus<I> + HasTestcase<I>,
+    S: HasCorpus<I, SC>,
 {
     panic!("What do do there?")
 
@@ -205,6 +202,9 @@ pub trait Scheduler<I, S> {
         Ok(())
     }
 
+    // Get the current input
+    fn current(&self, state: &mut S) -> Option<CorpusId>;
+
     /// Gets the next entry
     fn next(&mut self, state: &mut S) -> Result<CorpusId, Error>;
 }
@@ -212,13 +212,14 @@ pub trait Scheduler<I, S> {
 /// Feed the fuzzer simply with a random testcase on request
 #[derive(Debug, Clone)]
 pub struct RandScheduler<S> {
+    current: Option<CorpusId>,
     ids: Vec<CorpusId>,
     phantom: PhantomData<S>,
 }
 
 impl<I, S> Scheduler<I, S> for RandScheduler<S>
 where
-    S: HasCorpus<I> + HasRand,
+    S: HasCorpus<I, Self> + HasRand,
 {
     fn on_add(&mut self, state: &mut S, id: CorpusId) -> Result<(), Error> {
         self.ids.push(id);
@@ -235,6 +236,10 @@ where
         Ok(())
     }
 
+    fn current(&self, _state: &mut S) -> Option<CorpusId> {
+        self.current.clone()
+    }
+
     /// Gets the next entry at random
     fn next(&mut self, state: &mut S) -> Result<CorpusId, Error> {
         if self.ids.is_empty() {
@@ -245,6 +250,8 @@ where
         } else {
             let idx = state.rand_mut().below(non_zero!(self.ids.len()));
             let id = self.ids[idx];
+
+            self.current = Some(id);
 
             log::warn!(
                 "There was a call to set_current_scheduled here, what should we do? (cf comments below)"
@@ -260,6 +267,7 @@ impl<S> RandScheduler<S> {
     #[must_use]
     pub fn new() -> Self {
         Self {
+            current: None,
             ids: Vec::new(),
             phantom: PhantomData,
         }
@@ -277,10 +285,15 @@ impl<S> Default for RandScheduler<S> {
 /// The current `Std` is a [`RandScheduler`], although this may change in the future, if another [`Scheduler`] delivers better results.
 pub type StdScheduler<S> = RandScheduler<S>;
 
+#[derive(Debug, Serialize, Deserialize)]
 pub struct NopScheduler;
 
 impl<I, S> Scheduler<I, S> for NopScheduler {
     fn on_add(&mut self, _state: &mut S, _id: CorpusId) -> Result<(), Error> {
+        panic!("NopScheduler does not schedule")
+    }
+
+    fn current(&self, state: &mut S) -> Option<CorpusId> {
         panic!("NopScheduler does not schedule")
     }
 
