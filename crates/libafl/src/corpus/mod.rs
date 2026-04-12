@@ -5,7 +5,7 @@ use core::{fmt, marker::PhantomData};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Error, corpus::schedulers::NopScheduler};
+use crate::Error;
 
 pub mod testcase;
 pub use testcase::{Testcase, TestcaseFilenameFormat};

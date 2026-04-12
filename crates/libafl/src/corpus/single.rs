@@ -8,7 +8,7 @@ use core::marker::PhantomData;
 use libafl_bolts::Error;
 use serde::{Deserialize, Serialize};
 
-use crate::corpus::{Scheduler, schedulers::RemovableScheduler};
+use crate::corpus::schedulers::RemovableScheduler;
 
 use super::{Corpus, CorpusCounter, CorpusId, Testcase, store::Store};
 

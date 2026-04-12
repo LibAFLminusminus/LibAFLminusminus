@@ -10,7 +10,7 @@ use std::string::ToString;
 use libafl_bolts::{HasLen, hasher_std};
 use serde::{Deserialize, Serialize};
 
-use crate::{Error, corpus::CorpusId, inputs::Input, state::HasCorpus};
+use crate::inputs::Input;
 
 /// Indicates how a [`Testcase`] should be named on-disk.
 #[derive(Default, Clone, Serialize, Deserialize, Debug)]
@@ -57,6 +57,8 @@ pub struct Testcase<I> {
     /// The [`Input`] of this [`Testcase`], or `None`, if it is not currently in memory
     input: Rc<I>,
 
+    filename_fmt: TestcaseFilenameFormat,
+
     /// The unique id for [`Testcase`].
     /// It should uniquely identify the input.
     id: TestcaseId,
@@ -67,6 +69,7 @@ impl<I> Clone for Testcase<I> {
         Self {
             input: self.input.clone(),
             id: self.id.clone(),
+            filename_fmt: self.filename_fmt.clone(),
         }
     }
 }
@@ -102,7 +105,19 @@ where
     pub fn new(input: Rc<I>) -> Self {
         let id = Self::compute_id(&input);
 
-        Self { input, id }
+        Self {
+            input,
+            id,
+            filename_fmt: TestcaseFilenameFormat::default(),
+        }
+    }
+
+    pub fn with_filename(input: Rc<I>, filename: String) -> Self {
+        let mut tc = Self::new(input);
+
+        tc.filename_fmt = TestcaseFilenameFormat::Custom(filename);
+
+        tc
     }
 
     /// Get the unique ID associated to an input.

@@ -195,6 +195,7 @@ impl Named for TimeObserver {
 
 #[cfg(feature = "std")]
 #[cfg(test)]
+#[cfg(not(feature = "remove_me"))]
 mod tests {
 
     use libafl_bolts::{

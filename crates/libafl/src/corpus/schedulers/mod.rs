@@ -1,7 +1,7 @@
 //! Schedule the access to the Corpus.
 
-use alloc::{borrow::ToOwned, string::ToString};
-use core::{hash::Hash, marker::PhantomData, num::NonZero};
+use alloc::borrow::ToOwned;
+use core::marker::PhantomData;
 use libafl_core::non_zero;
 use serde::{Deserialize, Serialize};
 use std::vec::Vec;
@@ -27,16 +27,14 @@ pub mod powersched;
 pub use powersched::{PowerQueueScheduler, SchedulerMetadata};
 
 use libafl_bolts::{
-    generic_hash_std,
     rands::Rand,
-    tuples::{Handle, MatchName, MatchNameRef},
+    tuples::{Handle, MatchName},
 };
 
 use crate::{
     Error,
-    corpus::{Corpus, CorpusId, Testcase},
-    random_corpus_id,
-    state::{HasCorpus, HasRand, SchedulerTestcaseMetadata},
+    corpus::{CorpusId, Testcase},
+    state::{HasCorpus, HasRand},
 };
 
 /// The scheduler also implements `on_remove` and `on_replace` if it implements this stage.

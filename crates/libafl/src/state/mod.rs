@@ -3,7 +3,7 @@
 use alloc::string::String;
 #[cfg(feature = "std")]
 use alloc::vec::Vec;
-use core::{borrow::Borrow, borrow::BorrowMut, fmt::Debug, marker::PhantomData, time::Duration};
+use core::{fmt::Debug, marker::PhantomData, time::Duration};
 use std::{collections::HashMap, string::ToString};
 #[cfg(feature = "std")]
 use std::{
@@ -12,8 +12,6 @@ use std::{
 };
 use typed_builder::TypedBuilder;
 
-#[cfg(feature = "std")]
-use libafl_bolts::core_affinity::{CoreId, Cores};
 use libafl_bolts::{
     rands::{Rand, StdRand},
     serdeany::{NamedSerdeAnyMap, SerdeAnyMap},
@@ -648,6 +646,14 @@ where
     R: Rand,
     SO: Corpus<I, NopScheduler>,
 {
+    pub fn scheduler(&self) -> &SC {
+        self.corpus.scheduler()
+    }
+
+    pub fn scheduler_mut(&mut self) -> &mut SC {
+        self.corpus_mut().scheduler_mut()
+    }
+
     fn current_testcase(&self) -> Result<Testcase<I>, Error> {
         let Some(corpus_id) = self.current_corpus_id()? else {
             return Err(Error::key_not_found(
