@@ -1,5 +1,5 @@
 use crate::runners::{Runner, RunnerDriver};
-use core::{convert::Infallible, pin::Pin, time::Duration};
+use core::{pin::Pin, time::Duration};
 use libafl_bolts::TimerStruct;
 use libafl_core::Error;
 use std::boxed::Box;
@@ -127,18 +127,18 @@ where
     TH: FnMut(&mut D) -> Result<(), Error> + Send + Sync + Unpin + 'static,
 {
     // TODO: handle signals
-    unsafe fn run_impl(
-        &mut self,
-        driver: &mut RunnerDriver<S>,
-        state: &mut S,
-    ) -> Result<(), Error> {
+    unsafe fn run_impl(&mut self, driver: &mut RunnerDriver<S>) -> Result<(), Error> {
         self.signal_handler.init();
 
-        (self.task)(driver, state)
+        (self.task)(driver, &mut self.state)
     }
 
     fn set_timeout(&mut self, timeout: Duration) -> Result<(), Error> {
-        self.timer = Some(TimerStruct::new(timeout.clone()));
+        let mut timer = TimerStruct::new(timeout.clone());
+
+        timer.set_timer();
+
+        self.timer = Some(timer);
 
         Ok(())
     }
@@ -149,5 +149,223 @@ where
         timer.unset_timer();
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use libafl_core::Error;
+    use rusty_fork::{rusty_fork_id, rusty_fork_test};
+
+    use crate::{
+        inputs::NopInput,
+        runners::{
+            Runner, RunnerDriver,
+            inprocess::{InProcessRunner, InProcessSignalHandler, OsSignalHandler},
+        },
+        state::NopState,
+    };
+
+    use std::boxed::Box;
+    use std::thread;
+    use std::time::Duration;
+
+    rusty_fork_test! {
+        #[test]
+        fn test_runner_create() {
+            let mut state = NopState::<NopInput>::new();
+
+            let task = |driver: &mut RunnerDriver<NopState<NopInput>>,
+                        state: &mut NopState<NopInput>| {
+                Err(Error::shutting_down())
+            };
+
+            let crash_handler = |data: &mut ()| Ok(());
+
+            let timeout_handler = |data: &mut ()| Ok(());
+
+            let mut runner = InProcessRunner::new(state, task, crash_handler, (), timeout_handler);
+
+            match runner.run().err() {
+                Some(Error::ShuttingDown) => {}
+                _ => {
+                    panic!("Task did not run successfully");
+                }
+            }
+        }
+    }
+
+    fn run_runner<CH, T, TH>(task: T, crash_handler: CH, timeout_handler: TH)
+    where
+        T: FnMut(
+                &mut RunnerDriver<NopState<NopInput>>,
+                &mut NopState<NopInput>,
+            ) -> Result<(), Error>
+            + 'static,
+        CH: FnMut(&mut ()) -> Result<(), Error> + Send + Sync + Unpin + 'static,
+        TH: FnMut(&mut ()) -> Result<(), Error> + Send + Sync + Unpin + 'static,
+    {
+        let state = NopState::<NopInput>::new();
+
+        let mut runner = InProcessRunner::new(state, task, crash_handler, (), timeout_handler);
+        runner.signal_handler.inner_mut().enter_target();
+
+        runner.run().unwrap();
+    }
+
+    #[test]
+    fn test_runner_timeout() {
+        // The timeout handler calls exit(55), so we use rusty_fork::fork
+        // directly to check the child's exit code.
+        let status = rusty_fork::fork(
+            "runners::inprocess::tests::test_runner_timeout",
+            rusty_fork_id!(),
+            |_| (),
+            |child, _| child.wait().unwrap(),
+            || {
+                let task = |driver: &mut RunnerDriver<NopState<NopInput>>,
+                            state: &mut NopState<NopInput>| {
+                    driver.set_timeout(&Duration::from_millis(10));
+
+                    thread::sleep(Duration::from_millis(50));
+
+                    panic!("Did not timeout!");
+
+                    #[allow(unreachable_code)]
+                    Ok::<(), Error>(())
+                };
+
+                let crash_handler = |data: &mut ()| Ok(());
+
+                let timeout_handler = |data: &mut ()| Ok(());
+
+                run_runner(task, crash_handler, timeout_handler)
+            },
+        )
+        .unwrap();
+
+        assert_eq!(
+            status.code(),
+            Some(55),
+            "Expected child to exit with code 55 (timeout handler), got {:?}",
+            status.code()
+        );
+    }
+
+    #[test]
+    fn test_runner_crash() {
+        let status = rusty_fork::fork(
+            "runners::inprocess::tests::test_runner_crash",
+            rusty_fork_id!(),
+            |_| (),
+            |child, _| child.wait().unwrap(),
+            || {
+                let task = |driver: &mut RunnerDriver<NopState<NopInput>>,
+                            state: &mut NopState<NopInput>| {
+                    unsafe {
+                        libc::raise(libc::SIGSEGV);
+                    }
+
+                    panic!("Did not crash!");
+
+                    #[allow(unreachable_code)]
+                    Ok::<(), Error>(())
+                };
+
+                let crash_handler = |data: &mut ()| Ok(());
+
+                let timeout_handler = |data: &mut ()| Ok(());
+
+                run_runner(task, crash_handler, timeout_handler)
+            },
+        )
+        .unwrap();
+
+        assert_eq!(
+            status.code(),
+            Some(128 + libc::SIGSEGV),
+            "Expected child to exit with code 128 + SIGSEGV (crash handler), got {:?}",
+            status.code()
+        );
+    }
+
+    #[test]
+    fn test_runner_timeout_handler() {
+        // The timeout handler calls exit(55), so we use rusty_fork::fork
+        // directly to check the child's exit code.
+        let status = rusty_fork::fork(
+            "runners::inprocess::tests::test_runner_timeout_handler",
+            rusty_fork_id!(),
+            |_| (),
+            |child, _| child.wait().unwrap(),
+            || {
+                let task = |driver: &mut RunnerDriver<NopState<NopInput>>,
+                            state: &mut NopState<NopInput>| {
+                    driver.set_timeout(&Duration::from_millis(10));
+
+                    thread::sleep(Duration::from_millis(50));
+
+                    panic!("Did not timeout!");
+
+                    #[allow(unreachable_code)]
+                    Ok::<(), Error>(())
+                };
+
+                let crash_handler = |data: &mut ()| Ok(());
+
+                let timeout_handler = |data: &mut ()| unsafe {
+                    libc::exit(114);
+                };
+
+                run_runner(task, crash_handler, timeout_handler)
+            },
+        )
+        .unwrap();
+
+        assert_eq!(
+            status.code(),
+            Some(114),
+            "Expected child to exit with code 114 (timeout handler), got {:?}",
+            status.code()
+        );
+    }
+
+    #[test]
+    fn test_runner_crash_handler() {
+        let status = rusty_fork::fork(
+            "runners::inprocess::tests::test_runner_crash_handler",
+            rusty_fork_id!(),
+            |_| (),
+            |child, _| child.wait().unwrap(),
+            || {
+                let task = |driver: &mut RunnerDriver<NopState<NopInput>>,
+                            state: &mut NopState<NopInput>| {
+                    unsafe {
+                        libc::raise(libc::SIGSEGV);
+                    }
+
+                    panic!("Did not crash!");
+
+                    #[allow(unreachable_code)]
+                    Ok::<(), Error>(())
+                };
+
+                let crash_handler = |data: &mut ()| unsafe {
+                    libc::exit(114);
+                };
+
+                let timeout_handler = |data: &mut ()| Ok(());
+
+                run_runner(task, crash_handler, timeout_handler)
+            },
+        )
+        .unwrap();
+
+        assert_eq!(
+            status.code(),
+            Some(114),
+            "Expected child to exit with code 114 (crash handler), got {:?}",
+            status.code()
+        );
     }
 }

@@ -20,19 +20,15 @@ use std::{fs::File, io::Read, path::Path};
 #[cfg(feature = "std")]
 use libafl_bolts::fs::write_file_atomic;
 use libafl_bolts::{
-    AsSlice, Error, HasLen, generic_hash_std,
+    Error, HasLen, generic_hash_std,
     ownedref::{OwnedMutSlice, OwnedSlice},
     subrange::{SubRangeMutSlice, SubRangeSlice},
 };
 
-#[cfg(not(feature = "remove_me"))]
 pub mod bytes;
-#[cfg(not(feature = "remove_me"))]
 pub use bytes::BytesInput;
 
-#[cfg(not(feature = "remove_me"))]
 pub mod value;
-#[cfg(not(feature = "remove_me"))]
 pub use value::ValueInput;
 
 #[cfg(not(feature = "remove_me"))]
@@ -523,6 +519,7 @@ impl<I, T> From<T> for FromBytesInputConverter<I, T> {
 }
 
 #[cfg(test)]
+#[cfg(not(feature = "remove_me"))]
 mod tests {
     use libafl_bolts::AsSlice;
 

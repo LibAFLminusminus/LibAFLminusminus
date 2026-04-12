@@ -112,8 +112,7 @@ where
             }
 
             if !self.inner().is_in_target() {
-                log::warn!("TIMEOUT or SIGUSR2 happened, but currently not fuzzing.");
-                return;
+                panic!("TIMEOUT or SIGUSR2 happened, but currently not fuzzing.");
             }
 
             log::error!("Timeout in fuzz run.");
@@ -201,6 +200,10 @@ where
 
     pub fn inner(&self) -> &InProcessSignalHandler<CH, D, TH> {
         &self.inner
+    }
+
+    pub fn inner_mut(&mut self) -> &mut InProcessSignalHandler<CH, D, TH> {
+        &mut self.inner
     }
 
     pub fn setup_panic_hook(self: &mut Pin<Box<Self>>) {

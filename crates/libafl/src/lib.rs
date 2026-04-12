@@ -109,6 +109,7 @@ pub unsafe extern "C" fn external_current_millis() -> u64 {
 
 #[cfg(feature = "std")]
 #[cfg(test)]
+#[cfg(not(feature = "remove_me"))]
 mod tests {
 
     #[cfg(miri)]

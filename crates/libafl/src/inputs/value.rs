@@ -4,7 +4,7 @@
 use alloc::vec::Vec;
 use core::{fmt::Debug, hash::Hash, marker::PhantomData, mem::size_of};
 
-use libafl_bolts::{Error, ownedref::OwnedSlice, rands::Rand};
+use libafl_bolts::{Error, ownedref::OwnedSlice};
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "std")]
 use {
@@ -12,10 +12,7 @@ use {
     std::{fs::File, io::Read, path::Path},
 };
 
-use crate::{
-    inputs::{FromTargetBytesConverter, Input, ToTargetBytesConverter},
-    mutators::numeric::Numeric,
-};
+use crate::inputs::{FromTargetBytesConverter, Input, ToTargetBytesConverter};
 
 /// A wrapper that implements [`FromTargetBytesConverter`] for [`ValueInput`] of primitives
 #[derive(Debug, Clone, Default)]
@@ -72,6 +69,7 @@ impl<T> AsMut<T> for ValueInput<T> {
 impl<T: Copy> Copy for ValueInput<T> {}
 
 // Macro to implement the `Input` trait and create type aliases for `WrappingInput<T>`
+#[cfg(not(feature = "remove_me"))]
 macro_rules! impl_input_for_value_input {
     ($($t:ty => $name:ident),+ $(,)?) => {
         $(
@@ -84,6 +82,7 @@ macro_rules! impl_input_for_value_input {
 }
 
 // Invoke the macro with type-name pairs
+#[cfg(not(feature = "remove_me"))]
 impl_input_for_value_input!(
     u8 => U8Input,
     u16 => U16Input,
@@ -133,6 +132,14 @@ impl_from_target_bytes_for_primitive!(
 
 /// manually implemented because files can be written more efficiently
 impl Input for ValueInput<Vec<u8>> {
+    fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
+        todo!()
+    }
+
+    fn to_bytes(&self) -> Result<OwnedSlice<'_, u8>, Error> {
+        todo!()
+    }
+
     /// Write this input to the file
     #[cfg(feature = "std")]
     fn to_file<P>(&self, path: P) -> Result<(), Error>
@@ -156,6 +163,7 @@ impl Input for ValueInput<Vec<u8>> {
     }
 }
 
+#[cfg(not(feature = "remove_me"))]
 impl<T> Numeric for ValueInput<T>
 where
     T: Numeric,
@@ -186,6 +194,7 @@ where
 }
 
 #[cfg(test)]
+#[cfg(not(feature = "remove_me"))]
 mod tests {
     #[cfg(feature = "std")]
     use {

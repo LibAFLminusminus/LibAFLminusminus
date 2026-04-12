@@ -290,11 +290,11 @@ pub trait StdChildArgs: Sized {
 }
 
 #[cfg(test)]
+#[cfg(not(feature = "remove_me"))]
 /// Tester for executor
 pub mod test {
     use crate::{
         executors::{Executor, ExitKind},
-        fuzzer::NopFuzzer,
         inputs::BytesInput,
         state::NopState,
     };
@@ -303,7 +303,6 @@ pub mod test {
     fn nop_executor() {
         let empty_input = BytesInput::new(vec![]);
         let mut executor = NopExecutor::ok();
-        let mut fuzzer: NopFuzzer = NopFuzzer::new();
         let mut state: NopState<BytesInput> = NopState::new();
 
         assert_eq!(

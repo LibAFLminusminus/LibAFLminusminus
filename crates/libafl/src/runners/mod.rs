@@ -20,16 +20,15 @@ pub trait Runner<S> {
     /// The driver MUST be linked to the current runner.
     /// Using a `driver` that is not instanciated with self as the runner will lead to Undefined Behaviour.
     /// Use [`Self::run`], this function should not need to be called directly.
-    unsafe fn run_impl(&mut self, driver: &mut RunnerDriver<S>, state: &mut S)
-    -> Result<(), Error>;
+    unsafe fn run_impl(&mut self, driver: &mut RunnerDriver<S>) -> Result<(), Error>;
 
-    fn run(&mut self, state: &mut S) -> Result<(), Error>
+    fn run(&mut self) -> Result<(), Error>
     where
         Self: Sized + 'static,
     {
         let mut driver = unsafe { RunnerDriver::new(self as *mut Self as *mut dyn Runner<S>) };
 
-        unsafe { self.run_impl(&mut driver, state) }
+        unsafe { self.run_impl(&mut driver) }
     }
 
     // fn on_signal()
@@ -90,12 +89,8 @@ impl<S, T> Runner<S> for DirectRunner<S, T>
 where
     T: FnMut(&mut RunnerDriver<S>, &mut S) -> Result<(), Error>,
 {
-    unsafe fn run_impl(
-        &mut self,
-        driver: &mut RunnerDriver<S>,
-        state: &mut S,
-    ) -> Result<(), Error> {
-        (self.task)(driver, state)
+    unsafe fn run_impl(&mut self, driver: &mut RunnerDriver<S>) -> Result<(), Error> {
+        (self.task)(driver, &mut self.state)
     }
 
     fn set_timeout(&mut self, _timeout: Duration) -> Result<(), Error> {

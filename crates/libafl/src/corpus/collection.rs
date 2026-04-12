@@ -11,8 +11,6 @@ use crate::{
         Corpus, CorpusId, InMemoryStore, OnDiskStore, SingleCorpus, Testcase,
         TestcaseFilenameFormat,
         maps::{self, InMemoryCorpusMap},
-        schedulers::RemovableScheduler,
-        single::DisableEntry,
         store::{Store, ondisk::OnDiskStoreBuilder},
         testcase::TestcaseId,
     },
@@ -246,7 +244,12 @@ where
     I: Input,
 {
     /// Create a new [`OnDiskCorpus`]
-    pub fn new(
+    pub fn new(root: PathBuf, scheduler: SC) -> Result<Self, Error> {
+        Self::new_with_format(root, TestcaseFilenameFormat::Id, scheduler)
+    }
+
+    /// Create a new [`OnDiskCorpus`]
+    pub fn new_with_format(
         root: PathBuf,
         filename_format: TestcaseFilenameFormat,
         scheduler: SC,
