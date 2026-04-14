@@ -3,6 +3,7 @@ use core::{
     fmt::{Debug, LowerHex},
     hash::Hash,
 };
+use std::string::ToString;
 #[cfg(feature = "std")]
 use std::{fs::File, io::Write, path::Path};
 
@@ -15,7 +16,7 @@ use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use crate::{
     common::MetadataResolver, executors::ExitKind, feedbacks::Feedback, observers::ListObserver,
-    state::{State, add_named_metadata_checked},
+    state::{FlatState, add_named_metadata_checked},
 };
 
 /// The metadata to remember past observed value
@@ -86,7 +87,7 @@ where
     ) -> bool
     where
         OT: MatchName,
-        S: State,
+        S: FlatState,
     {
         let observer = observers.get(&self.observer_handle).unwrap();
         // TODO register the list content in a testcase metadata
@@ -113,7 +114,7 @@ where
         }
     }
 
-    fn append_list_observer_metadata<S: State>(&mut self, state: &mut S) {
+    fn append_list_observer_metadata<S: FlatState>(&mut self, state: &mut S) {
         let history_set = state
             .named_metadata_map_mut()
             .get_mut::<ListFeedbackMetadata<T>>(self.name())
@@ -132,11 +133,9 @@ impl<T> MetadataResolver for ListFeedback<T>
 where
     T: Debug + Eq + Hash + for<'a> Deserialize<'a> + Serialize + Default + Copy + 'static,
 {
-    fn resolve<S>(&mut self, state: &mut S) -> Result<(), Error>
-    where
-        S: State,
+    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<(), Error>
     {
-        add_named_metadata_checked(state.named_metadata_map_mut(), self.name(), ListFeedbackMetadata::<T>::default())?;
+        registrator.register_md_default::<ListFeedbackMetadata::<T>>(self.name().to_string());
         Ok(())
     }
 }
@@ -144,7 +143,7 @@ where
 impl<I, OT, S, T> Feedback<I, OT, S> for ListFeedback<T>
 where
     OT: MatchName,
-    S: State,
+    S: FlatState,
     T: Debug
         + Eq
         + Hash

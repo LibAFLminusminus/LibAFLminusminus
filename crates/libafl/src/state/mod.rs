@@ -89,34 +89,91 @@ pub trait FlatState {
     fn named_metadata_map_mut(&mut self) -> &mut NamedSerdeAnyMap;
 }
 
-impl MetadataResolver for State<C, I, OC> {
-    fn resolve(&mut self, resolver: &mut Resolver) -> Result<(), Error> {
-        self.corpus_mut().resolve(&mut resolver)?;
-        self.objective_corpus_mut().resolve(&mut resolver)
-    }
+pub trait State<C, I, OC>:
+    FlatState + MetadataResolver + HasCorpus + HasObjectiveCorpus + HasRand + HasTestcase<I>
+{
 }
 
-pub trait State<C, I, OC>: FlatState + MetadataResolver {
+pub trait HasRand {
     type Rand;
-
-    // TODO: complete here
-    fn register_metadata(&mut self, resolver: Resolver) -> Result<(), Error>;
-
-    fn resgister_metadata(&mut self, resolver: Resolver) -> Result<(), Error> {}
 
     fn rand(&self) -> &Self::Rand;
     fn rand_mut(&mut self) -> &mut Self::Rand;
+}
 
-    fn corpus(&self) -> &C;
-    fn corpus_mut(&mut self) -> &mut C;
+impl<C, I, OC, R, SC> HasRand for StdState<C, I, OC, R, SC>
+where
+    C: Corpus<I, SC>,
+{
+    type Rand = R;
 
-    fn objective_corpus(&self) -> &OC;
-    fn objective_corpus_mut(&mut self) -> &mut OC;
+    fn rand(&self) -> &Self::Rand {
+        &self.rand
+    }
 
+    fn rand_mut(&mut self) -> &mut Self::Rand {
+        &mut self.rand
+    }
+}
+
+pub trait HasTestcase<I> {
     fn testcase_md<'a>(&'a self, tc: &Testcase<I>) -> Option<&'a TestcaseMetadata>;
     fn testcase_md_mut<'a>(&'a mut self, tc: &Testcase<I>) -> &'a mut TestcaseMetadata;
-
     fn testcase(&self, id: CorpusId) -> Result<Testcase<I>, Error>;
+}
+
+impl<C, I, OC, R, SC> HasTestcase<I> for StdState<C, I, OC, R, SC>
+where
+    C: Corpus<I, SC>,
+{
+    fn testcase(&self, id: CorpusId) -> Result<Testcase<I>, Error> {
+        self.corpus.get(id)
+    }
+
+    fn testcase_md<'a>(&'a self, tc: &Testcase<I>) -> Option<&'a TestcaseMetadata> {
+        self.testcase_metadata.get(tc.id())
+    }
+
+    fn testcase_md_mut<'a>(&'a mut self, tc: &Testcase<I>) -> &'a mut TestcaseMetadata {
+        self.testcase_metadata.entry(*tc.id()).or_default()
+    }
+}
+pub trait HasCorpus {
+    type Corpus;
+    fn corpus(&self) -> &Self::Corpus;
+
+    fn corpus_mut(&mut self) -> &mut Self::Corpus;
+}
+
+impl<C, I, OC, R, SC> HasCorpus for StdState<C, I, OC, R, SC> {
+    type Corpus = C;
+
+    fn corpus(&self) -> &Self::Corpus {
+        &self.corpus
+    }
+
+    fn corpus_mut(&mut self) -> &mut Self::Corpus {
+        &mut self.corpus
+    }
+}
+
+pub trait HasObjectiveCorpus {
+    type Corpus;
+    fn objective_corpus(&self) -> &Self::Corpus;
+
+    fn objective_corpus_mut(&mut self) -> &mut Self::Corpus;
+}
+
+impl<C, I, OC, R, SC> HasObjectiveCorpus for StdState<C, I, OC, R, SC> {
+    type Corpus = OC;
+
+    fn objective_corpus(&self) -> &Self::Corpus {
+        &self.objective_corpus
+    }
+
+    fn objective_corpus_mut(&mut self) -> &mut Self::Corpus {
+        &mut self.objective_corpus
+    }
 }
 
 /// The maximum size of a testcase
@@ -653,53 +710,33 @@ impl<C, I, R, SC, SO> FlatState for StdState<C, I, R, SC, SO> {
     }
 }
 
-impl<C, I, OC, R, SC> State<C, I, OC> for StdState<C, I, OC, R, SC> {
-    type Rand = R;
+impl<C, I, OC, R, SC> MetadataResolver for StdState<C, I, OC, R, SC>
+where
+    C: MetadataResolver + Corpus<I, SC>,
+    OC: MetadataResolver + Corpus<I, NopScheduler>,
+{
+    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<(), Error> {
+        self.corpus_mut().register(registrator);
+        self.objective_corpus_mut().register(registrator);
 
-    fn rand(&self) -> &Self::Rand {
-        &self.rand
-    }
-
-    fn rand_mut(&mut self) -> &mut Self::Rand {
-        &mut self.rand
-    }
-
-    fn corpus(&self) -> &C {
-        &self.corpus
-    }
-
-    fn corpus_mut(&mut self) -> &mut C {
-        &mut self.corpus
-    }
-
-    fn objective_corpus(&self) -> &OC {
-        &self.objective_corpus
-    }
-
-    fn objective_corpus_mut(&mut self) -> &mut OC {
-        &mut self.objective_corpus
-    }
-
-    fn testcase(&self, id: CorpusId) -> Result<Testcase<I>, Error> {
-        self.corpus.get(id)
-    }
-
-    fn testcase_md<'a>(&'a self, tc: &Testcase<I>) -> Option<&'a TestcaseMetadata> {
-        self.testcase_metadata.get(tc.id())
-    }
-
-    fn testcase_md_mut<'a>(&'a mut self, tc: &Testcase<I>) -> &'a mut TestcaseMetadata {
-        self.testcase_metadata.entry(*tc.id()).or_default()
+        Ok(())
     }
 }
 
+impl<C, I, OC, R, SC> State<C, I, OC> for StdState<C, I, OC, R, SC>
+where
+    C: MetadataResolver + Corpus<I, SC>,
+    OC: MetadataResolver + Corpus<I, NopScheduler>,
+{
+}
+
 #[cfg(feature = "std")]
-impl<C, I, R, SC, SO> StdState<C, I, R, SC, SO>
+impl<C, I, OC, R, SC> StdState<C, I, OC, R, SC>
 where
     C: Corpus<I, SC>,
     I: Input,
+    OC: Corpus<I, NopScheduler>,
     R: Rand,
-    SO: Corpus<I, NopScheduler>,
 {
     pub fn scheduler(&self) -> &SC {
         self.corpus.scheduler()
@@ -707,21 +744,6 @@ where
 
     pub fn scheduler_mut(&mut self) -> &mut SC {
         self.corpus_mut().scheduler_mut()
-    }
-
-    fn current_testcase(&self) -> Result<Testcase<I>, Error> {
-        let Some(corpus_id) = self.current_corpus_id()? else {
-            return Err(Error::key_not_found(
-                "We are not currently processing a testcase",
-            ));
-        };
-
-        self.corpus().get(corpus_id)
-    }
-
-    fn current_input_cloned(&self) -> Result<I, Error> {
-        let mut testcase = self.current_testcase()?;
-        Ok((*testcase.input()).clone())
     }
 
     #[cfg(feature = "introspection")]
@@ -1217,26 +1239,26 @@ where
     }
 }
 
-impl<C, I, R, SC, SO> StdState<C, I, R, SC, SO>
+impl<C, I, OC, R, SC> StdState<C, I, OC, R, SC>
 where
     C: Corpus<I, SC>,
     I: Input,
+    OC: Corpus<I, NopScheduler>,
     R: Rand,
-    SO: Corpus<I, NopScheduler>,
 {
     /// Creates a new `State`, taking ownership of all of the individual components during fuzzing.
     pub fn new<F, O>(
         rand: R,
         corpus: C,
-        solutions: SO,
+        objective_corpus: OC,
         feedback: &mut F,
         objective: &mut O,
     ) -> Result<Self, Error>
     where
         F: MetadataResolver,
         O: MetadataResolver,
+        OC: Serialize + DeserializeOwned + MetadataResolver,
         C: Serialize + DeserializeOwned + MetadataResolver,
-        SO: Serialize + DeserializeOwned + MetadataResolver,
     {
         let mut state = Self {
             rand,
@@ -1245,7 +1267,7 @@ where
             start_time: libafl_bolts::current_time(),
             named_metadata: NamedSerdeAnyMap::default(),
             corpus,
-            solutions,
+            objective_corpus,
             max_size: DEFAULT_MAX_SIZE,
             stop_requested: false,
             #[cfg(feature = "introspection")]
@@ -1264,9 +1286,6 @@ where
         };
         Ok(state)
     }
-    fn resolve(&mut self) {
-        self.corpus.resolve(self);
-    }
 }
 
 impl
@@ -1284,9 +1303,9 @@ impl
         StdState<
             InMemoryCorpus<NopInput, NopScheduler>,
             NopInput,
+            InMemoryCorpus<NopInput, NopScheduler>,
             StdRand,
             NopScheduler,
-            InMemoryCorpus<NopInput, NopScheduler>,
         >,
         Error,
     > {

@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "std")]
 use crate::observers::{StdErrObserver, StdOutObserver};
-use crate::{Error, observers::ObserversTuple, runners::RunnerDriver, state::State};
+use crate::{Error, observers::ObserversTuple, runners::RunnerDriver, state::{FlatState, State}};
 
 // /// The module for all the executor hooks
 // pub mod hooks;
@@ -105,7 +105,6 @@ libafl_bolts::impl_serdeany!(DiffExitKind);
 pub trait Executor<I, OT, S>
 where
     OT: ObserversTuple<S>,
-    S: State,
 {
     /// The init function of the executor.
     /// It must be run once before the first execution of the executor.
@@ -136,7 +135,10 @@ where
         state: &mut S,
         driver: &mut RunnerDriver<S>,
         input: &I,
-    ) -> Result<ExitKind, Error> {
+    ) -> Result<ExitKind, Error> 
+    where 
+        S: FlatState,
+    {
         *state.executions_mut() += 1;
 
         self.observers_tuple_mut().pre_exec_all(state)?;

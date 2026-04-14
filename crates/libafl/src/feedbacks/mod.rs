@@ -192,9 +192,9 @@ where
     A: MetadataResolver,
     B: MetadataResolver,
 {
-    fn resolve<S: State>(&mut self, state: &mut S) -> Result<(), Error> {
-        self.first.resolve(state)?;
-        self.second.resolve(state)?;
+    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<(), Error> {
+        self.first.register(registrator)?;
+        self.second.register(registrator)?;
         Ok(())
     }
 }
@@ -600,8 +600,8 @@ impl<A> MetadataResolver for NotFeedback<A>
 where
     A: MetadataResolver,
 {
-    fn resolve<S: State>(&mut self, state: &mut S) -> Result<(), Error> {
-        self.inner.resolve(state)
+    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<(), Error> {
+        self.inner.register(registrator)
     }
 }
 
@@ -883,7 +883,7 @@ impl MetadataResolver for TimeFeedback {}
 impl<I, OT, S> Feedback<I, OT, S> for TimeFeedback
 where
     OT: MatchName,
-    S: State + HasTestcase<I>,
+    S: HasTestcase<I>,
 {
     #[cfg(feature = "track_hit_feedbacks")]
     fn last_result(&self) -> Result<bool, Error> {

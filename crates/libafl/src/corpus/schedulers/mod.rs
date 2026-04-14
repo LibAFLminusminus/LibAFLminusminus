@@ -3,6 +3,7 @@
 use alloc::borrow::ToOwned;
 use core::marker::PhantomData;
 use libafl_core::non_zero;
+use log::Metadata;
 use serde::{Deserialize, Serialize};
 use std::vec::Vec;
 
@@ -32,7 +33,9 @@ use libafl_bolts::{
 };
 
 use crate::{
-    Error, MetadataResolver, corpus::{CorpusId, Testcase}, state::{HasCorpus, HasRand}
+    Error, MetadataResolver,
+    corpus::{CorpusId, Testcase},
+    state::HasRand,
 };
 
 /// The scheduler also implements `on_remove` and `on_replace` if it implements this stage.
@@ -63,7 +66,6 @@ pub trait RemovableScheduler<I, S> {
 pub fn on_add_metadata_default<I, S, SC>(state: &mut S, id: CorpusId) -> Result<(), Error>
 where
     SC: AflScheduler,
-    S: HasCorpus<I, SC>,
 {
     panic!("What to do there?")
     // let current_id = *state.corpus().current();
@@ -125,10 +127,7 @@ where
 }
 
 /// Called when choosing the next [`Testcase`]
-pub fn on_next_metadata_default<I, S, SC>(state: &mut S) -> Result<(), Error>
-where
-    S: HasCorpus<I, SC>,
-{
+pub fn on_next_metadata_default<I, S, SC>(state: &mut S) -> Result<(), Error> {
     panic!("What do do there?")
 
     // let current_id = *state.corpus().current();
@@ -213,9 +212,12 @@ pub struct RandScheduler<S> {
     phantom: PhantomData<S>,
 }
 
-impl<I, S> Scheduler<I, S> for RandScheduler<S>
+impl<S> MetadataResolver for RandScheduler<S> {}
+
+impl<I, R, S> Scheduler<I, S> for RandScheduler<S> 
 where
-    S: HasCorpus<I, Self> + HasRand,
+    S: HasRand<Rand = R>,
+    R: Rand,
 {
     fn on_add(&mut self, state: &mut S, id: CorpusId) -> Result<(), Error> {
         self.ids.push(id);
@@ -283,6 +285,8 @@ pub type StdScheduler<S> = RandScheduler<S>;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct NopScheduler;
+
+impl MetadataResolver for NopScheduler {}
 
 impl<I, S> Scheduler<I, S> for NopScheduler {
     fn on_add(&mut self, _state: &mut S, _id: CorpusId) -> Result<(), Error> {

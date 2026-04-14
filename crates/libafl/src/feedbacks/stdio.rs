@@ -14,7 +14,7 @@ use crate::{
     corpus::Testcase,
     feedbacks::Feedback,
     observers::{StdErrObserver, StdOutObserver},
-    state::{HasTestcase, add_named_metadata},
+    state::{add_named_metadata, HasTestcase},
 };
 
 /// Metadata for [`StdOutToMetadataFeedback`].
@@ -106,7 +106,7 @@ impl MetadataResolver for StdErrToMetadataFeedback {}
 impl<I, OT, S> Feedback<I, OT, S> for StdErrToMetadataFeedback
 where
     OT: MatchName,
-    S: HasTestcase<I>,
+    S: HasTestcase<I>
 {
     #[cfg(feature = "track_hit_feedbacks")]
     fn last_result(&self) -> Result<bool, Error> {

@@ -25,7 +25,7 @@ use crate::{
     executors::ExitKind,
     feedbacks::MapFeedbackMetadata,
     observers::{CanTrack, MapObserver},
-    state::{State, HasTestcase},
+    state::{FlatState, HasTestcase},
 };
 
 /// Stable Rust wrapper for SIMD accelerated map feedback. Unfortunately, we have to
@@ -48,7 +48,7 @@ where
 {
     fn is_interesting_u8_simd_optimized<S, OT>(&mut self, state: &mut S, observers: &OT) -> bool
     where
-        S: State,
+        S: FlatState,
         OT: MatchName,
     {
         // TODO Replace with match_name_type when stable
@@ -157,8 +157,8 @@ where
     O::Entry: 'static + Default + Debug + DeserializeOwned + Serialize,
     R: SimdReducer<V>,
 {
-    fn resolve<S: State>(&mut self, state: &mut S) -> Result<(), Error> {
-        self.map.resolve(state)
+    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<(), Error> {
+        self.map.register(registrator)
     }
 }
 
@@ -190,8 +190,8 @@ where
     C: CanTrack + AsRef<O>,
     O: MapObserver<Entry = u8> + for<'a> AsSlice<'a, Entry = u8> + for<'a> AsIter<'a, Item = u8>,
     OT: MatchName,
-    S: State + HasTestcase<I>,
     R: SimdReducer<V>,
+    S: FlatState + HasTestcase<I>,
     V: VectorType + Copy + Eq,
     R::PrimitiveReducer: Reducer<u8>,
 {

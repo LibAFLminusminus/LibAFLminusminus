@@ -7,6 +7,7 @@ use libafl_bolts::Error;
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    MetadataResolver,
     corpus::{
         Corpus, CorpusId, InMemoryStore, OnDiskStore, SingleCorpus, Testcase,
         TestcaseFilenameFormat,
@@ -169,6 +170,8 @@ impl<I, SC> InMemoryCorpus<I, SC> {
     }
 }
 
+impl<I, SC> MetadataResolver for InMemoryCorpus<I, SC> {}
+
 impl<I, SC> Corpus<I, SC> for InMemoryCorpus<I, SC>
 where
     I: Input,
@@ -266,6 +269,8 @@ where
         OnDiskCorpusBuilder::default()
     }
 }
+
+impl<I, SC> MetadataResolver for OnDiskCorpus<I, SC> {}
 
 #[cfg(feature = "std")]
 impl<I, SC> Corpus<I, SC> for OnDiskCorpus<I, SC>
