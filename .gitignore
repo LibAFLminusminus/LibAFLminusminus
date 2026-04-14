@@ -99,3 +99,4 @@ log
 
 # Coredumps
 *.core
+.zed
