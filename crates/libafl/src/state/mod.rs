@@ -92,7 +92,7 @@ pub trait FlatState {
 impl MetadataResolver for State<C, I, OC> {
     fn resolve(&mut self, resolver: &mut Resolver) -> Result<(), Error> {
         self.corpus_mut().resolve(&mut resolver)?;
-        self.objective_corpus_mut().resolve(&mut resolver)?;
+        self.objective_corpus_mut().resolve(&mut resolver)
     }
 }
 
