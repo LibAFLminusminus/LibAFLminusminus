@@ -39,42 +39,43 @@ use crate::fuzzer::{Evaluator, ExecuteInputResult};
 #[cfg(not(feature = "remove_me"))]
 use crate::generators::Generator;
 
-pub trait State {
+pub trait FlatState {
+    /// The maximum size of an input
     fn max_size(&self) -> usize;
-    /// Set the max size.
-    fn max_size_mut(&mut self) -> &mut usize;
 
     /// The executions counter
     fn executions(&self) -> u64;
     /// The executions counter (mutable)
     fn executions_mut(&mut self) -> &mut u64;
+
     ///the imported testcases counter
     fn imported(&self) -> usize;
     ///the imported testcases counter (mutable)
     fn imported_mut(&mut self) -> &mut usize;
+
     /// The starting time
     fn start_time(&self) -> &Duration;
     /// The starting time (mutable)
     fn start_time_mut(&mut self) -> &mut Duration;
+
     /// The last time we found something by ourselves
     fn last_found_time(&self) -> &Duration;
     /// The last time we found something by ourselves (mutable)
     fn last_found_time_mut(&mut self) -> &mut Duration;
+
     /// The last time we reported progress,if available/used.
     /// This information is used by fuzzer `maybe_report_progress`.
     fn last_report_time(&self) -> &Option<Duration>;
+
     /// The last time we reported progress,if available/used (mutable).
     /// This information is used by fuzzer `maybe_report_progress`.
     fn last_report_time_mut(&mut self) -> &mut Option<Duration>;
+
     fn request_stop(&mut self);
 
     fn discard_stop_request(&mut self);
 
     fn stop_requested(&self) -> bool;
-
-    fn set_corpus_id(&mut self, id: CorpusId) -> Result<(), Error>;
-
-    fn current_corpus_id(&self) -> Result<Option<CorpusId>, Error>;
 
     #[cfg(feature = "introspection")]
     fn introspection_stats(&self) -> &ClientPerfStats;
@@ -86,6 +87,24 @@ pub trait State {
     fn named_metadata_map(&self) -> &NamedSerdeAnyMap;
     /// A map, storing all metadata (mutable)
     fn named_metadata_map_mut(&mut self) -> &mut NamedSerdeAnyMap;
+}
+
+pub trait State<C, I, OC>: FlatState {
+    type Rand;
+
+    fn rand(&self) -> &Self::Rand;
+    fn rand_mut(&mut self) -> &mut Self::Rand;
+
+    fn corpus(&self) -> &C;
+    fn corpus_mut(&mut self) -> &mut C;
+
+    fn objective_corpus(&self) -> &OC;
+    fn objective_corpus_mut(&mut self) -> &mut OC;
+
+    fn testcase_md<'a>(&'a self, tc: &Testcase<I>) -> Option<&'a TestcaseMetadata>;
+    fn testcase_md_mut<'a>(&'a mut self, tc: &Testcase<I>) -> &'a mut TestcaseMetadata;
+
+    fn testcase(&self, id: CorpusId) -> Result<Testcase<I>, Error>;
 }
 
 /// The maximum size of a testcase
@@ -113,11 +132,11 @@ impl<I, S, Z> Debug for LoadConfig<'_, I, S, Z> {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(bound = "
         C: serde::Serialize + for<'a> serde::Deserialize<'a>,
+        OC: serde::Serialize + for<'a> serde::Deserialize<'a>,
         R: serde::Serialize + for<'a> serde::Deserialize<'a>,
         SC: serde::Serialize + for<'a> serde::Deserialize<'a>,
-        SO: serde::Serialize + for<'a> serde::Deserialize<'a>,
     ")]
-pub struct StdState<C, I, R, SC, SO> {
+pub struct StdState<C, I, OC, R, SC> {
     /// RNG instance
     rand: R,
     /// How many times the executor ran the harness/target
@@ -128,8 +147,8 @@ pub struct StdState<C, I, R, SC, SO> {
     imported: usize,
     /// The corpus
     corpus: C,
-    // Solutions corpus
-    solutions: SO,
+    // Objectives corpus
+    objective_corpus: OC,
     /// Metadata stored with names
     named_metadata: NamedSerdeAnyMap,
     /// Metadata stored for each corpus entry
@@ -529,18 +548,10 @@ impl SchedulerTestcaseMetadata {
 
 libafl_bolts::impl_serdeany!(SchedulerTestcaseMetadata);
 
-impl<C, I, R, SC, SO> State for StdState<C, I, R, SC, SO>
-where
-    C: Corpus<I, SC>,
-{
+impl<C, I, R, SC, SO> FlatState for StdState<C, I, R, SC, SO> {
     /// The max size allowed for the input
     fn max_size(&self) -> usize {
         self.max_size
-    }
-
-    /// Set the max size.
-    fn max_size_mut(&mut self) -> &mut usize {
-        &mut self.max_size
     }
 
     /// The executions counter
@@ -619,15 +630,6 @@ where
         self.stop_requested
     }
 
-    fn set_corpus_id(&mut self, id: CorpusId) -> Result<(), Error> {
-        self.corpus_id = Some(id);
-        Ok(())
-    }
-
-    fn current_corpus_id(&self) -> Result<Option<CorpusId>, Error> {
-        Ok(self.corpus_id)
-    }
-
     #[cfg(feature = "introspection")]
     fn introspection_stats(&self) -> &ClientPerfStats {
         &self.introspection_stats
@@ -639,18 +641,33 @@ where
     }
 }
 
-pub trait HasTestcase<I> {
-    fn testcase_md<'a>(&'a self, tc: &Testcase<I>) -> Option<&'a TestcaseMetadata>;
+impl<C, I, OC, R, SC> State<C, I, OC> for StdState<C, I, OC, R, SC> {
+    type Rand = R;
 
-    fn testcase_md_mut<'a>(&'a mut self, tc: &Testcase<I>) -> &'a mut TestcaseMetadata;
+    fn rand(&self) -> &Self::Rand {
+        &self.rand
+    }
 
-    fn testcase(&self, id: CorpusId) -> Result<Testcase<I>, Error>;
-}
+    fn rand_mut(&mut self) -> &mut Self::Rand {
+        &mut self.rand
+    }
 
-impl<C, I, R, SC, SO> HasTestcase<I> for StdState<C, I, R, SC, SO>
-where
-    C: Corpus<I, SC>,
-{
+    fn corpus(&self) -> &C {
+        &self.corpus
+    }
+
+    fn corpus_mut(&mut self) -> &mut C {
+        &mut self.corpus
+    }
+
+    fn objective_corpus(&self) -> &OC {
+        &self.objective_corpus
+    }
+
+    fn objective_corpus_mut(&mut self) -> &mut OC {
+        &mut self.objective_corpus
+    }
+
     fn testcase(&self, id: CorpusId) -> Result<Testcase<I>, Error> {
         self.corpus.get(id)
     }
@@ -661,75 +678,6 @@ where
 
     fn testcase_md_mut<'a>(&'a mut self, tc: &Testcase<I>) -> &'a mut TestcaseMetadata {
         self.testcase_metadata.entry(*tc.id()).or_default()
-    }
-}
-
-pub trait HasSolutions<I> {
-    type Solution: Corpus<I, NopScheduler>;
-
-    fn solutions(&self) -> &Self::Solution;
-
-    fn solutions_mut(&mut self) -> &mut Self::Solution;
-}
-
-impl<C, I, R, SC, SO> HasSolutions<I> for StdState<C, I, R, SC, SO>
-where
-    SO: Corpus<I, NopScheduler>,
-{
-    type Solution = SO;
-
-    fn solutions(&self) -> &SO {
-        &self.solutions
-    }
-
-    fn solutions_mut(&mut self) -> &mut SO {
-        &mut self.solutions
-    }
-}
-
-pub trait HasCorpus<I, SC> {
-    type Corpus: Corpus<I, SC>;
-
-    fn corpus(&self) -> &Self::Corpus;
-
-    fn corpus_mut(&mut self) -> &mut Self::Corpus;
-}
-
-impl<C, I, R, SC, SO> HasCorpus<I, SC> for StdState<C, I, R, SC, SO>
-where
-    C: Corpus<I, SC>,
-{
-    type Corpus = C;
-
-    fn corpus(&self) -> &C {
-        &self.corpus
-    }
-
-    fn corpus_mut(&mut self) -> &mut C {
-        &mut self.corpus
-    }
-}
-
-pub trait HasRand {
-    type Rand: Rand;
-
-    fn rand(&self) -> &Self::Rand;
-
-    fn rand_mut(&mut self) -> &mut Self::Rand;
-}
-
-impl<C, I, R, SC, SO> HasRand for StdState<C, I, R, SC, SO>
-where
-    R: Rand,
-{
-    type Rand = R;
-
-    fn rand(&self) -> &R {
-        &self.rand
-    }
-
-    fn rand_mut(&mut self) -> &mut R {
-        &mut self.rand
     }
 }
 
