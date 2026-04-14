@@ -24,7 +24,7 @@ use crate::monitors::stats::PerfFeature;
 #[cfg(feature = "std")]
 use crate::monitors::stats::{AggregatorOps, UserStats, UserStatsValue};
 use crate::{
-    Error, HasMetadata,
+    Error, HasMetadata, Resolver,
     corpus::{Corpus, CorpusId, HasCurrentCorpusId, HasTestcase, Testcase},
     events::{
         Event, EventConfig, EventFirer, EventReceiver, EventWithStats, ProgressReporter,
@@ -134,6 +134,8 @@ pub trait Evaluator<E, I, S> {
 
 /// The main fuzzer trait.
 pub trait Fuzzer<E, I, S, ST> {
+    fn init(&mut self, stages: &mut ST, executor: &mut E, state: &mut S) -> Result<(), Error>;
+
     /// Fuzz for a single iteration.
     /// Returns the index of the last fuzzed corpus item.
     /// (Note: An iteration represents a complete run of every stage.
@@ -490,6 +492,18 @@ where
         + MaybeHasClientPerfMonitor,
     ST: StagesTuple<E, S, Self>,
 {
+    fn init(&mut self, stages: &mut ST, executor: &mut E, state: &mut S) -> Result<(), Error> {
+        let mut resolver = Resolver::new();
+
+        self.feedback.resolve(&mut resolver)?;
+        self.objective.resolve(&mut resolver)?;
+        stages.resolve(&mut resolver)?;
+        state.resolve(&mut resolver)?;
+        executor.resolve(&mut resolver)?;
+
+        state.register_metadata(resolver)
+    }
+
     fn fuzz_one(
         &mut self,
         stages: &mut ST,
