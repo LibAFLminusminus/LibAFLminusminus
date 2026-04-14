@@ -6,7 +6,7 @@ use alloc::borrow::ToOwned;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    Error, MetadataResolver,
+    Error, DependencyResolver,
     corpus::{
         CorpusId, Scheduler, Testcase,
         schedulers::{HasQueueCycles, RemovableScheduler},
@@ -34,7 +34,7 @@ impl<I, S> RemovableScheduler<I, S> for QueueScheduler {
     }
 }
 
-impl MetadataResolver for QueueScheduler {}
+impl DependencyResolver for QueueScheduler {}
 
 impl<I, S> Scheduler<I, S> for QueueScheduler {
     // fn on_add(&mut self, state: &mut S, id: CorpusId) -> Result<(), Error> {

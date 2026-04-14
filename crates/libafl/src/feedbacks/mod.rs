@@ -10,7 +10,7 @@ use core::{fmt::Debug, marker::PhantomData};
 
 use crate::{
     Error,
-    common::MetadataResolver,
+    common::DependencyResolver,
     corpus::Testcase,
     executors::ExitKind,
     observers::TimeObserver,
@@ -67,7 +67,7 @@ pub use value_bloom::ValueBloomFeedback;
 /// Feedbacks evaluate the observers.
 /// Basically, they reduce the information provided by an observer to a value,
 /// indicating the "interestingness" of the last run.
-pub trait Feedback<I, OT, S>: Named + MetadataResolver {
+pub trait Feedback<I, OT, S>: Named + DependencyResolver {
     /// `is_interesting ` return if an input is worth the addition to the corpus
     fn is_interesting(
         &mut self,
@@ -187,10 +187,10 @@ where
     }
 }
 
-impl<A, B, FL> MetadataResolver for CombinedFeedback<A, B, FL>
+impl<A, B, FL> DependencyResolver for CombinedFeedback<A, B, FL>
 where
-    A: MetadataResolver,
-    B: MetadataResolver,
+    A: DependencyResolver,
+    B: DependencyResolver,
 {
     fn register(&mut self, registrator: &mut crate::Registrator) -> Result<(), Error> {
         self.first.register(registrator)?;
@@ -596,9 +596,9 @@ pub struct NotFeedback<A> {
     name: Cow<'static, str>,
 }
 
-impl<A> MetadataResolver for NotFeedback<A>
+impl<A> DependencyResolver for NotFeedback<A>
 where
-    A: MetadataResolver,
+    A: DependencyResolver,
 {
     fn register(&mut self, registrator: &mut crate::Registrator) -> Result<(), Error> {
         self.inner.register(registrator)
@@ -724,7 +724,7 @@ macro_rules! feedback_not {
     };
 }
 
-impl MetadataResolver for () {}
+impl DependencyResolver for () {}
 
 /// Hack to use () as empty Feedback
 impl<I, OT, S> Feedback<I, OT, S> for () {
@@ -794,7 +794,7 @@ pub struct ExitKindFeedback<L> {
     phantom: PhantomData<fn() -> L>,
 }
 
-impl<L> MetadataResolver for ExitKindFeedback<L> where L: ExitKindLogic {}
+impl<L> DependencyResolver for ExitKindFeedback<L> where L: ExitKindLogic {}
 
 impl<I, L, OT, S> Feedback<I, OT, S> for ExitKindFeedback<L>
 where
@@ -878,7 +878,7 @@ pub type DiffExitKindFeedback = ExitKindFeedback<GenericDiffLogic>;
 pub struct TimeFeedback {
     observer_handle: Handle<TimeObserver>,
 }
-impl MetadataResolver for TimeFeedback {}
+impl DependencyResolver for TimeFeedback {}
 
 impl<I, OT, S> Feedback<I, OT, S> for TimeFeedback
 where
@@ -937,7 +937,7 @@ pub enum ConstFeedback {
     False,
 }
 
-impl MetadataResolver for ConstFeedback {}
+impl DependencyResolver for ConstFeedback {}
 
 impl<I, OT, S> Feedback<I, OT, S> for ConstFeedback {
     #[inline]

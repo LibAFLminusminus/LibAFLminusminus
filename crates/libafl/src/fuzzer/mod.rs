@@ -35,6 +35,7 @@ use crate::{
     inputs::{BytesInputConverter, Input, ToBytesInputConverter, ToTargetBytesConverter},
     mark_feature_time,
     observers::ObserversTuple,
+    runtimes::RuntimeHandle,
     schedulers::Scheduler,
     stages::StagesTuple,
     start_timer,
@@ -492,16 +493,31 @@ where
         + MaybeHasClientPerfMonitor,
     ST: StagesTuple<E, S, Self>,
 {
-    fn init(&mut self, stages: &mut ST, executor: &mut E, state: &mut S) -> Result<(), Error> {
+    fn init(
+        &mut self,
+        stages: &mut ST,
+        executor: &mut E,
+        state: &mut S,
+        driver: RuntimeHandle<S>,
+    ) -> Result<(), Error> {
+        // 1 - collect the required mds and involved types
         let mut resolver = Resolver::new();
+        self.feedback.register_with_ty(&mut resolver)?;
+        self.objective.register_with_ty(&mut resolver)?;
+        stages.register_with_ty(&mut resolver)?;
+        state.register_with_ty(&mut resolver)?;
+        executor.register_with_ty(&mut resolver)?;
 
-        self.feedback.resolve(&mut resolver)?;
-        self.objective.resolve(&mut resolver)?;
-        stages.resolve(&mut resolver)?;
-        state.resolve(&mut resolver)?;
-        executor.resolve(&mut resolver)?;
+        // 2 - check that types and mds for each object
+        let mut checker = resolver.finish();
+        self.feedback.check(&mut checker)?;
+        self.objective.check(&mut checker)?;
+        stages.check(&mut checker)?;
+        state.check(&mut checker)?;
+        executor.check(&mut checker)?;
 
-        state.register_metadata(resolver)
+        // 3 - add the global metadata to the md map
+        state.register_metadata(checker.finish())
     }
 
     fn fuzz_one(

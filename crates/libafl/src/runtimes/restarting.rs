@@ -2,22 +2,22 @@ use core::time::Duration;
 
 use libafl_core::Error;
 
-use crate::runners::{Runner, RunnerDriver, inprocess::InProcessRunner};
+use crate::runtimes::{Runtime, RuntimeHandle, inprocess::InProcessRuntime};
 
-pub struct RestartingRunner<CH, D, S, T, TH> {
-    inner: InProcessRunner<CH, D, S, T, TH>,
+pub struct RestartingRuntime<CH, D, S, T, TH> {
+    inner: InProcessRuntime<CH, D, S, T, TH>,
 }
 
-impl<CH, D, S, T, TH> Runner<S> for RestartingRunner<CH, D, S, T, TH>
+impl<CH, D, S, T, TH> Runtime<S> for RestartingRuntime<CH, D, S, T, TH>
 where
-    T: FnMut(&mut RunnerDriver<S>, &mut S) -> Result<(), Error>,
+    T: FnMut(&mut RuntimeHandle<S>, &mut S) -> Result<(), Error>,
     CH: FnMut(&mut D) -> Result<(), Error> + Send + Sync + Unpin + 'static,
     D: Send + Sync + Unpin + 'static,
     TH: FnMut(&mut D) -> Result<(), Error> + Send + Sync + Unpin + 'static,
 {
     // TODO: handle fork, state snapshot restore
-    unsafe fn run_impl(&mut self, driver: &mut RunnerDriver<S>) -> Result<(), Error> {
-        self.inner.run_impl(driver)
+    unsafe fn run_impl(&mut self, driver: &mut RuntimeHandle<S>) -> Result<(), Error> {
+        unsafe { self.inner.run_impl(driver) }
     }
 
     fn set_timeout(&mut self, timeout: Duration) -> Result<(), Error> {

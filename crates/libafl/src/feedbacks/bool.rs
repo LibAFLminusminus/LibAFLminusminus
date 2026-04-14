@@ -8,10 +8,10 @@ use libafl_bolts::{
 };
 
 use crate::{
-    common::MetadataResolver,
+    common::DependencyResolver,
     feedbacks::Feedback,
-    state::State,
     observers::{ObserversTuple, ValueObserver},
+    state::State,
 };
 
 /// This feedback returns `true` or `false` as the `is_interesting` value.
@@ -51,7 +51,7 @@ impl Named for BoolValueFeedback<'_> {
     }
 }
 
-impl MetadataResolver for BoolValueFeedback<'_> {}
+impl DependencyResolver for BoolValueFeedback<'_> {}
 
 impl<I, OT, S> Feedback<I, OT, S> for BoolValueFeedback<'_>
 where

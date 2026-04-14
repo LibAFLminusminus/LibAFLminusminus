@@ -1,7 +1,10 @@
 //! This module defines trait shared across different `LibAFL` modules
 
 use alloc::boxed::Box;
-use core::{any::TypeId, hash::Hash};
+use core::{
+    any::{self, TypeId},
+    hash::Hash,
+};
 use std::{collections::HashSet, string::String};
 
 #[cfg(feature = "nautilus")]
@@ -16,12 +19,12 @@ use crate::state::{State, add_named_metadata_checked};
 
 pub struct Registrator {
     map: NamedSerdeAnyMap,
-    types: HashSet<TypeId>,
+    types: HashSet<&'static str>,
 }
 
 pub struct CompatibilityChecker {
     map: NamedSerdeAnyMap,
-    types: HashSet<TypeId>,
+    types: HashSet<&'static str>,
 }
 
 impl Registrator {
@@ -36,8 +39,8 @@ impl Registrator {
         add_named_metadata_checked::<T>(&mut self.map, &name, T::default())
     }
 
-    pub fn register_ty<T: 'static>(&mut self) -> bool {
-        self.types.insert(TypeId::of::<T>())
+    pub fn register_ty<T: ?Sized>(&mut self) -> bool {
+        self.types.insert(any::type_name::<T>())
     }
 
     pub fn finish(self) -> CompatibilityChecker {
@@ -49,8 +52,8 @@ impl Registrator {
 }
 
 impl CompatibilityChecker {
-    pub fn contains<T: 'static>(&self) -> bool {
-        self.types.contains(&TypeId::of::<T>())
+    pub fn contains<T>(&self) -> bool {
+        self.types.contains(any::type_name::<T>())
     }
 
     pub fn finish(self) -> NamedSerdeAnyMap {
@@ -58,14 +61,20 @@ impl CompatibilityChecker {
     }
 }
 
-pub trait MetadataResolver {
-    /// Register in the resolver the types necessary during runtime.
+pub trait DependencyResolver {
+    /// Register in the resolver the metadata necessary during runtime.
     ///
-    /// These types will
+    /// Any global metadata used during runtime MUST be registered there.
+    ///
+    /// The only exception is Testcase metadata, which can be allocated lazily
+    /// at runtime.
     fn register(&mut self, registrator: &mut Registrator) -> Result<(), Error> {
         Ok(())
     }
 
+    /// Register in the resolver the types and metadata necessary during runtime.
+    ///
+    /// These types will
     fn register_with_ty(&mut self, registrator: &mut Registrator) -> Result<(), Error> {
         registrator.register_ty::<Self>();
 

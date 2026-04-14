@@ -5,7 +5,7 @@ use core::{fmt, marker::PhantomData};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Error, MetadataResolver};
+use crate::{DependencyResolver, Error};
 
 pub mod testcase;
 pub use testcase::{Testcase, TestcaseFilenameFormat};
@@ -93,7 +93,7 @@ macro_rules! random_corpus_id_with_disabled {
 }
 
 /// Corpus with all current [`Testcase`]s, or solutions
-pub trait Corpus<I, SC>: Sized + MetadataResolver {
+pub trait Corpus<I, SC>: Sized + DependencyResolver {
     /// Returns the number of all enabled entries
     fn count(&self) -> usize;
 

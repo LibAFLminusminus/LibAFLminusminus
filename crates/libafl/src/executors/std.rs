@@ -4,7 +4,7 @@ use libafl_core::Error;
 use crate::{
     executors::{Executor, ExitKind},
     observers::ObserversTuple,
-    runners::RunnerDriver,
+    runtimes::RuntimeHandle,
     state::State,
 };
 
@@ -21,7 +21,7 @@ where
     H: FnMut(&mut S, &I) -> Result<ExitKind, Error>,
     OT: ObserversTuple<S>,
 {
-    fn init(&mut self, driver: &mut RunnerDriver<S>) -> Result<(), Error> {
+    fn init(&mut self, driver: &mut RuntimeHandle<S>) -> Result<(), Error> {
         if !self.initialized {
             if let Some(tmout) = &self.timeout {
                 driver.set_timeout(tmout.clone());
