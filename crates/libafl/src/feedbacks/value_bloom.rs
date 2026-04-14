@@ -11,10 +11,11 @@ use libafl_bolts::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    HasNamedMetadata,
+    common::MetadataResolver,
     executors::ExitKind,
-    feedbacks::{Feedback, StateInitializer},
+    feedbacks::Feedback,
     observers::{ObserversTuple, ValueObserver},
+    state::{State, named_metadata_mut, named_metadata_or_insert_with},
 };
 
 impl_serdeany!(ValueBloomFeedbackMetadata);
@@ -59,21 +60,18 @@ impl<T> Named for ValueBloomFeedback<'_, T> {
     }
 }
 
-impl<S: HasNamedMetadata, T> StateInitializer<S> for ValueBloomFeedback<'_, T> {
-    fn init_state(&mut self, state: &mut S) -> Result<(), Error> {
-        let _ =
-            state.named_metadata_or_insert_with::<ValueBloomFeedbackMetadata>(&self.name, || {
-                ValueBloomFeedbackMetadata {
-                    bloom: BloomFilter::with_false_pos(0.001).expected_items(1024),
-                }
-            });
+impl<T> MetadataResolver for ValueBloomFeedback<'_, T> {
+    fn resolve<S: State>(&mut self, state: &mut S) -> Result<(), Error> {
+        let _ = named_metadata_or_insert_with(state.named_metadata_map_mut(), &self.name, || {
+            ValueBloomFeedbackMetadata {
+                bloom: BloomFilter::with_false_pos(0.001).expected_items(1024),
+            }
+        });
         Ok(())
     }
 }
 
-impl<I, OT: ObserversTuple<S>, S: HasNamedMetadata, T: Hash> Feedback<I, OT, S>
-    for ValueBloomFeedback<'_, T>
-{
+impl<I, OT: ObserversTuple<S>, S: State, T: Hash> Feedback<I, OT, S> for ValueBloomFeedback<'_, T> {
     fn is_interesting(
         &mut self,
         state: &mut S,
@@ -89,7 +87,10 @@ impl<I, OT: ObserversTuple<S>, S: HasNamedMetadata, T: Hash> Feedback<I, OT, S>
         };
         let val = observer.value.as_ref();
 
-        let metadata = state.named_metadata_mut::<ValueBloomFeedbackMetadata>(&self.name)?;
+        let metadata = named_metadata_mut::<ValueBloomFeedbackMetadata>(
+            state.named_metadata_map_mut(),
+            &self.name,
+        )?;
 
         let res = if metadata.bloom.contains(val) {
             false

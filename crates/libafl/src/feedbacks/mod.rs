@@ -8,21 +8,24 @@ use alloc::borrow::Cow;
 use alloc::vec::Vec;
 use core::{fmt::Debug, marker::PhantomData};
 
-use crate::{Error, corpus::Testcase, executors::ExitKind, observers::TimeObserver, state::State};
+use crate::{
+    Error,
+    common::MetadataResolver,
+    corpus::Testcase,
+    executors::ExitKind,
+    observers::TimeObserver,
+    state::{HasTestcase, State},
+};
 use libafl_bolts::{
     Named,
     tuples::{Handle, Handled, MatchName, MatchNameRef},
 };
 use serde::{Deserialize, Serialize};
 
-#[cfg(not(feature = "remove_me"))]
 pub mod list;
-#[cfg(not(feature = "remove_me"))]
 pub use list::*;
 
-#[cfg(not(feature = "remove_me"))]
 pub use map::*;
-#[cfg(not(feature = "remove_me"))]
 pub mod map;
 
 /// The module for list feedback
@@ -34,13 +37,10 @@ pub mod nautilus;
 pub use nautilus::*;
 
 #[cfg(feature = "std")]
-#[cfg(not(feature = "remove_me"))]
 pub mod new_hash_feedback;
 #[cfg(feature = "std")]
-#[cfg(not(feature = "remove_me"))]
 pub use new_hash_feedback::NewHashFeedback;
 #[cfg(feature = "std")]
-#[cfg(not(feature = "remove_me"))]
 pub use new_hash_feedback::NewHashFeedbackMetadata;
 
 #[cfg(feature = "std")]
@@ -50,47 +50,24 @@ pub mod capture_feedback;
 #[cfg(not(feature = "remove_me"))]
 pub use capture_feedback::CaptureTimeoutFeedback;
 
-#[cfg(not(feature = "remove_me"))]
 pub mod bool;
-#[cfg(not(feature = "remove_me"))]
 pub use bool::BoolValueFeedback;
 
-#[cfg(feature = "std")]
-#[cfg(not(feature = "remove_me"))]
-/// The module for `CustomFilenameToTestcaseFeedback`
-pub mod custom_filename;
-
 #[cfg(feature = "simd")]
-#[cfg(not(feature = "remove_me"))]
 pub mod simd;
 
 #[cfg(feature = "std")]
-#[cfg(not(feature = "remove_me"))]
 pub mod stdio;
 
 #[cfg(feature = "value_bloom_feedback")]
-#[cfg(not(feature = "remove_me"))]
 pub mod value_bloom;
 #[cfg(feature = "value_bloom_feedback")]
-#[cfg(not(feature = "remove_me"))]
 pub use value_bloom::ValueBloomFeedback;
-
-/// Feedback which initializes a state.
-///
-/// This trait is separate from the general [`Feedback`] definition as it would not be sufficiently
-/// specified otherwise.
-pub trait StateInitializer<S> {
-    /// Initializes the feedback state.
-    /// This method is called after that the `State` is created.
-    fn init_state(&mut self, _state: &mut S) -> Result<(), Error> {
-        Ok(())
-    }
-}
 
 /// Feedbacks evaluate the observers.
 /// Basically, they reduce the information provided by an observer to a value,
 /// indicating the "interestingness" of the last run.
-pub trait Feedback<I, OT, S>: StateInitializer<S> + Named {
+pub trait Feedback<I, OT, S>: Named + MetadataResolver {
     /// `is_interesting ` return if an input is worth the addition to the corpus
     fn is_interesting(
         &mut self,
@@ -210,14 +187,14 @@ where
     }
 }
 
-impl<A, B, FL, S> StateInitializer<S> for CombinedFeedback<A, B, FL>
+impl<A, B, FL> MetadataResolver for CombinedFeedback<A, B, FL>
 where
-    A: StateInitializer<S>,
-    B: StateInitializer<S>,
+    A: MetadataResolver,
+    B: MetadataResolver,
 {
-    fn init_state(&mut self, state: &mut S) -> Result<(), Error> {
-        self.first.init_state(state)?;
-        self.second.init_state(state)?;
+    fn resolve<S: State>(&mut self, state: &mut S) -> Result<(), Error> {
+        self.first.resolve(state)?;
+        self.second.resolve(state)?;
         Ok(())
     }
 }
@@ -619,12 +596,12 @@ pub struct NotFeedback<A> {
     name: Cow<'static, str>,
 }
 
-impl<A, S> StateInitializer<S> for NotFeedback<A>
+impl<A> MetadataResolver for NotFeedback<A>
 where
-    A: StateInitializer<S>,
+    A: MetadataResolver,
 {
-    fn init_state(&mut self, state: &mut S) -> Result<(), Error> {
-        self.inner.init_state(state)
+    fn resolve<S: State>(&mut self, state: &mut S) -> Result<(), Error> {
+        self.inner.resolve(state)
     }
 }
 
@@ -747,7 +724,7 @@ macro_rules! feedback_not {
     };
 }
 
-impl<S> StateInitializer<S> for () {}
+impl MetadataResolver for () {}
 
 /// Hack to use () as empty Feedback
 impl<I, OT, S> Feedback<I, OT, S> for () {
@@ -817,7 +794,7 @@ pub struct ExitKindFeedback<L> {
     phantom: PhantomData<fn() -> L>,
 }
 
-impl<L, S> StateInitializer<S> for ExitKindFeedback<L> where L: ExitKindLogic {}
+impl<L> MetadataResolver for ExitKindFeedback<L> where L: ExitKindLogic {}
 
 impl<I, L, OT, S> Feedback<I, OT, S> for ExitKindFeedback<L>
 where
@@ -901,12 +878,12 @@ pub type DiffExitKindFeedback = ExitKindFeedback<GenericDiffLogic>;
 pub struct TimeFeedback {
     observer_handle: Handle<TimeObserver>,
 }
-impl<S> StateInitializer<S> for TimeFeedback {}
+impl MetadataResolver for TimeFeedback {}
 
 impl<I, OT, S> Feedback<I, OT, S> for TimeFeedback
 where
     OT: MatchName,
-    S: State<I>,
+    S: State + HasTestcase<I>,
 {
     #[cfg(feature = "track_hit_feedbacks")]
     fn last_result(&self) -> Result<bool, Error> {
@@ -960,7 +937,7 @@ pub enum ConstFeedback {
     False,
 }
 
-impl<S> StateInitializer<S> for ConstFeedback {}
+impl MetadataResolver for ConstFeedback {}
 
 impl<I, OT, S> Feedback<I, OT, S> for ConstFeedback {
     #[inline]

@@ -105,7 +105,7 @@ libafl_bolts::impl_serdeany!(DiffExitKind);
 pub trait Executor<I, OT, S>
 where
     OT: ObserversTuple<S>,
-    S: State<I>,
+    S: State,
 {
     /// The init function of the executor.
     /// It must be run once before the first execution of the executor.

@@ -10,10 +10,13 @@ use libafl_bolts::Named;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    Error, HasMetadata,
-    common::nautilus::grammartec::{chunkstore::ChunkStore, context::Context},
+    Error,
+    common::{
+        MetadataResolver,
+        nautilus::grammartec::{chunkstore::ChunkStore, context::Context},
+    },
     corpus::Testcase,
-    feedbacks::{Feedback, StateInitializer},
+    feedbacks::Feedback,
     generators::NautilusContext,
     inputs::NautilusInput,
     state::HasCorpus,

@@ -306,18 +306,6 @@ pub const LIBAFL_CC_LLVM_VERSION: Option<usize> = None;
         ldflags.push(&sdk_path);
     }
 
-    #[cfg(feature = "function-logging")]
-    build_pass(
-        bindir_path,
-        out_dir,
-        &cxxflags,
-        &ldflags,
-        src_dir,
-        "function-logging.cc",
-        None,
-        true,
-    );
-
     #[cfg(feature = "cmplog-routines")]
     build_pass(
         bindir_path,
@@ -342,18 +330,6 @@ pub const LIBAFL_CC_LLVM_VERSION: Option<usize> = None;
         true,
     );
 
-    #[cfg(feature = "coverage-accounting")]
-    build_pass(
-        bindir_path,
-        out_dir,
-        &cxxflags,
-        &ldflags,
-        src_dir,
-        "coverage-accounting-pass.cc",
-        None,
-        true,
-    );
-
     #[cfg(feature = "cmplog-instructions")]
     build_pass(
         bindir_path,
@@ -364,30 +340,6 @@ pub const LIBAFL_CC_LLVM_VERSION: Option<usize> = None;
         "cmplog-instructions-pass.cc",
         None,
         true,
-    );
-
-    #[cfg(feature = "ctx")]
-    build_pass(
-        bindir_path,
-        out_dir,
-        &cxxflags,
-        &ldflags,
-        src_dir,
-        "ctx-pass.cc",
-        None,
-        true,
-    );
-
-    #[cfg(feature = "dump-cfg")]
-    build_pass(
-        bindir_path,
-        out_dir,
-        &cxxflags,
-        &ldflags,
-        src_dir,
-        "dump-cfg-pass.cc",
-        None,
-        false,
     );
 
     cc::Build::new()

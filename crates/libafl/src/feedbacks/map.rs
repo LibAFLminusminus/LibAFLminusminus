@@ -26,12 +26,12 @@ use super::simd::SimdMapFeedback;
 #[cfg(feature = "track_hit_feedbacks")]
 use crate::feedbacks::premature_last_result_err;
 use crate::{
-    Error, HasMetadata, HasNamedMetadata,
+    Error, MetadataResolver,
     corpus::Testcase,
     executors::ExitKind,
-    feedbacks::{Feedback, HasObserverHandle, StateInitializer},
+    feedbacks::{Feedback, HasObserverHandle},
     observers::{CanTrack, MapObserver},
-    state::State,
+    state::{HasTestcase, State, add_named_metadata_checked},
 };
 
 #[cfg(feature = "simd")]
@@ -314,16 +314,19 @@ pub struct MapFeedback<C, N, O, R> {
     phantom: PhantomData<fn() -> (N, O, R)>,
 }
 
-impl<C, N, O, R, S> StateInitializer<S> for MapFeedback<C, N, O, R>
+impl<C, N, O, R> MetadataResolver for MapFeedback<C, N, O, R>
 where
     O: MapObserver,
     O::Entry: 'static + Default + Debug + DeserializeOwned + Serialize,
-    S: HasNamedMetadata,
 {
-    fn init_state(&mut self, state: &mut S) -> Result<(), Error> {
+    fn resolve<S: State>(&mut self, state: &mut S) -> Result<(), Error> {
         // Initialize `MapFeedbackMetadata` with an empty vector and add it to the state.
         // The `MapFeedbackMetadata` would be resized on-demand in `is_interesting`
-        state.add_named_metadata_checked(&self.name, MapFeedbackMetadata::<O::Entry>::default())?;
+        add_named_metadata_checked(
+            state.named_metadata_map_mut(),
+            &self.name,
+            MapFeedbackMetadata::<O::Entry>::default(),
+        )?;
         Ok(())
     }
 }
@@ -336,7 +339,7 @@ where
     O::Entry: 'static + Default + Debug + DeserializeOwned + Serialize,
     OT: MatchName,
     R: Reducer<O::Entry>,
-    S: HasNamedMetadata + State,
+    S: State + HasTestcase<I>,
 {
     fn is_interesting(
         &mut self,
@@ -365,10 +368,6 @@ where
         observers: &OT,
         testcase: &mut Testcase<I>,
     ) -> Result<(), Error> {
-        if let Some(novelties) = self.novelties.as_mut().map(core::mem::take) {
-            let meta = MapNoveltiesMetadata::new(novelties);
-            testcase.add_metadata(meta);
-        }
         let observer = observers.get(&self.map_ref).expect("MapObserver not found. This is likely because you entered the crash handler with the wrong executor/observer").as_ref();
         let initial = observer.initial();
         let map_state = state
@@ -381,7 +380,7 @@ where
         }
 
         let history_map = &mut map_state.history_map;
-        if C::INDICES {
+        let meta = if C::INDICES {
             let mut indices = Vec::new();
 
             for (i, value) in observer
@@ -398,11 +397,7 @@ where
                 indices.push(i);
             }
             let meta = MapIndexesMetadata::new(indices);
-            if testcase.try_add_metadata(meta).is_err() {
-                return Err(Error::key_exists(
-                    "MapIndexesMetadata is already attached to this testcase. You should not have more than one observer with tracking.",
-                ));
-            }
+            Some(meta)
         } else {
             for (i, value) in observer
                 .as_iter()
@@ -416,7 +411,8 @@ where
                 }
                 history_map[i] = val;
             }
-        }
+            None
+        };
 
         debug_assert!(
             history_map
@@ -431,8 +427,19 @@ where
         );
 
         // at this point you are executing this code, the testcase is always interesting
-        let covered = map_state.num_covered_map_indexes;
-        let len = history_map.len();
+        if let Some(meta) = meta {
+            if add_named_metadata_checked(
+                state.testcase_md_mut(testcase).named_metadata_map_mut(),
+                "",
+                meta,
+            )
+            .is_err()
+            {
+                return Err(Error::key_exists(
+                    "MapIndexesMetadata is already attached to this testcase. You should not have more than one observer with tracking.",
+                ));
+            }
+        }
         Ok(())
     }
 }
@@ -508,7 +515,7 @@ where
 {
     fn is_interesting_default<OT, S>(&mut self, state: &mut S, observers: &OT) -> bool
     where
-        S: HasNamedMetadata,
+        S: State,
         OT: MatchName,
     {
         let mut interesting = false;
