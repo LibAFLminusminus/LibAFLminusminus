@@ -1,6 +1,6 @@
 //! The [`ValueBloomFeedback`] checks if a value has already been observed in a [`BloomFilter`] and returns `true` if the value is new, adding it to the bloom filter.
 
-use alloc::borrow::Cow;
+use alloc::{borrow::Cow, string::ToString};
 use core::hash::Hash;
 
 use fastbloom::BloomFilter;
@@ -15,7 +15,7 @@ use crate::{
     executors::ExitKind,
     feedbacks::Feedback,
     observers::{ObserversTuple, ValueObserver},
-    state::{State, named_metadata_mut, named_metadata_or_insert_with},
+    state::{FlatState, State, named_metadata_mut, named_metadata_or_insert_with},
 };
 
 impl_serdeany!(ValueBloomFeedbackMetadata);
@@ -61,17 +61,17 @@ impl<T> Named for ValueBloomFeedback<'_, T> {
 }
 
 impl<T> MetadataResolver for ValueBloomFeedback<'_, T> {
-    fn resolve<S: State>(&mut self, state: &mut S) -> Result<(), Error> {
-        let _ = named_metadata_or_insert_with(state.named_metadata_map_mut(), &self.name, || {
-            ValueBloomFeedbackMetadata {
-                bloom: BloomFilter::with_false_pos(0.001).expected_items(1024),
-            }
-        });
-        Ok(())
+    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<(), Error> {
+        let meta = ValueBloomFeedbackMetadata {
+            bloom: BloomFilter::with_false_pos(0.001).expected_items(1024),
+        };
+        registrator.register_md(self.name().to_string(), meta)
     }
 }
 
-impl<I, OT: ObserversTuple<S>, S: State, T: Hash> Feedback<I, OT, S> for ValueBloomFeedback<'_, T> {
+impl<I, OT: ObserversTuple<S>, S: FlatState, T: Hash> Feedback<I, OT, S>
+    for ValueBloomFeedback<'_, T>
+{
     fn is_interesting(
         &mut self,
         state: &mut S,

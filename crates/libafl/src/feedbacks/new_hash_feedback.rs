@@ -17,7 +17,7 @@ use crate::{
     executors::ExitKind,
     feedbacks::{Feedback, HasObserverHandle},
     observers::ObserverWithHashField,
-    state::{State, add_named_metadata_checked},
+    state::{FlatState, State, add_named_metadata_checked},
 };
 
 /// The prefix of the metadata names
@@ -104,7 +104,7 @@ impl<O> NewHashFeedback<O>
 where
     O: ObserverWithHashField + Named,
 {
-    fn has_interesting_backtrace_hash_observation<OT, S: State>(
+    fn has_interesting_backtrace_hash_observation<OT, S: FlatState>(
         &mut self,
         state: &mut S,
         observers: &OT,
@@ -137,12 +137,8 @@ where
 }
 
 impl<O> MetadataResolver for NewHashFeedback<O> {
-    fn resolve<S: State>(&mut self, state: &mut S) -> Result<(), Error> {
-        add_named_metadata_checked(
-            state.named_metadata_map_mut(),
-            &self.name,
-            NewHashFeedbackMetadata::with_capacity(self.capacity),
-        )?;
+    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<(), Error> {
+        registrator.register_md_default::<NewHashFeedbackMetadata>(self.name().to_string());
         Ok(())
     }
 }
@@ -151,7 +147,7 @@ impl<O, I, OT, S> Feedback<I, OT, S> for NewHashFeedback<O>
 where
     O: ObserverWithHashField + Named,
     OT: MatchName,
-    S: State,
+    S: FlatState
 {
     fn is_interesting(
         &mut self,

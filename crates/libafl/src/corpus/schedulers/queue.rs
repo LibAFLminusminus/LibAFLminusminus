@@ -6,12 +6,11 @@ use alloc::borrow::ToOwned;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    Error,
+    Error, MetadataResolver,
     corpus::{
         CorpusId, Scheduler, Testcase,
         schedulers::{HasQueueCycles, RemovableScheduler},
     },
-    state::HasCorpus,
 };
 
 /// Walk the corpus in a queue-like fashion
@@ -35,10 +34,9 @@ impl<I, S> RemovableScheduler<I, S> for QueueScheduler {
     }
 }
 
-impl<I, S> Scheduler<I, S> for QueueScheduler
-where
-    S: HasCorpus<I, Self>,
-{
+impl MetadataResolver for QueueScheduler {}
+
+impl<I, S> Scheduler<I, S> for QueueScheduler {
     // fn on_add(&mut self, state: &mut S, id: CorpusId) -> Result<(), Error> {
     //     // Set parent id
     //     let current_id = state.current_corpus_id();

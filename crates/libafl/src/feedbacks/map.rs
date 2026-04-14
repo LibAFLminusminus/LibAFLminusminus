@@ -1,6 +1,6 @@
 //! Map feedback, maximizing or minimizing maps, for example the afl-style map observer.
 
-use alloc::{borrow::Cow, vec::Vec};
+use alloc::{borrow::Cow, string::ToString, vec::Vec};
 use core::{
     fmt::Debug,
     marker::PhantomData,
@@ -31,7 +31,7 @@ use crate::{
     executors::ExitKind,
     feedbacks::{Feedback, HasObserverHandle},
     observers::{CanTrack, MapObserver},
-    state::{HasTestcase, State, add_named_metadata_checked},
+    state::{FlatState, HasTestcase, State, add_named_metadata_checked},
 };
 
 #[cfg(feature = "simd")]
@@ -319,14 +319,8 @@ where
     O: MapObserver,
     O::Entry: 'static + Default + Debug + DeserializeOwned + Serialize,
 {
-    fn resolve<S: State>(&mut self, state: &mut S) -> Result<(), Error> {
-        // Initialize `MapFeedbackMetadata` with an empty vector and add it to the state.
-        // The `MapFeedbackMetadata` would be resized on-demand in `is_interesting`
-        add_named_metadata_checked(
-            state.named_metadata_map_mut(),
-            &self.name,
-            MapFeedbackMetadata::<O::Entry>::default(),
-        )?;
+    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<(), Error> {
+        registrator.register_md_default::<MapFeedbackMetadata<O::Entry>>(self.name().to_string());
         Ok(())
     }
 }
@@ -339,7 +333,7 @@ where
     O::Entry: 'static + Default + Debug + DeserializeOwned + Serialize,
     OT: MatchName,
     R: Reducer<O::Entry>,
-    S: State + HasTestcase<I>,
+    S: FlatState + HasTestcase<I>,
 {
     fn is_interesting(
         &mut self,
@@ -515,7 +509,7 @@ where
 {
     fn is_interesting_default<OT, S>(&mut self, state: &mut S, observers: &OT) -> bool
     where
-        S: State,
+        S: FlatState,
         OT: MatchName,
     {
         let mut interesting = false;

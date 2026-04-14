@@ -8,7 +8,7 @@ use core::marker::PhantomData;
 use libafl_bolts::Error;
 use serde::{Deserialize, Serialize};
 
-use crate::corpus::schedulers::RemovableScheduler;
+use crate::{MetadataResolver, corpus::schedulers::RemovableScheduler};
 
 use super::{Corpus, CorpusCounter, CorpusId, Testcase, store::Store};
 
@@ -57,6 +57,8 @@ pub trait DisableEntry {
     /// Disable a corpus entry
     fn disable(&mut self, id: CorpusId) -> Result<(), Error>;
 }
+
+impl<I, S, SC> MetadataResolver for SingleCorpus<I, S, SC> {}
 
 impl<I, S, SC> Corpus<I, SC> for SingleCorpus<I, S, SC>
 where
