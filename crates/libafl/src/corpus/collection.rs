@@ -7,7 +7,7 @@ use libafl_bolts::Error;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    MetadataResolver,
+    DependencyResolver,
     corpus::{
         Corpus, CorpusId, InMemoryStore, OnDiskStore, SingleCorpus, Testcase,
         TestcaseFilenameFormat,
@@ -170,7 +170,7 @@ impl<I, SC> InMemoryCorpus<I, SC> {
     }
 }
 
-impl<I, SC> MetadataResolver for InMemoryCorpus<I, SC> {}
+impl<I, SC> DependencyResolver for InMemoryCorpus<I, SC> {}
 
 impl<I, SC> Corpus<I, SC> for InMemoryCorpus<I, SC>
 where
@@ -270,7 +270,7 @@ where
     }
 }
 
-impl<I, SC> MetadataResolver for OnDiskCorpus<I, SC> {}
+impl<I, SC> DependencyResolver for OnDiskCorpus<I, SC> {}
 
 #[cfg(feature = "std")]
 impl<I, SC> Corpus<I, SC> for OnDiskCorpus<I, SC>

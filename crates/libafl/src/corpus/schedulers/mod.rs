@@ -33,7 +33,7 @@ use libafl_bolts::{
 };
 
 use crate::{
-    Error, MetadataResolver,
+    DependencyResolver, Error,
     corpus::{CorpusId, Testcase},
     state::HasRand,
 };
@@ -179,7 +179,7 @@ pub trait HasQueueCycles {
 
 /// The scheduler define how the fuzzer requests a testcase from the corpus.
 /// It has hooks to corpus add/replace/remove to allow complex scheduling algorithms to collect data.
-pub trait Scheduler<I, S>: MetadataResolver {
+pub trait Scheduler<I, S>: DependencyResolver {
     /// Called when a [`Testcase`] is added to the corpus
     fn on_add(&mut self, _state: &mut S, _id: CorpusId) -> Result<(), Error>;
     // Add parent_id here if it has no inner
@@ -212,9 +212,9 @@ pub struct RandScheduler<S> {
     phantom: PhantomData<S>,
 }
 
-impl<S> MetadataResolver for RandScheduler<S> {}
+impl<S> DependencyResolver for RandScheduler<S> {}
 
-impl<I, R, S> Scheduler<I, S> for RandScheduler<S> 
+impl<I, R, S> Scheduler<I, S> for RandScheduler<S>
 where
     S: HasRand<Rand = R>,
     R: Rand,
@@ -286,7 +286,7 @@ pub type StdScheduler<S> = RandScheduler<S>;
 #[derive(Debug, Serialize, Deserialize)]
 pub struct NopScheduler;
 
-impl MetadataResolver for NopScheduler {}
+impl DependencyResolver for NopScheduler {}
 
 impl<I, S> Scheduler<I, S> for NopScheduler {
     fn on_add(&mut self, _state: &mut S, _id: CorpusId) -> Result<(), Error> {

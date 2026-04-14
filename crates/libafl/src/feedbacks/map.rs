@@ -26,7 +26,7 @@ use super::simd::SimdMapFeedback;
 #[cfg(feature = "track_hit_feedbacks")]
 use crate::feedbacks::premature_last_result_err;
 use crate::{
-    Error, MetadataResolver,
+    Error, DependencyResolver,
     corpus::Testcase,
     executors::ExitKind,
     feedbacks::{Feedback, HasObserverHandle},
@@ -314,7 +314,7 @@ pub struct MapFeedback<C, N, O, R> {
     phantom: PhantomData<fn() -> (N, O, R)>,
 }
 
-impl<C, N, O, R> MetadataResolver for MapFeedback<C, N, O, R>
+impl<C, N, O, R> DependencyResolver for MapFeedback<C, N, O, R>
 where
     O: MapObserver,
     O::Entry: 'static + Default + Debug + DeserializeOwned + Serialize,

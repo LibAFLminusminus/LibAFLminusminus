@@ -25,7 +25,7 @@ use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use crate::monitors::stats::ClientPerfStats;
 use crate::{
     Error,
-    common::MetadataResolver,
+    common::DependencyResolver,
     corpus::{
         Corpus, CorpusId, InMemoryCorpus, Testcase, TestcaseFilenameFormat,
         schedulers::NopScheduler, testcase::TestcaseId,
@@ -90,7 +90,7 @@ pub trait FlatState {
 }
 
 pub trait State<C, I, OC>:
-    FlatState + MetadataResolver + HasCorpus + HasObjectiveCorpus + HasRand + HasTestcase<I>
+    FlatState + DependencyResolver + HasCorpus + HasObjectiveCorpus + HasRand + HasTestcase<I>
 {
 }
 
@@ -710,10 +710,10 @@ impl<C, I, R, SC, SO> FlatState for StdState<C, I, R, SC, SO> {
     }
 }
 
-impl<C, I, OC, R, SC> MetadataResolver for StdState<C, I, OC, R, SC>
+impl<C, I, OC, R, SC> DependencyResolver for StdState<C, I, OC, R, SC>
 where
-    C: MetadataResolver + Corpus<I, SC>,
-    OC: MetadataResolver + Corpus<I, NopScheduler>,
+    C: DependencyResolver + Corpus<I, SC>,
+    OC: DependencyResolver + Corpus<I, NopScheduler>,
 {
     fn register(&mut self, registrator: &mut crate::Registrator) -> Result<(), Error> {
         self.corpus_mut().register(registrator);
@@ -725,8 +725,8 @@ where
 
 impl<C, I, OC, R, SC> State<C, I, OC> for StdState<C, I, OC, R, SC>
 where
-    C: MetadataResolver + Corpus<I, SC>,
-    OC: MetadataResolver + Corpus<I, NopScheduler>,
+    C: DependencyResolver + Corpus<I, SC>,
+    OC: DependencyResolver + Corpus<I, NopScheduler>,
 {
 }
 
@@ -1255,10 +1255,10 @@ where
         objective: &mut O,
     ) -> Result<Self, Error>
     where
-        F: MetadataResolver,
-        O: MetadataResolver,
-        OC: Serialize + DeserializeOwned + MetadataResolver,
-        C: Serialize + DeserializeOwned + MetadataResolver,
+        F: DependencyResolver,
+        O: DependencyResolver,
+        OC: Serialize + DeserializeOwned + DependencyResolver,
+        C: Serialize + DeserializeOwned + DependencyResolver,
     {
         let mut state = Self {
             rand,

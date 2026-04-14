@@ -13,7 +13,12 @@ use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "std")]
 use crate::observers::{StdErrObserver, StdOutObserver};
-use crate::{Error, observers::ObserversTuple, runners::RunnerDriver, state::{FlatState, State}};
+use crate::{
+    Error,
+    observers::ObserversTuple,
+    runtimes::RuntimeHandle,
+    state::{FlatState, State},
+};
 
 // /// The module for all the executor hooks
 // pub mod hooks;
@@ -108,7 +113,7 @@ where
 {
     /// The init function of the executor.
     /// It must be run once before the first execution of the executor.
-    fn init(&mut self, driver: &mut RunnerDriver<S>) -> Result<(), Error>;
+    fn init(&mut self, driver: &mut RuntimeHandle<S>) -> Result<(), Error>;
 
     /// Run the target with the given input.
     /// This is a "raw" run: it only runs the target and nothing else is done.
@@ -133,10 +138,10 @@ where
     fn execute(
         &mut self,
         state: &mut S,
-        driver: &mut RunnerDriver<S>,
+        driver: &mut RuntimeHandle<S>,
         input: &I,
-    ) -> Result<ExitKind, Error> 
-    where 
+    ) -> Result<ExitKind, Error>
+    where
         S: FlatState,
     {
         *state.executions_mut() += 1;

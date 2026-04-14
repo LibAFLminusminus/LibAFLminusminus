@@ -15,7 +15,10 @@ use libafl_bolts::{
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use crate::{
-    common::MetadataResolver, executors::ExitKind, feedbacks::Feedback, observers::ListObserver,
+    common::DependencyResolve
+   r, executors::ExitKin
+   d, feedbacks::Feedbac
+   k, observers::ListObserver,
     state::{FlatState, add_named_metadata_checked},
 };
 
@@ -129,13 +132,12 @@ where
     }
 }
 
-impl<T> MetadataResolver for ListFeedback<T>
+impl<T> DependencyResolver for ListFeedback<T>
 where
     T: Debug + Eq + Hash + for<'a> Deserialize<'a> + Serialize + Default + Copy + 'static,
 {
-    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<(), Error>
-    {
-        registrator.register_md_default::<ListFeedbackMetadata::<T>>(self.name().to_string());
+    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<(), Error> {
+        registrator.register_md_default::<ListFeedbackMetadata<T>>(self.name().to_string());
         Ok(())
     }
 }

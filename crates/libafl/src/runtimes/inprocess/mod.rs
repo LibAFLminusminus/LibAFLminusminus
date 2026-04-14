@@ -1,4 +1,4 @@
-use crate::runners::{Runner, RunnerDriver};
+use crate::runtimes::{Runtime, RuntimeHandle};
 use core::{pin::Pin, time::Duration};
 use libafl_bolts::TimerStruct;
 use libafl_core::Error;
@@ -9,14 +9,14 @@ pub use unix::OsSignalHandler;
 
 /// Hooks the current process to set it up for in-process tasks.
 /// It will change signal handlers and "pollute" the current process.
-/// It is advised to combine it with the [`RestartingRunner`], responsible
+/// It is advised to combine it with the [`RestartingRuntime`], responsible
 /// for forking and and state preservation.
 ///
-/// InProcessRunner runs a task that does NOT return.
+/// InProcessRuntime runs a task that does NOT return.
 /// To exit, simply exit the process.
 /// There are special exit codes used to convey what caused the exit.
 /// TODO: document these exit code
-pub struct InProcessRunner<CH, D, S, T, TH> {
+pub struct InProcessRuntime<CH, D, S, T, TH> {
     state: S,
     task: T,
     signal_handler: Pin<Box<OsSignalHandler<CH, D, TH>>>,
@@ -49,7 +49,7 @@ where
 {
 }
 
-impl<CH, D, S, T, TH> InProcessRunner<CH, D, S, T, TH>
+impl<CH, D, S, T, TH> InProcessRuntime<CH, D, S, T, TH>
 where
     CH: FnMut(&mut D) -> Result<(), Error> + Send + Sync + Unpin + 'static,
     D: Send + Sync + Unpin + 'static,
@@ -59,7 +59,7 @@ where
         let signal_handler =
             InProcessSignalHandler::new(crash_handler, signal_data, timeout_handler);
 
-        InProcessRunner {
+        InProcessRuntime {
             state,
             task,
             signal_handler: Box::pin(OsSignalHandler::new(signal_handler)),
@@ -119,15 +119,15 @@ where
     }
 }
 
-impl<CH, D, S, T, TH> Runner<S> for InProcessRunner<CH, D, S, T, TH>
+impl<CH, D, S, T, TH> Runtime<S> for InProcessRuntime<CH, D, S, T, TH>
 where
-    T: FnMut(&mut RunnerDriver<S>, &mut S) -> Result<(), Error>,
+    T: FnMut(&mut RuntimeHandle<S>, &mut S) -> Result<(), Error>,
     CH: FnMut(&mut D) -> Result<(), Error> + Send + Sync + Unpin + 'static,
     D: Send + Sync + Unpin + 'static,
     TH: FnMut(&mut D) -> Result<(), Error> + Send + Sync + Unpin + 'static,
 {
     // TODO: handle signals
-    unsafe fn run_impl(&mut self, driver: &mut RunnerDriver<S>) -> Result<(), Error> {
+    unsafe fn run_impl(&mut self, driver: &mut RuntimeHandle<S>) -> Result<(), Error> {
         self.signal_handler.init();
 
         (self.task)(driver, &mut self.state)
@@ -172,9 +172,9 @@ mod tests {
 
     use crate::{
         inputs::NopInput,
-        runners::{
-            Runner, RunnerDriver,
-            inprocess::{InProcessRunner, InProcessSignalHandler, OsSignalHandler},
+        runtimes::{
+            Runtime, RuntimeHandle,
+            inprocess::{InProcessRuntime, InProcessSignalHandler, OsSignalHandler},
         },
         state::NopState,
     };
@@ -185,10 +185,10 @@ mod tests {
 
     rusty_fork_test! {
         #[test]
-        fn test_runner_create() {
+        fn test_runtime_create() {
             let mut state = NopState::<NopInput>::new();
 
-            let task = |driver: &mut RunnerDriver<NopState<NopInput>>,
+            let task = |driver: &mut runtimeDriver<NopState<NopInput>>,
                         state: &mut NopState<NopInput>| {
                 Err(Error::shutting_down())
             };
@@ -197,9 +197,9 @@ mod tests {
 
             let timeout_handler = |data: &mut ()| Ok(());
 
-            let mut runner = InProcessRunner::new(state, task, crash_handler, (), timeout_handler);
+            let mut runtime = InProcessRuntime::new(state, task, crash_handler, (), timeout_handler);
 
-            match runner.run().err() {
+            match runtime.run().err() {
                 Some(Error::ShuttingDown) => {}
                 _ => {
                     panic!("Task did not run successfully");
@@ -208,10 +208,10 @@ mod tests {
         }
     }
 
-    fn run_runner<CH, T, TH>(task: T, crash_handler: CH, timeout_handler: TH)
+    fn run_runtime<CH, T, TH>(task: T, crash_handler: CH, timeout_handler: TH)
     where
         T: FnMut(
-                &mut RunnerDriver<NopState<NopInput>>,
+                &mut RuntimeHandle<NopState<NopInput>>,
                 &mut NopState<NopInput>,
             ) -> Result<(), Error>
             + 'static,
@@ -220,23 +220,23 @@ mod tests {
     {
         let state = NopState::<NopInput>::new();
 
-        let mut runner = InProcessRunner::new(state, task, crash_handler, (), timeout_handler);
-        runner.signal_handler.inner_mut().enter_target();
+        let mut runtime = InProcessRuntime::new(state, task, crash_handler, (), timeout_handler);
+        runtime.signal_handler.inner_mut().enter_target();
 
-        runner.run().unwrap();
+        runtime.run().unwrap();
     }
 
     #[test]
-    fn test_runner_timeout() {
+    fn test_runtime_timeout() {
         // The timeout handler calls exit(55), so we use rusty_fork::fork
         // directly to check the child's exit code.
         let status = rusty_fork::fork(
-            "runners::inprocess::tests::test_runner_timeout",
+            "runtimes::inprocess::tests::test_runtime_timeout",
             rusty_fork_id!(),
             |_| (),
             |child, _| child.wait().unwrap(),
             || {
-                let task = |driver: &mut RunnerDriver<NopState<NopInput>>,
+                let task = |driver: &mut RuntimeHandle<NopState<NopInput>>,
                             state: &mut NopState<NopInput>| {
                     driver.set_timeout(Duration::from_millis(10));
 
@@ -253,7 +253,7 @@ mod tests {
 
                 let timeout_handler = |data: &mut ()| Ok(());
 
-                run_runner(task, crash_handler, timeout_handler)
+                run_runtime(task, crash_handler, timeout_handler)
             },
         )
         .unwrap();
@@ -267,14 +267,14 @@ mod tests {
     }
 
     #[test]
-    fn test_runner_crash() {
+    fn test_runtime_crash() {
         let status = rusty_fork::fork(
-            "runners::inprocess::tests::test_runner_crash",
+            "runtimes::inprocess::tests::test_runtime_crash",
             rusty_fork_id!(),
             |_| (),
             |child, _| child.wait().unwrap(),
             || {
-                let task = |driver: &mut RunnerDriver<NopState<NopInput>>,
+                let task = |driver: &mut RuntimeHandle<NopState<NopInput>>,
                             state: &mut NopState<NopInput>| {
                     unsafe {
                         libc::raise(libc::SIGSEGV);
@@ -290,7 +290,7 @@ mod tests {
 
                 let timeout_handler = |data: &mut ()| Ok(());
 
-                run_runner(task, crash_handler, timeout_handler)
+                run_runtime(task, crash_handler, timeout_handler)
             },
         )
         .unwrap();
@@ -304,16 +304,16 @@ mod tests {
     }
 
     #[test]
-    fn test_runner_timeout_handler() {
+    fn test_runtime_timeout_handler() {
         // The timeout handler calls exit(55), so we use rusty_fork::fork
         // directly to check the child's exit code.
         let status = rusty_fork::fork(
-            "runners::inprocess::tests::test_runner_timeout_handler",
+            "runtimes::inprocess::tests::test_runtime_timeout_handler",
             rusty_fork_id!(),
             |_| (),
             |child, _| child.wait().unwrap(),
             || {
-                let task = |driver: &mut RunnerDriver<NopState<NopInput>>,
+                let task = |driver: &mut RuntimeHandle<NopState<NopInput>>,
                             state: &mut NopState<NopInput>| {
                     driver.set_timeout(Duration::from_millis(10));
 
@@ -333,7 +333,7 @@ mod tests {
                     libc::exit(114);
                 };
 
-                run_runner(task, crash_handler, timeout_handler)
+                run_runtime(task, crash_handler, timeout_handler)
             },
         )
         .unwrap();
@@ -347,15 +347,14 @@ mod tests {
     }
 
     #[test]
-    fn test_runner_crash_handler() {
+    fn test_runtime_crash_handler() {
         let status = rusty_fork::fork(
-            "runners::inprocess::tests::test_runner_crash_handler",
+            "runtimes::inprocess::tests::test_runtime_crash_handler",
             rusty_fork_id!(),
             |_| (),
             |child, _| child.wait().unwrap(),
             || {
-                let task = |driver: &mut RunnerDriver<NopState<NopInput>>,
-                            state: &mut NopState<NopInput>| {
+                let task = |driver: &mut RuntimeHandle<NopState<NopInput>>, workdir: Workdir, client_descriptor: ClientDescriptor| {
                     unsafe {
                         libc::raise(libc::SIGSEGV);
                     }
@@ -372,7 +371,7 @@ mod tests {
 
                 let timeout_handler = |data: &mut ()| Ok(());
 
-                run_runner(task, crash_handler, timeout_handler)
+                run_runtime(task, crash_handler, timeout_handler)
             },
         )
         .unwrap();

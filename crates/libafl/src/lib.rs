@@ -63,6 +63,8 @@ pub use libafl_derive::*;
 
 pub mod common;
 pub use common::*;
+pub mod controllers;
+pub use controllers::*;
 pub mod corpus;
 pub mod executors;
 pub mod feedbacks;
@@ -76,7 +78,7 @@ pub mod monitors;
 #[cfg(not(feature = "remove_me"))]
 pub mod mutators;
 pub mod observers;
-pub mod runners;
+pub mod runtimes;
 #[cfg(not(feature = "remove_me"))]
 pub mod stages;
 pub mod state;

@@ -9,7 +9,7 @@ use libafl_bolts::os::{
 };
 use libc::siginfo_t;
 
-use crate::{executors::common_signals, runners::inprocess::InProcessSignalHandler};
+use crate::{executors::common_signals, runtimes::inprocess::InProcessSignalHandler};
 
 /// Wrapper to assert `Send + Sync` for a raw pointer.
 ///
