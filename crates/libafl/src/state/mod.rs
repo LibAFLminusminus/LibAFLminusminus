@@ -89,8 +89,20 @@ pub trait FlatState {
     fn named_metadata_map_mut(&mut self) -> &mut NamedSerdeAnyMap;
 }
 
-pub trait State<C, I, OC>: FlatState {
+impl MetadataResolver for State<C, I, OC> {
+    fn resolve(&mut self, resolver: &mut Resolver) -> Result<(), Error> {
+        self.corpus_mut().resolve(&mut resolver)?;
+        self.objective_corpus_mut().resolve(&mut resolver)?;
+    }
+}
+
+pub trait State<C, I, OC>: FlatState + MetadataResolver {
     type Rand;
+
+    // TODO: complete here
+    fn register_metadata(&mut self, resolver: Resolver) -> Result<(), Error>;
+
+    fn resgister_metadata(&mut self, resolver: Resolver) -> Result<(), Error> {}
 
     fn rand(&self) -> &Self::Rand;
     fn rand_mut(&mut self) -> &mut Self::Rand;
@@ -1250,8 +1262,6 @@ where
             multicore_inputs_processed: None,
             testcase_metadata: HashMap::new(),
         };
-        feedback.resolve(&mut state)?;
-        objective.resolve(&mut state)?;
         Ok(state)
     }
     fn resolve(&mut self) {
