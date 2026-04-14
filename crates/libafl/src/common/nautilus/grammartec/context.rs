@@ -2,7 +2,7 @@ use alloc::{borrow::ToOwned, string::String, vec::Vec};
 
 use hashbrown::HashMap;
 use libafl_bolts::{
-    nonzero,
+    non_zero,
     rands::{Rand, RomuDuoJrRand},
 };
 #[cfg(feature = "nautilus_py")]
@@ -289,7 +289,7 @@ impl Context {
             .take_while(move |r| self.rules_to_min_size[*r] <= max_len)
             .filter(move |r| {
                 self.rules_to_num_options[*r] > 1
-                    || rand.below(nonzero!(100)) <= p_include_short_rules
+                    || rand.below(non_zero!(100)) <= p_include_short_rules
             })
     }
 

@@ -20,7 +20,7 @@ impl<H, I, OT, S> Executor<I, OT, S> for StdExecutor<H, I, OT, S>
 where
     H: FnMut(&mut S, &I) -> Result<ExitKind, Error>,
     OT: ObserversTuple<S>,
-    S: State<I>,
+    S: State,
 {
     fn init(&mut self, driver: &mut RunnerDriver<S>) -> Result<(), Error> {
         if !self.initialized {

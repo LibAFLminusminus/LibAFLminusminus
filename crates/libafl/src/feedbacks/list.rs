@@ -14,10 +14,8 @@ use libafl_bolts::{
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use crate::{
-    HasNamedMetadata,
-    executors::ExitKind,
-    feedbacks::{Feedback, StateInitializer},
-    observers::ListObserver,
+    common::MetadataResolver, executors::ExitKind, feedbacks::Feedback, observers::ListObserver,
+    state::{State, add_named_metadata_checked},
 };
 
 /// The metadata to remember past observed value
@@ -88,7 +86,7 @@ where
     ) -> bool
     where
         OT: MatchName,
-        S: HasNamedMetadata,
+        S: State,
     {
         let observer = observers.get(&self.observer_handle).unwrap();
         // TODO register the list content in a testcase metadata
@@ -115,7 +113,7 @@ where
         }
     }
 
-    fn append_list_observer_metadata<S: HasNamedMetadata>(&mut self, state: &mut S) {
+    fn append_list_observer_metadata<S: State>(&mut self, state: &mut S) {
         let history_set = state
             .named_metadata_map_mut()
             .get_mut::<ListFeedbackMetadata<T>>(self.name())
@@ -130,13 +128,15 @@ where
     }
 }
 
-impl<S, T> StateInitializer<S> for ListFeedback<T>
+impl<T> MetadataResolver for ListFeedback<T>
 where
-    S: HasNamedMetadata,
     T: Debug + Eq + Hash + for<'a> Deserialize<'a> + Serialize + Default + Copy + 'static,
 {
-    fn init_state(&mut self, state: &mut S) -> Result<(), Error> {
-        state.add_named_metadata_checked(self.name(), ListFeedbackMetadata::<T>::default())?;
+    fn resolve<S>(&mut self, state: &mut S) -> Result<(), Error>
+    where
+        S: State,
+    {
+        add_named_metadata_checked(state.named_metadata_map_mut(), self.name(), ListFeedbackMetadata::<T>::default())?;
         Ok(())
     }
 }
@@ -144,7 +144,7 @@ where
 impl<I, OT, S, T> Feedback<I, OT, S> for ListFeedback<T>
 where
     OT: MatchName,
-    S: HasNamedMetadata,
+    S: State,
     T: Debug
         + Eq
         + Hash

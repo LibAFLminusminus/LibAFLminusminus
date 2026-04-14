@@ -32,9 +32,7 @@ use libafl_bolts::{
 };
 
 use crate::{
-    Error,
-    corpus::{CorpusId, Testcase},
-    state::{HasCorpus, HasRand},
+    Error, MetadataResolver, corpus::{CorpusId, Testcase}, state::{HasCorpus, HasRand}
 };
 
 /// The scheduler also implements `on_remove` and `on_replace` if it implements this stage.
@@ -182,7 +180,7 @@ pub trait HasQueueCycles {
 
 /// The scheduler define how the fuzzer requests a testcase from the corpus.
 /// It has hooks to corpus add/replace/remove to allow complex scheduling algorithms to collect data.
-pub trait Scheduler<I, S> {
+pub trait Scheduler<I, S>: MetadataResolver {
     /// Called when a [`Testcase`] is added to the corpus
     fn on_add(&mut self, _state: &mut S, _id: CorpusId) -> Result<(), Error>;
     // Add parent_id here if it has no inner

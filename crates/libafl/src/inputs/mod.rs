@@ -42,11 +42,6 @@ pub mod gramatron;
 pub use gramatron::*;
 
 #[cfg(not(feature = "remove_me"))]
-pub mod generalized;
-#[cfg(not(feature = "remove_me"))]
-pub use generalized::*;
-
-#[cfg(not(feature = "remove_me"))]
 pub mod bytessub;
 #[cfg(not(feature = "remove_me"))]
 pub use bytessub::BytesSubInput;

@@ -4,6 +4,8 @@ use alloc::string::String;
 #[cfg(feature = "std")]
 use alloc::vec::Vec;
 use core::{fmt::Debug, marker::PhantomData, time::Duration};
+use libafl_core::Named;
+use libc::winsize;
 use std::{collections::HashMap, string::ToString};
 #[cfg(feature = "std")]
 use std::{
@@ -12,9 +14,10 @@ use std::{
 };
 use typed_builder::TypedBuilder;
 
+use core::any::type_name;
 use libafl_bolts::{
     rands::{Rand, StdRand},
-    serdeany::{NamedSerdeAnyMap, SerdeAnyMap},
+    serdeany::{NamedSerdeAnyMap, SerdeAny, SerdeAnyMap},
 };
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
@@ -22,36 +25,27 @@ use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use crate::monitors::stats::ClientPerfStats;
 use crate::{
     Error,
+    common::MetadataResolver,
     corpus::{
         Corpus, CorpusId, InMemoryCorpus, Testcase, TestcaseFilenameFormat,
         schedulers::NopScheduler, testcase::TestcaseId,
     },
-    feedbacks::StateInitializer,
     inputs::{Input, NopInput},
 };
+use alloc::boxed::Box;
 
 #[cfg(not(feature = "remove_me"))]
 use crate::fuzzer::{Evaluator, ExecuteInputResult};
 #[cfg(not(feature = "remove_me"))]
 use crate::generators::Generator;
 
-pub trait State<I> {
+pub trait State {
     fn max_size(&self) -> usize;
     /// Set the max size.
     fn max_size_mut(&mut self) -> &mut usize;
 
     /// The executions counter
     fn executions(&self) -> u64;
-
-    /// get testcase metadata, and returns None if not there
-    fn testcase_md<'a>(&'a self, tc: &Testcase<I>) -> Option<&'a TestcaseMetadata>;
-
-    /// get or insert style
-    fn testcase_md_mut<'a>(&'a mut self, tc: &Testcase<I>) -> &'a mut TestcaseMetadata;
-
-    /// To get the testcase
-    fn testcase(&self, id: CorpusId) -> Result<Testcase<I>, Error>;
-
     /// The executions counter (mutable)
     fn executions_mut(&mut self) -> &mut u64;
     ///the imported testcases counter
@@ -72,10 +66,6 @@ pub trait State<I> {
     /// The last time we reported progress,if available/used (mutable).
     /// This information is used by fuzzer `maybe_report_progress`.
     fn last_report_time_mut(&mut self) -> &mut Option<Duration>;
-    /// Get all the metadata into an [`hashbrown::HashMap`]
-    fn named_metadata_map(&self) -> &NamedSerdeAnyMap;
-    /// Get all the metadata into an [`hashbrown::HashMap`] (mutable)
-    fn named_metadata_map_mut(&mut self) -> &mut NamedSerdeAnyMap;
     fn request_stop(&mut self);
 
     fn discard_stop_request(&mut self);
@@ -91,6 +81,11 @@ pub trait State<I> {
 
     #[cfg(feature = "introspection")]
     fn introspection_stats_mut(&mut self) -> &mut ClientPerfStats;
+
+    /// A map, storing all metadata
+    fn named_metadata_map(&self) -> &NamedSerdeAnyMap;
+    /// A map, storing all metadata (mutable)
+    fn named_metadata_map_mut(&mut self) -> &mut NamedSerdeAnyMap;
 }
 
 /// The maximum size of a testcase
@@ -172,7 +167,7 @@ pub struct StdState<C, I, R, SC, SO> {
 pub struct TestcaseMetadata {
     /// Map of metadata associated with this [`Testcase`]
     #[builder(default)]
-    metadata: SerdeAnyMap,
+    named_metadata: NamedSerdeAnyMap,
     /// The filename format used to name the [`Testcase`] file on-disk.
     #[builder(default)]
     filename_format: TestcaseFilenameFormat,
@@ -203,7 +198,94 @@ pub struct TestcaseMetadata {
     hit_objectives: Vec<Cow<'static, str>>,
 }
 
+/// Add a metadata to the metadata map
+#[inline]
+pub fn add_named_metadata<M>(map: &mut NamedSerdeAnyMap, name: &str, meta: M)
+where
+    M: SerdeAny,
+{
+    map.insert(name, meta);
+}
+
+/// Add a metadata to the metadata map
+/// Return an error if there already is the metadata with the same name
+#[inline]
+pub fn add_named_metadata_checked<M>(
+    map: &mut NamedSerdeAnyMap,
+    name: &str,
+    meta: M,
+) -> Result<(), Error>
+where
+    M: SerdeAny,
+{
+    map.try_insert(name, meta)
+}
+
+/// Add a metadata to the metadata map
+#[inline]
+pub fn remove_named_metadata<M>(map: &mut NamedSerdeAnyMap, name: &str) -> Option<Box<M>>
+where
+    M: SerdeAny,
+{
+    map.remove::<M>(name)
+}
+
+/// Check for a metadata
+///
+/// # Note
+/// You likely want to use [`Self::named_metadata_or_insert_with`] for performance reasons.
+#[inline]
+pub fn has_named_metadata<M>(map: &NamedSerdeAnyMap, name: &str) -> bool
+where
+    M: SerdeAny,
+{
+    map.contains::<M>(name)
+}
+
+/// Gets metadata, or inserts it using the given construction function `default`
+pub fn named_metadata_or_insert_with<'a, M>(
+    map: &'a mut NamedSerdeAnyMap,
+    name: &str,
+    default: impl FnOnce() -> M,
+) -> &'a mut M
+where
+    M: SerdeAny,
+{
+    map.get_or_insert_with::<M>(name, default)
+}
+
+/// To get named metadata
+#[inline]
+pub fn named_metadata<'a, M>(map: &'a NamedSerdeAnyMap, name: &str) -> Result<&'a M, Error>
+where
+    M: SerdeAny,
+{
+    map.get::<M>(name)
+        .ok_or_else(|| Error::key_not_found(format!("{} not found", type_name::<M>())))
+}
+
+/// To get mutable named metadata
+#[inline]
+pub fn named_metadata_mut<'a, M>(
+    map: &'a mut NamedSerdeAnyMap,
+    name: &str,
+) -> Result<&'a mut M, Error>
+where
+    M: SerdeAny,
+{
+    map.get_mut::<M>(name)
+        .ok_or_else(|| Error::key_not_found(format!("{} not found", type_name::<M>())))
+}
+
 impl TestcaseMetadata {
+    pub fn named_metadata_map(&self) -> &NamedSerdeAnyMap {
+        &self.named_metadata
+    }
+
+    pub fn named_metadata_map_mut(&mut self) -> &mut NamedSerdeAnyMap {
+        &mut self.named_metadata
+    }
+
     /// Get the executions
     #[inline]
     #[must_use]
@@ -447,22 +529,10 @@ impl SchedulerTestcaseMetadata {
 
 libafl_bolts::impl_serdeany!(SchedulerTestcaseMetadata);
 
-impl<C, I, R, SC, SO> State<I> for StdState<C, I, R, SC, SO>
+impl<C, I, R, SC, SO> State for StdState<C, I, R, SC, SO>
 where
     C: Corpus<I, SC>,
 {
-    fn testcase(&self, id: CorpusId) -> Result<Testcase<I>, Error> {
-        self.corpus.get(id)
-    }
-
-    fn testcase_md<'a>(&'a self, tc: &Testcase<I>) -> Option<&'a TestcaseMetadata> {
-        self.testcase_metadata.get(tc.id())
-    }
-
-    fn testcase_md_mut<'a>(&'a mut self, tc: &Testcase<I>) -> &'a mut TestcaseMetadata {
-        self.testcase_metadata.entry(*tc.id()).or_default()
-    }
-
     /// The max size allowed for the input
     fn max_size(&self) -> usize {
         self.max_size
@@ -566,6 +636,31 @@ where
     #[cfg(feature = "introspection")]
     fn introspection_stats_mut(&mut self) -> &mut ClientPerfStats {
         &mut self.introspection_stats
+    }
+}
+
+pub trait HasTestcase<I> {
+    fn testcase_md<'a>(&'a self, tc: &Testcase<I>) -> Option<&'a TestcaseMetadata>;
+
+    fn testcase_md_mut<'a>(&'a mut self, tc: &Testcase<I>) -> &'a mut TestcaseMetadata;
+
+    fn testcase(&self, id: CorpusId) -> Result<Testcase<I>, Error>;
+}
+
+impl<C, I, R, SC, SO> HasTestcase<I> for StdState<C, I, R, SC, SO>
+where
+    C: Corpus<I, SC>,
+{
+    fn testcase(&self, id: CorpusId) -> Result<Testcase<I>, Error> {
+        self.corpus.get(id)
+    }
+
+    fn testcase_md<'a>(&'a self, tc: &Testcase<I>) -> Option<&'a TestcaseMetadata> {
+        self.testcase_metadata.get(tc.id())
+    }
+
+    fn testcase_md_mut<'a>(&'a mut self, tc: &Testcase<I>) -> &'a mut TestcaseMetadata {
+        self.testcase_metadata.entry(*tc.id()).or_default()
     }
 }
 
@@ -1178,10 +1273,10 @@ where
         objective: &mut O,
     ) -> Result<Self, Error>
     where
-        F: StateInitializer<Self>,
-        O: StateInitializer<Self>,
-        C: Serialize + DeserializeOwned,
-        SO: Serialize + DeserializeOwned,
+        F: MetadataResolver,
+        O: MetadataResolver,
+        C: Serialize + DeserializeOwned + MetadataResolver,
+        SO: Serialize + DeserializeOwned + MetadataResolver,
     {
         let mut state = Self {
             rand,
@@ -1207,9 +1302,12 @@ where
             multicore_inputs_processed: None,
             testcase_metadata: HashMap::new(),
         };
-        feedback.init_state(&mut state)?;
-        objective.init_state(&mut state)?;
+        feedback.resolve(&mut state)?;
+        objective.resolve(&mut state)?;
         Ok(state)
+    }
+    fn resolve(&mut self) {
+        self.corpus.resolve(self);
     }
 }
 

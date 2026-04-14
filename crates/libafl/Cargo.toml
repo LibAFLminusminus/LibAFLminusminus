@@ -43,6 +43,7 @@ default = [
   "serdeany_autoreg",
   "simd",
   "std",
+  "remove_me",
 ]
 document-features = ["dep:document-features"]
 

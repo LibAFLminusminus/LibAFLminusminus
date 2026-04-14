@@ -8,8 +8,9 @@ use libafl_bolts::{
 };
 
 use crate::{
-    HasNamedMetadata,
-    feedbacks::{Feedback, StateInitializer},
+    common::MetadataResolver,
+    feedbacks::Feedback,
+    state::State,
     observers::{ObserversTuple, ValueObserver},
 };
 
@@ -50,8 +51,8 @@ impl Named for BoolValueFeedback<'_> {
     }
 }
 
-impl<S> StateInitializer<S> for BoolValueFeedback<'_> {
-    fn init_state(&mut self, _state: &mut S) -> Result<(), Error> {
+impl MetadataResolver for BoolValueFeedback<'_> {
+    fn resolve<S>(&mut self, _state: &mut S) -> Result<(), Error> {
         Ok(())
     }
 }
@@ -59,7 +60,7 @@ impl<S> StateInitializer<S> for BoolValueFeedback<'_> {
 impl<I, OT, S> Feedback<I, OT, S> for BoolValueFeedback<'_>
 where
     OT: ObserversTuple<S>,
-    S: HasNamedMetadata,
+    S: State,
 {
     fn is_interesting(
         &mut self,

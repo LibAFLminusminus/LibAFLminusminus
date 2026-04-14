@@ -9,10 +9,12 @@ use libafl_bolts::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    Error, HasMetadata,
+    Error,
+    common::MetadataResolver,
     corpus::Testcase,
-    feedbacks::{Feedback, StateInitializer},
+    feedbacks::Feedback,
     observers::{StdErrObserver, StdOutObserver},
+    state::{HasTestcase, add_named_metadata},
 };
 
 /// Metadata for [`StdOutToMetadataFeedback`].
@@ -30,39 +32,12 @@ pub struct StdOutToMetadataFeedback {
     o_ref: Handle<StdOutObserver>,
 }
 
-impl StdOutToMetadataFeedback {
-    /// Append to the testcase the generated metadata in case of a new corpus item.
-    #[inline]
-    fn append_stdout_observation_to_testcase<I, OT>(
-        &mut self,
-        observers: &OT,
-        testcase: &mut Testcase<I>,
-    ) -> Result<(), Error>
-    where
-        OT: MatchName,
-    {
-        let observer = observers
-            .get(&self.o_ref)
-            .ok_or_else(|| Error::illegal_state("StdOutObserver is missing"))?;
-        let buffer = observer
-            .output
-            .as_ref()
-            .ok_or_else(|| Error::illegal_state("StdOutObserver has no stdout"))?;
-        let stdout = String::from_utf8_lossy(buffer).into_owned();
-
-        testcase
-            .metadata_map_mut()
-            .insert(StdOutMetadata { stdout });
-
-        Ok(())
-    }
-}
-
-impl<S> StateInitializer<S> for StdOutToMetadataFeedback {}
+impl MetadataResolver for StdOutToMetadataFeedback {}
 
 impl<I, OT, S> Feedback<I, OT, S> for StdOutToMetadataFeedback
 where
     OT: MatchName,
+    S: HasTestcase<I>,
 {
     #[cfg(feature = "track_hit_feedbacks")]
     fn last_result(&self) -> Result<bool, Error> {
@@ -73,11 +48,24 @@ where
     #[inline]
     fn append_metadata(
         &mut self,
-        _state: &mut S,
+        state: &mut S,
         observers: &OT,
         testcase: &mut Testcase<I>,
     ) -> Result<(), Error> {
-        self.append_stdout_observation_to_testcase(observers, testcase)
+        let observer = observers
+            .get(&self.o_ref)
+            .ok_or_else(|| Error::illegal_state("StdOutObserver is missing"))?;
+        let buffer = observer
+            .output
+            .as_ref()
+            .ok_or_else(|| Error::illegal_state("StdOutObserver has no stdout"))?;
+        let stdout = String::from_utf8_lossy(buffer).into_owned();
+        add_named_metadata(
+            state.testcase_md_mut(testcase).named_metadata_map_mut(),
+            self.name(),
+            StdOutMetadata { stdout },
+        );
+        Ok(())
     }
 }
 
@@ -113,11 +101,12 @@ pub struct StdErrToMetadataFeedback {
     o_ref: Handle<StdErrObserver>,
 }
 
-impl<S> StateInitializer<S> for StdErrToMetadataFeedback {}
+impl MetadataResolver for StdErrToMetadataFeedback {}
 
 impl<I, OT, S> Feedback<I, OT, S> for StdErrToMetadataFeedback
 where
     OT: MatchName,
+    S: HasTestcase<I>,
 {
     #[cfg(feature = "track_hit_feedbacks")]
     fn last_result(&self) -> Result<bool, Error> {
@@ -128,7 +117,7 @@ where
     #[inline]
     fn append_metadata(
         &mut self,
-        _state: &mut S,
+        state: &mut S,
         observers: &OT,
         testcase: &mut Testcase<I>,
     ) -> Result<(), Error> {
@@ -140,10 +129,11 @@ where
             .as_ref()
             .ok_or_else(|| Error::illegal_state("StdErrObserver has no stderr"))?;
         let stderr = String::from_utf8_lossy(buffer).into_owned();
-
-        testcase
-            .metadata_map_mut()
-            .insert(StdErrMetadata { stderr });
+        add_named_metadata(
+            state.testcase_md_mut(testcase).named_metadata_map_mut(),
+            self.name(),
+            StdErrMetadata { stderr },
+        );
 
         Ok(())
     }

@@ -61,9 +61,7 @@ extern crate libafl_derive;
 #[doc(hidden)]
 pub use libafl_derive::*;
 
-#[cfg(not(feature = "remove_me"))]
 pub mod common;
-#[cfg(not(feature = "remove_me"))]
 pub use common::*;
 pub mod corpus;
 pub mod executors;
