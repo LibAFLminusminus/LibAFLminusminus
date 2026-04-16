@@ -21,7 +21,6 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    corpus::CorpusId,
     inputs::{FromTargetBytesConverter, Input, ToTargetBytesConverter},
 };
 
@@ -257,7 +256,7 @@ pub struct EncodedInput {
 
 impl Input for EncodedInput {
     /// Generate a name for this input
-    fn generate_name(&self, _id: Option<CorpusId>) -> String {
+    fn generate_name(&self) -> String {
         let mut hasher = RandomState::with_seeds(0, 0, 0, 0).build_hasher();
         for code in &self.codes {
             hasher.write(&code.to_le_bytes());
@@ -325,7 +324,7 @@ mod tests {
 
     use crate::{
         Evaluator, Fuzzer, StdFuzzer,
-        corpus::InMemoryCorpus,
+        corpus::{InMemoryCorpus, schedulers::NopScheduler},
         events::NopEventManager,
         executors::{ExitKind, InProcessExecutor, nop::NopExecutor},
         feedbacks::BoolValueFeedback,
@@ -372,12 +371,13 @@ mod tests {
         let input_clone = input.clone();
         let mut event_mgr = NopEventManager::new();
 
+        let scheduler = QueueScheduler::new();
+        let nop = NopScheduler::new();
+
         let mut state = StdState::new(
             StdRand::new(),
-            InMemoryCorpus::new(),
-            InMemoryCorpus::new(),
-            &mut feedback,
-            &mut objective,
+            InMemoryCorpus::new(scheduler),
+            InMemoryCorpus::new(nop),
         )
         .unwrap();
 

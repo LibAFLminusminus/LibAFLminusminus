@@ -5,7 +5,6 @@ use alloc::vec::Vec;
 use alloc::{boxed::Box, string::String};
 use core::{any::type_name, fmt::Debug, marker::PhantomData, time::Duration};
 use std::{collections::HashMap, string::ToString};
-#[cfg(feature = "std")]
 use std::{
     fs,
     path::{Path, PathBuf},
@@ -28,7 +27,7 @@ use crate::{
     Error,
     common::DependencyResolver,
     corpus::{
-        Corpus, CorpusId, InMemoryCorpus, Testcase, TestcaseFilenameFormat,
+        Corpus, InMemoryCorpus, Testcase, TestcaseFilenameFormat,
         schedulers::NopScheduler, testcase::TestcaseId,
     },
     inputs::{Input, NopInput},
@@ -117,14 +116,14 @@ pub trait HasTestcase<I> {
     fn testcase_md_from_id<'a>(&'a self, id: &TestcaseId) -> Option<&'a TestcaseMetadata>;
     fn testcase_md_mut<'a>(&'a mut self, tc: &Testcase<I>) -> &'a mut TestcaseMetadata;
     fn testcase_md_mut_from_id<'a>(&'a mut self, id: &TestcaseId) -> &'a mut TestcaseMetadata;
-    fn testcase(&self, id: CorpusId) -> Result<Testcase<I>, Error>;
+    fn testcase(&self, id: TestcaseId) -> Result<Testcase<I>, Error>;
 }
 
 impl<C, I, OC, R, SC> HasTestcase<I> for StdState<C, I, OC, R, SC>
 where
     C: Corpus<I, SC>,
 {
-    fn testcase(&self, id: CorpusId) -> Result<Testcase<I>, Error> {
+    fn testcase(&self, id: TestcaseId) -> Result<Testcase<I>, Error> {
         self.corpus.get(id)
     }
 
@@ -248,8 +247,6 @@ pub struct StdState<C, I, OC, R, SC> {
     last_report_time: Option<Duration>,
     /// The last time something was added to the corpus
     last_found_time: Duration,
-    /// The current index of the corpus; used to record for resumable fuzzing.
-    corpus_id: Option<CorpusId>,
     /// Request the fuzzer to stop at the start of the next stage
     /// or at the beginning of the next fuzzing iteration
     stop_requested: bool,
@@ -270,9 +267,6 @@ pub struct TestcaseMetadata {
     scheduled_count: usize,
     /// Number of executions done at discovery time
     executions: u64,
-    /// Parent [`CorpusId`], if known
-    #[builder(default)]
-    parent_id: Option<CorpusId>,
     /// If the testcase is "disabled"
     #[builder(default = false)]
     disabled: bool,
@@ -489,7 +483,7 @@ impl TestcaseMetadata {
 
     /// Get the id of the parent, that this testcase was derived from
     #[must_use]
-    pub fn parent_id(&self) -> Option<CorpusId> {
+    pub fn parent_id(&self) -> Option<TestcaseId> {
         self.parent_id
     }
 
@@ -1340,7 +1334,6 @@ where
             dont_reenter: None,
             last_report_time: None,
             last_found_time: libafl_bolts::current_time(),
-            corpus_id: None,
             phantom: PhantomData,
             #[cfg(feature = "std")]
             multicore_inputs_processed: None,

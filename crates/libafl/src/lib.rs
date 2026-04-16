@@ -70,7 +70,6 @@ pub mod executors;
 pub mod feedbacks;
 #[cfg(not(feature = "remove_me"))]
 pub mod fuzzer;
-#[cfg(not(feature = "remove_me"))]
 pub mod generators;
 pub mod inputs;
 #[cfg(not(feature = "remove_me"))]
