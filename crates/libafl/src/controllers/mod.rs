@@ -1,18 +1,34 @@
-pub trait GlobalController {
-    type LocalController<Workdir = Self::Workdir>;
-    type Workdir;
+use std::path::PathBuf;
 
-    fn create_local_controller(&mut self) -> Result<Self::LocalController, Error>;
+use libafl_bolts::core_affinity::CoreId;
+use libafl_core::Error;
+use serde::{Deserialize, Serialize};
 
-    fn workdir(&self) -> &Self::Workdir;
-    fn workdir(&mut self) -> &mut Self::Workdir;
+pub mod aflpp;
+pub mod nop;
+
+pub trait MainController {
+    type ClientController: Controller;
+
+    fn create_controller(
+        &mut self,
+        descriptor: <<Self as MainController>::ClientController as Controller>::Descriptor,
+    ) -> Result<Self::ClientController, Error>;
 }
 
-pub trait LocalController {
-    type Workdir;
+pub trait Controller {
+    type Descriptor;
 
-    fn workdir(&self) -> &Self::Workdir;
-    fn workdir_mut(&mut self) -> &mut Self::Workdir;
+    fn descriptor(&self) -> &Self::Descriptor;
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StdDescriptor {
+    root: PathBuf,
+    main_controller_root: PathBuf,
+    id: usize,
+    overcommit_id: usize,
+    core_id: CoreId,
 }
 
 // pub trait Controller {

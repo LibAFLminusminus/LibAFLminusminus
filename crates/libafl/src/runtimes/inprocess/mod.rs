@@ -1,11 +1,16 @@
-use crate::runtimes::{Runtime, RuntimeHandle};
-use core::{pin::Pin, time::Duration};
+use crate::{
+    DependencyResolver,
+    runtimes::{Runtime, RuntimeHandle},
+};
+use core::{marker::PhantomData, pin::Pin, time::Duration};
 use libafl_bolts::TimerStruct;
 use libafl_core::Error;
 use std::boxed::Box;
 
 pub mod unix;
 pub use unix::OsSignalHandler;
+
+impl<C, CH, D, S, T, TH> DependencyResolver for InProcessRuntime<C, CH, D, S, T, TH> {}
 
 /// Hooks the current process to set it up for in-process tasks.
 /// It will change signal handlers and "pollute" the current process.
@@ -16,11 +21,12 @@ pub use unix::OsSignalHandler;
 /// To exit, simply exit the process.
 /// There are special exit codes used to convey what caused the exit.
 /// TODO: document these exit code
-pub struct InProcessRuntime<CH, D, S, T, TH> {
+pub struct InProcessRuntime<C, CH, D, S, T, TH> {
     state: S,
     task: T,
     signal_handler: Pin<Box<OsSignalHandler<CH, D, TH>>>,
     timer: Option<TimerStruct>,
+    phantom: PhantomData<C>,
 }
 
 pub struct InProcessSignalHandler<CH, D, TH> {
@@ -49,7 +55,7 @@ where
 {
 }
 
-impl<CH, D, S, T, TH> InProcessRuntime<CH, D, S, T, TH>
+impl<C, CH, D, S, T, TH> InProcessRuntime<C, CH, D, S, T, TH>
 where
     CH: FnMut(&mut D) -> Result<(), Error> + Send + Sync + Unpin + 'static,
     D: Send + Sync + Unpin + 'static,
@@ -64,6 +70,7 @@ where
             task,
             signal_handler: Box::pin(OsSignalHandler::new(signal_handler)),
             timer: None,
+            phantom: PhantomData,
         }
     }
 }
@@ -119,22 +126,26 @@ where
     }
 }
 
-impl<CH, D, S, T, TH> Runtime<S> for InProcessRuntime<CH, D, S, T, TH>
+impl<C, CH, D, S, T, TH> Runtime<C, S> for InProcessRuntime<C, CH, D, S, T, TH>
 where
-    T: FnMut(&mut RuntimeHandle<S>, &mut S) -> Result<(), Error>,
+    T: FnMut(&mut RuntimeHandle<C, S>, &mut S, &mut C) -> Result<(), Error>,
     CH: FnMut(&mut D) -> Result<(), Error> + Send + Sync + Unpin + 'static,
     D: Send + Sync + Unpin + 'static,
     TH: FnMut(&mut D) -> Result<(), Error> + Send + Sync + Unpin + 'static,
 {
     // TODO: handle signals
-    unsafe fn run_impl(&mut self, driver: &mut RuntimeHandle<S>) -> Result<(), Error> {
+    unsafe fn run_impl(
+        &mut self,
+        driver: &mut RuntimeHandle<C, S>,
+        controller: &mut C,
+    ) -> Result<(), Error> {
         self.signal_handler.init();
 
-        (self.task)(driver, &mut self.state)
+        (self.task)(driver, &mut self.state, controller)
     }
 
     fn set_timeout(&mut self, timeout: Duration) -> Result<(), Error> {
-        let mut timer = TimerStruct::new(timeout);
+        let timer = TimerStruct::new(timeout);
         self.timer = Some(timer);
 
         Ok(())
@@ -172,14 +183,11 @@ mod tests {
 
     use crate::{
         inputs::NopInput,
-        runtimes::{
-            Runtime, RuntimeHandle,
-            inprocess::{InProcessRuntime, InProcessSignalHandler, OsSignalHandler},
-        },
+        nop::NopController,
+        runtimes::{Runtime, RuntimeHandle, inprocess::InProcessRuntime},
         state::NopState,
     };
 
-    use std::boxed::Box;
     use std::thread;
     use std::time::Duration;
 
@@ -187,9 +195,9 @@ mod tests {
         #[test]
         fn test_runtime_create() {
             let mut state = NopState::<NopInput>::new();
+            let mut controller = NopController;
 
-            let task = |driver: &mut runtimeDriver<NopState<NopInput>>,
-                        state: &mut NopState<NopInput>| {
+            let task = |_driver: &mut RuntimeHandle<NopController, NopState<NopInput>>, _state: &mut NopState<NopInput>, _controller: &mut NopController| {
                 Err(Error::shutting_down())
             };
 
@@ -199,7 +207,7 @@ mod tests {
 
             let mut runtime = InProcessRuntime::new(state, task, crash_handler, (), timeout_handler);
 
-            match runtime.run().err() {
+            match runtime.run(&mut controller).err() {
                 Some(Error::ShuttingDown) => {}
                 _ => {
                     panic!("Task did not run successfully");
@@ -211,19 +219,21 @@ mod tests {
     fn run_runtime<CH, T, TH>(task: T, crash_handler: CH, timeout_handler: TH)
     where
         T: FnMut(
-                &mut RuntimeHandle<NopState<NopInput>>,
+                &mut RuntimeHandle<NopController, NopState<NopInput>>,
                 &mut NopState<NopInput>,
+                &mut NopController,
             ) -> Result<(), Error>
             + 'static,
         CH: FnMut(&mut ()) -> Result<(), Error> + Send + Sync + Unpin + 'static,
         TH: FnMut(&mut ()) -> Result<(), Error> + Send + Sync + Unpin + 'static,
     {
         let state = NopState::<NopInput>::new();
+        let mut controller = NopController;
 
         let mut runtime = InProcessRuntime::new(state, task, crash_handler, (), timeout_handler);
         runtime.signal_handler.inner_mut().enter_target();
 
-        runtime.run().unwrap();
+        runtime.run(&mut controller).unwrap();
     }
 
     #[test]
@@ -236,8 +246,9 @@ mod tests {
             |_| (),
             |child, _| child.wait().unwrap(),
             || {
-                let task = |driver: &mut RuntimeHandle<NopState<NopInput>>,
-                            state: &mut NopState<NopInput>| {
+                let task = |driver: &mut RuntimeHandle<NopController, NopState<NopInput>>,
+                            _state: &mut NopState<NopInput>,
+                            _controller: &mut NopController| {
                     driver.set_timeout(Duration::from_millis(10));
 
                     driver.arm_timeout();
@@ -249,9 +260,9 @@ mod tests {
                     Ok::<(), Error>(())
                 };
 
-                let crash_handler = |data: &mut ()| Ok(());
+                let crash_handler = |_data: &mut ()| Ok(());
 
-                let timeout_handler = |data: &mut ()| Ok(());
+                let timeout_handler = |_data: &mut ()| Ok(());
 
                 run_runtime(task, crash_handler, timeout_handler)
             },
@@ -274,8 +285,9 @@ mod tests {
             |_| (),
             |child, _| child.wait().unwrap(),
             || {
-                let task = |driver: &mut RuntimeHandle<NopState<NopInput>>,
-                            state: &mut NopState<NopInput>| {
+                let task = |_driver: &mut RuntimeHandle<NopController, NopState<NopInput>>,
+                            _state: &mut NopState<NopInput>,
+                            _controller: &mut NopController| {
                     unsafe {
                         libc::raise(libc::SIGSEGV);
                     }
@@ -286,9 +298,9 @@ mod tests {
                     Ok::<(), Error>(())
                 };
 
-                let crash_handler = |data: &mut ()| Ok(());
+                let crash_handler = |_data: &mut ()| Ok(());
 
-                let timeout_handler = |data: &mut ()| Ok(());
+                let timeout_handler = |_data: &mut ()| Ok(());
 
                 run_runtime(task, crash_handler, timeout_handler)
             },
@@ -313,8 +325,9 @@ mod tests {
             |_| (),
             |child, _| child.wait().unwrap(),
             || {
-                let task = |driver: &mut RuntimeHandle<NopState<NopInput>>,
-                            state: &mut NopState<NopInput>| {
+                let task = |driver: &mut RuntimeHandle<NopController, NopState<NopInput>>,
+                            _state: &mut NopState<NopInput>,
+                            _controller: &mut NopController| {
                     driver.set_timeout(Duration::from_millis(10));
 
                     driver.arm_timeout()?;
@@ -327,9 +340,9 @@ mod tests {
                     Ok::<(), Error>(())
                 };
 
-                let crash_handler = |data: &mut ()| Ok(());
+                let crash_handler = |_data: &mut ()| Ok(());
 
-                let timeout_handler = |data: &mut ()| unsafe {
+                let timeout_handler = |_data: &mut ()| unsafe {
                     libc::exit(114);
                 };
 
@@ -354,7 +367,9 @@ mod tests {
             |_| (),
             |child, _| child.wait().unwrap(),
             || {
-                let task = |driver: &mut RuntimeHandle<NopState<NopInput>>, workdir: Workdir, client_descriptor: ClientDescriptor| {
+                let task = |_driver: &mut RuntimeHandle<NopController, NopState<NopInput>>,
+                            _state: &mut NopState<NopInput>,
+                            _controller: &mut NopController| {
                     unsafe {
                         libc::raise(libc::SIGSEGV);
                     }
@@ -365,11 +380,11 @@ mod tests {
                     Ok::<(), Error>(())
                 };
 
-                let crash_handler = |data: &mut ()| unsafe {
+                let crash_handler = |_data: &mut ()| unsafe {
                     libc::exit(114);
                 };
 
-                let timeout_handler = |data: &mut ()| Ok(());
+                let timeout_handler = |_data: &mut ()| Ok(());
 
                 run_runtime(task, crash_handler, timeout_handler)
             },

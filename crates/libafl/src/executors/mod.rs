@@ -13,12 +13,7 @@ use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "std")]
 use crate::observers::{StdErrObserver, StdOutObserver};
-use crate::{
-    Error,
-    observers::ObserversTuple,
-    runtimes::RuntimeHandle,
-    state::FlatState,
-};
+use crate::{Error, observers::ObserversTuple, runtimes::RuntimeHandle, state::FlatState};
 
 // /// The module for all the executor hooks
 // pub mod hooks;
@@ -107,13 +102,14 @@ pub enum DiffExitKind {
 libafl_bolts::impl_serdeany!(DiffExitKind);
 
 /// Runs the fuzzer harness.
-pub trait Executor<I, OT, S>
+pub trait Executor<CT, I, OT, S>
 where
     OT: ObserversTuple<S>,
 {
     /// The init function of the executor.
     /// It must be run once before the first execution of the executor.
-    fn init(&mut self, driver: &mut RuntimeHandle<S>) -> Result<(), Error>;
+    fn init(&mut self, driver: &mut RuntimeHandle<CT, S>, controller: &mut CT)
+    -> Result<(), Error>;
 
     /// Run the target with the given input.
     /// This is a "raw" run: it only runs the target and nothing else is done.
@@ -138,7 +134,8 @@ where
     fn execute(
         &mut self,
         state: &mut S,
-        driver: &mut RuntimeHandle<S>,
+        driver: &mut RuntimeHandle<CT, S>,
+        _controller: &mut CT,
         input: &I,
     ) -> Result<ExitKind, Error>
     where

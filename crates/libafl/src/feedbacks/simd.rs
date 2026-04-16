@@ -20,7 +20,12 @@ use super::{DifferentIsNovel, Feedback, HasObserverHandle, MapFeedback};
 #[cfg(feature = "introspection")]
 use crate::state::HasClientPerfMonitor;
 use crate::{
-    DependencyResolver, corpus::Testcase, executors::ExitKind, feedbacks::MapFeedbackMetadata, observers::{CanTrack, MapObserver}, state::{FlatState, HasTestcase}
+    common::DependencyResolver,
+    corpus::Testcase,
+    executors::ExitKind,
+    feedbacks::MapFeedbackMetadata,
+    observers::{CanTrack, MapObserver},
+    state::{FlatState, HasTestcase},
 };
 
 /// Stable Rust wrapper for SIMD accelerated map feedback. Unfortunately, we have to

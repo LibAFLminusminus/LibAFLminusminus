@@ -17,7 +17,7 @@ Welcome to `LibAFL`
     )
 )]
 #![cfg_attr(
-    test,
+    all(test, not(feature = "remove_me")),
     deny(
         bad_style,
         dead_code,
@@ -72,6 +72,7 @@ pub mod feedbacks;
 pub mod fuzzer;
 pub mod generators;
 pub mod inputs;
+pub mod launcher;
 #[cfg(not(feature = "remove_me"))]
 pub mod monitors;
 #[cfg(not(feature = "remove_me"))]

@@ -10,8 +10,9 @@ use libafl_bolts::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    DependencyResolver, Error,
-    corpus::{Testcase, testcase::TestcaseId},
+    Error,
+    common::DependencyResolver,
+    corpus::{Testcase, TestcaseId},
     feedbacks::Feedback,
     observers::{StdErrObserver, StdOutObserver},
     state::{FlatState, HasTestcase},

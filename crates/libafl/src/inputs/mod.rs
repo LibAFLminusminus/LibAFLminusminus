@@ -81,17 +81,17 @@ pub trait InputContext<I> {
     fn to_bytes<'a>(&mut self, input: &'a I) -> OwnedSlice<'a, u8>;
 }
 
-#[derive(Default, Clone, Copy, Serialize, Deserialize)]
-pub struct NopContext {}
+#[derive(Default, Clone, Serialize, Deserialize)]
+pub struct NopContext;
 
-impl InputContext<NopInput> for NopInput {
+impl InputContext<NopInput> for NopContext {
     fn to_bytes<'a>(&mut self, _input: &'a NopInput) -> OwnedSlice<'a, u8> {
         OwnedSlice::from(vec![])
     }
 }
 
 /// An input for tests, mainly. There is no real use much else.
-#[derive(Copy, Clone, Serialize, Deserialize, Debug, Default, Hash)]
+#[derive(Clone, Serialize, Deserialize, Debug, Default, Hash)]
 pub struct NopInput;
 
 impl NopInput {
@@ -102,8 +102,7 @@ impl NopInput {
     }
 }
 
-impl Input for NopInput {
-}
+impl Input for NopInput {}
 
 impl HasLen for NopInput {
     fn len(&self) -> usize {
@@ -248,8 +247,8 @@ impl ResizableMutator<u8> for &mut Vec<u8> {
 
 #[cfg(test)]
 mod tests {
+    use crate::inputs::{BytesInput, InputContext, bytes::BytesContext};
     use libafl_bolts::AsSlice;
-    use crate::inputs::{BytesInput, bytes::BytesContext, InputContext};
 
     #[test]
     fn test_from_target_bytes() {
@@ -258,6 +257,5 @@ mod tests {
         let mut nop = BytesContext::default();
         let res = nop.to_bytes(&input);
         assert_eq!(res.as_slice(), &original_bytes);
-
     }
 }

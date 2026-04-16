@@ -68,14 +68,6 @@ const _AFL_LAUNCHER_CLIENT: &str = "AFL_LAUNCHER_CLIENT";
 #[cfg(unix)]
 const LIBAFL_DEBUG_OUTPUT: &str = "LIBAFL_DEBUG_OUTPUT";
 
-/// Information about this client from the launcher
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ClientDescription {
-    id: usize,
-    overcommit_id: usize,
-    core_id: CoreId,
-}
-
 impl ClientDescription {
     /// Create a [`ClientDescription`]
     #[must_use]

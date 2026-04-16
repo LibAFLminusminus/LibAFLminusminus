@@ -3,8 +3,8 @@ use alloc::{
     string::{String, ToString},
     vec::Vec,
 };
-use serde::{Deserialize, Serialize};
 use core::fmt::Debug;
+use serde::{Deserialize, Serialize};
 use std::{fs, io::BufReader, path::Path};
 
 use libafl_bolts::{ownedref::OwnedSlice, rands::Rand};
@@ -21,7 +21,7 @@ use crate::{
 };
 
 /// The nautilus context for a generator
-#[derive(Default, Clone, Copy, Serialize, Deserialize)]
+#[derive(Default, Clone, Serialize, Deserialize)]
 pub struct NautilusContext {
     /// The nautilus context for a generator
     pub ctx: Context,

@@ -21,14 +21,15 @@ use typed_builder::TypedBuilder;
 use crate::fuzzer::{Evaluator, ExecuteInputResult};
 #[cfg(not(feature = "remove_me"))]
 use crate::generators::Generator;
+use crate::inputs::NopContext;
 #[cfg(feature = "introspection")]
 use crate::monitors::stats::ClientPerfStats;
 use crate::{
     Error,
     common::DependencyResolver,
     corpus::{
-        Corpus, InMemoryCorpus, Testcase, TestcaseFilenameFormat,
-        schedulers::NopScheduler, testcase::TestcaseId,
+        Corpus, InMemoryCorpus, Testcase, TestcaseFilenameFormat, schedulers::NopScheduler,
+        testcase::TestcaseId,
     },
     inputs::{Input, NopInput},
 };
@@ -425,16 +426,13 @@ where
 
 /// To get mutable named metadata
 #[inline]
-pub fn unnamed_metadata_mut<'a, M>(
-    map: &'a mut NamedSerdeAnyMap,
-) -> Result<&'a mut M, Error>
+pub fn unnamed_metadata_mut<'a, M>(map: &'a mut NamedSerdeAnyMap) -> Result<&'a mut M, Error>
 where
     M: SerdeAny,
 {
     map.get_mut::<M>("")
         .ok_or_else(|| Error::key_not_found(format!("{} not found", type_name::<M>())))
 }
-
 
 impl TestcaseMetadata {
     /// Get the executions
@@ -479,12 +477,6 @@ impl TestcaseMetadata {
     #[cfg(feature = "track_hit_feedbacks")]
     pub fn hit_objectives(&self) -> &Vec<Cow<'static, str>> {
         &self.hit_objectives
-    }
-
-    /// Get the id of the parent, that this testcase was derived from
-    #[must_use]
-    pub fn parent_id(&self) -> Option<TestcaseId> {
-        self.parent_id
     }
 
     /// Gets how many objectives were found by mutating this testcase
@@ -1345,20 +1337,20 @@ where
 
 impl
     StdState<
-        InMemoryCorpus<NopInput, NopScheduler>,
+        InMemoryCorpus<NopContext, NopInput, NopScheduler>,
         NopInput,
         StdRand,
         NopScheduler,
-        InMemoryCorpus<NopInput, NopScheduler>,
+        InMemoryCorpus<NopContext, NopInput, NopScheduler>,
     >
 {
     /// Create an empty [`StdState`] that has very minimal uses.
     /// Potentially good for testing.
     pub fn nop() -> Result<
         StdState<
-            InMemoryCorpus<NopInput, NopScheduler>,
+            InMemoryCorpus<NopContext, NopInput, NopScheduler>,
             NopInput,
-            InMemoryCorpus<NopInput, NopScheduler>,
+            InMemoryCorpus<NopContext, NopInput, NopScheduler>,
             StdRand,
             NopScheduler,
         >,
@@ -1366,8 +1358,8 @@ impl
     > {
         StdState::new(
             StdRand::with_seed(0),
-            InMemoryCorpus::<NopInput, NopScheduler>::new(NopScheduler),
-            InMemoryCorpus::new(NopScheduler),
+            InMemoryCorpus::<NopContext, NopInput, NopScheduler>::new(NopContext, NopScheduler),
+            InMemoryCorpus::new(NopContext, NopScheduler),
         )
     }
 }

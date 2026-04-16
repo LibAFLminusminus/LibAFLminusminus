@@ -7,20 +7,20 @@ use crate::{
     runtimes::RuntimeHandle,
 };
 
-pub struct StdExecutor<H, I, OT, S> {
+pub struct StdExecutor<C, H, I, OT, S> {
     harness: H,
     observers: OT,
     timeout: Option<Duration>,
     initialized: bool,
-    _phantom: PhantomData<(I, S)>,
+    _phantom: PhantomData<(C, I, S)>,
 }
 
-impl<H, I, OT, S> Executor<I, OT, S> for StdExecutor<H, I, OT, S>
+impl<C, H, I, OT, S> Executor<C, I, OT, S> for StdExecutor<C, H, I, OT, S>
 where
     H: FnMut(&mut S, &I) -> Result<ExitKind, Error>,
     OT: ObserversTuple<S>,
 {
-    fn init(&mut self, driver: &mut RuntimeHandle<S>) -> Result<(), Error> {
+    fn init(&mut self, driver: &mut RuntimeHandle<C, S>, _controller: &mut C) -> Result<(), Error> {
         if !self.initialized {
             if let Some(tmout) = &self.timeout {
                 driver.set_timeout(tmout.clone());

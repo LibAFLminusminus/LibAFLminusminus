@@ -7,6 +7,7 @@ use libafl_bolts::{
 };
 #[cfg(feature = "nautilus_py")]
 use pyo3::prelude::{Py, PyAny};
+use serde::{Deserialize, Serialize};
 
 use super::{
     newtypes::{NTermId, RuleId},
@@ -15,7 +16,7 @@ use super::{
 };
 
 /// The context for the grammar, containing rules and other metadata
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Context {
     rules: Vec<Rule>,
     nts_to_rules: HashMap<NTermId, Vec<RuleId>>,

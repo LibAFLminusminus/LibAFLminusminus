@@ -100,7 +100,7 @@ impl RuleIdOrCustom {
 }
 
 /// A rule in the grammar
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Rule {
     /// A plain rule
     Plain(PlainRule),
@@ -112,11 +112,12 @@ pub enum Rule {
 }
 
 /// A regex rule
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RegExpRule {
     /// The nonterminal this rule produces
     pub nonterm: NTermId,
     /// The regex HIR
+    #[serde(with = "hir_serde")]
     pub hir: Hir,
 }
 
@@ -426,5 +427,27 @@ impl Rule {
         }
         //println!("Rule: {}, Size: {}", ctx.nt_id_to_s(self.nonterm.clone()), total_size);
         total_size
+    }
+}
+
+mod hir_serde {
+    use regex_syntax::{Parser, hir::Hir};
+    use serde::{Deserialize, Deserializer, Serializer, de};
+    use std::string::{String, ToString};
+
+    pub fn serialize<S>(hir: &Hir, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&hir.to_string())
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Hir, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+
+        Parser::new().parse(&s).map_err(de::Error::custom)
     }
 }
