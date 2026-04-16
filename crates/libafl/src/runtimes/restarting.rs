@@ -2,10 +2,23 @@ use core::time::Duration;
 
 use libafl_core::Error;
 
-use crate::runtimes::{Runtime, RuntimeHandle, inprocess::InProcessRuntime};
+use crate::{
+    DependencyResolver,
+    runtimes::{Runtime, RuntimeHandle, inprocess::InProcessRuntime},
+};
 
 pub struct RestartingRuntime<CH, D, S, T, TH> {
     inner: InProcessRuntime<CH, D, S, T, TH>,
+}
+
+impl<CH, D, S, T, TH> DependencyResolver for RestartingRuntime<CH, D, S, T, TH>0 {
+    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<(), Error> {
+        self.inner.register(registrator)
+    }
+
+    fn check(&self, checker: &crate::CompatibilityChecker) -> Result<(), Error> {
+        self.inner.check(checker)
+    }
 }
 
 impl<CH, D, S, T, TH> Runtime<S> for RestartingRuntime<CH, D, S, T, TH>

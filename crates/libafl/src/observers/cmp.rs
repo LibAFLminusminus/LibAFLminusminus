@@ -259,7 +259,7 @@ where
         Ok(())
     }
 
-    fn post_exec(&mut self, state: &mut S, _exit_kind: &ExitKind) -> Result<(), Error> {
+    fn post_exec(&mut self, _state: &mut S, _exit_kind: &ExitKind) -> Result<(), Error> {
         #[cfg(not(feature = "remove_me"))]
         if self.add_meta {
             // TOKA

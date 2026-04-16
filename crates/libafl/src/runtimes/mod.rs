@@ -4,11 +4,14 @@ use libafl_bolts::Error;
 
 use crate::DependencyResolver;
 
+#[cfg(not(feature = "remove_me"))]
+pub mod direct;
 pub mod inprocess;
+#[cfg(not(feature = "remove_me"))]
 pub mod restarting;
 
 /// Environment used to run a task
-pub trait Runtime<S>: DependencyResolver {
+pub trait Runtime<C, S>: DependencyResolver {
     /// Run the runtime.
     /// A runtime task is terminal: it is called only once and the runtime will immediately exit when the task returns.
     ///
@@ -22,15 +25,19 @@ pub trait Runtime<S>: DependencyResolver {
     /// The driver MUST be linked to the current runtime.
     /// Using a `driver` that is not instanciated with self as the runtime will lead to Undefined Behaviour.
     /// Use [`Self::run`], this function should not need to be called directly.
-    unsafe fn run_impl(&mut self, driver: &mut RuntimeHandle<S>) -> Result<(), Error>;
+    unsafe fn run_impl(
+        &mut self,
+        driver: &mut RuntimeHandle<C, S>,
+        controller: &mut C,
+    ) -> Result<(), Error>;
 
-    fn run(&mut self) -> Result<(), Error>
+    fn run(&mut self, controller: &mut C) -> Result<(), Error>
     where
         Self: Sized + 'static,
     {
-        let mut driver = unsafe { RuntimeHandle::new(self as *mut Self as *mut dyn Runtime<S>) };
+        let mut driver = unsafe { RuntimeHandle::new(self as *mut Self as *mut dyn Runtime<C, S>) };
 
-        unsafe { self.run_impl(&mut driver) }
+        unsafe { self.run_impl(&mut driver, controller) }
     }
 
     // fn on_signal()
@@ -58,22 +65,22 @@ pub trait Runtime<S>: DependencyResolver {
 /// Object enabling interacting with a runtime's environment from the task.
 /// It can be used to perform runtime-level operations generically.
 /// It does not expose the runtime directly
-pub struct RuntimeHandle<S> {
-    runtime: NonNull<dyn Runtime<S>>,
+pub struct RuntimeHandle<C, S> {
+    runtime: NonNull<dyn Runtime<C, S>>,
 }
 
-impl<S> RuntimeHandle<S> {
-    unsafe fn new(runtime: *mut dyn Runtime<S>) -> Self {
+impl<C, S> RuntimeHandle<C, S> {
+    unsafe fn new(runtime: *mut dyn Runtime<C, S>) -> Self {
         Self {
             runtime: NonNull::new(runtime).expect("runtime ptr must be non-null"),
         }
     }
 
-    unsafe fn runtime(&self) -> &dyn Runtime<S> {
+    unsafe fn runtime(&self) -> &dyn Runtime<C, S> {
         unsafe { self.runtime.as_ref() }
     }
 
-    unsafe fn runtime_mut(&mut self) -> &mut dyn Runtime<S> {
+    unsafe fn runtime_mut(&mut self) -> &mut dyn Runtime<C, S> {
         unsafe { self.runtime.as_mut() }
     }
 
@@ -97,43 +104,12 @@ impl<S> RuntimeHandle<S> {
     }
 }
 
-impl<S> DependencyResolver for RuntimeHandle<S> {
+impl<C, S> DependencyResolver for RuntimeHandle<C, S> {
     fn check(&self, checker: &crate::CompatibilityChecker) -> Result<(), Error> {
         unsafe { self.runtime().check(checker) }
     }
 
     fn register(&mut self, registrator: &mut crate::Registrator) -> Result<(), Error> {
-        unsafe { self.runtime_mut().register(checker) }
-    }
-}
-
-/// Simplest runtime, just runs the task.
-struct DirectRuntime<S, T> {
-    state: S,
-    task: T,
-}
-
-impl<S, T> Runtime<S> for DirectRuntime<S, T>
-where
-    T: FnMut(&mut RuntimeHandle<S>, &mut S) -> Result<(), Error>,
-{
-    unsafe fn run_impl(&mut self, driver: &mut RuntimeHandle<S>) -> Result<(), Error> {
-        (self.task)(driver, &mut self.state)
-    }
-
-    fn set_timeout(&mut self, _timeout: Duration) -> Result<(), Error> {
-        unimplemented!("The direct runtime does not implement timeout")
-    }
-
-    fn arm_timeout(&mut self) -> Result<(), Error> {
-        unimplemented!("The direct runtime does not implement timeout")
-    }
-
-    fn disarm_timeout(&mut self) -> Result<(), Error> {
-        unimplemented!("The direct runtime does not implement timeout")
-    }
-
-    fn unset_timeout(&mut self) -> Result<(), Error> {
-        unimplemented!("The direct runtime does not implement timeout")
+        unsafe { self.runtime_mut().register(registrator) }
     }
 }

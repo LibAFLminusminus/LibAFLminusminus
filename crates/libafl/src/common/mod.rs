@@ -1,9 +1,6 @@
 //! This module defines trait shared across different `LibAFL` modules
 
-use core::{
-    any::{self, TypeId},
-    hash::Hash,
-};
+use core::any;
 use std::{collections::HashSet, string::String};
 
 #[cfg(feature = "nautilus")]
@@ -14,7 +11,7 @@ use libafl_bolts::{
     serdeany::{NamedSerdeAnyMap, SerdeAny},
 };
 
-use crate::state::{State, add_named_metadata_checked};
+use crate::state::add_named_metadata_checked;
 
 pub struct Registrator {
     map: NamedSerdeAnyMap,
@@ -67,7 +64,7 @@ pub trait DependencyResolver {
     ///
     /// The only exception is Testcase metadata, which can be allocated lazily
     /// at runtime.
-    fn register(&mut self, registrator: &mut Registrator) -> Result<(), Error> {
+    fn register(&mut self, _registrator: &mut Registrator) -> Result<(), Error> {
         Ok(())
     }
 
@@ -82,7 +79,7 @@ pub trait DependencyResolver {
 
     /// Check that some types are actually being used if necessary.
     /// Some objects are interdependent, so we can make sure there is
-    fn check(&self, checker: &CompatibilityChecker) -> Result<(), Error> {
+    fn check(&self, _checker: &CompatibilityChecker) -> Result<(), Error> {
         Ok(())
     }
 }

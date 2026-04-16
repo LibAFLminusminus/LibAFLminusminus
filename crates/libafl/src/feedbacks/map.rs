@@ -28,7 +28,7 @@ use super::simd::SimdMapFeedback;
 use crate::feedbacks::premature_last_result_err;
 use crate::{
     DependencyResolver, Error,
-    corpus::{Testcase, testcase::TestcaseId},
+    corpus::{Testcase, TestcaseId},
     executors::ExitKind,
     feedbacks::{Feedback, HasObserverHandle},
     observers::{CanTrack, MapObserver},
@@ -162,7 +162,7 @@ pub struct MapIndexes {
     pub tcref: isize,
 }
 
-#[derive(Default)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct MapIndexesMetadata {
     pub data: HashMap<TestcaseId, MapIndexes>,
 }

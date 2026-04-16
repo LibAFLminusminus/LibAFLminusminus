@@ -15,10 +15,7 @@ use libafl_bolts::{
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use crate::{
-    common::DependencyResolver,
-    executors::ExitKind,
-    feedbacks::Feedback,
-    observers::ListObserver,
+    common::DependencyResolver, executors::ExitKind, feedbacks::Feedback, observers::ListObserver,
     state::FlatState,
 };
 
