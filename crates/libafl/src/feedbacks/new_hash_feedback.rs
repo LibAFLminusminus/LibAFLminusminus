@@ -13,11 +13,11 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "track_hit_feedbacks")]
 use crate::feedbacks::premature_last_result_err;
 use crate::{
-    Error, MetadataResolver,
+    DependencyResolver, Error,
     executors::ExitKind,
     feedbacks::{Feedback, HasObserverHandle},
     observers::ObserverWithHashField,
-    state::{FlatState, State, add_named_metadata_checked},
+    state::FlatState,
 };
 
 /// The prefix of the metadata names
@@ -136,7 +136,7 @@ where
     }
 }
 
-impl<O> MetadataResolver for NewHashFeedback<O> {
+impl<O> DependencyResolver for NewHashFeedback<O> {
     fn register(&mut self, registrator: &mut crate::Registrator) -> Result<(), Error> {
         registrator.register_md_default::<NewHashFeedbackMetadata>(self.name().to_string());
         Ok(())
@@ -147,7 +147,7 @@ impl<O, I, OT, S> Feedback<I, OT, S> for NewHashFeedback<O>
 where
     O: ObserverWithHashField + Named,
     OT: MatchName,
-    S: FlatState
+    S: FlatState,
 {
     fn is_interesting(
         &mut self,

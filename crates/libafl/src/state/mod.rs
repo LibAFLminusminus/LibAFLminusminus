@@ -4,8 +4,6 @@ use alloc::string::String;
 #[cfg(feature = "std")]
 use alloc::vec::Vec;
 use core::{fmt::Debug, marker::PhantomData, time::Duration};
-use libafl_core::Named;
-use libc::winsize;
 use std::{collections::HashMap, string::ToString};
 #[cfg(feature = "std")]
 use std::{
@@ -511,7 +509,7 @@ impl TestcaseMetadata {
     any(not(feature = "serdeany_autoreg"), miri),
     expect(clippy::unsafe_derive_deserialize)
 )] // for SerdeAny
-pub struct SchedulerTestcaseMetadata {
+pub struct PSMetadata {
     /// Number of bits set in bitmap, updated in `calibrate_case`
     bitmap_size: u64,
     /// Number of queue cycles behind
@@ -524,8 +522,8 @@ pub struct SchedulerTestcaseMetadata {
     cycle_and_time: (Duration, usize),
 }
 
-impl SchedulerTestcaseMetadata {
-    /// Create new [`struct@SchedulerTestcaseMetadata`]
+impl PSMetadata {
+    /// Create new [`struct@PSMetadata`]
     #[must_use]
     pub fn new(depth: u64) -> Self {
         Self {
@@ -537,7 +535,7 @@ impl SchedulerTestcaseMetadata {
         }
     }
 
-    /// Create new [`struct@SchedulerTestcaseMetadata`] given `n_fuzz_entry`
+    /// Create new [`struct@PSMetadata`] given `n_fuzz_entry`
     #[must_use]
     pub fn with_n_fuzz_entry(depth: u64, n_fuzz_entry: usize) -> Self {
         Self {
@@ -615,7 +613,7 @@ impl SchedulerTestcaseMetadata {
     }
 }
 
-libafl_bolts::impl_serdeany!(SchedulerTestcaseMetadata);
+libafl_bolts::impl_serdeany!(PSMetadata);
 
 impl<C, I, R, SC, SO> FlatState for StdState<C, I, R, SC, SO> {
     /// The max size allowed for the input
@@ -1247,20 +1245,16 @@ where
     R: Rand,
 {
     /// Creates a new `State`, taking ownership of all of the individual components during fuzzing.
-    pub fn new<F, O>(
+    pub fn new(
         rand: R,
         corpus: C,
         objective_corpus: OC,
-        feedback: &mut F,
-        objective: &mut O,
     ) -> Result<Self, Error>
     where
-        F: DependencyResolver,
-        O: DependencyResolver,
         OC: Serialize + DeserializeOwned + DependencyResolver,
         C: Serialize + DeserializeOwned + DependencyResolver,
     {
-        let mut state = Self {
+        let state = Self {
             rand,
             executions: 0,
             imported: 0,
@@ -1313,8 +1307,6 @@ impl
             StdRand::with_seed(0),
             InMemoryCorpus::<NopInput, NopScheduler>::new(NopScheduler),
             InMemoryCorpus::new(NopScheduler),
-            &mut (),
-            &mut (),
         )
     }
 }

@@ -9,12 +9,7 @@ use libafl_bolts::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    Error,
-    common::MetadataResolver,
-    corpus::Testcase,
-    feedbacks::Feedback,
-    observers::{StdErrObserver, StdOutObserver},
-    state::{add_named_metadata, HasTestcase},
+    DependencyResolver, Error, corpus::Testcase, feedbacks::Feedback, observers::{StdErrObserver, StdOutObserver}, state::{HasTestcase, add_named_metadata}
 };
 
 /// Metadata for [`StdOutToMetadataFeedback`].
@@ -32,7 +27,7 @@ pub struct StdOutToMetadataFeedback {
     o_ref: Handle<StdOutObserver>,
 }
 
-impl MetadataResolver for StdOutToMetadataFeedback {}
+impl DependencyResolver for StdOutToMetadataFeedback {}
 
 impl<I, OT, S> Feedback<I, OT, S> for StdOutToMetadataFeedback
 where
@@ -101,7 +96,7 @@ pub struct StdErrToMetadataFeedback {
     o_ref: Handle<StdErrObserver>,
 }
 
-impl MetadataResolver for StdErrToMetadataFeedback {}
+impl DependencyResolver for StdErrToMetadataFeedback {}
 
 impl<I, OT, S> Feedback<I, OT, S> for StdErrToMetadataFeedback
 where
