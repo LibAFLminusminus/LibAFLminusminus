@@ -33,7 +33,7 @@ pub trait Store<I> {
         self.count() == 0
     }
 
-    /// Store the testcase associated to `corpus_id` to the set.
+    /// Store the testcase associated to `corpus_id` to the set. Fails when there's another testcase already registered with the same testcase id.
     fn add_shared<const ENABLED: bool>(&mut self, input: Rc<I>) -> Result<TestcaseId, Error>;
 
     /// Get testcase by id; considers only enabled testcases
