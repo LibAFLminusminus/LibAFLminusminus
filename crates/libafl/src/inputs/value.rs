@@ -2,7 +2,7 @@
 //! This allows us to wrap common types as [`Input`], such as [`alloc::vec::Vec<u8>`] as [`crate::inputs::BytesInput`] and use those for mutations.
 
 use alloc::vec::Vec;
-use core::{fmt::Debug, hash::Hash, marker::PhantomData, mem::size_of};
+use core::{fmt::Debug, hash::Hash, marker::PhantomData};
 
 use libafl_bolts::{Error, ownedref::OwnedSlice, rands::Rand};
 use serde::{Deserialize, Serialize};
@@ -12,15 +12,15 @@ use {
     std::{fs::File, io::Read, path::Path},
 };
 
-use crate::inputs::{FromTargetBytesConverter, Input, ToTargetBytesConverter};
+use crate::inputs::{Input, InputContext};
 
 /// A wrapper that implements [`FromTargetBytesConverter`] for [`ValueInput`] of primitives
-#[derive(Debug, Clone, Default)]
-pub struct PrimitiveInputConverter<T> {
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
+pub struct PrimitiveContext<T> {
     phantom: PhantomData<T>,
 }
 
-impl<T> PrimitiveInputConverter<T> {
+impl<T> PrimitiveContext<T> {
     /// Creates a new [`PrimitiveInputConverter`]
     #[must_use]
     pub fn new() -> Self {
@@ -69,11 +69,11 @@ impl<T> AsMut<T> for ValueInput<T> {
 impl<T: Copy> Copy for ValueInput<T> {}
 
 // Macro to implement the `Input` trait and create type aliases for `WrappingInput<T>`
-#[cfg(not(feature = "remove_me"))]
 macro_rules! impl_input_for_value_input {
     ($($t:ty => $name:ident),+ $(,)?) => {
         $(
-            impl Input for ValueInput<$t> {}
+            impl Input for ValueInput<$t> {
+            }
 
             /// Input wrapping a <$t>
             pub type $name = ValueInput<$t>;
@@ -82,7 +82,6 @@ macro_rules! impl_input_for_value_input {
 }
 
 // Invoke the macro with type-name pairs
-#[cfg(not(feature = "remove_me"))]
 impl_input_for_value_input!(
     u8 => U8Input,
     u16 => U16Input,
@@ -98,40 +97,63 @@ impl_input_for_value_input!(
     isize => IsizeInput,
 );
 
-macro_rules! impl_from_target_bytes_for_primitive {
+macro_rules! impl_to_bytes_for_primitive {
     ($($t:ty),+ $(,)?) => {
         $(
-            impl<S> FromTargetBytesConverter<ValueInput<$t>, S> for PrimitiveInputConverter<$t> {
-                fn convert_from_target_bytes(&mut self, _state: &mut S, bytes: &[u8]) -> Result<ValueInput<$t>, Error> {
-                    if bytes.len() != size_of::<$t>() {
-                        return Err(Error::illegal_argument(format!(
-                            "Expected {} bytes for {}, got {}",
-                            size_of::<$t>(),
-                            stringify!($t),
-                            bytes.len()
-                        )));
-                    }
-                    // Safety: We checked the length above
-                    let bytes: [u8; size_of::<$t>()] = bytes.try_into().unwrap();
-                    Ok(ValueInput::new(<$t>::from_le_bytes(bytes)))
-                }
-            }
-
-            impl<S> ToTargetBytesConverter<ValueInput<$t>, S> for PrimitiveInputConverter<$t> {
-                fn convert_to_target_bytes<'a>(&mut self, _state: &mut S, input: &'a ValueInput<$t>) -> OwnedSlice<'a, u8> {
+            impl InputContext<ValueInput<$t>> for PrimitiveContext<$t> {
+                fn to_bytes<'a>(&mut self, input: &'a ValueInput<$t>) -> OwnedSlice<'a, u8> {
                     OwnedSlice::from(input.into_inner().to_le_bytes().to_vec())
                 }
             }
         )*
     };
 }
-
-impl_from_target_bytes_for_primitive!(
+impl_to_bytes_for_primitive!(
     u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize
 );
+// Macro to implement the Numeric trait for multiple integer types a u64 can be cast to
+macro_rules! impl_numeric_cast_randomize {
+    ($($t:ty)*) => ($(
+        impl Numeric for $t {
+            #[inline]
+            fn flip_all_bits(&mut self) {
+                *self = !*self;
+            }
+
+            #[inline]
+            fn flip_bit_at(&mut self, offset: usize) {
+                *self ^= 1 << offset;
+            }
+
+            #[inline]
+            fn wrapping_inc(&mut self) {
+                *self = self.wrapping_add(1);
+            }
+
+            #[inline]
+            fn wrapping_dec(&mut self) {
+                *self = self.wrapping_sub(1);
+            }
+
+            #[inline]
+            fn twos_complement(&mut self) {
+                *self = self.wrapping_neg();
+            }
+
+            #[inline]
+            #[allow(trivial_numeric_casts, clippy::cast_possible_wrap)] // only for some macro calls
+            fn randomize<R: Rand>(&mut self, rand: &mut R) {
+                *self = rand.next() as $t;
+            }
+
+        }
+    )*)
+}
+impl_numeric_cast_randomize!( u8 u16 u32 u64 usize i8 i16 i32 i64 isize );
 
 /// manually implemented because files can be written more efficiently
 impl Input for ValueInput<Vec<u8>> {
+
     /// Write this input to the file
     #[cfg(feature = "std")]
     fn to_file<P>(&self, path: P) -> Result<(), Error>
@@ -209,12 +231,80 @@ where
     }
 }
 
+// Macro to implement the Numeric trait for multiple integer types a u64 cannot be cast to
+macro_rules! impl_numeric_128_bits_randomize {
+    ($($t:ty)*) => ($(
+        impl Numeric for $t {
+            #[inline]
+            fn flip_all_bits(&mut self) {
+                *self = !*self;
+            }
+
+            #[inline]
+            fn flip_bit_at(&mut self, offset: usize) {
+                *self ^= 1 << offset;
+            }
+
+            #[inline]
+            fn wrapping_inc(&mut self) {
+                *self = self.wrapping_add(1);
+            }
+
+            #[inline]
+            fn wrapping_dec(&mut self) {
+                *self = self.wrapping_sub(1);
+            }
+
+            #[inline]
+            fn twos_complement(&mut self) {
+                *self = self.wrapping_neg();
+            }
+
+            #[inline]
+            #[allow(trivial_numeric_casts, clippy::cast_possible_wrap)] // only for some macro calls
+            fn randomize<R: Rand>(&mut self, rand: &mut R) {
+                *self = (u128::from(rand.next()) << 64 | u128::from(rand.next())) as $t;
+            }
+
+        }
+    )*)
+}
+
+// Apply the macro to all desired integer types
+impl_numeric_128_bits_randomize! { u128 i128 }
+
+impl<I: Numeric> Numeric for &mut I {
+    fn flip_all_bits(&mut self) {
+        (*self).flip_all_bits();
+    }
+
+    fn flip_bit_at(&mut self, offset: usize) {
+        (*self).flip_bit_at(offset);
+    }
+
+    fn wrapping_inc(&mut self) {
+        (*self).wrapping_inc();
+    }
+
+    fn wrapping_dec(&mut self) {
+        (*self).wrapping_dec();
+    }
+
+    fn twos_complement(&mut self) {
+        (*self).twos_complement();
+    }
+
+    fn randomize<R: Rand>(&mut self, rand: &mut R) {
+        (*self).randomize(rand);
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use {
-        super::ValueInput, crate::mutators::numeric::Numeric, core::any::type_name,
-        core::fmt::Debug,
-    };
+    use core::{any::type_name, fmt::Debug};
+
+    use super::ValueInput;
+    use crate::inputs::value::Numeric;
 
     macro_rules! apply_all_ops {
         ($prep:stmt, $value:expr, $type:ty, $check_twos_complement:expr) => {{
@@ -302,26 +392,5 @@ mod tests {
         take_numeric(&i64::MAX, true);
         take_numeric(&i128::MAX, true);
         take_numeric(&isize::MAX, true);
-    }
-
-    #[test]
-    fn test_primitive_input_converter() {
-        use super::{PrimitiveInputConverter, ValueInput};
-        use crate::inputs::{FromBytesInputConverter, InputConverter};
-
-        let expected_val: u32 = 0xdeadbeef;
-        let bytes = expected_val.to_le_bytes();
-        let mut converter = FromBytesInputConverter::new(PrimitiveInputConverter::default());
-        let val_input: ValueInput<u32> =
-            converter.convert(&mut (), bytes.as_slice().into()).unwrap();
-        assert_eq!(*val_input.as_ref(), expected_val);
-
-        // Test invalid length
-        let invalid_bytes = vec![0; 3];
-        assert!(
-            converter
-                .convert(&mut (), invalid_bytes.as_slice().into())
-                .is_err()
-        );
     }
 }

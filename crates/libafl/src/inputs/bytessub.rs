@@ -207,6 +207,8 @@ where
         self.range.len()
     }
 }
+
+#[cfg(not(feature = "remove_me"))]
 #[cfg(test)]
 mod tests {
     use alloc::vec::Vec;

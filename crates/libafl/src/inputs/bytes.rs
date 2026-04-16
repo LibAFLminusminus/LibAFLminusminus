@@ -6,15 +6,26 @@ use alloc::{
     rc::Rc,
     vec::{self, Vec},
 };
+use serde::{Deserialize, Serialize};
 use core::cell::RefCell;
 
 use libafl_bolts::{HasLen, ownedref::OwnedSlice};
 
 use super::ValueInput;
-use crate::inputs::{HasMutatorBytes, HasTargetBytes, ResizableMutator};
+use crate::inputs::{HasMutatorBytes, InputContext, ResizableMutator};
 
 /// A bytes input is the basic input
 pub type BytesInput = ValueInput<Vec<u8>>;
+
+#[derive(Default, Clone, Copy, Serialize, Deserialize)]
+pub struct BytesContext {
+}
+
+impl InputContext<BytesInput> for BytesContext {
+    fn to_bytes<'a>(&mut self, input: &'a BytesInput) -> OwnedSlice<'a, u8> {
+        OwnedSlice::from(input.as_ref())
+    }
+}
 
 /// Rc Ref-cell from Input
 impl From<BytesInput> for Rc<RefCell<BytesInput>> {
@@ -55,13 +66,6 @@ impl ResizableMutator<u8> for BytesInput {
         R: core::ops::RangeBounds<usize>,
     {
         self.as_mut().drain(range)
-    }
-}
-
-impl HasTargetBytes for BytesInput {
-    #[inline]
-    fn target_bytes(&self) -> OwnedSlice<'_, u8> {
-        OwnedSlice::from(self.as_ref())
     }
 }
 

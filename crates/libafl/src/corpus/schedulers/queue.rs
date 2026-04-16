@@ -84,7 +84,9 @@ mod tests {
             Corpus, InMemoryCorpus, OnDiskCorpus,
             schedulers::{NopScheduler, QueueScheduler, Scheduler},
         },
-        inputs::bytes::BytesInput,
+        inputs::{
+            bytes::{BytesContext, BytesInput},
+        },
         state::{HasCorpus, StdState},
     };
 
@@ -92,17 +94,20 @@ mod tests {
     fn test_queuecorpus() {
         let rand = StdRand::with_seed(4);
         let scheduler: QueueScheduler = QueueScheduler::new();
+        let context = BytesContext::default();
 
-        let corpus = OnDiskCorpus::<BytesInput, QueueScheduler>::new(
+        let corpus = OnDiskCorpus::<BytesContext, BytesInput, QueueScheduler>::new(
             PathBuf::from("target/.test/fancy/path"),
+            context.clone(),
             scheduler,
         )
         .unwrap();
         // let t = Testcase::with_filename(BytesInput::new(vec![0_u8; 4]), "fancyfile".into());
         // q.add(t).unwrap();
 
-        let objective = OnDiskCorpus::<BytesInput, NopScheduler>::new(
+        let objective = OnDiskCorpus::<BytesContext, BytesInput, NopScheduler>::new(
             PathBuf::from("target/.test/fancy/objective/path"),
+            context,
             NopScheduler,
         )
         .unwrap();
@@ -127,8 +132,12 @@ mod tests {
     fn test_queue_scheduler() {
         let rand = StdRand::with_seed(42);
         let scheduler = QueueScheduler::new();
+        let context = BytesContext::default();
 
-        let mut q = InMemoryCorpus::<BytesInput, QueueScheduler>::new(scheduler);
+        let mut q = InMemoryCorpus::<BytesContext, BytesInput, QueueScheduler>::new(
+            context.clone(),
+            scheduler,
+        );
         let t1 = BytesInput::new(vec![0_u8; 4]);
         let t2 = BytesInput::new(vec![0_u8; 4]);
         let t3 = BytesInput::new(vec![0_u8; 4]);
@@ -137,7 +146,7 @@ mod tests {
         let id2 = q.add(t2).unwrap();
         let id3 = q.add(t3).unwrap();
 
-        let mut state = StdState::new(rand, q, InMemoryCorpus::new(NopScheduler)).unwrap();
+        let mut state = StdState::new(rand, q, InMemoryCorpus::new(context, NopScheduler)).unwrap();
 
         let next_id = state.corpus_mut().scheduler_mut().next().unwrap();
         assert_eq!(next_id, id1);
