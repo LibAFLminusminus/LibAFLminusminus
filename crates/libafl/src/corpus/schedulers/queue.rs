@@ -19,19 +19,19 @@ pub struct QueueScheduler {
 
 impl DependencyResolver for QueueScheduler {}
 
-impl<S> Scheduler<S> for QueueScheduler {
-    fn on_add(&mut self, _state: &mut S, id: CorpusId) -> Result<(), Error> {
+impl Scheduler for QueueScheduler {
+    fn on_add(&mut self, id: CorpusId) -> Result<(), Error> {
         self.queue.push(id);
 
         Ok(())
     }
 
-    fn current(&self, _state: &mut S) -> Option<CorpusId> {
+    fn current(&self) -> Option<CorpusId> {
         self.current.map(|idx| self.queue[idx].clone())
     }
 
     /// Gets the next entry in the queue
-    fn next(&mut self, _state: &mut S) -> Result<CorpusId, Error> {
+    fn next(&mut self) -> Result<CorpusId, Error> {
         if self.queue.is_empty() {
             Err(Error::empty("Scheduler queue is empty.".to_owned()))
         } else {
@@ -103,8 +103,7 @@ mod tests {
         )
         .unwrap();
 
-        let _state =
-            StdState::new(rand, corpus, objective).unwrap();
+        let _state = StdState::new(rand, corpus, objective).unwrap();
 
         // let filename = state
         //     .corpus()
@@ -121,9 +120,9 @@ mod tests {
     }
 
     #[test]
-    fn test_queue_scheduler_removal() {
+    fn test_queue_scheduler() {
         let rand = StdRand::with_seed(42);
-        let mut scheduler = QueueScheduler::new();
+        let scheduler = QueueScheduler::new();
 
         let mut q = InMemoryCorpus::<BytesInput, QueueScheduler>::new(scheduler);
         let t1 = BytesInput::new(vec![0_u8; 4]);
@@ -134,20 +133,15 @@ mod tests {
         let id2 = q.add(t2).unwrap();
         let id3 = q.add(t3).unwrap();
 
-        let mut state = StdState::new(
-            rand,
-            q,
-            InMemoryCorpus::new(NopScheduler),
-        )
-        .unwrap();
+        let mut state = StdState::new(rand, q, InMemoryCorpus::new(NopScheduler)).unwrap();
 
-        let next_id = state.corpus_mut().scheduler_mut().next(&mut state).unwrap();
+        let next_id = state.corpus_mut().scheduler_mut().next().unwrap();
         assert_eq!(next_id, id1);
 
-        let next_id = scheduler.next(&mut state).unwrap();
+        let next_id = state.corpus_mut().scheduler_mut().next().unwrap();
         assert_eq!(next_id, id2);
 
-        let next_id = scheduler.next(&mut state).unwrap();
+        let next_id = state.corpus_mut().scheduler_mut().next().unwrap();
         assert_eq!(next_id, id3);
     }
 }

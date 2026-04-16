@@ -2,6 +2,7 @@
 
 use alloc::{borrow::Cow, string::String};
 
+use hashbrown::HashMap;
 use libafl_bolts::{
     Named, impl_serdeany,
     tuples::{Handle, Handled, MatchName, MatchNameRef},
@@ -9,13 +10,17 @@ use libafl_bolts::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    DependencyResolver, Error, corpus::Testcase, feedbacks::Feedback, observers::{StdErrObserver, StdOutObserver}, state::{HasTestcase, add_named_metadata}
+    DependencyResolver, Error,
+    corpus::{Testcase, testcase::TestcaseId},
+    feedbacks::Feedback,
+    observers::{StdErrObserver, StdOutObserver},
+    state::{FlatState, HasTestcase},
 };
 
 /// Metadata for [`StdOutToMetadataFeedback`].
 #[derive(Debug, Serialize, Deserialize)]
 pub struct StdOutMetadata {
-    stdout: String,
+    stdout: HashMap<TestcaseId, String>,
 }
 
 impl_serdeany!(StdOutMetadata);
@@ -32,7 +37,7 @@ impl DependencyResolver for StdOutToMetadataFeedback {}
 impl<I, OT, S> Feedback<I, OT, S> for StdOutToMetadataFeedback
 where
     OT: MatchName,
-    S: HasTestcase<I>,
+    S: HasTestcase<I> + FlatState,
 {
     #[cfg(feature = "track_hit_feedbacks")]
     fn last_result(&self) -> Result<bool, Error> {
@@ -55,11 +60,12 @@ where
             .as_ref()
             .ok_or_else(|| Error::illegal_state("StdOutObserver has no stdout"))?;
         let stdout = String::from_utf8_lossy(buffer).into_owned();
-        add_named_metadata(
-            state.testcase_md_mut(testcase).named_metadata_map_mut(),
-            self.name(),
-            StdOutMetadata { stdout },
-        );
+        state
+            .named_metadata_map_mut()
+            .get_mut::<StdOutMetadata>(&self.name())
+            .unwrap()
+            .stdout
+            .insert(*testcase.id(), stdout);
         Ok(())
     }
 }
@@ -84,7 +90,7 @@ impl StdOutToMetadataFeedback {
 /// Metadata for [`StdErrToMetadataFeedback`].
 #[derive(Debug, Serialize, Deserialize)]
 pub struct StdErrMetadata {
-    stderr: String,
+    stderr: HashMap<TestcaseId, String>,
 }
 
 impl_serdeany!(StdErrMetadata);
@@ -101,7 +107,7 @@ impl DependencyResolver for StdErrToMetadataFeedback {}
 impl<I, OT, S> Feedback<I, OT, S> for StdErrToMetadataFeedback
 where
     OT: MatchName,
-    S: HasTestcase<I>
+    S: HasTestcase<I> + FlatState,
 {
     #[cfg(feature = "track_hit_feedbacks")]
     fn last_result(&self) -> Result<bool, Error> {
@@ -124,11 +130,12 @@ where
             .as_ref()
             .ok_or_else(|| Error::illegal_state("StdErrObserver has no stderr"))?;
         let stderr = String::from_utf8_lossy(buffer).into_owned();
-        add_named_metadata(
-            state.testcase_md_mut(testcase).named_metadata_map_mut(),
-            self.name(),
-            StdErrMetadata { stderr },
-        );
+        state
+            .named_metadata_map_mut()
+            .get_mut::<StdErrMetadata>(&self.name())
+            .unwrap()
+            .stderr
+            .insert(*testcase.id(), stderr);
 
         Ok(())
     }
