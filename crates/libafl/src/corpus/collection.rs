@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     DependencyResolver,
     corpus::{
-        Corpus, CorpusId, InMemoryStore, OnDiskStore, SingleCorpus, Testcase,
+        Corpus, InMemoryStore, OnDiskStore, SingleCorpus, Testcase,
         TestcaseFilenameFormat,
         maps::{self, InMemoryCorpusMap},
         store::{Store, ondisk::OnDiskStoreBuilder},
@@ -72,39 +72,39 @@ where
         self.0.count()
     }
 
-    fn add(&mut self, id: CorpusId, testcase: Testcase<I>) {
+    fn add(&mut self, id: TestcaseId, testcase: Testcase<I>) {
         self.0.add(id, testcase);
     }
 
-    fn get(&self, id: CorpusId) -> Option<&Testcase<I>> {
+    fn get(&self, id: TestcaseId) -> Option<&Testcase<I>> {
         self.0.get(id)
     }
 
-    fn get_mut(&mut self, id: CorpusId) -> Option<&mut Testcase<I>> {
+    fn get_mut(&mut self, id: TestcaseId) -> Option<&mut Testcase<I>> {
         self.0.get_mut(id)
     }
 
-    fn remove(&mut self, id: CorpusId) -> Option<Testcase<I>> {
+    fn remove(&mut self, id: TestcaseId) -> Option<Testcase<I>> {
         self.0.remove(id)
     }
 
-    fn prev(&self, id: CorpusId) -> Option<CorpusId> {
+    fn prev(&self, id: TestcaseId) -> Option<TestcaseId> {
         self.0.prev(id)
     }
 
-    fn next(&self, id: CorpusId) -> Option<CorpusId> {
+    fn next(&self, id: TestcaseId) -> Option<TestcaseId> {
         self.0.next(id)
     }
 
-    fn first(&self) -> Option<CorpusId> {
+    fn first(&self) -> Option<TestcaseId> {
         self.0.first()
     }
 
-    fn last(&self) -> Option<CorpusId> {
+    fn last(&self) -> Option<TestcaseId> {
         self.0.last()
     }
 
-    fn nth(&self, nth: usize) -> CorpusId {
+    fn nth(&self, nth: usize) -> TestcaseId {
         self.0.nth(nth)
     }
 }
@@ -121,15 +121,15 @@ where
         self.0.count_disabled()
     }
 
-    fn add_shared<const ENABLED: bool>(&mut self, id: CorpusId, input: Rc<I>) -> Result<(), Error> {
-        self.0.add_shared::<ENABLED>(id, input)
+    fn add_shared<const ENABLED: bool>(&mut self, input: Rc<I>) -> Result<TestcaseId, Error> {
+        self.0.add_shared::<ENABLED>(input)
     }
 
-    fn get_from<const ENABLED: bool>(&self, id: CorpusId) -> Result<Testcase<I>, Error> {
+    fn get_from<const ENABLED: bool>(&self, id: TestcaseId) -> Result<Testcase<I>, Error> {
         self.0.get_from::<ENABLED>(id)
     }
 
-    fn disable(&mut self, id: CorpusId) -> Result<(), Error> {
+    fn disable(&mut self, id: TestcaseId) -> Result<(), Error> {
         self.0.disable(id)
     }
 }
@@ -146,15 +146,15 @@ where
         self.0.count_disabled()
     }
 
-    fn add_shared<const ENABLED: bool>(&mut self, id: CorpusId, input: Rc<I>) -> Result<(), Error> {
-        self.0.add_shared::<ENABLED>(id, input)
+    fn add_shared<const ENABLED: bool>(&mut self, input: Rc<I>) -> Result<TestcaseId, Error> {
+        self.0.add_shared::<ENABLED>(input)
     }
 
-    fn get_from<const ENABLED: bool>(&self, id: CorpusId) -> Result<Testcase<I>, Error> {
+    fn get_from<const ENABLED: bool>(&self, id: TestcaseId) -> Result<Testcase<I>, Error> {
         self.0.get_from::<ENABLED>(id)
     }
 
-    fn disable(&mut self, id: CorpusId) -> Result<(), Error> {
+    fn disable(&mut self, id: TestcaseId) -> Result<(), Error> {
         self.0.disable(id)
     }
 }
@@ -188,11 +188,11 @@ where
         self.0.count_all()
     }
 
-    fn add_shared<const ENABLED: bool>(&mut self, input: Rc<I>) -> Result<CorpusId, Error> {
+    fn add_shared<const ENABLED: bool>(&mut self, input: Rc<I>) -> Result<TestcaseId, Error> {
         self.0.add_shared::<ENABLED>(input)
     }
 
-    fn get_from<const ENABLED: bool>(&self, id: CorpusId) -> Result<Testcase<I>, Error> {
+    fn get_from<const ENABLED: bool>(&self, id: TestcaseId) -> Result<Testcase<I>, Error> {
         self.0.get_from::<ENABLED>(id)
     }
 
@@ -209,7 +209,7 @@ where
 // where
 //     SC: RemovableScheduler<I, S>,
 // {
-//     fn disable(&mut self, id: CorpusId) -> Result<(), Error> {
+//     fn disable(&mut self, id: TestcaseId) -> Result<(), Error> {
 //         self.0.disable(id)
 //     }
 // }
@@ -289,11 +289,11 @@ where
         self.0.count_all()
     }
 
-    fn add_shared<const ENABLED: bool>(&mut self, input: Rc<I>) -> Result<CorpusId, Error> {
+    fn add_shared<const ENABLED: bool>(&mut self, input: Rc<I>) -> Result<TestcaseId, Error> {
         self.0.add_shared::<ENABLED>(input)
     }
 
-    fn get_from<const ENABLED: bool>(&self, id: CorpusId) -> Result<Testcase<I>, Error> {
+    fn get_from<const ENABLED: bool>(&self, id: TestcaseId) -> Result<Testcase<I>, Error> {
         self.0.get_from::<ENABLED>(id)
     }
 
@@ -307,7 +307,7 @@ where
 }
 
 // impl<I, SC> DisableEntry for OnDiskCorpus<I, SC> {
-//     fn disable(&mut self, id: CorpusId) -> Result<(), Error> {
+//     fn disable(&mut self, id: TestcaseId) -> Result<(), Error> {
 //         self.0.disable(id)
 //     }
 // }

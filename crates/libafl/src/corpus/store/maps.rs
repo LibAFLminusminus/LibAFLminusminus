@@ -5,7 +5,7 @@ use alloc::{collections::BTreeMap, vec::Vec};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 
-use crate::corpus::CorpusId;
+use crate::corpus::testcase::TestcaseId;
 
 /// A trait implemented by in-memory corpus maps
 pub trait InMemoryCorpusMap<T> {
@@ -18,46 +18,46 @@ pub trait InMemoryCorpusMap<T> {
     }
 
     /// Store the testcase associated to `corpus_id`.
-    fn add(&mut self, id: CorpusId, testcase: T);
+    fn add(&mut self, id: TestcaseId, testcase: T);
 
     /// Get by id; considers only enabled testcases
-    fn get(&self, id: CorpusId) -> Option<&T>;
+    fn get(&self, id: TestcaseId) -> Option<&T>;
 
     /// Get by id; considers only enabled testcases
-    fn get_mut(&mut self, id: CorpusId) -> Option<&mut T>;
+    fn get_mut(&mut self, id: TestcaseId) -> Option<&mut T>;
 
     /// Remove a testcase from the map, returning the removed testcase if present.
-    fn remove(&mut self, id: CorpusId) -> Option<T>;
+    fn remove(&mut self, id: TestcaseId) -> Option<T>;
 
     /// Get the prev corpus id in chronological order
-    fn prev(&self, id: CorpusId) -> Option<CorpusId>;
+    fn prev(&self, id: TestcaseId) -> Option<TestcaseId>;
 
     /// Get the next corpus id in chronological order
-    fn next(&self, id: CorpusId) -> Option<CorpusId>;
+    fn next(&self, id: TestcaseId) -> Option<TestcaseId>;
 
     /// Get the first inserted corpus id
-    fn first(&self) -> Option<CorpusId>;
+    fn first(&self) -> Option<TestcaseId>;
 
     /// Get the last inserted corpus id
-    fn last(&self) -> Option<CorpusId>;
+    fn last(&self) -> Option<TestcaseId>;
 
     /// Get the nth inserted item
-    fn nth(&self, nth: usize) -> CorpusId;
+    fn nth(&self, nth: usize) -> TestcaseId;
 }
 
-/// A history for [`CorpusId`]
+/// A history for [`TestcaseId`]
 #[derive(Default, Serialize, Deserialize, Clone, Debug)]
-pub struct CorpusIdHistory {
-    keys: Vec<CorpusId>,
+pub struct TestcaseIdHistory {
+    keys: Vec<TestcaseId>,
 }
 
 /// A [`BTreeMap`] based [`InMemoryCorpusMap`]
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct BtreeCorpusMap<T> {
-    /// A map of `CorpusId` to `Testcase`.
-    map: BTreeMap<CorpusId, T>,
+    /// A map of `TestcaseId` to `Testcase`.
+    map: BTreeMap<TestcaseId, T>,
     /// A list of available corpus ids
-    history: CorpusIdHistory,
+    history: TestcaseIdHistory,
 }
 
 /// Keep track of the stored `Testcase` and the siblings ids (insertion order)
@@ -66,29 +66,29 @@ pub struct TestcaseStorageItem<T> {
     /// The stored testcase
     pub testcase: T,
     /// Previously inserted id
-    pub prev: Option<CorpusId>,
+    pub prev: Option<TestcaseId>,
     /// Following inserted id
-    pub next: Option<CorpusId>,
+    pub next: Option<TestcaseId>,
 }
 
 /// A [`hashbrown::HashMap`] based [`InMemoryCorpusMap`]
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct HashCorpusMap<T> {
-    /// A map of `CorpusId` to `TestcaseStorageItem`
-    map: hashbrown::HashMap<CorpusId, TestcaseStorageItem<T>>,
+    /// A map of `TestcaseId` to `TestcaseStorageItem`
+    map: hashbrown::HashMap<TestcaseId, TestcaseStorageItem<T>>,
     /// First inserted id
-    first_id: Option<CorpusId>,
+    first_id: Option<TestcaseId>,
     /// Last inserted id
-    last_id: Option<CorpusId>,
+    last_id: Option<TestcaseId>,
     /// A list of available corpus ids
-    history: CorpusIdHistory,
+    history: TestcaseIdHistory,
 }
 
 impl<T> Default for BtreeCorpusMap<T> {
     fn default() -> Self {
         Self {
             map: BTreeMap::default(),
-            history: CorpusIdHistory::default(),
+            history: TestcaseIdHistory::default(),
         }
     }
 }
@@ -99,28 +99,28 @@ impl<T> Default for HashCorpusMap<T> {
             map: hashbrown::HashMap::default(),
             first_id: None,
             last_id: None,
-            history: CorpusIdHistory::default(),
+            history: TestcaseIdHistory::default(),
         }
     }
 }
 
-impl CorpusIdHistory {
+impl TestcaseIdHistory {
     ///  Add a key to the history
-    pub fn add(&mut self, id: CorpusId) {
+    pub fn add(&mut self, id: TestcaseId) {
         if let Err(idx) = self.keys.binary_search(&id) {
             self.keys.insert(idx, id);
         }
     }
 
     /// Remove a key from the history
-    pub fn remove(&mut self, id: CorpusId) {
+    pub fn remove(&mut self, id: TestcaseId) {
         if let Ok(idx) = self.keys.binary_search(&id) {
             self.keys.remove(idx);
         }
     }
 
     // Get the nth item from the map
-    fn nth(&self, idx: usize) -> CorpusId {
+    fn nth(&self, idx: usize) -> TestcaseId {
         self.keys[idx]
     }
 }
@@ -134,7 +134,7 @@ impl<T> InMemoryCorpusMap<T> for HashCorpusMap<T> {
         self.map.is_empty()
     }
 
-    fn add(&mut self, id: CorpusId, testcase: T) {
+    fn add(&mut self, id: TestcaseId, testcase: T) {
         let prev = if let Some(last_id) = self.last_id {
             self.map.get_mut(&last_id).unwrap().next = Some(id);
             Some(last_id)
@@ -160,15 +160,15 @@ impl<T> InMemoryCorpusMap<T> for HashCorpusMap<T> {
         );
     }
 
-    fn get(&self, id: CorpusId) -> Option<&T> {
+    fn get(&self, id: TestcaseId) -> Option<&T> {
         self.map.get(&id).map(|inner| &inner.testcase)
     }
 
-    fn get_mut(&mut self, id: CorpusId) -> Option<&mut T> {
+    fn get_mut(&mut self, id: TestcaseId) -> Option<&mut T> {
         self.map.get_mut(&id).map(|storage| &mut storage.testcase)
     }
 
-    fn remove(&mut self, id: CorpusId) -> Option<T> {
+    fn remove(&mut self, id: TestcaseId) -> Option<T> {
         let entry = self.map.remove(&id)?;
         self.history.remove(id);
 
@@ -183,29 +183,29 @@ impl<T> InMemoryCorpusMap<T> for HashCorpusMap<T> {
         Some(entry.testcase)
     }
 
-    fn prev(&self, id: CorpusId) -> Option<CorpusId> {
+    fn prev(&self, id: TestcaseId) -> Option<TestcaseId> {
         match self.map.get(&id) {
             Some(item) => item.prev,
             _ => None,
         }
     }
 
-    fn next(&self, id: CorpusId) -> Option<CorpusId> {
+    fn next(&self, id: TestcaseId) -> Option<TestcaseId> {
         match self.map.get(&id) {
             Some(item) => item.next,
             _ => None,
         }
     }
 
-    fn first(&self) -> Option<CorpusId> {
+    fn first(&self) -> Option<TestcaseId> {
         self.first_id
     }
 
-    fn last(&self) -> Option<CorpusId> {
+    fn last(&self) -> Option<TestcaseId> {
         self.last_id
     }
 
-    fn nth(&self, nth: usize) -> CorpusId {
+    fn nth(&self, nth: usize) -> TestcaseId {
         self.history.nth(nth)
     }
 }
@@ -219,27 +219,27 @@ impl<T> InMemoryCorpusMap<T> for BtreeCorpusMap<T> {
         self.map.is_empty()
     }
 
-    fn add(&mut self, id: CorpusId, testcase: T) {
+    fn add(&mut self, id: TestcaseId, testcase: T) {
         // corpus.insert_key(id);
         self.map.insert(id, testcase);
         self.history.add(id);
     }
 
-    fn get(&self, id: CorpusId) -> Option<&T> {
+    fn get(&self, id: TestcaseId) -> Option<&T> {
         self.map.get(&id)
     }
 
-    fn get_mut(&mut self, id: CorpusId) -> Option<&mut T> {
+    fn get_mut(&mut self, id: TestcaseId) -> Option<&mut T> {
         self.map.get_mut(&id)
     }
 
-    fn remove(&mut self, id: CorpusId) -> Option<T> {
+    fn remove(&mut self, id: TestcaseId) -> Option<T> {
         let ret = self.map.remove(&id)?;
         self.history.remove(id);
         Some(ret)
     }
 
-    fn prev(&self, id: CorpusId) -> Option<CorpusId> {
+    fn prev(&self, id: TestcaseId) -> Option<TestcaseId> {
         // TODO see if using self.keys is faster
         let mut range = self
             .map
@@ -256,7 +256,7 @@ impl<T> InMemoryCorpusMap<T> for BtreeCorpusMap<T> {
         }
     }
 
-    fn next(&self, id: CorpusId) -> Option<CorpusId> {
+    fn next(&self, id: TestcaseId) -> Option<TestcaseId> {
         // TODO see if using self.keys is faster
         let mut range = self
             .map
@@ -273,15 +273,15 @@ impl<T> InMemoryCorpusMap<T> for BtreeCorpusMap<T> {
         }
     }
 
-    fn first(&self) -> Option<CorpusId> {
+    fn first(&self) -> Option<TestcaseId> {
         self.map.iter().next().map(|x| *x.0)
     }
 
-    fn last(&self) -> Option<CorpusId> {
+    fn last(&self) -> Option<TestcaseId> {
         self.map.iter().next_back().map(|x| *x.0)
     }
 
-    fn nth(&self, nth: usize) -> CorpusId {
+    fn nth(&self, nth: usize) -> TestcaseId {
         self.history.nth(nth)
     }
 }

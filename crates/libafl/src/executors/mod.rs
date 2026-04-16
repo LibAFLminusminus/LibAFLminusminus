@@ -17,7 +17,7 @@ use crate::{
     Error,
     observers::ObserversTuple,
     runtimes::RuntimeHandle,
-    state::{FlatState, State},
+    state::FlatState,
 };
 
 // /// The module for all the executor hooks

@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{InMemoryCorpusMap, RemovableStore, Store};
 use crate::{
-    corpus::{CorpusId, Testcase},
+    corpus::{testcase::TestcaseId, Testcase},
     inputs::Input,
 };
 
@@ -50,17 +50,19 @@ where
         self.enabled_map.is_empty()
     }
 
-    fn add_shared<const ENABLED: bool>(&mut self, id: CorpusId, input: Rc<I>) -> Result<(), Error> {
+    fn add_shared<const ENABLED: bool>(&mut self, input: Rc<I>) -> Result<TestcaseId, Error> {
+        let testcase = Testcase::new(input);
+        let testcase_id = *testcase.id();
         if ENABLED {
-            self.enabled_map.add(id, Testcase::new(input));
-            Ok(())
+            self.enabled_map.add(testcase_id, testcase);
+            Ok(testcase_id)
         } else {
-            self.disabled_map.add(id, Testcase::new(input));
-            Ok(())
+            self.disabled_map.add(testcase_id, testcase);
+            Ok(testcase_id)
         }
     }
 
-    fn get_from<const ENABLED: bool>(&self, id: CorpusId) -> Result<Testcase<I>, Error> {
+    fn get_from<const ENABLED: bool>(&self, id: TestcaseId) -> Result<Testcase<I>, Error> {
         if ENABLED {
             self.enabled_map
                 .get(id)
@@ -79,7 +81,7 @@ where
         }
     }
 
-    fn disable(&mut self, id: CorpusId) -> Result<(), Error> {
+    fn disable(&mut self, id: TestcaseId) -> Result<(), Error> {
         let tc = self
             .enabled_map
             .remove(id)
@@ -94,7 +96,7 @@ where
     M: InMemoryCorpusMap<Testcase<I>>,
     I: Input,
 {
-    fn remove(&mut self, id: CorpusId) -> Result<Testcase<I>, Error> {
+    fn remove(&mut self, id: TestcaseId) -> Result<Testcase<I>, Error> {
         if let Some(tc) = self.enabled_map.remove(id) {
             Ok(tc)
         } else if let Some(tc) = self.disabled_map.remove(id) {
