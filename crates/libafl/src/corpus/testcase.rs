@@ -24,18 +24,12 @@ pub enum TestcaseFilenameFormat {
     Custom(String),
 }
 
-#[derive(Serialize, Deserialize, Hash, Clone, Copy, Debug, PartialEq, Eq)]
-pub struct TestcaseId(u64);
+#[derive(Serialize, Deserialize, Hash, Clone, Copy, Debug, PartialEq, Eq, Ord, PartialOrd)]
+pub struct TestcaseId(pub u64);
 
 impl<I> Borrow<TestcaseId> for Testcase<I> {
     fn borrow(&self) -> &TestcaseId {
         &self.id
-    }
-}
-
-impl ToString for TestcaseId {
-    fn to_string(&self) -> String {
-        format!("{:0>8x}", self.0)
     }
 }
 

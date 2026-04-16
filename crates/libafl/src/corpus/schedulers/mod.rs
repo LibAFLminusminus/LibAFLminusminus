@@ -18,7 +18,7 @@ use libafl_bolts::{
 
 use crate::{
     DependencyResolver, Error,
-    corpus::{CorpusId, Testcase},
+    corpus::{testcase::TestcaseId, Testcase},
 };
 
 /// The scheduler also implements `on_remove` and `on_replace` if it implements this stage.
@@ -27,7 +27,7 @@ pub trait RemovableScheduler<I, S> {
     /// When you remove testcases, make sure that that testcase is not currently fuzzed one!
     fn on_remove(
         &mut self,
-        _id: CorpusId,
+        _id: TestcaseId,
         _testcase: &Option<Testcase<I>>,
     ) -> Result<(), Error> {
         Ok(())
@@ -36,7 +36,7 @@ pub trait RemovableScheduler<I, S> {
     /// Replaced the given testcase at the given idx
     fn on_replace(
         &mut self,
-        _id: CorpusId,
+        _id: TestcaseId,
         _prev: &Testcase<I>,
     ) -> Result<(), Error> {
         Ok(())
@@ -47,7 +47,7 @@ pub trait RemovableScheduler<I, S> {
 /// It has hooks to corpus add/replace/remove to allow complex scheduling algorithms to collect data.
 pub trait Scheduler: DependencyResolver {
     /// Called when a [`Testcase`] is added to the corpus
-    fn on_add(&mut self, _id: CorpusId) -> Result<(), Error>;
+    fn on_add(&mut self, _id: TestcaseId) -> Result<(), Error>;
     // Add parent_id here if it has no inner
 
     /// An input has been evaluated
@@ -62,18 +62,21 @@ pub trait Scheduler: DependencyResolver {
     }
 
     // Get the current input
-    fn current(&self) -> Option<CorpusId>;
+    fn current(&self) -> Option<TestcaseId>;
 
     /// Gets the next entry
-    fn next(&mut self) -> Result<CorpusId, Error>;
+    fn next(&mut self) -> Result<TestcaseId, Error>;
+
+    /// Returns all [`TestcaseId`]s tracked by this scheduler
+    fn ids(&self) -> &[TestcaseId];
 }
 
 /// Feed the fuzzer simply with a random testcase on request
 #[derive(Debug, Clone)]
 pub struct RandScheduler<R> {
     rand: R,
-    current: Option<CorpusId>,
-    ids: Vec<CorpusId>,
+    current: Option<TestcaseId>,
+    ids: Vec<TestcaseId>,
 }
 
 impl<R> DependencyResolver for RandScheduler<R> {}
@@ -82,17 +85,17 @@ impl<R> Scheduler for RandScheduler<R>
 where
     R: Rand,
 {
-    fn on_add(&mut self, id: CorpusId) -> Result<(), Error> {
+    fn on_add(&mut self, id: TestcaseId) -> Result<(), Error> {
         self.ids.push(id);
         Ok(())
     }
 
-    fn current(&self) -> Option<CorpusId> {
+    fn current(&self) -> Option<TestcaseId> {
         self.current.clone()
     }
 
     /// Gets the next entry at random
-    fn next(&mut self) -> Result<CorpusId, Error> {
+    fn next(&mut self) -> Result<TestcaseId, Error> {
         if self.ids.is_empty() {
             Err(Error::empty(
                 "No entries in corpus. This often implies the target is not properly instrumented."
@@ -109,6 +112,10 @@ where
             );
             Ok(id)
         }
+    }
+
+    fn ids(&self) -> &[TestcaseId] {
+        &self.ids
     }
 }
 
@@ -135,15 +142,19 @@ pub struct NopScheduler;
 impl DependencyResolver for NopScheduler {}
 
 impl Scheduler for NopScheduler {
-    fn on_add(&mut self, _id: CorpusId) -> Result<(), Error> {
+    fn on_add(&mut self, _id: TestcaseId) -> Result<(), Error> {
         panic!("NopScheduler does not schedule")
     }
 
-    fn current(&self) -> Option<CorpusId> {
+    fn current(&self) -> Option<TestcaseId> {
         panic!("NopScheduler does not schedule")
     }
 
-    fn next(&mut self) -> Result<CorpusId, Error> {
+    fn next(&mut self) -> Result<TestcaseId, Error> {
         panic!("NopScheduler does not schedule")
+    }
+
+    fn ids(&self) -> &[TestcaseId] {
+        &[]
     }
 }

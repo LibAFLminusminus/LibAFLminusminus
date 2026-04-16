@@ -5,7 +5,6 @@ use crate::{
     executors::{Executor, ExitKind},
     observers::ObserversTuple,
     runtimes::RuntimeHandle,
-    state::State,
 };
 
 pub struct StdExecutor<H, I, OT, S> {

@@ -1,6 +1,5 @@
 //! Inputs are the actual contents sent to a target for each exeuction.
 
-use crate::corpus::CorpusId;
 use alloc::{
     boxed::Box,
     string::String,
@@ -113,7 +112,7 @@ pub trait Input: Clone + Serialize + serde::de::DeserializeOwned + Debug + Hash 
     }
 
     /// Generate a name for this input, the user is responsible for making each name of testcase unique.
-    fn generate_name(&self, _id: Option<CorpusId>) -> String {
+    fn generate_name(&self) -> String {
         format!("{:016x}", generic_hash_std(self))
     }
 }
