@@ -7,31 +7,31 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     DependencyResolver, Error,
-    corpus::{CorpusId, Scheduler},
+    corpus::{Scheduler, testcase::TestcaseId},
 };
 
 /// Walk the corpus in a queue-like fashion
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QueueScheduler {
-    queue: Vec<CorpusId>,
+    queue: Vec<TestcaseId>,
     current: Option<usize>,
 }
 
 impl DependencyResolver for QueueScheduler {}
 
 impl Scheduler for QueueScheduler {
-    fn on_add(&mut self, id: CorpusId) -> Result<(), Error> {
+    fn on_add(&mut self, id: TestcaseId) -> Result<(), Error> {
         self.queue.push(id);
 
         Ok(())
     }
 
-    fn current(&self) -> Option<CorpusId> {
+    fn current(&self) -> Option<TestcaseId> {
         self.current.map(|idx| self.queue[idx].clone())
     }
 
     /// Gets the next entry in the queue
-    fn next(&mut self) -> Result<CorpusId, Error> {
+    fn next(&mut self) -> Result<TestcaseId, Error> {
         if self.queue.is_empty() {
             Err(Error::empty("Scheduler queue is empty.".to_owned()))
         } else {
@@ -47,6 +47,10 @@ impl Scheduler for QueueScheduler {
             self.current = Some(idx);
             Ok(self.queue[idx])
         }
+    }
+
+    fn ids(&self) -> &[TestcaseId] {
+        &self.queue
     }
 }
 

@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{InMemoryCorpusMap, Store};
 use crate::{
-    corpus::{CorpusId, Testcase, TestcaseFilenameFormat, testcase::TestcaseId},
+    corpus::{testcase::TestcaseId, Testcase, TestcaseFilenameFormat},
     inputs::Input,
 };
 
@@ -31,8 +31,6 @@ pub struct OnDiskStore<I, M> {
     disk_mgr: Rc<DiskMgr<I>>,
     enabled_map: M,
     disabled_map: M,
-    first: Option<CorpusId>,
-    last: Option<CorpusId>,
 }
 
 /// A builder for [`OnDiskStore`]
@@ -183,8 +181,6 @@ where
             disk_mgr,
             enabled_map: M::default(),
             disabled_map: M::default(),
-            first: None,
-            last: None,
         })
     }
 }
@@ -210,19 +206,24 @@ where
         self.disabled_map.count()
     }
 
-    fn add_shared<const ENABLED: bool>(&mut self, id: CorpusId, input: Rc<I>) -> Result<(), Error> {
+    fn add_shared<const ENABLED: bool>(&mut self, input: Rc<I>) -> Result<TestcaseId, Error> {
         let testcase_id = self.disk_mgr.save_testcase(input.as_ref())?;
 
-        if ENABLED {
-            self.enabled_map.add(id, testcase_id);
+        let already = if ENABLED {
+            // id map
+            self.enabled_map.add(testcase_id, testcase_id)
         } else {
-            self.disabled_map.add(id, testcase_id);
+            self.disabled_map.add(testcase_id, testcase_id)
+        };
+        if !already {
+            Ok(testcase_id)
         }
-
-        Ok(())
+        else {
+            return Err(Error::key_exists("Overwriting existing testcase"))
+        }
     }
 
-    fn get_from<const ENABLED: bool>(&self, id: CorpusId) -> Result<Testcase<I>, Error> {
+    fn get_from<const ENABLED: bool>(&self, id: TestcaseId) -> Result<Testcase<I>, Error> {
         let tc_id = if ENABLED {
             self.enabled_map
                 .get(id)
@@ -237,7 +238,7 @@ where
         self.disk_mgr.load_testcase(tc_id)
     }
 
-    fn disable(&mut self, id: CorpusId) -> Result<(), Error> {
+    fn disable(&mut self, id: TestcaseId) -> Result<(), Error> {
         let tc = self
             .enabled_map
             .remove(id)
