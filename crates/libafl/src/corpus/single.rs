@@ -11,13 +11,14 @@ use serde::{Deserialize, Serialize};
 use super::{Corpus, Testcase, store::Store};
 use crate::{
     DependencyResolver,
-    corpus::{schedulers::RemovableScheduler, testcase::TestcaseId},
+    corpus::{schedulers::RemovableScheduler, testcase::TestcaseId}, inputs::InputContext,
 };
 
 /// You average corpus.
 /// It has one backing store, used to store / retrieve testcases.
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct SingleCorpus<I, S, SC> {
+pub struct SingleCorpus<CT, I, S, SC> {
+    context: CT,
     /// The backing testcase store
     store: S,
     /// The scheduler
@@ -29,20 +30,11 @@ pub struct SingleCorpus<I, S, SC> {
     phantom: PhantomData<I>,
 }
 
-impl<I, S, SC> Default for SingleCorpus<I, S, SC>
-where
-    S: Default,
-    SC: Default,
-{
-    fn default() -> Self {
-        Self::new(S::default(), SC::default())
-    }
-}
-
-impl<I, S, SC> SingleCorpus<I, S, SC> {
+impl<CT,I, S, SC> SingleCorpus<CT, I, S, SC> {
     /// Create a new [`SingleCorpus`]
-    pub fn new(store: S, scheduler: SC) -> Self {
+    pub fn new(context: CT, store: S, scheduler: SC) -> Self {
         Self {
+            context,
             store,
             scheduler,
             keys: Vec::default(),
@@ -57,12 +49,15 @@ pub trait DisableEntry {
     fn disable(&mut self, id: TestcaseId) -> Result<(), Error>;
 }
 
-impl<I, S, SC> DependencyResolver for SingleCorpus<I, S, SC> {}
+impl<CT, I, S, SC> DependencyResolver for SingleCorpus<CT, I, S, SC> {}
 
-impl<I, S, SC> Corpus<I, SC> for SingleCorpus<I, S, SC>
+impl<CT, I, S, SC> Corpus<I, SC> for SingleCorpus<CT, I, S, SC>
 where
+    CT: InputContext<I>,
     S: Store<I>,
 {
+    type Context = CT;
+
     fn count(&self) -> usize {
         self.store.count()
     }
@@ -85,6 +80,14 @@ where
         self.store.get_from::<ENABLED>(id)
     }
 
+    fn context(&self) -> &CT {
+        &self.context
+    }
+
+    fn context_mut(&mut self) -> &mut CT {
+        &mut self.context
+    }
+
     fn scheduler(&self) -> &SC {
         &self.scheduler
     }
@@ -94,7 +97,7 @@ where
     }
 }
 
-impl<I, S, SC> DisableEntry for SingleCorpus<I, S, SC>
+impl<CT, I, S, SC> DisableEntry for SingleCorpus<CT, I, S, SC>
 where
     S: Store<I>,
     SC: RemovableScheduler<I, S>,

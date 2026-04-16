@@ -3,7 +3,7 @@
 use alloc::rc::Rc;
 use core::{fmt, marker::PhantomData};
 
-use crate::{DependencyResolver, Error};
+use crate::{DependencyResolver, Error, inputs::InputContext};
 
 pub mod testcase;
 pub use testcase::{Testcase, TestcaseFilenameFormat, TestcaseId};
@@ -40,7 +40,9 @@ pub struct TestcaseIdIterator<'a, C, I> {
 }
 
 /// Corpus with all current [`Testcase`]s, or solutions
-pub trait Corpus<I, SC>: Sized + DependencyResolver {
+pub trait Corpus<I, SC>: Sized + DependencyResolver 
+{
+    type Context: InputContext<I>; // gives access to to_target
     /// Returns the number of all enabled entries
     fn count(&self) -> usize;
 
@@ -84,6 +86,10 @@ pub trait Corpus<I, SC>: Sized + DependencyResolver {
     fn get_from_all(&self, id: TestcaseId) -> Result<Testcase<I>, Error> {
         Self::get_from::<false>(self, id)
     }
+
+    fn context(&self) -> &Self::Context;
+
+    fn context_mut(&mut self) -> &mut Self::Context;
 
     /// Get testcase by id
     fn get_from<const ENABLED: bool>(&self, id: TestcaseId) -> Result<Testcase<I>, Error>;

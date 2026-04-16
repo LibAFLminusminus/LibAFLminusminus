@@ -1,6 +1,5 @@
 //! This module defines trait shared across different `LibAFL` modules
 
-use alloc::boxed::Box;
 use core::{
     any::{self, TypeId},
     hash::Hash,

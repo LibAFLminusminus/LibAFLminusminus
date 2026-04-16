@@ -20,9 +20,7 @@ use libafl_bolts::{Error, HasLen, ownedref::OwnedSlice};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    inputs::{FromTargetBytesConverter, Input, ToTargetBytesConverter},
-};
+use crate::inputs::{Input, InputContext};
 
 /// Trait to encode bytes to an [`EncodedInput`] using the given [`Tokenizer`]
 pub trait InputEncoder<T>
@@ -34,13 +32,13 @@ where
 }
 
 /// A wrapper that implements [`FromTargetBytesConverter`] for [`EncodedInput`] using the given [`Tokenizer`]
-#[derive(Debug, Clone)]
-pub struct EncodedInputConverter<T> {
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EncodedCtx<T> {
     encoder_decoder: TokenInputEncoderDecoder,
     tokenizer: T,
 }
 
-impl<T> EncodedInputConverter<T> {
+impl<T> EncodedCtx<T> {
     /// Creates a new [`EncodedInputConverter`]
     pub fn new(encoder_decoder: TokenInputEncoderDecoder, tokenizer: T) -> Self {
         Self {
@@ -50,26 +48,11 @@ impl<T> EncodedInputConverter<T> {
     }
 }
 
-impl<T, S> FromTargetBytesConverter<EncodedInput, S> for EncodedInputConverter<T>
-where
-    T: Tokenizer,
-{
-    fn convert_from_target_bytes(
-        &mut self,
-        _state: &mut S,
-        bytes: &[u8],
-    ) -> Result<EncodedInput, Error> {
-        self.encoder_decoder.encode(bytes, &mut self.tokenizer)
-    }
-}
-
-impl<T, S> ToTargetBytesConverter<EncodedInput, S> for EncodedInputConverter<T> {
-    fn convert_to_target_bytes<'a>(
-        &mut self,
-        _state: &mut S,
-        input: &'a EncodedInput,
-    ) -> OwnedSlice<'a, u8> {
-        self.encoder_decoder.convert_to_target_bytes(_state, input)
+impl<T> InputContext<EncodedInput> for EncodedCtx<T> {
+    fn to_bytes<'a>(&mut self, input: &'a EncodedInput) -> OwnedSlice<'a, u8> {
+        let mut bytes = vec![];
+        self.encoder_decoder.decode(input, &mut bytes).unwrap();
+        bytes.into()
     }
 }
 
@@ -86,7 +69,7 @@ pub trait Tokenizer {
 }
 
 /// A token input encoder/decoder
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TokenInputEncoderDecoder {
     /// The table of tokens
     token_table: HashMap<String, u32>,
@@ -146,19 +129,6 @@ impl TokenInputEncoderDecoder {
 impl Default for TokenInputEncoderDecoder {
     fn default() -> Self {
         Self::new()
-    }
-}
-
-impl<S> ToTargetBytesConverter<EncodedInput, S> for TokenInputEncoderDecoder {
-    /// Transform to bytes
-    fn convert_to_target_bytes<'a>(
-        &mut self,
-        _state: &mut S,
-        input: &'a EncodedInput,
-    ) -> OwnedSlice<'a, u8> {
-        let mut bytes = vec![];
-        self.decode(input, &mut bytes).unwrap();
-        bytes.into()
     }
 }
 
@@ -311,6 +281,7 @@ impl EncodedInput {
     }
 }
 
+#[cfg(not(feature = "remove_me"))]
 #[cfg(test)]
 #[cfg(feature = "regex")]
 #[cfg_attr(all(miri, target_arch = "aarch64", target_vendor = "apple"), ignore)] // Regex miri fails on M1
@@ -342,7 +313,8 @@ mod tests {
         let mut t = NaiveTokenizer::default();
         let mut ed = TokenInputEncoderDecoder::new();
         let input = ed
-            .encode("/* test */a = 'pippo baudo'; b=c+a\n".as_bytes(), &mut t)
+            .encode("/* test */
+a = 'pippo baudo'; b=c+a\n".as_bytes(), &mut t)
             .unwrap();
         (ed, input)
     }
@@ -423,7 +395,6 @@ mod tests {
     #[test]
     fn test_from_target_bytes() {
         use super::EncodedInputConverter;
-        use crate::inputs::{FromBytesInputConverter, InputConverter};
 
         let (encoder_decoder, expected_input) = setup_encoder_decoder();
         let tokenizer = NaiveTokenizer::default();

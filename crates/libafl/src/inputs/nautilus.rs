@@ -6,7 +6,7 @@ use core::{
 };
 
 use hashbrown::{HashMap, HashSet};
-use libafl_bolts::{HasLen, ownedref::OwnedSlice};
+use libafl_bolts::HasLen;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -17,7 +17,7 @@ use crate::{
         tree::{Tree, TreeLike},
     },
     generators::nautilus::NautilusContext,
-    inputs::{Input, ToTargetBytesConverter},
+    inputs::Input,
 };
 
 /// An [`Input`] implementation for `Nautilus` grammar.
@@ -27,7 +27,8 @@ pub struct NautilusInput {
     pub tree: Tree,
 }
 
-impl Input for NautilusInput {}
+impl Input for NautilusInput {
+}
 
 /// Rc Ref-cell from Input
 impl From<NautilusInput> for Rc<RefCell<NautilusInput>> {
@@ -94,43 +95,6 @@ impl Hash for NautilusInput {
             }
         }
         self.tree().sizes.hash(state);
-    }
-}
-
-/// Convert from `NautilusInput` to `BytesInput`
-#[derive(Debug, Clone, Copy)]
-pub struct NautilusBytesConverter<'a> {
-    ctx: &'a NautilusContext,
-    on_error_return_empty: bool,
-}
-
-impl<'a> NautilusBytesConverter<'a> {
-    #[must_use]
-    /// Create a new `NautilusBytesConverter` from a context
-    pub fn new(ctx: &'a NautilusContext) -> Self {
-        Self {
-            ctx,
-            on_error_return_empty: false,
-        }
-    }
-
-    #[must_use]
-    /// If true, return an empty `NautilusInput` instead of an error if parsing fails
-    pub fn on_error_return_empty(mut self, on_error_return_empty: bool) -> Self {
-        self.on_error_return_empty = on_error_return_empty;
-        self
-    }
-}
-
-impl<S> ToTargetBytesConverter<NautilusInput, S> for NautilusBytesConverter<'_> {
-    fn convert_to_target_bytes<'a>(
-        &mut self,
-        _state: &mut S,
-        input: &'a NautilusInput,
-    ) -> OwnedSlice<'a, u8> {
-        let mut bytes = vec![];
-        input.unparse(self.ctx, &mut bytes);
-        OwnedSlice::from(bytes)
     }
 }
 
@@ -238,68 +202,5 @@ impl<'a> NautilusParser<'a> {
                 "Nautilus Python script rules are not supported for reverse parsing",
             )),
         }
-    }
-}
-
-impl<S> crate::inputs::FromTargetBytesConverter<NautilusInput, S> for NautilusBytesConverter<'_> {
-    fn convert_from_target_bytes(
-        &mut self,
-        _state: &mut S,
-        bytes: &[u8],
-    ) -> Result<NautilusInput, libafl_bolts::Error> {
-        let start_nt = self.ctx.ctx.nt_id("START");
-        let mut parser = NautilusParser::new(&self.ctx.ctx, bytes);
-        let res = parser.parse_nt(start_nt, 0);
-        match res {
-            Ok(Some((rules, consumed))) if consumed == bytes.len() => Ok(NautilusInput::new(
-                Tree::from_rule_vec(rules, &self.ctx.ctx),
-            )),
-            Err(e) if !self.on_error_return_empty => Err(e),
-            _ => {
-                if self.on_error_return_empty {
-                    Ok(NautilusInput::empty())
-                } else {
-                    Err(libafl_bolts::Error::illegal_argument(
-                        "Failed to parse bytes into NautilusInput",
-                    ))
-                }
-            }
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use alloc::string::ToString;
-
-    use libafl_bolts::AsSlice;
-
-    use super::{NautilusBytesConverter, NautilusContext};
-    use crate::inputs::{FromTargetBytesConverter, ToTargetBytesConverter};
-
-    #[test]
-    #[cfg(feature = "nautilus")] // Nautilus parser requires nautilus feature (and regex)
-    fn test_nautilus_parser() {
-        // A simple grammar
-        let rules = vec![
-            vec!["START".to_string(), "{A}".to_string()],
-            vec!["A".to_string(), "a{A}".to_string()],
-            vec!["A".to_string(), "b".to_string()],
-        ];
-        let ctx = NautilusContext::new(10, &rules);
-        let mut converter = NautilusBytesConverter::new(&ctx);
-
-        // Test roundtrip
-        let bytes = b"aab";
-        let input = converter
-            .convert_from_target_bytes(&mut (), bytes)
-            .expect("Failed to parse");
-
-        let out_bytes = converter.convert_to_target_bytes(&mut (), &input);
-        assert_eq!(out_bytes.as_slice(), bytes.as_slice());
-
-        // Test invalid
-        let bytes = b"aac";
-        assert!(converter.convert_from_target_bytes(&mut (), bytes).is_err());
     }
 }

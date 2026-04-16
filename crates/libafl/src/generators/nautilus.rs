@@ -3,23 +3,36 @@ use alloc::{
     string::{String, ToString},
     vec::Vec,
 };
+use serde::{Deserialize, Serialize};
 use core::fmt::Debug;
 use std::{fs, io::BufReader, path::Path};
 
-use libafl_bolts::rands::Rand;
+use libafl_bolts::{ownedref::OwnedSlice, rands::Rand};
 
 pub use crate::common::nautilus::grammartec::newtypes::NTermId;
 #[cfg(feature = "nautilus_py")]
 use crate::nautilus::grammartec::python_grammar_loader;
 use crate::{
-    Error, common::nautilus::grammartec::context::Context, generators::Generator,
-    inputs::nautilus::NautilusInput, state::HasRand,
+    Error,
+    common::nautilus::grammartec::context::Context,
+    generators::Generator,
+    inputs::{InputContext, nautilus::NautilusInput},
+    state::HasRand,
 };
 
 /// The nautilus context for a generator
+#[derive(Default, Clone, Copy, Serialize, Deserialize)]
 pub struct NautilusContext {
     /// The nautilus context for a generator
     pub ctx: Context,
+}
+
+impl InputContext<NautilusInput> for NautilusContext {
+    fn to_bytes<'a>(&mut self, input: &'a NautilusInput) -> OwnedSlice<'a, u8> {
+        let mut bytes = vec![];
+        input.unparse(self, &mut bytes);
+        OwnedSlice::from(bytes)
+    }
 }
 
 impl Debug for NautilusContext {
