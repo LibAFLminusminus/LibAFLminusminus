@@ -53,12 +53,17 @@ where
     fn add_shared<const ENABLED: bool>(&mut self, input: Rc<I>) -> Result<TestcaseId, Error> {
         let testcase = Testcase::new(input);
         let testcase_id = *testcase.id();
-        if ENABLED {
-            self.enabled_map.add(testcase_id, testcase);
-            Ok(testcase_id)
+        let already = if ENABLED {
+            self.enabled_map.add(testcase_id, testcase)
         } else {
-            self.disabled_map.add(testcase_id, testcase);
+            self.disabled_map.add(testcase_id, testcase)
+        };
+
+        if !already {
             Ok(testcase_id)
+        }
+        else {
+            return Err(Error::key_exists("Overwriting existing testcase"))
         }
     }
 

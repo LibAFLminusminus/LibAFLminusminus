@@ -72,8 +72,8 @@ where
         self.0.count()
     }
 
-    fn add(&mut self, id: TestcaseId, testcase: Testcase<I>) {
-        self.0.add(id, testcase);
+    fn add(&mut self, id: TestcaseId, testcase: Testcase<I>) -> bool {
+        self.0.add(id, testcase)
     }
 
     fn get(&self, id: TestcaseId) -> Option<&Testcase<I>> {

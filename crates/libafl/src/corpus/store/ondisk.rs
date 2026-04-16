@@ -209,14 +209,18 @@ where
     fn add_shared<const ENABLED: bool>(&mut self, input: Rc<I>) -> Result<TestcaseId, Error> {
         let testcase_id = self.disk_mgr.save_testcase(input.as_ref())?;
 
-        if ENABLED {
+        let already = if ENABLED {
             // id map
-            self.enabled_map.add(testcase_id, testcase_id);
+            self.enabled_map.add(testcase_id, testcase_id)
         } else {
-            self.disabled_map.add(testcase_id, testcase_id);
+            self.disabled_map.add(testcase_id, testcase_id)
+        };
+        if !already {
+            Ok(testcase_id)
         }
-
-        Ok(testcase_id)
+        else {
+            return Err(Error::key_exists("Overwriting existing testcase"))
+        }
     }
 
     fn get_from<const ENABLED: bool>(&self, id: TestcaseId) -> Result<Testcase<I>, Error> {

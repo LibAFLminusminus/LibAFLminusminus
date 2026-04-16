@@ -18,7 +18,7 @@ pub trait InMemoryCorpusMap<T> {
     }
 
     /// Store the testcase associated to `corpus_id`.
-    fn add(&mut self, id: TestcaseId, testcase: T);
+    fn add(&mut self, id: TestcaseId, testcase: T) -> bool;
 
     /// Get by id; considers only enabled testcases
     fn get(&self, id: TestcaseId) -> Option<&T>;
@@ -134,7 +134,7 @@ impl<T> InMemoryCorpusMap<T> for HashCorpusMap<T> {
         self.map.is_empty()
     }
 
-    fn add(&mut self, id: TestcaseId, testcase: T) {
+    fn add(&mut self, id: TestcaseId, testcase: T) -> bool {
         let prev = if let Some(last_id) = self.last_id {
             self.map.get_mut(&last_id).unwrap().next = Some(id);
             Some(last_id)
@@ -157,7 +157,7 @@ impl<T> InMemoryCorpusMap<T> for HashCorpusMap<T> {
                 prev,
                 next: None,
             },
-        );
+        ).is_some()
     }
 
     fn get(&self, id: TestcaseId) -> Option<&T> {
@@ -219,10 +219,10 @@ impl<T> InMemoryCorpusMap<T> for BtreeCorpusMap<T> {
         self.map.is_empty()
     }
 
-    fn add(&mut self, id: TestcaseId, testcase: T) {
+    fn add(&mut self, id: TestcaseId, testcase: T) -> bool {
         // corpus.insert_key(id);
-        self.map.insert(id, testcase);
         self.history.add(id);
+        self.map.insert(id, testcase).is_some()
     }
 
     fn get(&self, id: TestcaseId) -> Option<&T> {
