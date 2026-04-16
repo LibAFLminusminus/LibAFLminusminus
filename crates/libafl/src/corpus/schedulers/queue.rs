@@ -1,16 +1,13 @@
 //! The queue corpus scheduler implements an AFL-like queue mechanism
 
+use alloc::borrow::ToOwned;
 use std::vec::Vec;
 
-use alloc::borrow::ToOwned;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    Error, DependencyResolver,
-    corpus::{
-        CorpusId, Scheduler, Testcase,
-        schedulers::{HasQueueCycles, RemovableScheduler},
-    },
+    DependencyResolver, Error,
+    corpus::{CorpusId, Scheduler},
 };
 
 /// Walk the corpus in a queue-like fashion
@@ -18,40 +15,12 @@ use crate::{
 pub struct QueueScheduler {
     queue: Vec<CorpusId>,
     current: Option<usize>,
-    queue_cycles: u64,
-    runs_in_current_cycle: u64,
-}
-
-impl<I, S> RemovableScheduler<I, S> for QueueScheduler {
-    fn on_remove(
-        &mut self,
-        _state: &mut S,
-        _id: CorpusId,
-        _testcase: &Option<Testcase<I>>,
-    ) -> Result<(), Error> {
-        self.runs_in_current_cycle = self.runs_in_current_cycle.saturating_sub(1);
-        Ok(())
-    }
 }
 
 impl DependencyResolver for QueueScheduler {}
 
-impl<I, S> Scheduler<I, S> for QueueScheduler {
-    // fn on_add(&mut self, state: &mut S, id: CorpusId) -> Result<(), Error> {
-    //     // Set parent id
-    //     let current_id = state.current_corpus_id();
-
-    //     state
-    //         .corpus()
-    //         .get(id)?
-    //         .borrow_mut()
-    //         .set_parent_id_optional(current_id);
-
-    //     Ok(())
-    // }
+impl<S> Scheduler<S> for QueueScheduler {
     fn on_add(&mut self, _state: &mut S, id: CorpusId) -> Result<(), Error> {
-        log::warn!("what to do about parent id?");
-
         self.queue.push(id);
 
         Ok(())
@@ -66,26 +35,16 @@ impl<I, S> Scheduler<I, S> for QueueScheduler {
         if self.queue.is_empty() {
             Err(Error::empty("Scheduler queue is empty.".to_owned()))
         } else {
-            let idx = if let Some(current) = &mut self.current {
-                *current += 1;
-                self.runs_in_current_cycle += 1;
-
-                if *current >= self.queue.len() {
-                    *current = 0;
-                    self.queue_cycles += 1;
-                    self.runs_in_current_cycle = 0;
+            let idx = if let Some(current) = self.current {
+                if self.queue.get(current + 1).is_some() {
+                    current + 1
+                } else {
+                    0
                 }
-
-                *current
             } else {
-                let idx = 0;
-                self.current = Some(idx);
-
-                debug_assert!(idx < self.queue.len());
-
-                idx
+                0
             };
-
+            self.current = Some(idx);
             Ok(self.queue[idx])
         }
     }
@@ -96,8 +55,6 @@ impl QueueScheduler {
     #[must_use]
     pub fn new() -> Self {
         Self {
-            runs_in_current_cycle: 0,
-            queue_cycles: 0,
             current: None,
             queue: Vec::new(),
         }
@@ -110,15 +67,8 @@ impl Default for QueueScheduler {
     }
 }
 
-impl HasQueueCycles for QueueScheduler {
-    fn queue_cycles(&self) -> u64 {
-        self.queue_cycles
-    }
-}
-
 #[cfg(test)]
 #[cfg(feature = "std")]
-#[cfg(not(feature = "remove_me"))]
 mod tests {
 
     use std::path::PathBuf;
@@ -130,9 +80,8 @@ mod tests {
             Corpus, InMemoryCorpus, OnDiskCorpus,
             schedulers::{NopScheduler, QueueScheduler, Scheduler},
         },
-        feedbacks::ConstFeedback,
         inputs::bytes::BytesInput,
-        state::StdState,
+        state::{HasCorpus, StdState},
     };
 
     #[test]
@@ -154,11 +103,8 @@ mod tests {
         )
         .unwrap();
 
-        let mut feedback = ConstFeedback::new(false);
-        let mut objective_fb = ConstFeedback::new(false);
-
         let _state =
-            StdState::new(rand, corpus, objective, &mut feedback, &mut objective_fb).unwrap();
+            StdState::new(rand, corpus, objective).unwrap();
 
         // let filename = state
         //     .corpus()
@@ -188,34 +134,20 @@ mod tests {
         let id2 = q.add(t2).unwrap();
         let id3 = q.add(t3).unwrap();
 
-        let mut feedback = ConstFeedback::new(false);
-        let mut objective = ConstFeedback::new(false);
-
         let mut state = StdState::new(
             rand,
             q,
             InMemoryCorpus::new(NopScheduler),
-            &mut feedback,
-            &mut objective,
         )
         .unwrap();
 
-        let next_id = state.scheduler_mut().next(&mut state).unwrap();
+        let next_id = state.corpus_mut().scheduler_mut().next(&mut state).unwrap();
         assert_eq!(next_id, id1);
-        assert_eq!(state.scheduler().runs_in_current_cycle, 1);
 
         let next_id = scheduler.next(&mut state).unwrap();
         assert_eq!(next_id, id2);
 
-        assert_eq!(
-            state.scheduler().queue_cycles,
-            0,
-            "Cycle finished prematurely!"
-        );
-
         let next_id = scheduler.next(&mut state).unwrap();
         assert_eq!(next_id, id3);
-
-        assert_eq!(state.scheduler().queue_cycles, 1);
     }
 }

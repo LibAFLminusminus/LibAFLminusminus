@@ -11,11 +11,7 @@ use libafl_bolts::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    common::MetadataResolver,
-    executors::ExitKind,
-    feedbacks::Feedback,
-    observers::{ObserversTuple, ValueObserver},
-    state::{FlatState, State, named_metadata_mut, named_metadata_or_insert_with},
+    DependencyResolver, executors::ExitKind, feedbacks::Feedback, observers::{ObserversTuple, ValueObserver}, state::{FlatState, named_metadata_mut}
 };
 
 impl_serdeany!(ValueBloomFeedbackMetadata);
@@ -60,7 +56,7 @@ impl<T> Named for ValueBloomFeedback<'_, T> {
     }
 }
 
-impl<T> MetadataResolver for ValueBloomFeedback<'_, T> {
+impl<T> DependencyResolver for ValueBloomFeedback<'_, T> {
     fn register(&mut self, registrator: &mut crate::Registrator) -> Result<(), Error> {
         let meta = ValueBloomFeedbackMetadata {
             bloom: BloomFilter::with_false_pos(0.001).expected_items(1024),
@@ -123,7 +119,7 @@ mod test {
     use super::ValueBloomFeedback;
     use crate::{
         executors::ExitKind,
-        feedbacks::{Feedback, StateInitializer},
+        feedbacks::Feedback,
         observers::ValueObserver,
         state::NopState,
     };
@@ -153,7 +149,7 @@ mod test {
         let input = ();
         let exit_ok = ExitKind::Ok;
 
-        vbf.init_state(&mut state).unwrap();
+        // vbf.init_state(&mut state).unwrap();
 
         let first_eval = vbf
             .is_interesting(&mut state, &input, &observers, &exit_ok)

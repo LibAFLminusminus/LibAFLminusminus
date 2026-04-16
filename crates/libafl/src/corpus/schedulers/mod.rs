@@ -3,33 +3,25 @@
 use alloc::borrow::ToOwned;
 use core::marker::PhantomData;
 use libafl_core::non_zero;
-use log::Metadata;
 use serde::{Deserialize, Serialize};
 use std::vec::Vec;
 
-#[cfg(not(feature = "remove_me"))]
+#[cfg(feature = "remove_me")]
 pub mod testcase_score;
-#[cfg(not(feature = "remove_me"))]
+#[cfg(feature = "remove_me")]
 pub use testcase_score::{LenTimeMulTestcasePenalty, TestcasePenalty, TestcaseScore};
 
 pub mod queue;
 pub use queue::QueueScheduler;
 
-#[cfg(not(feature = "remove_me"))]
 pub mod minimizer;
-#[cfg(not(feature = "remove_me"))]
 pub use minimizer::{
     IndexesLenTimeMinimizerScheduler, LenTimeMinimizerScheduler, MinimizerScheduler,
 };
 
-#[cfg(not(feature = "remove_me"))]
-pub mod powersched;
-#[cfg(not(feature = "remove_me"))]
-pub use powersched::{PowerQueueScheduler, SchedulerMetadata};
-
 use libafl_bolts::{
     rands::Rand,
-    tuples::{Handle, MatchName},
+    tuples::MatchName,
 };
 
 use crate::{
@@ -61,7 +53,7 @@ pub trait RemovableScheduler<I, S> {
         Ok(())
     }
 }
-
+/*
 /// Called when a [`Testcase`] is evaluated
 pub fn on_add_metadata_default<I, S, SC>(state: &mut S, id: CorpusId) -> Result<(), Error>
 where
@@ -96,7 +88,6 @@ where
 }
 
 /// Called when a [`Testcase`] is evaluated
-#[cfg(not(feature = "remove_me"))]
 pub fn on_evaluation_metadata_default<CS, O, OT, S>(
     scheduler: &mut CS,
     state: &mut S,
@@ -177,9 +168,11 @@ pub trait HasQueueCycles {
     fn queue_cycles(&self) -> u64;
 }
 
+*/
+
 /// The scheduler define how the fuzzer requests a testcase from the corpus.
 /// It has hooks to corpus add/replace/remove to allow complex scheduling algorithms to collect data.
-pub trait Scheduler<I, S>: DependencyResolver {
+pub trait Scheduler<S>: DependencyResolver {
     /// Called when a [`Testcase`] is added to the corpus
     fn on_add(&mut self, _state: &mut S, _id: CorpusId) -> Result<(), Error>;
     // Add parent_id here if it has no inner
@@ -188,7 +181,6 @@ pub trait Scheduler<I, S>: DependencyResolver {
     fn on_evaluation<OT>(
         &mut self,
         _state: &mut S,
-        _input: &I,
         _observers: &OT,
     ) -> Result<(), Error>
     where
@@ -214,23 +206,13 @@ pub struct RandScheduler<S> {
 
 impl<S> DependencyResolver for RandScheduler<S> {}
 
-impl<I, R, S> Scheduler<I, S> for RandScheduler<S>
+impl<R, S> Scheduler<S> for RandScheduler<S>
 where
     S: HasRand<Rand = R>,
     R: Rand,
 {
-    fn on_add(&mut self, state: &mut S, id: CorpusId) -> Result<(), Error> {
+    fn on_add(&mut self, _state: &mut S, id: CorpusId) -> Result<(), Error> {
         self.ids.push(id);
-
-        log::warn!("what to do about parent id?");
-        // // Set parent id
-        // let current_id = *state.corpus().current();
-        // state
-        //     .corpus()
-        //     .get(id)?
-        //     .borrow_mut()
-        //     .set_parent_id_optional(current_id);
-
         Ok(())
     }
 
@@ -254,7 +236,6 @@ where
             log::warn!(
                 "There was a call to set_current_scheduled here, what should we do? (cf comments below)"
             );
-            // <Self as Scheduler<I, S>>::set_current_scheduled(self, state, Some(id))?;
             Ok(id)
         }
     }
@@ -288,16 +269,16 @@ pub struct NopScheduler;
 
 impl DependencyResolver for NopScheduler {}
 
-impl<I, S> Scheduler<I, S> for NopScheduler {
+impl<S> Scheduler<S> for NopScheduler {
     fn on_add(&mut self, _state: &mut S, _id: CorpusId) -> Result<(), Error> {
         panic!("NopScheduler does not schedule")
     }
 
-    fn current(&self, state: &mut S) -> Option<CorpusId> {
+    fn current(&self, _state: &mut S) -> Option<CorpusId> {
         panic!("NopScheduler does not schedule")
     }
 
-    fn next(&mut self, state: &mut S) -> Result<CorpusId, Error> {
+    fn next(&mut self, _state: &mut S) -> Result<CorpusId, Error> {
         panic!("NopScheduler does not schedule")
     }
 }

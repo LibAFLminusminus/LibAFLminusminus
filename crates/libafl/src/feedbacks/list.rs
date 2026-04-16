@@ -15,11 +15,11 @@ use libafl_bolts::{
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use crate::{
-    common::DependencyResolve
-   r, executors::ExitKin
-   d, feedbacks::Feedbac
-   k, observers::ListObserver,
-    state::{FlatState, add_named_metadata_checked},
+    common::DependencyResolver,
+    executors::ExitKind,
+    feedbacks::Feedback,
+    observers::ListObserver,
+    state::FlatState,
 };
 
 /// The metadata to remember past observed value

@@ -11,7 +11,6 @@ use crate::{
     common::DependencyResolver,
     feedbacks::Feedback,
     observers::{ObserversTuple, ValueObserver},
-    state::State,
 };
 
 /// This feedback returns `true` or `false` as the `is_interesting` value.
@@ -100,7 +99,7 @@ mod test {
 
     use crate::{
         executors::ExitKind,
-        feedbacks::{BoolValueFeedback, Feedback, StateInitializer},
+        feedbacks::{BoolValueFeedback, Feedback},
         observers::ValueObserver,
         state::NopState,
     };
@@ -118,10 +117,9 @@ mod test {
         let mut bool_feedback = BoolValueFeedback::new(&observer.handle());
 
         let mut state: NopState<()> = NopState::new();
-        bool_feedback.init_state(&mut state).unwrap();
+        // bool_feedback.init_state(&mut state).unwrap();
 
         let observers = tuple_list!(observer);
-        let mut mgr = ();
         let input = ();
         let exit_ok = ExitKind::Ok;
 

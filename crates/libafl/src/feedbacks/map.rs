@@ -31,7 +31,7 @@ use crate::{
     executors::ExitKind,
     feedbacks::{Feedback, HasObserverHandle},
     observers::{CanTrack, MapObserver},
-    state::{FlatState, HasTestcase, State, add_named_metadata_checked},
+    state::{FlatState, HasTestcase, add_named_metadata_checked},
 };
 
 #[cfg(feature = "simd")]

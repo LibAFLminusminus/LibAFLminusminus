@@ -14,7 +14,7 @@ use crate::{
     corpus::Testcase,
     executors::ExitKind,
     observers::TimeObserver,
-    state::{HasTestcase, State},
+    state::HasTestcase,
 };
 use libafl_bolts::{
     Named,
