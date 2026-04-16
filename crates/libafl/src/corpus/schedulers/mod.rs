@@ -6,18 +6,11 @@ use libafl_core::non_zero;
 use serde::{Deserialize, Serialize};
 use std::vec::Vec;
 
-#[cfg(feature = "remove_me")]
 pub mod testcase_score;
-#[cfg(feature = "remove_me")]
 pub use testcase_score::{LenTimeMulTestcasePenalty, TestcasePenalty, TestcaseScore};
 
 pub mod queue;
 pub use queue::QueueScheduler;
-
-pub mod minimizer;
-pub use minimizer::{
-    IndexesLenTimeMinimizerScheduler, LenTimeMinimizerScheduler, MinimizerScheduler,
-};
 
 use libafl_bolts::{
     rands::Rand,

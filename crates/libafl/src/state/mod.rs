@@ -1,24 +1,27 @@
 //! The fuzzer, and state are the core pieces of every good fuzzer
 
-use alloc::string::String;
 #[cfg(feature = "std")]
 use alloc::vec::Vec;
-use core::{fmt::Debug, marker::PhantomData, time::Duration};
+use alloc::{boxed::Box, string::String};
+use core::{any::type_name, fmt::Debug, marker::PhantomData, time::Duration};
 use std::{collections::HashMap, string::ToString};
 #[cfg(feature = "std")]
 use std::{
     fs,
     path::{Path, PathBuf},
 };
-use typed_builder::TypedBuilder;
 
-use core::any::type_name;
 use libafl_bolts::{
     rands::{Rand, StdRand},
     serdeany::{NamedSerdeAnyMap, SerdeAny, SerdeAnyMap},
 };
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use typed_builder::TypedBuilder;
 
+#[cfg(not(feature = "remove_me"))]
+use crate::fuzzer::{Evaluator, ExecuteInputResult};
+#[cfg(not(feature = "remove_me"))]
+use crate::generators::Generator;
 #[cfg(feature = "introspection")]
 use crate::monitors::stats::ClientPerfStats;
 use crate::{
@@ -30,12 +33,6 @@ use crate::{
     },
     inputs::{Input, NopInput},
 };
-use alloc::boxed::Box;
-
-#[cfg(not(feature = "remove_me"))]
-use crate::fuzzer::{Evaluator, ExecuteInputResult};
-#[cfg(not(feature = "remove_me"))]
-use crate::generators::Generator;
 
 pub trait FlatState {
     /// The maximum size of an input
@@ -93,7 +90,7 @@ pub trait State<C, I, OC>:
 }
 
 pub trait HasRand {
-    type Rand;
+    type Rand: Rand;
 
     fn rand(&self) -> &Self::Rand;
     fn rand_mut(&mut self) -> &mut Self::Rand;
@@ -101,6 +98,7 @@ pub trait HasRand {
 
 impl<C, I, OC, R, SC> HasRand for StdState<C, I, OC, R, SC>
 where
+    R: Rand,
     C: Corpus<I, SC>,
 {
     type Rand = R;
@@ -116,7 +114,9 @@ where
 
 pub trait HasTestcase<I> {
     fn testcase_md<'a>(&'a self, tc: &Testcase<I>) -> Option<&'a TestcaseMetadata>;
+    fn testcase_md_from_id<'a>(&'a self, id: &TestcaseId) -> Option<&'a TestcaseMetadata>;
     fn testcase_md_mut<'a>(&'a mut self, tc: &Testcase<I>) -> &'a mut TestcaseMetadata;
+    fn testcase_md_mut_from_id<'a>(&'a mut self, id: &TestcaseId) -> &'a mut TestcaseMetadata;
     fn testcase(&self, id: CorpusId) -> Result<Testcase<I>, Error>;
 }
 
@@ -132,8 +132,16 @@ where
         self.testcase_metadata.get(tc.id())
     }
 
+    fn testcase_md_from_id<'a>(&'a self, id: &TestcaseId) -> Option<&'a TestcaseMetadata> {
+        self.testcase_metadata.get(id)
+    }
+
     fn testcase_md_mut<'a>(&'a mut self, tc: &Testcase<I>) -> &'a mut TestcaseMetadata {
         self.testcase_metadata.entry(*tc.id()).or_default()
+    }
+
+    fn testcase_md_mut_from_id<'a>(&'a mut self, id: &TestcaseId) -> &'a mut TestcaseMetadata {
+        self.testcase_metadata.entry(*id).or_default()
     }
 }
 pub trait HasCorpus {
@@ -284,13 +292,22 @@ pub struct TestcaseMetadata {
     hit_objectives: Vec<Cow<'static, str>>,
 }
 
-/// Add a metadata to the metadata map
+/// Add a baned metadata to the metadata map
 #[inline]
 pub fn add_named_metadata<M>(map: &mut NamedSerdeAnyMap, name: &str, meta: M)
 where
     M: SerdeAny,
 {
     map.insert(name, meta);
+}
+
+/// Add a metadata to the metadata map
+#[inline]
+pub fn add_unnamed_metadata<M>(map: &mut NamedSerdeAnyMap, meta: M)
+where
+    M: SerdeAny,
+{
+    map.insert("", meta);
 }
 
 /// Add a metadata to the metadata map
@@ -308,12 +325,31 @@ where
 }
 
 /// Add a metadata to the metadata map
+/// Return an error if there already is the metadata with the same name
+#[inline]
+pub fn add_unnamed_metadata_checked<M>(map: &mut NamedSerdeAnyMap, meta: M) -> Result<(), Error>
+where
+    M: SerdeAny,
+{
+    map.try_insert("", meta)
+}
+
+/// Add a metadata to the metadata map
 #[inline]
 pub fn remove_named_metadata<M>(map: &mut NamedSerdeAnyMap, name: &str) -> Option<Box<M>>
 where
     M: SerdeAny,
 {
     map.remove::<M>(name)
+}
+
+/// Add a metadata to the metadata map
+#[inline]
+pub fn remove_unnamed_metadata<M>(map: &mut NamedSerdeAnyMap) -> Option<Box<M>>
+where
+    M: SerdeAny,
+{
+    map.remove::<M>("")
 }
 
 /// Check for a metadata
@@ -328,6 +364,18 @@ where
     map.contains::<M>(name)
 }
 
+/// Check for a metadata
+///
+/// # Note
+/// You likely want to use [`Self::named_metadata_or_insert_with`] for performance reasons.
+#[inline]
+pub fn has_unnamed_metadata<M>(map: &NamedSerdeAnyMap) -> bool
+where
+    M: SerdeAny,
+{
+    map.contains::<M>("")
+}
+
 /// Gets metadata, or inserts it using the given construction function `default`
 pub fn named_metadata_or_insert_with<'a, M>(
     map: &'a mut NamedSerdeAnyMap,
@@ -340,6 +388,17 @@ where
     map.get_or_insert_with::<M>(name, default)
 }
 
+/// Gets metadata, or inserts it using the given construction function `default`
+pub fn unnamed_metadata_or_insert_with<'a, M>(
+    map: &'a mut NamedSerdeAnyMap,
+    default: impl FnOnce() -> M,
+) -> &'a mut M
+where
+    M: SerdeAny,
+{
+    map.get_or_insert_with::<M>("", default)
+}
+
 /// To get named metadata
 #[inline]
 pub fn named_metadata<'a, M>(map: &'a NamedSerdeAnyMap, name: &str) -> Result<&'a M, Error>
@@ -347,6 +406,16 @@ where
     M: SerdeAny,
 {
     map.get::<M>(name)
+        .ok_or_else(|| Error::key_not_found(format!("{} not found", type_name::<M>())))
+}
+
+/// To get named metadata
+#[inline]
+pub fn unnamed_metadata<'a, M>(map: &'a NamedSerdeAnyMap) -> Result<&'a M, Error>
+where
+    M: SerdeAny,
+{
+    map.get::<M>("")
         .ok_or_else(|| Error::key_not_found(format!("{} not found", type_name::<M>())))
 }
 
@@ -363,12 +432,25 @@ where
         .ok_or_else(|| Error::key_not_found(format!("{} not found", type_name::<M>())))
 }
 
+/// To get mutable named metadata
+#[inline]
+pub fn unnamed_metadata_mut<'a, M>(
+    map: &'a mut NamedSerdeAnyMap,
+) -> Result<&'a mut M, Error>
+where
+    M: SerdeAny,
+{
+    map.get_mut::<M>("")
+        .ok_or_else(|| Error::key_not_found(format!("{} not found", type_name::<M>())))
+}
+
+
 impl TestcaseMetadata {
-    pub fn named_metadata_map(&self) -> &NamedSerdeAnyMap {
+    pub fn metadata(&self) -> &NamedSerdeAnyMap {
         &self.named_metadata
     }
 
-    pub fn named_metadata_map_mut(&mut self) -> &mut NamedSerdeAnyMap {
+    pub fn metadata_mut(&mut self) -> &mut NamedSerdeAnyMap {
         &mut self.named_metadata
     }
 
@@ -723,6 +805,7 @@ where
 
 impl<C, I, OC, R, SC> State<C, I, OC> for StdState<C, I, OC, R, SC>
 where
+    R: Rand,
     C: DependencyResolver + Corpus<I, SC>,
     OC: DependencyResolver + Corpus<I, NopScheduler>,
 {
@@ -1245,11 +1328,7 @@ where
     R: Rand,
 {
     /// Creates a new `State`, taking ownership of all of the individual components during fuzzing.
-    pub fn new(
-        rand: R,
-        corpus: C,
-        objective_corpus: OC,
-    ) -> Result<Self, Error>
+    pub fn new(rand: R, corpus: C, objective_corpus: OC) -> Result<Self, Error>
     where
         OC: Serialize + DeserializeOwned + DependencyResolver,
         C: Serialize + DeserializeOwned + DependencyResolver,
