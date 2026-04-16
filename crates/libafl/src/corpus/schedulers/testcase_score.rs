@@ -6,13 +6,13 @@ use crate::{Error, corpus::Testcase, state::HasTestcase};
 /// Compute the favor factor of a [`Testcase`]. Higher is better.
 pub trait TestcaseScore<I, SC> {
     /// Computes the favor factor of a [`Testcase`]. Higher is better.
-    fn compute(scheduler: SC, entry: &mut Testcase<I>) -> Result<f64, Error>;
+    fn compute(scheduler: SC, entry: &Testcase<I>) -> Result<f64, Error>;
 }
 
 /// Compute the favor factor of a [`Testcase`]. Lower  is better.
 pub trait TestcasePenalty<I, SC> {
     /// Computes the favor factor of a [`Testcase`]. Higher is better.
-    fn compute(scheduler: &SC, entry: &mut Testcase<I>) -> Result<f64, Error>;
+    fn compute(scheduler: &SC, entry: &Testcase<I>) -> Result<f64, Error>;
 }
 
 /// Multiply the testcase size with the execution time.
@@ -26,7 +26,7 @@ where
     S: HasTestcase<I>,
 {
     #[expect(clippy::cast_precision_loss)]
-    fn compute(state: &S, entry: &mut Testcase<I>) -> Result<f64, Error> {
+    fn compute(state: &S, entry: &Testcase<I>) -> Result<f64, Error> {
         // TODO maybe enforce entry.exec_time().is_some()
         if let Some(testcase_md) = state.testcase_md(entry) {
             Ok(testcase_md.exec_time().map_or(1, |d| d.as_millis()) as f64
