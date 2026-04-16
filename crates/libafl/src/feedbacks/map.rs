@@ -7,6 +7,7 @@ use core::{
     ops::{Deref, DerefMut},
 };
 
+use hashbrown::HashMap;
 #[cfg(all(feature = "simd", target_arch = "x86_64"))]
 use libafl_bolts::simd::vector::u8x16;
 #[cfg(not(feature = "simd"))]
@@ -26,12 +27,12 @@ use super::simd::SimdMapFeedback;
 #[cfg(feature = "track_hit_feedbacks")]
 use crate::feedbacks::premature_last_result_err;
 use crate::{
-    Error, DependencyResolver,
-    corpus::Testcase,
+    DependencyResolver, Error,
+    corpus::{Testcase, testcase::TestcaseId},
     executors::ExitKind,
     feedbacks::{Feedback, HasObserverHandle},
     observers::{CanTrack, MapObserver},
-    state::{FlatState, HasTestcase, add_named_metadata_checked},
+    state::{FlatState, HasTestcase},
 };
 
 #[cfg(feature = "simd")]
@@ -155,16 +156,20 @@ where
 /// A testcase metadata holding a list of indexes of a map
 #[derive(Debug, Serialize, Deserialize)]
 #[expect(clippy::unsafe_derive_deserialize)] // for SerdeAny
-pub struct MapIndexesMetadata {
-    /// The list of indexes.
+pub struct MapIndexes {
     pub list: Vec<usize>,
     /// A refcount used to know when we can remove this metadata
     pub tcref: isize,
 }
 
+#[derive(Default)]
+pub struct MapIndexesMetadata {
+    pub data: HashMap<TestcaseId, MapIndexes>,
+}
+
 libafl_bolts::impl_serdeany!(MapIndexesMetadata);
 
-impl Deref for MapIndexesMetadata {
+impl Deref for MapIndexes {
     type Target = [usize];
     /// Convert to a slice
     fn deref(&self) -> &[usize] {
@@ -172,14 +177,14 @@ impl Deref for MapIndexesMetadata {
     }
 }
 
-impl DerefMut for MapIndexesMetadata {
+impl DerefMut for MapIndexes {
     /// Convert to a slice
     fn deref_mut(&mut self) -> &mut [usize] {
         &mut self.list
     }
 }
 
-impl HasRefCnt for MapIndexesMetadata {
+impl HasRefCnt for MapIndexes {
     fn refcnt(&self) -> isize {
         self.tcref
     }
@@ -189,7 +194,7 @@ impl HasRefCnt for MapIndexesMetadata {
     }
 }
 
-impl MapIndexesMetadata {
+impl MapIndexes {
     /// Creates a new [`struct@MapIndexesMetadata`].
     #[must_use]
     pub fn new(list: Vec<usize>) -> Self {
@@ -321,6 +326,7 @@ where
 {
     fn register(&mut self, registrator: &mut crate::Registrator) -> Result<(), Error> {
         registrator.register_md_default::<MapFeedbackMetadata<O::Entry>>(self.name().to_string());
+        registrator.register_md_default::<MapIndexesMetadata>(self.name().to_string());
         Ok(())
     }
 }
@@ -390,7 +396,7 @@ where
                 history_map[i] = val;
                 indices.push(i);
             }
-            let meta = MapIndexesMetadata::new(indices);
+            let meta = MapIndexes::new(indices);
             Some(meta)
         } else {
             for (i, value) in observer
@@ -422,17 +428,12 @@ where
 
         // at this point you are executing this code, the testcase is always interesting
         if let Some(meta) = meta {
-            if add_named_metadata_checked(
-                state.testcase_md_mut(testcase).named_metadata_map_mut(),
-                "",
-                meta,
-            )
-            .is_err()
-            {
-                return Err(Error::key_exists(
-                    "MapIndexesMetadata is already attached to this testcase. You should not have more than one observer with tracking.",
-                ));
-            }
+            state
+                .named_metadata_map_mut()
+                .get_mut::<MapIndexesMetadata>(&self.name)
+                .unwrap()
+                .data
+                .insert(*testcase.id(), meta);
         }
         Ok(())
     }

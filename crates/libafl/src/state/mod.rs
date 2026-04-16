@@ -259,9 +259,6 @@ pub struct StdState<C, I, OC, R, SC> {
 /// The [`Testcase`] metadata.
 #[derive(Serialize, Deserialize, Clone, Debug, Default, TypedBuilder)]
 pub struct TestcaseMetadata {
-    /// Map of metadata associated with this [`Testcase`]
-    #[builder(default)]
-    named_metadata: NamedSerdeAnyMap,
     /// The filename format used to name the [`Testcase`] file on-disk.
     #[builder(default)]
     filename_format: TestcaseFilenameFormat,
@@ -446,14 +443,6 @@ where
 
 
 impl TestcaseMetadata {
-    pub fn metadata(&self) -> &NamedSerdeAnyMap {
-        &self.named_metadata
-    }
-
-    pub fn metadata_mut(&mut self) -> &mut NamedSerdeAnyMap {
-        &mut self.named_metadata
-    }
-
     /// Get the executions
     #[inline]
     #[must_use]
