@@ -5,12 +5,10 @@ use core::{marker::PhantomData, num::NonZeroUsize};
 
 use libafl_bolts::rands::Rand;
 
-use crate::{Error, inputs::bytes::BytesInput, nonzero, state::HasRand};
+use crate::{Error, inputs::bytes::BytesInput, non_zero, state::HasRand};
 
-pub mod gramatron;
 use core::cmp::max;
 
-pub use gramatron::*;
 
 #[cfg(feature = "nautilus")]
 pub mod nautilus;
@@ -88,7 +86,7 @@ where
             .between(self.min_size.get(), self.max_size.get());
         size = max(size, 1);
         let random_bytes: Vec<u8> = (0..size)
-            .map(|_| state.rand_mut().below(nonzero!(256)) as u8)
+            .map(|_| state.rand_mut().below(non_zero!(256)) as u8)
             .collect();
         Ok(BytesInput::new(random_bytes))
     }
@@ -99,7 +97,7 @@ impl RandBytesGenerator {
     #[must_use]
     pub fn new(max_size: NonZeroUsize) -> Self {
         Self {
-            min_size: nonzero!(1),
+            min_size: non_zero!(1),
             max_size,
         }
     }
@@ -140,7 +138,7 @@ impl RandPrintablesGenerator {
     #[must_use]
     pub fn new(max_size: NonZeroUsize) -> Self {
         Self {
-            min_size: nonzero!(1),
+            min_size: non_zero!(1),
             max_size,
         }
     }

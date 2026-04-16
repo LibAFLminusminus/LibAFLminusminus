@@ -125,30 +125,7 @@ where
         .map(ToStateAwareMappingMutator::new(current_input_mapper))
 }
 
-/// Functionality required for Numeric Mutators (see [`int_mutators`])
-pub trait Numeric {
-    /// Flip all bits of the number.
-    fn flip_all_bits(&mut self);
 
-    /// Flip the bit at the specified offset.
-    ///
-    /// # Safety
-    ///
-    /// Panics if the `offset` is out of bounds for the type
-    fn flip_bit_at(&mut self, offset: usize);
-
-    /// Increment the number by one, wrapping around on overflow.
-    fn wrapping_inc(&mut self);
-
-    /// Decrement the number by one, wrapping around on underflow.
-    fn wrapping_dec(&mut self);
-
-    /// Compute the two's complement of the number.
-    fn twos_complement(&mut self);
-
-    /// Randomizes the value using the provided random number generator.
-    fn randomize<R: Rand>(&mut self, rand: &mut R);
-}
 
 // Macro to implement the Numeric trait for multiple integer types a u64 can be cast to
 macro_rules! impl_numeric_cast_randomize {

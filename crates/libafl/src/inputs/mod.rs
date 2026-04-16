@@ -30,68 +30,30 @@ pub use bytes::BytesInput;
 pub mod value;
 pub use value::ValueInput;
 
-#[cfg(not(feature = "remove_me"))]
 pub mod encoded;
-#[cfg(not(feature = "remove_me"))]
 pub use encoded::*;
 
-#[cfg(not(feature = "remove_me"))]
-pub mod gramatron;
-#[cfg(not(feature = "remove_me"))]
-pub use gramatron::*;
-
-#[cfg(not(feature = "remove_me"))]
 pub mod bytessub;
-#[cfg(not(feature = "remove_me"))]
 pub use bytessub::BytesSubInput;
 
-#[cfg(not(feature = "remove_me"))]
 #[cfg(feature = "multipart_inputs")]
 pub mod multi;
-#[cfg(not(feature = "remove_me"))]
 #[cfg(feature = "multipart_inputs")]
 pub use multi::*;
-#[cfg(not(feature = "remove_me"))]
 #[cfg(feature = "multipart_inputs")]
 pub mod list;
-#[cfg(not(feature = "remove_me"))]
 #[cfg(feature = "multipart_inputs")]
 pub use list::*;
 
 #[cfg(feature = "nautilus")]
-#[cfg(not(feature = "remove_me"))]
 pub mod nautilus;
 
 #[cfg(feature = "nautilus")]
-#[cfg(not(feature = "remove_me"))]
 pub use nautilus::*;
-
-/// An input for the target
-#[cfg(not(feature = "std"))]
-pub trait Input: Clone + Serialize + serde::de::DeserializeOwned + Debug + Hash {
-    /// Write this input to the file
-    fn to_file<P>(&self, _path: P) -> Result<(), Error> {
-        Err(Error::not_implemented("Not supported in no_std"))
-    }
-
-    /// Write this input to the file
-    fn from_file<P>(_path: P) -> Result<Self, Error> {
-        Err(Error::not_implemented("Not supprted in no_std"))
-    }
-
-    /// Generate a name for this input
-    fn generate_name(&self, _id: Option<CorpusId>) -> String {
-        format!("{:016x}", generic_hash_std(self))
-    }
-}
 
 /// An input for the target
 #[cfg(feature = "std")]
 pub trait Input: Clone + Serialize + serde::de::DeserializeOwned + Debug + Hash {
-    fn from_bytes(bytes: &[u8]) -> Result<Self, Error>;
-
-    fn to_bytes(&self) -> Result<OwnedSlice<'_, u8>, Error>;
-
     /// Write this input to the file
     fn to_file<P>(&self, path: P) -> Result<(), Error>
     where
@@ -211,15 +173,7 @@ impl NopInput {
     }
 }
 
-impl Input for NopInput {
-    fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
-        Ok(NopInput)
-    }
-
-    fn to_bytes(&self) -> Result<OwnedSlice<'_, u8>, Error> {
-        Err(Error::unsupported("NopInput cannot be converted to bytes"))
-    }
-}
+impl Input for NopInput {}
 
 impl HasTargetBytes for NopInput {
     fn target_bytes(&self) -> OwnedSlice<'_, u8> {

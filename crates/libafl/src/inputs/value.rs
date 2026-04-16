@@ -4,7 +4,7 @@
 use alloc::vec::Vec;
 use core::{fmt::Debug, hash::Hash, marker::PhantomData, mem::size_of};
 
-use libafl_bolts::{Error, ownedref::OwnedSlice};
+use libafl_bolts::{Error, ownedref::OwnedSlice, rands::Rand};
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "std")]
 use {
@@ -132,14 +132,6 @@ impl_from_target_bytes_for_primitive!(
 
 /// manually implemented because files can be written more efficiently
 impl Input for ValueInput<Vec<u8>> {
-    fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
-        todo!()
-    }
-
-    fn to_bytes(&self) -> Result<OwnedSlice<'_, u8>, Error> {
-        todo!()
-    }
-
     /// Write this input to the file
     #[cfg(feature = "std")]
     fn to_file<P>(&self, path: P) -> Result<(), Error>
@@ -163,7 +155,31 @@ impl Input for ValueInput<Vec<u8>> {
     }
 }
 
-#[cfg(not(feature = "remove_me"))]
+/// Functionality required for Numeric Mutators (see [`int_mutators`])
+pub trait Numeric {
+    /// Flip all bits of the number.
+    fn flip_all_bits(&mut self);
+
+    /// Flip the bit at the specified offset.
+    ///
+    /// # Safety
+    ///
+    /// Panics if the `offset` is out of bounds for the type
+    fn flip_bit_at(&mut self, offset: usize);
+
+    /// Increment the number by one, wrapping around on overflow.
+    fn wrapping_inc(&mut self);
+
+    /// Decrement the number by one, wrapping around on underflow.
+    fn wrapping_dec(&mut self);
+
+    /// Compute the two's complement of the number.
+    fn twos_complement(&mut self);
+
+    /// Randomizes the value using the provided random number generator.
+    fn randomize<R: Rand>(&mut self, rand: &mut R);
+}
+
 impl<T> Numeric for ValueInput<T>
 where
     T: Numeric,
@@ -194,15 +210,12 @@ where
 }
 
 #[cfg(test)]
-#[cfg(not(feature = "remove_me"))]
 mod tests {
-    #[cfg(feature = "std")]
     use {
         super::ValueInput, crate::mutators::numeric::Numeric, core::any::type_name,
         core::fmt::Debug,
     };
 
-    #[cfg(feature = "std")]
     macro_rules! apply_all_ops {
         ($prep:stmt, $value:expr, $type:ty, $check_twos_complement:expr) => {{
             $prep
@@ -245,7 +258,6 @@ mod tests {
         }};
     }
 
-    #[cfg(feature = "std")]
     #[expect(unused_mut)]
     fn take_numeric<T: Numeric + Clone + PartialEq + Debug>(val: &T, check_twos_complement: bool) {
         apply_all_ops!({}, val.clone(), T, check_twos_complement);
@@ -264,7 +276,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "std")] // type detection for better error messages, running with std is sufficient
     fn compiles() {
         // twos complement doesn't change anything on the min value of numeric types
         take_numeric(&u8::MIN, false);
