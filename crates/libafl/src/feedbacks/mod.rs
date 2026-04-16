@@ -9,12 +9,8 @@ use alloc::vec::Vec;
 use core::{fmt::Debug, marker::PhantomData};
 
 use crate::{
-    Error,
-    common::DependencyResolver,
-    corpus::Testcase,
-    executors::ExitKind,
-    observers::TimeObserver,
-    state::HasTestcase,
+    Error, common::DependencyResolver, corpus::Testcase, executors::ExitKind,
+    observers::TimeObserver, state::HasTestcase,
 };
 use libafl_bolts::{
     Named,
@@ -58,11 +54,6 @@ pub mod simd;
 
 #[cfg(feature = "std")]
 pub mod stdio;
-
-#[cfg(feature = "value_bloom_feedback")]
-pub mod value_bloom;
-#[cfg(feature = "value_bloom_feedback")]
-pub use value_bloom::ValueBloomFeedback;
 
 /// Feedbacks evaluate the observers.
 /// Basically, they reduce the information provided by an observer to a value,
