@@ -4,7 +4,6 @@ use libafl_bolts::Error;
 
 use crate::DependencyResolver;
 
-#[cfg(not(feature = "remove_me"))]
 pub mod direct;
 pub mod inprocess;
 #[cfg(not(feature = "remove_me"))]
@@ -41,26 +40,32 @@ pub trait Runtime<CT, S>: DependencyResolver {
         unsafe { self.run_impl(&mut driver, controller) }
     }
 
-    // fn on_signal()
-
     /// Set a timeout value for the runtime.
     ///
     /// Once set, [`on_timeout`] will be executed after the input duration.
-    fn set_timeout(&mut self, timeout: Duration) -> Result<(), Error>;
+    fn set_timeout(&mut self, _timeout: Duration) -> Result<(), Error> {
+        unimplemented!("This runtime does not implement timeout")
+    }
 
     /// Arm the timer, with the value previously provided to `set_timeout`
     ///
     /// If no timeout has been set previously, it's a no-op.
-    fn arm_timeout(&mut self) -> Result<(), Error>;
+    fn arm_timeout(&mut self) -> Result<(), Error> {
+        unimplemented!("This runtime does not implement timeout")
+    }
 
     /// Disarm the timer if it has been previously armed with `arm_timeout`.
     ///
     /// If not timer has been armed previously, it's a no-op.
-    fn disarm_timeout(&mut self) -> Result<(), Error>;
+    fn disarm_timeout(&mut self) -> Result<(), Error> {
+        unimplemented!("This runtime does not implement timeout")
+    }
 
     /// Unset a previously set timeout.
     /// If no timeout has been set before, it's a no-op.
-    fn unset_timeout(&mut self) -> Result<(), Error>;
+    fn unset_timeout(&mut self) -> Result<(), Error> {
+        unimplemented!("This runtime does not implement timeout")
+    }
 }
 
 /// Object enabling interacting with a runtime's environment from the task.
