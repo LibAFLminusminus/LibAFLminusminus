@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{InMemoryCorpusMap, Store};
 use crate::{
-    corpus::{testcase::TestcaseId, Testcase, TestcaseFilenameFormat},
+    corpus::{Testcase, TestcaseFilenameFormat, testcase::TestcaseId},
     inputs::Input,
 };
 
@@ -68,7 +68,6 @@ pub enum OnDiskMetadataFormat {
     #[default]
     JsonPretty,
     /// The same as [`OnDiskMetadataFormat::JsonPretty`], but compressed
-    #[cfg(feature = "gzip")]
     JsonGzip,
 }
 
@@ -217,9 +216,8 @@ where
         };
         if !already {
             Ok(testcase_id)
-        }
-        else {
-            return Err(Error::key_exists("Overwriting existing testcase"))
+        } else {
+            return Err(Error::key_exists("Overwriting existing testcase"));
         }
     }
 

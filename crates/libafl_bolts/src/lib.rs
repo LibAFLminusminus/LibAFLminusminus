@@ -63,7 +63,6 @@ pub use serde_anymap::anymap;
     feature = "std"
 ))]
 pub mod cli;
-#[cfg(feature = "gzip")]
 pub mod compress;
 #[cfg(feature = "std")]
 pub use core_affinity2 as core_affinity;
@@ -100,6 +99,9 @@ pub use target_args::*;
 
 pub mod simd;
 
+pub mod time;
+pub use time::{current_milliseconds, current_nanos, current_time};
+
 #[cfg(feature = "std")]
 pub mod timer;
 #[cfg(feature = "std")]
@@ -115,7 +117,6 @@ pub mod bolts_prelude {
         feature = "std"
     ))]
     pub use super::cli::*;
-    #[cfg(feature = "gzip")]
     pub use super::compress::*;
     #[cfg(feature = "std")]
     pub use super::core_affinity::*;
@@ -142,10 +143,7 @@ use core::hash::BuildHasher;
 use core::hash::{Hash, Hasher};
 #[cfg(unix)]
 use core::mem;
-use core::time;
 use std::time::SystemTime;
-#[cfg(feature = "std")]
-use std::time::UNIX_EPOCH;
 #[cfg(unix)]
 use std::{
     fs::File,
@@ -165,13 +163,6 @@ use log::{Metadata, Record};
 #[cfg(feature = "xxh3")]
 use xxhash_rust::xxh3::xxh3_64;
 
-/// Current time
-#[cfg(feature = "std")]
-#[must_use]
-#[inline]
-pub fn current_time() -> time::Duration {
-    SystemTime::now().duration_since(UNIX_EPOCH).unwrap()
-}
 /// Returns the standard input [`Hasher`]
 ///
 /// Returns the hasher for the input with a given hash, depending on features:

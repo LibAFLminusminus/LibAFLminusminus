@@ -7,7 +7,7 @@
 use core::marker::PhantomData;
 
 use crate::{
-    Error, Evaluator,
+    Error,
     generators::Generator,
     stages::{Restartable, Stage},
     state::HasRand,

@@ -9,7 +9,6 @@ use crate::{Error, inputs::bytes::BytesInput, non_zero, state::HasRand};
 
 use core::cmp::max;
 
-
 #[cfg(feature = "nautilus")]
 pub mod nautilus;
 #[cfg(feature = "nautilus")]

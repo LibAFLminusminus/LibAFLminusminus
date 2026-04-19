@@ -27,8 +27,7 @@ pub struct NautilusInput {
     pub tree: Tree,
 }
 
-impl Input for NautilusInput {
-}
+impl Input for NautilusInput {}
 
 /// Rc Ref-cell from Input
 impl From<NautilusInput> for Rc<RefCell<NautilusInput>> {

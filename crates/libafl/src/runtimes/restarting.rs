@@ -11,7 +11,7 @@ pub struct RestartingRuntime<CH, D, S, T, TH> {
     inner: InProcessRuntime<CH, D, S, T, TH>,
 }
 
-impl<CH, D, S, T, TH> DependencyResolver for RestartingRuntime<CH, D, S, T, TH>0 {
+impl<CH, D, S, T, TH> DependencyResolver for RestartingRuntime<CH, D, S, T, TH> {
     fn register(&mut self, registrator: &mut crate::Registrator) -> Result<(), Error> {
         self.inner.register(registrator)
     }

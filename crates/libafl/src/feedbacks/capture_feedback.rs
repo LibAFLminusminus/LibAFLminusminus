@@ -6,12 +6,8 @@ use libafl_bolts::{Error, Named};
 use serde::{Serialize, de::DeserializeOwned};
 
 use crate::{
-    corpus::Testcase,
-    executors::ExitKind,
-    common::MetadataResolver,
-    state::State,
-    feedbacks::Feedback,
-    stages::verify_timeouts::TimeoutsToVerify,
+    common::MetadataResolver, corpus::Testcase, executors::ExitKind, feedbacks::Feedback,
+    stages::verify_timeouts::TimeoutsToVerify, state::State,
 };
 
 /// A Feedback that captures all timeouts and stores them in State for re-evaluation later.

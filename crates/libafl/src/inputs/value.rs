@@ -153,7 +153,6 @@ impl_numeric_cast_randomize!( u8 u16 u32 u64 usize i8 i16 i32 i64 isize );
 
 /// manually implemented because files can be written more efficiently
 impl Input for ValueInput<Vec<u8>> {
-
     /// Write this input to the file
     #[cfg(feature = "std")]
     fn to_file<P>(&self, path: P) -> Result<(), Error>

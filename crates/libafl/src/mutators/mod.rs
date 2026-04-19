@@ -17,19 +17,12 @@ pub mod numeric;
 pub use numeric::{int_mutators, mapped_int_mutators};
 pub mod encoded_mutations;
 pub use encoded_mutations::*;
-pub mod mopt_mutator;
-pub use mopt_mutator::*;
-pub mod gramatron;
-pub use gramatron::*;
 pub mod grimoire;
 pub use grimoire::*;
 pub mod mapping;
 pub use mapping::*;
 pub mod tuneable;
 pub use tuneable::*;
-
-#[cfg(feature = "lua_mutator")]
-pub mod lua;
 
 #[cfg(feature = "std")]
 pub mod hash;
@@ -43,8 +36,6 @@ pub use unicode::*;
 
 #[cfg(feature = "multipart_inputs")]
 pub mod list;
-#[cfg(feature = "multipart_inputs")]
-pub mod multi;
 
 #[cfg(feature = "nautilus")]
 pub mod nautilus;

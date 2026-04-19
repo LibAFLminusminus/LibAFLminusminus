@@ -17,8 +17,10 @@ use libafl_bolts::{
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use typed_builder::TypedBuilder;
 
+use crate::fuzzer::Evaluator;
 #[cfg(not(feature = "remove_me"))]
 use crate::fuzzer::{Evaluator, ExecuteInputResult};
+use crate::generators::Generator;
 #[cfg(not(feature = "remove_me"))]
 use crate::generators::Generator;
 use crate::inputs::NopContext;
@@ -1232,66 +1234,29 @@ where
     R: Rand,
     SO: Corpus<I, NopScheduler>,
 {
-    #[cfg(not(feature = "remove_me"))]
-    fn generate_initial_internal<G, E, Z>(
-        &mut self,
-        fuzzer: &mut Z,
-        executor: &mut E,
-        generator: &mut G,
-        num: usize,
-        forced: bool,
-    ) -> Result<(), Error>
-    where
-        G: Generator<I, Self>,
-        Z: Evaluator<E, I, Self>,
-    {
-        let mut added = 0;
-        for _ in 0..num {
-            let input = generator.generate(self)?;
-            if forced {
-                let _ = fuzzer.add_input(self, executor, input)?;
-                added += 1;
-            } else {
-                let input;
-                let (res, _) = fuzzer.evaluate_input(self, executor, &input)?;
-                if res != ExecuteInputResult::None {
-                    added += 1;
-                }
-            }
-        }
-        Ok(())
-    }
-
-    /// Generate `num` initial inputs, using the passed-in generator and force the addition to corpus.
-    #[cfg(not(feature = "remove_me"))]
-    pub fn generate_initial_inputs_forced<G, E, Z>(
-        &mut self,
-        fuzzer: &mut Z,
-        executor: &mut E,
-        generator: &mut G,
-        num: usize,
-    ) -> Result<(), Error>
-    where
-        G: Generator<I, Self>,
-        Z: Evaluator<E, I, Self>,
-    {
-        self.generate_initial_internal(fuzzer, executor, generator, num, true)
-    }
-
     /// Generate `num` initial inputs, using the passed-in generator.
-    #[cfg(not(feature = "remove_me"))]
     pub fn generate_initial_inputs<G, E, Z>(
         &mut self,
         fuzzer: &mut Z,
         executor: &mut E,
         generator: &mut G,
         num: usize,
-    ) -> Result<(), Error>
+    ) -> Result<usize, Error>
     where
         G: Generator<I, Self>,
         Z: Evaluator<E, I, Self>,
     {
-        self.generate_initial_internal(fuzzer, executor, generator, num, false)
+        let mut added = 0;
+
+        for _ in 0..num {
+            let input = generator.generate(self)?;
+            let res = fuzzer.evaluate_input(self, executor, &input)?;
+            if res.is_corpus_worthy() {
+                added += 1;
+            }
+        }
+
+        Ok(added)
     }
 }
 

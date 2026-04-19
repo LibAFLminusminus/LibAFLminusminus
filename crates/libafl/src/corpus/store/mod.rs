@@ -4,7 +4,7 @@ use alloc::rc::Rc;
 
 use libafl_bolts::Error;
 
-use super::{testcase::TestcaseId, Testcase};
+use super::{Testcase, testcase::TestcaseId};
 
 pub mod maps;
 pub use maps::{BtreeCorpusMap, HashCorpusMap, InMemoryCorpusMap};
