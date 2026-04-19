@@ -1,51 +1,23 @@
-pub mod level;
-mod version;
-
+use crate::args::{level::Level, version::Version};
+use clap::Parser;
 use std::iter;
 
-use clap::Parser;
+mod version;
 
-use crate::args::{level::Level, version::Version};
-
-pub trait ParentArgs {
-    fn port(&self) -> u16;
-    fn timeout(&self) -> u64;
-}
-
-impl ParentArgs for Args {
-    fn port(&self) -> u16 {
-        self.port
-    }
-    fn timeout(&self) -> u64 {
-        self.timeout
-    }
-}
-
-pub trait ChildArgs {
-    fn argv(&self) -> Vec<String>;
-}
-
-impl ChildArgs for Args {
-    fn argv(&self) -> Vec<String> {
-        iter::once(&self.program)
-            .chain(self.args.iter())
-            .cloned()
-            .collect::<Vec<String>>()
-    }
-}
+pub mod level;
 
 pub trait LogArgs {
     fn log_file(&self) -> String;
     fn log_level(&self) -> Level;
 }
 
-impl LogArgs for Args {
-    fn log_file(&self) -> String {
-        self.log_file.clone()
-    }
-    fn log_level(&self) -> Level {
-        self.log_level
-    }
+pub trait ChildArgs {
+    fn argv(&self) -> Vec<String>;
+}
+
+pub trait ParentArgs {
+    fn port(&self) -> u16;
+    fn timeout(&self) -> u64;
 }
 
 #[derive(Parser, Debug)]
@@ -80,4 +52,31 @@ pub struct Args {
 
     #[arg(last = true, value_parser, value_delimiter = ' ', num_args = 1.., help = "Arguments passed to the target")]
     args: Vec<String>,
+}
+
+impl ParentArgs for Args {
+    fn port(&self) -> u16 {
+        self.port
+    }
+    fn timeout(&self) -> u64 {
+        self.timeout
+    }
+}
+
+impl ChildArgs for Args {
+    fn argv(&self) -> Vec<String> {
+        iter::once(&self.program)
+            .chain(self.args.iter())
+            .cloned()
+            .collect::<Vec<String>>()
+    }
+}
+
+impl LogArgs for Args {
+    fn log_file(&self) -> String {
+        self.log_file.clone()
+    }
+    fn log_level(&self) -> Level {
+        self.log_level
+    }
 }

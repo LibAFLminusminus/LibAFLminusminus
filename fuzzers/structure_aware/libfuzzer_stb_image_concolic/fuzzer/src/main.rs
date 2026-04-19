@@ -55,10 +55,6 @@ use libafl_bolts::{
     tuples::{tuple_list, Handled},
     AsSlice, AsSliceMut,
 };
-
-type FuzzerState =
-    StdState<InMemoryCorpus<BytesInput>, BytesInput, StdRand, OnDiskCorpus<BytesInput>>;
-
 use libafl_targets::{
     libfuzzer_initialize, libfuzzer_test_one_input, std_edges_map_observer, CmpLogObserver,
 };
@@ -67,12 +63,18 @@ use mimalloc::MiMalloc;
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
 
+type FuzzerState =
+    StdState<InMemoryCorpus<BytesInput>, BytesInput, StdRand, OnDiskCorpus<BytesInput>>;
+
 #[derive(Debug, Parser)]
 struct Opt {
     /// This node should do concolic tracing + solving instead of traditional fuzzing
     #[arg(short, long)]
     concolic: bool,
 }
+
+#[derive(Default, Debug)]
+pub struct MyCommandConfigurator;
 
 #[allow(clippy::too_many_arguments)]
 fn fuzz_task<EM>(
@@ -287,9 +289,6 @@ pub fn main() {
         }
     }
 }
-
-#[derive(Default, Debug)]
-pub struct MyCommandConfigurator;
 
 impl CommandConfigurator<Child> for MyCommandConfigurator {
     fn spawn_child(&mut self, target_bytes: OwnedSlice<'_, u8>) -> Result<Child, Error> {

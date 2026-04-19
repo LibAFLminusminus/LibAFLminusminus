@@ -20,6 +20,12 @@ pub struct UnicodeIdentificationMetadata {
     ranges: Rc<Vec<(usize, BitVec)>>,
 }
 
+/// Stage which identifies potential strings in the provided input
+#[derive(Debug)]
+pub struct UnicodeIdentificationStage<I, S> {
+    phantom: PhantomData<(I, S)>,
+}
+
 impl_serdeany!(UnicodeIdentificationMetadata);
 
 impl UnicodeIdentificationMetadata {
@@ -66,12 +72,6 @@ pub(crate) fn extract_metadata(bytes: &[u8]) -> UnicodeIdentificationMetadata {
     UnicodeIdentificationMetadata {
         ranges: Rc::new(ranges),
     }
-}
-
-/// Stage which identifies potential strings in the provided input
-#[derive(Debug)]
-pub struct UnicodeIdentificationStage<I, S> {
-    phantom: PhantomData<(I, S)>,
 }
 
 impl<I, S> Default for UnicodeIdentificationStage<I, S> {

@@ -1,6 +1,6 @@
-pub mod diffing;
 use std::env;
 
+pub mod diffing;
 pub use diffing::*;
 
 fn main() {

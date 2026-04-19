@@ -1,9 +1,17 @@
-use std::fmt::Write;
-
 use clap::{Parser, builder::Str};
+use std::fmt::Write;
 
 #[derive(Default)]
 pub struct Version;
+
+#[derive(Parser, Debug)]
+#[clap(author, version, about, long_about = None)]
+#[command(
+    version = Version::default(),
+    about = "gdb-qemu",
+    long_about = "Tool launching qemu-user for debugging"
+)]
+pub struct Args;
 
 impl From<Version> for Str {
     fn from(_: Version) -> Str {
@@ -28,12 +36,3 @@ impl From<Version> for Str {
         format!("\n{version:}").into()
     }
 }
-
-#[derive(Parser, Debug)]
-#[clap(author, version, about, long_about = None)]
-#[command(
-    version = Version::default(),
-    about = "gdb-qemu",
-    long_about = "Tool launching qemu-user for debugging"
-)]
-pub struct Args;

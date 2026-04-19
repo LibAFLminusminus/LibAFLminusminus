@@ -1,18 +1,18 @@
+use crate::{
+    GuestAddr, asan_panic, asan_store, asan_swap, asan_sym, size_t, ssize_t,
+    symbols::{AtomicGuestAddr, Function, FunctionPointer},
+};
 use core::ffi::{CStr, c_char, c_long};
-
 #[cfg(not(target_os = "macos"))]
 use libc::SYS_read;
 use libc::{c_int, c_void};
 use log::trace;
 
-use crate::{
-    GuestAddr, asan_panic, asan_store, asan_swap, asan_sym, size_t, ssize_t,
-    symbols::{AtomicGuestAddr, Function, FunctionPointer},
-};
-
 #[cfg(target_os = "macos")]
 #[expect(non_upper_case_globals)]
 const SYS_read: libc::c_long = 0x2000003;
+
+static SYSCALL_ADDR: AtomicGuestAddr = AtomicGuestAddr::new();
 
 #[derive(Debug)]
 struct FunctionSyscall;
@@ -21,8 +21,6 @@ impl Function for FunctionSyscall {
     type Func = unsafe extern "C" fn(num: c_long, ...) -> c_long;
     const NAME: &'static CStr = c"syscall";
 }
-
-static SYSCALL_ADDR: AtomicGuestAddr = AtomicGuestAddr::new();
 
 /// # Safety
 /// See man pages

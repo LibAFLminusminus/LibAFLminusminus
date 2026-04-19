@@ -19,6 +19,14 @@ pub struct PacketLenMetadata {
 
 pub struct PacketLenTestcasePenalty {}
 
+#[derive(Serialize, Deserialize, Default, Debug, Clone)]
+pub struct PacketLenFeedback {
+    len: u64,
+}
+
+pub type PacketLenMinimizerScheduler<CS, I, S> =
+    MinimizerScheduler<CS, PacketLenTestcasePenalty, I, MapIndexesMetadata, S>;
+
 impl<I, S> TestcasePenalty<I, S> for PacketLenTestcasePenalty
 where
     S: HasMetadata,
@@ -29,14 +37,6 @@ where
             .get::<PacketLenMetadata>()
             .map_or(1, |m| m.length) as f64)
     }
-}
-
-pub type PacketLenMinimizerScheduler<CS, I, S> =
-    MinimizerScheduler<CS, PacketLenTestcasePenalty, I, MapIndexesMetadata, S>;
-
-#[derive(Serialize, Deserialize, Default, Debug, Clone)]
-pub struct PacketLenFeedback {
-    len: u64,
 }
 
 impl<S> StateInitializer<S> for PacketLenFeedback {}

@@ -1,3 +1,6 @@
+use crate::{args::ParentArgs, exit::Exit};
+use anyhow::{Result, anyhow};
+use nix::unistd::read;
 use std::{
     fmt,
     io::{Read, Write},
@@ -7,14 +10,21 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-use anyhow::{Result, anyhow};
-use nix::unistd::read;
-
-use crate::{args::ParentArgs, exit::Exit};
-
 enum Direction {
     GdbToTarget,
     TargetToGdb,
+}
+
+enum Channel {
+    Stdout,
+    StdErr,
+}
+
+pub struct Parent {
+    port: u16,
+    timeout: u64,
+    fd1: Option<OwnedFd>,
+    fd2: Option<OwnedFd>,
 }
 
 impl fmt::Display for Direction {
@@ -26,11 +36,6 @@ impl fmt::Display for Direction {
     }
 }
 
-enum Channel {
-    Stdout,
-    StdErr,
-}
-
 impl fmt::Display for Channel {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -38,13 +43,6 @@ impl fmt::Display for Channel {
             Channel::StdErr => write!(fmt, "[STDERR]"),
         }
     }
-}
-
-pub struct Parent {
-    port: u16,
-    timeout: u64,
-    fd1: Option<OwnedFd>,
-    fd2: Option<OwnedFd>,
 }
 
 impl Parent {

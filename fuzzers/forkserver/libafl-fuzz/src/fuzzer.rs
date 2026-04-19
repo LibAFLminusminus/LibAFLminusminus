@@ -88,6 +88,9 @@ type LibaflFuzzManager = CentralizedEventManager<
 #[cfg(feature = "fuzzbench")]
 type LibaflFuzzManager<F> = SimpleEventManager<BytesInput, SimpleMonitor<F>, LibaflFuzzState>;
 
+#[derive(Debug, Serialize, Deserialize, SerdeAny)]
+pub struct IsInitialCorpusEntryMetadata {}
+
 macro_rules! define_run_client {
     ($state: ident, $mgr: ident, $fuzzer_dir: ident, $core_id: ident, $opt:ident, $is_main_node: ident, $body:block) => {
         #[cfg(not(feature = "fuzzbench"))]
@@ -660,9 +663,6 @@ pub fn fuzzer_target_mode(opt: &Opt) -> Cow<'static, str> {
     }
     Cow::Owned(res)
 }
-
-#[derive(Debug, Serialize, Deserialize, SerdeAny)]
-pub struct IsInitialCorpusEntryMetadata {}
 
 pub fn run_fuzzer_with_stages<E, EM, I, S, ST, Z>(
     opt: &Opt,

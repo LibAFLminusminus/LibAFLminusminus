@@ -1,11 +1,7 @@
-use core::{
-    ffi::{CStr, c_char, c_void},
-    sync::atomic::{AtomicBool, Ordering},
-};
-
-use log::{Level, error, trace};
-use spin::{Lazy, Mutex};
-
+#[cfg(feature = "libc")]
+use crate::logger::libc::LibcLogger;
+#[cfg(all(feature = "syscalls", target_os = "linux", not(feature = "libc")))]
+use crate::logger::linux::LinuxLogger;
 use crate::{
     GuestAddr,
     allocator::{
@@ -17,6 +13,12 @@ use crate::{
     symbols::Symbols,
     tracking::Tracking,
 };
+use core::{
+    ffi::{CStr, c_char, c_void},
+    sync::atomic::{AtomicBool, Ordering},
+};
+use log::{Level, error, trace};
+use spin::{Lazy, Mutex};
 
 #[cfg(not(feature = "libc"))]
 type TestSyms = crate::symbols::nop::NopSymbols;
@@ -54,11 +56,6 @@ type TestTracking = crate::tracking::host::HostTracking<TestHost>;
 
 #[cfg(all(not(feature = "guest"), feature = "host"))]
 type TestShadow = crate::shadow::host::HostShadow<TestHost>;
-
-#[cfg(feature = "libc")]
-use crate::logger::libc::LibcLogger;
-#[cfg(all(feature = "syscalls", target_os = "linux", not(feature = "libc")))]
-use crate::logger::linux::LinuxLogger;
 
 pub type TestFrontend = DefaultFrontend<DlmallocBackend<TestMap>, TestShadow, TestTracking>;
 

@@ -1,8 +1,4 @@
-use std::{
-    alloc::{alloc_zeroed, Layout},
-    path::PathBuf,
-};
-
+use bindings::{inspect_first, inspect_second};
 #[cfg(feature = "tui")]
 use libafl::monitors::tui::TuiMonitor;
 #[cfg(not(feature = "tui"))]
@@ -25,6 +21,10 @@ use libafl_bolts::{nonzero, rands::StdRand, tuples::tuple_list, AsSlice};
 use libafl_targets::{edges_max_num, DifferentialAFLMapSwapObserver};
 #[cfg(not(miri))]
 use mimalloc::MiMalloc;
+use std::{
+    alloc::{alloc_zeroed, Layout},
+    path::PathBuf,
+};
 
 #[global_allocator]
 #[cfg(not(miri))]
@@ -39,16 +39,14 @@ mod bindings {
     #![allow(clippy::unreadable_literal)]
     include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 }
-
-use bindings::{inspect_first, inspect_second};
+#[cfg(feature = "multimap")]
+use multimap::{HitcountsIterableMapObserver, MultiMapObserver, OwnedMutSlice};
 
 #[cfg(feature = "multimap")]
 mod multimap {
     pub use libafl::observers::{HitcountsIterableMapObserver, MultiMapObserver};
     pub use libafl_bolts::ownedref::OwnedMutSlice;
 }
-#[cfg(feature = "multimap")]
-use multimap::{HitcountsIterableMapObserver, MultiMapObserver, OwnedMutSlice};
 
 #[cfg(not(feature = "multimap"))]
 mod slicemap {

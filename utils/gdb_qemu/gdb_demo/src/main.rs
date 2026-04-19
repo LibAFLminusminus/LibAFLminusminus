@@ -1,10 +1,8 @@
-mod args;
-
+use crate::args::Args;
+use clap::Parser;
 use std::{thread::sleep, time::Duration};
 
-use clap::Parser;
-
-use crate::args::Args;
+mod args;
 
 #[unsafe(no_mangle)]
 extern "C" fn run_test(num: usize) {

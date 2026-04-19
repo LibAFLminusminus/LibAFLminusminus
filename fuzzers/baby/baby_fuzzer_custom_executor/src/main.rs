@@ -1,5 +1,3 @@
-use std::{marker::PhantomData, path::PathBuf, ptr::write};
-
 #[cfg(feature = "bloom_input_filter")]
 use libafl::fuzzer::{BloomInputFilter, ReportingInputFilter};
 #[cfg(feature = "tui")]
@@ -24,18 +22,21 @@ use libafl::{
 use libafl_bolts::{
     current_nanos, nonnull_raw_mut, nonzero, rands::StdRand, tuples::tuple_list, AsSlice,
 };
+use std::{marker::PhantomData, path::PathBuf, ptr::write};
+
 /// Coverage map with explicit assignments due to the lack of instrumentation
 const SIGNALS_LEN: usize = 16;
+
 static mut SIGNALS: [u8; SIGNALS_LEN] = [0; SIGNALS_LEN];
 static mut SIGNALS_PTR: *mut u8 = &raw mut SIGNALS as _;
+
+struct CustomExecutor<S> {
+    phantom: PhantomData<S>,
+}
 
 /// Assign a signal to the signals map
 fn signals_set(idx: usize) {
     unsafe { write(SIGNALS_PTR.add(idx), 1) };
-}
-
-struct CustomExecutor<S> {
-    phantom: PhantomData<S>,
 }
 
 impl<S> CustomExecutor<S> {

@@ -1,4 +1,8 @@
 //! A libfuzzer-like fuzzer using Nyx for binary-only coverage
+
+#[cfg(target_os = "linux")]
+use crate::fuzzer::Fuzzer;
+
 #[cfg(target_os = "linux")]
 mod client;
 #[cfg(target_os = "linux")]
@@ -7,9 +11,6 @@ mod fuzzer;
 mod instance;
 #[cfg(target_os = "linux")]
 mod options;
-
-#[cfg(target_os = "linux")]
-use crate::fuzzer::Fuzzer;
 
 #[cfg(target_os = "linux")]
 pub fn main() {

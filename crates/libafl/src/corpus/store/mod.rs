@@ -51,6 +51,8 @@ pub trait Store<I> {
 
     /// Disable a testcase by id
     fn disable(&mut self, id: TestcaseId) -> Result<(), Error>;
+
+    fn nth_from<const ENABLED: bool>(&self, nth: usize) -> Option<TestcaseId>;
 }
 
 /// A Store with removable entries

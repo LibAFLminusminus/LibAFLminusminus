@@ -8,6 +8,8 @@ use crate::{
     symbols::{AtomicGuestAddr, Function, FunctionPointer},
 };
 
+static MUNMAP_ADDR: AtomicGuestAddr = AtomicGuestAddr::new();
+
 #[derive(Debug)]
 struct FunctionMunmap;
 
@@ -15,8 +17,6 @@ impl Function for FunctionMunmap {
     type Func = unsafe extern "C" fn(addr: *mut c_void, len: size_t) -> c_int;
     const NAME: &'static CStr = c"munmap";
 }
-
-static MUNMAP_ADDR: AtomicGuestAddr = AtomicGuestAddr::new();
 
 /// # Safety
 /// See man pages

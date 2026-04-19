@@ -1,5 +1,3 @@
-mod input;
-
 #[cfg(windows)]
 use std::ptr::write_volatile;
 use std::{path::PathBuf, ptr::write};
@@ -39,6 +37,8 @@ use {
     },
     libafl_bolts::tuples::Map,
 };
+
+mod input;
 
 /// Coverage map with explicit assignments due to the lack of instrumentation
 const SIGNALS_LEN: usize = 16;

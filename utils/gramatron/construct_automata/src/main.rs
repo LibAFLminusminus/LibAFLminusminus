@@ -1,6 +1,8 @@
-extern crate alloc;
-
 use alloc::{collections::VecDeque, rc::Rc};
+use clap::Parser;
+use libafl::generators::gramatron::{Automaton, Trigger};
+use regex::Regex;
+use serde_json::Value;
 use std::{
     collections::HashSet,
     fs,
@@ -9,12 +11,31 @@ use std::{
     sync::OnceLock,
 };
 
-use clap::Parser;
-use libafl::generators::gramatron::{Automaton, Trigger};
-use regex::Regex;
-use serde_json::Value;
+extern crate alloc;
 
 static RE: OnceLock<Regex> = OnceLock::new();
+
+#[derive(Debug)]
+struct Element<'src> {
+    pub state: usize,
+    pub items: Rc<VecDeque<&'src str>>,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Eq, Hash)]
+struct Transition<'src> {
+    pub source: usize,
+    pub dest: usize,
+    // pub ss: Vec<String>,
+    pub terminal: &'src str,
+    // pub is_regex: bool,
+    pub stack_len: usize,
+}
+
+#[derive(Default)]
+struct Stacks<'src> {
+    pub q: Vec<Rc<VecDeque<&'src str>>>,
+    pub s: Vec<Box<[&'src str]>>,
+}
 
 #[derive(Debug, Parser)]
 #[command(
@@ -48,28 +69,6 @@ fn read_grammar_from_file<P: AsRef<Path>>(path: P) -> Value {
     let file = fs::File::open(path).unwrap();
     let reader = BufReader::new(file);
     serde_json::from_reader(reader).unwrap()
-}
-
-#[derive(Debug)]
-struct Element<'src> {
-    pub state: usize,
-    pub items: Rc<VecDeque<&'src str>>,
-}
-
-#[derive(Default, Debug, Clone, PartialEq, Eq, Hash)]
-struct Transition<'src> {
-    pub source: usize,
-    pub dest: usize,
-    // pub ss: Vec<String>,
-    pub terminal: &'src str,
-    // pub is_regex: bool,
-    pub stack_len: usize,
-}
-
-#[derive(Default)]
-struct Stacks<'src> {
-    pub q: Vec<Rc<VecDeque<&'src str>>>,
-    pub s: Vec<Box<[&'src str]>>,
 }
 
 fn tokenize(rule: &str) -> (&str, Vec<&str>) {

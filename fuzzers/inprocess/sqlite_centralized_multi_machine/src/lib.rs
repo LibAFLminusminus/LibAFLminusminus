@@ -42,11 +42,6 @@ use mimalloc::MiMalloc;
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
 
-/// Parse a millis string to a [`Duration`]. Used for arg parsing.
-fn timeout_from_millis_str(time: &str) -> Result<Duration, Error> {
-    Ok(Duration::from_millis(time.parse()?))
-}
-
 /// The commandline args this fuzzer accepts
 #[derive(Debug, Parser)]
 #[command(
@@ -131,6 +126,11 @@ struct Opt {
         default_value = None
     )]
     node_listening_port: Option<u16>,
+}
+
+/// Parse a millis string to a [`Duration`]. Used for arg parsing.
+fn timeout_from_millis_str(time: &str) -> Result<Duration, Error> {
+    Ok(Duration::from_millis(time.parse()?))
 }
 
 /// The main fn, `no_mangle` as it is a C symbol

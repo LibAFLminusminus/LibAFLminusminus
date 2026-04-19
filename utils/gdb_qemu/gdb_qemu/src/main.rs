@@ -1,3 +1,8 @@
+use crate::{args::Args, child::Child, exit::Exit, logger::Logger, parent::Parent};
+use anyhow::{Result, anyhow};
+use clap::Parser;
+use nix::unistd::{ForkResult, fork, pipe};
+
 mod args;
 mod child;
 mod exit;
@@ -7,12 +12,6 @@ mod parent;
 #[macro_use]
 extern crate log;
 extern crate simplelog;
-
-use anyhow::{Result, anyhow};
-use clap::Parser;
-use nix::unistd::{ForkResult, fork, pipe};
-
-use crate::{args::Args, child::Child, exit::Exit, logger::Logger, parent::Parent};
 
 fn main() -> Result<()> {
     let args = Args::parse();

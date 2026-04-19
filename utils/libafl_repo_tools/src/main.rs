@@ -85,6 +85,9 @@ use tokio::{process::Command, task::JoinSet};
 use walkdir::{DirEntry, WalkDir};
 use which::which;
 
+mod lints;
+use lints::run_file_lints;
+
 const REF_LLVM_VERSION: u32 = 20;
 
 fn is_workspace_toml(path: &Path) -> bool {
@@ -322,6 +325,15 @@ async fn main() -> io::Result<()> {
         .map(DirEntry::into_path)
         .collect();
 
+    let rust_sources_to_check: Vec<PathBuf> = WalkDir::new(&libafl_root_dir)
+        .into_iter()
+        .filter_map(Result::ok)
+        .filter(|e| !rust_excluded_directories.is_match(e.path().as_os_str().to_str().unwrap()))
+        .filter(|e| e.file_type().is_file())
+        .filter(|e| e.path().extension().is_some_and(|ext| ext == "rs"))
+        .map(DirEntry::into_path)
+        .collect();
+
     // cargo version
     println!("Using {}", get_version_string("cargo", &[]).await?);
 
@@ -414,17 +426,17 @@ async fn main() -> io::Result<()> {
                 ));
             }
         }
-    }
 
-    while let Some(res) = tokio_joinset.join_next().await {
-        match res? {
-            Ok(()) => {}
-            Err(err) => {
-                println!("Error: {err}");
-                std::process::exit(exitcode::IOERR)
-            }
+        // Drain all formatting tasks before running post-format checks, so
+        // checks always run against the (potentially re-)formatted files.
+        drain_joinset(&mut tokio_joinset).await?;
+
+        for rs_file in rust_sources_to_check.clone() {
+            tokio_joinset.spawn(run_file_lints(rs_file, cli.verbose));
         }
     }
+
+    drain_joinset(&mut tokio_joinset).await?;
 
     if cli.generate_lockfiles {
         println!("[*] Lockfile generation finished successfully.");
@@ -434,6 +446,19 @@ async fn main() -> io::Result<()> {
         println!("[*] Formatting finished successfully.");
     }
 
+    Ok(())
+}
+
+async fn drain_joinset(set: &mut JoinSet<io::Result<()>>) -> io::Result<()> {
+    while let Some(res) = set.join_next().await {
+        match res? {
+            Ok(()) => {}
+            Err(err) => {
+                println!("Error: {err}");
+                std::process::exit(exitcode::IOERR)
+            }
+        }
+    }
     Ok(())
 }
 

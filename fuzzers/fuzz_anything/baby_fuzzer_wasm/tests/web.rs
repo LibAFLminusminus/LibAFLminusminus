@@ -1,10 +1,11 @@
-//! Test suite for the Web and headless browsers.
-
 #![cfg(target_arch = "wasm32")]
 
-extern crate wasm_bindgen_test;
+//! Test suite for the Web and headless browsers.
+
 use baby_fuzzer_wasm::fuzz;
 use wasm_bindgen_test::*;
+
+extern crate wasm_bindgen_test;
 
 wasm_bindgen_test_configure!(run_in_browser);
 

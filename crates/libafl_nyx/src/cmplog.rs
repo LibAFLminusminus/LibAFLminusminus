@@ -2,10 +2,7 @@
 //!
 //! Reads and parses the redqueen results written by QEMU-Nyx and adds them to the state as `CmpValuesMetadata`.
 
-extern crate alloc;
-
 use alloc::borrow::Cow;
-
 use libafl::{
     Error, HasMetadata,
     executors::ExitKind,
@@ -20,6 +17,8 @@ pub use libafl_targets::{
     },
 };
 use serde::{Deserialize, Serialize};
+
+extern crate alloc;
 
 /// A [`CmpObserver`](libafl::observers::cmp::CmpObserver) observer for Nyx
 #[derive(Serialize, Deserialize, Debug)]

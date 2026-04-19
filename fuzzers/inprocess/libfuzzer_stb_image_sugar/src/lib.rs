@@ -1,14 +1,13 @@
 //! A libfuzzer-like fuzzer with llmp-multithreading support and restarts
 //! The example harness is built for `stb_image`.
-use mimalloc::MiMalloc;
-#[global_allocator]
-static GLOBAL: MiMalloc = MiMalloc;
-
-use std::{env, path::PathBuf};
-
 use libafl_bolts::core_affinity::Cores;
 use libafl_sugar::InProcessBytesCoverageSugar;
 use libafl_targets::{libfuzzer_initialize, libfuzzer_test_one_input};
+use mimalloc::MiMalloc;
+use std::{env, path::PathBuf};
+
+#[global_allocator]
+static GLOBAL: MiMalloc = MiMalloc;
 
 #[no_mangle]
 pub extern "C" fn libafl_main() {

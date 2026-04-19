@@ -146,7 +146,6 @@ fn decode_hex_and_jmp(hex_string: &str) -> ! {
 
 #[cfg(test)]
 mod test {
-
     unsafe extern "C" {
         fn exit(ret: i32);
     }

@@ -3,12 +3,9 @@
 #![cfg_attr(not(any(windows)), no_main)]
 
 #[cfg(any(windows, unix))]
-extern crate alloc;
-#[cfg(any(windows, unix))]
 use alloc::ffi::CString;
 #[cfg(not(any(windows)))]
 use core::panic::PanicInfo;
-
 use libafl::{
     corpus::InMemoryCorpus,
     events::SimpleEventManager,
@@ -29,8 +26,14 @@ use libafl_bolts::{nonnull_raw_mut, nonzero, rands::StdRand, tuples::tuple_list,
 use libc::{abort, printf};
 use static_alloc::Bump;
 
+#[cfg(any(windows, unix))]
+extern crate alloc;
+
 #[global_allocator]
 static A: Bump<[u8; 512 * 1024 * 1024]> = Bump::uninit();
+
+/// Coverage map with explicit assignments due to the lack of instrumentation
+static mut SIGNALS: [u8; 16] = [0; 16];
 
 #[cfg(not(test))]
 #[panic_handler]
@@ -44,9 +47,6 @@ fn panic(_info: &PanicInfo) -> ! {
         // On embedded, there's not much left to do.
     }
 }
-
-/// Coverage map with explicit assignments due to the lack of instrumentation
-static mut SIGNALS: [u8; 16] = [0; 16];
 
 /// Assign a signal to the signals map
 fn signals_set(idx: usize) {

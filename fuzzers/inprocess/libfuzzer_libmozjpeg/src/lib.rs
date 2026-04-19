@@ -1,11 +1,5 @@
 //! A libfuzzer-like fuzzer with llmp-multithreading support and restarts
 //! The example harness is built for libmozjpeg.
-use mimalloc::MiMalloc;
-#[global_allocator]
-static GLOBAL: MiMalloc = MiMalloc;
-
-use std::{env, path::PathBuf};
-
 use libafl::{
     corpus::{Corpus, InMemoryCorpus, OnDiskCorpus},
     events::{setup_restarting_mgr_std, EventConfig},
@@ -35,8 +29,14 @@ use libafl_bolts::{
 use libafl_targets::{
     libfuzzer_initialize, libfuzzer_test_one_input, std_edges_map_observer, CMP_MAP,
 };
+use mimalloc::MiMalloc;
+use std::{env, path::PathBuf};
 
 const ALLOC_MAP_SIZE: usize = 16 * 1024;
+
+#[global_allocator]
+static GLOBAL: MiMalloc = MiMalloc;
+
 extern "C" {
     static mut libafl_alloc_map: [usize; ALLOC_MAP_SIZE];
 }

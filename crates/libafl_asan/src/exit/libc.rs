@@ -10,21 +10,21 @@ use crate::{
 #[derive(Debug)]
 struct FunctionGetpid;
 
-impl Function for FunctionGetpid {
-    type Func = unsafe extern "C" fn() -> pid_t;
-    const NAME: &'static CStr = c"getpid";
-}
-
 #[derive(Debug)]
 struct FunctionKill;
+
+#[derive(Debug)]
+struct FunctionExit;
 
 impl Function for FunctionKill {
     type Func = unsafe extern "C" fn(pid_t, c_int) -> c_int;
     const NAME: &'static CStr = c"kill";
 }
 
-#[derive(Debug)]
-struct FunctionExit;
+impl Function for FunctionGetpid {
+    type Func = unsafe extern "C" fn() -> pid_t;
+    const NAME: &'static CStr = c"getpid";
+}
 
 impl Function for FunctionExit {
     type Func = unsafe extern "C" fn(c_int) -> !;

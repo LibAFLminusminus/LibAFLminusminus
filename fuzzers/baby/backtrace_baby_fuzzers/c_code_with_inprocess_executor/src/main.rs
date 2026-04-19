@@ -21,9 +21,9 @@ use libc::c_uchar;
 extern crate libc;
 
 extern "C" {
-    fn c_harness(input: *const c_uchar);
     static array_ptr: *mut u8;
 
+    fn c_harness(input: *const c_uchar);
 }
 
 pub fn main() {

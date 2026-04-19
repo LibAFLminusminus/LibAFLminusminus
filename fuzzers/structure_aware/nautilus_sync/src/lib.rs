@@ -1,7 +1,3 @@
-use mimalloc::MiMalloc;
-#[global_allocator]
-static GLOBAL: MiMalloc = MiMalloc;
-
 #[cfg(windows)]
 use std::ptr::write_volatile;
 use std::{env, net::SocketAddr, path::PathBuf, time::Duration};
@@ -35,11 +31,10 @@ use libafl_bolts::{
     tuples::tuple_list,
 };
 use libafl_targets::{libfuzzer_initialize, libfuzzer_test_one_input, std_edges_map_observer};
+use mimalloc::MiMalloc;
 
-/// Parse a millis string to a [`Duration`]. Used for arg parsing.
-fn timeout_from_millis_str(time: &str) -> Result<Duration, Error> {
-    Ok(Duration::from_millis(time.parse()?))
-}
+#[global_allocator]
+static GLOBAL: MiMalloc = MiMalloc;
 
 /// The commandline args this fuzzer accepts
 #[derive(Debug, Parser)]
@@ -96,6 +91,11 @@ struct Opt {
         default_value = "10000"
     )]
     timeout: Duration,
+}
+
+/// Parse a millis string to a [`Duration`]. Used for arg parsing.
+fn timeout_from_millis_str(time: &str) -> Result<Duration, Error> {
+    Ok(Duration::from_millis(time.parse()?))
 }
 
 /// The main fn, `no_mangle` as it is a C symbol
