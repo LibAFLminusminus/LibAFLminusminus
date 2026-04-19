@@ -11,16 +11,16 @@ use core::{
     num::{NonZero, NonZeroUsize},
     ops::Range,
 };
-use libafl_core::non_zero;
 
 use libafl_bolts::{Named, rands::Rand};
+use libafl_core::non_zero;
 
 use crate::{
     Error,
-    corpus::{Corpus, TestcaseId},
+    corpus::{Corpus, Scheduler, TestcaseId},
     inputs::{HasMutatorBytes, ResizableMutator},
     mutators::{MutationResult, Mutator},
-    state::{HasCorpus, HasRand, State},
+    state::{FlatState, HasCorpus, HasRand, State},
 };
 
 /// Mem move in the own vec
@@ -571,7 +571,7 @@ pub struct BytesExpandMutator;
 
 impl<I, S> Mutator<I, S> for BytesExpandMutator
 where
-    S: HasRand,
+    S: HasRand + FlatState,
     I: ResizableMutator<u8> + HasMutatorBytes,
 {
     fn mutate(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, Error> {
@@ -630,7 +630,7 @@ pub struct BytesInsertMutator;
 
 impl<I, S> Mutator<I, S> for BytesInsertMutator
 where
-    S: HasRand,
+    S: HasRand + FlatState,
     I: ResizableMutator<u8> + HasMutatorBytes,
 {
     fn mutate(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, Error> {
@@ -706,7 +706,7 @@ pub struct BytesRandInsertMutator;
 
 impl<I, S> Mutator<I, S> for BytesRandInsertMutator
 where
-    S: HasRand,
+    S: HasRand + FlatState,
     I: ResizableMutator<u8> + HasMutatorBytes,
 {
     fn mutate(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, Error> {
@@ -1294,18 +1294,15 @@ where
             .expect("Corpus is empty");
 
         // We don't want to use the testcase we're already using for splicing
-        if let Some(cur) = state.corpus().current()
-            && id == *cur
+        if let Some(cur) = state.scheduler().current()
+            && id == cur
         {
             return Ok(MutationResult::Skipped);
         }
 
         let other_size = {
-            let mut other_testcase = state.corpus().get_from_all(id)?.borrow_mut();
-            other_testcase
-                .load_input(state.corpus())?
-                .mutator_bytes()
-                .len()
+            let mut other_testcase = state.corpus().get(id)?;
+            other_testcase.input_len()
         };
 
         if other_size < 2 {
@@ -1320,9 +1317,9 @@ where
         });
         let target = state.rand_mut().below(non_zero_size);
 
-        let other_testcase = state.corpus().get_from_all(id)?.borrow_mut();
+        let other_testcase = state.corpus().get_from_all(id)?;
         // No need to load the input again, it'll still be cached.
-        let other = other_testcase.input().as_ref().unwrap();
+        let other = other_testcase.input();
 
         Ok(Self::crossover_insert(
             input,
@@ -1399,15 +1396,15 @@ where
             .random_testcase_id_from_all()
             .expect("Corpus is empty");
         // We don't want to use the testcase we're already using for splicing
-        if let Some(cur) = state.corpus().current()
-            && id == *cur
+        if let Some(cur) = state.scheduler().current()
+            && id == cur
         {
             return Ok(MutationResult::Skipped);
         }
 
         let other_size = {
-            let mut testcase = state.corpus().get_from_all(id)?.borrow_mut();
-            testcase.load_input(state.corpus())?.mutator_bytes().len()
+            let mut testcase = state.corpus().get_from_all(id)?;
+            testcase.input_len()
         };
 
         if other_size < 2 {
@@ -1426,9 +1423,9 @@ where
             NonZero::new_unchecked(min(other_size, size - target))
         });
 
-        let other_testcase = state.corpus().get_from_all(id)?.borrow_mut();
+        let other_testcase = state.corpus().get_from_all(id)?;
         // No need to load the input again, it'll still be cached.
-        let other = other_testcase.input().as_ref().unwrap();
+        let other = other_testcase.input();
 
         Ok(Self::crossover_replace(
             input,
@@ -1500,7 +1497,7 @@ where
     F: Fn(&I1) -> &O,
     I2: ResizableMutator<u8> + HasMutatorBytes,
     O: IntoOptionBytes,
-    S: State<I2>,
+    S: State<I1>,
 {
     fn mutate(&mut self, state: &mut S, input: &mut I2) -> Result<MutationResult, Error> {
         let size = input.mutator_bytes().len();
@@ -1515,16 +1512,16 @@ where
             .expect("Corpus is empty");
 
         // We don't want to use the testcase we're already using for splicing
-        if let Some(cur) = state.corpus().current()
-            && id == *cur
+        if let Some(cur) = state.scheduler().current()
+            && id == cur
         {
             return Ok(MutationResult::Skipped);
         }
 
         let other_size = {
-            let mut other_testcase = state.corpus().get_from_all(id)?.borrow_mut();
-            let other_input = other_testcase.load_input(state.corpus())?;
-            let input_mapped = (self.input_mapper)(other_input).map_to_option_bytes();
+            let mut other_testcase = state.corpus().get_from_all(id)?;
+            let other_input = other_testcase.input();
+            let input_mapped = (self.input_mapper)(&other_input).map_to_option_bytes();
             input_mapped.map_or(0, <Vec<u8>>::len)
         };
 
@@ -1544,9 +1541,9 @@ where
             .rand_mut()
             .below(unsafe { NonZero::new_unchecked(size) });
 
-        let other_testcase = state.corpus().get_from_all(id)?.borrow_mut();
+        let other_testcase = state.corpus().get_from_all(id)?;
         // No need to load the input again, it'll still be cached.
-        let other_input = &mut other_testcase.input().as_ref().unwrap();
+        let other_input = &mut other_testcase.input();
         let wrapped_mapped_other_input = (self.input_mapper)(other_input).map_to_option_bytes();
         if wrapped_mapped_other_input.is_none() {
             return Ok(MutationResult::Skipped);
@@ -1600,7 +1597,7 @@ where
     F: Fn(&I1) -> &O,
     I2: HasMutatorBytes,
     O: IntoOptionBytes,
-    S: State<I2>,
+    S: State<I1>,
 {
     fn mutate(&mut self, state: &mut S, input: &mut I2) -> Result<MutationResult, Error> {
         let size = input.mutator_bytes().len();
@@ -1612,16 +1609,16 @@ where
             .random_testcase_id_from_all()
             .expect("Corpus is empty");
         // We don't want to use the testcase we're already using for splicing
-        if let Some(cur) = state.corpus().current()
-            && id == *cur
+        if let Some(cur) = state.scheduler().current()
+            && id == cur
         {
             return Ok(MutationResult::Skipped);
         }
 
         let other_size = {
-            let mut other_testcase = state.corpus().get_from_all(id)?.borrow_mut();
-            let other_input = other_testcase.load_input(state.corpus())?;
-            let input_mapped = (self.input_mapper)(other_input).map_to_option_bytes();
+            let mut other_testcase = state.corpus().get_from_all(id)?;
+            let other_input = other_testcase.input();
+            let input_mapped = (self.input_mapper)(&other_input).map_to_option_bytes();
             input_mapped.map_or(0, <Vec<u8>>::len)
         };
 
@@ -1641,9 +1638,9 @@ where
             NonZero::new_unchecked(min(other_size, size - target))
         });
 
-        let other_testcase = state.corpus().get_from_all(id)?.borrow_mut();
+        let other_testcase = state.corpus().get_from_all(id)?;
         // No need to load the input again, it'll still be cached.
-        let other_input = &mut other_testcase.input().as_ref().unwrap();
+        let other_input = &mut other_testcase.input();
         let wrapped_mapped_other_input = (self.input_mapper)(other_input).map_to_option_bytes();
         if wrapped_mapped_other_input.is_none() {
             return Ok(MutationResult::Skipped);
@@ -1705,15 +1702,15 @@ where
             .random_testcase_id_from_all()
             .expect("Corpus is empty");
         // We don't want to use the testcase we're already using for splicing
-        if let Some(cur) = state.corpus().current()
-            && id == *cur
+        if let Some(cur) = state.scheduler().current()
+            && id == cur
         {
             return Ok(MutationResult::Skipped);
         }
 
         let (first_diff, last_diff) = {
-            let mut other_testcase = state.corpus().get_from_all(id)?.borrow_mut();
-            let other = other_testcase.load_input(state.corpus())?;
+            let mut other_testcase = state.corpus().get_from_all(id)?;
+            let other = other_testcase.input();
 
             let (f, l) = locate_diffs(input.mutator_bytes(), other.mutator_bytes());
 
@@ -1726,9 +1723,9 @@ where
 
         let split_at = state.rand_mut().between(first_diff, last_diff);
 
-        let other_testcase = state.corpus().get_from_all(id)?.borrow_mut();
+        let other_testcase = state.corpus().get_from_all(id)?;
         // Input will already be loaded.
-        let other = other_testcase.input().as_ref().unwrap();
+        let other = other_testcase.input();
 
         input.splice(
             split_at..,
@@ -1876,7 +1873,7 @@ mod tests {
         )
     }
 
-    fn test_state() -> impl HasCorpus<BytesInput> + HasMetadata + HasRand + HasMaxSize {
+    fn test_state() -> impl HasCorpus<BytesInput> + HasRand + FlatState{
         let rand = StdRand::with_seed(1337);
         let mut corpus = InMemoryCorpus::new(NopContext, NopScheduler);
 

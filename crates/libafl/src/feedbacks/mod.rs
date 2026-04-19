@@ -30,10 +30,8 @@ pub mod map;
 
 /// The module for list feedback
 #[cfg(feature = "nautilus")]
-#[cfg(not(feature = "remove_me"))]
 pub mod nautilus;
 #[cfg(feature = "nautilus")]
-#[cfg(not(feature = "remove_me"))]
 pub use nautilus::*;
 
 #[cfg(feature = "std")]

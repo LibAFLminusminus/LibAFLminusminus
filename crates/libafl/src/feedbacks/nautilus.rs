@@ -10,20 +10,17 @@ use libafl_bolts::Named;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    Error,
-    common::{
-        MetadataResolver,
-        nautilus::grammartec::{chunkstore::ChunkStore, context::Context},
-    },
-    corpus::Testcase,
+    DependencyResolver, Error,
+    common::nautilus::grammartec::{chunkstore::ChunkStore, context::Context},
+    corpus::{Corpus, Testcase, TestcaseId, testcase},
     feedbacks::Feedback,
     generators::NautilusContext,
     inputs::NautilusInput,
-    state::HasCorpus,
+    state::{FlatState, HasCorpus, named_metadata_mut},
 };
 
 /// Metadata for Nautilus grammar mutator chunks
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Default)]
 pub struct NautilusChunksMetadata {
     /// the chunk store
     pub cks: ChunkStore,
@@ -65,25 +62,6 @@ impl<'a> NautilusFeedback<'a> {
     pub fn new(context: &'a NautilusContext) -> Self {
         Self { ctx: &context.ctx }
     }
-
-    fn append_nautilus_metadata_to_state<S>(
-        &mut self,
-        state: &mut S,
-        testcase: &mut Testcase<NautilusInput>,
-    ) -> Result<(), Error>
-    where
-        S: HasCorpus<NautilusInput> + HasMetadata,
-    {
-        state.corpus().load_input_into(testcase)?;
-        let input = testcase.input().as_ref().unwrap().clone();
-        let meta = state
-            .metadata_map_mut()
-            .get_mut::<NautilusChunksMetadata>()
-            .expect("NautilusChunksMetadata not in the state");
-        meta.cks.add_tree(input.tree, self.ctx);
-
-        Ok(())
-    }
 }
 
 impl Named for NautilusFeedback<'_> {
@@ -93,76 +71,33 @@ impl Named for NautilusFeedback<'_> {
     }
 }
 
-impl<S> StateInitializer<S> for NautilusFeedback<'_> {}
+impl DependencyResolver for NautilusFeedback<'_> {
+    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<(), Error> {
+        registrator.register_md_default::<NautilusChunksMetadata>(self.name().to_string())
+    }
+}
 
 impl<OT, S> Feedback<NautilusInput, OT, S> for NautilusFeedback<'_>
 where
-    S: HasMetadata,
+    S: FlatState + HasCorpus<NautilusInput>,
 {
     fn append_metadata(
         &mut self,
         state: &mut S,
         _observers: &OT,
-        testcase: &mut Testcase<NautilusInput>,
+        testcase_id: &TestcaseId,
     ) -> Result<(), Error> {
-        self.append_nautilus_metadata_to_state(state, testcase)
-    }
-
-    #[cfg(feature = "track_hit_feedbacks")]
-    fn last_result(&self) -> Result<bool, Error> {
-        Ok(false)
-    }
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-struct NautilusUnparseMetadata {
-    unparsed: String,
-}
-
-libafl_bolts::impl_serdeany!(NautilusUnparseMetadata);
-
-/// Add the unparsed input to the testcase metadata. Useful e.g. if you want to have the input be unparsed on any solution automatically.
-///
-/// Returns a constant `false` for `is_interesting`.
-#[derive(Debug)]
-pub struct NautilusUnparseToMetadataFeedback<'a> {
-    context: &'a NautilusContext,
-}
-
-impl<'a> NautilusUnparseToMetadataFeedback<'a> {
-    /// Create a new [`NautilusUnparseToMetadataFeedback`]
-    #[must_use]
-    pub fn new(context: &'a NautilusContext) -> Self {
-        Self { context }
-    }
-}
-impl<S> StateInitializer<S> for NautilusUnparseToMetadataFeedback<'_> {}
-
-impl<OT, S> Feedback<NautilusInput, OT, S> for NautilusUnparseToMetadataFeedback<'_> {
-    fn append_metadata(
-        &mut self,
-        _state: &mut S,
-        _observers: &OT,
-        testcase: &mut Testcase<NautilusInput>,
-    ) -> Result<(), Error> {
-        let input = testcase.input().as_ref().unwrap().clone();
-        let mut unparse_target = vec![];
-        input.unparse(self.context, &mut unparse_target);
-        let unparsed = String::from_utf8_lossy(&unparse_target).to_string();
-        testcase.metadata_or_insert_with(|| NautilusUnparseMetadata { unparsed });
-
+        let input = state.corpus().get(*testcase_id)?;
+        let meta = named_metadata_mut::<NautilusChunksMetadata>(
+            state.named_metadata_map_mut(),
+            self.name(),
+        )?;
+        meta.cks.add_tree(input.input().tree.clone(), self.ctx);
         Ok(())
     }
 
     #[cfg(feature = "track_hit_feedbacks")]
     fn last_result(&self) -> Result<bool, Error> {
         Ok(false)
-    }
-}
-
-impl Named for NautilusUnparseToMetadataFeedback<'_> {
-    fn name(&self) -> &Cow<'static, str> {
-        static NAME: Cow<'static, str> = Cow::Borrowed("NautilusUnparseToMetadataFeedback");
-        &NAME
     }
 }
