@@ -20,7 +20,7 @@ use crate::{
     corpus::{Corpus, Scheduler, TestcaseId},
     inputs::{HasMutatorBytes, ResizableMutator},
     mutators::{MutationResult, Mutator},
-    state::{FlatState, HasCorpus, HasRand, State},
+    state::{FlatState, HasCorpus, HasScheduler, State},
 };
 
 /// Mem move in the own vec
@@ -70,10 +70,10 @@ pub fn buffer_set<T: Clone>(data: &mut [T], from: usize, len: usize, val: T) {
 ///
 /// This problem corresponds to: <https://oeis.org/A059036>
 #[inline]
-pub fn rand_range<S: HasRand>(state: &mut S, upper: usize, max_len: NonZeroUsize) -> Range<usize> {
-    let len = 1 + state.rand_mut().below(max_len);
+pub fn rand_range<R: Rand>(rand: &mut R, upper: usize, max_len: NonZeroUsize) -> Range<usize> {
+    let len = 1 + rand.below(max_len);
     // sample from [1..upper + len]
-    let mut offset2 = 1 + state.rand_mut().below_or_zero(upper + len - 1);
+    let mut offset2 = 1 + rand.below_or_zero(upper + len - 1);
     let offset1 = offset2.saturating_sub(len);
     if offset2 > upper {
         offset2 = upper;
@@ -126,17 +126,16 @@ pub const INTERESTING_32: [i32; 27] = [
 #[derive(Default, Debug)]
 pub struct BitFlipMutator;
 
-impl<I, S> Mutator<I, S> for BitFlipMutator
+impl<I, R: Rand, S> Mutator<I, R, S> for BitFlipMutator
 where
-    S: HasRand,
     I: HasMutatorBytes,
 {
-    fn mutate(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, Error> {
+    fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
         if input.mutator_bytes().is_empty() {
             Ok(MutationResult::Skipped)
         } else {
-            let bit = 1 << state.rand_mut().choose(0..8).unwrap();
-            let byte = state.rand_mut().choose(input.mutator_bytes_mut()).unwrap();
+            let bit = 1 << rand.choose(0..8).unwrap();
+            let byte = rand.choose(input.mutator_bytes_mut()).unwrap();
             *byte ^= bit;
             Ok(MutationResult::Mutated)
         }
@@ -170,16 +169,15 @@ impl BitFlipMutator {
 #[derive(Default, Debug)]
 pub struct ByteFlipMutator;
 
-impl<I, S> Mutator<I, S> for ByteFlipMutator
+impl<I, R: Rand, S> Mutator<I, R, S> for ByteFlipMutator
 where
-    S: HasRand,
     I: HasMutatorBytes,
 {
-    fn mutate(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, Error> {
+    fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
         if input.mutator_bytes().is_empty() {
             Ok(MutationResult::Skipped)
         } else {
-            *state.rand_mut().choose(input.mutator_bytes_mut()).unwrap() ^= 0xff;
+            *rand.choose(input.mutator_bytes_mut()).unwrap() ^= 0xff;
             Ok(MutationResult::Mutated)
         }
     }
@@ -212,16 +210,15 @@ impl ByteFlipMutator {
 #[derive(Default, Debug)]
 pub struct ByteIncMutator;
 
-impl<I, S> Mutator<I, S> for ByteIncMutator
+impl<I, R: Rand, S> Mutator<I, R, S> for ByteIncMutator
 where
-    S: HasRand,
     I: HasMutatorBytes,
 {
-    fn mutate(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, Error> {
+    fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
         if input.mutator_bytes().is_empty() {
             Ok(MutationResult::Skipped)
         } else {
-            let byte = state.rand_mut().choose(input.mutator_bytes_mut()).unwrap();
+            let byte = rand.choose(input.mutator_bytes_mut()).unwrap();
             *byte = byte.wrapping_add(1);
             Ok(MutationResult::Mutated)
         }
@@ -255,16 +252,15 @@ impl ByteIncMutator {
 #[derive(Default, Debug)]
 pub struct ByteDecMutator;
 
-impl<I, S> Mutator<I, S> for ByteDecMutator
+impl<I, R: Rand, S> Mutator<I, R, S> for ByteDecMutator
 where
-    S: HasRand,
     I: HasMutatorBytes,
 {
-    fn mutate(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, Error> {
+    fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
         if input.mutator_bytes().is_empty() {
             Ok(MutationResult::Skipped)
         } else {
-            let byte = state.rand_mut().choose(input.mutator_bytes_mut()).unwrap();
+            let byte = rand.choose(input.mutator_bytes_mut()).unwrap();
             *byte = byte.wrapping_sub(1);
             Ok(MutationResult::Mutated)
         }
@@ -298,16 +294,15 @@ impl ByteDecMutator {
 #[derive(Default, Debug)]
 pub struct ByteNegMutator;
 
-impl<I, S> Mutator<I, S> for ByteNegMutator
+impl<I, R: Rand, S> Mutator<I, R, S> for ByteNegMutator
 where
-    S: HasRand,
     I: HasMutatorBytes,
 {
-    fn mutate(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, Error> {
+    fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
         if input.mutator_bytes().is_empty() {
             Ok(MutationResult::Skipped)
         } else {
-            let byte = state.rand_mut().choose(input.mutator_bytes_mut()).unwrap();
+            let byte = rand.choose(input.mutator_bytes_mut()).unwrap();
             *byte = byte.wrapping_neg();
             Ok(MutationResult::Mutated)
         }
@@ -341,17 +336,16 @@ impl ByteNegMutator {
 #[derive(Default, Debug)]
 pub struct ByteRandMutator;
 
-impl<I, S> Mutator<I, S> for ByteRandMutator
+impl<I, R: Rand, S> Mutator<I, R, S> for ByteRandMutator
 where
-    S: HasRand,
     I: HasMutatorBytes,
 {
-    fn mutate(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, Error> {
+    fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
         if input.mutator_bytes().is_empty() {
             Ok(MutationResult::Skipped)
         } else {
-            let byte = state.rand_mut().choose(input.mutator_bytes_mut()).unwrap();
-            *byte ^= 1 + state.rand_mut().below(non_zero!(254)) as u8;
+            let byte = rand.choose(input.mutator_bytes_mut()).unwrap();
+            *byte ^= 1 + rand.below(non_zero!(254)) as u8;
             Ok(MutationResult::Mutated)
         }
     }
@@ -389,29 +383,27 @@ macro_rules! add_mutator_impl {
         pub struct $name;
 
         #[allow(trivial_numeric_casts)] // only for some calls of the macro
-        impl<I, S> Mutator<I, S> for $name
+        impl<I, R: Rand, S> Mutator<I, R, S> for $name
         where
-            S: HasRand,
             I: HasMutatorBytes,
         {
             fn mutate(
                 &mut self,
-                state: &mut S,
                 input: &mut I,
-
+                rand: &mut R,
+                _state: &S,
             ) -> Result<MutationResult, Error> {
                 if input.mutator_bytes().len() < size_of::<$size>() {
                     Ok(MutationResult::Skipped)
                 } else {
                     // choose a random window of bytes (windows overlap) and convert to $size
-                    let (index, bytes) = state
-                        .rand_mut()
+                    let (index, bytes) = rand
                         .choose(input.mutator_bytes().windows(size_of::<$size>()).enumerate()).unwrap();
                     let val = <$size>::from_ne_bytes(bytes.try_into().unwrap());
 
                     // mutate
-                    let num = 1 + state.rand_mut().below(non_zero!(ARITH_MAX)) as $size;
-                    let new_val = match state.rand_mut().below(non_zero!(4)) {
+                    let num = 1 + rand.below(non_zero!(ARITH_MAX)) as $size;
+                    let new_val = match rand.below(non_zero!(4)) {
                         0 => val.wrapping_add(num),
                         1 => val.wrapping_sub(num),
                         2 => val.swap_bytes().wrapping_add(num).swap_bytes(),
@@ -460,13 +452,17 @@ macro_rules! interesting_mutator_impl {
         #[derive(Default, Debug)]
         pub struct $name;
 
-        impl<I, S> Mutator<I, S> for $name
+        impl<I, R: Rand, S> Mutator<I, R, S> for $name
         where
-            S: HasRand,
             I: HasMutatorBytes,
         {
             #[expect(clippy::cast_sign_loss)]
-            fn mutate(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, Error> {
+            fn mutate(
+                &mut self,
+                input: &mut I,
+                rand: &mut R,
+                state: &S,
+            ) -> Result<MutationResult, Error> {
                 if input.mutator_bytes().len() < size_of::<$size>() {
                     Ok(MutationResult::Skipped)
                 } else {
@@ -474,11 +470,9 @@ macro_rules! interesting_mutator_impl {
                     let upper_bound = (bytes.len() + 1 - size_of::<$size>());
                     // # Safety
                     // the length is at least as large as the size here (checked above), and we add a 1 -> never zero.
-                    let idx = state
-                        .rand_mut()
-                        .below(unsafe { NonZero::new_unchecked(upper_bound) });
-                    let val = *state.rand_mut().choose(&$interesting).unwrap() as $size;
-                    let new_bytes = match state.rand_mut().choose(&[0, 1]).unwrap() {
+                    let idx = rand.below(unsafe { NonZero::new_unchecked(upper_bound) });
+                    let val = *rand.choose(&$interesting).unwrap() as $size;
+                    let new_bytes = match rand.choose(&[0, 1]).unwrap() {
                         0 => val.to_be_bytes(),
                         _ => val.to_le_bytes(),
                     };
@@ -521,12 +515,11 @@ interesting_mutator_impl!(DwordInterestingMutator, u32, INTERESTING_32);
 #[derive(Default, Debug)]
 pub struct BytesDeleteMutator;
 
-impl<I, S> Mutator<I, S> for BytesDeleteMutator
+impl<I, R: Rand, S> Mutator<I, R, S> for BytesDeleteMutator
 where
-    S: HasRand,
     I: ResizableMutator<u8> + HasMutatorBytes,
 {
-    fn mutate(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, Error> {
+    fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
         let size = input.mutator_bytes().len();
         if size <= 2 {
             return Ok(MutationResult::Skipped);
@@ -534,7 +527,7 @@ where
 
         // # Safety
         // size - 1 is guaranteed to be larger than 0 because we abort on size <= 2 above.
-        let range = rand_range(state, size, unsafe { NonZero::new_unchecked(size - 1) });
+        let range = rand_range(rand, size, unsafe { NonZero::new_unchecked(size - 1) });
 
         input.drain(range);
 
@@ -569,12 +562,12 @@ impl BytesDeleteMutator {
 #[derive(Default, Debug)]
 pub struct BytesExpandMutator;
 
-impl<I, S> Mutator<I, S> for BytesExpandMutator
+impl<I, R: Rand, S> Mutator<I, R, S> for BytesExpandMutator
 where
-    S: HasRand + FlatState,
+    S: FlatState,
     I: ResizableMutator<u8> + HasMutatorBytes,
 {
-    fn mutate(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, Error> {
+    fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
         let max_size = state.max_size();
         let size = input.mutator_bytes().len();
         if size == 0 || size >= max_size {
@@ -583,7 +576,7 @@ where
 
         // # Safety
         // max_size - size is larger than 0 because we check that size < max_size above
-        let range = rand_range(state, size, unsafe {
+        let range = rand_range(rand, size, unsafe {
             NonZero::new_unchecked(min(16, max_size - size))
         });
 
@@ -628,25 +621,23 @@ impl BytesExpandMutator {
 #[derive(Default, Debug)]
 pub struct BytesInsertMutator;
 
-impl<I, S> Mutator<I, S> for BytesInsertMutator
+impl<I, R: Rand, S> Mutator<I, R, S> for BytesInsertMutator
 where
-    S: HasRand + FlatState,
+    S: FlatState,
     I: ResizableMutator<u8> + HasMutatorBytes,
 {
-    fn mutate(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, Error> {
+    fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
         let max_size = state.max_size();
         let size = input.mutator_bytes().len();
         if size == 0 || size >= max_size {
             return Ok(MutationResult::Skipped);
         }
 
-        let mut amount = 1 + state.rand_mut().below(non_zero!(16));
+        let mut amount = 1 + rand.below(non_zero!(16));
         // # Safety
         // It's a safe assumption that size + 1 is never 0.
         // If we wrap around we have _a lot_ of elements - and the code will break later anyway.
-        let offset = state
-            .rand_mut()
-            .below(unsafe { NonZero::new_unchecked(size + 1) });
+        let offset = rand.below(unsafe { NonZero::new_unchecked(size + 1) });
 
         if size + amount > max_size {
             if max_size > size {
@@ -658,9 +649,7 @@ where
 
         // # Safety
         // size is larger than 0, checked above.
-        let val = input.mutator_bytes()[state
-            .rand_mut()
-            .below(unsafe { NonZero::new_unchecked(size) })];
+        let val = input.mutator_bytes()[rand.below(unsafe { NonZero::new_unchecked(size) })];
 
         input.resize(size + amount, 0);
         unsafe {
@@ -704,24 +693,22 @@ impl BytesInsertMutator {
 #[derive(Default, Debug)]
 pub struct BytesRandInsertMutator;
 
-impl<I, S> Mutator<I, S> for BytesRandInsertMutator
+impl<I, R: Rand, S> Mutator<I, R, S> for BytesRandInsertMutator
 where
-    S: HasRand + FlatState,
+    S: FlatState,
     I: ResizableMutator<u8> + HasMutatorBytes,
 {
-    fn mutate(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, Error> {
+    fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
         let max_size = state.max_size();
         let size = input.mutator_bytes().len();
         if size >= max_size {
             return Ok(MutationResult::Skipped);
         }
 
-        let mut amount = 1 + state.rand_mut().below(non_zero!(16));
+        let mut amount = 1 + rand.below(non_zero!(16));
         // # Safety
         // size + 1 can never be 0
-        let offset = state
-            .rand_mut()
-            .below(unsafe { NonZero::new_unchecked(size.wrapping_add(1)) });
+        let offset = rand.below(unsafe { NonZero::new_unchecked(size.wrapping_add(1)) });
 
         if size + amount > max_size {
             if max_size > size {
@@ -731,7 +718,7 @@ where
             }
         }
 
-        let val = state.rand_mut().next() as u8;
+        let val = rand.next() as u8;
 
         input.resize(size + amount, 0);
         unsafe {
@@ -775,23 +762,20 @@ impl BytesRandInsertMutator {
 #[derive(Default, Debug)]
 pub struct BytesSetMutator;
 
-impl<I, S> Mutator<I, S> for BytesSetMutator
+impl<I, R: Rand, S> Mutator<I, R, S> for BytesSetMutator
 where
-    S: HasRand,
     I: HasMutatorBytes,
 {
-    fn mutate(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, Error> {
+    fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
         let size = input.mutator_bytes().len();
         if size == 0 {
             return Ok(MutationResult::Skipped);
         }
         // # Safety
         // Size is larger than 0, checked above (and 16 is also lager than 0 FWIW)
-        let range = rand_range(state, size, unsafe {
-            NonZero::new_unchecked(min(size, 16))
-        });
+        let range = rand_range(rand, size, unsafe { NonZero::new_unchecked(min(size, 16)) });
 
-        let val = *state.rand_mut().choose(input.mutator_bytes()).unwrap();
+        let val = *rand.choose(input.mutator_bytes()).unwrap();
         let quantity = range.len();
         buffer_set(input.mutator_bytes_mut(), range.start, quantity, val);
 
@@ -826,23 +810,20 @@ impl BytesSetMutator {
 #[derive(Default, Debug)]
 pub struct BytesRandSetMutator;
 
-impl<I, S> Mutator<I, S> for BytesRandSetMutator
+impl<I, R: Rand, S> Mutator<I, R, S> for BytesRandSetMutator
 where
-    S: HasRand,
     I: HasMutatorBytes,
 {
-    fn mutate(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, Error> {
+    fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
         let size = input.mutator_bytes().len();
         if size == 0 {
             return Ok(MutationResult::Skipped);
         }
         // # Safety
         // Size is larger than 0, checked above. 16 is larger than 0, according to my math teacher.
-        let range = rand_range(state, size, unsafe {
-            NonZero::new_unchecked(min(size, 16))
-        });
+        let range = rand_range(rand, size, unsafe { NonZero::new_unchecked(min(size, 16)) });
 
-        let val = state.rand_mut().next() as u8;
+        let val = rand.next() as u8;
         let quantity = range.len();
         buffer_set(input.mutator_bytes_mut(), range.start, quantity, val);
 
@@ -877,12 +858,11 @@ impl BytesRandSetMutator {
 #[derive(Default, Debug)]
 pub struct BytesCopyMutator;
 
-impl<I, S> Mutator<I, S> for BytesCopyMutator
+impl<I, R: Rand, S> Mutator<I, R, S> for BytesCopyMutator
 where
-    S: HasRand,
     I: HasMutatorBytes,
 {
-    fn mutate(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, Error> {
+    fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
         let size = input.mutator_bytes().len();
         if size <= 1 {
             return Ok(MutationResult::Skipped);
@@ -890,14 +870,10 @@ where
 
         // # Safety
         // size is always larger than 0 here (checked above)
-        let target = state
-            .rand_mut()
-            .below(unsafe { NonZero::new_unchecked(size) });
+        let target = rand.below(unsafe { NonZero::new_unchecked(size) });
         // # Safety
         // target is smaller than size (`below` is exclusive) -> The subtraction is always larger than 0
-        let range = rand_range(state, size, unsafe {
-            NonZero::new_unchecked(size - target)
-        });
+        let range = rand_range(rand, size, unsafe { NonZero::new_unchecked(size - target) });
 
         unsafe {
             buffer_self_copy(input.mutator_bytes_mut(), range.start, target, range.len());
@@ -936,12 +912,12 @@ pub struct BytesInsertCopyMutator {
     tmp_buf: Vec<u8>,
 }
 
-impl<I, S> Mutator<I, S> for BytesInsertCopyMutator
+impl<I, R: Rand, S> Mutator<I, R, S> for BytesInsertCopyMutator
 where
-    S: State<I>,
+    S: FlatState,
     I: ResizableMutator<u8> + HasMutatorBytes,
 {
-    fn mutate(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, Error> {
+    fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
         let size = input.mutator_bytes().len();
         if size <= 1 || size >= state.max_size() {
             return Ok(MutationResult::Skipped);
@@ -949,9 +925,7 @@ where
 
         // # Safety
         // We checked that size is larger than 0 above.
-        let target = state
-            .rand_mut()
-            .below(unsafe { NonZero::new_unchecked(size) });
+        let target = rand.below(unsafe { NonZero::new_unchecked(size) });
         // make sure that the sampled range is both in bounds and of an acceptable size
         let max_insert_len = min(size - target, state.max_size() - size);
         let max_insert_len = min(16, max_insert_len);
@@ -960,7 +934,7 @@ where
         // size > target and state.max_size() > size
         let max_insert_len = unsafe { NonZero::new_unchecked(max_insert_len) };
 
-        let range = rand_range(state, size, max_insert_len);
+        let range = rand_range(rand, size, max_insert_len);
 
         input.resize(size + range.len(), 0);
         self.tmp_buf.resize(range.len(), 0);
@@ -1021,12 +995,11 @@ pub struct BytesSwapMutator {
 }
 
 #[expect(clippy::too_many_lines)]
-impl<I, S> Mutator<I, S> for BytesSwapMutator
+impl<I, R: Rand, S> Mutator<I, R, S> for BytesSwapMutator
 where
-    S: HasRand,
     I: ResizableMutator<u8> + HasMutatorBytes,
 {
-    fn mutate(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, Error> {
+    fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
         let size = input.mutator_bytes().len();
         if size <= 1 {
             return Ok(MutationResult::Skipped);
@@ -1034,13 +1007,13 @@ where
 
         // # Safety
         // size is larger than 0, checked above.
-        let first = rand_range(state, size, unsafe { NonZero::new_unchecked(size) });
-        if state.rand_mut().next() & 1 == 0 && first.start != 0 {
+        let first = rand_range(rand, size, unsafe { NonZero::new_unchecked(size) });
+        if rand.next() & 1 == 0 && first.start != 0 {
             // The second range comes before first.
 
             // # Safety
             // first.start is larger than 0, checked above.
-            let second = rand_range(state, first.start, unsafe {
+            let second = rand_range(rand, first.start, unsafe {
                 NonZero::new_unchecked(first.start)
             });
             self.tmp_buf.resize(first.len(), 0);
@@ -1124,7 +1097,7 @@ where
         } else if first.end != size {
             // # Safety
             // first.end is not equal to size, so subtracting them can never be 0.
-            let mut second = rand_range(state, size - first.end, unsafe {
+            let mut second = rand_range(rand, size - first.end, unsafe {
                 NonZero::new_unchecked(size - first.end)
             });
             second.start += first.end;
@@ -1273,12 +1246,12 @@ impl CrossoverInsertMutator {
     }
 }
 
-impl<I, S> Mutator<I, S> for CrossoverInsertMutator
+impl<I, R: Rand, S> Mutator<I, R, S> for CrossoverInsertMutator
 where
     I: ResizableMutator<u8> + HasMutatorBytes,
     S: State<I>,
 {
-    fn mutate(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, Error> {
+    fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
         let size = input.mutator_bytes().len();
         let Some(non_zero_size) = NonZero::new(size) else {
             return Ok(MutationResult::Skipped);
@@ -1289,9 +1262,9 @@ where
             return Ok(MutationResult::Skipped);
         }
 
-        let id = state
-            .random_testcase_id_from_all()
-            .expect("Corpus is empty");
+        let Some(id) = rand.choose(state.scheduler().ids().iter()).copied() else {
+            return Ok(MutationResult::Skipped);
+        };
 
         // We don't want to use the testcase we're already using for splicing
         if let Some(cur) = state.scheduler().current()
@@ -1312,10 +1285,10 @@ where
         // # Safety
         // other_size is checked above.
         // size is smaller than max_size (also checked above) -> the subtraction result is larger than 0.
-        let range = rand_range(state, other_size, unsafe {
+        let range = rand_range(rand, other_size, unsafe {
             NonZero::new_unchecked(min(other_size, max_size - size))
         });
-        let target = state.rand_mut().below(non_zero_size);
+        let target = rand.below(non_zero_size);
 
         let other_testcase = state.corpus().get_from_all(id)?;
         // No need to load the input again, it'll still be cached.
@@ -1381,20 +1354,21 @@ impl CrossoverReplaceMutator {
     }
 }
 
-impl<I, S> Mutator<I, S> for CrossoverReplaceMutator
+impl<I, R: Rand, S> Mutator<I, R, S> for CrossoverReplaceMutator
 where
     I: HasMutatorBytes,
     S: State<I>,
 {
-    fn mutate(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, Error> {
+    fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
         let size = input.mutator_bytes().len();
         if size == 0 {
             return Ok(MutationResult::Skipped);
         }
 
-        let id = state
-            .random_testcase_id_from_all()
-            .expect("Corpus is empty");
+        let Some(id) = rand.choose(state.scheduler().ids().iter()).copied() else {
+            return Ok(MutationResult::Skipped);
+        };
+
         // We don't want to use the testcase we're already using for splicing
         if let Some(cur) = state.scheduler().current()
             && id == cur
@@ -1413,13 +1387,11 @@ where
 
         // # Safety
         // Size is > 0 here (checked above)
-        let target = state
-            .rand_mut()
-            .below(unsafe { NonZero::new_unchecked(size) });
+        let target = rand.below(unsafe { NonZero::new_unchecked(size) });
         // # Safety
         // other_size is checked above.
         // target is smaller than size (since below is exclusive) -> the subtraction result is larger than 0.
-        let range = rand_range(state, other_size, unsafe {
+        let range = rand_range(rand, other_size, unsafe {
             NonZero::new_unchecked(min(other_size, size - target))
         });
 
@@ -1492,14 +1464,14 @@ impl<F, I, O> MappedCrossoverInsertMutator<F, I, O> {
     }
 }
 
-impl<S, F, I1, I2, O> Mutator<I2, S> for MappedCrossoverInsertMutator<F, I1, O>
+impl<F, I1, I2, O, R: Rand, S> Mutator<I2, R, S> for MappedCrossoverInsertMutator<F, I1, O>
 where
     F: Fn(&I1) -> &O,
     I2: ResizableMutator<u8> + HasMutatorBytes,
     O: IntoOptionBytes,
     S: State<I1>,
 {
-    fn mutate(&mut self, state: &mut S, input: &mut I2) -> Result<MutationResult, Error> {
+    fn mutate(&mut self, input: &mut I2, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
         let size = input.mutator_bytes().len();
         let max_size = state.max_size();
         // TODO: fix bug if size is 0 (?)
@@ -1507,9 +1479,9 @@ where
             return Ok(MutationResult::Skipped);
         }
 
-        let id = state
-            .random_testcase_id_from_all()
-            .expect("Corpus is empty");
+        let Some(id) = rand.choose(state.scheduler().ids().iter()).copied() else {
+            return Ok(MutationResult::Skipped);
+        };
 
         // We don't want to use the testcase we're already using for splicing
         if let Some(cur) = state.scheduler().current()
@@ -1532,14 +1504,12 @@ where
         // # Safety
         // other_size is checked to be larger than 0
         // max_size is checked to be larger than size, so the subtraction will always be positive and non-0
-        let range = rand_range(state, other_size, unsafe {
+        let range = rand_range(rand, other_size, unsafe {
             NonZero::new_unchecked(min(other_size, max_size - size))
         });
         // # Safety
         // size is checked above to never be 0.
-        let target = state
-            .rand_mut()
-            .below(unsafe { NonZero::new_unchecked(size) });
+        let target = rand.below(unsafe { NonZero::new_unchecked(size) });
 
         let other_testcase = state.corpus().get_from_all(id)?;
         // No need to load the input again, it'll still be cached.
@@ -1592,22 +1562,23 @@ impl<F, I, O> MappedCrossoverReplaceMutator<F, I, O> {
     }
 }
 
-impl<S, F, I1, I2, O> Mutator<I2, S> for MappedCrossoverReplaceMutator<F, I1, O>
+impl<F, I1, I2, O, R: Rand, S> Mutator<I2, R, S> for MappedCrossoverReplaceMutator<F, I1, O>
 where
     F: Fn(&I1) -> &O,
     I2: HasMutatorBytes,
     O: IntoOptionBytes,
     S: State<I1>,
 {
-    fn mutate(&mut self, state: &mut S, input: &mut I2) -> Result<MutationResult, Error> {
+    fn mutate(&mut self, input: &mut I2, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
         let size = input.mutator_bytes().len();
         if size == 0 {
             return Ok(MutationResult::Skipped);
         }
 
-        let id = state
-            .random_testcase_id_from_all()
-            .expect("Corpus is empty");
+        let Some(id) = rand.choose(state.scheduler().ids().iter()).copied() else {
+            return Ok(MutationResult::Skipped);
+        };
+
         // We don't want to use the testcase we're already using for splicing
         if let Some(cur) = state.scheduler().current()
             && id == cur
@@ -1628,13 +1599,11 @@ where
 
         // # Safety
         // We checked for size == 0 above.
-        let target = state
-            .rand_mut()
-            .below(unsafe { NonZero::new_unchecked(size) });
+        let target = rand.below(unsafe { NonZero::new_unchecked(size) });
         // # Safety
         // other_size is checked above to not be 0.
         // size is larger than target since below is exclusive -> subtraction is always non-0.
-        let range = rand_range(state, other_size, unsafe {
+        let range = rand_range(rand, other_size, unsafe {
             NonZero::new_unchecked(min(other_size, size - target))
         });
 
@@ -1691,16 +1660,17 @@ fn locate_diffs(this: &[u8], other: &[u8]) -> (i64, i64) {
 #[derive(Debug, Default)]
 pub struct SpliceMutator;
 
-impl<I, S> Mutator<I, S> for SpliceMutator
+impl<I, R: Rand, S> Mutator<I, R, S> for SpliceMutator
 where
     S: State<I>,
     I: ResizableMutator<u8> + HasMutatorBytes,
 {
     #[expect(clippy::cast_sign_loss)]
-    fn mutate(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, Error> {
-        let id = state
-            .random_testcase_id_from_all()
-            .expect("Corpus is empty");
+    fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
+        let Some(id) = rand.choose(state.scheduler().ids().iter()).copied() else {
+            return Ok(MutationResult::Skipped);
+        };
+
         // We don't want to use the testcase we're already using for splicing
         if let Some(cur) = state.scheduler().current()
             && id == cur
@@ -1721,7 +1691,7 @@ where
             }
         };
 
-        let split_at = state.rand_mut().between(first_diff, last_diff);
+        let split_at = rand.between(first_diff, last_diff);
 
         let other_testcase = state.corpus().get_from_all(id)?;
         // Input will already be loaded.
@@ -1810,9 +1780,11 @@ mod tests {
 
     use super::*;
     use crate::{
-        corpus::{InMemoryCorpus, schedulers::NopScheduler},
-        feedbacks::ConstFeedback,
-        inputs::{BytesInput, NopContext},
+        corpus::{
+            InMemoryCorpus,
+            schedulers::{NopScheduler, QueueScheduler},
+        },
+        inputs::{BytesInput, bytes::BytesContext},
         mutators::MutatorsTuple,
         state::StdState,
     };
@@ -1873,18 +1845,22 @@ mod tests {
         )
     }
 
-    fn test_state() -> impl HasCorpus<BytesInput> + HasRand + FlatState{
-        let rand = StdRand::with_seed(1337);
-        let mut corpus = InMemoryCorpus::new(NopContext, NopScheduler);
+    fn test_state() -> impl HasCorpus<BytesInput> + FlatState {
+        let mut corpus = InMemoryCorpus::<BytesContext, BytesInput, QueueScheduler>::new(
+            BytesContext::default(),
+            QueueScheduler::new(),
+        );
 
-        let mut feedback = ConstFeedback::new(false);
-        let mut objective = ConstFeedback::new(false);
+        corpus.add(BytesInput::new(vec![0x42; 0x1337])).unwrap();
 
-        corpus
-            .add(BytesInput::new(vec![0x42; 0x1337]).into())
-            .unwrap();
-
-        StdState::new(rand, corpus, InMemoryCorpus::new(NopContext, NopScheduler)).unwrap()
+        StdState::new(
+            corpus,
+            InMemoryCorpus::<BytesContext, BytesInput, NopScheduler>::new(
+                BytesContext::default(),
+                NopScheduler,
+            ),
+        )
+        .unwrap()
     }
 
     #[test]
@@ -1901,6 +1877,7 @@ mod tests {
         ];
 
         let mut state = test_state();
+        let mut rand = StdRand::with_seed(1337);
 
         let mut mutations = test_mutations();
 
@@ -1910,7 +1887,7 @@ mod tests {
                 for input in &inputs {
                     let mut mutant = input.clone();
                     match mutations
-                        .get_and_mutate(idx.into(), &mut state, &mut mutant)
+                        .get_and_mutate(idx.into(), &mut mutant, &mut rand, &state)
                         .unwrap()
                     {
                         MutationResult::Mutated => new_testcases.push(mutant),
@@ -1929,6 +1906,7 @@ mod tests {
         let mut counts = [0usize; 10];
 
         let mut state = test_state();
+        let mut rand = StdRand::with_seed(1337);
         let mut mutator = BytesDeleteMutator::new();
 
         // If we're running in miri, we have to make this test a _lot_ shorter.
@@ -1936,7 +1914,7 @@ mod tests {
 
         for _ in 0..iters {
             let mut mutated = base.clone();
-            if mutator.mutate(&mut state, &mut mutated)? == MutationResult::Skipped {
+            if mutator.mutate(&mut mutated, &mut rand, &state)? == MutationResult::Skipped {
                 continue;
             }
             let mut gaps = 0;
@@ -1986,6 +1964,7 @@ mod tests {
         let mut counts = [0usize; 10];
 
         let mut state = test_state();
+        let mut rand = StdRand::with_seed(1337);
         let mut mutator = BytesExpandMutator::new();
 
         // If we're running in miri, we have to make this test a _lot_ shorter.
@@ -1993,7 +1972,7 @@ mod tests {
 
         for _ in 0..iters {
             let mut mutated = base.clone();
-            if mutator.mutate(&mut state, &mut mutated)? == MutationResult::Skipped {
+            if mutator.mutate(&mut mutated, &mut rand, &state)? == MutationResult::Skipped {
                 continue;
             }
             let mut expansion = 0;
@@ -2036,6 +2015,7 @@ mod tests {
         let mut insertions = [0usize; 16];
 
         let mut state = test_state();
+        let mut rand = StdRand::with_seed(1337);
         let mut mutator = BytesInsertMutator::new();
 
         // If we're running in miri, we have to make this test a _lot_ shorter.
@@ -2043,7 +2023,7 @@ mod tests {
 
         for _ in 0..iters {
             let mut mutated = base.clone();
-            if mutator.mutate(&mut state, &mut mutated)? == MutationResult::Skipped {
+            if mutator.mutate(&mut mutated, &mut rand, &state)? == MutationResult::Skipped {
                 continue;
             }
             let mut inserted = 0;
@@ -2088,6 +2068,7 @@ mod tests {
         let mut insertions = [0usize; 16];
 
         let mut state = test_state();
+        let mut rand = StdRand::with_seed(1337);
         let mut mutator = BytesRandInsertMutator::new();
 
         // If we're running in miri, we have to make this test a _lot_ shorter.
@@ -2095,7 +2076,7 @@ mod tests {
 
         for _ in 0..iters {
             let mut mutated = base.clone();
-            if mutator.mutate(&mut state, &mut mutated)? == MutationResult::Skipped {
+            if mutator.mutate(&mut mutated, &mut rand, &state)? == MutationResult::Skipped {
                 continue;
             }
             let mut inserted = 10;

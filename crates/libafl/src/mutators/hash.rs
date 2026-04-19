@@ -3,7 +3,7 @@
 use alloc::borrow::Cow;
 use core::hash::Hash;
 use crate::corpus::testcase::TestcaseId;
-use libafl_bolts::{Error, Named, generic_hash_std};
+use libafl_bolts::{Error, Named, generic_hash_std, rands::Rand};
 
 use super::{MutationResult, Mutator};
 
@@ -26,14 +26,14 @@ where
     }
 }
 
-impl<M, I, S> Mutator<I, S> for MutationChecker<M>
+impl<M, I, R: Rand, S> Mutator<I, R, S> for MutationChecker<M>
 where
     I: Hash,
-    M: Mutator<I, S>,
+    M: Mutator<I, R, S>,
 {
-    fn mutate(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, Error> {
+    fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
         let before = generic_hash_std(input);
-        self.inner.mutate(state, input)?;
+        self.inner.mutate(input, rand, state)?;
         if before == generic_hash_std(input) {
             Ok(MutationResult::Skipped)
         } else {
@@ -58,6 +58,8 @@ impl<M> Named for MutationChecker<M> {
 
 #[cfg(test)]
 mod tests {
+    use libafl_bolts::rands::StdRand;
+
     use crate::{
         inputs::BytesInput,
         mutators::{BytesSetMutator, MutationChecker, MutationResult, Mutator},
@@ -67,6 +69,7 @@ mod tests {
     #[test]
     fn not_mutated() {
         let mut state: NopState<BytesInput> = NopState::new();
+        let mut rand = StdRand::with_seed(1337);
         let mut inner = BytesSetMutator::new();
 
         let mut input = BytesInput::new(vec![0; 5]);
@@ -74,7 +77,7 @@ mod tests {
         // nothing changed, yet `MutationResult::Mutated` was reported
         assert_eq!(
             MutationResult::Mutated,
-            inner.mutate(&mut state, &mut input).unwrap()
+            inner.mutate(&mut input, &mut rand, &state).unwrap()
         );
         assert_eq!(BytesInput::new(vec![0; 5]), input);
 
@@ -82,7 +85,7 @@ mod tests {
         let mut hash_mutator = MutationChecker::new(inner);
         assert_eq!(
             MutationResult::Skipped,
-            hash_mutator.mutate(&mut state, &mut input).unwrap()
+            hash_mutator.mutate(&mut input, &mut rand, &state).unwrap()
         );
         assert_eq!(BytesInput::new(vec![0; 5]), input);
     }

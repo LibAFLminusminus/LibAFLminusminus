@@ -6,9 +6,9 @@ use core::{
 };
 
 use libafl_bolts::{
+    non_zero_const,
     rands::Rand,
     tuples::{tuple_list, tuple_list_type},
-    non_zero_const,
 };
 
 use crate::{
@@ -19,20 +19,25 @@ use crate::{
         MutationResult, Mutator, Named,
         mutations::{ARITH_MAX, buffer_copy, buffer_self_copy},
     },
-    state::{FlatState, HasCorpus, HasRand, HasScheduler},
+    state::{FlatState, HasCorpus, HasScheduler},
 };
 
 /// Set a code in the input as a random value
 #[derive(Debug, Default)]
 pub struct EncodedRandMutator;
 
-impl<S: HasRand> Mutator<EncodedInput, S> for EncodedRandMutator {
-    fn mutate(&mut self, state: &mut S, input: &mut EncodedInput) -> Result<MutationResult, Error> {
+impl<R: Rand, S> Mutator<EncodedInput, R, S> for EncodedRandMutator {
+    fn mutate(
+        &mut self,
+        input: &mut EncodedInput,
+        rand: &mut R,
+        state: &S,
+    ) -> Result<MutationResult, Error> {
         if input.codes().is_empty() {
             Ok(MutationResult::Skipped)
         } else {
-            let val = state.rand_mut().choose(input.codes_mut()).unwrap();
-            *val = state.rand_mut().next() as u32;
+            let val = rand.choose(input.codes_mut()).unwrap();
+            *val = rand.next() as u32;
             Ok(MutationResult::Mutated)
         }
     }
@@ -65,12 +70,17 @@ impl EncodedRandMutator {
 #[derive(Debug, Default)]
 pub struct EncodedIncMutator;
 
-impl<S: HasRand> Mutator<EncodedInput, S> for EncodedIncMutator {
-    fn mutate(&mut self, state: &mut S, input: &mut EncodedInput) -> Result<MutationResult, Error> {
+impl<R: Rand, S> Mutator<EncodedInput, R, S> for EncodedIncMutator {
+    fn mutate(
+        &mut self,
+        input: &mut EncodedInput,
+        rand: &mut R,
+        state: &S,
+    ) -> Result<MutationResult, Error> {
         if input.codes().is_empty() {
             Ok(MutationResult::Skipped)
         } else {
-            let val = state.rand_mut().choose(input.codes_mut()).unwrap();
+            let val = rand.choose(input.codes_mut()).unwrap();
             *val = val.wrapping_add(1);
             Ok(MutationResult::Mutated)
         }
@@ -104,12 +114,17 @@ impl EncodedIncMutator {
 #[derive(Debug, Default)]
 pub struct EncodedDecMutator;
 
-impl<S: HasRand> Mutator<EncodedInput, S> for EncodedDecMutator {
-    fn mutate(&mut self, state: &mut S, input: &mut EncodedInput) -> Result<MutationResult, Error> {
+impl<R: Rand, S> Mutator<EncodedInput, R, S> for EncodedDecMutator {
+    fn mutate(
+        &mut self,
+        input: &mut EncodedInput,
+        rand: &mut R,
+        state: &S,
+    ) -> Result<MutationResult, Error> {
         if input.codes().is_empty() {
             Ok(MutationResult::Skipped)
         } else {
-            let val = state.rand_mut().choose(input.codes_mut()).unwrap();
+            let val = rand.choose(input.codes_mut()).unwrap();
             *val = val.wrapping_sub(1);
             Ok(MutationResult::Mutated)
         }
@@ -143,14 +158,19 @@ impl EncodedDecMutator {
 #[derive(Debug, Default)]
 pub struct EncodedAddMutator;
 
-impl<S: HasRand> Mutator<EncodedInput, S> for EncodedAddMutator {
-    fn mutate(&mut self, state: &mut S, input: &mut EncodedInput) -> Result<MutationResult, Error> {
+impl<R: Rand, S> Mutator<EncodedInput, R, S> for EncodedAddMutator {
+    fn mutate(
+        &mut self,
+        input: &mut EncodedInput,
+        rand: &mut R,
+        state: &S,
+    ) -> Result<MutationResult, Error> {
         if input.codes().is_empty() {
             Ok(MutationResult::Skipped)
         } else {
-            let val = state.rand_mut().choose(input.codes_mut()).unwrap();
-            let num = 1 + state.rand_mut().below(non_zero_const!(ARITH_MAX)) as u32;
-            *val = match state.rand_mut().below(non_zero_const!(2)) {
+            let val = rand.choose(input.codes_mut()).unwrap();
+            let num = 1 + rand.below(non_zero_const!(ARITH_MAX)) as u32;
+            *val = match rand.below(non_zero_const!(2)) {
                 0 => val.wrapping_add(num),
                 _ => val.wrapping_sub(num),
             };
@@ -186,22 +206,23 @@ impl EncodedAddMutator {
 #[derive(Debug, Default)]
 pub struct EncodedDeleteMutator;
 
-impl<S: HasRand> Mutator<EncodedInput, S> for EncodedDeleteMutator {
-    fn mutate(&mut self, state: &mut S, input: &mut EncodedInput) -> Result<MutationResult, Error> {
+impl<R: Rand, S> Mutator<EncodedInput, R, S> for EncodedDeleteMutator {
+    fn mutate(
+        &mut self,
+        input: &mut EncodedInput,
+        rand: &mut R,
+        state: &S,
+    ) -> Result<MutationResult, Error> {
         let size = input.codes().len();
         if size <= 2 {
             return Ok(MutationResult::Skipped);
         }
         // # Safety
         // The size is larger than 1 here (checked just above)
-        let off = state
-            .rand_mut()
-            .below(unsafe { NonZero::new_unchecked(size) });
+        let off = rand.below(unsafe { NonZero::new_unchecked(size) });
         // # Safety
         // The size of the offset is below size, the value is never 0.
-        let len = state
-            .rand_mut()
-            .below(unsafe { NonZero::new_unchecked(size - off) });
+        let len = rand.below(unsafe { NonZero::new_unchecked(size - off) });
         input.codes_mut().drain(off..off + len);
 
         Ok(MutationResult::Mutated)
@@ -237,11 +258,16 @@ pub struct EncodedInsertCopyMutator {
     tmp_buf: Vec<u32>,
 }
 
-impl<S> Mutator<EncodedInput, S> for EncodedInsertCopyMutator
+impl<R: Rand, S> Mutator<EncodedInput, R, S> for EncodedInsertCopyMutator
 where
-    S: HasRand + FlatState,
+    S: FlatState,
 {
-    fn mutate(&mut self, state: &mut S, input: &mut EncodedInput) -> Result<MutationResult, Error> {
+    fn mutate(
+        &mut self,
+        input: &mut EncodedInput,
+        rand: &mut R,
+        state: &S,
+    ) -> Result<MutationResult, Error> {
         let max_size = state.max_size();
         let size = input.codes().len();
         let Some(nz) = NonZero::new(size) else {
@@ -251,10 +277,8 @@ where
         // # Safety
         // The input.codes() len should never be close to an usize, so adding 1 will always result in a non-zero value.
         // Worst case, we will get a wrong int value as return, not too bad.
-        let off = state
-            .rand_mut()
-            .below(unsafe { NonZero::new_unchecked(size + 1) });
-        let mut len = 1 + state.rand_mut().below(nz);
+        let off = rand.below(unsafe { NonZero::new_unchecked(size + 1) });
+        let mut len = 1 + rand.below(nz);
 
         if size + len > max_size {
             if max_size > size {
@@ -265,7 +289,7 @@ where
         }
 
         let from = if let Some(bound) = NonZero::new(size - len) {
-            state.rand_mut().below(bound)
+            rand.below(bound)
         } else {
             0
         };
@@ -310,8 +334,13 @@ impl EncodedInsertCopyMutator {
 #[derive(Debug, Default)]
 pub struct EncodedCopyMutator;
 
-impl<S: HasRand> Mutator<EncodedInput, S> for EncodedCopyMutator {
-    fn mutate(&mut self, state: &mut S, input: &mut EncodedInput) -> Result<MutationResult, Error> {
+impl<R: Rand, S> Mutator<EncodedInput, R, S> for EncodedCopyMutator {
+    fn mutate(
+        &mut self,
+        input: &mut EncodedInput,
+        rand: &mut R,
+        state: &S,
+    ) -> Result<MutationResult, Error> {
         let size = input.codes().len();
         if size <= 1 {
             return Ok(MutationResult::Skipped);
@@ -319,17 +348,11 @@ impl<S: HasRand> Mutator<EncodedInput, S> for EncodedCopyMutator {
 
         // # Safety
         // it's larger than 1
-        let from = state
-            .rand_mut()
-            .below(unsafe { NonZero::new_unchecked(size) });
-        let to = state
-            .rand_mut()
-            .below(unsafe { NonZero::new_unchecked(size) });
+        let from = rand.below(unsafe { NonZero::new_unchecked(size) });
+        let to = rand.below(unsafe { NonZero::new_unchecked(size) });
         // # Safety
         // Both from and to are smaller than size, so size minus any of these can never be 0.
-        let len = 1 + state
-            .rand_mut()
-            .below(unsafe { NonZero::new_unchecked(size - max(from, to)) });
+        let len = 1 + rand.below(unsafe { NonZero::new_unchecked(size - max(from, to)) });
 
         unsafe {
             buffer_self_copy(input.codes_mut(), from, to, len);
@@ -366,15 +389,20 @@ impl EncodedCopyMutator {
 #[derive(Debug, Default)]
 pub struct EncodedCrossoverInsertMutator;
 
-impl<S> Mutator<EncodedInput, S> for EncodedCrossoverInsertMutator
+impl<R: Rand, S> Mutator<EncodedInput, R, S> for EncodedCrossoverInsertMutator
 where
-    S: HasRand + HasCorpus<EncodedInput> + HasScheduler + FlatState,
+    S: HasCorpus<EncodedInput> + HasScheduler + FlatState,
 {
-    fn mutate(&mut self, state: &mut S, input: &mut EncodedInput) -> Result<MutationResult, Error> {
+    fn mutate(
+        &mut self,
+        input: &mut EncodedInput,
+        rand: &mut R,
+        state: &S,
+    ) -> Result<MutationResult, Error> {
         let size = input.codes().len();
         let ids = state.scheduler().ids();
 
-        let Some(id) = state.rand_mut().choose(ids.into_iter()).copied() else {
+        let Some(id) = rand.choose(ids.into_iter()).copied() else {
             return Ok(MutationResult::Skipped);
         };
         // We don't want to use the testcase we're already using for splicing
@@ -401,15 +429,11 @@ where
         // # Safety
         // it's larger than 1
         let max_size = state.max_size();
-        let from = state
-            .rand_mut()
-            .below(unsafe { NonZero::new_unchecked(other_size) });
-        let to = state.rand_mut().below(nz);
+        let from = rand.below(unsafe { NonZero::new_unchecked(other_size) });
+        let to = rand.below(nz);
         // # Safety
         // from is smaller than other_size, other_size is larger than 2, so the subtraction is larger than 0.
-        let mut len = 1 + state
-            .rand_mut()
-            .below(unsafe { NonZero::new_unchecked(other_size - from) });
+        let mut len = 1 + rand.below(unsafe { NonZero::new_unchecked(other_size - from) });
 
         if size + len > max_size {
             if max_size > size {
@@ -458,16 +482,21 @@ impl EncodedCrossoverInsertMutator {
 #[derive(Debug, Default)]
 pub struct EncodedCrossoverReplaceMutator;
 
-impl<S> Mutator<EncodedInput, S> for EncodedCrossoverReplaceMutator
+impl<R: Rand, S> Mutator<EncodedInput, R, S> for EncodedCrossoverReplaceMutator
 where
-    S: HasRand + HasCorpus<EncodedInput> + HasScheduler,
+    S: HasCorpus<EncodedInput> + HasScheduler,
 {
-    fn mutate(&mut self, state: &mut S, input: &mut EncodedInput) -> Result<MutationResult, Error> {
+    fn mutate(
+        &mut self,
+        input: &mut EncodedInput,
+        rand: &mut R,
+        state: &S,
+    ) -> Result<MutationResult, Error> {
         let size = input.codes().len();
 
         let ids = state.scheduler().ids();
 
-        let Some(id) = state.rand().choose(ids.into_iter()).copied() else {
+        let Some(id) = rand.choose(ids.into_iter()).copied() else {
             return Ok(MutationResult::Skipped);
         };
         // We don't want to use the testcase we're already using for splicing
@@ -488,21 +517,15 @@ where
         }
         // # Safety
         // other_size >= 2
-        let from = state
-            .rand_mut()
-            .below(unsafe { NonZero::new_unchecked(other_size) });
+        let from = rand.below(unsafe { NonZero::new_unchecked(other_size) });
 
         // # Safety
         // size > 0, other_size > from,
-        let len = state
-            .rand_mut()
-            .below(unsafe { NonZero::new_unchecked(min(other_size - from, size)) });
+        let len = rand.below(unsafe { NonZero::new_unchecked(min(other_size - from, size)) });
 
         // # Safety
         // size is non-zero, len is below min(size, ...), so the subtraction will always be positive.
-        let to = state
-            .rand_mut()
-            .below(unsafe { NonZero::new_unchecked(size - len) });
+        let to = rand.below(unsafe { NonZero::new_unchecked(size - len) });
 
         let other = state.corpus().get_from_all(id)?;
 

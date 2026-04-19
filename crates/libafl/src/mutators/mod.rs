@@ -5,13 +5,11 @@
 use crate::{Error, corpus::TestcaseId};
 use alloc::{borrow::Cow, boxed::Box, vec::Vec};
 use core::fmt;
-use libafl_bolts::{HasLen, Named, tuples::IntoVec};
+use libafl_bolts::{HasLen, Named, rands::Rand, tuples::IntoVec};
 use serde::{Deserialize, Serialize};
 use tuple_list::NonEmptyTuple;
 
-#[cfg(not(feature = "remove_me"))]
 pub mod scheduled;
-#[cfg(not(feature = "remove_me"))]
 pub use scheduled::*;
 pub mod mutations;
 pub use mutations::*;
@@ -21,9 +19,7 @@ pub mod token_mutations;
 pub use token_mutations::*;
 pub mod havoc_mutations;
 pub use havoc_mutations::*;
-#[cfg(not(feature = "remove_me"))]
 pub mod numeric;
-#[cfg(not(feature = "remove_me"))]
 pub use numeric::{int_mutators, mapped_int_mutators};
 pub mod encoded_mutations;
 pub use encoded_mutations::*;
@@ -94,9 +90,9 @@ pub enum MutationResult {
 
 /// A [`Mutator`] takes an input, and mutates it.
 /// Simple as that.
-pub trait Mutator<I, S>: Named {
+pub trait Mutator<I, R, S>: Named {
     /// Mutate a given input
-    fn mutate(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, Error>;
+    fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error>;
 
     /// Post-process given the outcome of the execution
     /// `new_testcase_id` will be `Some` if a new [`crate::corpus::Testcase`] was created this execution.
@@ -109,13 +105,14 @@ pub trait Mutator<I, S>: Named {
 
 /// A mutator that takes input, and returns a vector of mutated inputs.
 /// Simple as that.
-pub trait MultiMutator<I, S>: Named {
+pub trait MultiMutator<I, R: Rand, S>: Named {
     /// Mutate a given input up to `max_count` times,
     /// or as many times as appropriate, if no `max_count` is given
     fn multi_mutate(
         &mut self,
-        state: &mut S,
         input: &I,
+        rand: &mut R,
+        state: &mut S,
         max_count: Option<usize>,
     ) -> Result<Vec<I>, Error>;
 
@@ -132,9 +129,9 @@ pub trait MultiMutator<I, S>: Named {
 }
 
 /// A `Tuple` of [`Mutator`]`s` that can execute multiple `Mutators` in a row.
-pub trait MutatorsTuple<I, S>: HasLen {
+pub trait MutatorsTuple<I, R, S>: HasLen {
     /// Runs the [`Mutator::mutate`] function on all [`Mutator`]`s` in this `Tuple`.
-    fn mutate_all(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, Error>;
+    fn mutate_all(&mut self, input: &mut I, rand: &mut R, state: &mut S) -> Result<MutationResult, Error>;
 
     /// Runs the [`Mutator::post_exec`] function on all [`Mutator`]`s` in this `Tuple`.
     /// `new_testcase_id` will be `Some` if a new `Testcase` was created this execution.
@@ -148,8 +145,9 @@ pub trait MutatorsTuple<I, S>: HasLen {
     fn get_and_mutate(
         &mut self,
         index: MutationId,
-        state: &mut S,
         input: &mut I,
+        rand: &mut R,
+        state: &S,
     ) -> Result<MutationResult, Error>;
 
     /// Gets the [`Mutator`] at the given index and runs the `post_exec` function on it.
@@ -158,14 +156,13 @@ pub trait MutatorsTuple<I, S>: HasLen {
         &mut self,
         index: usize,
         state: &mut S,
-
         testcase_id: Option<TestcaseId>,
     ) -> Result<(), Error>;
 }
 
-impl<I, S> MutatorsTuple<I, S> for () {
+impl<I, R: Rand, S> MutatorsTuple<I, R, S> for () {
     #[inline]
-    fn mutate_all(&mut self, _state: &mut S, _input: &mut I) -> Result<MutationResult, Error> {
+    fn mutate_all(&mut self, _input: &mut I, _rand: &mut R, _state: &mut S) -> Result<MutationResult, Error> {
         Ok(MutationResult::Skipped)
     }
 
@@ -182,8 +179,9 @@ impl<I, S> MutatorsTuple<I, S> for () {
     fn get_and_mutate(
         &mut self,
         _index: MutationId,
-        _state: &mut S,
         _input: &mut I,
+        _rand: &mut R,
+        _state: &S,
     ) -> Result<MutationResult, Error> {
         Ok(MutationResult::Skipped)
     }
@@ -199,14 +197,14 @@ impl<I, S> MutatorsTuple<I, S> for () {
     }
 }
 
-impl<Head, Tail, I, S> MutatorsTuple<I, S> for (Head, Tail)
+impl<Head, Tail, I, R: Rand, S> MutatorsTuple<I, R, S> for (Head, Tail)
 where
-    Head: Mutator<I, S>,
-    Tail: MutatorsTuple<I, S>,
+    Head: Mutator<I, R, S>,
+    Tail: MutatorsTuple<I, R, S>,
 {
-    fn mutate_all(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, Error> {
-        let r = self.0.mutate(state, input)?;
-        if self.1.mutate_all(state, input)? == MutationResult::Mutated {
+    fn mutate_all(&mut self, input: &mut I, rand: &mut R, state: &mut S) -> Result<MutationResult, Error> {
+        let r = self.0.mutate(input, rand, state)?;
+        if self.1.mutate_all(input, rand, state)? == MutationResult::Mutated {
             Ok(MutationResult::Mutated)
         } else {
             Ok(r)
@@ -225,13 +223,14 @@ where
     fn get_and_mutate(
         &mut self,
         index: MutationId,
-        state: &mut S,
         input: &mut I,
+        rand: &mut R,
+        state: &S,
     ) -> Result<MutationResult, Error> {
         if index.0 == 0 {
-            self.0.mutate(state, input)
+            self.0.mutate(input, rand, state)
         } else {
-            self.1.get_and_mutate((index.0 - 1).into(), state, input)
+            self.1.get_and_mutate((index.0 - 1).into(), input, rand, state)
         }
     }
 
@@ -249,31 +248,31 @@ where
     }
 }
 
-impl<Head, Tail, I, S> IntoVec<Box<dyn Mutator<I, S>>> for (Head, Tail)
+impl<Head, Tail, I, R: Rand, S> IntoVec<Box<dyn Mutator<I, R, S>>> for (Head, Tail)
 where
-    Head: Mutator<I, S> + 'static,
-    Tail: IntoVec<Box<dyn Mutator<I, S>>>,
+    Head: Mutator<I, R, S> + 'static,
+    Tail: IntoVec<Box<dyn Mutator<I, R, S>>>,
 {
-    fn into_vec_reversed(self) -> Vec<Box<dyn Mutator<I, S>>> {
+    fn into_vec_reversed(self) -> Vec<Box<dyn Mutator<I, R, S>>> {
         let (head, tail) = self.uncons();
         let mut ret = tail.into_vec_reversed();
         ret.push(Box::new(head));
         ret
     }
 
-    fn into_vec(self) -> Vec<Box<dyn Mutator<I, S>>> {
+    fn into_vec(self) -> Vec<Box<dyn Mutator<I, R, S>>> {
         let mut ret = self.into_vec_reversed();
         ret.reverse();
         ret
     }
 }
 
-impl<Tail, I, S> MutatorsTuple<I, S> for (Tail,)
+impl<Tail, I, R: Rand, S> MutatorsTuple<I, R, S> for (Tail,)
 where
-    Tail: MutatorsTuple<I, S>,
+    Tail: MutatorsTuple<I, R, S>,
 {
-    fn mutate_all(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, Error> {
-        self.0.mutate_all(state, input)
+    fn mutate_all(&mut self, input: &mut I, rand: &mut R, state: &mut S) -> Result<MutationResult, Error> {
+        self.0.mutate_all(input, rand, state)
     }
 
     fn post_exec_all(
@@ -287,10 +286,11 @@ where
     fn get_and_mutate(
         &mut self,
         index: MutationId,
-        state: &mut S,
         input: &mut I,
+        rand: &mut R,
+        state: &S,
     ) -> Result<MutationResult, Error> {
-        self.0.get_and_mutate(index, state, input)
+        self.0.get_and_mutate(index, input, rand, state)
     }
 
     fn get_and_post_exec(
@@ -303,20 +303,20 @@ where
     }
 }
 
-impl<Tail, I, S> IntoVec<Box<dyn Mutator<I, S>>> for (Tail,)
+impl<Tail, I, R: Rand, S> IntoVec<Box<dyn Mutator<I, R, S>>> for (Tail,)
 where
-    Tail: IntoVec<Box<dyn Mutator<I, S>>>,
+    Tail: IntoVec<Box<dyn Mutator<I, R, S>>>,
 {
-    fn into_vec(self) -> Vec<Box<dyn Mutator<I, S>>> {
+    fn into_vec(self) -> Vec<Box<dyn Mutator<I, R, S>>> {
         self.0.into_vec()
     }
 }
 
-impl<I, S> MutatorsTuple<I, S> for Vec<Box<dyn Mutator<I, S>>> {
-    fn mutate_all(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, Error> {
+impl<I, R: Rand, S> MutatorsTuple<I, R, S> for Vec<Box<dyn Mutator<I, R, S>>> {
+    fn mutate_all(&mut self, input: &mut I, rand: &mut R, state: &mut S) -> Result<MutationResult, Error> {
         self.iter_mut()
             .try_fold(MutationResult::Skipped, |ret, mutator| {
-                if mutator.mutate(state, input)? == MutationResult::Mutated {
+                if mutator.mutate(input, rand, state)? == MutationResult::Mutated {
                     Ok(MutationResult::Mutated)
                 } else {
                     Ok(ret)
@@ -338,13 +338,14 @@ impl<I, S> MutatorsTuple<I, S> for Vec<Box<dyn Mutator<I, S>>> {
     fn get_and_mutate(
         &mut self,
         index: MutationId,
-        state: &mut S,
         input: &mut I,
+        rand: &mut R,
+        state: &S,
     ) -> Result<MutationResult, Error> {
         let mutator = self
             .get_mut(index.0)
             .ok_or_else(|| Error::key_not_found(format!("Mutator with id {index:?} not found.")))?;
-        mutator.mutate(state, input)
+        mutator.mutate(input, rand, state)
     }
 
     fn get_and_post_exec(
@@ -360,8 +361,8 @@ impl<I, S> MutatorsTuple<I, S> for Vec<Box<dyn Mutator<I, S>>> {
     }
 }
 
-impl<I, S> IntoVec<Box<dyn Mutator<I, S>>> for Vec<Box<dyn Mutator<I, S>>> {
-    fn into_vec(self) -> Vec<Box<dyn Mutator<I, S>>> {
+impl<I, R: Rand, S> IntoVec<Box<dyn Mutator<I, R, S>>> for Vec<Box<dyn Mutator<I, R, S>>> {
+    fn into_vec(self) -> Vec<Box<dyn Mutator<I, R, S>>> {
         self
     }
 }
@@ -386,8 +387,8 @@ impl NopMutator {
     }
 }
 
-impl<I, S> Mutator<I, S> for NopMutator {
-    fn mutate(&mut self, _state: &mut S, _input: &mut I) -> Result<MutationResult, Error> {
+impl<I, R: Rand, S> Mutator<I, R, S> for NopMutator {
+    fn mutate(&mut self, _input: &mut I, _rand: &mut R, state: &S) -> Result<MutationResult, Error> {
         Ok(self.result)
     }
     #[inline]
@@ -412,8 +413,8 @@ impl Named for NopMutator {
 #[derive(Debug)]
 pub struct BoolInvertMutator;
 
-impl<S> Mutator<bool, S> for BoolInvertMutator {
-    fn mutate(&mut self, _state: &mut S, input: &mut bool) -> Result<MutationResult, Error> {
+impl<R: Rand, S> Mutator<bool, R, S> for BoolInvertMutator {
+    fn mutate(&mut self, input: &mut bool, _rand: &mut R, state: &S) -> Result<MutationResult, Error> {
         *input = !*input;
         Ok(MutationResult::Mutated)
     }

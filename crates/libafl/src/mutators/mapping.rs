@@ -1,7 +1,7 @@
 //! Allowing mixing and matching between [`Mutator`] and [`crate::inputs::Input`] types.
 use alloc::borrow::Cow;
 
-use libafl_bolts::{Named, tuples::MappingFunctor};
+use libafl_bolts::{Named, rands::Rand, tuples::MappingFunctor};
 
 use crate::{
     Error,
@@ -24,6 +24,7 @@ use crate::{
 ///     mutators::{ByteIncMutator, MappingMutator, MutationResult, Mutator},
 ///     state::NopState,
 /// };
+/// use libafl_bolts::rands::StdRand;
 ///
 /// #[derive(Debug, PartialEq)]
 /// struct CustomInput(Vec<u8>);
@@ -42,7 +43,8 @@ use crate::{
 /// let mut input = CustomInput(vec![1]);
 ///
 /// let mut state: NopState<CustomInput> = NopState::new();
-/// let res = outer.mutate(&mut state, &mut input).unwrap();
+/// let mut rand = StdRand::with_seed(1337);
+/// let res = outer.mutate(&mut state, &mut input, &mut rand).unwrap();
 /// assert_eq!(res, MutationResult::Mutated);
 /// assert_eq!(input, CustomInput(vec![2],));
 /// ```
@@ -68,13 +70,13 @@ impl<M, F> MappingMutator<M, F> {
     }
 }
 
-impl<M, S, F, IO, II> Mutator<IO, S> for MappingMutator<M, F>
+impl<M, F, IO, II, R: Rand, S> Mutator<IO, R, S> for MappingMutator<M, F>
 where
     F: FnMut(&mut IO) -> &mut II,
-    M: Mutator<II, S>,
+    M: Mutator<II, R, S>,
 {
-    fn mutate(&mut self, state: &mut S, input: &mut IO) -> Result<MutationResult, Error> {
-        self.inner.mutate(state, (self.mapper)(input))
+    fn mutate(&mut self, input: &mut IO, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
+        self.inner.mutate((self.mapper)(input), rand, state)
     }
     #[inline]
     fn post_exec(
@@ -108,7 +110,7 @@ impl<M, F> Named for MappingMutator<M, F> {
 ///     state::NopState,
 /// };
 ///
-/// use libafl_bolts::tuples::{tuple_list, Map};
+/// use libafl_bolts::{rands::StdRand, tuples::{tuple_list, Map}};
 ///
 /// #[derive(Debug, PartialEq)]
 /// struct CustomInput(Vec<u8>);
@@ -128,7 +130,8 @@ impl<M, F> Named for MappingMutator<M, F> {
 /// let mut input = CustomInput(vec![1]);
 ///
 /// let mut state: NopState<CustomInput> = NopState::new();
-/// let res = mapped_mutators.mutate_all(&mut state, &mut input).unwrap();
+/// let mut rand = StdRand::with_seed(1337);
+/// let res = mapped_mutators.mutate_all(&mut state, &mut input, &mut rand).unwrap();
 /// assert_eq!(res, MutationResult::Mutated);
 /// assert_eq!(input, CustomInput(vec![3],));
 /// ```
@@ -170,6 +173,7 @@ where
 ///     mutators::{ByteIncMutator, MutationResult, Mutator, OptionalMutator},
 ///     state::NopState,
 /// };
+/// use libafl_bolts::rands::StdRand;
 ///
 /// let inner = ByteIncMutator::new();
 /// let mut outer = OptionalMutator::new(inner);
@@ -178,12 +182,13 @@ where
 /// let input: MutVecInput = (&mut input_raw).into();
 /// let mut input_wrapped = Some(input);
 /// let mut state: NopState<Option<MutVecInput>> = NopState::new();
-/// let res = outer.mutate(&mut state, &mut input_wrapped).unwrap();
+/// let mut rand = StdRand::with_seed(1337);
+/// let res = outer.mutate(&mut state, &mut input_wrapped, &mut rand).unwrap();
 /// assert_eq!(res, MutationResult::Mutated);
 /// assert_eq!(input_raw, vec![2]);
 ///
 /// let mut empty_input: Option<MutVecInput> = None;
-/// let res2 = outer.mutate(&mut state, &mut empty_input).unwrap();
+/// let res2 = outer.mutate(&mut state, &mut empty_input, &mut rand).unwrap();
 /// assert_eq!(res2, MutationResult::Skipped);
 /// ```
 #[derive(Debug)]
@@ -203,14 +208,14 @@ impl<M> OptionalMutator<M> {
     }
 }
 
-impl<I, S, M> Mutator<Option<I>, S> for OptionalMutator<M>
+impl<I, M, R: Rand, S> Mutator<Option<I>, R, S> for OptionalMutator<M>
 where
-    M: Mutator<I, S>,
+    M: Mutator<I, R, S>,
 {
-    fn mutate(&mut self, state: &mut S, input: &mut Option<I>) -> Result<MutationResult, Error> {
+    fn mutate(&mut self, input: &mut Option<I>, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
         match input {
             None => Ok(MutationResult::Skipped),
-            Some(i) => self.inner.mutate(state, i),
+            Some(i) => self.inner.mutate(i, rand, state),
         }
     }
     #[inline]
@@ -244,7 +249,7 @@ where
 ///     mutators::{ByteIncMutator, MutationResult, Mutator, ToOptionalMutator},
 ///     state::NopState,
 /// };
-/// use libafl_bolts::tuples::{tuple_list, Map};
+/// use libafl_bolts::{rands::StdRand, tuples::{tuple_list, Map}};
 ///
 /// let inner = tuple_list!(ByteIncMutator::new());
 /// let outer_list = inner.map(ToOptionalMutator);
@@ -254,12 +259,13 @@ where
 /// let input: MutVecInput = (&mut input_raw).into();
 /// let mut input_wrapped = Some(input);
 /// let mut state: NopState<Option<MutVecInput>> = NopState::new();
-/// let res = outer.mutate(&mut state, &mut input_wrapped).unwrap();
+/// let mut rand = StdRand::with_seed(1337);
+/// let res = outer.mutate(&mut state, &mut input_wrapped, &mut rand).unwrap();
 /// assert_eq!(res, MutationResult::Mutated);
 /// assert_eq!(input_raw, vec![2]);
 ///
 /// let mut empty_input: Option<MutVecInput> = None;
-/// let res2 = outer.mutate(&mut state, &mut empty_input).unwrap();
+/// let res2 = outer.mutate(&mut state, &mut empty_input, &mut rand).unwrap();
 /// assert_eq!(res2, MutationResult::Skipped);
 /// ```
 #[derive(Debug)]
@@ -291,7 +297,7 @@ where
 ///     mutators::{ByteIncMutator, MutationResult, Mutator, StateAwareMappingMutator},
 ///     state::{HasRand, NopState},
 /// };
-/// use libafl_bolts::rands::Rand as _;
+/// use libafl_bolts::rands::{Rand as _, StdRand};
 ///
 /// #[derive(Debug, PartialEq)]
 /// struct CustomInput(Vec<u8>);
@@ -321,7 +327,8 @@ where
 /// let mut input = CustomInput(vec![1]);
 ///
 /// let mut state: NopState<CustomInput> = NopState::new();
-/// let res = outer.mutate(&mut state, &mut input).unwrap();
+/// let mut rand = StdRand::with_seed(1337);
+/// let res = outer.mutate(&mut state, &mut input, &mut rand).unwrap();
 /// if res == MutationResult::Mutated {
 ///     assert_eq!(input, CustomInput(vec![2],));
 /// } else {
@@ -350,15 +357,15 @@ impl<M, F> StateAwareMappingMutator<M, F> {
     }
 }
 
-impl<M, S, F, IO, II> Mutator<IO, S> for StateAwareMappingMutator<M, F>
+impl<M, F, IO, II, R: Rand, S> Mutator<IO, R, S> for StateAwareMappingMutator<M, F>
 where
-    F: for<'a> FnMut(&'a mut IO, &'a mut S) -> (Option<&'a mut II>, &'a mut S),
-    M: Mutator<II, S>,
+    F: for<'a> FnMut(&'a mut IO, &'a S) -> (Option<&'a mut II>, &'a mut S),
+    M: Mutator<II, R, S>,
 {
-    fn mutate(&mut self, state: &mut S, input: &mut IO) -> Result<MutationResult, Error> {
+    fn mutate(&mut self, input: &mut IO, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
         let (mapped, state) = (self.mapper)(input, state);
         match mapped {
-            Some(mapped) => self.inner.mutate(state, mapped),
+            Some(mapped) => self.inner.mutate(mapped, rand, state),
             None => Ok(MutationResult::Skipped),
         }
     }
@@ -395,8 +402,8 @@ impl<M, F> Named for StateAwareMappingMutator<M, F> {
 /// };
 ///
 /// use libafl_bolts::{
+///     rands::{Rand as _, StdRand},
 ///     tuples::{tuple_list, Map},
-///     rands::Rand as _,
 /// };
 ///
 /// #[derive(Debug, PartialEq)]
@@ -428,7 +435,8 @@ impl<M, F> Named for StateAwareMappingMutator<M, F> {
 /// let mut input = CustomInput(vec![1]);
 ///
 /// let mut state: NopState<CustomInput> = NopState::new();
-/// let res = mapped_mutators.mutate_all(&mut state, &mut input).unwrap();
+/// let mut rand = StdRand::with_seed(1337);
+/// let res = mapped_mutators.mutate_all(&mut state, &mut input, &mut rand).unwrap();
 /// if res == MutationResult::Mutated {
 ///     // no way of knowing if either or both mutated
 ///     assert!(input.0 == vec![2] || input.0 == vec![3]);
