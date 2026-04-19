@@ -1233,12 +1233,7 @@ where
     }
 }
 
-impl<C, I, OC, SC> StdState<C, I, OC, SC>
-where
-    C: Corpus<I>,
-    I: Input,
-    OC: Corpus<I>,
-{
+impl<C, I, OC, SC> StdState<C, I, OC, SC> {
     /// Generate `num` initial inputs, using the passed-in generator.
     pub fn generate_initial_inputs<CT, G, E, R, Z>(
         &mut self,

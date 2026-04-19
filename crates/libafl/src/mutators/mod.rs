@@ -108,7 +108,7 @@ pub trait Mutator<I, R, S>: Named {
 
 /// A mutator that takes input, and returns a vector of mutated inputs.
 /// Simple as that.
-pub trait MultiMutator<I, R: Rand, S>: Named {
+pub trait MultiMutator<I, R, S>: Named {
     /// Mutate a given input up to `max_count` times,
     /// or as many times as appropriate, if no `max_count` is given
     fn multi_mutate(

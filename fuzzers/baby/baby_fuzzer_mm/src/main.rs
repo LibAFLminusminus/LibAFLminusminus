@@ -8,9 +8,10 @@ use libafl::{
     },
     executors::StdExecutor,
     feedbacks::{CrashFeedback, MaxMapFeedback},
-    fuzzer::StdFuzzer,
+    fuzzer::{Fuzzer, StdFuzzer},
     generators::RandPrintablesGenerator,
     inputs::NopContext,
+    mutators::{HavocScheduledMutator, havoc_mutations},
     non_zero,
     nop::NopController,
     observers::ConstMapObserver,
@@ -23,10 +24,9 @@ use crate::target::SIGNALS;
 
 mod target;
 
-fn run_fuzzer<CT, S>(
-    driver: &mut RuntimeHandle<CT, S>,
-    state: &mut S,
-    controller: &mut CT,
+fn run_fuzzer<C, CT, I, OC, SC>(
+    rt_handle: &mut RuntimeHandle<'_, NopController, StdState<C, I, OC, SC>>,
+    state: &mut StdState<C, I, OC, SC>,
 ) -> Result<(), Error> {
     env_logger::init();
 
@@ -48,14 +48,24 @@ fn run_fuzzer<CT, S>(
     // Generator of printable bytearrays of max size 32
     let mut generator = RandPrintablesGenerator::new(non_zero!(32));
 
+    // The source of randomness
+    let mut rand = StdRand::with_seed(current_nanos());
+
     // Generate 8 initial inputs
-    state.generate_initial_inputs(&mut fuzzer, &mut executor, &mut generator, 8)?;
+    state.generate_initial_inputs(
+        &mut fuzzer,
+        &mut executor,
+        &mut generator,
+        &mut rand,
+        rt_handle,
+        8,
+    )?;
 
     // Setup a mutational stage with a basic bytes mutator
     let mutator = HavocScheduledMutator::new(havoc_mutations());
     let mut stages = tuple_list!(StdMutationalStage::new(mutator));
 
-    fuzzer.fuzz_loop(&mut stages, &mut executor, &mut state, &mut mgr)
+    fuzzer.fuzz_loop(&mut stages, &mut executor, &mut state, rt_handle)
 }
 
 pub fn main() {
@@ -64,8 +74,6 @@ pub fn main() {
 
     // create a State from scratch
     let state = StdState::new(
-        // RNG
-        StdRand::with_seed(current_nanos()),
         // Corpus that will be evolved, we keep it in memory for performance
         InMemoryCorpus::new(NopContext, scheduler),
         // Corpus in which we store solutions (crashes in this example),
@@ -74,7 +82,7 @@ pub fn main() {
     )
     .unwrap();
 
-    let mut runner = DirectRuntime::new(state, run_fuzzer);
+    let mut runtime = DirectRuntime::new(state, run_fuzzer);
 
-    runner.run(&mut NopController).unwrap()
+    runtime.run(&mut NopController).unwrap()
 }

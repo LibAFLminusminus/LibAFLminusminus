@@ -23,9 +23,7 @@ use tuple_list::NonEmptyTuple;
 use crate::{DependencyResolver, Error, runtimes::RuntimeHandle, state::FlatState};
 
 /// Mutational stage is the normal fuzzing stage.
-#[cfg(not(feature = "remove_me"))]
 pub mod mutational;
-#[cfg(not(feature = "remove_me"))]
 pub use mutational::{MutationalStage, StdMutationalStage};
 
 #[cfg(not(feature = "remove_me"))]

@@ -12,16 +12,13 @@ use libafl_bolts::{Named, rands::Rand};
 #[cfg(feature = "introspection")]
 use crate::monitors::stats::PerfFeature;
 use crate::{
-    Error, HasMetadata, HasNamedMetadata,
-    corpus::{Corpus, CorpusId, HasCurrentCorpusId, Testcase},
+    Error,
+    corpus::{Corpus, Testcase, TestcaseId},
     fuzzer::Evaluator,
     inputs::Input,
-    mark_feature_time,
     mutators::{MultiMutator, MutationResult, Mutator},
-    nonzero,
-    stages::{Restartable, RetryCountRestartHelper, Stage},
-    start_timer,
-    state::{HasCorpus, HasCurrentTestcase, HasExecutions, HasRand, MaybeHasClientPerfMonitor},
+    stages::Stage,
+    state::HasCorpus,
 };
 
 // TODO multi mutators stage
@@ -30,7 +27,7 @@ use crate::{
 pub trait MutatedTransformPost<S>: Sized {
     /// Perform any post-execution steps necessary for the transformed input (e.g., updating metadata)
     #[inline]
-    fn post_exec(self, _state: &mut S, _new_corpus_id: Option<CorpusId>) -> Result<(), Error> {
+    fn post_exec(self, _state: &mut S, _new_corpus_id: Option<TestcaseId>) -> Result<(), Error> {
         Ok(())
     }
 }
@@ -96,19 +93,18 @@ pub const DEFAULT_MUTATIONAL_MAX_ITERATIONS: usize = 128;
 
 /// The default mutational stage
 #[derive(Debug, Clone)]
-pub struct StdMutationalStage<E, EM, I1, I2, M, S, Z> {
+pub struct StdMutationalStage<E, EM, I1, I2, M, R, S, Z> {
     /// The name
     name: Cow<'static, str>,
     /// The mutator(s) to use
     mutator: M,
     /// The maximum amount of iterations we should do each round
     max_iterations: NonZeroUsize,
-    phantom: PhantomData<(E, EM, I1, I2, S, Z)>,
+    phantom: PhantomData<(E, EM, I1, I2, R, S, Z)>,
 }
 
-impl<E, EM, I1, I2, M, S, Z> MutationalStage<S> for StdMutationalStage<E, EM, I1, I2, M, S, Z>
-where
-    S: HasRand,
+impl<E, EM, I1, I2, M, R, S, Z> MutationalStage<S>
+    for StdMutationalStage<E, EM, I1, I2, M, R, S, Z>
 {
     type Mutator = M;
 
@@ -135,24 +131,17 @@ static mut MUTATIONAL_STAGE_ID: usize = 0;
 /// The name for mutational stage
 pub static MUTATIONAL_STAGE_NAME: &str = "mutational";
 
-impl<E, EM, I1, I2, M, S, Z> Named for StdMutationalStage<E, EM, I1, I2, M, S, Z> {
+impl<E, EM, I1, I2, M, R, S, Z> Named for StdMutationalStage<E, EM, I1, I2, M, R, S, Z> {
     fn name(&self) -> &Cow<'static, str> {
         &self.name
     }
 }
 
-impl<E, EM, I1, I2, M, S, Z> Stage<E, EM, S, Z> for StdMutationalStage<E, EM, I1, I2, M, S, Z>
+impl<E, EM, I1, I2, M, R, S, Z> Stage<E, EM, S, Z> for StdMutationalStage<E, EM, I1, I2, M, R, S, Z>
 where
     I1: Clone + MutatedTransform<I2, S>,
     I2: Input,
-    M: Mutator<I1, S>,
-    S: HasRand
-        + HasCorpus<I2>
-        + HasMetadata
-        + HasExecutions
-        + HasNamedMetadata
-        + HasCurrentCorpusId
-        + MaybeHasClientPerfMonitor,
+    M: Mutator<I1, R, S>,
     Z: Evaluator<E, EM, I2, S>,
 {
     #[inline]
@@ -161,7 +150,7 @@ where
         fuzzer: &mut Z,
         executor: &mut E,
         state: &mut S,
-        manager: &mut EM,
+        rt_handle: &mut CT,
     ) -> Result<(), Error> {
         self.perform_mutational(fuzzer, executor, state, manager)
     }
@@ -169,7 +158,7 @@ where
 
 impl<E, EM, I1, I2, M, S, Z> Restartable<S> for StdMutationalStage<E, EM, I1, I2, M, S, Z>
 where
-    S: HasMetadata + HasNamedMetadata + HasCurrentCorpusId,
+    S: HasMetadata + HasNamedMetadata + HasCurrentTestcaseId,
 {
     fn should_restart(&mut self, state: &mut S) -> Result<bool, Error> {
         RetryCountRestartHelper::should_restart(state, &self.name, 3)
@@ -184,7 +173,7 @@ impl<E, EM, I, M, S, Z> StdMutationalStage<E, EM, I, I, M, S, Z>
 where
     M: Mutator<I, S>,
     I: MutatedTransform<I, S> + Input + Clone,
-    S: HasCorpus<I> + HasRand + HasCurrentCorpusId + MaybeHasClientPerfMonitor,
+    S: HasCorpus<I> + HasRand + HasCurrentTestcaseId + MaybeHasClientPerfMonitor,
     Z: Evaluator<E, EM, I, S>,
 {
     /// Creates a new default mutational stage
@@ -205,7 +194,7 @@ where
     I1: MutatedTransform<I2, S> + Clone,
     I2: Input,
     M: Mutator<I1, S>,
-    S: HasCorpus<I2> + HasRand + HasCurrentCorpusId + MaybeHasClientPerfMonitor,
+    S: HasCorpus<I2> + HasRand + HasCurrentTestcaseId + MaybeHasClientPerfMonitor,
     Z: Evaluator<E, EM, I2, S>,
 {
     /// Creates a new transforming mutational stage with the default max iterations
@@ -309,11 +298,10 @@ impl<E, EM, I, M, S, Z> Named for MultiMutationalStage<E, EM, I, M, S, Z> {
     }
 }
 
-impl<E, EM, I, M, S, Z> Stage<E, EM, S, Z> for MultiMutationalStage<E, EM, I, M, S, Z>
+impl<E, EM, I, M, R, S, Z> Stage<E, EM, S, Z> for MultiMutationalStage<E, EM, I, M, S, Z>
 where
     I: Clone + MutatedTransform<I, S>,
-    M: MultiMutator<I, S>,
-    S: HasRand + HasNamedMetadata + HasCurrentTestcase<I> + HasCurrentCorpusId,
+    M: MultiMutator<I, R, S>,
     Z: Evaluator<E, EM, I, S>,
 {
     #[inline]
@@ -340,22 +328,6 @@ where
         }
 
         Ok(())
-    }
-}
-
-impl<E, EM, I, M, S, Z> Restartable<S> for MultiMutationalStage<E, EM, I, M, S, Z>
-where
-    S: HasMetadata + HasNamedMetadata + HasCurrentCorpusId,
-{
-    #[inline]
-    fn should_restart(&mut self, state: &mut S) -> Result<bool, Error> {
-        // Make sure we don't get stuck crashing on a single testcase
-        RetryCountRestartHelper::should_restart(state, &self.name, 3)
-    }
-
-    #[inline]
-    fn clear_progress(&mut self, state: &mut S) -> Result<(), Error> {
-        RetryCountRestartHelper::clear_progress(state, &self.name)
     }
 }
 
