@@ -115,7 +115,7 @@ pub trait Executor<I, S>: DependencyResolver {
     /// It must be run once before the first execution of the executor.
     fn init<CT: Controller>(
         &mut self,
-        driver: &mut RuntimeHandle<CT, S>,
+        rt_handle: &mut RuntimeHandle<CT, S>,
         controller: &mut CT,
     ) -> Result<(), Error>;
 
@@ -142,7 +142,7 @@ pub trait Executor<I, S>: DependencyResolver {
     fn execute<CT: Controller>(
         &mut self,
         state: &mut S,
-        driver: &mut RuntimeHandle<CT, S>,
+        rt_handle: &mut RuntimeHandle<CT, S>,
         _controller: &mut CT,
         input: &I,
     ) -> Result<ExitKind, Error>
@@ -155,13 +155,13 @@ pub trait Executor<I, S>: DependencyResolver {
         self.observers_mut().pre_exec(state)?;
         // mark_feature_time!(state, PerfFeature::PreExecObservers);
 
-        driver.arm_timeout()?;
+        rt_handle.arm_timeout()?;
 
         // start_timer!(state);
         let mut exit_kind = unsafe { self.execute_impl(state, input)? };
         // mark_feature_time!(state, PerfFeature::TargetExecution);
 
-        driver.disarm_timeout()?;
+        rt_handle.disarm_timeout()?;
 
         // start_timer!(state);
         self.observers_mut()

@@ -54,12 +54,12 @@ where
 
     fn init<CT: Controller>(
         &mut self,
-        driver: &mut RuntimeHandle<CT, S>,
+        rt_handle: &mut RuntimeHandle<CT, S>,
         _controller: &mut CT,
     ) -> Result<(), Error> {
         if !self.initialized {
             if let Some(tmout) = &self.timeout {
-                driver.set_timeout(tmout.clone());
+                rt_handle.set_timeout(tmout.clone());
             }
 
             self.initialized = true;

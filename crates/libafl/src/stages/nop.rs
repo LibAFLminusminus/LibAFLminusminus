@@ -1,7 +1,7 @@
 //! A nop stage does nothing
 
 use super::Stage;
-use crate::DependencyResolver;
+use crate::{DependencyResolver, runtimes::RuntimeHandle};
 
 /// A stage that does nothing
 #[derive(Debug, Copy, Clone, Default)]
@@ -17,13 +17,13 @@ impl NopStage {
 
 impl DependencyResolver for NopStage {}
 
-impl<C, E, S, Z> Stage<C, E, S, Z> for NopStage {
+impl<CT, E, S, Z> Stage<CT, E, S, Z> for NopStage {
     fn perform(
         &mut self,
         _fuzzer: &mut Z,
         _executor: &mut E,
         _state: &mut S,
-        _controller: &mut C,
+        _rt_handle: &mut RuntimeHandle<CT, S>,
     ) -> Result<(), libafl_bolts::Error> {
         Ok(())
     }

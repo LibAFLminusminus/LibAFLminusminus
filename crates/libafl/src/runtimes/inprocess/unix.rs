@@ -73,7 +73,7 @@ where
 
     /// # Safety
     ///
-    /// `signal_driver` must contain `self`.
+    /// `signal_rt_handle` must contain `self`.
     pub fn init(self: &mut Pin<Box<Self>>) -> Result<(), Error> {
         self.setup_panic_hook();
 

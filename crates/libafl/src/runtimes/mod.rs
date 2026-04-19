@@ -21,23 +21,19 @@ pub trait Runtime<CT, S>: DependencyResolver {
     ///
     /// # Safety
     ///
-    /// The driver MUST be linked to the current runtime.
-    /// Using a `driver` that is not instanciated with self as the runtime will lead to Undefined Behaviour.
+    /// The rt_handle MUST be linked to the current runtime.
+    /// Using a `rt_handle` that is not instanciated with self as the runtime will lead to Undefined Behaviour.
     /// Use [`Self::run`], this function should not need to be called directly.
-    unsafe fn run_impl(
-        &mut self,
-        driver: &mut RuntimeHandle<CT, S>,
-        controller: &mut CT,
-    ) -> Result<(), Error>;
+    unsafe fn run_impl(&mut self, rt_handle: &mut RuntimeHandle<CT, S>) -> Result<(), Error>;
 
     fn run(&mut self, controller: &mut CT) -> Result<(), Error>
     where
         Self: Sized + 'static,
     {
-        let mut driver =
-            unsafe { RuntimeHandle::new(self as *mut Self as *mut dyn Runtime<CT, S>) };
+        let mut rt_handle =
+            unsafe { RuntimeHandle::new(self as *mut Self as *mut dyn Runtime<CT, S>, controller) };
 
-        unsafe { self.run_impl(&mut driver, controller) }
+        unsafe { self.run_impl(&mut rt_handle) }
     }
 
     /// Set a timeout value for the runtime.
@@ -71,14 +67,16 @@ pub trait Runtime<CT, S>: DependencyResolver {
 /// Object enabling interacting with a runtime's environment from the task.
 /// It can be used to perform runtime-level operations generically.
 /// It does not expose the runtime directly
-pub struct RuntimeHandle<CT, S> {
+pub struct RuntimeHandle<'a, CT, S> {
     runtime: NonNull<dyn Runtime<CT, S>>,
+    controller: &'a mut CT,
 }
 
-impl<CT, S> RuntimeHandle<CT, S> {
-    unsafe fn new(runtime: *mut dyn Runtime<CT, S>) -> Self {
+impl<'a, CT, S> RuntimeHandle<'a, CT, S> {
+    unsafe fn new(runtime: *mut dyn Runtime<CT, S>, controller: &'a mut CT) -> Self {
         Self {
             runtime: NonNull::new(runtime).expect("runtime ptr must be non-null"),
+            controller,
         }
     }
 
@@ -110,7 +108,7 @@ impl<CT, S> RuntimeHandle<CT, S> {
     }
 }
 
-impl<CT, S> DependencyResolver for RuntimeHandle<CT, S> {
+impl<'a, CT, S> DependencyResolver for RuntimeHandle<'a, CT, S> {
     fn check(&self, checker: &crate::CompatibilityChecker) -> Result<(), Error> {
         unsafe { self.runtime().check(checker) }
     }

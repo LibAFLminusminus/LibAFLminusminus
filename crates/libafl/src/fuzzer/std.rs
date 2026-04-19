@@ -256,11 +256,11 @@ where
         &mut self,
         state: &mut S,
         executor: &mut E,
-        driver: &mut RuntimeHandle<CT, S>,
+        rt_handle: &mut RuntimeHandle<CT, S>,
         controller: &mut CT,
         input: &I,
     ) -> Result<EvaluationResult, Error> {
-        let exit_kind = executor.execute(state, driver, controller, input)?;
+        let exit_kind = executor.execute(state, rt_handle, controller, input)?;
 
         let observers = executor.observers();
         self.evaluate_execution::<I, E::Observers, S, S::Scheduler, Self>(
@@ -286,8 +286,7 @@ where
         stages: &mut ST,
         executor: &mut E,
         state: &mut S,
-        driver: &mut RuntimeHandle<CT, S>,
-        controller: &mut CT,
+        rt_handle: &mut RuntimeHandle<CT, S>,
     ) -> Result<(), Error> {
         // 1 - collect the required mds and involved types
         let mut registrator = Registrator::new();
@@ -317,8 +316,7 @@ where
         stages: &mut ST,
         executor: &mut E,
         state: &mut S,
-        driver: &mut RuntimeHandle<CT, S>,
-        controller: &mut CT,
+        rt_handle: &mut RuntimeHandle<CT, S>,
     ) -> Result<(), Error> {
         // Init timer for scheduler
         #[cfg(feature = "introspection")]
@@ -336,7 +334,7 @@ where
         state.introspection_stats_mut().reset_stage_index();
 
         // Execute all stages
-        stages.perform_all(self, executor, state, controller)?;
+        stages.perform_all(self, executor, state, rt_handle)?;
 
         state
             .testcase_md_mut_from_id(&testcase_id)
@@ -355,11 +353,10 @@ where
         stages: &mut ST,
         executor: &mut E,
         state: &mut S,
-        driver: &mut RuntimeHandle<CT, S>,
-        controller: &mut CT,
+        rt_handle: &mut RuntimeHandle<CT, S>,
     ) -> Result<(), Error> {
         loop {
-            self.fuzz_one(stages, executor, state, driver, controller)?;
+            self.fuzz_one(stages, executor, state, rt_handle)?;
         }
     }
 
@@ -368,8 +365,7 @@ where
         stages: &mut ST,
         executor: &mut E,
         state: &mut S,
-        driver: &mut RuntimeHandle<CT, S>,
-        controller: &mut CT,
+        rt_handle: &mut RuntimeHandle<CT, S>,
         iters: u64,
     ) -> Result<(), Error> {
         if iters == 0 {
@@ -379,7 +375,7 @@ where
         }
 
         for _ in 0..iters {
-            self.fuzz_one(stages, executor, state, driver, controller)?;
+            self.fuzz_one(stages, executor, state, rt_handle)?;
         }
 
         Ok(())

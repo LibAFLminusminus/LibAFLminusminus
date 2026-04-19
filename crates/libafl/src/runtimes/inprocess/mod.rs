@@ -12,7 +12,7 @@ use crate::{
 pub mod unix;
 pub use unix::OsSignalHandler;
 
-impl<C, CH, D, S, T, TH> DependencyResolver for InProcessRuntime<C, CH, D, S, T, TH> {}
+impl<CH, D, S, T, TH> DependencyResolver for InProcessRuntime<CH, D, S, T, TH> {}
 
 /// Hooks the current process to set it up for in-process tasks.
 /// It will change signal handlers and "pollute" the current process.
@@ -23,12 +23,11 @@ impl<C, CH, D, S, T, TH> DependencyResolver for InProcessRuntime<C, CH, D, S, T,
 /// To exit, simply exit the process.
 /// There are special exit codes used to convey what caused the exit.
 /// TODO: document these exit code
-pub struct InProcessRuntime<C, CH, D, S, T, TH> {
+pub struct InProcessRuntime<CH, D, S, T, TH> {
     state: S,
     task: T,
     signal_handler: Pin<Box<OsSignalHandler<CH, D, TH>>>,
     timer: Option<TimerStruct>,
-    phantom: PhantomData<C>,
 }
 
 pub struct InProcessSignalHandler<CH, D, TH> {
@@ -38,7 +37,6 @@ pub struct InProcessSignalHandler<CH, D, TH> {
     timeout_handler: TH,
     signal_data: D,
     in_target: bool,
-    // this should hold any pointer to data needed in signal handling.
 }
 
 unsafe impl<CH, D, TH> Send for InProcessSignalHandler<CH, D, TH>
@@ -57,7 +55,7 @@ where
 {
 }
 
-impl<C, CH, D, S, T, TH> InProcessRuntime<C, CH, D, S, T, TH>
+impl<CH, D, S, T, TH> InProcessRuntime<CH, D, S, T, TH>
 where
     CH: FnMut(&mut D) -> Result<(), Error> + Send + Sync + Unpin + 'static,
     D: Send + Sync + Unpin + 'static,
@@ -72,7 +70,6 @@ where
             task,
             signal_handler: Box::pin(OsSignalHandler::new(signal_handler)),
             timer: None,
-            phantom: PhantomData,
         }
     }
 }
@@ -128,22 +125,18 @@ where
     }
 }
 
-impl<C, CH, D, S, T, TH> Runtime<C, S> for InProcessRuntime<C, CH, D, S, T, TH>
+impl<CT, CH, D, S, T, TH> Runtime<CT, S> for InProcessRuntime<CH, D, S, T, TH>
 where
-    T: FnMut(&mut RuntimeHandle<C, S>, &mut S, &mut C) -> Result<(), Error>,
+    T: FnMut(&mut RuntimeHandle<CT, S>, &mut S) -> Result<(), Error>,
     CH: FnMut(&mut D) -> Result<(), Error> + Send + Sync + Unpin + 'static,
     D: Send + Sync + Unpin + 'static,
     TH: FnMut(&mut D) -> Result<(), Error> + Send + Sync + Unpin + 'static,
 {
     // TODO: handle signals
-    unsafe fn run_impl(
-        &mut self,
-        driver: &mut RuntimeHandle<C, S>,
-        controller: &mut C,
-    ) -> Result<(), Error> {
+    unsafe fn run_impl(&mut self, rt_handle: &mut RuntimeHandle<CT, S>) -> Result<(), Error> {
         self.signal_handler.init();
 
-        (self.task)(driver, &mut self.state, controller)
+        (self.task)(rt_handle, &mut self.state)
     }
 
     fn set_timeout(&mut self, timeout: Duration) -> Result<(), Error> {
@@ -198,7 +191,7 @@ mod tests {
             let mut state = NopState::<NopInput>::new();
             let mut controller = NopController;
 
-            let task = |_driver: &mut RuntimeHandle<NopController, NopState<NopInput>>, _state: &mut NopState<NopInput>, _controller: &mut NopController| {
+            let task = |_rt_handle: &mut RuntimeHandle<NopController, NopState<NopInput>>, _state: &mut NopState<NopInput>, _controller: &mut NopController| {
                 Err(Error::shutting_down())
             };
 
@@ -247,12 +240,12 @@ mod tests {
             |_| (),
             |child, _| child.wait().unwrap(),
             || {
-                let task = |driver: &mut RuntimeHandle<NopController, NopState<NopInput>>,
+                let task = |rt_handle: &mut RuntimeHandle<NopController, NopState<NopInput>>,
                             _state: &mut NopState<NopInput>,
                             _controller: &mut NopController| {
-                    driver.set_timeout(Duration::from_millis(10));
+                    rt_handle.set_timeout(Duration::from_millis(10));
 
-                    driver.arm_timeout();
+                    rt_handle.arm_timeout();
                     thread::sleep(Duration::from_millis(50));
 
                     panic!("Did not timeout!");
@@ -286,7 +279,7 @@ mod tests {
             |_| (),
             |child, _| child.wait().unwrap(),
             || {
-                let task = |_driver: &mut RuntimeHandle<NopController, NopState<NopInput>>,
+                let task = |_rt_handle: &mut RuntimeHandle<NopController, NopState<NopInput>>,
                             _state: &mut NopState<NopInput>,
                             _controller: &mut NopController| {
                     unsafe {
@@ -326,12 +319,12 @@ mod tests {
             |_| (),
             |child, _| child.wait().unwrap(),
             || {
-                let task = |driver: &mut RuntimeHandle<NopController, NopState<NopInput>>,
+                let task = |rt_handle: &mut RuntimeHandle<NopController, NopState<NopInput>>,
                             _state: &mut NopState<NopInput>,
                             _controller: &mut NopController| {
-                    driver.set_timeout(Duration::from_millis(10));
+                    rt_handle.set_timeout(Duration::from_millis(10));
 
-                    driver.arm_timeout()?;
+                    rt_handle.arm_timeout()?;
 
                     thread::sleep(Duration::from_millis(50));
 
@@ -368,7 +361,7 @@ mod tests {
             |_| (),
             |child, _| child.wait().unwrap(),
             || {
-                let task = |_driver: &mut RuntimeHandle<NopController, NopState<NopInput>>,
+                let task = |_rt_handle: &mut RuntimeHandle<NopController, NopState<NopInput>>,
                             _state: &mut NopState<NopInput>,
                             _controller: &mut NopController| {
                     unsafe {

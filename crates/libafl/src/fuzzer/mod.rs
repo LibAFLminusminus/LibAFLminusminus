@@ -76,7 +76,7 @@ pub trait Evaluator<CT, E, I, S> {
         &mut self,
         state: &mut S,
         executor: &mut E,
-        driver: &mut RuntimeHandle<CT, S>,
+        rt_handle: &mut RuntimeHandle<CT, S>,
         controller: &mut CT,
         input: &I,
     ) -> Result<EvaluationResult, Error>;
@@ -89,8 +89,7 @@ pub trait Fuzzer<CT, E, I, S, ST> {
         stages: &mut ST,
         executor: &mut E,
         state: &mut S,
-        driver: &mut RuntimeHandle<CT, S>,
-        controller: &mut CT,
+        rt_handle: &mut RuntimeHandle<CT, S>,
     ) -> Result<(), Error>;
 
     /// Fuzz for a single iteration.
@@ -103,8 +102,7 @@ pub trait Fuzzer<CT, E, I, S, ST> {
         stages: &mut ST,
         executor: &mut E,
         state: &mut S,
-        driver: &mut RuntimeHandle<CT, S>,
-        controller: &mut CT,
+        rt_handle: &mut RuntimeHandle<CT, S>,
     ) -> Result<(), Error>;
 
     /// Fuzz forever (or until stopped)
@@ -113,8 +111,7 @@ pub trait Fuzzer<CT, E, I, S, ST> {
         stages: &mut ST,
         executor: &mut E,
         state: &mut S,
-        driver: &mut RuntimeHandle<CT, S>,
-        controller: &mut CT,
+        rt_handle: &mut RuntimeHandle<CT, S>,
     ) -> Result<(), Error>;
 
     /// Fuzz for n iterations.
@@ -127,8 +124,7 @@ pub trait Fuzzer<CT, E, I, S, ST> {
         stages: &mut ST,
         executor: &mut E,
         state: &mut S,
-        driver: &mut RuntimeHandle<CT, S>,
-        controller: &mut CT,
+        rt_handle: &mut RuntimeHandle<CT, S>,
         iters: u64,
     ) -> Result<(), Error>;
 }
@@ -195,8 +191,7 @@ impl<CT, E, I, S, ST> Fuzzer<CT, E, I, S, ST> for NopFuzzer {
         _stages: &mut ST,
         _executor: &mut E,
         _state: &mut S,
-        _driver: &mut RuntimeHandle<CT, S>,
-        _controller: &mut CT,
+        _rt_handle: &mut RuntimeHandle<CT, S>,
     ) -> Result<(), Error> {
         unimplemented!("NopFuzzer cannot fuzz");
     }
@@ -206,8 +201,7 @@ impl<CT, E, I, S, ST> Fuzzer<CT, E, I, S, ST> for NopFuzzer {
         _stages: &mut ST,
         _executor: &mut E,
         _state: &mut S,
-        _driver: &mut RuntimeHandle<CT, S>,
-        _ct: &mut CT,
+        _rt_handle: &mut RuntimeHandle<CT, S>,
     ) -> Result<(), Error> {
         unimplemented!("NopFuzzer cannot fuzz");
     }
@@ -217,8 +211,7 @@ impl<CT, E, I, S, ST> Fuzzer<CT, E, I, S, ST> for NopFuzzer {
         _stages: &mut ST,
         _executor: &mut E,
         _state: &mut S,
-        _driver: &mut RuntimeHandle<CT, S>,
-        _ct: &mut CT,
+        _rt_handle: &mut RuntimeHandle<CT, S>,
     ) -> Result<(), Error> {
         unimplemented!("NopFuzzer cannot fuzz");
     }
@@ -228,8 +221,7 @@ impl<CT, E, I, S, ST> Fuzzer<CT, E, I, S, ST> for NopFuzzer {
         _stages: &mut ST,
         _executor: &mut E,
         _state: &mut S,
-        _driver: &mut RuntimeHandle<CT, S>,
-        _ct: &mut CT,
+        _rt_handle: &mut RuntimeHandle<CT, S>,
         _iters: u64,
     ) -> Result<(), Error> {
         unimplemented!("NopFuzzer cannot fuzz");

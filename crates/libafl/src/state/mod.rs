@@ -1248,7 +1248,7 @@ where
         executor: &mut E,
         generator: &mut G,
         rand: &mut R,
-        driver: &mut RuntimeHandle<CT, Self>,
+        rt_handle: &mut RuntimeHandle<CT, Self>,
         controller: &mut CT,
         num: usize,
     ) -> Result<usize, Error>

@@ -20,7 +20,7 @@ use libafl_bolts::{
 use serde::{Deserialize, Serialize};
 use tuple_list::NonEmptyTuple;
 
-use crate::{DependencyResolver, Error, state::FlatState};
+use crate::{DependencyResolver, Error, runtimes::RuntimeHandle, state::FlatState};
 
 /// Mutational stage is the normal fuzzing stage.
 #[cfg(not(feature = "remove_me"))]
@@ -137,7 +137,7 @@ pub trait Stage<CT, E, S, Z>: DependencyResolver {
         fuzzer: &mut Z,
         executor: &mut E,
         state: &mut S,
-        controller: &mut CT,
+        rt_handle: &mut RuntimeHandle<CT, S>,
     ) -> Result<(), Error>;
 }
 
@@ -149,7 +149,7 @@ pub trait StagesTuple<CT, E, S, Z>: DependencyResolver {
         fuzzer: &mut Z,
         executor: &mut E,
         state: &mut S,
-        controller: &mut CT,
+        rt_handle: &mut RuntimeHandle<CT, S>,
     ) -> Result<(), Error>;
 }
 
@@ -159,7 +159,7 @@ impl<CT, E, S, Z> StagesTuple<CT, E, S, Z> for () {
         _: &mut Z,
         _: &mut E,
         state: &mut S,
-        controller: &mut CT,
+        rt_handle: &mut RuntimeHandle<CT, S>,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -178,7 +178,7 @@ where
         fuzzer: &mut Z,
         executor: &mut E,
         state: &mut S,
-        controller: &mut CT,
+        rt_handle: &mut RuntimeHandle<CT, S>,
     ) -> Result<(), Error> {
         // match state.current_stage_id()? {
         //     Some(idx) if idx < StageId(Self::LEN) => {
@@ -209,7 +209,7 @@ where
 
         let stage = &mut self.0;
 
-        stage.perform(fuzzer, executor, state, controller)?;
+        stage.perform(fuzzer, executor, state, rt_handle)?;
 
         // state.clear_stage_id()?;
         //     }
@@ -220,7 +220,7 @@ where
         state.introspection_stats_mut().finish_stage();
 
         // Execute the remaining stages
-        self.1.perform_all(fuzzer, executor, state, controller)
+        self.1.perform_all(fuzzer, executor, state, rt_handle)
     }
 }
 
@@ -293,10 +293,10 @@ impl<CT, E, S, Z> StagesTuple<CT, E, S, Z> for Vec<Box<dyn Stage<CT, E, S, Z>>> 
         fuzzer: &mut Z,
         executor: &mut E,
         state: &mut S,
-        controller: &mut CT,
+        rt_handle: &mut RuntimeHandle<CT, S>,
     ) -> Result<(), Error> {
         self.iter_mut()
-            .try_for_each(|stage| stage.perform(fuzzer, executor, state, controller))
+            .try_for_each(|stage| stage.perform(fuzzer, executor, state, rt_handle))
     }
 }
 

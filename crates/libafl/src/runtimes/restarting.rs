@@ -29,8 +29,8 @@ where
     TH: FnMut(&mut D) -> Result<(), Error> + Send + Sync + Unpin + 'static,
 {
     // TODO: handle fork, state snapshot restore
-    unsafe fn run_impl(&mut self, driver: &mut RuntimeHandle<S>) -> Result<(), Error> {
-        unsafe { self.inner.run_impl(driver) }
+    unsafe fn run_impl(&mut self, rt_handle: &mut RuntimeHandle<S>) -> Result<(), Error> {
+        unsafe { self.inner.run_impl(rt_handle) }
     }
 
     fn set_timeout(&mut self, timeout: Duration) -> Result<(), Error> {
