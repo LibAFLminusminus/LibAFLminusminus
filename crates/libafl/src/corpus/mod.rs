@@ -90,16 +90,6 @@ pub trait Corpus<I>: HasScheduler + Sized + DependencyResolver {
     /// Get testcase by id
     fn get_from<const ENABLED: bool>(&self, id: TestcaseId) -> Result<Testcase<I>, Error>;
 
-    fn nth<const ENABLED: bool>(&self, nth: usize) -> Option<TestcaseId> {
-        Self::nth_from::<true>(self, nth)
-    }
-
-    fn nth_from_all<const ENABLED: bool>(&self, nth: usize) -> Option<TestcaseId> {
-        Self::nth_from::<false>(self, nth)
-    }
-
-    fn nth_from<const ENABLED: bool>(&self, nth: usize) -> Option<TestcaseId>;
-
     fn context(&self) -> &Self::Context;
 
     fn context_mut(&mut self) -> &mut Self::Context;

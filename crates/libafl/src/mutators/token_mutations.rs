@@ -24,8 +24,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "std")]
 use crate::mutators::str_decode;
 use crate::{
-    Error, HasMetadata,
-    corpus::{CorpusId, HasCurrentCorpusId},
+    Error,
     inputs::{HasMutatorBytes, ResizableMutator},
     mutators::{
         MultiMutator, MutationResult, Mutator, Named, buffer_self_copy, mutations::buffer_copy,

@@ -110,7 +110,7 @@ mod tests {
         )
         .unwrap();
 
-        let _state = StdState::new(rand, corpus, objective).unwrap();
+        let _state = StdState::new(corpus, objective).unwrap();
 
         // let filename = state
         //     .corpus()
@@ -144,7 +144,7 @@ mod tests {
         let id2 = q.add(t2).unwrap();
         let id3 = q.add(t3).unwrap();
 
-        let mut state = StdState::new(rand, q, InMemoryCorpus::new(context, NopScheduler)).unwrap();
+        let mut state = StdState::new(q, InMemoryCorpus::new(context, NopScheduler)).unwrap();
 
         let next_id = state.corpus_mut().scheduler_mut().next().unwrap();
         assert_eq!(next_id, id1);

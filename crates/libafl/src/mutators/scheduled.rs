@@ -16,13 +16,10 @@ use serde::{Deserialize, Serialize};
 
 use super::MutationId;
 use crate::{
-    Error, HasMetadata,
-    corpus::{Corpus, CorpusId},
-    mutators::{
-        MutationResult, Mutator, MutatorsTuple,
-        token_mutations::{TokenInsert, TokenReplace},
-    },
-    state::{HasCorpus, HasRand},
+    Error,
+    corpus::{Corpus, TestcaseId, testcase},
+    mutators::{MutationResult, Mutator, MutatorsTuple},
+    state::HasCorpus,
 };
 
 /// The metadata placed in a [`crate::corpus::Testcase`] by a [`LoggerScheduledMutator`].
@@ -70,24 +67,31 @@ pub trait ComposedByMutations {
 }
 
 /// A [`Mutator`] scheduling multiple [`Mutator`]s for an input.
-pub trait ScheduledMutator<I, S>: ComposedByMutations + Mutator<I, S>
+pub trait ScheduledMutator<I, R, S>: ComposedByMutations + Mutator<I, R, S>
 where
-    Self::Mutations: MutatorsTuple<I, S>,
+    Self::Mutations: MutatorsTuple<I, R, S>,
 {
     /// Compute the number of iterations used to apply stacked mutations
-    fn iterations(&self, state: &mut S, input: &I) -> u64;
+    fn iterations(&self, input: &I, rand: &mut R, state: &S) -> u64;
 
     /// Get the next mutation to apply
-    fn schedule(&self, state: &mut S, input: &I) -> MutationId;
+    fn schedule(&self, input: &I, rand: &mut R, state: &S) -> MutationId;
 
     /// New default implementation for mutate.
     /// Implementations must forward `mutate()` to this method
-    fn scheduled_mutate(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, Error> {
+    fn scheduled_mutate(
+        &mut self,
+        input: &mut I,
+        rand: &mut R,
+        state: &S,
+    ) -> Result<MutationResult, Error> {
         let mut r = MutationResult::Skipped;
-        let num = self.iterations(state, input);
+        let num = self.iterations(input, rand, state);
         for _ in 0..num {
-            let idx = self.schedule(state, input);
-            let outcome = self.mutations_mut().get_and_mutate(idx, state, input)?;
+            let idx = self.schedule(input, rand, state);
+            let outcome = self
+                .mutations_mut()
+                .get_and_mutate(idx, input, rand, state)?;
             if outcome == MutationResult::Mutated {
                 r = MutationResult::Mutated;
             }
@@ -109,17 +113,17 @@ impl<MT> Named for SingleChoiceScheduledMutator<MT> {
     }
 }
 
-impl<I, MT, S> Mutator<I, S> for SingleChoiceScheduledMutator<MT>
+impl<I, MT, R, S> Mutator<I, R, S> for SingleChoiceScheduledMutator<MT>
 where
-    MT: MutatorsTuple<I, S>,
-    S: HasRand,
+    R: Rand,
+    MT: MutatorsTuple<I, R, S>,
 {
     #[inline]
-    fn mutate(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, Error> {
-        self.scheduled_mutate(state, input)
+    fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
+        self.scheduled_mutate(input, rand, state)
     }
     #[inline]
-    fn post_exec(&mut self, state: &mut S, new_corpus_id: Option<CorpusId>) -> Result<(), Error> {
+    fn post_exec(&mut self, state: &mut S, new_corpus_id: Option<TestcaseId>) -> Result<(), Error> {
         self.mutations.post_exec_all(state, new_corpus_id)
     }
 }
@@ -139,24 +143,23 @@ impl<MT> ComposedByMutations for SingleChoiceScheduledMutator<MT> {
     }
 }
 
-impl<I, MT, S> ScheduledMutator<I, S> for SingleChoiceScheduledMutator<MT>
+impl<I, MT, R, S> ScheduledMutator<I, R, S> for SingleChoiceScheduledMutator<MT>
 where
-    MT: MutatorsTuple<I, S>,
-    S: HasRand,
+    R: Rand,
+    MT: MutatorsTuple<I, R, S>,
 {
     /// Compute the number of iterations used to apply stacked mutations
-    fn iterations(&self, _state: &mut S, _: &I) -> u64 {
+    fn iterations(&self, _: &I, rand: &mut R, state: &S) -> u64 {
         1
     }
 
     /// Get the next mutation to apply
-    fn schedule(&self, state: &mut S, _: &I) -> MutationId {
+    fn schedule(&self, _: &I, rand: &mut R, state: &S) -> MutationId {
         debug_assert_ne!(self.mutations.len(), 0);
         // # Safety
         // We check for empty mutations
-        state
-            .rand_mut()
-            .below(unsafe { NonZero::new_unchecked(self.mutations.len()) })
+
+        rand.below(unsafe { NonZero::new_unchecked(self.mutations.len()) })
             .into()
     }
 }
@@ -191,17 +194,17 @@ impl<MT> Named for HavocScheduledMutator<MT> {
     }
 }
 
-impl<I, MT, S> Mutator<I, S> for HavocScheduledMutator<MT>
+impl<I, MT, R, S> Mutator<I, R, S> for HavocScheduledMutator<MT>
 where
-    MT: MutatorsTuple<I, S>,
-    S: HasRand,
+    R: Rand,
+    MT: MutatorsTuple<I, R, S>,
 {
     #[inline]
-    fn mutate(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, Error> {
-        self.scheduled_mutate(state, input)
+    fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
+        self.scheduled_mutate(input, rand, state)
     }
     #[inline]
-    fn post_exec(&mut self, state: &mut S, new_corpus_id: Option<CorpusId>) -> Result<(), Error> {
+    fn post_exec(&mut self, state: &mut S, new_corpus_id: Option<TestcaseId>) -> Result<(), Error> {
         self.mutations.post_exec_all(state, new_corpus_id)
     }
 }
@@ -221,24 +224,22 @@ impl<MT> ComposedByMutations for HavocScheduledMutator<MT> {
     }
 }
 
-impl<I, MT, S> ScheduledMutator<I, S> for HavocScheduledMutator<MT>
+impl<I, MT, R, S> ScheduledMutator<I, R, S> for HavocScheduledMutator<MT>
 where
-    MT: MutatorsTuple<I, S>,
-    S: HasRand,
+    R: Rand,
+    MT: MutatorsTuple<I, R, S>,
 {
     /// Compute the number of iterations used to apply stacked mutations
-    fn iterations(&self, state: &mut S, _: &I) -> u64 {
-        1 << (1 + state.rand_mut().below_or_zero(self.max_stack_pow))
+    fn iterations(&self, _: &I, rand: &mut R, state: &S) -> u64 {
+        1 << (1 + rand.below_or_zero(self.max_stack_pow))
     }
 
     /// Get the next mutation to apply
-    fn schedule(&self, state: &mut S, _: &I) -> MutationId {
+    fn schedule(&self, _: &I, rand: &mut R, state: &S) -> MutationId {
         debug_assert_ne!(self.mutations.len(), 0);
         // # Safety
         // We check for empty mutations
-        state
-            .rand_mut()
-            .below(unsafe { NonZero::new_unchecked(self.mutations.len()) })
+        rand.below(unsafe { NonZero::new_unchecked(self.mutations.len()) })
             .into()
     }
 }
@@ -273,117 +274,11 @@ where
     }
 }
 
+#[cfg(not(feature = "remove_me"))]
 /// Get the mutations that uses the Tokens metadata
 #[must_use]
 pub fn tokens_mutations() -> tuple_list_type!(TokenInsert, TokenReplace) {
     tuple_list!(TokenInsert::new(), TokenReplace::new())
-}
-
-/// A [`Mutator`] that wraps a [`ScheduledMutator`] and logs the names of the scheduled mutations
-/// into a [`LogMutationMetadata`] (if the mutated input was added to the corpus).
-#[derive(Debug)]
-pub struct LoggerScheduledMutator<SM> {
-    name: Cow<'static, str>,
-    scheduled: SM,
-    mutation_log: Vec<MutationId>,
-}
-
-impl<SM> Named for LoggerScheduledMutator<SM> {
-    fn name(&self) -> &Cow<'static, str> {
-        &self.name
-    }
-}
-
-impl<I, S, SM> Mutator<I, S> for LoggerScheduledMutator<SM>
-where
-    S: HasRand + HasCorpus<I>,
-    SM: ScheduledMutator<I, S>,
-    SM::Mutations: MutatorsTuple<I, S> + NamedTuple,
-{
-    fn mutate(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, Error> {
-        self.scheduled_mutate(state, input)
-    }
-
-    fn post_exec(&mut self, state: &mut S, corpus_id: Option<CorpusId>) -> Result<(), Error> {
-        self.scheduled.post_exec(state, corpus_id)?;
-
-        if let Some(id) = corpus_id {
-            let mut testcase = (*state.corpus_mut().get(id)?).borrow_mut();
-            let mut log = Vec::<Cow<'static, str>>::new();
-            while let Some(idx) = self.mutation_log.pop() {
-                let name = self.scheduled.mutations().name(idx.0).unwrap().clone(); // TODO maybe return an Error on None
-                log.push(name);
-            }
-            let meta = LogMutationMetadata::new(log);
-            testcase.add_metadata(meta);
-        }
-        // Always reset the log for each run
-        self.mutation_log.clear();
-        Ok(())
-    }
-}
-
-impl<SM> ComposedByMutations for LoggerScheduledMutator<SM>
-where
-    SM: ComposedByMutations,
-{
-    type Mutations = SM::Mutations;
-    #[inline]
-    fn mutations(&self) -> &SM::Mutations {
-        self.scheduled.mutations()
-    }
-
-    #[inline]
-    fn mutations_mut(&mut self) -> &mut SM::Mutations {
-        self.scheduled.mutations_mut()
-    }
-}
-
-impl<I, S, SM> ScheduledMutator<I, S> for LoggerScheduledMutator<SM>
-where
-    S: HasRand + HasCorpus<I>,
-    SM: ScheduledMutator<I, S>,
-    SM::Mutations: MutatorsTuple<I, S> + NamedTuple,
-{
-    /// Compute the number of iterations used to apply stacked mutations
-    fn iterations(&self, state: &mut S, input: &I) -> u64 {
-        self.scheduled.iterations(state, input)
-    }
-
-    /// Get the next mutation to apply
-    fn schedule(&self, state: &mut S, input: &I) -> MutationId {
-        self.scheduled.schedule(state, input)
-    }
-
-    fn scheduled_mutate(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, Error> {
-        let mut r = MutationResult::Skipped;
-        let num = self.iterations(state, input);
-        self.mutation_log.clear();
-        for _ in 0..num {
-            let idx = self.schedule(state, input);
-            self.mutation_log.push(idx);
-            let outcome = self.mutations_mut().get_and_mutate(idx, state, input)?;
-            if outcome == MutationResult::Mutated {
-                r = MutationResult::Mutated;
-            }
-        }
-        Ok(r)
-    }
-}
-
-impl<SM> LoggerScheduledMutator<SM>
-where
-    SM: Named,
-{
-    /// Create a new [`LoggerScheduledMutator`] instance without mutations and corpus
-    /// This mutator logs all mutators.
-    pub fn new(scheduled: SM) -> Self {
-        Self {
-            name: Cow::from(format!("LoggerScheduledMutator[{}]", scheduled.name())),
-            scheduled,
-            mutation_log: vec![],
-        }
-    }
 }
 
 #[cfg(test)]
@@ -391,9 +286,9 @@ mod tests {
     use libafl_bolts::rands::{StdRand, XkcdRand};
 
     use crate::{
-        corpus::{Corpus, InMemoryCorpus, Testcase},
+        corpus::{Corpus, InMemoryCorpus, Testcase, schedulers::QueueScheduler},
         feedbacks::ConstFeedback,
-        inputs::{BytesInput, HasMutatorBytes},
+        inputs::{BytesInput, HasMutatorBytes, bytes::BytesContext},
         mutators::{
             Mutator,
             havoc_mutations::havoc_mutations,
@@ -405,31 +300,25 @@ mod tests {
 
     #[test]
     fn test_mut_scheduled() {
-        let rand = XkcdRand::with_seed(0);
-        let mut corpus: InMemoryCorpus<BytesInput> = InMemoryCorpus::new();
-        corpus
-            .add(Testcase::new(vec![b'a', b'b', b'c'].into()))
+        let mut rand = XkcdRand::with_seed(0);
+        let mut corpus = InMemoryCorpus::new(BytesContext::default(), QueueScheduler::new());
+        let id1 = corpus
+            .add(BytesInput::new(vec![b'a', b'b', b'c'].into()))
             .unwrap();
-        corpus
-            .add(Testcase::new(vec![b'd', b'e', b'f'].into()))
+        let id2 = corpus
+            .add(BytesInput::new(vec![b'd', b'e', b'f'].into()))
             .unwrap();
 
-        let mut input = corpus.cloned_input_for_id(corpus.first().unwrap()).unwrap();
-
-        let mut feedback = ConstFeedback::new(false);
-        let mut objective = ConstFeedback::new(false);
+        let mut input = corpus.get(id1).unwrap().cloned_input();
 
         let mut state = StdState::new(
-            rand,
             corpus,
-            InMemoryCorpus::new(),
-            &mut feedback,
-            &mut objective,
+            InMemoryCorpus::new(BytesContext::default(), QueueScheduler::new()),
         )
         .unwrap();
 
         let mut splice = SpliceMutator::new();
-        splice.mutate(&mut state, &mut input).unwrap();
+        splice.mutate(&mut input, &mut rand, &state).unwrap();
 
         log::trace!("{:?}", input.mutator_bytes());
 
@@ -439,23 +328,17 @@ mod tests {
 
     #[test]
     fn test_havoc() {
-        let rand = StdRand::with_seed(0x1337);
-        let mut corpus: InMemoryCorpus<BytesInput> = InMemoryCorpus::new();
-        corpus.add(Testcase::new(b"abc".to_vec().into())).unwrap();
-        corpus.add(Testcase::new(b"def".to_vec().into())).unwrap();
+        let mut rand = StdRand::with_seed(0x1337);
+        let mut corpus = InMemoryCorpus::new(BytesContext::default(), QueueScheduler::new());
+        let id1 = corpus.add(BytesInput::new(b"abc".to_vec().into())).unwrap();
+        let id2 = corpus.add(BytesInput::new(b"def".to_vec().into())).unwrap();
 
-        let mut input = corpus.cloned_input_for_id(corpus.first().unwrap()).unwrap();
+        let mut input = corpus.get(id1).unwrap().cloned_input();
         let input_prior = input.clone();
 
-        let mut feedback = ConstFeedback::new(false);
-        let mut objective = ConstFeedback::new(false);
-
         let mut state = StdState::new(
-            rand,
             corpus,
-            InMemoryCorpus::new(),
-            &mut feedback,
-            &mut objective,
+            InMemoryCorpus::new(BytesContext::default(), QueueScheduler::new()),
         )
         .unwrap();
 
@@ -466,7 +349,7 @@ mod tests {
         let mut equal_in_a_row = 0;
 
         for _ in 0..42 {
-            havoc.mutate(&mut state, &mut input).unwrap();
+            havoc.mutate(&mut input, &mut rand, &state).unwrap();
 
             // Make sure we actually mutate something, at least sometimes
             equal_in_a_row = if input == input_prior {
@@ -480,23 +363,17 @@ mod tests {
 
     #[test]
     fn test_single_choice() {
-        let rand = StdRand::with_seed(0x1337);
-        let mut corpus: InMemoryCorpus<BytesInput> = InMemoryCorpus::new();
-        corpus.add(Testcase::new(b"abc".to_vec().into())).unwrap();
-        corpus.add(Testcase::new(b"def".to_vec().into())).unwrap();
+        let mut rand = StdRand::with_seed(0x1337);
+        let mut corpus = InMemoryCorpus::new(BytesContext::default(), QueueScheduler::new());
+        let id1= corpus.add(BytesInput::new(b"abc".to_vec().into())).unwrap();
+        let id2= corpus.add(BytesInput::new(b"def".to_vec().into())).unwrap();
 
-        let mut input = corpus.cloned_input_for_id(corpus.first().unwrap()).unwrap();
+        let mut input = corpus.get(id1).unwrap().cloned_input();
         let input_prior = input.clone();
 
-        let mut feedback = ConstFeedback::new(false);
-        let mut objective = ConstFeedback::new(false);
-
         let mut state = StdState::new(
-            rand,
             corpus,
-            InMemoryCorpus::new(),
-            &mut feedback,
-            &mut objective,
+            InMemoryCorpus::new(BytesContext::default(), QueueScheduler::new()),
         )
         .unwrap();
 
@@ -507,7 +384,7 @@ mod tests {
         let mut equal_in_a_row = 0;
 
         for _ in 0..100 {
-            mutator.mutate(&mut state, &mut input).unwrap();
+            mutator.mutate(&mut input, &mut rand, &state).unwrap();
 
             // Make sure we actually mutate something, at least sometimes
             equal_in_a_row = if input == input_prior {

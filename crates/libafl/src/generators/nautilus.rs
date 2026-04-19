@@ -17,7 +17,6 @@ use crate::{
     common::nautilus::grammartec::context::Context,
     generators::Generator,
     inputs::{InputContext, nautilus::NautilusInput},
-    state::HasRand,
 };
 
 /// The nautilus context for a generator
@@ -145,12 +144,12 @@ impl Debug for NautilusGenerator<'_> {
     }
 }
 
-impl<S: HasRand> Generator<NautilusInput, S> for NautilusGenerator<'_> {
-    fn generate(&mut self, state: &mut S) -> Result<NautilusInput, Error> {
+impl<R: Rand, S> Generator<NautilusInput, R, S> for NautilusGenerator<'_> {
+    fn generate(&mut self, rand: &mut R, _state: &S) -> Result<NautilusInput, Error> {
         let nonterm = self.nonterminal("START");
         let len = self.ctx.get_random_len_for_nt(&nonterm);
         let mut input = NautilusInput::empty();
-        self.generate_from_nonterminal(state.rand_mut(), &mut input, nonterm, len);
+        self.generate_from_nonterminal(rand, &mut input, nonterm, len);
         Ok(input)
     }
 }
