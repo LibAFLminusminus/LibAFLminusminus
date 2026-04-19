@@ -87,6 +87,10 @@ pub trait FlatState {
     fn named_metadata_map(&self) -> &NamedSerdeAnyMap;
     /// A map, storing all metadata (mutable)
     fn named_metadata_map_mut(&mut self) -> &mut NamedSerdeAnyMap;
+
+    fn merge_metadata_map(&mut self, any_map: NamedSerdeAnyMap) {
+        self.named_metadata_map_mut().merge(any_map);
+    }
 }
 
 pub trait State<I>:

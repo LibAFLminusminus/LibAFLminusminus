@@ -309,8 +309,10 @@ where
         executor.check(&mut checker)?;
 
         // 3 - add the global metadata to the md map
-        // TODO: toka
-        // state.register_metadata(checker.finish())
+        state.merge_metadata_map(checker.finish());
+
+        // 4 - initialize executor
+        executor.init(rt_handle)?;
 
         self.initialized = true;
 

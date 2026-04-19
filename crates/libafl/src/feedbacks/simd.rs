@@ -8,6 +8,7 @@ use core::{
     marker::PhantomData,
     ops::{Deref, DerefMut},
 };
+use std::string::ToString;
 
 use libafl_bolts::{
     AsIter, AsSlice, Error, Named,
@@ -158,6 +159,8 @@ where
     R: SimdReducer<V>,
 {
     fn register(&mut self, registrator: &mut crate::Registrator) -> Result<(), Error> {
+        registrator.register_md_default::<MapFeedbackMetadata<u8>>("MapFeedback".to_string())?;
+
         self.map.register(registrator)
     }
 }
