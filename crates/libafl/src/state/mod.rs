@@ -1249,7 +1249,6 @@ where
         generator: &mut G,
         rand: &mut R,
         rt_handle: &mut RuntimeHandle<CT, Self>,
-        controller: &mut CT,
         num: usize,
     ) -> Result<usize, Error>
     where

@@ -257,10 +257,9 @@ where
         state: &mut S,
         executor: &mut E,
         rt_handle: &mut RuntimeHandle<CT, S>,
-        controller: &mut CT,
         input: &I,
     ) -> Result<EvaluationResult, Error> {
-        let exit_kind = executor.execute(state, rt_handle, controller, input)?;
+        let exit_kind = executor.execute(state, rt_handle, input)?;
 
         let observers = executor.observers();
         self.evaluate_execution::<I, E::Observers, S, S::Scheduler, Self>(

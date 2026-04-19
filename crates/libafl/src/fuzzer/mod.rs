@@ -77,7 +77,6 @@ pub trait Evaluator<CT, E, I, S> {
         state: &mut S,
         executor: &mut E,
         rt_handle: &mut RuntimeHandle<CT, S>,
-        controller: &mut CT,
         input: &I,
     ) -> Result<EvaluationResult, Error>;
 }

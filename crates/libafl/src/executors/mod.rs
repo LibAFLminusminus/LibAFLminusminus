@@ -113,11 +113,7 @@ pub trait Executor<I, S>: DependencyResolver {
 
     /// The init function of the executor.
     /// It must be run once before the first execution of the executor.
-    fn init<CT: Controller>(
-        &mut self,
-        rt_handle: &mut RuntimeHandle<CT, S>,
-        controller: &mut CT,
-    ) -> Result<(), Error>;
+    fn init<CT: Controller>(&mut self, rt_handle: &mut RuntimeHandle<CT, S>) -> Result<(), Error>;
 
     /// Run the target with the given input.
     /// This is a "raw" run: it only runs the target and nothing else is done.
@@ -143,7 +139,6 @@ pub trait Executor<I, S>: DependencyResolver {
         &mut self,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<CT, S>,
-        _controller: &mut CT,
         input: &I,
     ) -> Result<ExitKind, Error>
     where

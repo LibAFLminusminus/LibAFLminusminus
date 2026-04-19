@@ -52,11 +52,7 @@ where
 {
     type Observers = O;
 
-    fn init<CT: Controller>(
-        &mut self,
-        rt_handle: &mut RuntimeHandle<CT, S>,
-        _controller: &mut CT,
-    ) -> Result<(), Error> {
+    fn init<CT: Controller>(&mut self, rt_handle: &mut RuntimeHandle<CT, S>) -> Result<(), Error> {
         if !self.initialized {
             if let Some(tmout) = &self.timeout {
                 rt_handle.set_timeout(tmout.clone());
