@@ -12,7 +12,18 @@ pub struct StdExecutor<C, H, I, OT, S> {
     observers: OT,
     timeout: Option<Duration>,
     initialized: bool,
-    _phantom: PhantomData<(C, I, S)>,
+    phantom: PhantomData<(C, I, S)>,
+}
+impl<C, H, I, OT, S> StdExecutor<C, H, I, OT, S> {
+    pub fn new(harness: H, observers: OT, timeout: Option<Duration>) -> Self {
+        Self {
+            harness,
+            observers,
+            timeout,
+            initialized: false,
+            phantom: PhantomData,
+        }
+    }
 }
 
 impl<C, H, I, OT, S> Executor<C, I, OT, S> for StdExecutor<C, H, I, OT, S>

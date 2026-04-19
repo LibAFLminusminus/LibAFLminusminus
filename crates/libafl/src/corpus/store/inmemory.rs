@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{InMemoryCorpusMap, RemovableStore, Store};
 use crate::{
-    corpus::{testcase::TestcaseId, Testcase},
+    corpus::{Testcase, testcase::TestcaseId},
     inputs::Input,
 };
 
@@ -61,9 +61,8 @@ where
 
         if !already {
             Ok(testcase_id)
-        }
-        else {
-            return Err(Error::key_exists("Overwriting existing testcase"))
+        } else {
+            return Err(Error::key_exists("Overwriting existing testcase"));
         }
     }
 

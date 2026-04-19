@@ -150,14 +150,16 @@ impl<T> InMemoryCorpusMap<T> for HashCorpusMap<T> {
 
         self.history.add(id);
 
-        self.map.insert(
-            id,
-            TestcaseStorageItem {
-                testcase,
-                prev,
-                next: None,
-            },
-        ).is_some()
+        self.map
+            .insert(
+                id,
+                TestcaseStorageItem {
+                    testcase,
+                    prev,
+                    next: None,
+                },
+            )
+            .is_some()
     }
 
     fn get(&self, id: TestcaseId) -> Option<&T> {

@@ -84,9 +84,7 @@ mod tests {
             Corpus, InMemoryCorpus, OnDiskCorpus,
             schedulers::{NopScheduler, QueueScheduler, Scheduler},
         },
-        inputs::{
-            bytes::{BytesContext, BytesInput},
-        },
+        inputs::bytes::{BytesContext, BytesInput},
         state::{HasCorpus, StdState},
     };
 
@@ -139,8 +137,8 @@ mod tests {
             scheduler,
         );
         let t1 = BytesInput::new(vec![0_u8; 4]);
-        let t2 = BytesInput::new(vec![0_u8; 4]);
-        let t3 = BytesInput::new(vec![0_u8; 4]);
+        let t2 = BytesInput::new(vec![1_u8; 4]);
+        let t3 = BytesInput::new(vec![2_u8; 4]);
 
         let id1 = q.add(t1).unwrap();
         let id2 = q.add(t2).unwrap();

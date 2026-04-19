@@ -313,8 +313,12 @@ mod tests {
         let mut t = NaiveTokenizer::default();
         let mut ed = TokenInputEncoderDecoder::new();
         let input = ed
-            .encode("/* test */
-a = 'pippo baudo'; b=c+a\n".as_bytes(), &mut t)
+            .encode(
+                "/* test */
+a = 'pippo baudo'; b=c+a\n"
+                    .as_bytes(),
+                &mut t,
+            )
             .unwrap();
         (ed, input)
     }

@@ -68,18 +68,16 @@ pub use controllers::*;
 pub mod corpus;
 pub mod executors;
 pub mod feedbacks;
-#[cfg(not(feature = "remove_me"))]
 pub mod fuzzer;
 pub mod generators;
 pub mod inputs;
-pub mod launcher;
+pub mod launchers;
 #[cfg(not(feature = "remove_me"))]
 pub mod monitors;
 #[cfg(not(feature = "remove_me"))]
 pub mod mutators;
 pub mod observers;
 pub mod runtimes;
-#[cfg(not(feature = "remove_me"))]
 pub mod stages;
 pub mod state;
 

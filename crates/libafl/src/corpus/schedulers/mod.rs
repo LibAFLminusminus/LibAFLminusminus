@@ -18,27 +18,19 @@ use libafl_bolts::{
 
 use crate::{
     DependencyResolver, Error,
-    corpus::{testcase::TestcaseId, Testcase},
+    corpus::{Testcase, testcase::TestcaseId},
 };
 
 /// The scheduler also implements `on_remove` and `on_replace` if it implements this stage.
 pub trait RemovableScheduler<I, S> {
     /// Removed the given entry from the corpus at the given index
     /// When you remove testcases, make sure that that testcase is not currently fuzzed one!
-    fn on_remove(
-        &mut self,
-        _id: TestcaseId,
-        _testcase: &Option<Testcase<I>>,
-    ) -> Result<(), Error> {
+    fn on_remove(&mut self, _id: TestcaseId, _testcase: &Option<Testcase<I>>) -> Result<(), Error> {
         Ok(())
     }
 
     /// Replaced the given testcase at the given idx
-    fn on_replace(
-        &mut self,
-        _id: TestcaseId,
-        _prev: &Testcase<I>,
-    ) -> Result<(), Error> {
+    fn on_replace(&mut self, _id: TestcaseId, _prev: &Testcase<I>) -> Result<(), Error> {
         Ok(())
     }
 }
@@ -50,16 +42,17 @@ pub trait Scheduler: DependencyResolver {
     fn on_add(&mut self, _id: TestcaseId) -> Result<(), Error>;
     // Add parent_id here if it has no inner
 
-    /// An input has been evaluated
-    fn on_evaluation<OT>(
-        &mut self,
-        _observers: &OT,
-    ) -> Result<(), Error>
-    where
-        OT: MatchName,
-    {
-        Ok(())
-    }
+    // TODO: is this useful?
+    // /// An input has been evaluated
+    // fn on_evaluation<OT>(
+    //     &mut self,
+    //     _observers: &OT,
+    // ) -> Result<(), Error>
+    // where
+    //     OT: MatchName,
+    // {
+    //     Ok(())
+    // }
 
     // Get the current input
     fn current(&self) -> Option<TestcaseId>;

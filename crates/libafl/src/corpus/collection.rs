@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     DependencyResolver,
     corpus::{
-        Corpus, InMemoryStore, OnDiskStore, SingleCorpus, Testcase,
+        Corpus, InMemoryStore, OnDiskStore, Scheduler, SingleCorpus, Testcase,
         TestcaseFilenameFormat,
         maps::{self, InMemoryCorpusMap},
         store::{Store, ondisk::OnDiskStoreBuilder},
@@ -177,6 +177,7 @@ impl<CT, I, SC> Corpus<I, SC> for InMemoryCorpus<CT, I, SC>
 where
     CT: InputContext<I>,
     I: Input,
+    SC: Scheduler,
 {
     type Context = CT;
     fn count(&self) -> usize {
@@ -247,8 +248,16 @@ impl OnDiskCorpusBuilder {
 
     /// Build an [`OnDiskStore`].
     /// The root directory must be set.
-    pub fn build<CT, I, SC>(&self, context: CT, scheduler: SC) -> Result<OnDiskCorpus<CT, I, SC>, Error> {
-        Ok(OnDiskCorpus(SingleCorpus::new(context, self.0.build()?, scheduler)))
+    pub fn build<CT, I, SC>(
+        &self,
+        context: CT,
+        scheduler: SC,
+    ) -> Result<OnDiskCorpus<CT, I, SC>, Error> {
+        Ok(OnDiskCorpus(SingleCorpus::new(
+            context,
+            self.0.build()?,
+            scheduler,
+        )))
     }
 }
 
@@ -287,9 +296,10 @@ impl<CT, I, SC> DependencyResolver for OnDiskCorpus<CT, I, SC> {}
 
 #[cfg(feature = "std")]
 impl<CT, I, SC> Corpus<I, SC> for OnDiskCorpus<CT, I, SC>
-where 
+where
     CT: InputContext<I>,
     I: Input,
+    SC: Scheduler,
 {
     type Context = CT;
 

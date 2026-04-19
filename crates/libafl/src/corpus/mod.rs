@@ -40,9 +40,9 @@ pub struct TestcaseIdIterator<'a, C, I> {
 }
 
 /// Corpus with all current [`Testcase`]s, or solutions
-pub trait Corpus<I, SC>: Sized + DependencyResolver 
-{
-    type Context: InputContext<I>; // gives access to to_target
+pub trait Corpus<I, SC>: Sized + DependencyResolver {
+    type Context: InputContext<I>;
+
     /// Returns the number of all enabled entries
     fn count(&self) -> usize;
 

@@ -14,13 +14,13 @@ impl NopStage {
     }
 }
 
-impl<E, EM, S, Z> Stage<E, EM, S, Z> for NopStage {
+impl<C, E, S, Z> Stage<C, E, S, Z> for NopStage {
     fn perform(
         &mut self,
         _fuzzer: &mut Z,
         _executor: &mut E,
         _state: &mut S,
-        _manager: &mut EM,
+        _controller: &mut C,
     ) -> Result<(), libafl_bolts::Error> {
         Ok(())
     }

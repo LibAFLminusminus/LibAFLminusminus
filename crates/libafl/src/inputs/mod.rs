@@ -34,15 +34,6 @@ pub use encoded::*;
 pub mod bytessub;
 pub use bytessub::BytesSubInput;
 
-#[cfg(feature = "multipart_inputs")]
-pub mod multi;
-#[cfg(feature = "multipart_inputs")]
-pub use multi::*;
-#[cfg(feature = "multipart_inputs")]
-pub mod list;
-#[cfg(feature = "multipart_inputs")]
-pub use list::*;
-
 #[cfg(feature = "nautilus")]
 pub mod nautilus;
 
@@ -134,7 +125,6 @@ pub trait HasMutatorBytes: HasLen {
         SubRangeMutSlice::new(OwnedMutSlice::from(self.mutator_bytes_mut()), range)
     }
 
-    #[cfg(not(feature = "remove_me"))]
     /// Creates a [`BytesSubInput`] from this input, that can be used for local mutations.
     fn sub_input<R>(&mut self, range: R) -> BytesSubInput<'_, Self>
     where
