@@ -148,7 +148,6 @@ where
 }
 pub trait HasCorpus<I, SC> {
     type Corpus: Corpus<I, SC>;
-    
 
     fn corpus(&self) -> &Self::Corpus;
     fn corpus_mut(&mut self) -> &mut Self::Corpus;
