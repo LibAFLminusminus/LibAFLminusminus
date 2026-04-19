@@ -1,5 +1,6 @@
 use core::{marker::PhantomData, time::Duration};
 use libafl_core::Error;
+use tuple_list_ex::RefIndexable;
 
 use crate::{
     executors::{Executor, ExitKind},
@@ -26,12 +27,17 @@ impl<C, H, I, OT, S> StdExecutor<C, H, I, OT, S> {
     }
 }
 
-impl<C, H, I, OT, S> Executor<C, I, OT, S> for StdExecutor<C, H, I, OT, S>
+impl<CT, H, I, OT, S> Executor<CT, I, S> for StdExecutor<CT, H, I, OT, S>
 where
     H: FnMut(&mut S, &I) -> Result<ExitKind, Error>,
-    OT: ObserversTuple<S>,
 {
-    fn init(&mut self, driver: &mut RuntimeHandle<C, S>, _controller: &mut C) -> Result<(), Error> {
+    type Observers = OT;
+
+    fn init(
+        &mut self,
+        driver: &mut RuntimeHandle<CT, S>,
+        _controller: &mut CT,
+    ) -> Result<(), Error> {
         if !self.initialized {
             if let Some(tmout) = &self.timeout {
                 driver.set_timeout(tmout.clone());
@@ -49,11 +55,13 @@ where
         (self.harness)(state, input)
     }
 
-    fn observers_tuple(&self) -> &OT {
-        &self.observers
+    fn observers(&self) -> tuple_list_ex::RefIndexable<&Self::Observers, Self::Observers> {
+        RefIndexable::from(&self.observers)
     }
 
-    fn observers_tuple_mut(&mut self) -> &mut OT {
-        &mut self.observers
+    fn observers_mut(
+        &mut self,
+    ) -> tuple_list_ex::RefIndexable<&mut Self::Observers, Self::Observers> {
+        RefIndexable::from(&mut self.observers)
     }
 }

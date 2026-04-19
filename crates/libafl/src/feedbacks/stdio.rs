@@ -51,7 +51,7 @@ where
         &mut self,
         state: &mut S,
         observers: &OT,
-        testcase: &mut Testcase<I>,
+        testcase_id: &TestcaseId,
     ) -> Result<(), Error> {
         let observer = observers
             .get(&self.o_ref)
@@ -66,7 +66,7 @@ where
             .get_mut::<StdOutMetadata>(&self.name())
             .unwrap()
             .stdout
-            .insert(*testcase.id(), stdout);
+            .insert(*testcase_id, stdout);
         Ok(())
     }
 }
@@ -121,7 +121,7 @@ where
         &mut self,
         state: &mut S,
         observers: &OT,
-        testcase: &mut Testcase<I>,
+        testcase_id: &TestcaseId,
     ) -> Result<(), Error> {
         let observer = observers
             .get(&self.o_ref)
@@ -136,7 +136,7 @@ where
             .get_mut::<StdErrMetadata>(&self.name())
             .unwrap()
             .stderr
-            .insert(*testcase.id(), stderr);
+            .insert(*testcase_id, stderr);
 
         Ok(())
     }

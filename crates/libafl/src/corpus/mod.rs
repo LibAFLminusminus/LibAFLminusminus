@@ -3,7 +3,7 @@
 use alloc::rc::Rc;
 use core::{fmt, marker::PhantomData};
 
-use crate::{DependencyResolver, Error, inputs::InputContext};
+use crate::{DependencyResolver, Error, inputs::InputContext, state::HasScheduler};
 
 pub mod testcase;
 pub use testcase::{Testcase, TestcaseFilenameFormat, TestcaseId};
@@ -40,7 +40,7 @@ pub struct TestcaseIdIterator<'a, C, I> {
 }
 
 /// Corpus with all current [`Testcase`]s, or solutions
-pub trait Corpus<I, SC>: Sized + DependencyResolver {
+pub trait Corpus<I>: HasScheduler + Sized + DependencyResolver {
     type Context: InputContext<I>;
 
     /// Returns the number of all enabled entries
@@ -93,10 +93,6 @@ pub trait Corpus<I, SC>: Sized + DependencyResolver {
 
     /// Get testcase by id
     fn get_from<const ENABLED: bool>(&self, id: TestcaseId) -> Result<Testcase<I>, Error>;
-
-    fn scheduler(&self) -> &SC;
-
-    fn scheduler_mut(&mut self) -> &mut SC;
 }
 
 /// Marker trait for corpus implementations that actually support enable/disable functionality

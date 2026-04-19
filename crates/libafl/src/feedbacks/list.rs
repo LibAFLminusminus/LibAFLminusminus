@@ -15,8 +15,8 @@ use libafl_bolts::{
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use crate::{
-    common::DependencyResolver, executors::ExitKind, feedbacks::Feedback, observers::ListObserver,
-    state::FlatState,
+    common::DependencyResolver, corpus::TestcaseId, executors::ExitKind, feedbacks::Feedback,
+    observers::ListObserver, state::FlatState,
 };
 
 /// The metadata to remember past observed value
@@ -172,7 +172,7 @@ where
         &mut self,
         state: &mut S,
         _observers: &OT,
-        _testcase: &mut crate::corpus::Testcase<I>,
+        _testcase_id: &TestcaseId,
     ) -> Result<(), Error> {
         self.append_list_observer_metadata(state);
         Ok(())

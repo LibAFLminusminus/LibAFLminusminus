@@ -10,8 +10,8 @@ use core::{fmt::Debug, marker::PhantomData};
 
 use crate::{
     Error,
-    common::DependencyResolver,
     corpus::{Testcase, TestcaseId},
+    dependency::{DependencyResolver, Registrator},
     executors::ExitKind,
     observers::TimeObserver,
     state::HasTestcase,
@@ -187,7 +187,7 @@ where
     A: DependencyResolver,
     B: DependencyResolver,
 {
-    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<(), Error> {
+    fn register(&mut self, registrator: &mut Registrator) -> Result<(), Error> {
         self.first.register(registrator)?;
         self.second.register(registrator)?;
         Ok(())

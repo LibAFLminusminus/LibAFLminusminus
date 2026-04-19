@@ -9,6 +9,7 @@ use libafl_bolts::{
 
 use crate::{
     common::DependencyResolver,
+    corpus::TestcaseId,
     feedbacks::Feedback,
     observers::{ObserversTuple, ValueObserver},
 };
@@ -79,7 +80,7 @@ where
         &mut self,
         _state: &mut S,
         _observers: &OT,
-        _testcase: &mut crate::corpus::Testcase<I>,
+        _testcase_id: &TestcaseId,
     ) -> Result<(), Error> {
         Ok(())
     }

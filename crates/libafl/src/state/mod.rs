@@ -17,6 +17,8 @@ use libafl_bolts::{
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use typed_builder::TypedBuilder;
 
+use crate::corpus::Scheduler;
+use crate::dependency::{DependencyResolver, Registrator};
 use crate::fuzzer::Evaluator;
 #[cfg(not(feature = "remove_me"))]
 use crate::fuzzer::{Evaluator, ExecuteInputResult};
@@ -28,7 +30,6 @@ use crate::inputs::NopContext;
 use crate::monitors::stats::ClientPerfStats;
 use crate::{
     Error,
-    common::DependencyResolver,
     corpus::{
         Corpus, InMemoryCorpus, Testcase, TestcaseFilenameFormat, schedulers::NopScheduler,
         testcase::TestcaseId,
@@ -86,8 +87,14 @@ pub trait FlatState {
     fn named_metadata_map_mut(&mut self) -> &mut NamedSerdeAnyMap;
 }
 
-pub trait State<C, I, OC, SC>:
-    FlatState + DependencyResolver + HasCorpus<I, SC> + HasObjectiveCorpus<I> + HasRand + HasTestcase<I>
+pub trait State<I>:
+    FlatState
+    + DependencyResolver
+    + HasCorpus<I>
+    + HasObjectiveCorpus<I>
+    + HasScheduler
+    + HasRand
+    + HasTestcase<I>
 {
 }
 
@@ -98,10 +105,17 @@ pub trait HasRand {
     fn rand_mut(&mut self) -> &mut Self::Rand;
 }
 
+pub trait HasScheduler {
+    type Scheduler: Scheduler;
+
+    fn scheduler(&self) -> &Self::Scheduler;
+    fn scheduler_mut(&mut self) -> &mut Self::Scheduler;
+}
+
 impl<C, I, OC, R, SC> HasRand for StdState<C, I, OC, R, SC>
 where
     R: Rand,
-    C: Corpus<I, SC>,
+    C: Corpus<I>,
 {
     type Rand = R;
 
@@ -124,7 +138,7 @@ pub trait HasTestcase<I> {
 
 impl<C, I, OC, R, SC> HasTestcase<I> for StdState<C, I, OC, R, SC>
 where
-    C: Corpus<I, SC>,
+    C: Corpus<I>,
 {
     fn testcase(&self, id: TestcaseId) -> Result<Testcase<I>, Error> {
         self.corpus.get(id)
@@ -146,16 +160,16 @@ where
         self.testcase_metadata.entry(*id).or_default()
     }
 }
-pub trait HasCorpus<I, SC> {
-    type Corpus: Corpus<I, SC>;
+pub trait HasCorpus<I> {
+    type Corpus: Corpus<I>;
 
     fn corpus(&self) -> &Self::Corpus;
     fn corpus_mut(&mut self) -> &mut Self::Corpus;
 }
 
-impl<C, I, OC, R, SC> HasCorpus<I, SC> for StdState<C, I, OC, R, SC>
+impl<C, I, OC, R, SC> HasCorpus<I> for StdState<C, I, OC, R, SC>
 where
-    C: Corpus<I, SC>,
+    C: Corpus<I>,
 {
     type Corpus = C;
 
@@ -169,7 +183,7 @@ where
 }
 
 pub trait HasObjectiveCorpus<I> {
-    type Corpus: Corpus<I, NopScheduler>;
+    type Corpus: Corpus<I>;
 
     fn objective_corpus(&self) -> &Self::Corpus;
     fn objective_corpus_mut(&mut self) -> &mut Self::Corpus;
@@ -177,7 +191,7 @@ pub trait HasObjectiveCorpus<I> {
 
 impl<C, I, OC, R, SC> HasObjectiveCorpus<I> for StdState<C, I, OC, R, SC>
 where
-    OC: Corpus<I, NopScheduler>,
+    OC: Corpus<I>,
 {
     type Corpus = OC;
 
@@ -187,6 +201,21 @@ where
 
     fn objective_corpus_mut(&mut self) -> &mut Self::Corpus {
         &mut self.objective_corpus
+    }
+}
+
+impl<C, I, OC, R, SC> HasScheduler for StdState<C, I, OC, R, SC>
+where
+    C: Corpus<I>,
+{
+    type Scheduler = C::Scheduler;
+
+    fn scheduler(&self) -> &Self::Scheduler {
+        self.corpus.scheduler()
+    }
+
+    fn scheduler_mut(&mut self) -> &mut Self::Scheduler {
+        self.corpus.scheduler_mut()
     }
 }
 
@@ -775,10 +804,10 @@ impl<C, I, R, SC, SO> FlatState for StdState<C, I, R, SC, SO> {
 
 impl<C, I, OC, R, SC> DependencyResolver for StdState<C, I, OC, R, SC>
 where
-    C: DependencyResolver + Corpus<I, SC>,
-    OC: DependencyResolver + Corpus<I, NopScheduler>,
+    C: DependencyResolver + Corpus<I>,
+    OC: DependencyResolver + Corpus<I>,
 {
-    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<(), Error> {
+    fn register(&mut self, registrator: &mut Registrator) -> Result<(), Error> {
         self.corpus_mut().register(registrator);
         self.objective_corpus_mut().register(registrator);
 
@@ -786,30 +815,22 @@ where
     }
 }
 
-impl<C, I, OC, R, SC> State<C, I, OC, SC> for StdState<C, I, OC, R, SC>
+impl<C, I, OC, R, SC> State<I> for StdState<C, I, OC, R, SC>
 where
     R: Rand,
-    C: Corpus<I, SC>,
-    OC: Corpus<I, NopScheduler>,
+    C: Corpus<I>,
+    OC: Corpus<I>,
 {
 }
 
 #[cfg(feature = "std")]
 impl<C, I, OC, R, SC> StdState<C, I, OC, R, SC>
 where
-    C: Corpus<I, SC>,
+    C: Corpus<I>,
     I: Input,
-    OC: Corpus<I, NopScheduler>,
+    OC: Corpus<I>,
     R: Rand,
 {
-    pub fn scheduler(&self) -> &SC {
-        self.corpus.scheduler()
-    }
-
-    pub fn scheduler_mut(&mut self) -> &mut SC {
-        self.corpus_mut().scheduler_mut()
-    }
-
     #[cfg(feature = "introspection")]
     fn introspection_stats(&self) -> &ClientPerfStats {
         &self.introspection_stats
@@ -1235,10 +1256,10 @@ where
 
 impl<C, I, R, SC, SO> StdState<C, I, R, SC, SO>
 where
-    C: Corpus<I, SC>,
+    C: Corpus<I>,
     I: Input,
     R: Rand,
-    SO: Corpus<I, NopScheduler>,
+    SO: Corpus<I>,
 {
     /// Generate `num` initial inputs, using the passed-in generator.
     pub fn generate_initial_inputs<G, E, Z>(
@@ -1268,9 +1289,9 @@ where
 
 impl<C, I, OC, R, SC> StdState<C, I, OC, R, SC>
 where
-    C: Corpus<I, SC>,
+    C: Corpus<I>,
     I: Input,
-    OC: Corpus<I, NopScheduler>,
+    OC: Corpus<I>,
     R: Rand,
 {
     /// Creates a new `State`, taking ownership of all of the individual components during fuzzing.

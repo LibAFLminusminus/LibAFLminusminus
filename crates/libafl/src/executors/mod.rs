@@ -4,6 +4,7 @@
 use ::std::path::PathBuf;
 use alloc::vec::Vec;
 use core::{fmt::Debug, time::Duration};
+use tuple_list_ex::RefIndexable;
 
 #[cfg(unix)]
 use libafl_bolts::os::unix_signals::Signal;
@@ -102,10 +103,9 @@ pub enum DiffExitKind {
 libafl_bolts::impl_serdeany!(DiffExitKind);
 
 /// Runs the fuzzer harness.
-pub trait Executor<CT, I, OT, S>
-where
-    OT: ObserversTuple<S>,
-{
+pub trait Executor<CT, I, S> {
+    type Observers;
+
     /// The init function of the executor.
     /// It must be run once before the first execution of the executor.
     fn init(&mut self, driver: &mut RuntimeHandle<CT, S>, controller: &mut CT)
@@ -157,10 +157,10 @@ where
     }
 
     /// Get the linked observers
-    fn observers_tuple(&self) -> &OT;
+    fn observers(&self) -> RefIndexable<&Self::Observers, Self::Observers>;
 
     /// Get the linked observers (mutable)
-    fn observers_tuple_mut(&mut self) -> &mut OT;
+    fn observers_mut(&mut self) -> RefIndexable<&mut Self::Observers, Self::Observers>;
 }
 
 /// Like [`crate::observers::ObserversTuple`], a list of executors

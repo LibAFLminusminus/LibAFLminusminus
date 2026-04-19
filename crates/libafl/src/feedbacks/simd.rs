@@ -21,7 +21,7 @@ use super::{DifferentIsNovel, Feedback, HasObserverHandle, MapFeedback};
 use crate::state::HasClientPerfMonitor;
 use crate::{
     common::DependencyResolver,
-    corpus::Testcase,
+    corpus::{Testcase, TestcaseId},
     executors::ExitKind,
     feedbacks::MapFeedbackMetadata,
     observers::{CanTrack, MapObserver},
@@ -246,8 +246,8 @@ where
         &mut self,
         state: &mut S,
         observers: &OT,
-        testcase: &mut Testcase<I>,
+        testcase_id: &TestcaseId,
     ) -> Result<(), Error> {
-        self.map.append_metadata(state, observers, testcase)
+        self.map.append_metadata(state, observers, testcase_id)
     }
 }

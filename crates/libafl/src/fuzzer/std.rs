@@ -1,9 +1,15 @@
+use libafl_bolts::current_time;
 use libafl_core::Error;
 
 use crate::{
     corpus::{Corpus, Scheduler, Testcase},
-    executors::ExitKind,
-    fuzzer::{EvaluationResult, Evaluator, HasFeedback, HasObjective, Verdict},
+    dependency::Registrator,
+    executors::{Executor, ExitKind},
+    feedbacks::Feedback,
+    fuzzer::{EvaluationResult, Evaluator, Fuzzer, HasFeedback, HasObjective, Verdict},
+    observers::ObserversTuple,
+    runtimes::RuntimeHandle,
+    stages::StagesTuple,
     state::{FlatState, HasCorpus, HasObjectiveCorpus, HasTestcase, State},
 };
 
@@ -14,8 +20,15 @@ pub struct StdFuzzer<F, OF> {
     feedback: F,
     /// The [`Feedback`] that will store new testcases as solution (for example, a crash) if a run returns `is_interesting`.
     objective: OF,
-    /// Handles whether to share objective testcases among nodes
-    share_objectives: bool,
+}
+
+/// The builder for std fuzzer
+#[derive(Debug)]
+pub struct StdFuzzerBuilder<F, OF> {
+    /// The [`Feedback`] that will store new testcases on if a run returns `is_interesting`.
+    feedback: F,
+    /// The [`Feedback`] that will store new testcases as solution (for example, a crash) if a run returns `is_interesting`.
+    objective_feedback: OF,
 }
 
 impl<F, OF> HasFeedback for StdFuzzer<F, OF> {
@@ -49,7 +62,6 @@ impl<F, OF> StdFuzzer<F, OF> {
         input: &I,
         observers: &OT,
         exit_kind: ExitKind,
-        send_events: bool,
     ) -> Result<EvaluationResult, Error>
     where
         I: Clone,
@@ -248,6 +260,8 @@ impl<E, F, I, OF, S> Evaluator<E, I, S> for StdFuzzer<F, OF> {
             .observers_mut()
             .post_exec_all(state, input, &exit_kind)?;
         // mark_feature_time!(state, PerfFeature::PostExecObservers);
+
+        Ok(exit_kind)
     }
 
     /// Process one input, adding to the respective corpora if needed and firing the right events
@@ -257,43 +271,40 @@ impl<E, F, I, OF, S> Evaluator<E, I, S> for StdFuzzer<F, OF> {
         state: &mut S,
         executor: &mut E,
         input: &I,
-    ) -> Result<(ExecuteInputResult, Option<CorpusId>), Error> {
-        let exit_kind = self.execute_input(state, executor, manager, input)?;
+    ) -> Result<EvaluationResult, Error> {
+        let exit_kind = self.execute_input(state, executor, input)?;
 
         let observers = executor.observers();
-
-        self.evaluate_execution(state, manager, input, &*observers, &exit_kind, send_events)
+        self.evaluate_execution(state, input, &*observers, exit_kind)
     }
 }
 
-impl<CS, E, F, I, IC, IF, OF, S, ST> Fuzzer<E, I, S, ST> for StdFuzzer<F, OF>
+impl<CT, E, F, I, OF, S, ST> Fuzzer<CT, E, I, S, ST> for StdFuzzer<F, OF>
 where
-    CS: Scheduler<I, S>,
-    E: HasObservers + Executor<I, S, Self>,
-    E::Observers: DeserializeOwned + Serialize + ObserversTuple<I, S>,
-    I: Input,
+    E: Executor<CT, I, S>,
     F: Feedback<I, E::Observers, S>,
     OF: Feedback<I, E::Observers, S>,
-    S: State,
-    ST: StagesTuple<E, S, Self>,
+    S: State<I>,
+    ST: StagesTuple<CT, E, S, Self>,
 {
     fn init(
         &mut self,
         stages: &mut ST,
         executor: &mut E,
         state: &mut S,
-        driver: RuntimeHandle<C, S>,
+        driver: RuntimeHandle<CT, S>,
+        controller: &mut CT,
     ) -> Result<(), Error> {
         // 1 - collect the required mds and involved types
-        let mut resolver = Resolver::new();
-        self.feedback.register_with_ty(&mut resolver)?;
-        self.objective.register_with_ty(&mut resolver)?;
-        stages.register_with_ty(&mut resolver)?;
-        state.register_with_ty(&mut resolver)?;
-        executor.register_with_ty(&mut resolver)?;
+        let mut registrator = Registrator::new();
+        self.feedback.register_with_ty(&mut registrator)?;
+        self.objective.register_with_ty(&mut registrator)?;
+        stages.register_with_ty(&mut registrator)?;
+        state.register_with_ty(&mut registrator)?;
+        executor.register_with_ty(&mut registrator)?;
 
         // 2 - check that types and mds for each object
-        let mut checker = resolver.finish();
+        let mut checker = registrator.finish();
         self.feedback.check(&mut checker)?;
         self.objective.check(&mut checker)?;
         stages.check(&mut checker)?;
@@ -309,7 +320,8 @@ where
         stages: &mut ST,
         executor: &mut E,
         state: &mut S,
-    ) -> Result<CorpusId, Error> {
+        controller: &mut CT,
+    ) -> Result<(), Error> {
         // Init timer for scheduler
         #[cfg(feature = "introspection")]
         state.introspection_stats_mut().start_timer();
@@ -332,7 +344,7 @@ where
         state.introspection_stats_mut().reset_stage_index();
 
         // Execute all stages
-        stages.perform_all(self, executor, state)?;
+        stages.perform_all(self, executor, state, controller)?;
 
         self.process_events(state, executor)?;
 
@@ -354,10 +366,15 @@ where
         Ok(id)
     }
 
-    fn fuzz_loop(&mut self, stages: &mut ST, executor: &mut E, state: &mut S) -> Result<(), Error> {
-        let monitor_timeout = STATS_TIMEOUT_DEFAULT;
+    fn fuzz_loop(
+        &mut self,
+        stages: &mut ST,
+        executor: &mut E,
+        state: &mut S,
+        controller: &mut CT,
+    ) -> Result<(), Error> {
         loop {
-            self.fuzz_one(stages, executor, state)?;
+            self.fuzz_one(stages, executor, state, controller)?;
         }
     }
 
@@ -366,62 +383,35 @@ where
         stages: &mut ST,
         executor: &mut E,
         state: &mut S,
+        controller: &mut CT,
         iters: u64,
-    ) -> Result<CorpusId, Error> {
+    ) -> Result<(), Error> {
         if iters == 0 {
             return Err(Error::illegal_argument(
                 "Cannot fuzz for 0 iterations!".to_string(),
             ));
         }
 
-        let mut ret = None;
-        let monitor_timeout = STATS_TIMEOUT_DEFAULT;
-
         for _ in 0..iters {
-            ret = Some(self.fuzz_one(stages, executor, state)?);
+            self.fuzz_one(stages, executor, state, controller)?;
         }
 
-        // If we assumed the fuzzer loop will always exit after this, we could do this here:
-        // But as the state may grow to a few megabytes,
-        // for now we won't, and the user has to do it (unless we find a way to do this on `Drop`).
-
-        Ok(ret.unwrap())
+        Ok(())
     }
 }
 
-/// The builder for std fuzzer
-#[derive(Debug)]
-pub struct StdFuzzerBuilder<F, OF> {
-    /// The scheduler used to schedule new testcases
-    scheduler: CS,
-    /// The [`Feedback`] that will store new testcases on if a run returns `is_interesting`.
-    feedback: F,
-    /// The [`Feedback`] that will store new testcases as solution (for example, a crash) if a run returns `is_interesting`.
-    objective: OF,
-    /// A converter that converts the input to bytes that can be sent to the target (for example, to a [`CommandExecutor`](crate::executors::CommandExecutor).
-    target_bytes_converter: IC,
-    /// The input filter that will filter out (not execute) certain inputs
-    input_filter: IF,
-    /// Handles whether to share objective testcases among nodes
-    share_objectives: bool,
-}
-
-impl StdFuzzerBuilder<(), (), BytesInputConverter, NopInputFilter, ()> {
+impl StdFuzzerBuilder<(), ()> {
     /// Creates a new [`StdFuzzerBuilder`] with default (nop) types.
     #[must_use]
     pub fn new() -> Self {
         Self {
-            target_bytes_converter: BytesInputConverter::new(),
-            input_filter: NopInputFilter,
-            scheduler: (),
             feedback: (),
-            objective: (),
-            share_objectives: false,
+            objective_feedback: (),
         }
     }
 }
 
-impl Default for StdFuzzerBuilder<(), (), BytesInputConverter, NopInputFilter, ()> {
+impl Default for StdFuzzerBuilder<(), ()> {
     fn default() -> Self {
         Self::new()
     }
@@ -434,45 +424,10 @@ impl<F, OF> StdFuzzerBuilder<F, OF> {
     pub fn target_bytes_converter<I, IC2>(
         self,
         target_bytes_converter: IC2,
-    ) -> StdFuzzerBuilder<CS, F, ToBytesInputConverter<I, IC2>, IF, OF> {
+    ) -> StdFuzzerBuilder<F, OF> {
         StdFuzzerBuilder {
-            target_bytes_converter: ToBytesInputConverter::new(target_bytes_converter),
-            input_filter: self.input_filter,
-            scheduler: self.scheduler,
             feedback: self.feedback,
-            objective: self.objective,
-            share_objectives: self.share_objectives,
-        }
-    }
-}
-
-impl<F, OF> StdFuzzerBuilder<F, OF> {
-    /// Set the input filter.
-    /// The input filter will filter out (i.e., not execute) certain inputs.
-    #[must_use]
-    pub fn input_filter<IF2>(self, input_filter: IF2) -> StdFuzzerBuilder<CS, F, IC, IF2, OF> {
-        StdFuzzerBuilder {
-            target_bytes_converter: self.target_bytes_converter,
-            input_filter,
-            scheduler: self.scheduler,
-            feedback: self.feedback,
-            objective: self.objective,
-            share_objectives: self.share_objectives,
-        }
-    }
-}
-
-impl<F, OF> StdFuzzerBuilder<F, OF> {
-    /// Sets the scheduler used to schedule new testcases
-    #[must_use]
-    pub fn scheduler<CS2>(self, scheduler: CS2) -> StdFuzzerBuilder<CS2, F, IC, IF, OF> {
-        StdFuzzerBuilder {
-            target_bytes_converter: self.target_bytes_converter,
-            input_filter: self.input_filter,
-            scheduler,
-            feedback: self.feedback,
-            objective: self.objective,
-            share_objectives: self.share_objectives,
+            objective_feedback: self.objective_feedback,
         }
     }
 }
@@ -480,14 +435,10 @@ impl<F, OF> StdFuzzerBuilder<F, OF> {
 impl<F, OF> StdFuzzerBuilder<F, OF> {
     /// Sets the feedback that will store new testcases on if a run returns `is_interesting`.
     #[must_use]
-    pub fn feedback<F2>(self, feedback: F2) -> StdFuzzerBuilder<CS, F2, IC, IF, OF> {
+    pub fn feedback<F2>(self, feedback: F2) -> StdFuzzerBuilder<F2, OF> {
         StdFuzzerBuilder {
-            target_bytes_converter: self.target_bytes_converter,
-            input_filter: self.input_filter,
-            scheduler: self.scheduler,
             feedback,
-            objective: self.objective,
-            share_objectives: self.share_objectives,
+            objective_feedback: self.objective_feedback,
         }
     }
 }
@@ -495,29 +446,10 @@ impl<F, OF> StdFuzzerBuilder<F, OF> {
 impl<F, OF> StdFuzzerBuilder<F, OF> {
     /// Sets the feedback that will store new testcases as solution (for example, a crash) if a run returns `is_interesting`.
     #[must_use]
-    pub fn objective<OF2>(self, objective: OF2) -> StdFuzzerBuilder<CS, F, IC, IF, OF2> {
+    pub fn objective<OF2>(self, objective: OF2) -> StdFuzzerBuilder<F, OF2> {
         StdFuzzerBuilder {
-            target_bytes_converter: self.target_bytes_converter,
-            input_filter: self.input_filter,
-            scheduler: self.scheduler,
             feedback: self.feedback,
-            objective,
-            share_objectives: self.share_objectives,
-        }
-    }
-}
-
-impl<F, OF> StdFuzzerBuilder<F, OF> {
-    /// Sets whether to share objective testcases among nodes
-    #[must_use]
-    pub fn share_objectives(self, share_objectives: bool) -> StdFuzzerBuilder<F, OF> {
-        StdFuzzerBuilder {
-            target_bytes_converter: self.target_bytes_converter,
-            input_filter: self.input_filter,
-            scheduler: self.scheduler,
-            feedback: self.feedback,
-            objective: self.objective,
-            share_objectives,
+            objective_feedback: objective,
         }
     }
 }
@@ -526,56 +458,26 @@ impl<F, OF> StdFuzzerBuilder<F, OF> {
     /// Build a [`StdFuzzer`] from this builder.
     pub fn build(self) -> StdFuzzer<F, OF> {
         StdFuzzer {
-            target_bytes_converter: self.target_bytes_converter,
-            input_filter: self.input_filter,
-            scheduler: self.scheduler,
             feedback: self.feedback,
-            objective: self.objective,
-            share_objectives: self.share_objectives,
+            objective: self.objective_feedback,
         }
     }
 }
 
-impl<F, OF> HasToTargetBytesConverter for StdFuzzer<F, OF> {
-    type Converter = IC;
-
-    fn target_bytes_converter(&self) -> &Self::Converter {
-        &self.target_bytes_converter
-    }
-
-    fn target_bytes_converter_mut(&mut self) -> &mut Self::Converter {
-        &mut self.target_bytes_converter
-    }
-}
-
-impl<CS, F, OF> StdFuzzer<CS, F, BytesInputConverter, NopInputFilter, OF> {
+impl<F, OF> StdFuzzer<F, OF> {
     /// Creates a new [`StdFuzzer`] with standard behavior.
-    pub fn new(
-        scheduler: CS,
-        feedback: F,
-        objective: OF,
-    ) -> StdFuzzer<CS, F, BytesInputConverter, NopInputFilter, OF> {
+    pub fn new(feedback: F, objective: OF) -> StdFuzzer<F, OF> {
         StdFuzzerBuilder::new()
-            .scheduler(scheduler)
             .feedback(feedback)
-            .objective(objective)
+            .objective_feedback(objective)
             .build()
     }
 }
 
-impl StdFuzzer<(), (), BytesInputConverter, NopInputFilter, ()> {
+impl StdFuzzer<(), ()> {
     /// Creates a new [`StdFuzzerBuilder`] with default types.
     #[must_use]
-    pub fn builder() -> StdFuzzerBuilder<(), (), BytesInputConverter, NopInputFilter, ()> {
+    pub fn builder() -> StdFuzzerBuilder<(), ()> {
         StdFuzzerBuilder::new()
     }
-}
-
-impl<CS, E, F, I, IC, IF, OF, S> ExecutesInput<E, I, S> for StdFuzzer<CS, F, IC, IF, OF>
-where
-    CS: Scheduler,
-    E: Executor<EM, I, S, Self> + HasObservers,
-    E::Observers: ObserversTuple<I, S>,
-    S: HasExecutions + HasCorpus<I> + MaybeHasClientPerfMonitor,
-{
 }

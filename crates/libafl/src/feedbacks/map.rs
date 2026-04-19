@@ -366,7 +366,7 @@ where
         &mut self,
         state: &mut S,
         observers: &OT,
-        testcase: &TestcaseId,
+        testcase_id: &TestcaseId,
     ) -> Result<(), Error> {
         let observer = observers.get(&self.map_ref).expect("MapObserver not found. This is likely because you entered the crash handler with the wrong executor/observer").as_ref();
         let initial = observer.initial();
@@ -433,7 +433,7 @@ where
                 .get_mut::<MapIndexesMetadata>(&self.name)
                 .unwrap()
                 .data
-                .insert(*testcase.id(), meta);
+                .insert(*testcase_id, meta);
         }
         Ok(())
     }
