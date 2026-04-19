@@ -1246,13 +1246,13 @@ impl<C, I, OC, SC> StdState<C, I, OC, SC> {
     ) -> Result<usize, Error>
     where
         R: Rand,
-        G: Generator<I, Self, R>,
+        G: Generator<I, R, Self>,
         Z: Evaluator<CT, E, I, Self>,
     {
         let mut added = 0;
 
         for _ in 0..num {
-            let input = generator.generate(self, rand)?;
+            let input = generator.generate(rand, self)?;
             let res = fuzzer.evaluate_input(self, executor, rt_handle, &input)?;
             if res.is_corpus_worthy() {
                 added += 1;

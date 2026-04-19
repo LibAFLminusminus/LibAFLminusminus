@@ -23,6 +23,7 @@ pub struct StdFuzzer<F, OF> {
     feedback: F,
     /// The [`Feedback`] that will store new testcases as solution (for example, a crash) if a run returns `is_interesting`.
     objective: OF,
+    initialized: bool,
 }
 
 /// The builder for std fuzzer
@@ -287,6 +288,10 @@ where
         state: &mut S,
         rt_handle: &mut RuntimeHandle<CT, S>,
     ) -> Result<(), Error> {
+        if self.initialized {
+            return Ok(());
+        }
+
         // 1 - collect the required mds and involved types
         let mut registrator = Registrator::new();
         self.feedback.register_with_ty(&mut registrator)?;
@@ -307,10 +312,12 @@ where
         // TODO: toka
         // state.register_metadata(checker.finish())
 
+        self.initialized = true;
+
         Ok(())
     }
 
-    fn fuzz_one(
+    unsafe fn fuzz_one(
         &mut self,
         stages: &mut ST,
         executor: &mut E,
@@ -356,8 +363,12 @@ where
         state: &mut S,
         rt_handle: &mut RuntimeHandle<CT, S>,
     ) -> Result<(), Error> {
+        self.init(stages, executor, state, rt_handle)?;
+
         loop {
-            self.fuzz_one(stages, executor, rand, state, rt_handle)?;
+            unsafe {
+                self.fuzz_one(stages, executor, rand, state, rt_handle)?;
+            }
         }
     }
 
@@ -376,8 +387,12 @@ where
             ));
         }
 
+        self.init(stages, executor, state, rt_handle)?;
+
         for _ in 0..iters {
-            self.fuzz_one(stages, executor, rand, state, rt_handle)?;
+            unsafe {
+                self.fuzz_one(stages, executor, rand, state, rt_handle)?;
+            }
         }
 
         Ok(())
@@ -444,6 +459,7 @@ impl<F, OF> StdFuzzerBuilder<F, OF> {
         StdFuzzer {
             feedback: self.feedback,
             objective: self.objective_feedback,
+            initialized: false,
         }
     }
 }

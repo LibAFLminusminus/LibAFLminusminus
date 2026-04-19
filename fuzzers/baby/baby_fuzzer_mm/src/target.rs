@@ -1,6 +1,6 @@
 use std::ptr::write;
 
-use libafl::{executors::ExitKind, inputs::BytesInput};
+use libafl::{Error, executors::ExitKind, inputs::BytesInput};
 
 /// Coverage map with explicit assignments due to the lack of instrumentation
 pub const SIGNALS_LEN: usize = 16;
@@ -13,7 +13,7 @@ fn signals_set(idx: usize) {
 }
 
 // The closure that we want to fuzz
-pub fn target(input: &BytesInput) -> ExitKind {
+pub fn target<S>(_state: &mut S, input: &BytesInput) -> Result<ExitKind, Error> {
     let target = input.as_ref();
     let buf = target.as_slice();
     signals_set(0);
@@ -37,5 +37,6 @@ pub fn target(input: &BytesInput) -> ExitKind {
             }
         }
     }
-    ExitKind::Ok
+
+    Ok(ExitKind::Ok)
 }

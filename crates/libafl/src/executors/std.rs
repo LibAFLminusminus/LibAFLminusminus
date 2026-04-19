@@ -6,7 +6,7 @@ use tuple_list_ex::RefIndexable;
 use crate::{
     CompatibilityChecker, Controller, DependencyResolver, Registrator,
     executors::{Executor, ExitKind},
-    observers::{Observer, ObserversTuple},
+    observers::ObserversTuple,
     runtimes::RuntimeHandle,
 };
 
@@ -31,7 +31,7 @@ impl<H, I, O, S> StdExecutor<H, I, O, S> {
 
 impl<H, I, O, S> DependencyResolver for StdExecutor<H, I, O, S>
 where
-    O: Observer<S>,
+    O: ObserversTuple<S> + DependencyResolver,
 {
     fn register_with_ty(&mut self, registrator: &mut Registrator) -> Result<(), Error> {
         registrator.register_ty::<Self>();
@@ -48,7 +48,7 @@ where
 impl<H, I, O, S> Executor<I, S> for StdExecutor<H, I, O, S>
 where
     H: FnMut(&mut S, &I) -> Result<ExitKind, Error>,
-    O: Observer<S>,
+    O: ObserversTuple<S> + DependencyResolver,
 {
     type Observers = O;
 

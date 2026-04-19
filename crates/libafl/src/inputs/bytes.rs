@@ -18,7 +18,7 @@ use crate::inputs::{HasMutatorBytes, InputContext, ResizableMutator};
 pub type BytesInput = ValueInput<Vec<u8>>;
 
 #[derive(Default, Clone, Copy, Serialize, Deserialize)]
-pub struct BytesContext {}
+pub struct BytesContext;
 
 impl InputContext<BytesInput> for BytesContext {
     fn to_bytes<'a>(&mut self, input: &'a BytesInput) -> OwnedSlice<'a, u8> {

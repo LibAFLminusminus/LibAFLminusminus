@@ -1,6 +1,7 @@
 //! Schedule the access to the Corpus.
 
 use alloc::borrow::ToOwned;
+use core::fmt::Debug;
 use std::vec::Vec;
 
 use libafl_bolts::{
@@ -20,20 +21,6 @@ pub use testcase_score::{LenTimeMulTestcasePenalty, TestcasePenalty, TestcaseSco
 
 pub mod queue;
 pub use queue::QueueScheduler;
-
-/// The scheduler also implements `on_remove` and `on_replace` if it implements this stage.
-pub trait RemovableScheduler<I, S> {
-    /// Removed the given entry from the corpus at the given index
-    /// When you remove testcases, make sure that that testcase is not currently fuzzed one!
-    fn on_remove(&mut self, _id: TestcaseId, _testcase: &Option<Testcase<I>>) -> Result<(), Error> {
-        Ok(())
-    }
-
-    /// Replaced the given testcase at the given idx
-    fn on_replace(&mut self, _id: TestcaseId, _prev: &Testcase<I>) -> Result<(), Error> {
-        Ok(())
-    }
-}
 
 /// The scheduler define how the fuzzer requests a testcase from the corpus.
 /// It has hooks to corpus add/replace/remove to allow complex scheduling algorithms to collect data.
@@ -63,6 +50,20 @@ pub trait Scheduler: DependencyResolver {
 
     /// Returns all [`TestcaseId`]s tracked by this scheduler
     fn ids(&self) -> &[TestcaseId];
+}
+
+/// The scheduler also implements `on_remove` and `on_replace` if it implements this stage.
+pub trait RemovableScheduler<I, S> {
+    /// Removed the given entry from the corpus at the given index
+    /// When you remove testcases, make sure that that testcase is not currently fuzzed one!
+    fn on_remove(&mut self, _id: TestcaseId, _testcase: &Option<Testcase<I>>) -> Result<(), Error> {
+        Ok(())
+    }
+
+    /// Replaced the given testcase at the given idx
+    fn on_replace(&mut self, _id: TestcaseId, _prev: &Testcase<I>) -> Result<(), Error> {
+        Ok(())
+    }
 }
 
 /// Feed the fuzzer simply with a random testcase on request

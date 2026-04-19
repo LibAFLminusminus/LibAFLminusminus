@@ -96,7 +96,12 @@ pub trait Fuzzer<CT, E, I, R, S, ST> {
     /// (Note: An iteration represents a complete run of every stage.
     /// Therefore, it does not mean that the harness is executed for once,
     /// because each stage could run the harness for multiple times)
-    fn fuzz_one(
+    ///
+    /// # Safety
+    ///
+    /// The fuzzer must be initialized with [`Self::init`] before running this function.
+    /// It will not be checked for performance reason.
+    unsafe fn fuzz_one(
         &mut self,
         stages: &mut ST,
         executor: &mut E,
@@ -198,7 +203,7 @@ impl<CT, E, I, R, S, ST> Fuzzer<CT, E, I, R, S, ST> for NopFuzzer {
         unimplemented!("NopFuzzer cannot fuzz");
     }
 
-    fn fuzz_one(
+    unsafe fn fuzz_one(
         &mut self,
         _stages: &mut ST,
         _executor: &mut E,
