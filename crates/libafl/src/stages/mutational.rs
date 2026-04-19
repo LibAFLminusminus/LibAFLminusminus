@@ -117,12 +117,7 @@ where
     }
 }
 
-impl<CT, E, I, M, R, S, Z> StdMutationalStage<CT, E, I, M, R, S, Z>
-where
-    M: Mutator<I, R, S>,
-    I: Input + Clone,
-    Z: Evaluator<CT, E, I, S>,
-{
+impl<CT, E, I, M, R, S, Z> StdMutationalStage<CT, E, I, M, R, S, Z> {
     /// Creates a new default mutational stage
     pub fn new(mutator: M) -> Self {
         // Safe to unwrap: DEFAULT_MUTATIONAL_MAX_ITERATIONS is never 0.
@@ -139,12 +134,7 @@ where
     }
 }
 
-impl<CT, E, I, M, R, S, Z> StdMutationalStage<CT, E, I, M, R, S, Z>
-where
-    I: Clone,
-    M: Mutator<I, R, S>,
-    Z: Evaluator<CT, E, I, S>,
-{
+impl<CT, E, I, M, R, S, Z> StdMutationalStage<CT, E, I, M, R, S, Z> {
     /// Creates a new transforming mutational stage with the default max iterations
     pub fn transforming(mutator: M) -> Self {
         // Safe to unwrap: DEFAULT_MUTATIONAL_MAX_ITERATIONS is never 0.

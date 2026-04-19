@@ -3,19 +3,20 @@ use std::path::PathBuf;
 use libafl::{
     Error,
     corpus::{
-        InMemoryCorpus, OnDiskCorpus,
+        Corpus, InMemoryCorpus, OnDiskCorpus, Scheduler,
         schedulers::{NopScheduler, QueueScheduler},
     },
     executors::StdExecutor,
     feedbacks::{CrashFeedback, MaxMapFeedback},
     fuzzer::{Fuzzer, StdFuzzer},
     generators::RandPrintablesGenerator,
-    inputs::NopContext,
+    inputs::{BytesInput, bytes::BytesContext},
     mutators::{HavocScheduledMutator, havoc_mutations},
     non_zero,
     nop::NopController,
     observers::ConstMapObserver,
     runtimes::{Runtime, RuntimeHandle, direct::DirectRuntime},
+    stages::StdMutationalStage,
     state::StdState,
 };
 use libafl_bolts::{current_nanos, nonnull_raw_mut, rands::StdRand, tuples::tuple_list};
@@ -24,20 +25,25 @@ use crate::target::SIGNALS;
 
 mod target;
 
-fn run_fuzzer<C, CT, I, OC, SC>(
-    rt_handle: &mut RuntimeHandle<'_, NopController, StdState<C, I, OC, SC>>,
-    state: &mut StdState<C, I, OC, SC>,
-) -> Result<(), Error> {
+fn run_fuzzer<C, OC, SC>(
+    rt_handle: &mut RuntimeHandle<'_, NopController, StdState<C, BytesInput, OC, SC>>,
+    state: &mut StdState<C, BytesInput, OC, SC>,
+) -> Result<(), Error>
+where
+    C: Corpus<BytesInput>,
+    OC: Corpus<BytesInput>,
+    SC: Scheduler,
+{
     env_logger::init();
 
     // Create an observation channel using the signals map
     let observer = unsafe { ConstMapObserver::from_mut_ptr("signals", nonnull_raw_mut!(SIGNALS)) };
 
     // Feedback to rate the interestingness of an input
-    let mut feedback = MaxMapFeedback::new(&observer);
+    let feedback = MaxMapFeedback::new(&observer);
 
     // A feedback to choose if an input is a solution or not
-    let mut objective_feedback = CrashFeedback::new();
+    let objective_feedback = CrashFeedback::new();
 
     // A fuzzer with feedbacks and a corpus scheduler
     let mut fuzzer = StdFuzzer::new(feedback, objective_feedback);
@@ -65,7 +71,7 @@ fn run_fuzzer<C, CT, I, OC, SC>(
     let mutator = HavocScheduledMutator::new(havoc_mutations());
     let mut stages = tuple_list!(StdMutationalStage::new(mutator));
 
-    fuzzer.fuzz_loop(&mut stages, &mut executor, &mut state, rt_handle)
+    fuzzer.fuzz_loop(&mut stages, &mut executor, &mut rand, state, rt_handle)
 }
 
 pub fn main() {
@@ -75,10 +81,10 @@ pub fn main() {
     // create a State from scratch
     let state = StdState::new(
         // Corpus that will be evolved, we keep it in memory for performance
-        InMemoryCorpus::new(NopContext, scheduler),
+        InMemoryCorpus::new(BytesContext, scheduler),
         // Corpus in which we store solutions (crashes in this example),
         // on disk so the user can get them after stopping the fuzzer
-        OnDiskCorpus::new(PathBuf::from("./crashes"), NopContext, NopScheduler).unwrap(),
+        OnDiskCorpus::new(PathBuf::from("./crashes"), BytesContext, NopScheduler).unwrap(),
     )
     .unwrap();
 

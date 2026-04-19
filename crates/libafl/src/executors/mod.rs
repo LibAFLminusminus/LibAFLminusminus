@@ -109,7 +109,7 @@ libafl_bolts::impl_serdeany!(DiffExitKind);
 
 /// Runs the fuzzer harness.
 pub trait Executor<I, S>: DependencyResolver {
-    type Observers: Observer<S>;
+    type Observers: ObserversTuple<S>;
 
     /// The init function of the executor.
     /// It must be run once before the first execution of the executor.
@@ -147,20 +147,20 @@ pub trait Executor<I, S>: DependencyResolver {
         *state.executions_mut() += 1;
 
         // start_timer!(state);
-        self.observers_mut().pre_exec(state)?;
+        self.observers_mut().pre_exec_all(state)?;
         // mark_feature_time!(state, PerfFeature::PreExecObservers);
 
         rt_handle.arm_timeout()?;
 
         // start_timer!(state);
-        let mut exit_kind = unsafe { self.execute_impl(state, input)? };
+        let exit_kind = unsafe { self.execute_impl(state, input)? };
         // mark_feature_time!(state, PerfFeature::TargetExecution);
 
         rt_handle.disarm_timeout()?;
 
         // start_timer!(state);
         self.observers_mut()
-            .post_exec(state, &mut exit_kind)
+            .post_exec_all(state, &exit_kind)
             .map(|_| exit_kind)
         // mark_feature_time!(state, PerfFeature::PostExecObservers);
     }
