@@ -33,10 +33,6 @@ pub use hash::*;
 pub mod unicode;
 #[cfg(feature = "unicode")]
 pub use unicode::*;
-
-#[cfg(feature = "multipart_inputs")]
-pub mod list;
-
 #[cfg(feature = "nautilus")]
 pub mod nautilus;
 

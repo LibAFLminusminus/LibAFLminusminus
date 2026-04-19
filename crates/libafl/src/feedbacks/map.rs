@@ -366,7 +366,7 @@ where
         &mut self,
         state: &mut S,
         observers: &OT,
-        testcase: &mut Testcase<I>,
+        testcase: &TestcaseId,
     ) -> Result<(), Error> {
         let observer = observers.get(&self.map_ref).expect("MapObserver not found. This is likely because you entered the crash handler with the wrong executor/observer").as_ref();
         let initial = observer.initial();

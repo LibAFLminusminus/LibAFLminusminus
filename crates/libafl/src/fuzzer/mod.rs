@@ -30,9 +30,7 @@ use crate::{
     stages::StagesTuple,
 };
 
-#[cfg(not(feature = "remove_me"))]
 pub mod std;
-#[cfg(not(feature = "remove_me"))]
 pub use std::*;
 
 /// Holds an feedback
@@ -61,7 +59,7 @@ pub trait HasObjective {
 
 /// Evaluates if an input is interesting using the feedback
 pub trait ExecutionProcessor<I, OT, S> {
-    /// Process `ExecuteInputResult`. Add to corpus, solution or ignore
+    /// Process `ExecuteInputResult`. Add to corpus, objective or ignore
     fn process_execution(
         &mut self,
         state: &mut S,
@@ -73,6 +71,16 @@ pub trait ExecutionProcessor<I, OT, S> {
 
 /// Evaluate an input modifying the state of the fuzzer
 pub trait Evaluator<E, I, S> {
+    /// Runs the input and triggers observers and feedback
+    /// Retusn the "raw" result of the execution.
+    /// No post-processing is performed.
+    fn execute_input(
+        &mut self,
+        state: &mut S,
+        executor: &mut E,
+        input: &I,
+    ) -> Result<ExitKind, Error>;
+
     /// Runs the input and triggers observers and feedback,
     /// returns if is interesting an (option) the index of the new [`Testcase`] in the corpus
     fn evaluate_input(
@@ -124,8 +132,8 @@ pub enum Verdict {
     Uninteresting,
     /// This input should be stored in the corpus
     Corpus(TestcaseId),
-    /// This input leads to a solution
-    Solution(TestcaseId),
+    /// This input leads to an objective
+    Objective(TestcaseId),
 }
 
 /// A [`NopFuzzer`] that does nothing
