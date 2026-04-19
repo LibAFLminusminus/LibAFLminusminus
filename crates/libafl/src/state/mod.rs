@@ -28,6 +28,7 @@ use crate::generators::Generator;
 use crate::inputs::NopContext;
 #[cfg(feature = "introspection")]
 use crate::monitors::stats::ClientPerfStats;
+use crate::runtimes::RuntimeHandle;
 use crate::{
     Error,
     corpus::{
@@ -1268,22 +1269,24 @@ where
     SO: Corpus<I>,
 {
     /// Generate `num` initial inputs, using the passed-in generator.
-    pub fn generate_initial_inputs<G, E, Z>(
+    pub fn generate_initial_inputs<CT, G, E, Z>(
         &mut self,
         fuzzer: &mut Z,
         executor: &mut E,
         generator: &mut G,
+        driver: &mut RuntimeHandle<CT, Self>,
+        controller: &mut CT,
         num: usize,
     ) -> Result<usize, Error>
     where
         G: Generator<I, Self>,
-        Z: Evaluator<E, I, Self>,
+        Z: Evaluator<CT, E, I, Self>,
     {
         let mut added = 0;
 
         for _ in 0..num {
             let input = generator.generate(self)?;
-            let res = fuzzer.evaluate_input(self, executor, &input)?;
+            let res = fuzzer.evaluate_input(self, executor, driver, controller, &input)?;
             if res.is_corpus_worthy() {
                 added += 1;
             }
@@ -1295,7 +1298,7 @@ where
 
 impl<C, I, OC, R, SC> StdState<C, I, OC, R, SC>
 where
-    C: Corpus<I>,
+    C: Corpus<I, Scheduler = SC>,
     I: Input,
     OC: Corpus<I>,
     R: Rand,
