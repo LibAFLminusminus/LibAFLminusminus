@@ -11,16 +11,16 @@ use core::{
     num::{NonZero, NonZeroUsize},
     ops::Range,
 };
+use libafl_core::non_zero;
 
 use libafl_bolts::{Named, rands::Rand};
 
 use crate::{
     Error,
-    corpus::Corpus,
+    corpus::{Corpus, TestcaseId},
     inputs::{HasMutatorBytes, ResizableMutator},
     mutators::{MutationResult, Mutator},
-    nonzero, random_corpus_id_with_disabled,
-    state::{HasCorpus, HasMaxSize, HasRand},
+    state::{HasCorpus, HasRand, State},
 };
 
 /// Mem move in the own vec
@@ -145,7 +145,7 @@ where
     fn post_exec(
         &mut self,
         _state: &mut S,
-        _new_corpus_id: Option<crate::corpus::CorpusId>,
+        _new_testcase_id: Option<TestcaseId>,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -187,7 +187,7 @@ where
     fn post_exec(
         &mut self,
         _state: &mut S,
-        _new_corpus_id: Option<crate::corpus::CorpusId>,
+        _new_testcase_id: Option<TestcaseId>,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -230,7 +230,7 @@ where
     fn post_exec(
         &mut self,
         _state: &mut S,
-        _new_corpus_id: Option<crate::corpus::CorpusId>,
+        _new_testcase_id: Option<TestcaseId>,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -273,7 +273,7 @@ where
     fn post_exec(
         &mut self,
         _state: &mut S,
-        _new_corpus_id: Option<crate::corpus::CorpusId>,
+        _new_testcase_id: Option<TestcaseId>,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -316,7 +316,7 @@ where
     fn post_exec(
         &mut self,
         _state: &mut S,
-        _new_corpus_id: Option<crate::corpus::CorpusId>,
+        _new_testcase_id: Option<TestcaseId>,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -351,7 +351,7 @@ where
             Ok(MutationResult::Skipped)
         } else {
             let byte = state.rand_mut().choose(input.mutator_bytes_mut()).unwrap();
-            *byte ^= 1 + state.rand_mut().below(nonzero!(254)) as u8;
+            *byte ^= 1 + state.rand_mut().below(non_zero!(254)) as u8;
             Ok(MutationResult::Mutated)
         }
     }
@@ -359,7 +359,7 @@ where
     fn post_exec(
         &mut self,
         _state: &mut S,
-        _new_corpus_id: Option<crate::corpus::CorpusId>,
+        _new_testcase_id: Option<TestcaseId>,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -410,8 +410,8 @@ macro_rules! add_mutator_impl {
                     let val = <$size>::from_ne_bytes(bytes.try_into().unwrap());
 
                     // mutate
-                    let num = 1 + state.rand_mut().below(nonzero!(ARITH_MAX)) as $size;
-                    let new_val = match state.rand_mut().below(nonzero!(4)) {
+                    let num = 1 + state.rand_mut().below(non_zero!(ARITH_MAX)) as $size;
+                    let new_val = match state.rand_mut().below(non_zero!(4)) {
                         0 => val.wrapping_add(num),
                         1 => val.wrapping_sub(num),
                         2 => val.swap_bytes().wrapping_add(num).swap_bytes(),
@@ -425,7 +425,7 @@ macro_rules! add_mutator_impl {
                 }
             }
             #[inline]
-            fn post_exec(&mut self, _state: &mut S, _new_corpus_id: Option<crate::corpus::CorpusId>) -> Result<(), Error> {
+            fn post_exec(&mut self, _state: &mut S, _new_testcase_id: Option<TestcaseId>) -> Result<(), Error> {
                 Ok(())
             }
         }
@@ -490,7 +490,7 @@ macro_rules! interesting_mutator_impl {
             fn post_exec(
                 &mut self,
                 _state: &mut S,
-                _new_corpus_id: Option<crate::corpus::CorpusId>,
+                _new_testcase_id: Option<TestcaseId>,
             ) -> Result<(), Error> {
                 Ok(())
             }
@@ -544,7 +544,7 @@ where
     fn post_exec(
         &mut self,
         _state: &mut S,
-        _new_corpus_id: Option<crate::corpus::CorpusId>,
+        _new_testcase_id: Option<TestcaseId>,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -571,7 +571,7 @@ pub struct BytesExpandMutator;
 
 impl<I, S> Mutator<I, S> for BytesExpandMutator
 where
-    S: HasRand + HasMaxSize,
+    S: HasRand,
     I: ResizableMutator<u8> + HasMutatorBytes,
 {
     fn mutate(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, Error> {
@@ -603,7 +603,7 @@ where
     fn post_exec(
         &mut self,
         _state: &mut S,
-        _new_corpus_id: Option<crate::corpus::CorpusId>,
+        _new_testcase_id: Option<TestcaseId>,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -630,7 +630,7 @@ pub struct BytesInsertMutator;
 
 impl<I, S> Mutator<I, S> for BytesInsertMutator
 where
-    S: HasRand + HasMaxSize,
+    S: HasRand,
     I: ResizableMutator<u8> + HasMutatorBytes,
 {
     fn mutate(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, Error> {
@@ -640,7 +640,7 @@ where
             return Ok(MutationResult::Skipped);
         }
 
-        let mut amount = 1 + state.rand_mut().below(nonzero!(16));
+        let mut amount = 1 + state.rand_mut().below(non_zero!(16));
         // # Safety
         // It's a safe assumption that size + 1 is never 0.
         // If we wrap around we have _a lot_ of elements - and the code will break later anyway.
@@ -679,7 +679,7 @@ where
     fn post_exec(
         &mut self,
         _state: &mut S,
-        _new_corpus_id: Option<crate::corpus::CorpusId>,
+        _new_testcase_id: Option<TestcaseId>,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -706,7 +706,7 @@ pub struct BytesRandInsertMutator;
 
 impl<I, S> Mutator<I, S> for BytesRandInsertMutator
 where
-    S: HasRand + HasMaxSize,
+    S: HasRand,
     I: ResizableMutator<u8> + HasMutatorBytes,
 {
     fn mutate(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, Error> {
@@ -716,7 +716,7 @@ where
             return Ok(MutationResult::Skipped);
         }
 
-        let mut amount = 1 + state.rand_mut().below(nonzero!(16));
+        let mut amount = 1 + state.rand_mut().below(non_zero!(16));
         // # Safety
         // size + 1 can never be 0
         let offset = state
@@ -750,7 +750,7 @@ where
     fn post_exec(
         &mut self,
         _state: &mut S,
-        _new_corpus_id: Option<crate::corpus::CorpusId>,
+        _new_testcase_id: Option<TestcaseId>,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -801,7 +801,7 @@ where
     fn post_exec(
         &mut self,
         _state: &mut S,
-        _new_corpus_id: Option<crate::corpus::CorpusId>,
+        _new_testcase_id: Option<TestcaseId>,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -852,7 +852,7 @@ where
     fn post_exec(
         &mut self,
         _state: &mut S,
-        _new_corpus_id: Option<crate::corpus::CorpusId>,
+        _new_testcase_id: Option<TestcaseId>,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -909,7 +909,7 @@ where
     fn post_exec(
         &mut self,
         _state: &mut S,
-        _new_corpus_id: Option<crate::corpus::CorpusId>,
+        _new_testcase_id: Option<TestcaseId>,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -938,7 +938,7 @@ pub struct BytesInsertCopyMutator {
 
 impl<I, S> Mutator<I, S> for BytesInsertCopyMutator
 where
-    S: HasRand + HasMaxSize,
+    S: State<I>,
     I: ResizableMutator<u8> + HasMutatorBytes,
 {
     fn mutate(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, Error> {
@@ -993,7 +993,7 @@ where
     fn post_exec(
         &mut self,
         _state: &mut S,
-        _new_corpus_id: Option<crate::corpus::CorpusId>,
+        _new_testcase_id: Option<TestcaseId>,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -1214,7 +1214,7 @@ where
     fn post_exec(
         &mut self,
         _state: &mut S,
-        _new_corpus_id: Option<crate::corpus::CorpusId>,
+        _new_testcase_id: Option<TestcaseId>,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -1276,11 +1276,11 @@ impl CrossoverInsertMutator {
 impl<I, S> Mutator<I, S> for CrossoverInsertMutator
 where
     I: ResizableMutator<u8> + HasMutatorBytes,
-    S: HasCorpus<I> + HasRand + HasMaxSize,
+    S: State<I>,
 {
     fn mutate(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, Error> {
         let size = input.mutator_bytes().len();
-        let Some(nonzero_size) = NonZero::new(size) else {
+        let Some(non_zero_size) = NonZero::new(size) else {
             return Ok(MutationResult::Skipped);
         };
 
@@ -1289,7 +1289,10 @@ where
             return Ok(MutationResult::Skipped);
         }
 
-        let id = random_corpus_id_with_disabled!(state.corpus(), state.rand_mut());
+        let id = state
+            .random_testcase_id_from_all()
+            .expect("Corpus is empty");
+
         // We don't want to use the testcase we're already using for splicing
         if let Some(cur) = state.corpus().current()
             && id == *cur
@@ -1315,7 +1318,7 @@ where
         let range = rand_range(state, other_size, unsafe {
             NonZero::new_unchecked(min(other_size, max_size - size))
         });
-        let target = state.rand_mut().below(nonzero_size);
+        let target = state.rand_mut().below(non_zero_size);
 
         let other_testcase = state.corpus().get_from_all(id)?.borrow_mut();
         // No need to load the input again, it'll still be cached.
@@ -1333,7 +1336,7 @@ where
     fn post_exec(
         &mut self,
         _state: &mut S,
-        _new_corpus_id: Option<crate::corpus::CorpusId>,
+        _new_testcase_id: Option<TestcaseId>,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -1384,7 +1387,7 @@ impl CrossoverReplaceMutator {
 impl<I, S> Mutator<I, S> for CrossoverReplaceMutator
 where
     I: HasMutatorBytes,
-    S: HasCorpus<I> + HasRand,
+    S: State<I>,
 {
     fn mutate(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, Error> {
         let size = input.mutator_bytes().len();
@@ -1392,7 +1395,9 @@ where
             return Ok(MutationResult::Skipped);
         }
 
-        let id = random_corpus_id_with_disabled!(state.corpus(), state.rand_mut());
+        let id = state
+            .random_testcase_id_from_all()
+            .expect("Corpus is empty");
         // We don't want to use the testcase we're already using for splicing
         if let Some(cur) = state.corpus().current()
             && id == *cur
@@ -1436,7 +1441,7 @@ where
     fn post_exec(
         &mut self,
         _state: &mut S,
-        _new_corpus_id: Option<crate::corpus::CorpusId>,
+        _new_testcase_id: Option<TestcaseId>,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -1495,7 +1500,7 @@ where
     F: Fn(&I1) -> &O,
     I2: ResizableMutator<u8> + HasMutatorBytes,
     O: IntoOptionBytes,
-    S: HasCorpus<I1> + HasMaxSize + HasRand,
+    S: State<I2>,
 {
     fn mutate(&mut self, state: &mut S, input: &mut I2) -> Result<MutationResult, Error> {
         let size = input.mutator_bytes().len();
@@ -1505,7 +1510,10 @@ where
             return Ok(MutationResult::Skipped);
         }
 
-        let id = random_corpus_id_with_disabled!(state.corpus(), state.rand_mut());
+        let id = state
+            .random_testcase_id_from_all()
+            .expect("Corpus is empty");
+
         // We don't want to use the testcase we're already using for splicing
         if let Some(cur) = state.corpus().current()
             && id == *cur
@@ -1557,7 +1565,7 @@ where
     fn post_exec(
         &mut self,
         _state: &mut S,
-        _new_corpus_id: Option<crate::corpus::CorpusId>,
+        _new_testcase_id: Option<TestcaseId>,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -1592,7 +1600,7 @@ where
     F: Fn(&I1) -> &O,
     I2: HasMutatorBytes,
     O: IntoOptionBytes,
-    S: HasCorpus<I1> + HasMaxSize + HasRand,
+    S: State<I2>,
 {
     fn mutate(&mut self, state: &mut S, input: &mut I2) -> Result<MutationResult, Error> {
         let size = input.mutator_bytes().len();
@@ -1600,7 +1608,9 @@ where
             return Ok(MutationResult::Skipped);
         }
 
-        let id = random_corpus_id_with_disabled!(state.corpus(), state.rand_mut());
+        let id = state
+            .random_testcase_id_from_all()
+            .expect("Corpus is empty");
         // We don't want to use the testcase we're already using for splicing
         if let Some(cur) = state.corpus().current()
             && id == *cur
@@ -1651,7 +1661,7 @@ where
     fn post_exec(
         &mut self,
         _state: &mut S,
-        _new_corpus_id: Option<crate::corpus::CorpusId>,
+        _new_testcase_id: Option<TestcaseId>,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -1686,12 +1696,14 @@ pub struct SpliceMutator;
 
 impl<I, S> Mutator<I, S> for SpliceMutator
 where
-    S: HasCorpus<I> + HasRand,
+    S: State<I>,
     I: ResizableMutator<u8> + HasMutatorBytes,
 {
     #[expect(clippy::cast_sign_loss)]
     fn mutate(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, Error> {
-        let id = random_corpus_id_with_disabled!(state.corpus(), state.rand_mut());
+        let id = state
+            .random_testcase_id_from_all()
+            .expect("Corpus is empty");
         // We don't want to use the testcase we're already using for splicing
         if let Some(cur) = state.corpus().current()
             && id == *cur
@@ -1729,7 +1741,7 @@ where
     fn post_exec(
         &mut self,
         _state: &mut S,
-        _new_corpus_id: Option<crate::corpus::CorpusId>,
+        _new_testcase_id: Option<TestcaseId>,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -1801,8 +1813,11 @@ mod tests {
 
     use super::*;
     use crate::{
-        HasMetadata, corpus::InMemoryCorpus, feedbacks::ConstFeedback, inputs::BytesInput,
-        mutators::MutatorsTuple, state::StdState,
+        corpus::{InMemoryCorpus, schedulers::NopScheduler},
+        feedbacks::ConstFeedback,
+        inputs::{BytesInput, NopContext},
+        mutators::MutatorsTuple,
+        state::StdState,
     };
 
     type TestMutatorsTupleType = tuple_list_type!(
@@ -1863,7 +1878,7 @@ mod tests {
 
     fn test_state() -> impl HasCorpus<BytesInput> + HasMetadata + HasRand + HasMaxSize {
         let rand = StdRand::with_seed(1337);
-        let mut corpus = InMemoryCorpus::new();
+        let mut corpus = InMemoryCorpus::new(NopContext, NopScheduler);
 
         let mut feedback = ConstFeedback::new(false);
         let mut objective = ConstFeedback::new(false);
@@ -1872,14 +1887,7 @@ mod tests {
             .add(BytesInput::new(vec![0x42; 0x1337]).into())
             .unwrap();
 
-        StdState::new(
-            rand,
-            corpus,
-            InMemoryCorpus::new(),
-            &mut feedback,
-            &mut objective,
-        )
-        .unwrap()
+        StdState::new(rand, corpus, InMemoryCorpus::new(NopContext, NopScheduler)).unwrap()
     }
 
     #[test]

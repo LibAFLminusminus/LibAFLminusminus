@@ -5,7 +5,7 @@ use libafl_bolts::{Named, tuples::MappingFunctor};
 
 use crate::{
     Error,
-    corpus::CorpusId,
+    corpus::TestcaseId,
     mutators::{MutationResult, Mutator},
 };
 
@@ -77,8 +77,12 @@ where
         self.inner.mutate(state, (self.mapper)(input))
     }
     #[inline]
-    fn post_exec(&mut self, state: &mut S, new_corpus_id: Option<CorpusId>) -> Result<(), Error> {
-        self.inner.post_exec(state, new_corpus_id)
+    fn post_exec(
+        &mut self,
+        state: &mut S,
+        new_testcase_id: Option<TestcaseId>,
+    ) -> Result<(), Error> {
+        self.inner.post_exec(state, new_testcase_id)
     }
 }
 
@@ -103,26 +107,26 @@ impl<M, F> Named for MappingMutator<M, F> {
 ///     },
 ///     state::NopState,
 /// };
-///  
+///
 /// use libafl_bolts::tuples::{tuple_list, Map};
-///  
+///
 /// #[derive(Debug, PartialEq)]
 /// struct CustomInput(Vec<u8>);
-///  
+///
 /// impl CustomInput {
 ///     pub fn vec_mut(&mut self) -> &mut Vec<u8> {
 ///         &mut self.0
 ///     }
 /// }
-///  
+///
 /// // construct a mutator that works on &mut Vec<u8> (since it impls `HasMutatorBytes`)
 /// let mutators = tuple_list!(ByteIncMutator::new(), ByteIncMutator::new());
 /// // construct a mutator that works on &mut CustomInput
 /// let mut mapped_mutators =
 ///     mutators.map(ToMappingMutator::new(CustomInput::vec_mut));
-///  
+///
 /// let mut input = CustomInput(vec![1]);
-///  
+///
 /// let mut state: NopState<CustomInput> = NopState::new();
 /// let res = mapped_mutators.mutate_all(&mut state, &mut input).unwrap();
 /// assert_eq!(res, MutationResult::Mutated);
@@ -210,8 +214,12 @@ where
         }
     }
     #[inline]
-    fn post_exec(&mut self, state: &mut S, new_corpus_id: Option<CorpusId>) -> Result<(), Error> {
-        self.inner.post_exec(state, new_corpus_id)
+    fn post_exec(
+        &mut self,
+        state: &mut S,
+        new_testcase_id: Option<TestcaseId>,
+    ) -> Result<(), Error> {
+        self.inner.post_exec(state, new_testcase_id)
     }
 }
 
@@ -355,8 +363,12 @@ where
         }
     }
     #[inline]
-    fn post_exec(&mut self, state: &mut S, new_corpus_id: Option<CorpusId>) -> Result<(), Error> {
-        self.inner.post_exec(state, new_corpus_id)
+    fn post_exec(
+        &mut self,
+        state: &mut S,
+        new_testcase_id: Option<TestcaseId>,
+    ) -> Result<(), Error> {
+        self.inner.post_exec(state, new_testcase_id)
     }
 }
 
@@ -381,15 +393,15 @@ impl<M, F> Named for StateAwareMappingMutator<M, F> {
 ///     },
 ///     state::{HasRand, NopState},
 /// };
-///  
+///
 /// use libafl_bolts::{
 ///     tuples::{tuple_list, Map},
 ///     rands::Rand as _,
 /// };
-///  
+///
 /// #[derive(Debug, PartialEq)]
 /// struct CustomInput(Vec<u8>);
-///  
+///
 /// impl CustomInput {
 ///     pub fn possibly_vec<'a, S: HasRand>(
 ///         &'a mut self,
@@ -406,15 +418,15 @@ impl<M, F> Named for StateAwareMappingMutator<M, F> {
 ///         }
 ///     }
 /// }
-///  
+///
 /// // construct a mutator that works on &mut Vec<u8> (since it impls `HasMutatorBytes`)
 /// let mutators = tuple_list!(ByteIncMutator::new(), ByteIncMutator::new());
 /// // construct a mutator that works on &mut CustomInput
 /// let mut mapped_mutators =
 ///     mutators.map(ToStateAwareMappingMutator::new(CustomInput::possibly_vec));
-///  
+///
 /// let mut input = CustomInput(vec![1]);
-///  
+///
 /// let mut state: NopState<CustomInput> = NopState::new();
 /// let res = mapped_mutators.mutate_all(&mut state, &mut input).unwrap();
 /// if res == MutationResult::Mutated {
