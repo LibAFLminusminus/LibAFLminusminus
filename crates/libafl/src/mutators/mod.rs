@@ -2,48 +2,69 @@
 //!
 //! These can be used standalone or in combination with other mutators to explore the input space more effectively.
 //! You can read more about mutators in the [LibAFL book](https://aflplus.plus/libafl-book/core_concepts/mutator.html)
-pub mod scheduled;
+use crate::{Error, corpus::TestcaseId};
+use alloc::{borrow::Cow, boxed::Box, vec::Vec};
 use core::fmt;
-
-pub use scheduled::*;
-pub mod mutations;
-pub use mutations::*;
-pub mod token_mutations;
+use libafl_bolts::{HasLen, Named, tuples::IntoVec};
 use serde::{Deserialize, Serialize};
+use tuple_list::NonEmptyTuple;
+
+#[cfg(not(feature = "remove_me"))]
+pub mod scheduled;
+#[cfg(not(feature = "remove_me"))]
+pub use scheduled::*;
+#[cfg(not(feature = "remove_me"))]
+pub mod mutations;
+#[cfg(not(feature = "remove_me"))]
+pub use mutations::*;
+#[cfg(not(feature = "remove_me"))]
+pub mod token_mutations;
+#[cfg(not(feature = "remove_me"))]
 pub use token_mutations::*;
+#[cfg(not(feature = "remove_me"))]
 pub mod havoc_mutations;
+#[cfg(not(feature = "remove_me"))]
 pub use havoc_mutations::*;
+#[cfg(not(feature = "remove_me"))]
 pub mod numeric;
+#[cfg(not(feature = "remove_me"))]
 pub use numeric::{int_mutators, mapped_int_mutators};
+#[cfg(not(feature = "remove_me"))]
 pub mod encoded_mutations;
+#[cfg(not(feature = "remove_me"))]
 pub use encoded_mutations::*;
+#[cfg(not(feature = "remove_me"))]
 pub mod grimoire;
+#[cfg(not(feature = "remove_me"))]
 pub use grimoire::*;
+#[cfg(not(feature = "remove_me"))]
 pub mod mapping;
+#[cfg(not(feature = "remove_me"))]
 pub use mapping::*;
+#[cfg(not(feature = "remove_me"))]
 pub mod tuneable;
+#[cfg(not(feature = "remove_me"))]
 pub use tuneable::*;
 
 #[cfg(feature = "std")]
+#[cfg(not(feature = "remove_me"))]
 pub mod hash;
 #[cfg(feature = "std")]
+#[cfg(not(feature = "remove_me"))]
 pub use hash::*;
 
 #[cfg(feature = "unicode")]
+#[cfg(not(feature = "remove_me"))]
 pub mod unicode;
 #[cfg(feature = "unicode")]
+#[cfg(not(feature = "remove_me"))]
 pub use unicode::*;
 #[cfg(feature = "nautilus")]
+#[cfg(not(feature = "remove_me"))]
 pub mod nautilus;
-
-use alloc::{borrow::Cow, boxed::Box, vec::Vec};
-
-use libafl_bolts::{HasLen, Named, tuples::IntoVec};
 #[cfg(feature = "nautilus")]
+#[cfg(not(feature = "remove_me"))]
 pub use nautilus::*;
-use tuple_list::NonEmptyTuple;
-
-use crate::{Error, corpus::CorpusId};
 
 // TODO mutator stats method that produces something that can be sent with the NewTestcase event
 // We can use it to report which mutations generated the testcase in the broker logs
@@ -100,8 +121,12 @@ pub trait Mutator<I, S>: Named {
     fn mutate(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, Error>;
 
     /// Post-process given the outcome of the execution
-    /// `new_corpus_id` will be `Some` if a new [`crate::corpus::Testcase`] was created this execution.
-    fn post_exec(&mut self, _state: &mut S, _new_corpus_id: Option<CorpusId>) -> Result<(), Error>;
+    /// `new_testcase_id` will be `Some` if a new [`crate::corpus::Testcase`] was created this execution.
+    fn post_exec(
+        &mut self,
+        _state: &mut S,
+        _new_testcase_id: Option<TestcaseId>,
+    ) -> Result<(), Error>;
 }
 
 /// A mutator that takes input, and returns a vector of mutated inputs.
@@ -117,12 +142,12 @@ pub trait MultiMutator<I, S>: Named {
     ) -> Result<Vec<I>, Error>;
 
     /// Post-process given the outcome of the execution
-    /// `new_corpus_id` will be `Some` if a new `Testcase` was created this execution.
+    /// `new_testcase_id` will be `Some` if a new `Testcase` was created this execution.
     #[inline]
     fn multi_post_exec(
         &mut self,
         _state: &mut S,
-        _new_corpus_id: Option<CorpusId>,
+        _new_testcase_id: Option<TestcaseId>,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -134,11 +159,11 @@ pub trait MutatorsTuple<I, S>: HasLen {
     fn mutate_all(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, Error>;
 
     /// Runs the [`Mutator::post_exec`] function on all [`Mutator`]`s` in this `Tuple`.
-    /// `new_corpus_id` will be `Some` if a new `Testcase` was created this execution.
+    /// `new_testcase_id` will be `Some` if a new `Testcase` was created this execution.
     fn post_exec_all(
         &mut self,
         state: &mut S,
-        new_corpus_id: Option<CorpusId>,
+        new_testcase_id: Option<TestcaseId>,
     ) -> Result<(), Error>;
 
     /// Gets the [`Mutator`] at the given index and runs the `mutate` function on it.
@@ -150,13 +175,13 @@ pub trait MutatorsTuple<I, S>: HasLen {
     ) -> Result<MutationResult, Error>;
 
     /// Gets the [`Mutator`] at the given index and runs the `post_exec` function on it.
-    /// `new_corpus_id` will be `Some` if a new `Testcase` was created this execution.
+    /// `new_testcase_id` will be `Some` if a new `Testcase` was created this execution.
     fn get_and_post_exec(
         &mut self,
         index: usize,
         state: &mut S,
 
-        corpus_id: Option<CorpusId>,
+        testcase_id: Option<TestcaseId>,
     ) -> Result<(), Error>;
 }
 
@@ -170,7 +195,7 @@ impl<I, S> MutatorsTuple<I, S> for () {
     fn post_exec_all(
         &mut self,
         _state: &mut S,
-        _new_corpus_id: Option<CorpusId>,
+        _new_testcase_id: Option<TestcaseId>,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -190,7 +215,7 @@ impl<I, S> MutatorsTuple<I, S> for () {
         &mut self,
         _index: usize,
         _state: &mut S,
-        _new_corpus_id: Option<CorpusId>,
+        _new_testcase_id: Option<TestcaseId>,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -213,10 +238,10 @@ where
     fn post_exec_all(
         &mut self,
         state: &mut S,
-        new_corpus_id: Option<CorpusId>,
+        new_testcase_id: Option<TestcaseId>,
     ) -> Result<(), Error> {
-        self.0.post_exec(state, new_corpus_id)?;
-        self.1.post_exec_all(state, new_corpus_id)
+        self.0.post_exec(state, new_testcase_id)?;
+        self.1.post_exec_all(state, new_testcase_id)
     }
 
     fn get_and_mutate(
@@ -236,12 +261,12 @@ where
         &mut self,
         index: usize,
         state: &mut S,
-        new_corpus_id: Option<CorpusId>,
+        new_testcase_id: Option<TestcaseId>,
     ) -> Result<(), Error> {
         if index == 0 {
-            self.0.post_exec(state, new_corpus_id)
+            self.0.post_exec(state, new_testcase_id)
         } else {
-            self.1.get_and_post_exec(index - 1, state, new_corpus_id)
+            self.1.get_and_post_exec(index - 1, state, new_testcase_id)
         }
     }
 }
@@ -276,9 +301,9 @@ where
     fn post_exec_all(
         &mut self,
         state: &mut S,
-        new_corpus_id: Option<CorpusId>,
+        new_testcase_id: Option<TestcaseId>,
     ) -> Result<(), Error> {
-        self.0.post_exec_all(state, new_corpus_id)
+        self.0.post_exec_all(state, new_testcase_id)
     }
 
     fn get_and_mutate(
@@ -294,9 +319,9 @@ where
         &mut self,
         index: usize,
         state: &mut S,
-        new_corpus_id: Option<CorpusId>,
+        new_testcase_id: Option<TestcaseId>,
     ) -> Result<(), Error> {
-        self.0.get_and_post_exec(index, state, new_corpus_id)
+        self.0.get_and_post_exec(index, state, new_testcase_id)
     }
 }
 
@@ -324,10 +349,10 @@ impl<I, S> MutatorsTuple<I, S> for Vec<Box<dyn Mutator<I, S>>> {
     fn post_exec_all(
         &mut self,
         state: &mut S,
-        new_corpus_id: Option<CorpusId>,
+        new_testcase_id: Option<TestcaseId>,
     ) -> Result<(), Error> {
         for mutator in self.iter_mut() {
-            mutator.post_exec(state, new_corpus_id)?;
+            mutator.post_exec(state, new_testcase_id)?;
         }
         Ok(())
     }
@@ -348,12 +373,12 @@ impl<I, S> MutatorsTuple<I, S> for Vec<Box<dyn Mutator<I, S>>> {
         &mut self,
         index: usize,
         state: &mut S,
-        new_corpus_id: Option<CorpusId>,
+        new_testcase_id: Option<TestcaseId>,
     ) -> Result<(), Error> {
         let mutator = self
             .get_mut(index)
             .ok_or_else(|| Error::key_not_found(format!("Mutator with id {index:?} not found.")))?;
-        mutator.post_exec(state, new_corpus_id)
+        mutator.post_exec(state, new_testcase_id)
     }
 }
 
@@ -388,7 +413,11 @@ impl<I, S> Mutator<I, S> for NopMutator {
         Ok(self.result)
     }
     #[inline]
-    fn post_exec(&mut self, _state: &mut S, _new_corpus_id: Option<CorpusId>) -> Result<(), Error> {
+    fn post_exec(
+        &mut self,
+        _state: &mut S,
+        _new_testcase_id: Option<TestcaseId>,
+    ) -> Result<(), Error> {
         Ok(())
     }
 }
@@ -411,7 +440,11 @@ impl<S> Mutator<bool, S> for BoolInvertMutator {
         Ok(MutationResult::Mutated)
     }
     #[inline]
-    fn post_exec(&mut self, _state: &mut S, _new_corpus_id: Option<CorpusId>) -> Result<(), Error> {
+    fn post_exec(
+        &mut self,
+        _state: &mut S,
+        _new_testcase_id: Option<TestcaseId>,
+    ) -> Result<(), Error> {
         Ok(())
     }
 }

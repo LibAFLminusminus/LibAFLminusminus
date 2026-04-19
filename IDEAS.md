@@ -280,3 +280,31 @@ state holds input (i.e. current testcase).
 - remove useless traits
 - documentation
 - remove nostd
+
+# Formatting nickpick
+
+## Structure modules properly
+
+We should enforce a common ordering for mudules
+
+```rust
+<imports>
+
+<module declaration>
+
+<trait def>
+
+<struct / enum def>
+
+<struct / enum impl>
+```
+
+In particular:
+- do NOT mix `use` imports with `pub use` and `mod` statements
+- stop putting definitions of traits at the end of the file, it's unreadable
+- keep module declarations consistent:
+```rust
+pub mod mymod;
+pub use mymod::{MyStruct, MyEnum};
+```
+it should only be formatted like that. no `pub use` 100 lines below the module declaration.

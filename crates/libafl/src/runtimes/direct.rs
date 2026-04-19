@@ -1,36 +1,35 @@
+use core::time::Duration;
+
+use libafl_core::Error;
+
+use crate::{
+    DependencyResolver,
+    runtimes::{Runtime, RuntimeHandle},
+};
+
 /// Simplest runtime, just runs the task.
-struct DirectRuntime<S, T> {
+pub struct DirectRuntime<S, T> {
     state: S,
     task: T,
 }
 
+impl<S, T> DirectRuntime<S, T> {
+    pub fn new(state: S, task: T) -> Self {
+        Self { state, task }
+    }
+}
+
 impl<S, T> DependencyResolver for DirectRuntime<S, T> {}
 
-impl<C, S, T> Runtime<C, S> for DirectRuntime<S, T>
+impl<CT, S, T> Runtime<CT, S> for DirectRuntime<S, T>
 where
-    T: FnMut(&mut RuntimeHandle<C, S>, &mut S) -> Result<(), Error>,
+    T: FnMut(&mut RuntimeHandle<CT, S>, &mut S, &mut CT) -> Result<(), Error>,
 {
     unsafe fn run_impl(
         &mut self,
-        driver: &mut RuntimeHandle<C, S>,
-        controller: &mut C,
+        driver: &mut RuntimeHandle<CT, S>,
+        controller: &mut CT,
     ) -> Result<(), Error> {
-        (self.task)(driver, &mut self.state)
-    }
-
-    fn set_timeout(&mut self, _timeout: Duration) -> Result<(), Error> {
-        unimplemented!("The direct runtime does not implement timeout")
-    }
-
-    fn arm_timeout(&mut self) -> Result<(), Error> {
-        unimplemented!("The direct runtime does not implement timeout")
-    }
-
-    fn disarm_timeout(&mut self) -> Result<(), Error> {
-        unimplemented!("The direct runtime does not implement timeout")
-    }
-
-    fn unset_timeout(&mut self) -> Result<(), Error> {
-        unimplemented!("The direct runtime does not implement timeout")
+        (self.task)(driver, &mut self.state, controller)
     }
 }

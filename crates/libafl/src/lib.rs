@@ -74,7 +74,6 @@ pub mod inputs;
 pub mod launchers;
 #[cfg(not(feature = "remove_me"))]
 pub mod monitors;
-#[cfg(not(feature = "remove_me"))]
 pub mod mutators;
 pub mod observers;
 pub mod runtimes;
