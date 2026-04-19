@@ -58,11 +58,7 @@ impl<F, OF> HasObjective for StdFuzzer<F, OF> {
     }
 }
 
-impl<F, OF> StdFuzzer<F, OF>
-where
-    F: Feedback,
-    OF: Feedback,
-{
+impl<F, OF> StdFuzzer<F, OF> {
     fn evaluate_execution<I, OT, S, SC, Z>(
         &mut self,
         state: &mut S,
@@ -71,7 +67,9 @@ where
         exit_kind: ExitKind,
     ) -> Result<EvaluationResult, Error>
     where
+        F: Feedback<I, OT, S>,
         I: Clone,
+        OF: Feedback<I, OT, S>,
         S: State<I>,
     {
         #[cfg(not(feature = "introspection"))]
@@ -89,7 +87,7 @@ where
             let parent_id = state.scheduler().current();
 
             // The input is a solution, add it to the respective corpus
-            let testcase_id = state.objective_corpus_mut().add(input.clone());
+            let testcase_id = state.objective_corpus_mut().add(input.clone())?;
 
             let md = state.testcase_md_mut_from_id(&testcase_id);
 
@@ -108,23 +106,21 @@ where
             EvaluationResult::new(exit_kind, Verdict::Objective(testcase_id))
         } else {
             #[cfg(not(feature = "introspection"))]
-            let corpus_worthy = state
-                .corpus_mut()
-                .feedback_mut()
-                .is_interesting(state, input, observers, exit_kind)?;
+            let corpus_worthy = self
+                .feedback
+                .is_interesting(state, input, observers, &exit_kind)?;
 
             #[cfg(feature = "introspection")]
-            let corpus_worthy = state
-                .corpus_mut()
-                .feedback_mut()
-                .is_interesting_introspection(state, input, observers, exit_kind)?;
+            let corpus_worthy = self
+                .feedback
+                .is_interesting_introspection(state, input, observers, &exit_kind)?;
 
             if corpus_worthy {
                 // Not a solution
                 // Add the input to the main corpus
 
                 let executions = state.executions();
-                let parent_id = state.corpus().scheduler().current();
+                let parent_id = state.scheduler().current();
 
                 let testcase_id = state.corpus_mut().add(input.clone())?;
                 let md = state
@@ -249,6 +245,8 @@ impl<CT, E, F, I, OF, S> Evaluator<CT, E, I, S> for StdFuzzer<F, OF>
 where
     CT: Controller,
     E: Executor<I, S>,
+    F: Feedback<I, E::Observers, S>,
+    OF: Feedback<I, E::Observers, S>,
     I: Clone,
     S: State<I>,
 {
@@ -265,7 +263,12 @@ where
         let exit_kind = executor.execute(state, driver, controller, input)?;
 
         let observers = executor.observers();
-        self.evaluate_execution(state, input, &*observers, exit_kind)
+        self.evaluate_execution::<I, E::Observers, S, S::Scheduler, Self>(
+            state,
+            &*input,
+            &*observers,
+            exit_kind,
+        )
     }
 }
 
