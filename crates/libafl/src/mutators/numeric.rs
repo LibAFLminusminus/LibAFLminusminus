@@ -14,6 +14,7 @@ use tuple_list_ex::{map_tuple_list_type, merge_tuple_list_type};
 use super::{MutationResult, Mutator, ToMappingMutator, ToStateAwareMappingMutator};
 use crate::{
     corpus::{Corpus, TestcaseId, schedulers::Scheduler},
+    fuzzer::EvaluationResult,
     inputs::value::Numeric,
     state::{HasCorpus, HasScheduler},
 };
@@ -140,11 +141,7 @@ where
         Ok(MutationResult::Mutated)
     }
     #[inline]
-    fn post_exec(
-        &mut self,
-        _state: &mut S,
-        _new_testcase_id: Option<TestcaseId>,
-    ) -> Result<(), Error> {
+    fn post_exec(&mut self, _state: &mut S, _eval_res: &EvaluationResult) -> Result<(), Error> {
         Ok(())
     }
 }
@@ -168,11 +165,7 @@ where
         Ok(MutationResult::Mutated)
     }
     #[inline]
-    fn post_exec(
-        &mut self,
-        _state: &mut S,
-        _new_testcase_id: Option<TestcaseId>,
-    ) -> Result<(), Error> {
+    fn post_exec(&mut self, _state: &mut S, _eval_res: &EvaluationResult) -> Result<(), Error> {
         Ok(())
     }
 }
@@ -196,11 +189,7 @@ where
         Ok(MutationResult::Mutated)
     }
     #[inline]
-    fn post_exec(
-        &mut self,
-        _state: &mut S,
-        _new_testcase_id: Option<TestcaseId>,
-    ) -> Result<(), Error> {
+    fn post_exec(&mut self, _state: &mut S, _eval_res: &EvaluationResult) -> Result<(), Error> {
         Ok(())
     }
 }
@@ -224,11 +213,7 @@ where
         Ok(MutationResult::Mutated)
     }
     #[inline]
-    fn post_exec(
-        &mut self,
-        _state: &mut S,
-        _new_testcase_id: Option<TestcaseId>,
-    ) -> Result<(), Error> {
+    fn post_exec(&mut self, _state: &mut S, _eval_res: &EvaluationResult) -> Result<(), Error> {
         Ok(())
     }
 }
@@ -252,11 +237,7 @@ where
         Ok(MutationResult::Mutated)
     }
     #[inline]
-    fn post_exec(
-        &mut self,
-        _state: &mut S,
-        _new_testcase_id: Option<TestcaseId>,
-    ) -> Result<(), Error> {
+    fn post_exec(&mut self, _state: &mut S, _eval_res: &EvaluationResult) -> Result<(), Error> {
         Ok(())
     }
 }
@@ -282,11 +263,7 @@ where
         Ok(MutationResult::Mutated)
     }
     #[inline]
-    fn post_exec(
-        &mut self,
-        _state: &mut S,
-        _new_corpus_id: Option<TestcaseId>,
-    ) -> Result<(), Error> {
+    fn post_exec(&mut self, _state: &mut S, _eval_res: &EvaluationResult) -> Result<(), Error> {
         Ok(())
     }
 }
@@ -317,16 +294,12 @@ where
             return Ok(MutationResult::Skipped);
         }
 
-        let other_testcase = state.corpus().get_from_all(*id)?;
+        let other_testcase = state.corpus().get_from_all(id)?;
         *input = *other_testcase.input();
         Ok(MutationResult::Mutated)
     }
     #[inline]
-    fn post_exec(
-        &mut self,
-        _state: &mut S,
-        _new_testcase_id: Option<TestcaseId>,
-    ) -> Result<(), Error> {
+    fn post_exec(&mut self, _state: &mut S, _eval_res: &EvaluationResult) -> Result<(), Error> {
         Ok(())
     }
 }
@@ -370,18 +343,14 @@ where
             return Ok(MutationResult::Skipped);
         }
 
-        let other_testcase = state.corpus().get_from_all(*id)?;
+        let other_testcase = state.corpus().get_from_all(id)?;
         let other_input = other_testcase.input();
         let mapped_input = (self.input_mapper)(&other_input).clone();
         *input = mapped_input;
         Ok(MutationResult::Mutated)
     }
     #[inline]
-    fn post_exec(
-        &mut self,
-        _state: &mut S,
-        _new_testcase_id: Option<TestcaseId>,
-    ) -> Result<(), Error> {
+    fn post_exec(&mut self, _state: &mut S, _eval_res: &EvaluationResult) -> Result<(), Error> {
         Ok(())
     }
 }

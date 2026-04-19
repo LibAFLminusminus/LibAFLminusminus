@@ -6,6 +6,7 @@ use libafl_bolts::{Named, rands::Rand, tuples::MappingFunctor};
 use crate::{
     Error,
     corpus::TestcaseId,
+    fuzzer::EvaluationResult,
     mutators::{MutationResult, Mutator},
 };
 
@@ -79,12 +80,8 @@ where
         self.inner.mutate((self.mapper)(input), rand, state)
     }
     #[inline]
-    fn post_exec(
-        &mut self,
-        state: &mut S,
-        new_testcase_id: Option<TestcaseId>,
-    ) -> Result<(), Error> {
-        self.inner.post_exec(state, new_testcase_id)
+    fn post_exec(&mut self, state: &mut S, eval_res: &EvaluationResult) -> Result<(), Error> {
+        self.inner.post_exec(state, eval_res)
     }
 }
 
@@ -224,12 +221,8 @@ where
         }
     }
     #[inline]
-    fn post_exec(
-        &mut self,
-        state: &mut S,
-        new_testcase_id: Option<TestcaseId>,
-    ) -> Result<(), Error> {
-        self.inner.post_exec(state, new_testcase_id)
+    fn post_exec(&mut self, state: &mut S, eval_res: &EvaluationResult) -> Result<(), Error> {
+        self.inner.post_exec(state, eval_res)
     }
 }
 
@@ -375,12 +368,8 @@ where
         }
     }
     #[inline]
-    fn post_exec(
-        &mut self,
-        state: &mut S,
-        new_testcase_id: Option<TestcaseId>,
-    ) -> Result<(), Error> {
-        self.inner.post_exec(state, new_testcase_id)
+    fn post_exec(&mut self, state: &mut S, eval_res: &EvaluationResult) -> Result<(), Error> {
+        self.inner.post_exec(state, eval_res)
     }
 }
 

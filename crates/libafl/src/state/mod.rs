@@ -111,14 +111,14 @@ pub trait HasTestcase<I> {
     fn testcase_md_from_id<'a>(&'a self, id: &TestcaseId) -> Option<&'a TestcaseMetadata>;
     fn testcase_md_mut<'a>(&'a mut self, tc: &Testcase<I>) -> &'a mut TestcaseMetadata;
     fn testcase_md_mut_from_id<'a>(&'a mut self, id: &TestcaseId) -> &'a mut TestcaseMetadata;
-    fn testcase(&self, id: TestcaseId) -> Result<Testcase<I>, Error>;
+    fn testcase(&self, id: &TestcaseId) -> Result<Testcase<I>, Error>;
 }
 
 impl<C, I, OC, SC> HasTestcase<I> for StdState<C, I, OC, SC>
 where
     C: Corpus<I>,
 {
-    fn testcase(&self, id: TestcaseId) -> Result<Testcase<I>, Error> {
+    fn testcase(&self, id: &TestcaseId) -> Result<Testcase<I>, Error> {
         self.corpus.get(id)
     }
 

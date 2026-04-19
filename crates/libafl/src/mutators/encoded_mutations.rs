@@ -14,6 +14,7 @@ use libafl_bolts::{
 use crate::{
     Error,
     corpus::{Corpus, Scheduler, testcase::TestcaseId},
+    fuzzer::EvaluationResult,
     inputs::EncodedInput,
     mutators::{
         MutationResult, Mutator, Named,
@@ -42,11 +43,7 @@ impl<R: Rand, S> Mutator<EncodedInput, R, S> for EncodedRandMutator {
         }
     }
     #[inline]
-    fn post_exec(
-        &mut self,
-        _state: &mut S,
-        _new_testcase_id: Option<TestcaseId>,
-    ) -> Result<(), Error> {
+    fn post_exec(&mut self, _state: &mut S, _eval_res: &EvaluationResult) -> Result<(), Error> {
         Ok(())
     }
 }
@@ -86,11 +83,7 @@ impl<R: Rand, S> Mutator<EncodedInput, R, S> for EncodedIncMutator {
         }
     }
     #[inline]
-    fn post_exec(
-        &mut self,
-        _state: &mut S,
-        _new_testcase_id: Option<TestcaseId>,
-    ) -> Result<(), Error> {
+    fn post_exec(&mut self, _state: &mut S, _eval_res: &EvaluationResult) -> Result<(), Error> {
         Ok(())
     }
 }
@@ -130,11 +123,7 @@ impl<R: Rand, S> Mutator<EncodedInput, R, S> for EncodedDecMutator {
         }
     }
     #[inline]
-    fn post_exec(
-        &mut self,
-        _state: &mut S,
-        _new_testcase_id: Option<TestcaseId>,
-    ) -> Result<(), Error> {
+    fn post_exec(&mut self, _state: &mut S, _eval_res: &EvaluationResult) -> Result<(), Error> {
         Ok(())
     }
 }
@@ -178,11 +167,7 @@ impl<R: Rand, S> Mutator<EncodedInput, R, S> for EncodedAddMutator {
         }
     }
     #[inline]
-    fn post_exec(
-        &mut self,
-        _state: &mut S,
-        _new_testcase_id: Option<TestcaseId>,
-    ) -> Result<(), Error> {
+    fn post_exec(&mut self, _state: &mut S, _eval_res: &EvaluationResult) -> Result<(), Error> {
         Ok(())
     }
 }
@@ -228,11 +213,7 @@ impl<R: Rand, S> Mutator<EncodedInput, R, S> for EncodedDeleteMutator {
         Ok(MutationResult::Mutated)
     }
     #[inline]
-    fn post_exec(
-        &mut self,
-        _state: &mut S,
-        _new_testcase_id: Option<TestcaseId>,
-    ) -> Result<(), Error> {
+    fn post_exec(&mut self, _state: &mut S, _eval_res: &EvaluationResult) -> Result<(), Error> {
         Ok(())
     }
 }
@@ -306,11 +287,7 @@ where
         Ok(MutationResult::Mutated)
     }
     #[inline]
-    fn post_exec(
-        &mut self,
-        _state: &mut S,
-        _new_testcase_id: Option<TestcaseId>,
-    ) -> Result<(), Error> {
+    fn post_exec(&mut self, _state: &mut S, _eval_res: &EvaluationResult) -> Result<(), Error> {
         Ok(())
     }
 }
@@ -361,11 +338,7 @@ impl<R: Rand, S> Mutator<EncodedInput, R, S> for EncodedCopyMutator {
         Ok(MutationResult::Mutated)
     }
     #[inline]
-    fn post_exec(
-        &mut self,
-        _state: &mut S,
-        _new_testcase_id: Option<TestcaseId>,
-    ) -> Result<(), Error> {
+    fn post_exec(&mut self, _state: &mut S, _eval_res: &EvaluationResult) -> Result<(), Error> {
         Ok(())
     }
 }
@@ -418,7 +391,7 @@ where
 
         let other_size = {
             // new scope to make the borrow checker happy
-            let mut other_testcase = state.corpus().get_from_all(id)?;
+            let mut other_testcase = state.corpus().get_from_all(&id)?;
             other_testcase.input_len()
         };
 
@@ -443,7 +416,7 @@ where
             }
         }
 
-        let other = state.corpus().get_from_all(id)?;
+        let other = state.corpus().get_from_all(&id)?;
 
         input.codes_mut().resize(size + len, 0);
         unsafe {
@@ -454,11 +427,7 @@ where
         Ok(MutationResult::Mutated)
     }
     #[inline]
-    fn post_exec(
-        &mut self,
-        _state: &mut S,
-        _new_testcase_id: Option<TestcaseId>,
-    ) -> Result<(), Error> {
+    fn post_exec(&mut self, _state: &mut S, _eval_res: &EvaluationResult) -> Result<(), Error> {
         Ok(())
     }
 }
@@ -508,7 +477,7 @@ where
 
         let other_size = {
             // new scope to make the borrow checker happy
-            let mut other_testcase = state.corpus().get_from_all(id)?;
+            let mut other_testcase = state.corpus().get_from_all(&id)?;
             other_testcase.input_len()
         };
 
@@ -527,7 +496,7 @@ where
         // size is non-zero, len is below min(size, ...), so the subtraction will always be positive.
         let to = rand.below(unsafe { NonZero::new_unchecked(size - len) });
 
-        let other = state.corpus().get_from_all(id)?;
+        let other = state.corpus().get_from_all(&id)?;
 
         unsafe {
             buffer_copy(input.codes_mut(), other.input().codes(), from, to, len);
@@ -536,11 +505,7 @@ where
         Ok(MutationResult::Mutated)
     }
     #[inline]
-    fn post_exec(
-        &mut self,
-        _state: &mut S,
-        _new_testcase_id: Option<TestcaseId>,
-    ) -> Result<(), Error> {
+    fn post_exec(&mut self, _state: &mut S, _eval_res: &EvaluationResult) -> Result<(), Error> {
         Ok(())
     }
 }

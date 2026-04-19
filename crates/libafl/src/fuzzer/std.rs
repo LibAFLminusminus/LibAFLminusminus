@@ -271,14 +271,14 @@ where
     }
 }
 
-impl<CT, E, F, I, OF, S, ST> Fuzzer<CT, E, I, S, ST> for StdFuzzer<F, OF>
+impl<CT, E, F, I, OF, R, S, ST> Fuzzer<CT, E, I, R, S, ST> for StdFuzzer<F, OF>
 where
     CT: Controller,
     E: Executor<I, S>,
     F: Feedback<I, E::Observers, S>,
     OF: Feedback<I, E::Observers, S>,
     S: State<I>,
-    ST: StagesTuple<CT, E, S, Self>,
+    ST: StagesTuple<CT, E, R, S, Self>,
 {
     fn init(
         &mut self,
@@ -314,6 +314,7 @@ where
         &mut self,
         stages: &mut ST,
         executor: &mut E,
+        rand: &mut R,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<CT, S>,
     ) -> Result<(), Error> {
@@ -333,7 +334,7 @@ where
         state.introspection_stats_mut().reset_stage_index();
 
         // Execute all stages
-        stages.perform_all(self, executor, state, rt_handle)?;
+        stages.perform_all(self, executor, rand, state, rt_handle, &testcase_id)?;
 
         state
             .testcase_md_mut_from_id(&testcase_id)
@@ -351,11 +352,12 @@ where
         &mut self,
         stages: &mut ST,
         executor: &mut E,
+        rand: &mut R,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<CT, S>,
     ) -> Result<(), Error> {
         loop {
-            self.fuzz_one(stages, executor, state, rt_handle)?;
+            self.fuzz_one(stages, executor, rand, state, rt_handle)?;
         }
     }
 
@@ -363,6 +365,7 @@ where
         &mut self,
         stages: &mut ST,
         executor: &mut E,
+        rand: &mut R,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<CT, S>,
         iters: u64,
@@ -374,7 +377,7 @@ where
         }
 
         for _ in 0..iters {
-            self.fuzz_one(stages, executor, state, rt_handle)?;
+            self.fuzz_one(stages, executor, rand, state, rt_handle)?;
         }
 
         Ok(())

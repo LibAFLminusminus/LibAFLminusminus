@@ -6,7 +6,7 @@ use core::hash::Hash;
 use libafl_bolts::{Error, Named, generic_hash_std, rands::Rand};
 
 use super::{MutationResult, Mutator};
-use crate::corpus::testcase::TestcaseId;
+use crate::{corpus::testcase::TestcaseId, fuzzer::EvaluationResult};
 
 /// A wrapper around a [`Mutator`] that ensures an input really changed [`MutationResult::Mutated`]
 /// by hashing pre- and post-mutation and comparing the values
@@ -42,12 +42,8 @@ where
         }
     }
     #[inline]
-    fn post_exec(
-        &mut self,
-        state: &mut S,
-        new_tescase_id: Option<TestcaseId>,
-    ) -> Result<(), Error> {
-        self.inner.post_exec(state, new_tescase_id)
+    fn post_exec(&mut self, state: &mut S, eval_res: &EvaluationResult) -> Result<(), Error> {
+        self.inner.post_exec(state, eval_res)
     }
 }
 

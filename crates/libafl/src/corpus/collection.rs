@@ -77,23 +77,23 @@ where
         self.0.add(id, testcase)
     }
 
-    fn get(&self, id: TestcaseId) -> Option<&Testcase<I>> {
+    fn get(&self, id: &TestcaseId) -> Option<&Testcase<I>> {
         self.0.get(id)
     }
 
-    fn get_mut(&mut self, id: TestcaseId) -> Option<&mut Testcase<I>> {
+    fn get_mut(&mut self, id: &TestcaseId) -> Option<&mut Testcase<I>> {
         self.0.get_mut(id)
     }
 
-    fn remove(&mut self, id: TestcaseId) -> Option<Testcase<I>> {
+    fn remove(&mut self, id: &TestcaseId) -> Option<Testcase<I>> {
         self.0.remove(id)
     }
 
-    fn prev(&self, id: TestcaseId) -> Option<TestcaseId> {
+    fn prev(&self, id: &TestcaseId) -> Option<TestcaseId> {
         self.0.prev(id)
     }
 
-    fn next(&self, id: TestcaseId) -> Option<TestcaseId> {
+    fn next(&self, id: &TestcaseId) -> Option<TestcaseId> {
         self.0.next(id)
     }
 
@@ -126,11 +126,11 @@ where
         self.0.add_shared::<ENABLED>(input)
     }
 
-    fn get_from<const ENABLED: bool>(&self, id: TestcaseId) -> Result<Testcase<I>, Error> {
+    fn get_from<const ENABLED: bool>(&self, id: &TestcaseId) -> Result<Testcase<I>, Error> {
         self.0.get_from::<ENABLED>(id)
     }
 
-    fn disable(&mut self, id: TestcaseId) -> Result<(), Error> {
+    fn disable(&mut self, id: &TestcaseId) -> Result<(), Error> {
         self.0.disable(id)
     }
 }
@@ -151,11 +151,11 @@ where
         self.0.add_shared::<ENABLED>(input)
     }
 
-    fn get_from<const ENABLED: bool>(&self, id: TestcaseId) -> Result<Testcase<I>, Error> {
+    fn get_from<const ENABLED: bool>(&self, id: &TestcaseId) -> Result<Testcase<I>, Error> {
         self.0.get_from::<ENABLED>(id)
     }
 
-    fn disable(&mut self, id: TestcaseId) -> Result<(), Error> {
+    fn disable(&mut self, id: &TestcaseId) -> Result<(), Error> {
         self.0.disable(id)
     }
 }
@@ -212,7 +212,7 @@ where
         self.0.add_shared::<ENABLED>(input)
     }
 
-    fn get_from<const ENABLED: bool>(&self, id: TestcaseId) -> Result<Testcase<I>, Error> {
+    fn get_from<const ENABLED: bool>(&self, id: &TestcaseId) -> Result<Testcase<I>, Error> {
         self.0.get_from::<ENABLED>(id)
     }
 
@@ -342,7 +342,7 @@ where
         self.0.add_shared::<ENABLED>(input)
     }
 
-    fn get_from<const ENABLED: bool>(&self, id: TestcaseId) -> Result<Testcase<I>, Error> {
+    fn get_from<const ENABLED: bool>(&self, id: &TestcaseId) -> Result<Testcase<I>, Error> {
         self.0.get_from::<ENABLED>(id)
     }
 

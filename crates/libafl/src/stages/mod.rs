@@ -20,7 +20,9 @@ use libafl_bolts::{
 use serde::{Deserialize, Serialize};
 use tuple_list::NonEmptyTuple;
 
-use crate::{DependencyResolver, Error, runtimes::RuntimeHandle, state::FlatState};
+use crate::{
+    DependencyResolver, Error, corpus::TestcaseId, runtimes::RuntimeHandle, state::FlatState,
+};
 
 /// Mutational stage is the normal fuzzing stage.
 pub mod mutational;
@@ -124,7 +126,7 @@ impl fmt::Display for StageId {
 
 /// A stage is one step in the fuzzing process.
 /// Multiple stages will be scheduled one by one for each input.
-pub trait Stage<CT, E, S, Z>: DependencyResolver {
+pub trait Stage<CT, E, R, S, Z>: DependencyResolver {
     /// Run the stage.
     ///
     /// If you want this stage to restart, then
@@ -134,39 +136,45 @@ pub trait Stage<CT, E, S, Z>: DependencyResolver {
         &mut self,
         fuzzer: &mut Z,
         executor: &mut E,
+        rand: &mut R,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<CT, S>,
+        testcase_id: &TestcaseId,
     ) -> Result<(), Error>;
 }
 
 /// A tuple holding all `Stages` used for fuzzing.
-pub trait StagesTuple<CT, E, S, Z>: DependencyResolver {
+pub trait StagesTuple<CT, E, R, S, Z>: DependencyResolver {
     /// Performs all `Stages` in this tuple.
     fn perform_all(
         &mut self,
         fuzzer: &mut Z,
         executor: &mut E,
+        rand: &mut R,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<CT, S>,
+        testcase_id: &TestcaseId,
     ) -> Result<(), Error>;
 }
 
-impl<CT, E, S, Z> StagesTuple<CT, E, S, Z> for () {
+impl<CT, E, R, S, Z> StagesTuple<CT, E, R, S, Z> for () {
     fn perform_all(
         &mut self,
-        _: &mut Z,
-        _: &mut E,
-        state: &mut S,
-        rt_handle: &mut RuntimeHandle<CT, S>,
+        _fuzzer: &mut Z,
+        _executor: &mut E,
+        _rand: &mut R,
+        _state: &mut S,
+        _rt_handle: &mut RuntimeHandle<CT, S>,
+        _testcase_id: &TestcaseId,
     ) -> Result<(), Error> {
         Ok(())
     }
 }
 
-impl<Head, Tail, CT, E, S, Z> StagesTuple<CT, E, S, Z> for (Head, Tail)
+impl<Head, Tail, CT, E, R, S, Z> StagesTuple<CT, E, R, S, Z> for (Head, Tail)
 where
-    Head: Stage<CT, E, S, Z>,
-    Tail: StagesTuple<CT, E, S, Z> + HasConstLen,
+    Head: Stage<CT, E, R, S, Z>,
+    Tail: StagesTuple<CT, E, R, S, Z> + HasConstLen,
 {
     /// Performs all stages in the tuple,
     /// Checks after every stage if state wants to stop
@@ -175,8 +183,10 @@ where
         &mut self,
         fuzzer: &mut Z,
         executor: &mut E,
+        rand: &mut R,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<CT, S>,
+        testcase_id: &TestcaseId,
     ) -> Result<(), Error> {
         // match state.current_stage_id()? {
         //     Some(idx) if idx < StageId(Self::LEN) => {
@@ -207,7 +217,7 @@ where
 
         let stage = &mut self.0;
 
-        stage.perform(fuzzer, executor, state, rt_handle)?;
+        stage.perform(fuzzer, executor, rand, state, rt_handle, testcase_id)?;
 
         // state.clear_stage_id()?;
         //     }
@@ -218,45 +228,48 @@ where
         state.introspection_stats_mut().finish_stage();
 
         // Execute the remaining stages
-        self.1.perform_all(fuzzer, executor, state, rt_handle)
+        self.1
+            .perform_all(fuzzer, executor, rand, state, rt_handle, testcase_id)
     }
 }
 
-impl<Head, Tail, E, EM, S, Z> IntoVec<Box<dyn Stage<E, EM, S, Z>>> for (Head, Tail)
+impl<Head, Tail, CT, E, R, S, Z> IntoVec<Box<dyn Stage<CT, E, R, S, Z>>> for (Head, Tail)
 where
-    Head: Stage<E, EM, S, Z> + 'static,
-    Tail: StagesTuple<E, EM, S, Z> + HasConstLen + IntoVec<Box<dyn Stage<E, EM, S, Z>>>,
+    Head: Stage<CT, E, R, S, Z> + 'static,
+    Tail: StagesTuple<CT, E, R, S, Z> + HasConstLen + IntoVec<Box<dyn Stage<CT, E, R, S, Z>>>,
 {
-    fn into_vec_reversed(self) -> Vec<Box<dyn Stage<E, EM, S, Z>>> {
+    fn into_vec_reversed(self) -> Vec<Box<dyn Stage<CT, E, R, S, Z>>> {
         let (head, tail) = self.uncons();
         let mut ret = tail.0.into_vec_reversed();
         ret.push(Box::new(head));
         ret
     }
 
-    fn into_vec(self) -> Vec<Box<dyn Stage<E, EM, S, Z>>> {
+    fn into_vec(self) -> Vec<Box<dyn Stage<CT, E, R, S, Z>>> {
         let mut ret = self.into_vec_reversed();
         ret.reverse();
         ret
     }
 }
 
-impl<Tail, E, EM, S, Z> IntoVec<Box<dyn Stage<E, EM, S, Z>>> for (Tail,)
+impl<Tail, CT, E, R, S, Z> IntoVec<Box<dyn Stage<CT, E, R, S, Z>>> for (Tail,)
 where
-    Tail: IntoVec<Box<dyn Stage<E, EM, S, Z>>>,
+    Tail: IntoVec<Box<dyn Stage<CT, E, R, S, Z>>>,
 {
-    fn into_vec(self) -> Vec<Box<dyn Stage<E, EM, S, Z>>> {
+    fn into_vec(self) -> Vec<Box<dyn Stage<CT, E, R, S, Z>>> {
         self.0.into_vec()
     }
 }
 
-impl<E, EM, S, Z> IntoVec<Box<dyn Stage<E, EM, S, Z>>> for Vec<Box<dyn Stage<E, EM, S, Z>>> {
-    fn into_vec(self) -> Vec<Box<dyn Stage<E, EM, S, Z>>> {
+impl<CT, E, R, S, Z> IntoVec<Box<dyn Stage<CT, E, R, S, Z>>>
+    for Vec<Box<dyn Stage<CT, E, R, S, Z>>>
+{
+    fn into_vec(self) -> Vec<Box<dyn Stage<CT, E, R, S, Z>>> {
         self
     }
 }
 
-impl<CT, E, S, Z> DependencyResolver for Vec<Box<dyn Stage<CT, E, S, Z>>> {
+impl<CT, E, R, S, Z> DependencyResolver for Vec<Box<dyn Stage<CT, E, R, S, Z>>> {
     fn register(&mut self, registrator: &mut crate::Registrator) -> Result<(), Error> {
         for st in self {
             st.register(registrator)?;
@@ -282,7 +295,7 @@ impl<CT, E, S, Z> DependencyResolver for Vec<Box<dyn Stage<CT, E, S, Z>>> {
     }
 }
 
-impl<CT, E, S, Z> StagesTuple<CT, E, S, Z> for Vec<Box<dyn Stage<CT, E, S, Z>>> {
+impl<CT, E, R, S, Z> StagesTuple<CT, E, R, S, Z> for Vec<Box<dyn Stage<CT, E, R, S, Z>>> {
     /// Performs all stages in the `Vec`
     /// Checks after every stage if state wants to stop
     /// and returns an [`Error::ShuttingDown`] if so
@@ -290,11 +303,14 @@ impl<CT, E, S, Z> StagesTuple<CT, E, S, Z> for Vec<Box<dyn Stage<CT, E, S, Z>>> 
         &mut self,
         fuzzer: &mut Z,
         executor: &mut E,
+        rand: &mut R,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<CT, S>,
+        testcase_id: &TestcaseId,
     ) -> Result<(), Error> {
-        self.iter_mut()
-            .try_for_each(|stage| stage.perform(fuzzer, executor, state, rt_handle))
+        self.iter_mut().try_for_each(|stage| {
+            stage.perform(fuzzer, executor, rand, state, rt_handle, testcase_id)
+        })
     }
 }
 

@@ -78,17 +78,17 @@ pub trait Corpus<I>: HasScheduler + Sized + DependencyResolver {
     fn add_shared<const ENABLED: bool>(&mut self, input: Rc<I>) -> Result<TestcaseId, Error>;
 
     /// Get testcase by id; considers only enabled testcases
-    fn get(&self, id: TestcaseId) -> Result<Testcase<I>, Error> {
+    fn get(&self, id: &TestcaseId) -> Result<Testcase<I>, Error> {
         Self::get_from::<true>(self, id)
     }
 
     /// Get testcase by id, looking at the enabled and disabled stores.
-    fn get_from_all(&self, id: TestcaseId) -> Result<Testcase<I>, Error> {
+    fn get_from_all(&self, id: &TestcaseId) -> Result<Testcase<I>, Error> {
         Self::get_from::<false>(self, id)
     }
 
     /// Get testcase by id
-    fn get_from<const ENABLED: bool>(&self, id: TestcaseId) -> Result<Testcase<I>, Error>;
+    fn get_from<const ENABLED: bool>(&self, id: &TestcaseId) -> Result<Testcase<I>, Error>;
 
     fn context(&self) -> &Self::Context;
 

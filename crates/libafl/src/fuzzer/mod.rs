@@ -82,7 +82,7 @@ pub trait Evaluator<CT, E, I, S> {
 }
 
 /// The main fuzzer trait.
-pub trait Fuzzer<CT, E, I, S, ST> {
+pub trait Fuzzer<CT, E, I, R, S, ST> {
     fn init(
         &mut self,
         stages: &mut ST,
@@ -100,6 +100,7 @@ pub trait Fuzzer<CT, E, I, S, ST> {
         &mut self,
         stages: &mut ST,
         executor: &mut E,
+        rand: &mut R,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<CT, S>,
     ) -> Result<(), Error>;
@@ -109,6 +110,7 @@ pub trait Fuzzer<CT, E, I, S, ST> {
         &mut self,
         stages: &mut ST,
         executor: &mut E,
+        rand: &mut R,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<CT, S>,
     ) -> Result<(), Error>;
@@ -122,6 +124,7 @@ pub trait Fuzzer<CT, E, I, S, ST> {
         &mut self,
         stages: &mut ST,
         executor: &mut E,
+        rand: &mut R,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<CT, S>,
         iters: u64,
@@ -184,7 +187,7 @@ impl Default for NopFuzzer {
     }
 }
 
-impl<CT, E, I, S, ST> Fuzzer<CT, E, I, S, ST> for NopFuzzer {
+impl<CT, E, I, R, S, ST> Fuzzer<CT, E, I, R, S, ST> for NopFuzzer {
     fn init(
         &mut self,
         _stages: &mut ST,
@@ -199,6 +202,7 @@ impl<CT, E, I, S, ST> Fuzzer<CT, E, I, S, ST> for NopFuzzer {
         &mut self,
         _stages: &mut ST,
         _executor: &mut E,
+        _rand: &mut R,
         _state: &mut S,
         _rt_handle: &mut RuntimeHandle<CT, S>,
     ) -> Result<(), Error> {
@@ -209,6 +213,7 @@ impl<CT, E, I, S, ST> Fuzzer<CT, E, I, S, ST> for NopFuzzer {
         &mut self,
         _stages: &mut ST,
         _executor: &mut E,
+        _rand: &mut R,
         _state: &mut S,
         _rt_handle: &mut RuntimeHandle<CT, S>,
     ) -> Result<(), Error> {
@@ -219,6 +224,7 @@ impl<CT, E, I, S, ST> Fuzzer<CT, E, I, S, ST> for NopFuzzer {
         &mut self,
         _stages: &mut ST,
         _executor: &mut E,
+        _rand: &mut R,
         _state: &mut S,
         _rt_handle: &mut RuntimeHandle<CT, S>,
         _iters: u64,
