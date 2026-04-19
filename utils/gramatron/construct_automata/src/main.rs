@@ -1,8 +1,4 @@
 use alloc::{collections::VecDeque, rc::Rc};
-use clap::Parser;
-use libafl::generators::gramatron::{Automaton, Trigger};
-use regex::Regex;
-use serde_json::Value;
 use std::{
     collections::HashSet,
     fs,
@@ -10,6 +6,11 @@ use std::{
     path::{Path, PathBuf},
     sync::OnceLock,
 };
+
+use clap::Parser;
+use libafl::generators::gramatron::{Automaton, Trigger};
+use regex::Regex;
+use serde_json::Value;
 
 extern crate alloc;
 

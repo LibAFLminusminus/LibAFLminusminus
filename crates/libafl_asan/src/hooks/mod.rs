@@ -4,6 +4,12 @@
 //! the standard C library which are used by applications. These functions are
 //! are modified to provide the additional memory safety checks provided by
 //! `asan`.
+
+use alloc::vec::{IntoIter, Vec};
+use core::ffi::{CStr, c_char, c_int, c_void};
+
+use crate::{GuestAddr, hooks, size_t, symbols::Symbols, wchar_t};
+
 pub mod aligned_alloc;
 pub mod atoi;
 pub mod atol;
@@ -12,6 +18,8 @@ pub mod bcmp;
 pub mod bzero;
 pub mod calloc;
 pub mod explicit_bzero;
+#[cfg(feature = "libc")]
+pub mod fgets;
 pub mod free;
 pub mod malloc;
 pub mod malloc_usable_size;
@@ -61,14 +69,6 @@ pub mod wcsnlen;
 pub mod wcsrchr;
 pub mod wmemchr;
 pub mod write;
-
-#[cfg(feature = "libc")]
-pub mod fgets;
-
-use alloc::vec::{IntoIter, Vec};
-use core::ffi::{CStr, c_char, c_int, c_void};
-
-use crate::{GuestAddr, hooks, size_t, symbols::Symbols, wchar_t};
 
 unsafe extern "C" {
     pub fn asprintf(strp: *mut *mut c_char, fmt: *const c_char, ...) -> c_int;

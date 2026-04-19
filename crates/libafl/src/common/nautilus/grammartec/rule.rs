@@ -431,9 +431,10 @@ impl Rule {
 }
 
 mod hir_serde {
+    use std::string::{String, ToString};
+
     use regex_syntax::{Parser, hir::Hir};
     use serde::{Deserialize, Deserializer, Serializer, de};
-    use std::string::{String, ToString};
 
     pub fn serialize<S>(hir: &Hir, serializer: S) -> Result<S::Ok, S::Error>
     where

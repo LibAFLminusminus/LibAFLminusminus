@@ -40,6 +40,10 @@ pub mod nautilus;
 #[cfg(feature = "nautilus")]
 pub use nautilus::*;
 
+/// A wrapper type that allows us to use mutators for Mutators for `&mut `[`Vec`].
+#[deprecated(since = "0.15.0", note = "Use &mut Vec<u8> directly")]
+pub type MutVecInput<'a> = &'a mut Vec<u8>;
+
 /// An input for the target
 #[cfg(feature = "std")]
 pub trait Input: Clone + Serialize + serde::de::DeserializeOwned + Debug + Hash {
@@ -65,39 +69,6 @@ pub trait Input: Clone + Serialize + serde::de::DeserializeOwned + Debug + Hash 
     /// Generate a name for this input, the user is responsible for making each name of testcase unique.
     fn generate_name(&self) -> String {
         format!("{:016x}", generic_hash_std(self))
-    }
-}
-
-pub trait InputContext<I> {
-    fn to_bytes<'a>(&mut self, input: &'a I) -> OwnedSlice<'a, u8>;
-}
-
-#[derive(Default, Clone, Serialize, Deserialize)]
-pub struct NopContext;
-
-impl InputContext<NopInput> for NopContext {
-    fn to_bytes<'a>(&mut self, _input: &'a NopInput) -> OwnedSlice<'a, u8> {
-        OwnedSlice::from(vec![])
-    }
-}
-
-/// An input for tests, mainly. There is no real use much else.
-#[derive(Clone, Serialize, Deserialize, Debug, Default, Hash)]
-pub struct NopInput;
-
-impl NopInput {
-    /// Creates a new [`NopInput`]
-    #[must_use]
-    pub fn new() -> Self {
-        Self
-    }
-}
-
-impl Input for NopInput {}
-
-impl HasLen for NopInput {
-    fn len(&self) -> usize {
-        0
     }
 }
 
@@ -134,30 +105,6 @@ pub trait HasMutatorBytes: HasLen {
     }
 }
 
-impl HasMutatorBytes for Vec<u8> {
-    fn mutator_bytes(&self) -> &[u8] {
-        self.as_ref()
-    }
-
-    fn mutator_bytes_mut(&mut self) -> &mut [u8] {
-        self.as_mut()
-    }
-}
-
-/// A wrapper type that allows us to use mutators for Mutators for `&mut `[`Vec`].
-#[deprecated(since = "0.15.0", note = "Use &mut Vec<u8> directly")]
-pub type MutVecInput<'a> = &'a mut Vec<u8>;
-
-impl HasMutatorBytes for &'_ mut Vec<u8> {
-    fn mutator_bytes(&self) -> &[u8] {
-        self
-    }
-
-    fn mutator_bytes_mut(&mut self) -> &mut [u8] {
-        self
-    }
-}
-
 /// Contains resizable bytes
 pub trait ResizableMutator<T> {
     /// Resize the mutator content to a given new size.
@@ -180,6 +127,59 @@ pub trait ResizableMutator<T> {
     fn drain<R>(&mut self, range: R) -> Drain<'_, T>
     where
         R: RangeBounds<usize>;
+}
+
+pub trait InputContext<I> {
+    fn to_bytes<'a>(&mut self, input: &'a I) -> OwnedSlice<'a, u8>;
+}
+
+#[derive(Default, Clone, Serialize, Deserialize)]
+pub struct NopContext;
+
+/// An input for tests, mainly. There is no real use much else.
+#[derive(Clone, Serialize, Deserialize, Debug, Default, Hash)]
+pub struct NopInput;
+
+impl InputContext<NopInput> for NopContext {
+    fn to_bytes<'a>(&mut self, _input: &'a NopInput) -> OwnedSlice<'a, u8> {
+        OwnedSlice::from(vec![])
+    }
+}
+
+impl NopInput {
+    /// Creates a new [`NopInput`]
+    #[must_use]
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl Input for NopInput {}
+
+impl HasLen for NopInput {
+    fn len(&self) -> usize {
+        0
+    }
+}
+
+impl HasMutatorBytes for Vec<u8> {
+    fn mutator_bytes(&self) -> &[u8] {
+        self.as_ref()
+    }
+
+    fn mutator_bytes_mut(&mut self) -> &mut [u8] {
+        self.as_mut()
+    }
+}
+
+impl HasMutatorBytes for &'_ mut Vec<u8> {
+    fn mutator_bytes(&self) -> &[u8] {
+        self
+    }
+
+    fn mutator_bytes_mut(&mut self) -> &mut [u8] {
+        self
+    }
 }
 
 impl<T> ResizableMutator<T> for Vec<T>
@@ -237,8 +237,9 @@ impl ResizableMutator<u8> for &mut Vec<u8> {
 
 #[cfg(test)]
 mod tests {
-    use crate::inputs::{BytesInput, InputContext, bytes::BytesContext};
     use libafl_bolts::AsSlice;
+
+    use crate::inputs::{BytesInput, InputContext, bytes::BytesContext};
 
     #[test]
     fn test_from_target_bytes() {

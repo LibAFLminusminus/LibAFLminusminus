@@ -4,10 +4,10 @@ use alloc::{
     vec::Vec,
 };
 use core::fmt::Debug;
-use serde::{Deserialize, Serialize};
 use std::{fs, io::BufReader, path::Path};
 
 use libafl_bolts::{ownedref::OwnedSlice, rands::Rand};
+use serde::{Deserialize, Serialize};
 
 pub use crate::common::nautilus::grammartec::newtypes::NTermId;
 #[cfg(feature = "nautilus_py")]

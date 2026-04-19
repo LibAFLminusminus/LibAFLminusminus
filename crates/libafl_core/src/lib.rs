@@ -706,7 +706,6 @@ pub trait HasRefCnt {
 }
 
 pub use nonzero_macros;
-
 #[doc(inline)]
 pub use nonzero_macros::{non_zero, non_zero_const, nonnull_raw_mut, try_non_zero};
 

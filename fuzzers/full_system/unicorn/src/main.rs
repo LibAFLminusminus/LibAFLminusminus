@@ -30,8 +30,7 @@ use libafl_bolts::{
     tuples::tuple_list,
     AsSlice, AsSliceMut,
 };
-use libafl_targets::EDGES_MAP_DEFAULT_SIZE;
-pub use libafl_targets::EDGES_MAP_PTR;
+use libafl_targets::{EDGES_MAP_DEFAULT_SIZE, EDGES_MAP_PTR};
 #[cfg(feature = "code_hook")]
 use libafl_unicorn::helper::get_stack_pointer;
 use libafl_unicorn::{

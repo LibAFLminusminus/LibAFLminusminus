@@ -4,36 +4,41 @@
 use alloc::vec::Vec;
 use alloc::{boxed::Box, string::String};
 use core::{any::type_name, fmt::Debug, marker::PhantomData, time::Duration};
-use std::{collections::HashMap, string::ToString};
 use std::{
+    collections::HashMap,
     fs,
     path::{Path, PathBuf},
+    string::ToString,
 };
+use std::{collections::HashMap, string::ToString};
 
 use libafl_bolts::{
     rands::{Rand, StdRand},
     serdeany::{NamedSerdeAnyMap, SerdeAny, SerdeAnyMap},
 };
+#[cfg(debug_assertions)]
+use libafl_core::non_zero;
+#[cfg(not(debug_assertions))]
+use libafl_core::nonzero_macros::non_zero_unchecked;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use typed_builder::TypedBuilder;
 
-use crate::corpus::Scheduler;
-use crate::dependency::{DependencyResolver, Registrator};
-use crate::fuzzer::Evaluator;
 #[cfg(not(feature = "remove_me"))]
 use crate::fuzzer::ExecuteInputResult;
 use crate::generators::Generator;
-use crate::inputs::NopContext;
 #[cfg(feature = "introspection")]
 use crate::monitors::stats::ClientPerfStats;
-use crate::runtimes::RuntimeHandle;
 use crate::{
     Error,
     corpus::{
-        Corpus, InMemoryCorpus, Testcase, TestcaseFilenameFormat, schedulers::NopScheduler,
-        testcase::TestcaseId,
+        Corpus, InMemoryCorpus, Scheduler, Testcase, TestcaseFilenameFormat,
+        schedulers::NopScheduler, testcase::TestcaseId,
     },
-    inputs::{Input, NopInput},
+    dependency::{DependencyResolver, Registrator},
+    fuzzer::Evaluator,
+    generators::Generator,
+    inputs::{Input, NopContext, NopInput},
+    runtimes::RuntimeHandle,
 };
 
 pub trait FlatState {
@@ -102,7 +107,6 @@ pub trait HasScheduler {
     fn scheduler(&self) -> &Self::Scheduler;
     fn scheduler_mut(&mut self) -> &mut Self::Scheduler;
 }
-
 
 pub trait HasTestcase<I> {
     fn testcase_md<'a>(&'a self, tc: &Testcase<I>) -> Option<&'a TestcaseMetadata>;
@@ -1305,12 +1309,13 @@ where
     }
 }
 
-impl StdState<
-    InMemoryCorpus<NopContext, NopInput, NopScheduler>,
-    NopInput,
-    InMemoryCorpus<NopContext, NopInput, NopScheduler>,
-    NopScheduler,
->
+impl
+    StdState<
+        InMemoryCorpus<NopContext, NopInput, NopScheduler>,
+        NopInput,
+        InMemoryCorpus<NopContext, NopInput, NopScheduler>,
+        NopScheduler,
+    >
 {
     /// Create an empty [`StdState`] that has very minimal uses.
     /// Potentially good for testing.

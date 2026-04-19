@@ -24,11 +24,18 @@ Original code by @eqv, see <https://github.com/eqv/loaded_dice>
 
 use alloc::{vec, vec::Vec};
 use core::fmt::{self, Debug, Formatter};
-
 use super::Rand;
 
 /// An illegal argument got passed to a function.
 pub struct IllegalArgumentError;
+
+/// Helper struct for [`LoadedDiceSampler`]
+#[derive(Debug, Clone, PartialEq)]
+struct AliasEntry {
+    val: usize,
+    alias: usize,
+    prob_of_val: f64,
+}
 
 impl Debug for IllegalArgumentError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -37,14 +44,6 @@ impl Debug for IllegalArgumentError {
             "LoadedDiceError(Tried to construct LoadedDiceSampler with empty probs array)"
         )
     }
-}
-
-/// Helper struct for [`LoadedDiceSampler`]
-#[derive(Debug, Clone, PartialEq)]
-struct AliasEntry {
-    val: usize,
-    alias: usize,
-    prob_of_val: f64,
 }
 
 impl AliasEntry {

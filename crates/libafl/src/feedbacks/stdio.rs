@@ -24,14 +24,27 @@ pub struct StdOutMetadata {
     stdout: HashMap<TestcaseId, String>,
 }
 
-impl_serdeany!(StdOutMetadata);
-
 /// Nop feedback that annotates stdout in the new testcase. The testcase
 /// is never interesting (use with an OR).
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct StdOutToMetadataFeedback {
     o_ref: Handle<StdOutObserver>,
 }
+
+/// Metadata for [`StdErrToMetadataFeedback`].
+#[derive(Debug, Serialize, Deserialize)]
+pub struct StdErrMetadata {
+    stderr: HashMap<TestcaseId, String>,
+}
+
+/// Nop feedback that annotates stderr in the new testcase. The testcase
+/// is never interesting (use with an OR).
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct StdErrToMetadataFeedback {
+    o_ref: Handle<StdErrObserver>,
+}
+
+impl_serdeany!(StdOutMetadata);
 
 impl DependencyResolver for StdOutToMetadataFeedback {}
 
@@ -88,20 +101,7 @@ impl StdOutToMetadataFeedback {
     }
 }
 
-/// Metadata for [`StdErrToMetadataFeedback`].
-#[derive(Debug, Serialize, Deserialize)]
-pub struct StdErrMetadata {
-    stderr: HashMap<TestcaseId, String>,
-}
-
 impl_serdeany!(StdErrMetadata);
-
-/// Nop feedback that annotates stderr in the new testcase. The testcase
-/// is never interesting (use with an OR).
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct StdErrToMetadataFeedback {
-    o_ref: Handle<StdErrObserver>,
-}
 
 impl DependencyResolver for StdErrToMetadataFeedback {}
 

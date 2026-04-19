@@ -90,6 +90,16 @@ use lints::run_file_lints;
 
 const REF_LLVM_VERSION: u32 = 20;
 
+#[derive(Parser)]
+struct Cli {
+    #[arg(short, long)]
+    check: bool,
+    #[arg(short, long)]
+    generate_lockfiles: bool,
+    #[arg(short, long)]
+    verbose: bool,
+}
+
 fn is_workspace_toml(path: &Path) -> bool {
     for line in read_to_string(path).unwrap().lines() {
         if line.eq("[workspace]") {
@@ -177,7 +187,10 @@ async fn run_cargo_fmt(cargo_file_path: PathBuf, is_check: bool, verbose: bool) 
 
     let mut fmt_command = Command::new("cargo");
 
+    // Use nightly rustfmt so unstable rustfmt.toml features (e.g.
+    // `imports_granularity = "Crate"`) actually take effect.
     fmt_command
+        .arg("+nightly")
         .arg("fmt")
         .arg("--manifest-path")
         .arg(cargo_file_path.as_path());
@@ -262,16 +275,6 @@ pub fn parse_llvm_fmt_version(fmt_str: &str) -> Option<(u32, u32, u32)> {
     ))
 }
 
-#[derive(Parser)]
-struct Cli {
-    #[arg(short, long)]
-    check: bool,
-    #[arg(short, long)]
-    generate_lockfiles: bool,
-    #[arg(short, long)]
-    verbose: bool,
-}
-
 #[tokio::main]
 async fn main() -> io::Result<()> {
     let cli = Cli::parse();
@@ -338,7 +341,10 @@ async fn main() -> io::Result<()> {
     println!("Using {}", get_version_string("cargo", &[]).await?);
 
     // rustfmt version
-    println!("Using {}", get_version_string("cargo", &["fmt"]).await?);
+    println!(
+        "Using {}",
+        get_version_string("cargo", &["+nightly", "fmt"]).await?
+    );
 
     let mut tokio_joinset = JoinSet::new();
 

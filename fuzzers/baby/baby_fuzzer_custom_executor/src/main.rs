@@ -1,3 +1,5 @@
+use std::{marker::PhantomData, path::PathBuf, ptr::write};
+
 #[cfg(feature = "bloom_input_filter")]
 use libafl::fuzzer::{BloomInputFilter, ReportingInputFilter};
 #[cfg(feature = "tui")]
@@ -22,7 +24,6 @@ use libafl::{
 use libafl_bolts::{
     current_nanos, nonnull_raw_mut, nonzero, rands::StdRand, tuples::tuple_list, AsSlice,
 };
-use std::{marker::PhantomData, path::PathBuf, ptr::write};
 
 /// Coverage map with explicit assignments due to the lack of instrumentation
 const SIGNALS_LEN: usize = 16;

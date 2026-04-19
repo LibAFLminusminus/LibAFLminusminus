@@ -5,7 +5,11 @@ use core::{cmp::max, marker::PhantomData, num::NonZeroUsize};
 
 use libafl_bolts::rands::Rand;
 
+<<<<<<< HEAD
 use crate::{Error, inputs::bytes::BytesInput, non_zero};
+=======
+use crate::{Error, inputs::bytes::BytesInput, non_zero, state::HasRand};
+>>>>>>> 537296b5 (continue the linting)
 
 #[cfg(feature = "nautilus")]
 pub mod nautilus;
@@ -44,8 +48,8 @@ pub struct RandBytesGenerator {
     max_size: NonZeroUsize,
 }
 
-impl<R, S> Generator<BytesInput, R, S> for RandBytesGenerator 
-where 
+impl<R, S> Generator<BytesInput, R, S> for RandBytesGenerator
+where
     R: Rand,
 {
     fn generate(&mut self, rand: &mut R, _state: &S) -> Result<BytesInput, Error> {

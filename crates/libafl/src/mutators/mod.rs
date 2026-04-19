@@ -2,7 +2,6 @@
 //!
 //! These can be used standalone or in combination with other mutators to explore the input space more effectively.
 //! You can read more about mutators in the [LibAFL book](https://aflplus.plus/libafl-book/core_concepts/mutator.html)
-use crate::{Error, corpus::TestcaseId};
 use alloc::{borrow::Cow, boxed::Box, vec::Vec};
 use core::fmt;
 use libafl_bolts::{HasLen, Named, rands::Rand, tuples::IntoVec};
@@ -131,7 +130,12 @@ pub trait MultiMutator<I, R: Rand, S>: Named {
 /// A `Tuple` of [`Mutator`]`s` that can execute multiple `Mutators` in a row.
 pub trait MutatorsTuple<I, R, S>: HasLen {
     /// Runs the [`Mutator::mutate`] function on all [`Mutator`]`s` in this `Tuple`.
-    fn mutate_all(&mut self, input: &mut I, rand: &mut R, state: &mut S) -> Result<MutationResult, Error>;
+    fn mutate_all(
+        &mut self,
+        input: &mut I,
+        rand: &mut R,
+        state: &mut S,
+    ) -> Result<MutationResult, Error>;
 
     /// Runs the [`Mutator::post_exec`] function on all [`Mutator`]`s` in this `Tuple`.
     /// `new_testcase_id` will be `Some` if a new `Testcase` was created this execution.
@@ -162,7 +166,12 @@ pub trait MutatorsTuple<I, R, S>: HasLen {
 
 impl<I, R: Rand, S> MutatorsTuple<I, R, S> for () {
     #[inline]
-    fn mutate_all(&mut self, _input: &mut I, _rand: &mut R, _state: &mut S) -> Result<MutationResult, Error> {
+    fn mutate_all(
+        &mut self,
+        _input: &mut I,
+        _rand: &mut R,
+        _state: &mut S,
+    ) -> Result<MutationResult, Error> {
         Ok(MutationResult::Skipped)
     }
 
@@ -202,7 +211,12 @@ where
     Head: Mutator<I, R, S>,
     Tail: MutatorsTuple<I, R, S>,
 {
-    fn mutate_all(&mut self, input: &mut I, rand: &mut R, state: &mut S) -> Result<MutationResult, Error> {
+    fn mutate_all(
+        &mut self,
+        input: &mut I,
+        rand: &mut R,
+        state: &mut S,
+    ) -> Result<MutationResult, Error> {
         let r = self.0.mutate(input, rand, state)?;
         if self.1.mutate_all(input, rand, state)? == MutationResult::Mutated {
             Ok(MutationResult::Mutated)
@@ -230,7 +244,8 @@ where
         if index.0 == 0 {
             self.0.mutate(input, rand, state)
         } else {
-            self.1.get_and_mutate((index.0 - 1).into(), input, rand, state)
+            self.1
+                .get_and_mutate((index.0 - 1).into(), input, rand, state)
         }
     }
 
@@ -271,7 +286,12 @@ impl<Tail, I, R: Rand, S> MutatorsTuple<I, R, S> for (Tail,)
 where
     Tail: MutatorsTuple<I, R, S>,
 {
-    fn mutate_all(&mut self, input: &mut I, rand: &mut R, state: &mut S) -> Result<MutationResult, Error> {
+    fn mutate_all(
+        &mut self,
+        input: &mut I,
+        rand: &mut R,
+        state: &mut S,
+    ) -> Result<MutationResult, Error> {
         self.0.mutate_all(input, rand, state)
     }
 
@@ -313,7 +333,12 @@ where
 }
 
 impl<I, R: Rand, S> MutatorsTuple<I, R, S> for Vec<Box<dyn Mutator<I, R, S>>> {
-    fn mutate_all(&mut self, input: &mut I, rand: &mut R, state: &mut S) -> Result<MutationResult, Error> {
+    fn mutate_all(
+        &mut self,
+        input: &mut I,
+        rand: &mut R,
+        state: &mut S,
+    ) -> Result<MutationResult, Error> {
         self.iter_mut()
             .try_fold(MutationResult::Skipped, |ret, mutator| {
                 if mutator.mutate(input, rand, state)? == MutationResult::Mutated {
@@ -388,7 +413,12 @@ impl NopMutator {
 }
 
 impl<I, R: Rand, S> Mutator<I, R, S> for NopMutator {
-    fn mutate(&mut self, _input: &mut I, _rand: &mut R, state: &S) -> Result<MutationResult, Error> {
+    fn mutate(
+        &mut self,
+        _input: &mut I,
+        _rand: &mut R,
+        state: &S,
+    ) -> Result<MutationResult, Error> {
         Ok(self.result)
     }
     #[inline]
@@ -414,7 +444,12 @@ impl Named for NopMutator {
 pub struct BoolInvertMutator;
 
 impl<R: Rand, S> Mutator<bool, R, S> for BoolInvertMutator {
-    fn mutate(&mut self, input: &mut bool, _rand: &mut R, state: &S) -> Result<MutationResult, Error> {
+    fn mutate(
+        &mut self,
+        input: &mut bool,
+        _rand: &mut R,
+        state: &S,
+    ) -> Result<MutationResult, Error> {
         *input = !*input;
         Ok(MutationResult::Mutated)
     }

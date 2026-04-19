@@ -8,6 +8,11 @@ use libafl_bolts::core_affinity::Cores;
 
 use crate::Opt;
 
+const AFL_MAP_SIZE_MIN: usize = usize::pow(2, 3);
+const AFL_MAP_SIZE_MAX: usize = usize::pow(2, 30);
+const AFL_DEFAULT_FOREIGN_SYNC_INTERVAL: u64 = 20 * 60;
+pub const AFL_DEFAULT_MAP_SIZE: usize = 65536;
+
 pub fn parse_envs(opt: &mut Opt) -> Result<(), Error> {
     if let Ok(res) = std::env::var("AFL_CORES") {
         opt.cores = Some(Cores::from_cmdline(&res)?);
@@ -158,8 +163,3 @@ fn validate_map_size(map_size: usize) -> Result<usize, Error> {
         )))
     }
 }
-
-const AFL_MAP_SIZE_MIN: usize = usize::pow(2, 3);
-const AFL_MAP_SIZE_MAX: usize = usize::pow(2, 30);
-const AFL_DEFAULT_FOREIGN_SYNC_INTERVAL: u64 = 20 * 60;
-pub const AFL_DEFAULT_MAP_SIZE: usize = 65536;

@@ -1,12 +1,14 @@
-use crate::{
-    GuestAddr, asan_panic, asan_store, asan_swap, asan_sym, size_t, ssize_t,
-    symbols::{AtomicGuestAddr, Function, FunctionPointer},
-};
 use core::ffi::{CStr, c_char, c_long};
+
 #[cfg(not(target_os = "macos"))]
 use libc::SYS_read;
 use libc::{c_int, c_void};
 use log::trace;
+
+use crate::{
+    GuestAddr, asan_panic, asan_store, asan_swap, asan_sym, size_t, ssize_t,
+    symbols::{AtomicGuestAddr, Function, FunctionPointer},
+};
 
 #[cfg(target_os = "macos")]
 #[expect(non_upper_case_globals)]

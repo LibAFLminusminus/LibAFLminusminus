@@ -6,6 +6,7 @@
 use alloc::ffi::CString;
 #[cfg(not(any(windows)))]
 use core::panic::PanicInfo;
+
 use libafl::{
     corpus::InMemoryCorpus,
     events::SimpleEventManager,

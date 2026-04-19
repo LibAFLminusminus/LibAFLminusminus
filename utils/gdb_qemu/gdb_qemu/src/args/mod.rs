@@ -1,6 +1,8 @@
-use crate::args::{level::Level, version::Version};
-use clap::Parser;
 use std::iter;
+
+use clap::Parser;
+
+use crate::args::{level::Level, version::Version};
 
 mod version;
 

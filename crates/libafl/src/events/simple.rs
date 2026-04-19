@@ -38,6 +38,15 @@ const _ENV_FUZZER_RECEIVER: &str = "_AFL_ENV_FUZZER_RECEIVER";
 /// The llmp (2 way) connection from a fuzzer to the broker (broadcasting all other fuzzer messages)
 const _ENV_FUZZER_BROKER_CLIENT_INITIAL: &str = "_AFL_ENV_FUZZER_BROKER_CLIENT";
 
+/// Provides a `builder` which can be used to build a [`SimpleRestartingEventManager`].
+///
+/// The [`SimpleRestartingEventManager`] is a combination of a
+/// `restarter` and `runner`, that can be used on systems both with and without `fork` support. The
+/// `restarter` will start a new process each time the child crashes or times out.
+#[cfg(feature = "std")]
+pub type SimpleRestartingEventManager<I, MT, S, SP> =
+    crate::events::RestartingEventManager<SimpleEventManager<I, MT, S>, SP>;
+
 /// A simple, single-threaded event manager that just logs
 pub struct SimpleEventManager<I, MT, S> {
     /// The monitor
@@ -270,15 +279,6 @@ where
         }
     }
 }
-
-/// Provides a `builder` which can be used to build a [`SimpleRestartingEventManager`].
-///
-/// The [`SimpleRestartingEventManager`] is a combination of a
-/// `restarter` and `runner`, that can be used on systems both with and without `fork` support. The
-/// `restarter` will start a new process each time the child crashes or times out.
-#[cfg(feature = "std")]
-pub type SimpleRestartingEventManager<I, MT, S, SP> =
-    crate::events::RestartingEventManager<SimpleEventManager<I, MT, S>, SP>;
 
 #[cfg(feature = "std")]
 impl<I, MT, S, SP> crate::events::Restorable<S, SP> for SimpleEventManager<I, MT, S>

@@ -3,6 +3,7 @@
 //! Reads and parses the redqueen results written by QEMU-Nyx and adds them to the state as `CmpValuesMetadata`.
 
 use alloc::borrow::Cow;
+
 use libafl::{
     Error, HasMetadata,
     executors::ExitKind,

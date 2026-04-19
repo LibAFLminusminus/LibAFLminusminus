@@ -1,9 +1,11 @@
 //! A binary-only testcase minimizer using qemu, similar to AFL++ afl-tmin
 
-use clap::{builder::Str, Parser};
 #[cfg(feature = "i386")]
 use core::mem::size_of;
 use core::{str::from_utf8, time::Duration};
+use std::{env, fmt::Write, io, path::PathBuf, process, ptr::NonNull};
+
+use clap::{builder::Str, Parser};
 use libafl::{
     corpus::{Corpus, CorpusId, HasCurrentCorpusId, InMemoryCorpus, InMemoryOnDiskCorpus},
     events::{
@@ -40,7 +42,6 @@ use libafl_qemu::{
 #[cfg(feature = "snapshot")]
 use libafl_qemu::{modules::SnapshotModule, QemuExecutor};
 use libafl_targets::{EDGES_MAP_DEFAULT_SIZE, EDGES_MAP_PTR};
-use std::{env, fmt::Write, io, path::PathBuf, process, ptr::NonNull};
 
 pub const MAX_INPUT_SIZE: usize = 1048576; // 1MB
 

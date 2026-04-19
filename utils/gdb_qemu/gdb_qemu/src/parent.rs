@@ -1,6 +1,3 @@
-use crate::{args::ParentArgs, exit::Exit};
-use anyhow::{Result, anyhow};
-use nix::unistd::read;
 use std::{
     fmt,
     io::{Read, Write},
@@ -9,6 +6,11 @@ use std::{
     thread::spawn,
     time::{Duration, SystemTime},
 };
+
+use anyhow::{Result, anyhow};
+use nix::unistd::read;
+
+use crate::{args::ParentArgs, exit::Exit};
 
 enum Direction {
     GdbToTarget,

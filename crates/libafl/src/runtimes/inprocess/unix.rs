@@ -1,12 +1,12 @@
 use alloc::{boxed::Box, vec::Vec};
 use core::pin::Pin;
-use libafl_core::Error;
 use std::{io::Write, panic};
 
 use libafl_bolts::os::{
     SIGNAL_RECURSION_EXIT,
     unix_signals::{Signal, SignalHandler, setup_signal_handler, ucontext_t},
 };
+use libafl_core::Error;
 use libc::siginfo_t;
 
 use crate::{executors::common_signals, runtimes::inprocess::InProcessSignalHandler};

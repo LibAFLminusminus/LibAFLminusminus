@@ -19,6 +19,12 @@ pub struct HostShadow<H> {
     phantom: PhantomData<H>,
 }
 
+#[derive(Error, Debug, PartialEq)]
+pub enum HostShadowError<H: Host> {
+    #[error("Host error: {0:?}")]
+    HostError(H::Error),
+}
+
 impl<H: Host> Shadow for HostShadow<H> {
     type Error = HostShadowError<H>;
 
@@ -54,10 +60,4 @@ impl<H: Host> HostShadow<H> {
             phantom: PhantomData,
         })
     }
-}
-
-#[derive(Error, Debug, PartialEq)]
-pub enum HostShadowError<H: Host> {
-    #[error("Host error: {0:?}")]
-    HostError(H::Error),
 }

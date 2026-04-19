@@ -1,6 +1,16 @@
 //! A singlethreaded libfuzzer-like fuzzer that can auto-restart.
-use clap::{Arg, Command};
 use core::{cell::RefCell, time::Duration};
+#[cfg(unix)]
+use std::os::unix::io::{AsRawFd, FromRawFd};
+use std::{
+    env,
+    fs::{self, File, OpenOptions},
+    io::{self, Read, Write},
+    path::PathBuf,
+    process,
+};
+
+use clap::{Arg, Command};
 use libafl::{
     Error, HasMetadata,
     corpus::{Corpus, InMemoryOnDiskCorpus, OnDiskCorpus},
@@ -40,15 +50,6 @@ use libafl_targets::{
     CmpLogObserver, libfuzzer_initialize, libfuzzer_test_one_input, std_edges_map_observer,
 };
 use mimalloc::MiMalloc;
-#[cfg(unix)]
-use std::os::unix::io::{AsRawFd, FromRawFd};
-use std::{
-    env,
-    fs::{self, File, OpenOptions},
-    io::{self, Read, Write},
-    path::PathBuf,
-    process,
-};
 
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;

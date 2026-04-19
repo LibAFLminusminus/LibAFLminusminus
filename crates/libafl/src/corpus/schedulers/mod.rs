@@ -1,25 +1,25 @@
 //! Schedule the access to the Corpus.
 
 use alloc::borrow::ToOwned;
+use std::vec::Vec;
+
+use libafl_bolts::{
+    rands::{Rand, StdRand},
+    tuples::MatchName,
+};
 use libafl_core::non_zero;
 use serde::{Deserialize, Serialize};
-use std::vec::Vec;
+
+use crate::{
+    DependencyResolver, Error,
+    corpus::{Testcase, testcase::TestcaseId},
+};
 
 pub mod testcase_score;
 pub use testcase_score::{LenTimeMulTestcasePenalty, TestcasePenalty, TestcaseScore};
 
 pub mod queue;
 pub use queue::QueueScheduler;
-
-use libafl_bolts::{
-    rands::{Rand, StdRand},
-    tuples::MatchName,
-};
-
-use crate::{
-    DependencyResolver, Error,
-    corpus::{Testcase, testcase::TestcaseId},
-};
 
 /// The scheduler also implements `on_remove` and `on_replace` if it implements this stage.
 pub trait RemovableScheduler<I, S> {

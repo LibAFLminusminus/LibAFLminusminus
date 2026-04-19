@@ -21,6 +21,15 @@ pub mod guest;
 #[cfg(feature = "host")]
 pub mod host;
 
+pub trait Shadow: Sized + Debug + Send {
+    type Error: Debug;
+    fn load(&self, start: GuestAddr, len: usize) -> Result<(), Self::Error>;
+    fn store(&self, start: GuestAddr, len: usize) -> Result<(), Self::Error>;
+    fn poison(&mut self, start: GuestAddr, len: usize, val: PoisonType) -> Result<(), Self::Error>;
+    fn unpoison(&mut self, start: GuestAddr, len: usize) -> Result<(), Self::Error>;
+    fn is_poison(&self, start: GuestAddr, len: usize) -> Result<bool, Self::Error>;
+}
+
 #[repr(u8)]
 #[derive(Debug, Copy, Clone)]
 pub enum PoisonType {
@@ -45,13 +54,4 @@ pub enum PoisonType {
     AsanHeapLeftRz = 0xfa,
     AsanHeapRightRz = 0xfb,
     AsanHeapFreed = 0xfd,
-}
-
-pub trait Shadow: Sized + Debug + Send {
-    type Error: Debug;
-    fn load(&self, start: GuestAddr, len: usize) -> Result<(), Self::Error>;
-    fn store(&self, start: GuestAddr, len: usize) -> Result<(), Self::Error>;
-    fn poison(&mut self, start: GuestAddr, len: usize, val: PoisonType) -> Result<(), Self::Error>;
-    fn unpoison(&mut self, start: GuestAddr, len: usize) -> Result<(), Self::Error>;
-    fn is_poison(&self, start: GuestAddr, len: usize) -> Result<bool, Self::Error>;
 }

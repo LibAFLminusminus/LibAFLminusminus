@@ -14,8 +14,7 @@ use libafl::{
     non_zero,
     nop::NopController,
     observers::ConstMapObserver,
-    runtimes::Runtime,
-    runtimes::{RuntimeHandle, direct::DirectRuntime},
+    runtimes::{Runtime, RuntimeHandle, direct::DirectRuntime},
     state::StdState,
 };
 use libafl_bolts::{current_nanos, nonnull_raw_mut, rands::StdRand, tuples::tuple_list};

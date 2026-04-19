@@ -2,9 +2,6 @@
 use std::ptr::write_volatile;
 use std::{path::PathBuf, ptr::write};
 
-use input::{
-    CustomInput, CustomInputGenerator, ToggleBooleanMutator, ToggleOptionalByteArrayMutator,
-};
 #[cfg(feature = "simple_interface")]
 use libafl::mutators::{
     havoc_mutations::{mapped_havoc_mutations, optional_mapped_havoc_mutations},
@@ -39,6 +36,9 @@ use {
 };
 
 mod input;
+use input::{
+    CustomInput, CustomInputGenerator, ToggleBooleanMutator, ToggleOptionalByteArrayMutator,
+};
 
 /// Coverage map with explicit assignments due to the lack of instrumentation
 const SIGNALS_LEN: usize = 16;

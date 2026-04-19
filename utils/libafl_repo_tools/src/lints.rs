@@ -2,14 +2,22 @@
 //!
 //! Each lint produces a rustc-style diagnostic on violation.
 
-use colored::Colorize;
-use std::{collections::HashMap, fs::read_to_string, io, path::PathBuf};
-use syn::ForeignItem;
-use syn::Item::{
-    self, Const, Enum, ExternCrate, Fn, ForeignMod, Impl, Macro, Mod, Static, Struct, Trait,
-    TraitAlias, Type, Union, Use,
+use std::{
+    collections::{HashMap, HashSet},
+    fs::read_to_string,
+    io,
+    path::PathBuf,
 };
-use syn::spanned::Spanned;
+
+use colored::Colorize;
+use syn::{
+    ForeignItem,
+    Item::{
+        self, Const, Enum, ExternCrate, Fn, ForeignMod, Impl, Macro, Mod, Static, Struct, Trait,
+        TraitAlias, Type, Union, Use,
+    },
+    spanned::Spanned,
+};
 
 struct Label<'a> {
     line: usize,
@@ -168,6 +176,51 @@ fn foreign_item_kind_name(item: &ForeignItem) -> &'static str {
     }
 }
 
+/// The span of the item's "header" — the first meaningful token, skipping
+/// attributes and doc comments. Use this when pointing at an item in
+/// diagnostics so the caret lands on `fn`/`struct`/`trait`/`pub`/... rather
+/// than a `#[derive(...)]` or `///` line above it.
+fn item_header_span(item: &Item) -> proc_macro2::Span {
+    match item {
+        Use(u) => vis_span_or(&u.vis, u.use_token.span()),
+        Mod(m) => vis_span_or(&m.vis, m.mod_token.span()),
+        Fn(f) => vis_span_or(&f.vis, f.sig.fn_token.span()),
+        Struct(s) => vis_span_or(&s.vis, s.struct_token.span()),
+        Enum(e) => vis_span_or(&e.vis, e.enum_token.span()),
+        Union(u) => vis_span_or(&u.vis, u.union_token.span()),
+        Trait(t) => vis_span_or(&t.vis, t.trait_token.span()),
+        TraitAlias(t) => vis_span_or(&t.vis, t.trait_token.span()),
+        Const(c) => vis_span_or(&c.vis, c.const_token.span()),
+        Static(s) => vis_span_or(&s.vis, s.static_token.span()),
+        Type(t) => vis_span_or(&t.vis, t.type_token.span()),
+        Impl(i) => match &i.unsafety {
+            Some(u) => u.span(),
+            None => i.impl_token.span(),
+        },
+        ExternCrate(e) => vis_span_or(&e.vis, e.extern_token.span()),
+        ForeignMod(f) => f.abi.extern_token.span(),
+        Macro(m) => m.mac.path.span(),
+        _ => item.span(),
+    }
+}
+
+fn foreign_item_header_span(item: &ForeignItem) -> proc_macro2::Span {
+    match item {
+        ForeignItem::Fn(f) => vis_span_or(&f.vis, f.sig.fn_token.span()),
+        ForeignItem::Static(s) => vis_span_or(&s.vis, s.static_token.span()),
+        ForeignItem::Type(t) => vis_span_or(&t.vis, t.type_token.span()),
+        ForeignItem::Macro(m) => m.mac.path.span(),
+        _ => item.span(),
+    }
+}
+
+fn vis_span_or(vis: &syn::Visibility, fallback: proc_macro2::Span) -> proc_macro2::Span {
+    match vis {
+        syn::Visibility::Inherited => fallback,
+        _ => vis.span(),
+    }
+}
+
 fn use_tree_first_ident(tree: &syn::UseTree) -> Option<String> {
     match tree {
         syn::UseTree::Path(p) => Some(p.ident.to_string()),
@@ -223,17 +276,37 @@ pub async fn run_item_order_check(rs_file_path: PathBuf, verbose: bool) -> io::R
         col: usize,
     }
 
+    // A `use X::...;` that immediately follows a `mod X;` with matching
+    // visibility is the *one* exception to the "use before mod" ordering
+    // rule — the pair forms a module re-export block at the mod's rank.
+    let mut exempt_use_indices: HashSet<usize> = HashSet::new();
+    for (i, item) in file.items.iter().enumerate() {
+        if let Mod(m) = item
+            && m.content.is_none()
+            && let Some(Use(u)) = file.items.get(i + 1)
+            && is_pub_mod(m) == is_pub_use(u)
+            && let Some(seg) = use_tree_first_ident(&u.tree)
+            && seg == m.ident.to_string()
+        {
+            exempt_use_indices.insert(i + 1);
+        }
+    }
+
     let mut entries: Vec<Entry> = Vec::new();
-    for item in &file.items {
+    for (idx, item) in file.items.iter().enumerate() {
         if let Mod(m) = item
             && m.content.is_some()
         {
             continue;
         }
 
+        if exempt_use_indices.contains(&idx) {
+            continue;
+        }
+
         if let ForeignMod(fm) = item {
             for fi in &fm.items {
-                let loc = fi.span().start();
+                let loc = foreign_item_header_span(fi).start();
                 entries.push(Entry {
                     rank: foreign_item_order_rank(fi),
                     kind: foreign_item_kind_name(fi),
@@ -244,7 +317,7 @@ pub async fn run_item_order_check(rs_file_path: PathBuf, verbose: bool) -> io::R
             continue;
         }
 
-        let loc = item.span().start();
+        let loc = item_header_span(item).start();
         entries.push(Entry {
             rank: item_order_rank(item),
             kind: item_kind_name(item),
@@ -322,21 +395,24 @@ pub async fn run_mod_use_adjacency_check(rs_file_path: PathBuf, verbose: bool) -
         return Ok(());
     };
 
-    let mut mod_positions: HashMap<String, usize> = HashMap::new();
+    // Track each `mod X;` with its visibility: a `pub use X::...;` pairs
+    // only with `pub mod X;`, and a private `use X::...;` pairs only with
+    // a private `mod X;`.
+    let mut mod_positions: HashMap<String, (usize, bool)> = HashMap::new();
     for (i, item) in file.items.iter().enumerate() {
         if let Mod(m) = item
             && m.content.is_none()
         {
-            mod_positions.insert(m.ident.to_string(), i);
+            mod_positions.insert(m.ident.to_string(), (i, is_pub_mod(m)));
         }
     }
 
     let mut first_use_for_mod: HashMap<String, usize> = HashMap::new();
     for (i, item) in file.items.iter().enumerate() {
         if let Use(u) = item
-            && is_pub_use(u)
             && let Some(seg) = use_tree_first_ident(&u.tree)
-            && mod_positions.contains_key(&seg)
+            && let Some((_, mod_is_pub)) = mod_positions.get(&seg)
+            && is_pub_use(u) == *mod_is_pub
         {
             first_use_for_mod.entry(seg).or_insert(i);
         }
@@ -350,11 +426,11 @@ pub async fn run_mod_use_adjacency_check(rs_file_path: PathBuf, verbose: bool) -
     let mut violations: Vec<String> = Vec::new();
 
     for (name, use_idx) in pairs {
-        let mod_idx = mod_positions[name];
+        let (mod_idx, _) = mod_positions[name];
         if *use_idx != mod_idx + 1 {
-            let mod_loc = file.items[mod_idx].span().start();
+            let mod_loc = item_header_span(&file.items[mod_idx]).start();
             let mod_col = mod_loc.column + 1;
-            let use_loc = file.items[*use_idx].span().start();
+            let use_loc = item_header_span(&file.items[*use_idx]).start();
             let use_col = use_loc.column + 1;
 
             let path = rs_file_path.display().to_string();

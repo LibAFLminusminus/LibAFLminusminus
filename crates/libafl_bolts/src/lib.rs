@@ -117,18 +117,17 @@ pub mod bolts_prelude {
         feature = "std"
     ))]
     pub use super::cli::*;
-    pub use super::compress::*;
     #[cfg(feature = "std")]
     pub use super::core_affinity::*;
     #[cfg(feature = "std")]
     pub use super::fs::*;
     #[cfg(all(feature = "std", unix))]
     pub use super::minibsod::*;
-    pub use super::os::*;
     #[cfg(feature = "std")]
     pub use super::staterestore::*;
     #[cfg(feature = "alloc")]
     pub use super::{anymap::*, llmp::*, ownedref::*, rands::*, serdeany::*, shmem::*, tuples::*};
+    pub use super::{compress::*, os::*};
 }
 
 #[cfg(all(unix, feature = "std"))]

@@ -1,7 +1,15 @@
 //! A restarting event manager is for fuzzers that restart their process.
 //! Keeps the fuzzing state alive across restarts using a persistent broker.
+#[cfg(all(unix, not(miri)))]
+use crate::events::EVENTMGR_SIGHANDLER_STATE;
+use crate::{
+    Error,
+    events::{
+        AwaitRestartSafe, EventFirer, EventManagerId, EventReceiver, EventRestarter,
+        EventWithStats, HasEventManagerId, ProgressReporter, SendExiting,
+    },
+};
 use core::{fmt::Debug, sync::atomic::Ordering, time::Duration};
-
 #[cfg(feature = "std")]
 use libafl_bolts::core_affinity::CoreId;
 #[cfg(all(unix, not(miri)))]
@@ -14,16 +22,6 @@ use libafl_bolts::{
     staterestore::StateRestorer,
 };
 use serde::{Serialize, de::DeserializeOwned};
-
-#[cfg(all(unix, not(miri)))]
-use crate::events::EVENTMGR_SIGHANDLER_STATE;
-use crate::{
-    Error,
-    events::{
-        AwaitRestartSafe, EventFirer, EventManagerId, EventReceiver, EventRestarter,
-        EventWithStats, HasEventManagerId, ProgressReporter, SendExiting,
-    },
-};
 
 /// The llmp connection from the actual fuzzer to the process supervising it
 pub const _ENV_FUZZER_SENDER: &str = "_AFL_ENV_FUZZER_SENDER";
@@ -45,6 +43,14 @@ where
         let _ = staterestorer;
         Ok(())
     }
+}
+
+/// The manager that handles restarting logic
+#[derive(Debug)]
+pub struct RestartingMgr<SP> {
+    shmem_provider: SP,
+    #[cfg(unix)]
+    fork: bool,
 }
 
 /// The generic restarting event manager
@@ -176,14 +182,6 @@ where
         self.staterestorer.send_exiting();
         Ok(())
     }
-}
-
-/// The manager that handles restarting logic
-#[derive(Debug)]
-pub struct RestartingMgr<SP> {
-    shmem_provider: SP,
-    #[cfg(unix)]
-    fork: bool,
 }
 
 impl<SP> RestartingMgr<SP>

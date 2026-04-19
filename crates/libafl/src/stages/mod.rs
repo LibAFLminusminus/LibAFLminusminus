@@ -4,7 +4,6 @@ A well-known [`Stage`], for example, is the mutational stage, running multiple [
 Other stages may enrich [`crate::corpus::Testcase`]s with metadata.
 */
 
-use crate::{DependencyResolver, Error, state::FlatState};
 use alloc::{
     borrow::{Cow, ToOwned},
     boxed::Box,
@@ -12,6 +11,7 @@ use alloc::{
     vec::Vec,
 };
 use core::{fmt, marker::PhantomData};
+
 use hashbrown::HashSet;
 use libafl_bolts::{
     Named, impl_serdeany,
@@ -19,6 +19,8 @@ use libafl_bolts::{
 };
 use serde::{Deserialize, Serialize};
 use tuple_list::NonEmptyTuple;
+
+use crate::{DependencyResolver, Error, state::FlatState};
 
 /// Mutational stage is the normal fuzzing stage.
 #[cfg(not(feature = "remove_me"))]

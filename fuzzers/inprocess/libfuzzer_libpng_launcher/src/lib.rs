@@ -54,11 +54,6 @@ static GLOBAL: MiMalloc = MiMalloc;
 type FuzzerState =
     StdState<InMemoryCorpus<BytesInput>, BytesInput, StdRand, OnDiskCorpus<BytesInput>>;
 
-/// Parse a millis string to a [`Duration`]. Used for arg parsing.
-fn timeout_from_millis_str(time: &str) -> Result<Duration, Error> {
-    Ok(Duration::from_millis(time.parse()?))
-}
-
 /// The commandline args this fuzzer accepts
 #[derive(Debug, Parser)]
 #[command(
@@ -170,6 +165,11 @@ struct Opt {
         help = "Use TCP event manager for IPC instead of LLMP (slower, but might have its benefits?)"
     )]
     tcp: bool,
+}
+
+/// Parse a millis string to a [`Duration`]. Used for arg parsing.
+fn timeout_from_millis_str(time: &str) -> Result<Duration, Error> {
+    Ok(Duration::from_millis(time.parse()?))
 }
 
 fn print_fmt(s: &str) {

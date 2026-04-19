@@ -18,7 +18,6 @@ use serde::{Serialize, de::DeserializeOwned};
 
 #[cfg(feature = "introspection")]
 use crate::monitors::stats::PerfFeature;
-
 use crate::{
     Error,
     corpus::{Corpus, Testcase, TestcaseId, schedulers::Scheduler},

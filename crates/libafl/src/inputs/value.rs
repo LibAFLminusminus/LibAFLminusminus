@@ -14,11 +14,42 @@ use {
 
 use crate::inputs::{Input, InputContext};
 
+/// Functionality required for Numeric Mutators (see [`int_mutators`])
+pub trait Numeric {
+    /// Flip all bits of the number.
+    fn flip_all_bits(&mut self);
+
+    /// Flip the bit at the specified offset.
+    ///
+    /// # Safety
+    ///
+    /// Panics if the `offset` is out of bounds for the type
+    fn flip_bit_at(&mut self, offset: usize);
+
+    /// Increment the number by one, wrapping around on overflow.
+    fn wrapping_inc(&mut self);
+
+    /// Decrement the number by one, wrapping around on underflow.
+    fn wrapping_dec(&mut self);
+
+    /// Compute the two's complement of the number.
+    fn twos_complement(&mut self);
+
+    /// Randomizes the value using the provided random number generator.
+    fn randomize<R: Rand>(&mut self, rand: &mut R);
+}
+
 /// A wrapper that implements [`FromTargetBytesConverter`] for [`ValueInput`] of primitives
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
 pub struct PrimitiveContext<T> {
     phantom: PhantomData<T>,
 }
+
+/// Newtype pattern wrapper around an underlying structure to implement inputs
+///
+/// This does not blanket implement [`super::Input`], because for certain inputs, writing them to disk does not make sense, because they don't own their data (like [`super::MutVecInput`])
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, Default)]
+pub struct ValueInput<T>(T);
 
 impl<T> PrimitiveContext<T> {
     /// Creates a new [`PrimitiveInputConverter`]
@@ -29,12 +60,6 @@ impl<T> PrimitiveContext<T> {
         }
     }
 }
-
-/// Newtype pattern wrapper around an underlying structure to implement inputs
-///
-/// This does not blanket implement [`super::Input`], because for certain inputs, writing them to disk does not make sense, because they don't own their data (like [`super::MutVecInput`])
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, Default)]
-pub struct ValueInput<T>(T);
 
 impl<T> From<T> for ValueInput<T> {
     fn from(value: T) -> Self {
@@ -174,31 +199,6 @@ impl Input for ValueInput<Vec<u8>> {
         file.read_to_end(&mut data)?;
         Ok(data.into())
     }
-}
-
-/// Functionality required for Numeric Mutators (see [`int_mutators`])
-pub trait Numeric {
-    /// Flip all bits of the number.
-    fn flip_all_bits(&mut self);
-
-    /// Flip the bit at the specified offset.
-    ///
-    /// # Safety
-    ///
-    /// Panics if the `offset` is out of bounds for the type
-    fn flip_bit_at(&mut self, offset: usize);
-
-    /// Increment the number by one, wrapping around on overflow.
-    fn wrapping_inc(&mut self);
-
-    /// Decrement the number by one, wrapping around on underflow.
-    fn wrapping_dec(&mut self);
-
-    /// Compute the two's complement of the number.
-    fn twos_complement(&mut self);
-
-    /// Randomizes the value using the provided random number generator.
-    fn randomize<R: Rand>(&mut self, rand: &mut R);
 }
 
 impl<T> Numeric for ValueInput<T>

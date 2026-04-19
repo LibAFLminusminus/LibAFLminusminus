@@ -1,16 +1,16 @@
 //! Executors take input, and run it in the target.
 
-#[cfg(feature = "std")]
-use ::std::path::PathBuf;
 use alloc::vec::Vec;
 use core::{fmt::Debug, time::Duration};
-use tuple_list_ex::RefIndexable;
 
+#[cfg(feature = "std")]
+use ::std::path::PathBuf;
 #[cfg(unix)]
 use libafl_bolts::os::unix_signals::Signal;
 #[cfg(feature = "std")]
 use libafl_bolts::{core_affinity::CoreId, tuples::Handle};
 use serde::{Deserialize, Serialize};
+use tuple_list_ex::RefIndexable;
 
 #[cfg(feature = "std")]
 use crate::observers::{StdErrObserver, StdOutObserver};

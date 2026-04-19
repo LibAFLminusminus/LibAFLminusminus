@@ -23,6 +23,11 @@ pub struct MapEntry {
     path: String,
 }
 
+pub struct WriteableMapProtection<'a, M: Mmap> {
+    map_entry: &'a MapEntry,
+    phantom: PhantomData<M>,
+}
+
 impl Debug for MapEntry {
     fn fmt(&self, fmt: &mut Formatter) -> fmt::Result {
         write!(
@@ -116,11 +121,6 @@ impl MapEntry {
             phantom: PhantomData,
         })
     }
-}
-
-pub struct WriteableMapProtection<'a, M: Mmap> {
-    map_entry: &'a MapEntry,
-    phantom: PhantomData<M>,
 }
 
 impl<M: Mmap> Drop for WriteableMapProtection<'_, M> {

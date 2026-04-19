@@ -10,18 +10,6 @@ pub use user_stats_value::*;
 
 use super::manager::ClientStatsManager;
 
-/// A tag that indicates what a certain stat is used for.
-///  
-/// The tag lets us identify the use-case for this stats
-/// for display purposes (such as `TAG_MAP` for the (coverage) maps)
-///
-/// Ideally should be unique per use-case
-/// The tags try to be 1337-speak of the values they represent.
-/// They NEED to be unique.
-///
-/// We don't use an Enum here in oder to stay extensible for non-core tags.
-pub type UserStatsTag = NonZero<u64>;
-
 /// Tag that stignifies the stats are for a map of sorts.
 pub const TAG_MAP: UserStatsTag = nonzero!(0xC07E9A6EC07E9A6E);
 
@@ -45,6 +33,18 @@ pub const TAG_CALIBRATE_STABILITY: UserStatsTag = nonzero!(0x57AB1117157AB171);
 
 /// Tag that signifies the core id of a node
 pub const TAG_CORE_ID: UserStatsTag = nonzero!(0xC093C093C093C093);
+
+/// A tag that indicates what a certain stat is used for.
+///
+/// The tag lets us identify the use-case for this stats
+/// for display purposes (such as `TAG_MAP` for the (coverage) maps)
+///
+/// Ideally should be unique per use-case
+/// The tags try to be 1337-speak of the values they represent.
+/// They NEED to be unique.
+///
+/// We don't use an Enum here in oder to stay extensible for non-core tags.
+pub type UserStatsTag = NonZero<u64>;
 
 /// The plot config for the user stats
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]

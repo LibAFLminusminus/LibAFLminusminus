@@ -1,13 +1,19 @@
 //! The feedbacks reduce observer state after each run to a single `is_interesting`-value.
 //! If a testcase is interesting, it may be added to a Corpus.
 
-#[cfg(feature = "introspection")]
-use crate::state::HasClientPerfMonitor;
 use alloc::borrow::Cow;
 #[cfg(feature = "track_hit_feedbacks")]
 use alloc::vec::Vec;
 use core::{fmt::Debug, marker::PhantomData};
 
+use libafl_bolts::{
+    Named,
+    tuples::{Handle, Handled, MatchName, MatchNameRef},
+};
+use serde::{Deserialize, Serialize};
+
+#[cfg(feature = "introspection")]
+use crate::state::HasClientPerfMonitor;
 use crate::{
     Error,
     corpus::{Testcase, TestcaseId},
@@ -16,15 +22,9 @@ use crate::{
     observers::TimeObserver,
     state::HasTestcase,
 };
-use libafl_bolts::{
-    Named,
-    tuples::{Handle, Handled, MatchName, MatchNameRef},
-};
-use serde::{Deserialize, Serialize};
 
 pub mod list;
 pub use list::*;
-
 pub use map::*;
 pub mod map;
 

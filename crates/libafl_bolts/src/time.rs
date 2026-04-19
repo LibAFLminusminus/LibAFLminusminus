@@ -43,10 +43,9 @@
     )
 )]
 
-use core::time;
-
 #[cfg(feature = "alloc")]
 use alloc::string::String;
+use core::time;
 #[cfg(feature = "std")]
 use std::time::{SystemTime, UNIX_EPOCH};
 

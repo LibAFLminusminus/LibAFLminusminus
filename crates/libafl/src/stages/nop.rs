@@ -1,8 +1,7 @@
 //! A nop stage does nothing
 
-use crate::DependencyResolver;
-
 use super::Stage;
+use crate::DependencyResolver;
 
 /// A stage that does nothing
 #[derive(Debug, Copy, Clone, Default)]

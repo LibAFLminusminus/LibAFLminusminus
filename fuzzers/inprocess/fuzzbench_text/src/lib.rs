@@ -1,8 +1,4 @@
 //! A singlethreaded libfuzzer-like fuzzer that can auto-restart.
-use mimalloc::MiMalloc;
-#[global_allocator]
-static GLOBAL: MiMalloc = MiMalloc;
-
 use core::{cell::RefCell, time::Duration};
 #[cfg(unix)]
 use std::os::unix::io::{AsRawFd, FromRawFd};
@@ -65,6 +61,10 @@ use libafl_targets::sancov_pcguard_dump_cov::{
 use libafl_targets::{
     libfuzzer_initialize, libfuzzer_test_one_input, std_edges_map_observer, CmpLogObserver,
 };
+use mimalloc::MiMalloc;
+
+#[global_allocator]
+static GLOBAL: MiMalloc = MiMalloc;
 
 /// The fuzzer main (as `no_mangle` C function)
 #[no_mangle]

@@ -1,3 +1,11 @@
+use core::{
+    ffi::{CStr, c_char, c_void},
+    sync::atomic::{AtomicBool, Ordering},
+};
+
+use log::{Level, error, trace};
+use spin::{Lazy, Mutex};
+
 #[cfg(feature = "libc")]
 use crate::logger::libc::LibcLogger;
 #[cfg(all(feature = "syscalls", target_os = "linux", not(feature = "libc")))]
@@ -13,12 +21,29 @@ use crate::{
     symbols::Symbols,
     tracking::Tracking,
 };
-use core::{
-    ffi::{CStr, c_char, c_void},
-    sync::atomic::{AtomicBool, Ordering},
-};
-use log::{Level, error, trace};
-use spin::{Lazy, Mutex};
+
+const PAGE_SIZE: usize = 4096;
+
+static FRONTEND: Lazy<Mutex<TestFrontend>> = Lazy::new(|| {
+    #[cfg(all(feature = "syscalls", target_os = "linux", not(feature = "libc")))]
+    LinuxLogger::initialize(Level::Info);
+    #[cfg(feature = "libc")]
+    LibcLogger::initialize::<TestSyms>(Level::Info);
+    let backend = DlmallocBackend::<TestMap>::new(PAGE_SIZE);
+    let shadow = TestShadow::new().unwrap();
+    let tracking = TestTracking::new().unwrap();
+    let frontend = TestFrontend::new(
+        backend,
+        shadow,
+        tracking,
+        TestFrontend::DEFAULT_REDZONE_SIZE,
+        TestFrontend::DEFAULT_QUARANTINE_SIZE,
+    )
+    .unwrap();
+    Mutex::new(frontend)
+});
+
+static EXPECT_PANIC: AtomicBool = AtomicBool::new(false);
 
 #[cfg(not(feature = "libc"))]
 type TestSyms = crate::symbols::nop::NopSymbols;
@@ -58,27 +83,6 @@ type TestTracking = crate::tracking::host::HostTracking<TestHost>;
 type TestShadow = crate::shadow::host::HostShadow<TestHost>;
 
 pub type TestFrontend = DefaultFrontend<DlmallocBackend<TestMap>, TestShadow, TestTracking>;
-
-const PAGE_SIZE: usize = 4096;
-
-static FRONTEND: Lazy<Mutex<TestFrontend>> = Lazy::new(|| {
-    #[cfg(all(feature = "syscalls", target_os = "linux", not(feature = "libc")))]
-    LinuxLogger::initialize(Level::Info);
-    #[cfg(feature = "libc")]
-    LibcLogger::initialize::<TestSyms>(Level::Info);
-    let backend = DlmallocBackend::<TestMap>::new(PAGE_SIZE);
-    let shadow = TestShadow::new().unwrap();
-    let tracking = TestTracking::new().unwrap();
-    let frontend = TestFrontend::new(
-        backend,
-        shadow,
-        tracking,
-        TestFrontend::DEFAULT_REDZONE_SIZE,
-        TestFrontend::DEFAULT_QUARANTINE_SIZE,
-    )
-    .unwrap();
-    Mutex::new(frontend)
-});
 
 #[unsafe(no_mangle)]
 /// # Safety
@@ -172,8 +176,6 @@ pub unsafe extern "C" fn asan_untrack(addr: *const c_void) {
         .untrack(addr as GuestAddr)
         .unwrap();
 }
-
-static EXPECT_PANIC: AtomicBool = AtomicBool::new(false);
 
 pub fn expect_panic() {
     EXPECT_PANIC.store(true, Ordering::SeqCst);

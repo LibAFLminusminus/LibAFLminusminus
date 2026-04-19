@@ -33,18 +33,6 @@ impl<I> Borrow<TestcaseId> for Testcase<I> {
     }
 }
 
-impl TestcaseFilenameFormat {
-    pub fn to_filename(&self, id: &str) -> String {
-        match self {
-            TestcaseFilenameFormat::Id => id.to_string(),
-            TestcaseFilenameFormat::Prefix(prefix) => {
-                format!("{}-{}", prefix, id)
-            }
-            TestcaseFilenameFormat::Custom(custom_name) => custom_name.clone(),
-        }
-    }
-}
-
 /// An entry in the [`Testcase`] Corpus
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Testcase<I> {
@@ -56,6 +44,18 @@ pub struct Testcase<I> {
     /// The unique id for [`Testcase`].
     /// It should uniquely identify the input.
     id: TestcaseId,
+}
+
+impl TestcaseFilenameFormat {
+    pub fn to_filename(&self, id: &str) -> String {
+        match self {
+            TestcaseFilenameFormat::Id => id.to_string(),
+            TestcaseFilenameFormat::Prefix(prefix) => {
+                format!("{}-{}", prefix, id)
+            }
+            TestcaseFilenameFormat::Custom(custom_name) => custom_name.clone(),
+        }
+    }
 }
 
 impl<I> Clone for Testcase<I> {

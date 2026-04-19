@@ -7,9 +7,9 @@ use alloc::{
     vec::{self, Vec},
 };
 use core::cell::RefCell;
-use serde::{Deserialize, Serialize};
 
 use libafl_bolts::{HasLen, ownedref::OwnedSlice};
+use serde::{Deserialize, Serialize};
 
 use super::ValueInput;
 use crate::inputs::{HasMutatorBytes, InputContext, ResizableMutator};

@@ -1,11 +1,13 @@
+use core::{marker::PhantomData, pin::Pin, time::Duration};
+use std::boxed::Box;
+
+use libafl_bolts::TimerStruct;
+use libafl_core::Error;
+
 use crate::{
     DependencyResolver,
     runtimes::{Runtime, RuntimeHandle},
 };
-use core::{marker::PhantomData, pin::Pin, time::Duration};
-use libafl_bolts::TimerStruct;
-use libafl_core::Error;
-use std::boxed::Box;
 
 pub mod unix;
 pub use unix::OsSignalHandler;
@@ -178,6 +180,8 @@ where
 
 #[cfg(test)]
 mod tests {
+    use std::{thread, time::Duration};
+
     use libafl_core::Error;
     use rusty_fork::{rusty_fork_id, rusty_fork_test};
 
@@ -187,9 +191,6 @@ mod tests {
         runtimes::{Runtime, RuntimeHandle, inprocess::InProcessRuntime},
         state::NopState,
     };
-
-    use std::thread;
-    use std::time::Duration;
 
     rusty_fork_test! {
         #[test]

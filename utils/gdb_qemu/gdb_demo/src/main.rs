@@ -1,6 +1,8 @@
-use crate::args::Args;
-use clap::Parser;
 use std::{thread::sleep, time::Duration};
+
+use clap::Parser;
+
+use crate::args::Args;
 
 mod args;
 

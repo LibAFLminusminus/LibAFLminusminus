@@ -29,6 +29,19 @@ pub struct CustomInput {
     pub boolean: bool,
 }
 
+/// A generator for [`CustomInput`] used in this example
+pub struct CustomInputGenerator {
+    pub bytes_generator: RandBytesGenerator,
+}
+
+/// [`Mutator`] that toggles the optional byte array of a [`CustomInput`], i.e. sets it to [`None`] if it is not, and to a random byte array if it is [`None`]
+pub struct ToggleOptionalByteArrayMutator<G> {
+    generator: G,
+}
+
+/// [`Mutator`] that toggles the boolean field in a [`CustomInput`]
+pub struct ToggleBooleanMutator;
+
 /// Hash-based implementation
 impl Input for CustomInput {}
 
@@ -98,11 +111,6 @@ impl CustomInput {
     }
 }
 
-/// A generator for [`CustomInput`] used in this example
-pub struct CustomInputGenerator {
-    pub bytes_generator: RandBytesGenerator,
-}
-
 impl CustomInputGenerator {
     /// Creates a new [`CustomInputGenerator`]
     pub fn new(max_len: NonZeroUsize) -> Self {
@@ -140,11 +148,6 @@ where
     }
 }
 
-/// [`Mutator`] that toggles the optional byte array of a [`CustomInput`], i.e. sets it to [`None`] if it is not, and to a random byte array if it is [`None`]
-pub struct ToggleOptionalByteArrayMutator<G> {
-    generator: G,
-}
-
 impl ToggleOptionalByteArrayMutator<RandBytesGenerator> {
     /// Creates a new [`ToggleOptionalByteArrayMutator`]
     pub fn new(length: NonZeroUsize) -> Self {
@@ -177,9 +180,6 @@ impl<G> Named for ToggleOptionalByteArrayMutator<G> {
         &Cow::Borrowed("ToggleOptionalByteArrayMutator")
     }
 }
-
-/// [`Mutator`] that toggles the boolean field in a [`CustomInput`]
-pub struct ToggleBooleanMutator;
 
 impl<S> Mutator<CustomInput, S> for ToggleBooleanMutator {
     fn mutate(&mut self, _state: &mut S, input: &mut CustomInput) -> Result<MutationResult, Error> {

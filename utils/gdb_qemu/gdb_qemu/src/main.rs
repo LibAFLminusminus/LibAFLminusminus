@@ -1,7 +1,8 @@
-use crate::{args::Args, child::Child, exit::Exit, logger::Logger, parent::Parent};
 use anyhow::{Result, anyhow};
 use clap::Parser;
 use nix::unistd::{ForkResult, fork, pipe};
+
+use crate::{args::Args, child::Child, exit::Exit, logger::Logger, parent::Parent};
 
 mod args;
 mod child;

@@ -27,12 +27,6 @@ pub struct PacketData {
     pub data: Vec<u8>,
 }
 
-impl Fixup for PacketData {
-    fn fixup<R: Rng>(&mut self, _mutator: &mut Mutator<R>) {
-        self.length = self.data.len() as u64;
-    }
-}
-
 #[derive(
     Serialize, Deserialize, Debug, Copy, Clone, FuzzerObject, ToPrimitiveU32, BinarySerialize, Hash,
 )]
@@ -43,6 +37,12 @@ pub enum PacketType {
     Read = 0x0,
     Write = 0x1,
     Reset = 0x2,
+}
+
+impl Fixup for PacketData {
+    fn fixup<R: Rng>(&mut self, _mutator: &mut Mutator<R>) {
+        self.length = self.data.len() as u64;
+    }
 }
 
 impl Input for PacketData {}

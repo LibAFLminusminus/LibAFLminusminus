@@ -7,6 +7,12 @@ pub trait MapDecode<T> {
     fn from_dec(c: u8) -> Result<T, MapDecodeError>;
 }
 
+#[derive(Error, Debug, PartialEq)]
+pub enum MapDecodeError {
+    #[error("Failed to convert: {0}")]
+    InvalidCharacter(u8),
+}
+
 impl<T: From<u8>> MapDecode<T> for T {
     fn from_hex(c: u8) -> Result<T, MapDecodeError> {
         let c = match c {
@@ -25,10 +31,4 @@ impl<T: From<u8>> MapDecode<T> for T {
         };
         Ok(c.into())
     }
-}
-
-#[derive(Error, Debug, PartialEq)]
-pub enum MapDecodeError {
-    #[error("Failed to convert: {0}")]
-    InvalidCharacter(u8),
 }

@@ -1,12 +1,14 @@
 //! This module defines trait shared across different `LibAFL` modules
 
-use crate::state::add_named_metadata_checked;
 use core::any;
+use std::{collections::HashSet, string::String};
+
 use libafl_bolts::{
     Error,
     serdeany::{NamedSerdeAnyMap, SerdeAny},
 };
-use std::{collections::HashSet, string::String};
+
+use crate::state::add_named_metadata_checked;
 
 pub struct Registrator {
     map: NamedSerdeAnyMap,
