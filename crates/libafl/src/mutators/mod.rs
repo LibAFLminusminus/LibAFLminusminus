@@ -4,7 +4,9 @@
 //! You can read more about mutators in the [LibAFL book](https://aflplus.plus/libafl-book/core_concepts/mutator.html)
 use alloc::{borrow::Cow, boxed::Box, vec::Vec};
 use core::fmt;
+
 use libafl_bolts::{HasLen, Named, rands::Rand, tuples::IntoVec};
+use libafl_core::Error;
 use serde::{Deserialize, Serialize};
 use tuple_list::NonEmptyTuple;
 
@@ -38,6 +40,8 @@ pub use unicode::*;
 pub mod nautilus;
 #[cfg(feature = "nautilus")]
 pub use nautilus::*;
+
+use crate::corpus::TestcaseId;
 
 // TODO mutator stats method that produces something that can be sent with the NewTestcase event
 // We can use it to report which mutations generated the testcase in the broker logs

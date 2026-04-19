@@ -191,7 +191,7 @@ mod tests {
             let mut state = NopState::<NopInput>::new();
             let mut controller = NopController;
 
-            let task = |_rt_handle: &mut RuntimeHandle<NopController, NopState<NopInput>>, _state: &mut NopState<NopInput>, _controller: &mut NopController| {
+            let task = |_rt_handle: &mut RuntimeHandle<NopController, NopState<NopInput>>, _state: &mut NopState<NopInput>| {
                 Err(Error::shutting_down())
             };
 
@@ -215,7 +215,6 @@ mod tests {
         T: FnMut(
                 &mut RuntimeHandle<NopController, NopState<NopInput>>,
                 &mut NopState<NopInput>,
-                &mut NopController,
             ) -> Result<(), Error>
             + 'static,
         CH: FnMut(&mut ()) -> Result<(), Error> + Send + Sync + Unpin + 'static,
@@ -241,8 +240,7 @@ mod tests {
             |child, _| child.wait().unwrap(),
             || {
                 let task = |rt_handle: &mut RuntimeHandle<NopController, NopState<NopInput>>,
-                            _state: &mut NopState<NopInput>,
-                            _controller: &mut NopController| {
+                            _state: &mut NopState<NopInput>| {
                     rt_handle.set_timeout(Duration::from_millis(10));
 
                     rt_handle.arm_timeout();
@@ -280,8 +278,7 @@ mod tests {
             |child, _| child.wait().unwrap(),
             || {
                 let task = |_rt_handle: &mut RuntimeHandle<NopController, NopState<NopInput>>,
-                            _state: &mut NopState<NopInput>,
-                            _controller: &mut NopController| {
+                            _state: &mut NopState<NopInput>| {
                     unsafe {
                         libc::raise(libc::SIGSEGV);
                     }
@@ -320,8 +317,7 @@ mod tests {
             |child, _| child.wait().unwrap(),
             || {
                 let task = |rt_handle: &mut RuntimeHandle<NopController, NopState<NopInput>>,
-                            _state: &mut NopState<NopInput>,
-                            _controller: &mut NopController| {
+                            _state: &mut NopState<NopInput>| {
                     rt_handle.set_timeout(Duration::from_millis(10));
 
                     rt_handle.arm_timeout()?;
@@ -362,8 +358,7 @@ mod tests {
             |child, _| child.wait().unwrap(),
             || {
                 let task = |_rt_handle: &mut RuntimeHandle<NopController, NopState<NopInput>>,
-                            _state: &mut NopState<NopInput>,
-                            _controller: &mut NopController| {
+                            _state: &mut NopState<NopInput>| {
                     unsafe {
                         libc::raise(libc::SIGSEGV);
                     }

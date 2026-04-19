@@ -10,7 +10,6 @@ use std::{
     path::{Path, PathBuf},
     string::ToString,
 };
-use std::{collections::HashMap, string::ToString};
 
 use libafl_bolts::{
     rands::{Rand, StdRand},
@@ -25,7 +24,6 @@ use typed_builder::TypedBuilder;
 
 #[cfg(not(feature = "remove_me"))]
 use crate::fuzzer::ExecuteInputResult;
-use crate::generators::Generator;
 #[cfg(feature = "introspection")]
 use crate::monitors::stats::ClientPerfStats;
 use crate::{
@@ -1260,7 +1258,7 @@ where
 
         for _ in 0..num {
             let input = generator.generate(self, rand)?;
-            let res = fuzzer.evaluate_input(self, executor, driver, controller, &input)?;
+            let res = fuzzer.evaluate_input(self, executor, rt_handle, &input)?;
             if res.is_corpus_worthy() {
                 added += 1;
             }

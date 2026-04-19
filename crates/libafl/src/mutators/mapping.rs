@@ -212,7 +212,12 @@ impl<I, M, R: Rand, S> Mutator<Option<I>, R, S> for OptionalMutator<M>
 where
     M: Mutator<I, R, S>,
 {
-    fn mutate(&mut self, input: &mut Option<I>, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
+    fn mutate(
+        &mut self,
+        input: &mut Option<I>,
+        rand: &mut R,
+        state: &S,
+    ) -> Result<MutationResult, Error> {
         match input {
             None => Ok(MutationResult::Skipped),
             Some(i) => self.inner.mutate(i, rand, state),

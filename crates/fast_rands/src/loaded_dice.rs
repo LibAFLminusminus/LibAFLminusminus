@@ -24,6 +24,7 @@ Original code by @eqv, see <https://github.com/eqv/loaded_dice>
 
 use alloc::{vec, vec::Vec};
 use core::fmt::{self, Debug, Formatter};
+
 use super::Rand;
 
 /// An illegal argument got passed to a function.

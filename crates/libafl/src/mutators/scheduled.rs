@@ -365,8 +365,8 @@ mod tests {
     fn test_single_choice() {
         let mut rand = StdRand::with_seed(0x1337);
         let mut corpus = InMemoryCorpus::new(BytesContext::default(), QueueScheduler::new());
-        let id1= corpus.add(BytesInput::new(b"abc".to_vec().into())).unwrap();
-        let id2= corpus.add(BytesInput::new(b"def".to_vec().into())).unwrap();
+        let id1 = corpus.add(BytesInput::new(b"abc".to_vec().into())).unwrap();
+        let id2 = corpus.add(BytesInput::new(b"def".to_vec().into())).unwrap();
 
         let mut input = corpus.get(id1).unwrap().cloned_input();
         let input_prior = input.clone();

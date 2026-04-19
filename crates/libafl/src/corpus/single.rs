@@ -106,10 +106,6 @@ where
     fn context_mut(&mut self) -> &mut CT {
         &mut self.context
     }
-
-    fn nth_from<const ENABLED: bool>(&self, nth: usize) -> Option<TestcaseId> {
-        self.store.nth_from::<ENABLED>(nth)
-    }
 }
 
 impl<CT, I, S, SC> DisableEntry for SingleCorpus<CT, I, S, SC>
