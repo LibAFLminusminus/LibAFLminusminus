@@ -239,40 +239,21 @@ impl<F, OF> StdFuzzer<F, OF> {
 //     }
 // }
 
-impl<E, F, I, OF, S> Evaluator<E, I, S> for StdFuzzer<F, OF> {
-    /// Runs the input and triggers observers and feedback
-    fn execute_input(
-        &mut self,
-        state: &mut S,
-        executor: &mut E,
-        input: &I,
-    ) -> Result<ExitKind, Error> {
-        // start_timer!(state);
-        executor.observers_mut().pre_exec_all(state, input)?;
-        // mark_feature_time!(state, PerfFeature::PreExecObservers);
-
-        // start_timer!(state);
-        let exit_kind = executor.run_target(self, state, input)?;
-        // mark_feature_time!(state, PerfFeature::TargetExecution);
-
-        // start_timer!(state);
-        executor
-            .observers_mut()
-            .post_exec_all(state, input, &exit_kind)?;
-        // mark_feature_time!(state, PerfFeature::PostExecObservers);
-
-        Ok(exit_kind)
-    }
-
+impl<E, F, I, OF, S> Evaluator<E, I, S> for StdFuzzer<F, OF>
+where
+    E: Executor<I, S>,
+{
     /// Process one input, adding to the respective corpora if needed and firing the right events
     #[inline]
     fn evaluate_input(
         &mut self,
         state: &mut S,
         executor: &mut E,
+        driver: &mut RuntimeHandle<Ct, S>,
+        controller: &mut CT,
         input: &I,
     ) -> Result<EvaluationResult, Error> {
-        let exit_kind = self.execute_input(state, executor, input)?;
+        let exit_kind = executor.execute(state, driver, controller, input)?;
 
         let observers = executor.observers();
         self.evaluate_execution(state, input, &*observers, exit_kind)

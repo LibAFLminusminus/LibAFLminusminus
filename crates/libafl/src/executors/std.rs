@@ -3,19 +3,20 @@ use libafl_core::Error;
 use tuple_list_ex::RefIndexable;
 
 use crate::{
+    Controller,
     executors::{Executor, ExitKind},
-    observers::ObserversTuple,
+    observers::{Observer, ObserversTuple},
     runtimes::RuntimeHandle,
 };
 
-pub struct StdExecutor<C, H, I, OT, S> {
+pub struct StdExecutor<H, I, OT, S> {
     harness: H,
     observers: OT,
     timeout: Option<Duration>,
     initialized: bool,
-    phantom: PhantomData<(C, I, S)>,
+    phantom: PhantomData<(I, S)>,
 }
-impl<C, H, I, OT, S> StdExecutor<C, H, I, OT, S> {
+impl<H, I, OT, S> StdExecutor<H, I, OT, S> {
     pub fn new(harness: H, observers: OT, timeout: Option<Duration>) -> Self {
         Self {
             harness,
@@ -27,13 +28,14 @@ impl<C, H, I, OT, S> StdExecutor<C, H, I, OT, S> {
     }
 }
 
-impl<CT, H, I, OT, S> Executor<CT, I, S> for StdExecutor<CT, H, I, OT, S>
+impl<H, I, OT, S> Executor<I, S> for StdExecutor<H, I, OT, S>
 where
     H: FnMut(&mut S, &I) -> Result<ExitKind, Error>,
+    OT: Observer<S>,
 {
     type Observers = OT;
 
-    fn init(
+    fn init<CT: Controller>(
         &mut self,
         driver: &mut RuntimeHandle<CT, S>,
         _controller: &mut CT,
