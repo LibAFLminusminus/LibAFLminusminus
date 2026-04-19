@@ -8,18 +8,18 @@ use core::{
 use libafl_bolts::{
     rands::Rand,
     tuples::{tuple_list, tuple_list_type},
+    non_zero_const,
 };
 
 use crate::{
     Error,
-    corpus::Corpus,
+    corpus::{Corpus, Scheduler, testcase::TestcaseId},
     inputs::EncodedInput,
     mutators::{
         MutationResult, Mutator, Named,
         mutations::{ARITH_MAX, buffer_copy, buffer_self_copy},
     },
-    nonzero, random_corpus_id_with_disabled,
-    state::{HasCorpus, HasMaxSize, HasRand},
+    state::{FlatState, HasCorpus, HasRand, HasScheduler},
 };
 
 /// Set a code in the input as a random value
@@ -40,7 +40,7 @@ impl<S: HasRand> Mutator<EncodedInput, S> for EncodedRandMutator {
     fn post_exec(
         &mut self,
         _state: &mut S,
-        _new_corpus_id: Option<crate::corpus::CorpusId>,
+        _new_testcase_id: Option<TestcaseId>,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -79,7 +79,7 @@ impl<S: HasRand> Mutator<EncodedInput, S> for EncodedIncMutator {
     fn post_exec(
         &mut self,
         _state: &mut S,
-        _new_corpus_id: Option<crate::corpus::CorpusId>,
+        _new_testcase_id: Option<TestcaseId>,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -118,7 +118,7 @@ impl<S: HasRand> Mutator<EncodedInput, S> for EncodedDecMutator {
     fn post_exec(
         &mut self,
         _state: &mut S,
-        _new_corpus_id: Option<crate::corpus::CorpusId>,
+        _new_testcase_id: Option<TestcaseId>,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -149,8 +149,8 @@ impl<S: HasRand> Mutator<EncodedInput, S> for EncodedAddMutator {
             Ok(MutationResult::Skipped)
         } else {
             let val = state.rand_mut().choose(input.codes_mut()).unwrap();
-            let num = 1 + state.rand_mut().below(nonzero!(ARITH_MAX)) as u32;
-            *val = match state.rand_mut().below(nonzero!(2)) {
+            let num = 1 + state.rand_mut().below(non_zero_const!(ARITH_MAX)) as u32;
+            *val = match state.rand_mut().below(non_zero_const!(2)) {
                 0 => val.wrapping_add(num),
                 _ => val.wrapping_sub(num),
             };
@@ -161,7 +161,7 @@ impl<S: HasRand> Mutator<EncodedInput, S> for EncodedAddMutator {
     fn post_exec(
         &mut self,
         _state: &mut S,
-        _new_corpus_id: Option<crate::corpus::CorpusId>,
+        _new_testcase_id: Option<TestcaseId>,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -210,7 +210,7 @@ impl<S: HasRand> Mutator<EncodedInput, S> for EncodedDeleteMutator {
     fn post_exec(
         &mut self,
         _state: &mut S,
-        _new_corpus_id: Option<crate::corpus::CorpusId>,
+        _new_testcase_id: Option<TestcaseId>,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -239,7 +239,7 @@ pub struct EncodedInsertCopyMutator {
 
 impl<S> Mutator<EncodedInput, S> for EncodedInsertCopyMutator
 where
-    S: HasRand + HasMaxSize,
+    S: HasRand + FlatState,
 {
     fn mutate(&mut self, state: &mut S, input: &mut EncodedInput) -> Result<MutationResult, Error> {
         let max_size = state.max_size();
@@ -285,7 +285,7 @@ where
     fn post_exec(
         &mut self,
         _state: &mut S,
-        _new_corpus_id: Option<crate::corpus::CorpusId>,
+        _new_testcase_id: Option<TestcaseId>,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -341,7 +341,7 @@ impl<S: HasRand> Mutator<EncodedInput, S> for EncodedCopyMutator {
     fn post_exec(
         &mut self,
         _state: &mut S,
-        _new_corpus_id: Option<crate::corpus::CorpusId>,
+        _new_testcase_id: Option<TestcaseId>,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -368,15 +368,18 @@ pub struct EncodedCrossoverInsertMutator;
 
 impl<S> Mutator<EncodedInput, S> for EncodedCrossoverInsertMutator
 where
-    S: HasRand + HasCorpus<EncodedInput> + HasMaxSize,
+    S: HasRand + HasCorpus<EncodedInput> + HasScheduler + FlatState,
 {
     fn mutate(&mut self, state: &mut S, input: &mut EncodedInput) -> Result<MutationResult, Error> {
         let size = input.codes().len();
+        let ids = state.scheduler().ids();
 
-        let id = random_corpus_id_with_disabled!(state.corpus(), state.rand_mut());
+        let Some(id) = state.rand_mut().choose(ids.into_iter()).copied() else {
+            return Ok(MutationResult::Skipped);
+        };
         // We don't want to use the testcase we're already using for splicing
-        if let Some(cur) = state.corpus().current()
-            && id == *cur
+        if let Some(cur) = state.scheduler().current()
+            && id == cur
         {
             return Ok(MutationResult::Skipped);
         }
@@ -387,8 +390,8 @@ where
 
         let other_size = {
             // new scope to make the borrow checker happy
-            let mut other_testcase = state.corpus().get_from_all(id)?.borrow_mut();
-            other_testcase.load_input(state.corpus())?.codes().len()
+            let mut other_testcase = state.corpus().get_from_all(id)?;
+            other_testcase.input_len()
         };
 
         if other_size < 2 {
@@ -416,14 +419,12 @@ where
             }
         }
 
-        let other_testcase = state.corpus().get_from_all(id)?.borrow_mut();
-        // no need to `load_input` again -  we did that above already.
-        let other = other_testcase.input().as_ref().unwrap();
+        let other = state.corpus().get_from_all(id)?;
 
         input.codes_mut().resize(size + len, 0);
         unsafe {
             buffer_self_copy(input.codes_mut(), to, to + len, size - to);
-            buffer_copy(input.codes_mut(), other.codes(), from, to, len);
+            buffer_copy(input.codes_mut(), other.input().codes(), from, to, len);
         }
 
         Ok(MutationResult::Mutated)
@@ -432,7 +433,7 @@ where
     fn post_exec(
         &mut self,
         _state: &mut S,
-        _new_corpus_id: Option<crate::corpus::CorpusId>,
+        _new_testcase_id: Option<TestcaseId>,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -459,23 +460,27 @@ pub struct EncodedCrossoverReplaceMutator;
 
 impl<S> Mutator<EncodedInput, S> for EncodedCrossoverReplaceMutator
 where
-    S: HasRand + HasCorpus<EncodedInput>,
+    S: HasRand + HasCorpus<EncodedInput> + HasScheduler,
 {
     fn mutate(&mut self, state: &mut S, input: &mut EncodedInput) -> Result<MutationResult, Error> {
         let size = input.codes().len();
 
-        let id = random_corpus_id_with_disabled!(state.corpus(), state.rand_mut());
+        let ids = state.scheduler().ids();
+
+        let Some(id) = state.rand().choose(ids.into_iter()).copied() else {
+            return Ok(MutationResult::Skipped);
+        };
         // We don't want to use the testcase we're already using for splicing
-        if let Some(cur) = state.corpus().current()
-            && id == *cur
+        if let Some(cur) = state.scheduler().current()
+            && id == cur
         {
             return Ok(MutationResult::Skipped);
         }
 
         let other_size = {
             // new scope to make the borrow checker happy
-            let mut other_testcase = state.corpus().get_from_all(id)?.borrow_mut();
-            other_testcase.load_input(state.corpus())?.codes().len()
+            let mut other_testcase = state.corpus().get_from_all(id)?;
+            other_testcase.input_len()
         };
 
         if other_size < 2 {
@@ -499,12 +504,10 @@ where
             .rand_mut()
             .below(unsafe { NonZero::new_unchecked(size - len) });
 
-        let other_testcase = state.corpus().get_from_all(id)?.borrow_mut();
-        // no need to load the input again, it'll already be present at this point.
-        let other = other_testcase.input().as_ref().unwrap();
+        let other = state.corpus().get_from_all(id)?;
 
         unsafe {
-            buffer_copy(input.codes_mut(), other.codes(), from, to, len);
+            buffer_copy(input.codes_mut(), other.input().codes(), from, to, len);
         }
 
         Ok(MutationResult::Mutated)
@@ -513,7 +516,7 @@ where
     fn post_exec(
         &mut self,
         _state: &mut S,
-        _new_corpus_id: Option<crate::corpus::CorpusId>,
+        _new_testcase_id: Option<TestcaseId>,
     ) -> Result<(), Error> {
         Ok(())
     }

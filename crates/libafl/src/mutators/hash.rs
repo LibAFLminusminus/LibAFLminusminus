@@ -2,7 +2,7 @@
 //! by hashing pre- and post-mutation
 use alloc::borrow::Cow;
 use core::hash::Hash;
-
+use crate::corpus::testcase::TestcaseId;
 use libafl_bolts::{Error, Named, generic_hash_std};
 
 use super::{MutationResult, Mutator};
@@ -44,9 +44,9 @@ where
     fn post_exec(
         &mut self,
         state: &mut S,
-        new_corpus_id: Option<crate::corpus::CorpusId>,
+        new_tescase_id: Option<TestcaseId>,
     ) -> Result<(), Error> {
-        self.inner.post_exec(state, new_corpus_id)
+        self.inner.post_exec(state, new_tescase_id)
     }
 }
 

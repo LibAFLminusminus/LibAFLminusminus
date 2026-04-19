@@ -9,17 +9,18 @@ use libafl_bolts::{
 };
 
 use crate::{
-    Error, HasMetadata,
+    Error,
     common::nautilus::grammartec::{
         context::Context,
         mutator::Mutator as BackingMutator,
         tree::{Tree, TreeMutation},
     },
+    corpus::{Testcase, TestcaseId},
     feedbacks::NautilusChunksMetadata,
     generators::nautilus::NautilusContext,
     inputs::nautilus::NautilusInput,
     mutators::{MutationResult, Mutator},
-    state::HasRand,
+    state::{FlatState, HasRand, named_metadata_mut},
 };
 
 /// The randomic mutator for `Nautilus` grammar.
@@ -66,7 +67,7 @@ impl<S: HasRand> Mutator<NautilusInput, S> for NautilusRandomMutator<'_> {
     fn post_exec(
         &mut self,
         _state: &mut S,
-        _new_corpus_id: Option<crate::corpus::CorpusId>,
+        _new_testcase_id: Option<TestcaseId>,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -139,7 +140,7 @@ impl<S: HasRand> Mutator<NautilusInput, S> for NautilusRecursionMutator<'_> {
     fn post_exec(
         &mut self,
         _state: &mut S,
-        _new_corpus_id: Option<crate::corpus::CorpusId>,
+        _new_testcase_id: Option<TestcaseId>,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -178,7 +179,7 @@ impl Debug for NautilusSpliceMutator<'_> {
 
 impl<S> Mutator<NautilusInput, S> for NautilusSpliceMutator<'_>
 where
-    S: HasMetadata + HasRand,
+    S: HasRand + FlatState,
 {
     fn mutate(
         &mut self,
@@ -189,10 +190,10 @@ where
         let mut tmp = vec![];
         // Create a fast temp mutator to get around borrowing..
         let mut rand_cpy = { RomuDuoJrRand::with_seed(state.rand_mut().next()) };
-        let meta = state
-            .metadata_map()
-            .get::<NautilusChunksMetadata>()
-            .expect("NautilusChunksMetadata not in the state");
+        let meta = named_metadata_mut::<NautilusChunksMetadata>(
+            state.named_metadata_map_mut(),
+            self.name(),
+        )?;
         self.mutator
             .mut_splice::<_, _>(
                 &mut rand_cpy,
@@ -218,7 +219,7 @@ where
     fn post_exec(
         &mut self,
         _state: &mut S,
-        _new_corpus_id: Option<crate::corpus::CorpusId>,
+        _new_testcase_id: Option<TestcaseId>,
     ) -> Result<(), Error> {
         Ok(())
     }
