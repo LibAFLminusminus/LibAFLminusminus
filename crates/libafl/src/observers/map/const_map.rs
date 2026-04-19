@@ -12,7 +12,7 @@ use libafl_bolts::{HasLen, Named, ownedref::OwnedMutSizedSlice};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use crate::{
-    Error,
+    DependencyResolver, Error,
     observers::{ConstLenMapObserver, Observer, map::MapObserver},
 };
 
@@ -25,6 +25,8 @@ pub struct ConstMapObserver<'a, T, const N: usize> {
     initial: T,
     name: Cow<'static, str>,
 }
+
+impl<T, const N: usize> DependencyResolver for ConstMapObserver<'_, T, N> {}
 
 impl<S, T, const N: usize> Observer<S> for ConstMapObserver<'_, T, N>
 where

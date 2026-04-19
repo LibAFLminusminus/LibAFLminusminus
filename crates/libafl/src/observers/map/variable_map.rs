@@ -14,7 +14,7 @@ use libafl_bolts::{
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use crate::{
-    Error,
+    DependencyResolver, Error,
     observers::{Observer, VarLenMapObserver, map::MapObserver},
 };
 
@@ -27,6 +27,8 @@ pub struct VariableMapObserver<'a, T> {
     initial: T,
     name: Cow<'static, str>,
 }
+
+impl<T> DependencyResolver for VariableMapObserver<'_, T> {}
 
 impl<S, T> Observer<S> for VariableMapObserver<'_, T>
 where

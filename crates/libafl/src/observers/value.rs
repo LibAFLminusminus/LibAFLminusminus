@@ -13,7 +13,7 @@ use libafl_bolts::{AsIter, AsIterMut, AsSlice, AsSliceMut, HasLen, Named, ownedr
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use crate::{
-    Error,
+    DependencyResolver, Error,
     observers::{MapObserver, Observer, ObserverWithHashField},
 };
 
@@ -64,6 +64,8 @@ impl<'a, T> ValueObserver<'a, T> {
         }
     }
 }
+
+impl<T> DependencyResolver for ValueObserver<'_, T> {}
 
 /// This *does not* reset the value inside the observer.
 impl<S, T> Observer<S> for ValueObserver<'_, T> {}
@@ -140,6 +142,8 @@ impl<'a, T> RefCellValueObserver<'a, T> {
         }
     }
 }
+
+impl<T> DependencyResolver for RefCellValueObserver<'_, T> {}
 
 /// This *does not* reset the value inside the observer.
 impl<S, T> Observer<S> for RefCellValueObserver<'_, T> {}

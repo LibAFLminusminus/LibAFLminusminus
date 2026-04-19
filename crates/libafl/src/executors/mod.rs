@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "std")]
 use crate::observers::{StdErrObserver, StdOutObserver};
 use crate::{
-    Controller, Error,
+    Controller, DependencyResolver, Error,
     observers::{Observer, ObserversTuple},
     runtimes::RuntimeHandle,
     state::FlatState,
@@ -108,7 +108,7 @@ pub enum DiffExitKind {
 libafl_bolts::impl_serdeany!(DiffExitKind);
 
 /// Runs the fuzzer harness.
-pub trait Executor<I, S> {
+pub trait Executor<I, S>: DependencyResolver {
     type Observers: Observer<S>;
 
     /// The init function of the executor.

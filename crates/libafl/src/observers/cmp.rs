@@ -4,6 +4,7 @@ use core::{
     fmt::Debug,
     ops::{Deref, DerefMut},
 };
+use std::string::ToString;
 
 use arbitrary_int::{u1, u4, u5, u6};
 use bitbybit::bitfield;
@@ -11,7 +12,7 @@ use hashbrown::HashMap;
 use libafl_bolts::{AsSlice, HasLen, Named, ownedref::OwnedRefMut};
 use serde::{Deserialize, Serialize};
 
-use crate::{Error, executors::ExitKind, observers::Observer};
+use crate::{DependencyResolver, Error, executors::ExitKind, observers::Observer};
 
 /// A bytes string for cmplog with up to 32 elements.
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, Eq, PartialEq)]
@@ -247,6 +248,12 @@ where
 
     fn cmp_map_mut(&mut self) -> &mut Self::Map {
         self.cmp_map.as_mut()
+    }
+}
+
+impl<CM> DependencyResolver for StdCmpObserver<'_, CM> {
+    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<(), Error> {
+        registrator.register_md_default::<CmpValuesMetadata>("CmpValues".to_string())
     }
 }
 

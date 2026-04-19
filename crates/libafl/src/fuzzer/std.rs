@@ -1,7 +1,10 @@
+use std::string::ToString;
+
 use libafl_bolts::current_time;
 use libafl_core::Error;
 
 use crate::{
+    Controller,
     corpus::{Corpus, Scheduler, Testcase},
     dependency::Registrator,
     executors::{Executor, ExitKind},
@@ -55,7 +58,11 @@ impl<F, OF> HasObjective for StdFuzzer<F, OF> {
     }
 }
 
-impl<F, OF> StdFuzzer<F, OF> {
+impl<F, OF> StdFuzzer<F, OF>
+where
+    F: Feedback,
+    OF: Feedback,
+{
     fn evaluate_execution<I, OT, S, SC, Z>(
         &mut self,
         state: &mut S,
@@ -65,22 +72,21 @@ impl<F, OF> StdFuzzer<F, OF> {
     ) -> Result<EvaluationResult, Error>
     where
         I: Clone,
-        S: HasCorpus<I, SC> + HasObjectiveCorpus + HasTestcase<I> + FlatState,
-        SC: Scheduler,
+        S: State<I>,
     {
         #[cfg(not(feature = "introspection"))]
         let is_solution = self
             .objective
-            .is_interesting(state, input, observers, exit_kind)?;
+            .is_interesting(state, input, observers, &exit_kind)?;
 
         #[cfg(feature = "introspection")]
         let is_solution = self
             .objective
-            .is_interesting_introspection(state, input, observers, exit_kind)?;
+            .is_interesting_introspection(state, input, observers, &exit_kind)?;
 
         let eval_res: EvaluationResult = if is_solution {
             let executions = state.executions();
-            let parent_id = state.corpus().scheduler().current();
+            let parent_id = state.scheduler().current();
 
             // The input is a solution, add it to the respective corpus
             let testcase_id = state.objective_corpus_mut().add(input.clone());
@@ -239,9 +245,12 @@ impl<F, OF> StdFuzzer<F, OF> {
 //     }
 // }
 
-impl<E, F, I, OF, S> Evaluator<E, I, S> for StdFuzzer<F, OF>
+impl<CT, E, F, I, OF, S> Evaluator<CT, E, I, S> for StdFuzzer<F, OF>
 where
+    CT: Controller,
     E: Executor<I, S>,
+    I: Clone,
+    S: State<I>,
 {
     /// Process one input, adding to the respective corpora if needed and firing the right events
     #[inline]
@@ -249,7 +258,7 @@ where
         &mut self,
         state: &mut S,
         executor: &mut E,
-        driver: &mut RuntimeHandle<Ct, S>,
+        driver: &mut RuntimeHandle<CT, S>,
         controller: &mut CT,
         input: &I,
     ) -> Result<EvaluationResult, Error> {
@@ -262,7 +271,8 @@ where
 
 impl<CT, E, F, I, OF, S, ST> Fuzzer<CT, E, I, S, ST> for StdFuzzer<F, OF>
 where
-    E: Executor<CT, I, S>,
+    CT: Controller,
+    E: Executor<I, S>,
     F: Feedback<I, E::Observers, S>,
     OF: Feedback<I, E::Observers, S>,
     S: State<I>,
@@ -273,7 +283,7 @@ where
         stages: &mut ST,
         executor: &mut E,
         state: &mut S,
-        driver: RuntimeHandle<CT, S>,
+        driver: &mut RuntimeHandle<CT, S>,
         controller: &mut CT,
     ) -> Result<(), Error> {
         // 1 - collect the required mds and involved types
@@ -293,7 +303,10 @@ where
         executor.check(&mut checker)?;
 
         // 3 - add the global metadata to the md map
-        state.register_metadata(checker.finish())
+        // TODO: toka
+        // state.register_metadata(checker.finish())
+
+        Ok(())
     }
 
     fn fuzz_one(
@@ -301,6 +314,7 @@ where
         stages: &mut ST,
         executor: &mut E,
         state: &mut S,
+        driver: &mut RuntimeHandle<CT, S>,
         controller: &mut CT,
     ) -> Result<(), Error> {
         // Init timer for scheduler
@@ -308,13 +322,7 @@ where
         state.introspection_stats_mut().start_timer();
 
         // Get the next index from the scheduler
-        let id = if let Some(id) = state.current_corpus_id()? {
-            id // we are resuming
-        } else {
-            let id = self.scheduler.next(state)?;
-            state.set_corpus_id(id)?; // set up for resume
-            id
-        };
+        let testcase_id = state.scheduler_mut().next()?;
 
         // Mark the elapsed time for the scheduler
         #[cfg(feature = "introspection")]
@@ -327,24 +335,16 @@ where
         // Execute all stages
         stages.perform_all(self, executor, state, controller)?;
 
-        self.process_events(state, executor)?;
-
-        {
-            if let Ok(mut testcase) = state.testcase_mut(id) {
-                let scheduled_count = testcase.scheduled_count();
-                // increase scheduled count, this was fuzz_level in afl
-                testcase.set_scheduled_count(scheduled_count + 1);
-            }
-        }
-
-        state.clear_corpus_id()?;
+        state
+            .testcase_md_mut_from_id(&testcase_id)
+            .increase_scheduled_count();
 
         if state.stop_requested() {
             state.discard_stop_request();
             return Err(Error::shutting_down());
         }
 
-        Ok(id)
+        Ok(())
     }
 
     fn fuzz_loop(
@@ -352,10 +352,11 @@ where
         stages: &mut ST,
         executor: &mut E,
         state: &mut S,
+        driver: &mut RuntimeHandle<CT, S>,
         controller: &mut CT,
     ) -> Result<(), Error> {
         loop {
-            self.fuzz_one(stages, executor, state, controller)?;
+            self.fuzz_one(stages, executor, state, driver, controller)?;
         }
     }
 
@@ -364,6 +365,7 @@ where
         stages: &mut ST,
         executor: &mut E,
         state: &mut S,
+        driver: &mut RuntimeHandle<CT, S>,
         controller: &mut CT,
         iters: u64,
     ) -> Result<(), Error> {
@@ -374,7 +376,7 @@ where
         }
 
         for _ in 0..iters {
-            self.fuzz_one(stages, executor, state, controller)?;
+            self.fuzz_one(stages, executor, state, driver, controller)?;
         }
 
         Ok(())
@@ -427,10 +429,10 @@ impl<F, OF> StdFuzzerBuilder<F, OF> {
 impl<F, OF> StdFuzzerBuilder<F, OF> {
     /// Sets the feedback that will store new testcases as solution (for example, a crash) if a run returns `is_interesting`.
     #[must_use]
-    pub fn objective<OF2>(self, objective: OF2) -> StdFuzzerBuilder<F, OF2> {
+    pub fn objective_feedback<OF2>(self, objective_feedback: OF2) -> StdFuzzerBuilder<F, OF2> {
         StdFuzzerBuilder {
             feedback: self.feedback,
-            objective_feedback: objective,
+            objective_feedback,
         }
     }
 }
@@ -447,10 +449,10 @@ impl<F, OF> StdFuzzerBuilder<F, OF> {
 
 impl<F, OF> StdFuzzer<F, OF> {
     /// Creates a new [`StdFuzzer`] with standard behavior.
-    pub fn new(feedback: F, objective: OF) -> StdFuzzer<F, OF> {
+    pub fn new(feedback: F, objective_feedback: OF) -> StdFuzzer<F, OF> {
         StdFuzzerBuilder::new()
             .feedback(feedback)
-            .objective_feedback(objective)
+            .objective_feedback(objective_feedback)
             .build()
     }
 }

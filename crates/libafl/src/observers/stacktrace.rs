@@ -39,7 +39,7 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 
 use super::ObserverWithHashField;
-use crate::{Error, executors::ExitKind, observers::Observer};
+use crate::{DependencyResolver, Error, executors::ExitKind, observers::Observer};
 
 #[cfg(not(feature = "casr"))]
 /// Collects the backtrace via [`Backtrace`] and [`Debug`]
@@ -217,6 +217,8 @@ impl ObserverWithHashField for BacktraceObserver<'_> {
     }
 }
 
+impl DependencyResolver for BacktraceObserver<'_> {}
+
 impl<S> Observer<S> for BacktraceObserver<'_> {
     fn post_exec(&mut self, _state: &mut S, exit_kind: &ExitKind) -> Result<(), Error> {
         if self.harness_type == HarnessType::InProcess {
@@ -368,6 +370,8 @@ impl Default for AsanBacktraceObserver {
         Self::new("AsanBacktraceObserver")
     }
 }
+
+impl DependencyResolver for AsanBacktraceObserver {}
 
 impl<S> Observer<S> for AsanBacktraceObserver {}
 

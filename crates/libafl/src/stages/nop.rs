@@ -1,6 +1,8 @@
 //! A nop stage does nothing
 
-use super::{Restartable, Stage};
+use crate::DependencyResolver;
+
+use super::Stage;
 
 /// A stage that does nothing
 #[derive(Debug, Copy, Clone, Default)]
@@ -14,6 +16,8 @@ impl NopStage {
     }
 }
 
+impl DependencyResolver for NopStage {}
+
 impl<C, E, S, Z> Stage<C, E, S, Z> for NopStage {
     fn perform(
         &mut self,
@@ -23,15 +27,5 @@ impl<C, E, S, Z> Stage<C, E, S, Z> for NopStage {
         _controller: &mut C,
     ) -> Result<(), libafl_bolts::Error> {
         Ok(())
-    }
-}
-
-impl<S> Restartable<S> for NopStage {
-    fn clear_progress(&mut self, _state: &mut S) -> Result<(), libafl_bolts::Error> {
-        Ok(())
-    }
-
-    fn should_restart(&mut self, _state: &mut S) -> Result<bool, libafl_bolts::Error> {
-        Ok(false)
     }
 }

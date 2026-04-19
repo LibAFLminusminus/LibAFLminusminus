@@ -4,7 +4,7 @@ use core::fmt::Debug;
 use libafl_bolts::{Error, Named, ownedref::OwnedMutPtr};
 use serde::{Deserialize, Serialize};
 
-use crate::observers::Observer;
+use crate::{DependencyResolver, observers::Observer};
 
 /// A simple observer with a list of things.
 #[derive(Serialize, Deserialize, Debug)]
@@ -41,6 +41,8 @@ impl<T> ListObserver<T> {
         self.list.as_mut()
     }
 }
+
+impl<T> DependencyResolver for ListObserver<T> {}
 
 impl<S, T> Observer<S> for ListObserver<T> {
     fn pre_exec(&mut self, _state: &mut S) -> Result<(), Error> {

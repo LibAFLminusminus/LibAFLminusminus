@@ -4,7 +4,7 @@ A well-known [`Stage`], for example, is the mutational stage, running multiple [
 Other stages may enrich [`crate::corpus::Testcase`]s with metadata.
 */
 
-use crate::{Error, state::FlatState};
+use crate::{DependencyResolver, Error, state::FlatState};
 use alloc::{
     borrow::{Cow, ToOwned},
     boxed::Box,
@@ -124,7 +124,7 @@ impl fmt::Display for StageId {
 
 /// A stage is one step in the fuzzing process.
 /// Multiple stages will be scheduled one by one for each input.
-pub trait Stage<CT, E, S, Z> {
+pub trait Stage<CT, E, S, Z>: DependencyResolver {
     /// Run the stage.
     ///
     /// If you want this stage to restart, then
@@ -139,21 +139,8 @@ pub trait Stage<CT, E, S, Z> {
     ) -> Result<(), Error>;
 }
 
-/// Restartable trait takes care of stage restart.
-pub trait Restartable<S> {
-    /// This method will be called before every call to [`Stage::perform`].
-    /// Initialize the restart tracking for this stage, _if it is not yet initialized_.
-    /// On restart, this will be called again.
-    /// As long as [`Restartable::clear_progress`], all subsequent calls happen on restart.
-    /// Returns `true`, if the stage's [`Stage::perform`] method should run, else `false`.
-    fn should_restart(&mut self, state: &mut S) -> Result<bool, Error>;
-
-    /// Clear the current status tracking of the associated stage
-    fn clear_progress(&mut self, state: &mut S) -> Result<(), Error>;
-}
-
 /// A tuple holding all `Stages` used for fuzzing.
-pub trait StagesTuple<CT, E, S, Z> {
+pub trait StagesTuple<CT, E, S, Z>: DependencyResolver {
     /// Performs all `Stages` in this tuple.
     fn perform_all(
         &mut self,
@@ -178,7 +165,7 @@ impl<CT, E, S, Z> StagesTuple<CT, E, S, Z> for () {
 
 impl<Head, Tail, CT, E, S, Z> StagesTuple<CT, E, S, Z> for (Head, Tail)
 where
-    Head: Stage<CT, E, S, Z> + Restartable<S>,
+    Head: Stage<CT, E, S, Z>,
     Tail: StagesTuple<CT, E, S, Z> + HasConstLen,
 {
     /// Performs all stages in the tuple,
@@ -266,6 +253,32 @@ where
 impl<E, EM, S, Z> IntoVec<Box<dyn Stage<E, EM, S, Z>>> for Vec<Box<dyn Stage<E, EM, S, Z>>> {
     fn into_vec(self) -> Vec<Box<dyn Stage<E, EM, S, Z>>> {
         self
+    }
+}
+
+impl<CT, E, S, Z> DependencyResolver for Vec<Box<dyn Stage<CT, E, S, Z>>> {
+    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<(), Error> {
+        for st in self {
+            st.register(registrator)?;
+        }
+
+        Ok(())
+    }
+
+    fn register_with_ty(&mut self, registrator: &mut crate::Registrator) -> Result<(), Error> {
+        for st in self {
+            st.register_with_ty(registrator)?;
+        }
+
+        Ok(())
+    }
+
+    fn check(&self, checker: &crate::CompatibilityChecker) -> Result<(), Error> {
+        for st in self {
+            st.check(checker)?;
+        }
+
+        Ok(())
     }
 }
 
