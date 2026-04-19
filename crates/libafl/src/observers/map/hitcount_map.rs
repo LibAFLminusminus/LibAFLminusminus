@@ -12,7 +12,7 @@ use libafl_bolts::{AsIter, AsIterMut, AsSlice, AsSliceMut, HasLen, Named, Trunca
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    Error,
+    DependencyResolver, Error,
     executors::ExitKind,
     observers::{ConstLenMapObserver, Observer, VarLenMapObserver, map::MapObserver},
 };
@@ -112,6 +112,8 @@ impl<M> DerefMut for HitcountsMapObserver<M> {
         &mut self.base
     }
 }
+
+impl<M> DependencyResolver for HitcountsMapObserver<M> {}
 
 impl<S, M> Observer<S> for HitcountsMapObserver<M>
 where
@@ -302,6 +304,8 @@ impl<M> DerefMut for HitcountsIterableMapObserver<M> {
         &mut self.base
     }
 }
+
+impl<M> DependencyResolver for HitcountsIterableMapObserver<M> {}
 
 impl<S, M> Observer<S> for HitcountsIterableMapObserver<M>
 where

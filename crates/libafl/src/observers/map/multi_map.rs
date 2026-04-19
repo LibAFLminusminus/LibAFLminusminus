@@ -15,7 +15,7 @@ use meminterval::IntervalTree;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use crate::{
-    Error,
+    DependencyResolver, Error,
     observers::{Observer, map::MapObserver},
 };
 
@@ -29,6 +29,8 @@ pub struct MultiMapObserver<'a, T> {
     name: Cow<'static, str>,
     iter_idx: usize,
 }
+
+impl<T> DependencyResolver for MultiMapObserver<'_, T> {}
 
 impl<S, T> Observer<S> for MultiMapObserver<'_, T>
 where

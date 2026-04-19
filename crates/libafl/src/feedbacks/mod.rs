@@ -719,8 +719,6 @@ macro_rules! feedback_not {
     };
 }
 
-impl DependencyResolver for () {}
-
 /// Hack to use () as empty Feedback
 impl<I, OT, S> Feedback<I, OT, S> for () {
     #[cfg(feature = "track_hit_feedbacks")]

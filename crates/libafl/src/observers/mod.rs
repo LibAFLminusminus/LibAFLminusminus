@@ -32,11 +32,11 @@ pub use list::*;
 use serde::{Deserialize, Serialize};
 pub use value::*;
 
-use crate::{Error, executors::ExitKind};
+use crate::{DependencyResolver, Error, executors::ExitKind};
 
 /// Observers observe different information about the target.
 /// They can then be used by various sorts of feedback.
-pub trait Observer<S>: Named {
+pub trait Observer<S>: DependencyResolver + Named {
     /// Called right before execution starts.
     #[inline]
     fn pre_exec(&mut self, _state: &mut S) -> Result<(), Error> {
@@ -158,6 +158,8 @@ impl TimeObserver {
         &self.last_runtime
     }
 }
+
+impl DependencyResolver for TimeObserver {}
 
 impl<S> Observer<S> for TimeObserver {
     #[cfg(feature = "std")]

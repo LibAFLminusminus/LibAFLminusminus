@@ -19,6 +19,13 @@ pub struct CompatibilityChecker {
 }
 
 impl Registrator {
+    pub fn new() -> Self {
+        Self {
+            map: NamedSerdeAnyMap::new(),
+            types: HashSet::new(),
+        }
+    }
+
     pub fn register_md<T: SerdeAny>(&mut self, name: String, value: T) -> Result<(), Error> {
         add_named_metadata_checked::<T>(&mut self.map, &name, value)
     }
@@ -59,22 +66,51 @@ pub trait DependencyResolver {
     ///
     /// The only exception is Testcase metadata, which can be allocated lazily
     /// at runtime.
+    ///
+    /// Only register here the metadata.
+    /// If you need to propagate this call to inner structucts, ALWAYS do it in
+    /// the implementation of `register_with_ty` and NOT here. Otherwise, the subtypes
+    /// will not be registered correctly.
     fn register(&mut self, _registrator: &mut Registrator) -> Result<(), Error> {
         Ok(())
     }
 
     /// Register in the resolver the types and metadata necessary during runtime.
     ///
-    /// These types will
+    /// This should be overwritten when registering inner structures.
     fn register_with_ty(&mut self, registrator: &mut Registrator) -> Result<(), Error> {
         registrator.register_ty::<Self>();
 
         self.register(registrator)
     }
 
-    /// Check that some types are actually being used if necessary.
-    /// Some objects are interdependent, so we can make sure there is
+    /// Check that some types (not registered by the current type) are actually being used if necessary.
+    /// Some objects are interdependent, so we can make sure one of the objects involved actually registered
+    /// the metadata.
     fn check(&self, _checker: &CompatibilityChecker) -> Result<(), Error> {
         Ok(())
+    }
+}
+
+impl DependencyResolver for () {}
+
+impl<Head, Tail> DependencyResolver for (Head, Tail)
+where
+    Head: DependencyResolver,
+    Tail: DependencyResolver,
+{
+    fn register(&mut self, registrator: &mut Registrator) -> Result<(), Error> {
+        self.0.register(registrator)?;
+        self.1.register(registrator)
+    }
+
+    fn register_with_ty(&mut self, registrator: &mut Registrator) -> Result<(), Error> {
+        self.0.register_with_ty(registrator)?;
+        self.1.register_with_ty(registrator)
+    }
+
+    fn check(&self, checker: &CompatibilityChecker) -> Result<(), Error> {
+        self.0.check(checker)?;
+        self.1.check(checker)
     }
 }

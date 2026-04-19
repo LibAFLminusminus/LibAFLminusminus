@@ -10,7 +10,7 @@ use core::{
 use libafl_bolts::{AsSlice, AsSliceMut, HasLen, Named, Truncate, ownedref::OwnedMutSlice};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
-use crate::{Error, executors::ExitKind, observers::Observer};
+use crate::{DependencyResolver, Error, executors::ExitKind, observers::Observer};
 
 pub mod const_map;
 pub use const_map::*;
@@ -127,6 +127,8 @@ where
         self.0.name()
     }
 }
+
+impl<T, const ITH: bool, const NTH: bool> DependencyResolver for ExplicitTracking<T, ITH, NTH> {}
 
 impl<S, T, const ITH: bool, const NTH: bool> Observer<S> for ExplicitTracking<T, ITH, NTH>
 where
@@ -397,6 +399,8 @@ pub struct StdMapObserver<'a, T> {
     initial: T,
     name: Cow<'static, str>,
 }
+
+impl<T> DependencyResolver for StdMapObserver<'_, T> {}
 
 impl<S, T> Observer<S> for StdMapObserver<'_, T>
 where

@@ -553,6 +553,12 @@ impl TestcaseMetadata {
         self.scheduled_count = scheduled_count;
     }
 
+    /// Set the `scheduled_count`
+    #[inline]
+    pub fn increase_scheduled_count(&mut self) {
+        self.scheduled_count += 1;
+    }
+
     /// Set the testcase as disabled
     #[inline]
     pub fn set_disabled(&mut self, disabled: bool) {

@@ -17,7 +17,7 @@ use std::{
 use libafl_bolts::Named;
 use serde::{Deserialize, Deserializer, Serialize};
 
-use crate::{Error, observers::Observer};
+use crate::{DependencyResolver, Error, Registrator, observers::Observer};
 
 /// An observer that captures stdout of a target.
 /// Only works for supported executors.
@@ -62,7 +62,7 @@ use crate::{Error, observers::Observer};
 /// {
 /// fn is_interesting(
 ///     &mut self,
-///        _state: &mut S,    
+///        _state: &mut S,
 ///        _manager: &mut EM,
 ///        _input: &I,
 ///        observers: &OT,
@@ -287,6 +287,8 @@ impl<T> Named for OutputObserver<T> {
         &self.name
     }
 }
+
+impl<T> DependencyResolver for OutputObserver<T> {}
 
 impl<S, T> Observer<S> for OutputObserver<T>
 where
