@@ -347,6 +347,7 @@ async fn main() -> io::Result<()> {
     );
 
     let mut tokio_joinset = JoinSet::new();
+    let mut all_errors: Vec<String> = Vec::new();
 
     if cli.generate_lockfiles {
         for project in rust_projects_to_handle {
@@ -435,14 +436,18 @@ async fn main() -> io::Result<()> {
 
         // Drain all formatting tasks before running post-format checks, so
         // checks always run against the (potentially re-)formatted files.
-        drain_joinset(&mut tokio_joinset).await?;
+        all_errors.extend(drain_joinset(&mut tokio_joinset).await);
 
         for rs_file in rust_sources_to_check.clone() {
             tokio_joinset.spawn(run_file_lints(rs_file, cli.verbose));
         }
     }
 
-    drain_joinset(&mut tokio_joinset).await?;
+    all_errors.extend(drain_joinset(&mut tokio_joinset).await);
+
+    if !all_errors.is_empty() {
+        report_errors(&all_errors);
+    }
 
     if cli.generate_lockfiles {
         println!("[*] Lockfile generation finished successfully.");
@@ -455,17 +460,37 @@ async fn main() -> io::Result<()> {
     Ok(())
 }
 
-async fn drain_joinset(set: &mut JoinSet<io::Result<()>>) -> io::Result<()> {
+async fn drain_joinset(set: &mut JoinSet<io::Result<()>>) -> Vec<String> {
+    let mut errors = Vec::new();
     while let Some(res) = set.join_next().await {
-        match res? {
-            Ok(()) => {}
-            Err(err) => {
-                println!("Error: {err}");
-                std::process::exit(exitcode::IOERR)
-            }
+        match res {
+            Ok(Ok(())) => {}
+            Ok(Err(err)) => errors.push(err.to_string()),
+            Err(join_err) => errors.push(format!("task failed to join: {join_err}")),
         }
     }
-    Ok(())
+    errors
+}
+
+/// Print every accumulated error followed by a rustc-style summary line and
+/// exit with a non-zero status.
+fn report_errors(errors: &[String]) -> ! {
+    for msg in errors {
+        println!("{msg}\n");
+    }
+    // Each rendered lint diagnostic starts with `error[...]`; format-task
+    // errors are free-form and count as a single error each.
+    let total: usize = errors
+        .iter()
+        .map(|m| m.matches("error[").count().max(1))
+        .sum();
+    let plural = if total == 1 { "" } else { "s" };
+    println!(
+        "{}{} aborting due to {total} previous error{plural}",
+        "error".red().bold(),
+        ":".bold(),
+    );
+    std::process::exit(exitcode::IOERR);
 }
 
 async fn get_version_string(path: &str, args: &[&str]) -> Result<String, io::Error> {

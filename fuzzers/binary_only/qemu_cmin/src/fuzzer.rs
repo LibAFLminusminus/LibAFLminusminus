@@ -39,6 +39,8 @@ use libafl_qemu::{
 use libafl_qemu::{modules::SnapshotModule, QemuExecutor};
 use libafl_targets::{EDGES_MAP_DEFAULT_SIZE, EDGES_MAP_PTR};
 
+pub const MAX_INPUT_SIZE: usize = 1048576; // 1MB
+
 #[cfg(all(not(miri), debug_assertions))]
 #[global_allocator]
 static GLOBAL: scudo::GlobalScudoAllocator = scudo::GlobalScudoAllocator;
@@ -52,31 +54,6 @@ pub struct Version;
 
 #[cfg(all(feature = "fork", feature = "snapshot"))]
 compile_error!("Cannot enable both 'fork' and 'snapshot' features at the same time.");
-
-impl From<Version> for Str {
-    fn from(_: Version) -> Str {
-        let version = [
-            ("Architecture:", env!("CPU_TARGET")),
-            ("Build Timestamp:", env!("VERGEN_BUILD_TIMESTAMP")),
-            ("Describe:", env!("VERGEN_GIT_DESCRIBE")),
-            ("Commit SHA:", env!("VERGEN_GIT_SHA")),
-            ("Commit Date:", env!("VERGEN_RUSTC_COMMIT_DATE")),
-            ("Commit Branch:", env!("VERGEN_GIT_BRANCH")),
-            ("Rustc Version:", env!("VERGEN_RUSTC_SEMVER")),
-            ("Rustc Channel:", env!("VERGEN_RUSTC_CHANNEL")),
-            ("Rustc Host Triple:", env!("VERGEN_RUSTC_HOST_TRIPLE")),
-            ("Rustc Commit SHA:", env!("VERGEN_RUSTC_COMMIT_HASH")),
-            ("Cargo Target Triple", env!("VERGEN_CARGO_TARGET_TRIPLE")),
-        ]
-        .iter()
-        .fold(String::new(), |mut output, (k, v)| {
-            let _ = writeln!(output, "{k:25}: {v}");
-            output
-        });
-
-        format!("\n{version:}").into()
-    }
-}
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
@@ -103,7 +80,30 @@ pub struct FuzzerOptions {
     args: Vec<String>,
 }
 
-pub const MAX_INPUT_SIZE: usize = 1048576; // 1MB
+impl From<Version> for Str {
+    fn from(_: Version) -> Str {
+        let version = [
+            ("Architecture:", env!("CPU_TARGET")),
+            ("Build Timestamp:", env!("VERGEN_BUILD_TIMESTAMP")),
+            ("Describe:", env!("VERGEN_GIT_DESCRIBE")),
+            ("Commit SHA:", env!("VERGEN_GIT_SHA")),
+            ("Commit Date:", env!("VERGEN_RUSTC_COMMIT_DATE")),
+            ("Commit Branch:", env!("VERGEN_GIT_BRANCH")),
+            ("Rustc Version:", env!("VERGEN_RUSTC_SEMVER")),
+            ("Rustc Channel:", env!("VERGEN_RUSTC_CHANNEL")),
+            ("Rustc Host Triple:", env!("VERGEN_RUSTC_HOST_TRIPLE")),
+            ("Rustc Commit SHA:", env!("VERGEN_RUSTC_COMMIT_HASH")),
+            ("Cargo Target Triple", env!("VERGEN_CARGO_TARGET_TRIPLE")),
+        ]
+        .iter()
+        .fold(String::new(), |mut output, (k, v)| {
+            let _ = writeln!(output, "{k:25}: {v}");
+            output
+        });
+
+        format!("\n{version:}").into()
+    }
+}
 
 pub fn fuzz() -> Result<(), Error> {
     env_logger::init();
