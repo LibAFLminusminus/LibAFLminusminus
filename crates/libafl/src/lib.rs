@@ -72,7 +72,6 @@ pub mod fuzzer;
 pub mod generators;
 pub mod inputs;
 pub mod launchers;
-#[cfg(not(feature = "remove_me"))]
 pub mod monitors;
 pub mod mutators;
 pub mod observers;

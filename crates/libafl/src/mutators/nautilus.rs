@@ -17,6 +17,7 @@ use crate::{
     },
     corpus::{Testcase, TestcaseId},
     feedbacks::NautilusChunksMetadata,
+    fuzzer::EvaluationResult,
     generators::nautilus::NautilusContext,
     inputs::nautilus::NautilusInput,
     mutators::{MutationResult, Mutator},
@@ -65,11 +66,7 @@ impl<R: Rand, S> Mutator<NautilusInput, R, S> for NautilusRandomMutator<'_> {
         }
     }
     #[inline]
-    fn post_exec(
-        &mut self,
-        _state: &mut S,
-        _new_testcase_id: Option<TestcaseId>,
-    ) -> Result<(), Error> {
+    fn post_exec(&mut self, _state: &mut S, _eval_res: &EvaluationResult) -> Result<(), Error> {
         Ok(())
     }
 }
@@ -139,11 +136,7 @@ impl<R: Rand, S> Mutator<NautilusInput, R, S> for NautilusRecursionMutator<'_> {
         Ok(MutationResult::Skipped)
     }
     #[inline]
-    fn post_exec(
-        &mut self,
-        _state: &mut S,
-        _new_testcase_id: Option<TestcaseId>,
-    ) -> Result<(), Error> {
+    fn post_exec(&mut self, _state: &mut S, _eval_res: &EvaluationResult) -> Result<(), Error> {
         Ok(())
     }
 }
@@ -217,11 +210,7 @@ where
         }
     }
     #[inline]
-    fn post_exec(
-        &mut self,
-        _state: &mut S,
-        _new_testcase_id: Option<TestcaseId>,
-    ) -> Result<(), Error> {
+    fn post_exec(&mut self, _state: &mut S, _eval_res: &EvaluationResult) -> Result<(), Error> {
         Ok(())
     }
 }

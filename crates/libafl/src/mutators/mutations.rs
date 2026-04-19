@@ -18,6 +18,7 @@ use libafl_core::non_zero;
 use crate::{
     Error,
     corpus::{Corpus, Scheduler, TestcaseId},
+    fuzzer::EvaluationResult,
     inputs::{HasMutatorBytes, ResizableMutator},
     mutators::{MutationResult, Mutator},
     state::{FlatState, HasCorpus, HasScheduler, State},
@@ -141,11 +142,7 @@ where
         }
     }
     #[inline]
-    fn post_exec(
-        &mut self,
-        _state: &mut S,
-        _new_testcase_id: Option<TestcaseId>,
-    ) -> Result<(), Error> {
+    fn post_exec(&mut self, _state: &mut S, _eval_res: &EvaluationResult) -> Result<(), Error> {
         Ok(())
     }
 }
@@ -182,11 +179,7 @@ where
         }
     }
     #[inline]
-    fn post_exec(
-        &mut self,
-        _state: &mut S,
-        _new_testcase_id: Option<TestcaseId>,
-    ) -> Result<(), Error> {
+    fn post_exec(&mut self, _state: &mut S, _eval_res: &EvaluationResult) -> Result<(), Error> {
         Ok(())
     }
 }
@@ -224,11 +217,7 @@ where
         }
     }
     #[inline]
-    fn post_exec(
-        &mut self,
-        _state: &mut S,
-        _new_testcase_id: Option<TestcaseId>,
-    ) -> Result<(), Error> {
+    fn post_exec(&mut self, _state: &mut S, _eval_res: &EvaluationResult) -> Result<(), Error> {
         Ok(())
     }
 }
@@ -266,11 +255,7 @@ where
         }
     }
     #[inline]
-    fn post_exec(
-        &mut self,
-        _state: &mut S,
-        _new_testcase_id: Option<TestcaseId>,
-    ) -> Result<(), Error> {
+    fn post_exec(&mut self, _state: &mut S, _eval_res: &EvaluationResult) -> Result<(), Error> {
         Ok(())
     }
 }
@@ -308,11 +293,7 @@ where
         }
     }
     #[inline]
-    fn post_exec(
-        &mut self,
-        _state: &mut S,
-        _new_testcase_id: Option<TestcaseId>,
-    ) -> Result<(), Error> {
+    fn post_exec(&mut self, _state: &mut S, _eval_res: &EvaluationResult) -> Result<(), Error> {
         Ok(())
     }
 }
@@ -350,11 +331,7 @@ where
         }
     }
     #[inline]
-    fn post_exec(
-        &mut self,
-        _state: &mut S,
-        _new_testcase_id: Option<TestcaseId>,
-    ) -> Result<(), Error> {
+    fn post_exec(&mut self, _state: &mut S, _eval_res: &EvaluationResult) -> Result<(), Error> {
         Ok(())
     }
 }
@@ -417,7 +394,7 @@ macro_rules! add_mutator_impl {
                 }
             }
             #[inline]
-            fn post_exec(&mut self, _state: &mut S, _new_testcase_id: Option<TestcaseId>) -> Result<(), Error> {
+            fn post_exec(&mut self, _state: &mut S, _eval_res: &EvaluationResult) -> Result<(), Error> {
                 Ok(())
             }
         }
@@ -484,7 +461,7 @@ macro_rules! interesting_mutator_impl {
             fn post_exec(
                 &mut self,
                 _state: &mut S,
-                _new_testcase_id: Option<TestcaseId>,
+                _eval_res: &EvaluationResult,
             ) -> Result<(), Error> {
                 Ok(())
             }
@@ -534,11 +511,7 @@ where
         Ok(MutationResult::Mutated)
     }
     #[inline]
-    fn post_exec(
-        &mut self,
-        _state: &mut S,
-        _new_testcase_id: Option<TestcaseId>,
-    ) -> Result<(), Error> {
+    fn post_exec(&mut self, _state: &mut S, _eval_res: &EvaluationResult) -> Result<(), Error> {
         Ok(())
     }
 }
@@ -593,11 +566,7 @@ where
         Ok(MutationResult::Mutated)
     }
     #[inline]
-    fn post_exec(
-        &mut self,
-        _state: &mut S,
-        _new_testcase_id: Option<TestcaseId>,
-    ) -> Result<(), Error> {
+    fn post_exec(&mut self, _state: &mut S, _eval_res: &EvaluationResult) -> Result<(), Error> {
         Ok(())
     }
 }
@@ -665,11 +634,7 @@ where
         Ok(MutationResult::Mutated)
     }
     #[inline]
-    fn post_exec(
-        &mut self,
-        _state: &mut S,
-        _new_testcase_id: Option<TestcaseId>,
-    ) -> Result<(), Error> {
+    fn post_exec(&mut self, _state: &mut S, _eval_res: &EvaluationResult) -> Result<(), Error> {
         Ok(())
     }
 }
@@ -734,11 +699,7 @@ where
         Ok(MutationResult::Mutated)
     }
     #[inline]
-    fn post_exec(
-        &mut self,
-        _state: &mut S,
-        _new_testcase_id: Option<TestcaseId>,
-    ) -> Result<(), Error> {
+    fn post_exec(&mut self, _state: &mut S, _eval_res: &EvaluationResult) -> Result<(), Error> {
         Ok(())
     }
 }
@@ -782,11 +743,7 @@ where
         Ok(MutationResult::Mutated)
     }
     #[inline]
-    fn post_exec(
-        &mut self,
-        _state: &mut S,
-        _new_testcase_id: Option<TestcaseId>,
-    ) -> Result<(), Error> {
+    fn post_exec(&mut self, _state: &mut S, _eval_res: &EvaluationResult) -> Result<(), Error> {
         Ok(())
     }
 }
@@ -830,11 +787,7 @@ where
         Ok(MutationResult::Mutated)
     }
     #[inline]
-    fn post_exec(
-        &mut self,
-        _state: &mut S,
-        _new_testcase_id: Option<TestcaseId>,
-    ) -> Result<(), Error> {
+    fn post_exec(&mut self, _state: &mut S, _eval_res: &EvaluationResult) -> Result<(), Error> {
         Ok(())
     }
 }
@@ -882,11 +835,7 @@ where
         Ok(MutationResult::Mutated)
     }
     #[inline]
-    fn post_exec(
-        &mut self,
-        _state: &mut S,
-        _new_testcase_id: Option<TestcaseId>,
-    ) -> Result<(), Error> {
+    fn post_exec(&mut self, _state: &mut S, _eval_res: &EvaluationResult) -> Result<(), Error> {
         Ok(())
     }
 }
@@ -964,11 +913,7 @@ where
         Ok(MutationResult::Mutated)
     }
     #[inline]
-    fn post_exec(
-        &mut self,
-        _state: &mut S,
-        _new_testcase_id: Option<TestcaseId>,
-    ) -> Result<(), Error> {
+    fn post_exec(&mut self, _state: &mut S, _eval_res: &EvaluationResult) -> Result<(), Error> {
         Ok(())
     }
 }
@@ -1184,11 +1129,7 @@ where
         }
     }
     #[inline]
-    fn post_exec(
-        &mut self,
-        _state: &mut S,
-        _new_testcase_id: Option<TestcaseId>,
-    ) -> Result<(), Error> {
+    fn post_exec(&mut self, _state: &mut S, _eval_res: &EvaluationResult) -> Result<(), Error> {
         Ok(())
     }
 }
@@ -1274,7 +1215,7 @@ where
         }
 
         let other_size = {
-            let mut other_testcase = state.corpus().get(id)?;
+            let mut other_testcase = state.corpus().get(&id)?;
             other_testcase.input_len()
         };
 
@@ -1290,7 +1231,7 @@ where
         });
         let target = rand.below(non_zero_size);
 
-        let other_testcase = state.corpus().get_from_all(id)?;
+        let other_testcase = state.corpus().get_from_all(&id)?;
         // No need to load the input again, it'll still be cached.
         let other = other_testcase.input();
 
@@ -1303,11 +1244,7 @@ where
         ))
     }
     #[inline]
-    fn post_exec(
-        &mut self,
-        _state: &mut S,
-        _new_testcase_id: Option<TestcaseId>,
-    ) -> Result<(), Error> {
+    fn post_exec(&mut self, _state: &mut S, _eval_res: &EvaluationResult) -> Result<(), Error> {
         Ok(())
     }
 }
@@ -1377,7 +1314,7 @@ where
         }
 
         let other_size = {
-            let mut testcase = state.corpus().get_from_all(id)?;
+            let mut testcase = state.corpus().get_from_all(&id)?;
             testcase.input_len()
         };
 
@@ -1395,7 +1332,7 @@ where
             NonZero::new_unchecked(min(other_size, size - target))
         });
 
-        let other_testcase = state.corpus().get_from_all(id)?;
+        let other_testcase = state.corpus().get_from_all(&id)?;
         // No need to load the input again, it'll still be cached.
         let other = other_testcase.input();
 
@@ -1407,11 +1344,7 @@ where
         ))
     }
     #[inline]
-    fn post_exec(
-        &mut self,
-        _state: &mut S,
-        _new_testcase_id: Option<TestcaseId>,
-    ) -> Result<(), Error> {
+    fn post_exec(&mut self, _state: &mut S, _eval_res: &EvaluationResult) -> Result<(), Error> {
         Ok(())
     }
 }
@@ -1491,7 +1424,7 @@ where
         }
 
         let other_size = {
-            let mut other_testcase = state.corpus().get_from_all(id)?;
+            let mut other_testcase = state.corpus().get_from_all(&id)?;
             let other_input = other_testcase.input();
             let input_mapped = (self.input_mapper)(&other_input).map_to_option_bytes();
             input_mapped.map_or(0, <Vec<u8>>::len)
@@ -1511,7 +1444,7 @@ where
         // size is checked above to never be 0.
         let target = rand.below(unsafe { NonZero::new_unchecked(size) });
 
-        let other_testcase = state.corpus().get_from_all(id)?;
+        let other_testcase = state.corpus().get_from_all(&id)?;
         // No need to load the input again, it'll still be cached.
         let other_input = &mut other_testcase.input();
         let wrapped_mapped_other_input = (self.input_mapper)(other_input).map_to_option_bytes();
@@ -1529,11 +1462,7 @@ where
         ))
     }
     #[inline]
-    fn post_exec(
-        &mut self,
-        _state: &mut S,
-        _new_testcase_id: Option<TestcaseId>,
-    ) -> Result<(), Error> {
+    fn post_exec(&mut self, _state: &mut S, _eval_res: &EvaluationResult) -> Result<(), Error> {
         Ok(())
     }
 }
@@ -1587,7 +1516,7 @@ where
         }
 
         let other_size = {
-            let mut other_testcase = state.corpus().get_from_all(id)?;
+            let mut other_testcase = state.corpus().get_from_all(&id)?;
             let other_input = other_testcase.input();
             let input_mapped = (self.input_mapper)(&other_input).map_to_option_bytes();
             input_mapped.map_or(0, <Vec<u8>>::len)
@@ -1607,7 +1536,7 @@ where
             NonZero::new_unchecked(min(other_size, size - target))
         });
 
-        let other_testcase = state.corpus().get_from_all(id)?;
+        let other_testcase = state.corpus().get_from_all(&id)?;
         // No need to load the input again, it'll still be cached.
         let other_input = &mut other_testcase.input();
         let wrapped_mapped_other_input = (self.input_mapper)(other_input).map_to_option_bytes();
@@ -1624,11 +1553,7 @@ where
         ))
     }
     #[inline]
-    fn post_exec(
-        &mut self,
-        _state: &mut S,
-        _new_testcase_id: Option<TestcaseId>,
-    ) -> Result<(), Error> {
+    fn post_exec(&mut self, _state: &mut S, _eval_res: &EvaluationResult) -> Result<(), Error> {
         Ok(())
     }
 }
@@ -1679,7 +1604,7 @@ where
         }
 
         let (first_diff, last_diff) = {
-            let mut other_testcase = state.corpus().get_from_all(id)?;
+            let mut other_testcase = state.corpus().get_from_all(&id)?;
             let other = other_testcase.input();
 
             let (f, l) = locate_diffs(input.mutator_bytes(), other.mutator_bytes());
@@ -1693,7 +1618,7 @@ where
 
         let split_at = rand.between(first_diff, last_diff);
 
-        let other_testcase = state.corpus().get_from_all(id)?;
+        let other_testcase = state.corpus().get_from_all(&id)?;
         // Input will already be loaded.
         let other = other_testcase.input();
 
@@ -1705,11 +1630,7 @@ where
         Ok(MutationResult::Mutated)
     }
     #[inline]
-    fn post_exec(
-        &mut self,
-        _state: &mut S,
-        _new_testcase_id: Option<TestcaseId>,
-    ) -> Result<(), Error> {
+    fn post_exec(&mut self, _state: &mut S, _eval_res: &EvaluationResult) -> Result<(), Error> {
         Ok(())
     }
 }

@@ -29,36 +29,6 @@ pub mod unicode_categories;
 /// Input which contains the context necessary to perform unicode mutations
 pub type UnicodeInput = (BytesInput, UnicodeIdentificationMetadata);
 
-impl<S> MutatedTransform<BytesInput, S> for UnicodeInput
-where
-    S: HasCorpus<BytesInput> + HasTestcase<BytesInput>,
-{
-    type Post = UnicodeIdentificationMetadata;
-
-    fn try_transform_from(base: &mut Testcase<BytesInput>, state: &S) -> Result<Self, Error> {
-        let input = base.load_input(state.corpus())?.clone();
-        let metadata = base.metadata::<UnicodeIdentificationMetadata>().cloned()?;
-        Ok((input, metadata))
-    }
-
-    fn try_transform_into(self, _state: &S) -> Result<(BytesInput, Self::Post), Error> {
-        Ok(self)
-    }
-}
-
-impl<S> MutatedTransformPost<S> for UnicodeIdentificationMetadata
-where
-    S: HasTestcase<BytesInput>,
-{
-    fn post_exec(self, state: &mut S, corpus_id: Option<CorpusId>) -> Result<(), Error> {
-        if let Some(corpus_id) = corpus_id {
-            let mut tc = state.testcase_mut(corpus_id)?;
-            tc.add_metadata(self);
-        }
-        Ok(())
-    }
-}
-
 const MAX_CHARS: usize = 16;
 
 fn choose_start<R: Rand>(

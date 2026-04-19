@@ -1,5 +1,7 @@
 //! Multiple map implementations for the in-memory store.
 
+use core::ops::Bound;
+
 use alloc::{collections::BTreeMap, vec::Vec};
 
 use num_traits::Zero;
@@ -21,19 +23,19 @@ pub trait InMemoryCorpusMap<T> {
     fn add(&mut self, id: TestcaseId, testcase: T) -> bool;
 
     /// Get by id; considers only enabled testcases
-    fn get(&self, id: TestcaseId) -> Option<&T>;
+    fn get(&self, id: &TestcaseId) -> Option<&T>;
 
     /// Get by id; considers only enabled testcases
-    fn get_mut(&mut self, id: TestcaseId) -> Option<&mut T>;
+    fn get_mut(&mut self, id: &TestcaseId) -> Option<&mut T>;
 
     /// Remove a testcase from the map, returning the removed testcase if present.
-    fn remove(&mut self, id: TestcaseId) -> Option<T>;
+    fn remove(&mut self, id: &TestcaseId) -> Option<T>;
 
     /// Get the prev corpus id in chronological order
-    fn prev(&self, id: TestcaseId) -> Option<TestcaseId>;
+    fn prev(&self, id: &TestcaseId) -> Option<TestcaseId>;
 
     /// Get the next corpus id in chronological order
-    fn next(&self, id: TestcaseId) -> Option<TestcaseId>;
+    fn next(&self, id: &TestcaseId) -> Option<TestcaseId>;
 
     /// Get the first inserted corpus id
     fn first(&self) -> Option<TestcaseId>;
@@ -113,8 +115,8 @@ impl TestcaseIdHistory {
     }
 
     /// Remove a key from the history
-    pub fn remove(&mut self, id: TestcaseId) {
-        if let Ok(idx) = self.keys.binary_search(&id) {
+    pub fn remove(&mut self, id: &TestcaseId) {
+        if let Ok(idx) = self.keys.binary_search(id) {
             self.keys.remove(idx);
         }
     }
@@ -162,16 +164,16 @@ impl<T> InMemoryCorpusMap<T> for HashCorpusMap<T> {
             .is_some()
     }
 
-    fn get(&self, id: TestcaseId) -> Option<&T> {
-        self.map.get(&id).map(|inner| &inner.testcase)
+    fn get(&self, id: &TestcaseId) -> Option<&T> {
+        self.map.get(id).map(|inner| &inner.testcase)
     }
 
-    fn get_mut(&mut self, id: TestcaseId) -> Option<&mut T> {
-        self.map.get_mut(&id).map(|storage| &mut storage.testcase)
+    fn get_mut(&mut self, id: &TestcaseId) -> Option<&mut T> {
+        self.map.get_mut(id).map(|storage| &mut storage.testcase)
     }
 
-    fn remove(&mut self, id: TestcaseId) -> Option<T> {
-        let entry = self.map.remove(&id)?;
+    fn remove(&mut self, id: &TestcaseId) -> Option<T> {
+        let entry = self.map.remove(id)?;
         self.history.remove(id);
 
         if let Some(prev) = &entry.prev {
@@ -185,15 +187,15 @@ impl<T> InMemoryCorpusMap<T> for HashCorpusMap<T> {
         Some(entry.testcase)
     }
 
-    fn prev(&self, id: TestcaseId) -> Option<TestcaseId> {
-        match self.map.get(&id) {
+    fn prev(&self, id: &TestcaseId) -> Option<TestcaseId> {
+        match self.map.get(id) {
             Some(item) => item.prev,
             _ => None,
         }
     }
 
-    fn next(&self, id: TestcaseId) -> Option<TestcaseId> {
-        match self.map.get(&id) {
+    fn next(&self, id: &TestcaseId) -> Option<TestcaseId> {
+        match self.map.get(id) {
             Some(item) => item.next,
             _ => None,
         }
@@ -227,27 +229,25 @@ impl<T> InMemoryCorpusMap<T> for BtreeCorpusMap<T> {
         self.map.insert(id, testcase).is_some()
     }
 
-    fn get(&self, id: TestcaseId) -> Option<&T> {
-        self.map.get(&id)
+    fn get(&self, id: &TestcaseId) -> Option<&T> {
+        self.map.get(id)
     }
 
-    fn get_mut(&mut self, id: TestcaseId) -> Option<&mut T> {
-        self.map.get_mut(&id)
+    fn get_mut(&mut self, id: &TestcaseId) -> Option<&mut T> {
+        self.map.get_mut(id)
     }
 
-    fn remove(&mut self, id: TestcaseId) -> Option<T> {
-        let ret = self.map.remove(&id)?;
+    fn remove(&mut self, id: &TestcaseId) -> Option<T> {
+        let ret = self.map.remove(id)?;
         self.history.remove(id);
         Some(ret)
     }
 
-    fn prev(&self, id: TestcaseId) -> Option<TestcaseId> {
+    fn prev(&self, id: &TestcaseId) -> Option<TestcaseId> {
         // TODO see if using self.keys is faster
-        let mut range = self
-            .map
-            .range((core::ops::Bound::Unbounded, core::ops::Bound::Included(id)));
+        let mut range = self.map.range((Bound::Unbounded, Bound::Included(id)));
         if let Some((this_id, _)) = range.next_back() {
-            if id != *this_id {
+            if *id != *this_id {
                 return None;
             }
         }
@@ -258,13 +258,13 @@ impl<T> InMemoryCorpusMap<T> for BtreeCorpusMap<T> {
         }
     }
 
-    fn next(&self, id: TestcaseId) -> Option<TestcaseId> {
+    fn next(&self, id: &TestcaseId) -> Option<TestcaseId> {
         // TODO see if using self.keys is faster
         let mut range = self
             .map
             .range((core::ops::Bound::Included(id), core::ops::Bound::Unbounded));
         if let Some((this_id, _)) = range.next() {
-            if id != *this_id {
+            if *id != *this_id {
                 return None;
             }
         }

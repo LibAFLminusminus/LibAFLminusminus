@@ -87,7 +87,7 @@ where
         _observers: &OT,
         testcase_id: &TestcaseId,
     ) -> Result<(), Error> {
-        let input = state.corpus().get(*testcase_id)?;
+        let input = state.corpus().get(testcase_id)?;
         let meta = named_metadata_mut::<NautilusChunksMetadata>(
             state.named_metadata_map_mut(),
             self.name(),

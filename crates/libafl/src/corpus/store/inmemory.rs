@@ -66,7 +66,7 @@ where
         }
     }
 
-    fn get_from<const ENABLED: bool>(&self, id: TestcaseId) -> Result<Testcase<I>, Error> {
+    fn get_from<const ENABLED: bool>(&self, id: &TestcaseId) -> Result<Testcase<I>, Error> {
         if ENABLED {
             self.enabled_map
                 .get(id)
@@ -85,12 +85,12 @@ where
         }
     }
 
-    fn disable(&mut self, id: TestcaseId) -> Result<(), Error> {
+    fn disable(&mut self, id: &TestcaseId) -> Result<(), Error> {
         let tc = self
             .enabled_map
             .remove(id)
             .ok_or_else(|| Error::key_not_found(format!("Index {id} not found")))?;
-        self.disabled_map.add(id, tc);
+        self.disabled_map.add(*id, tc);
         Ok(())
     }
 }
@@ -100,7 +100,7 @@ where
     M: InMemoryCorpusMap<Testcase<I>>,
     I: Input,
 {
-    fn remove(&mut self, id: TestcaseId) -> Result<Testcase<I>, Error> {
+    fn remove(&mut self, id: &TestcaseId) -> Result<Testcase<I>, Error> {
         if let Some(tc) = self.enabled_map.remove(id) {
             Ok(tc)
         } else if let Some(tc) = self.disabled_map.remove(id) {

@@ -48,7 +48,7 @@ impl<CT, I, S, SC> SingleCorpus<CT, I, S, SC> {
 
 pub trait DisableEntry {
     /// Disable a corpus entry
-    fn disable(&mut self, id: TestcaseId) -> Result<(), Error>;
+    fn disable(&mut self, id: &TestcaseId) -> Result<(), Error>;
 }
 
 impl<CT, I, S, SC> DependencyResolver for SingleCorpus<CT, I, S, SC> {}
@@ -95,7 +95,7 @@ where
     }
 
     /// Get testcase by id
-    fn get_from<const ENABLED: bool>(&self, id: TestcaseId) -> Result<Testcase<I>, Error> {
+    fn get_from<const ENABLED: bool>(&self, id: &TestcaseId) -> Result<Testcase<I>, Error> {
         self.store.get_from::<ENABLED>(id)
     }
 
@@ -113,7 +113,7 @@ where
     S: Store<I>,
     SC: RemovableScheduler<I, S>,
 {
-    fn disable(&mut self, id: TestcaseId) -> Result<(), Error> {
+    fn disable(&mut self, id: &TestcaseId) -> Result<(), Error> {
         self.store.disable(id)
     }
 }

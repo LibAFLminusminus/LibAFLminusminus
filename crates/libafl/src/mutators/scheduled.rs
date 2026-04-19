@@ -18,6 +18,7 @@ use super::MutationId;
 use crate::{
     Error,
     corpus::{Corpus, TestcaseId, testcase},
+    fuzzer::EvaluationResult,
     mutators::{MutationResult, Mutator, MutatorsTuple},
     state::HasCorpus,
 };
@@ -123,8 +124,8 @@ where
         self.scheduled_mutate(input, rand, state)
     }
     #[inline]
-    fn post_exec(&mut self, state: &mut S, new_corpus_id: Option<TestcaseId>) -> Result<(), Error> {
-        self.mutations.post_exec_all(state, new_corpus_id)
+    fn post_exec(&mut self, state: &mut S, eval_res: &EvaluationResult) -> Result<(), Error> {
+        self.mutations.post_exec_all(state, eval_res)
     }
 }
 
@@ -204,8 +205,8 @@ where
         self.scheduled_mutate(input, rand, state)
     }
     #[inline]
-    fn post_exec(&mut self, state: &mut S, new_corpus_id: Option<TestcaseId>) -> Result<(), Error> {
-        self.mutations.post_exec_all(state, new_corpus_id)
+    fn post_exec(&mut self, state: &mut S, eval_res: &EvaluationResult) -> Result<(), Error> {
+        self.mutations.post_exec_all(state, eval_res)
     }
 }
 
@@ -309,7 +310,7 @@ mod tests {
             .add(BytesInput::new(vec![b'd', b'e', b'f'].into()))
             .unwrap();
 
-        let mut input = corpus.get(id1).unwrap().cloned_input();
+        let mut input = corpus.get(&id1).unwrap().cloned_input();
 
         let mut state = StdState::new(
             corpus,
@@ -333,7 +334,7 @@ mod tests {
         let id1 = corpus.add(BytesInput::new(b"abc".to_vec().into())).unwrap();
         let id2 = corpus.add(BytesInput::new(b"def".to_vec().into())).unwrap();
 
-        let mut input = corpus.get(id1).unwrap().cloned_input();
+        let mut input = corpus.get(&id1).unwrap().cloned_input();
         let input_prior = input.clone();
 
         let mut state = StdState::new(
@@ -368,7 +369,7 @@ mod tests {
         let id1 = corpus.add(BytesInput::new(b"abc".to_vec().into())).unwrap();
         let id2 = corpus.add(BytesInput::new(b"def".to_vec().into())).unwrap();
 
-        let mut input = corpus.get(id1).unwrap().cloned_input();
+        let mut input = corpus.get(&id1).unwrap().cloned_input();
         let input_prior = input.clone();
 
         let mut state = StdState::new(

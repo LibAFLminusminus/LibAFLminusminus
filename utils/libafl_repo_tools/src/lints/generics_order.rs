@@ -5,7 +5,9 @@ use std::{
     io,
     path::{Path, PathBuf},
 };
+
 use syn::{GenericParam, Generics, ImplItem, Item, TraitItem, WherePredicate, spanned::Spanned};
+
 use super::{Label, render_diagnostic};
 
 struct Ctx<'a> {

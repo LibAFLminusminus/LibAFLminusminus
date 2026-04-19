@@ -41,7 +41,7 @@ pub mod nautilus;
 #[cfg(feature = "nautilus")]
 pub use nautilus::*;
 
-use crate::corpus::TestcaseId;
+use crate::{corpus::TestcaseId, fuzzer::EvaluationResult};
 
 // TODO mutator stats method that produces something that can be sent with the NewTestcase event
 // We can use it to report which mutations generated the testcase in the broker logs
@@ -99,11 +99,7 @@ pub trait Mutator<I, R, S>: Named {
 
     /// Post-process given the outcome of the execution
     /// `new_testcase_id` will be `Some` if a new [`crate::corpus::Testcase`] was created this execution.
-    fn post_exec(
-        &mut self,
-        _state: &mut S,
-        _new_testcase_id: Option<TestcaseId>,
-    ) -> Result<(), Error>;
+    fn post_exec(&mut self, _state: &mut S, _eval_res: &EvaluationResult) -> Result<(), Error>;
 }
 
 /// A mutator that takes input, and returns a vector of mutated inputs.
@@ -125,7 +121,7 @@ pub trait MultiMutator<I, R, S>: Named {
     fn multi_post_exec(
         &mut self,
         _state: &mut S,
-        _new_testcase_id: Option<TestcaseId>,
+        _eval_res: &EvaluationResult,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -143,11 +139,7 @@ pub trait MutatorsTuple<I, R, S>: HasLen {
 
     /// Runs the [`Mutator::post_exec`] function on all [`Mutator`]`s` in this `Tuple`.
     /// `new_testcase_id` will be `Some` if a new `Testcase` was created this execution.
-    fn post_exec_all(
-        &mut self,
-        state: &mut S,
-        new_testcase_id: Option<TestcaseId>,
-    ) -> Result<(), Error>;
+    fn post_exec_all(&mut self, state: &mut S, eval_res: &EvaluationResult) -> Result<(), Error>;
 
     /// Gets the [`Mutator`] at the given index and runs the `mutate` function on it.
     fn get_and_mutate(
@@ -164,7 +156,7 @@ pub trait MutatorsTuple<I, R, S>: HasLen {
         &mut self,
         index: usize,
         state: &mut S,
-        testcase_id: Option<TestcaseId>,
+        eval_res: &EvaluationResult,
     ) -> Result<(), Error>;
 }
 
@@ -180,11 +172,7 @@ impl<I, R: Rand, S> MutatorsTuple<I, R, S> for () {
     }
 
     #[inline]
-    fn post_exec_all(
-        &mut self,
-        _state: &mut S,
-        _new_testcase_id: Option<TestcaseId>,
-    ) -> Result<(), Error> {
+    fn post_exec_all(&mut self, _state: &mut S, _eval_res: &EvaluationResult) -> Result<(), Error> {
         Ok(())
     }
 
@@ -204,7 +192,7 @@ impl<I, R: Rand, S> MutatorsTuple<I, R, S> for () {
         &mut self,
         _index: usize,
         _state: &mut S,
-        _new_testcase_id: Option<TestcaseId>,
+        _eval_res: &EvaluationResult,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -229,13 +217,9 @@ where
         }
     }
 
-    fn post_exec_all(
-        &mut self,
-        state: &mut S,
-        new_testcase_id: Option<TestcaseId>,
-    ) -> Result<(), Error> {
-        self.0.post_exec(state, new_testcase_id)?;
-        self.1.post_exec_all(state, new_testcase_id)
+    fn post_exec_all(&mut self, state: &mut S, eval_res: &EvaluationResult) -> Result<(), Error> {
+        self.0.post_exec(state, eval_res)?;
+        self.1.post_exec_all(state, eval_res)
     }
 
     fn get_and_mutate(
@@ -257,12 +241,12 @@ where
         &mut self,
         index: usize,
         state: &mut S,
-        new_testcase_id: Option<TestcaseId>,
+        eval_res: &EvaluationResult,
     ) -> Result<(), Error> {
         if index == 0 {
-            self.0.post_exec(state, new_testcase_id)
+            self.0.post_exec(state, eval_res)
         } else {
-            self.1.get_and_post_exec(index - 1, state, new_testcase_id)
+            self.1.get_and_post_exec(index - 1, state, eval_res)
         }
     }
 }
@@ -299,12 +283,8 @@ where
         self.0.mutate_all(input, rand, state)
     }
 
-    fn post_exec_all(
-        &mut self,
-        state: &mut S,
-        new_testcase_id: Option<TestcaseId>,
-    ) -> Result<(), Error> {
-        self.0.post_exec_all(state, new_testcase_id)
+    fn post_exec_all(&mut self, state: &mut S, eval_res: &EvaluationResult) -> Result<(), Error> {
+        self.0.post_exec_all(state, eval_res)
     }
 
     fn get_and_mutate(
@@ -321,9 +301,9 @@ where
         &mut self,
         index: usize,
         state: &mut S,
-        new_testcase_id: Option<TestcaseId>,
+        eval_res: &EvaluationResult,
     ) -> Result<(), Error> {
-        self.0.get_and_post_exec(index, state, new_testcase_id)
+        self.0.get_and_post_exec(index, state, eval_res)
     }
 }
 
@@ -353,13 +333,9 @@ impl<I, R: Rand, S> MutatorsTuple<I, R, S> for Vec<Box<dyn Mutator<I, R, S>>> {
             })
     }
 
-    fn post_exec_all(
-        &mut self,
-        state: &mut S,
-        new_testcase_id: Option<TestcaseId>,
-    ) -> Result<(), Error> {
+    fn post_exec_all(&mut self, state: &mut S, eval_res: &EvaluationResult) -> Result<(), Error> {
         for mutator in self.iter_mut() {
-            mutator.post_exec(state, new_testcase_id)?;
+            mutator.post_exec(state, eval_res)?;
         }
         Ok(())
     }
@@ -381,12 +357,12 @@ impl<I, R: Rand, S> MutatorsTuple<I, R, S> for Vec<Box<dyn Mutator<I, R, S>>> {
         &mut self,
         index: usize,
         state: &mut S,
-        new_testcase_id: Option<TestcaseId>,
+        eval_res: &EvaluationResult,
     ) -> Result<(), Error> {
         let mutator = self
             .get_mut(index)
             .ok_or_else(|| Error::key_not_found(format!("Mutator with id {index:?} not found.")))?;
-        mutator.post_exec(state, new_testcase_id)
+        mutator.post_exec(state, eval_res)
     }
 }
 
@@ -426,11 +402,7 @@ impl<I, R: Rand, S> Mutator<I, R, S> for NopMutator {
         Ok(self.result)
     }
     #[inline]
-    fn post_exec(
-        &mut self,
-        _state: &mut S,
-        _new_testcase_id: Option<TestcaseId>,
-    ) -> Result<(), Error> {
+    fn post_exec(&mut self, _state: &mut S, _eval_res: &EvaluationResult) -> Result<(), Error> {
         Ok(())
     }
 }
@@ -458,11 +430,7 @@ impl<R: Rand, S> Mutator<bool, R, S> for BoolInvertMutator {
         Ok(MutationResult::Mutated)
     }
     #[inline]
-    fn post_exec(
-        &mut self,
-        _state: &mut S,
-        _new_testcase_id: Option<TestcaseId>,
-    ) -> Result<(), Error> {
+    fn post_exec(&mut self, _state: &mut S, _eval_res: &EvaluationResult) -> Result<(), Error> {
         Ok(())
     }
 }

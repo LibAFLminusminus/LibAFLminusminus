@@ -1,34 +1,5 @@
 //! Keep stats, and display them to the user. Usually used in a broker, or main node, of some sort.
 
-pub mod multi;
-use libafl_bolts::Error;
-pub use multi::MultiMonitor;
-pub mod stats;
-
-pub mod logics;
-pub use logics::{IfElseMonitor, IfMonitor, OptionalMonitor, WhileMonitor};
-
-#[cfg(feature = "std")]
-pub mod disk;
-#[cfg(feature = "std")]
-pub use disk::{OnDiskJsonMonitor, OnDiskTomlMonitor};
-
-#[cfg(feature = "std")]
-pub mod disk_aggregate;
-#[cfg(feature = "std")]
-pub use disk_aggregate::OnDiskJsonAggregateMonitor;
-
-#[cfg(all(feature = "tui_monitor", feature = "std"))]
-pub mod tui;
-#[cfg(all(feature = "tui_monitor", feature = "std"))]
-pub use tui::TuiMonitor;
-
-#[cfg(feature = "prometheus_monitor")]
-pub mod prometheus;
-
-#[cfg(feature = "statsd_monitor")]
-pub mod statsd;
-
 #[cfg(feature = "std")]
 use alloc::vec::Vec;
 use core::{
@@ -39,11 +10,80 @@ use core::{
 #[cfg(feature = "std")]
 use std::sync::OnceLock;
 
-use libafl_bolts::ClientId;
+use libafl_bolts::{ClientId, Error};
+
+#[cfg(not(feature = "remove_me"))]
+pub mod multi;
+#[cfg(not(feature = "remove_me"))]
+pub use multi::MultiMonitor;
+#[cfg(not(feature = "remove_me"))]
+pub mod stats;
+
+#[cfg(not(feature = "remove_me"))]
+pub mod logics;
+#[cfg(not(feature = "remove_me"))]
+pub use logics::{IfElseMonitor, IfMonitor, OptionalMonitor, WhileMonitor};
+
+#[cfg(not(feature = "remove_me"))]
+#[cfg(feature = "std")]
+pub mod disk;
+#[cfg(not(feature = "remove_me"))]
+#[cfg(feature = "std")]
+pub use disk::{OnDiskJsonMonitor, OnDiskTomlMonitor};
+
+#[cfg(not(feature = "remove_me"))]
+#[cfg(feature = "std")]
+pub mod disk_aggregate;
+#[cfg(not(feature = "remove_me"))]
+#[cfg(feature = "std")]
+pub use disk_aggregate::OnDiskJsonAggregateMonitor;
+
+#[cfg(not(feature = "remove_me"))]
+#[cfg(all(feature = "tui_monitor", feature = "std"))]
+pub mod tui;
+#[cfg(not(feature = "remove_me"))]
+#[cfg(all(feature = "tui_monitor", feature = "std"))]
+pub use tui::TuiMonitor;
+
+#[cfg(not(feature = "remove_me"))]
+#[cfg(feature = "prometheus_monitor")]
+pub mod prometheus;
+
+#[cfg(not(feature = "remove_me"))]
+#[cfg(feature = "statsd_monitor")]
+pub mod statsd;
+
+#[cfg(not(feature = "remove_me"))]
 #[cfg(feature = "prometheus_monitor")]
 pub use prometheus::PrometheusMonitor;
+#[cfg(not(feature = "remove_me"))]
 #[cfg(feature = "statsd_monitor")]
 pub use statsd::StatsdMonitor;
+
+/// The monitor trait keeps track of all the client's monitor, and offers methods to display them.
+pub trait Monitor {
+    /// Show the monitor to the user
+    fn display(&mut self) -> Result<(), Error>;
+}
+
+/// Monitor that print exactly nothing.
+/// Not good for debugging, very good for speed.
+#[derive(Debug, Copy, Clone)]
+pub struct NopMonitor;
+
+/// Tracking monitor during fuzzing that just prints to `stdout`.
+#[cfg(feature = "std")]
+#[derive(Debug, Clone, Default)]
+pub struct SimplePrintingMonitor;
+
+/// Tracking monitor during fuzzing.
+#[derive(Clone)]
+pub struct SimpleMonitor<F>
+where
+    F: FnMut(&str),
+{
+    print_fn: F,
+}
 
 /// Returns if we're cooking.
 #[cfg(feature = "std")]
@@ -79,32 +119,9 @@ pub fn pizza_is_served() -> bool {
     false
 }
 
-use crate::monitors::stats::ClientStatsManager;
-
-/// The monitor trait keeps track of all the client's monitor, and offers methods to display them.
-pub trait Monitor {
-    /// Show the monitor to the user
-    fn display(
-        &mut self,
-        client_stats_manager: &mut ClientStatsManager,
-        event_msg: &str,
-        sender_id: ClientId,
-    ) -> Result<(), Error>;
-}
-
-/// Monitor that print exactly nothing.
-/// Not good for debugging, very good for speed.
-#[derive(Debug, Copy, Clone)]
-pub struct NopMonitor {}
-
 impl Monitor for NopMonitor {
     #[inline]
-    fn display(
-        &mut self,
-        _client_stats_manager: &mut ClientStatsManager,
-        _event_msg: &str,
-        _sender_id: ClientId,
-    ) -> Result<(), Error> {
+    fn display(&mut self) -> Result<(), Error> {
         Ok(())
     }
 }
@@ -123,11 +140,6 @@ impl Default for NopMonitor {
     }
 }
 
-/// Tracking monitor during fuzzing that just prints to `stdout`.
-#[cfg(feature = "std")]
-#[derive(Debug, Clone, Default)]
-pub struct SimplePrintingMonitor {}
-
 #[cfg(feature = "std")]
 impl SimplePrintingMonitor {
     /// Create a new [`SimplePrintingMonitor`]
@@ -139,81 +151,67 @@ impl SimplePrintingMonitor {
 
 #[cfg(feature = "std")]
 impl Monitor for SimplePrintingMonitor {
-    fn display(
-        &mut self,
-        client_stats_manager: &mut ClientStatsManager,
-        event_msg: &str,
-        sender_id: ClientId,
-    ) -> Result<(), Error> {
-        let mut userstats = client_stats_manager
-            .get(sender_id)?
-            .user_stats()
-            .iter()
-            .map(|(key, value)| format!("{key}: {value}"))
-            .collect::<Vec<_>>();
-        userstats.sort();
-        let global_stats = client_stats_manager.global_stats();
-        let (run, customers, corpus, objectives, executions, speed) = if pizza_is_served() {
-            (
-                "time to bake",
-                "customers",
-                "pizzas",
-                "deliveries",
-                "doughs",
-                "p/s",
-            )
-        } else {
-            (
-                "run time",
-                "clients",
-                "corpus",
-                "objectives",
-                "executions",
-                "exec/sec",
-            )
-        };
-        println!(
-            "[{} #{}] {}: {}, {}: {}, {}: {}, {}: {}, {}: {}, {}: {}, {}",
-            event_msg,
-            sender_id.0,
-            run,
-            global_stats.run_time_pretty,
-            customers,
-            global_stats.client_stats_count,
-            corpus,
-            global_stats.corpus_size,
-            objectives,
-            global_stats.objective_size,
-            executions,
-            global_stats.total_execs,
-            speed,
-            global_stats.execs_per_sec_pretty,
-            userstats.join(", ")
-        );
+    fn display(&mut self) -> Result<(), Error> {
+        // let mut userstats = client_stats_manager
+        //     .get(sender_id)?
+        //     .user_stats()
+        //     .iter()
+        //     .map(|(key, value)| format!("{key}: {value}"))
+        //     .collect::<Vec<_>>();
+        // userstats.sort();
+        // let global_stats = client_stats_manager.global_stats();
+        // let (run, customers, corpus, objectives, executions, speed) = if pizza_is_served() {
+        //     (
+        //         "time to bake",
+        //         "customers",
+        //         "pizzas",
+        //         "deliveries",
+        //         "doughs",
+        //         "p/s",
+        //     )
+        // } else {
+        //     (
+        //         "run time",
+        //         "clients",
+        //         "corpus",
+        //         "objectives",
+        //         "executions",
+        //         "exec/sec",
+        //     )
+        // };
+        // println!(
+        //     "[{} #{}] {}: {}, {}: {}, {}: {}, {}: {}, {}: {}, {}: {}, {}",
+        //     event_msg,
+        //     sender_id.0,
+        //     run,
+        //     global_stats.run_time_pretty,
+        //     customers,
+        //     global_stats.client_stats_count,
+        //     corpus,
+        //     global_stats.corpus_size,
+        //     objectives,
+        //     global_stats.objective_size,
+        //     executions,
+        //     global_stats.total_execs,
+        //     speed,
+        //     global_stats.execs_per_sec_pretty,
+        //     userstats.join(", ")
+        // );
 
-        // Only print perf monitor if the feature is enabled
-        #[cfg(feature = "introspection")]
-        {
-            // Print the client performance monitor.
-            println!(
-                "Client {:03}:\n{}",
-                sender_id.0,
-                client_stats_manager.get(sender_id)?.introspection_stats
-            );
-            // Separate the spacing just a bit
-            println!();
-        }
+        // // Only print perf monitor if the feature is enabled
+        // #[cfg(feature = "introspection")]
+        // {
+        //     // Print the client performance monitor.
+        //     println!(
+        //         "Client {:03}:\n{}",
+        //         sender_id.0,
+        //         client_stats_manager.get(sender_id)?.introspection_stats
+        //     );
+        //     // Separate the spacing just a bit
+        //     println!();
+        // }
         Ok(())
     }
-}
-
-/// Tracking monitor during fuzzing.
-#[derive(Clone)]
-pub struct SimpleMonitor<F>
-where
-    F: FnMut(&str),
-{
-    print_fn: F,
 }
 
 impl<F> Debug for SimpleMonitor<F>
@@ -229,72 +227,67 @@ impl<F> Monitor for SimpleMonitor<F>
 where
     F: FnMut(&str),
 {
-    fn display(
-        &mut self,
-        client_stats_manager: &mut ClientStatsManager,
-        event_msg: &str,
-        sender_id: ClientId,
-    ) -> Result<(), Error> {
-        let global_stats = client_stats_manager.global_stats();
-        let (run, customers, corpus, objectives, executions, speed) = if pizza_is_served() {
-            (
-                "time to bake",
-                "customers",
-                "pizzas",
-                "deliveries",
-                "doughs",
-                "p/s",
-            )
-        } else {
-            (
-                "run time",
-                "clients",
-                "corpus",
-                "objectives",
-                "executions",
-                "exec/sec",
-            )
-        };
-        let mut fmt = format!(
-            "[{} #{}] {}: {}, {}: {}, {}: {}, {}: {}, {}: {}, {}: {}",
-            event_msg,
-            sender_id.0,
-            run,
-            global_stats.run_time_pretty,
-            customers,
-            global_stats.client_stats_count,
-            corpus,
-            global_stats.corpus_size,
-            objectives,
-            global_stats.objective_size,
-            executions,
-            global_stats.total_execs,
-            speed,
-            global_stats.execs_per_sec_pretty
-        );
+    fn display(&mut self) -> Result<(), Error> {
+        // let global_stats = client_stats_manager.global_stats();
+        // let (run, customers, corpus, objectives, executions, speed) = if pizza_is_served() {
+        //     (
+        //         "time to bake",
+        //         "customers",
+        //         "pizzas",
+        //         "deliveries",
+        //         "doughs",
+        //         "p/s",
+        //     )
+        // } else {
+        //     (
+        //         "run time",
+        //         "clients",
+        //         "corpus",
+        //         "objectives",
+        //         "executions",
+        //         "exec/sec",
+        //     )
+        // };
+        // let mut fmt = format!(
+        //     "[{} #{}] {}: {}, {}: {}, {}: {}, {}: {}, {}: {}, {}: {}",
+        //     event_msg,
+        //     sender_id.0,
+        //     run,
+        //     global_stats.run_time_pretty,
+        //     customers,
+        //     global_stats.client_stats_count,
+        //     corpus,
+        //     global_stats.corpus_size,
+        //     objectives,
+        //     global_stats.objective_size,
+        //     executions,
+        //     global_stats.total_execs,
+        //     speed,
+        //     global_stats.execs_per_sec_pretty
+        // );
 
-        client_stats_manager.client_stats_insert(sender_id)?;
-        let client = client_stats_manager.client_stats_for(sender_id)?;
-        for (key, val) in client.user_stats() {
-            write!(fmt, ", {key}: {val}").unwrap();
-        }
+        // client_stats_manager.client_stats_insert(sender_id)?;
+        // let client = client_stats_manager.client_stats_for(sender_id)?;
+        // for (key, val) in client.user_stats() {
+        //     write!(fmt, ", {key}: {val}").unwrap();
+        // }
 
-        (self.print_fn)(&fmt);
+        // (self.print_fn)(&fmt);
 
-        // Only print perf monitor if the feature is enabled
-        #[cfg(feature = "introspection")]
-        {
-            // Print the client performance monitor.
-            let fmt = format!(
-                "Client {:03}:\n{}",
-                sender_id.0,
-                client_stats_manager.get(sender_id)?.introspection_stats
-            );
-            (self.print_fn)(&fmt);
+        // // Only print perf monitor if the feature is enabled
+        // #[cfg(feature = "introspection")]
+        // {
+        //     // Print the client performance monitor.
+        //     let fmt = format!(
+        //         "Client {:03}:\n{}",
+        //         sender_id.0,
+        //         client_stats_manager.get(sender_id)?.introspection_stats
+        //     );
+        //     (self.print_fn)(&fmt);
 
-            // Separate the spacing just a bit
-            (self.print_fn)("");
-        }
+        //     // Separate the spacing just a bit
+        //     (self.print_fn)("");
+        // }
         Ok(())
     }
 }
@@ -349,25 +342,15 @@ macro_rules! mark_feedback_time {
 }
 
 impl<A: Monitor, B: Monitor> Monitor for (A, B) {
-    fn display(
-        &mut self,
-        client_stats_manager: &mut ClientStatsManager,
-        event_msg: &str,
-        sender_id: ClientId,
-    ) -> Result<(), Error> {
-        self.0.display(client_stats_manager, event_msg, sender_id)?;
-        self.1.display(client_stats_manager, event_msg, sender_id)
+    fn display(&mut self) -> Result<(), Error> {
+        self.0.display()?;
+        self.1.display()
     }
 }
 
 impl<A: Monitor> Monitor for (A, ()) {
-    fn display(
-        &mut self,
-        client_stats_manager: &mut ClientStatsManager,
-        event_msg: &str,
-        sender_id: ClientId,
-    ) -> Result<(), Error> {
-        self.0.display(client_stats_manager, event_msg, sender_id)
+    fn display(&mut self) -> Result<(), Error> {
+        self.0.display()
     }
 }
 
@@ -376,11 +359,11 @@ mod test {
     use libafl_bolts::ClientId;
     use tuple_list::tuple_list;
 
-    use super::{Monitor, NopMonitor, SimpleMonitor, stats::ClientStatsManager};
+    use super::{Monitor, NopMonitor, SimpleMonitor};
 
     #[test]
     fn test_monitor_tuple_list() {
-        let mut client_stats = ClientStatsManager::new();
+        // let mut client_stats = ClientStatsManager::new();
         let mut mgr_list = tuple_list!(
             SimpleMonitor::new(|_msg| {
                 #[cfg(feature = "std")]
@@ -393,7 +376,7 @@ mod test {
             NopMonitor::default(),
             NopMonitor::default(),
         );
-        let _ = mgr_list.display(&mut client_stats, "test", ClientId(0));
+        let _ = mgr_list.display();
     }
 
     #[test]
@@ -402,12 +385,12 @@ mod test {
         let _ = super::pizza_is_served();
     }
 
-    #[test]
-    #[cfg(feature = "std")]
-    fn test_multi_monitor_pizza_mode() {
-        use alloc::string::String;
-        use core::cell::RefCell;
-        let output = RefCell::new(String::new());
-        let _monitor = super::MultiMonitor::new(|s| output.borrow_mut().push_str(s));
-    }
+    // #[test]
+    // #[cfg(feature = "std")]
+    // fn test_multi_monitor_pizza_mode() {
+    //     use alloc::string::String;
+    //     use core::cell::RefCell;
+    //     let output = RefCell::new(String::new());
+    //     let _monitor = super::MultiMonitor::new(|s| output.borrow_mut().push_str(s));
+    // }
 }
