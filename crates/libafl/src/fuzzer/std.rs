@@ -1,4 +1,11 @@
-use crate::fuzzer::{EvaluationResult, HasFeedback, HasObjective, Verdict};
+use libafl_core::Error;
+
+use crate::{
+    corpus::{Corpus, Scheduler, Testcase},
+    executors::ExitKind,
+    fuzzer::{EvaluationResult, Evaluator, HasFeedback, HasObjective, Verdict},
+    state::{FlatState, HasCorpus, HasObjectiveCorpus, HasTestcase, State},
+};
 
 /// Your default fuzzer instance, for everyday use.
 #[derive(Debug)]
@@ -35,61 +42,95 @@ impl<F, OF> HasObjective for StdFuzzer<F, OF> {
     }
 }
 
-/// bunch of handy public functions
-fn check_results<I, OT, S, Z>(
-    fuzzer: &mut Z,
-    state: &mut S,
-    input: &I,
-    observers: &OT,
-    exit_kind: &ExitKind,
-) -> Result<ExecuteInputResult, Error> {
-    let mut res = ExecuteInputResult::None;
-
-    #[cfg(not(feature = "introspection"))]
-    let is_solution = fuzzer
-        .objective_mut()
-        .is_interesting(state, input, observers, exit_kind)?;
-
-    #[cfg(feature = "introspection")]
-    let is_solution = self
-        .objective_mut()
-        .is_interesting_introspection(state, input, observers, exit_kind)?;
-
-    if is_solution {
-        res = ExecuteInputResult::Solution;
-    } else {
+impl<F, OF> StdFuzzer<F, OF> {
+    fn evaluate_execution<I, OT, S, SC, Z>(
+        &mut self,
+        state: &mut S,
+        input: &I,
+        observers: &OT,
+        exit_kind: ExitKind,
+        send_events: bool,
+    ) -> Result<EvaluationResult, Error>
+    where
+        I: Clone,
+        S: HasCorpus<I, SC> + HasObjectiveCorpus + HasTestcase<I> + FlatState,
+        SC: Scheduler,
+    {
         #[cfg(not(feature = "introspection"))]
-        let corpus_worthy = fuzzer
-            .feedback_mut()
+        let is_solution = self
+            .objective
             .is_interesting(state, input, observers, exit_kind)?;
+
         #[cfg(feature = "introspection")]
-        let corpus_worthy = self
-            .feedback_mut()
+        let is_solution = self
+            .objective
             .is_interesting_introspection(state, input, observers, exit_kind)?;
 
-        if corpus_worthy {
-            res = ExecuteInputResult::Corpus;
+        let eval_res: EvaluationResult = if is_solution {
+            let executions = state.executions();
+            let parent_id = state.corpus().scheduler().current();
+
+            // The input is a solution, add it to the respective corpus
+            let testcase_id = state.objective_corpus_mut().add(input.clone());
+
+            let md = state.testcase_md_mut_from_id(&testcase_id);
+
+            md.set_executions(executions);
+            md.found_objective();
+
+            // TODO: keep parent id?
+            // testcase.set_parent_id_optional(*state.corpus().current());
+
+            #[cfg(feature = "track_hit_feedbacks")]
+            self.objective_mut()
+                .append_hit_feedbacks(testcase.hit_objectives_mut())?;
+            self.objective_mut()
+                .append_metadata(state, observers, &testcase_id)?;
+
+            EvaluationResult::new(exit_kind, Verdict::Objective(testcase_id))
+        } else {
+            #[cfg(not(feature = "introspection"))]
+            let corpus_worthy = state
+                .corpus_mut()
+                .feedback_mut()
+                .is_interesting(state, input, observers, exit_kind)?;
+
+            #[cfg(feature = "introspection")]
+            let corpus_worthy = state
+                .corpus_mut()
+                .feedback_mut()
+                .is_interesting_introspection(state, input, observers, exit_kind)?;
+
+            if corpus_worthy {
+                // Not a solution
+                // Add the input to the main corpus
+
+                let executions = state.executions();
+                let parent_id = state.corpus().scheduler().current();
+
+                let testcase_id = state.corpus_mut().add(input.clone())?;
+                let md = state
+                    .testcase_md_mut_from_id(&testcase_id)
+                    .set_executions(executions);
+
+                #[cfg(feature = "track_hit_feedbacks")]
+                self.feedback_mut()
+                    .append_hit_feedbacks(testcase.hit_feedbacks_mut())?;
+                self.feedback_mut()
+                    .append_metadata(state, observers, &testcase_id)?;
+
+                EvaluationResult::new(exit_kind, Verdict::Corpus(testcase_id))
+            } else {
+                EvaluationResult::new(exit_kind, Verdict::Uninteresting)
+            }
+        };
+
+        if eval_res.is_corpus_worthy() {
+            *state.last_found_time_mut() = current_time();
         }
+
+        Ok(eval_res)
     }
-
-    Ok(res)
-}
-
-fn evaluate_execution<I, OT, S, Z>(
-    fuzzer: &mut Z,
-    state: &mut S,
-    input: &I,
-    observers: &OT,
-    exit_kind: &ExitKind,
-    send_events: bool,
-) -> Result<(ExecuteInputResult, Option<CorpusId>), Error> {
-    let exec_res = fuzzer.check_results(state, input, observers, exit_kind)?;
-    let corpus_id = fuzzer.process_execution(state, input, &exec_res, exit_kind, observers)?;
-
-    if exec_res != ExecuteInputResult::None {
-        *state.last_found_time_mut() = current_time();
-    }
-    Ok((exec_res, corpus_id))
 }
 
 // TODO: do we really need to keep this?
@@ -167,84 +208,26 @@ fn evaluate_execution<I, OT, S, Z>(
 //     Ok(id)
 // }
 
-impl<CS, F, I, IC, IF, OF, OT, S> ExecutionProcessor<I, OT, S> for StdFuzzer<F, OF>
-where
-    CS: Scheduler<I, S>,
-    F: Feedback<EM, I, OT, S>,
-    I: Input,
-    OF: Feedback<EM, I, OT, S>,
-    OT: ObserversTuple<I, S> + Serialize,
-    S: HasCorpus<I>
-        + MaybeHasClientPerfMonitor
-        + HasExecutions
-        + HasCurrentTestcase<I>
-        + HasSolutions<I>
-        + HasLastFoundTime
-        + HasExecutions,
-{
-    /// Post process a testcase depending the testcase execution results
-    /// returns corpus id if it put something into corpus (not solution)
-    /// This code will not be reached by inprocess executor if crash happened.
-    fn process_execution(
-        &mut self,
-        state: &mut S,
-        input: &I,
-        eval_res: &EvaluationResult,
-        observers: &OT,
-    ) -> Result<Option<CorpusId>, Error> {
-        match eval_res.verdict() {
-            Verdict::Uninteresting => Ok(None),
-            Verdict::Corpus(testcase_id) => {
-                // Not a solution
-                // Add the input to the main corpus
-                testcase.set_executions(*state.executions());
-                #[cfg(feature = "track_hit_feedbacks")]
-                self.feedback_mut()
-                    .append_hit_feedbacks(testcase.hit_feedbacks_mut())?;
-                self.feedback_mut()
-                    .append_metadata(state, observers, &mut testcase)?;
-                let id = state.corpus_mut().add(testcase)?;
-                self.scheduler_mut().on_add(state, id)?;
+// impl<CS, F, I, IC, IF, OF, OT, S> ExecutionProcessor<I, OT, S> for StdFuzzer<F, OF> {
+//     /// Post process a testcase depending the testcase execution results
+//     /// returns corpus id if it put something into corpus (not solution)
+//     /// This code will not be reached by inprocess executor if crash happened.
+//     fn process_execution(
+//         &mut self,
+//         state: &mut S,
+//         input: &I,
+//         eval_res: &EvaluationResult,
+//         observers: &OT,
+//     ) -> Result<Option<CorpusId>, Error> {
+//         match eval_res.verdict() {
+//             Verdict::Uninteresting => Ok(None),
+//             Verdict::Corpus(testcase_id) => {}
+//             ExecuteInputResult::Solution => {}
+//         }
+//     }
+// }
 
-                Ok(Some(id))
-            }
-            ExecuteInputResult::Solution => {
-                // The input is a solution, add it to the respective corpus
-                let mut testcase = Testcase::from(input.clone());
-                testcase.set_executions(*state.executions());
-                testcase.set_parent_id_optional(*state.corpus().current());
-                if let Ok(mut tc) = state.current_testcase_mut() {
-                    tc.found_objective();
-                }
-                #[cfg(feature = "track_hit_feedbacks")]
-                self.objective_mut()
-                    .append_hit_feedbacks(testcase.hit_objectives_mut())?;
-                self.objective_mut()
-                    .append_metadata(stateger, observers, &mut testcase)?;
-                state.solutions_mut().add(testcase)?;
-
-                Ok(None)
-            }
-        }
-    }
-}
-
-impl<CS, E, F, I, IC, IF, OF, S> Evaluator<E, I, S> for StdFuzzer<F, OF>
-where
-    CS: Scheduler<I, S>,
-    E: HasObservers + Executor<I, S, Self>,
-    E::Observers: MatchName + ObserversTuple<I, S> + Serialize,
-    F: Feedback<I, E::Observers, S>,
-    OF: Feedback<I, E::Observers, S>,
-    S: HasCorpus<I>
-        + HasSolutions<I>
-        + MaybeHasClientPerfMonitor
-        + HasCurrentTestcase<I>
-        + HasLastFoundTime
-        + HasExecutions,
-    I: Input,
-    IF: InputFilter<I, S>,
-{
+impl<E, F, I, OF, S> Evaluator<E, I, S> for StdFuzzer<F, OF> {
     /// Runs the input and triggers observers and feedback
     fn execute_input(
         &mut self,
@@ -257,7 +240,7 @@ where
         // mark_feature_time!(state, PerfFeature::PreExecObservers);
 
         // start_timer!(state);
-        let exit_kind = executor.run_target(self, state, event_mgr, input)?;
+        let exit_kind = executor.run_target(self, state, input)?;
         // mark_feature_time!(state, PerfFeature::TargetExecution);
 
         // start_timer!(state);

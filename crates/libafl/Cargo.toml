@@ -53,10 +53,8 @@ document-features = ["dep:document-features"]
 ## Enables features that need rust's `std` lib to work, like print, env, ... support
 std = [
   "backtrace",
-  "bincode",
   "dep:nix",
   "fastbloom",
-  "fs2",
   "libafl_bolts/std",
   "serde_json",
   "serde_json/std",
@@ -110,7 +108,7 @@ tcp_manager = ["tokio", "std"]
 tcp_compression = ["tcp_manager", "libafl_bolts/gzip"]
 
 ## Enable multi-machine support
-multi_machine = ["tokio", "std", "enumflags2", "ahash/std", "dep:send_wrapper"]
+multi_machine = ["tokio", "std", "enumflags2", "ahash/std"]
 
 ## Enables the `NaiveTokenizer` and `StacktraceObserver`
 regex = ["std", "dep:regex"]
@@ -119,17 +117,13 @@ regex = ["std", "dep:regex"]
 casr = ["libcasr", "std", "regex"]
 
 ## Intel Processor Trace
-intel_pt = ["std", "dep:libafl_intelpt", "dep:nix", "dep:num_enum"]
+intel_pt = ["std", "dep:libafl_intelpt", "dep:nix"]
 ## Save all the Intel PT raw traces to files, use only for debug
 intel_pt_export_raw = ["intel_pt", "libafl_intelpt/export_raw"]
-
-## Enables features for corpus minimization
-cmin = ["z3"]
 
 ## Enables the `PrometheusMonitor` which will monitor stats via UDP, for `Grafana` and others.
 prometheus_monitor = [
   "std",
-  "async-std",
   "prometheus-client",
   "tide",
   "futures",
@@ -138,17 +132,11 @@ prometheus_monitor = [
 ## Enables the `StatsdMonitor`.
 statsd_monitor = ["std", "cadence"]
 
-## Include a simple concolic mutator based on z3
-concolic_mutation = ["z3"]
-
 ## Enable the fancy TuiMonitor for a termanal UI using crossterm
 tui_monitor = ["ratatui", "crossterm"]
 
 ## Enables `UnicodeClassificationStage` and associated mutators, which allow for mutations which preserve the Unicode property data
 unicode = ["libafl_bolts/alloc", "ahash/std", "serde/rc", "bitvec"]
-
-## Enable multi-part input formats and mutators
-multipart_inputs = ["arrayvec", "rand_trait"]
 
 #! ## LibAFL-Bolts Features
 
@@ -181,9 +169,6 @@ nautilus = ["std", "serde_json/std", "rand_trait", "regex-syntax", "regex"]
 ## Python grammar support for nautilus
 nautilus_py = ["nautilus", "dep:pyo3"]
 
-## Lua Mutator support (mutators implemented in Lua)
-lua_mutator = ["mlua"]
-
 ## Use the best SIMD implementation by our benchmark
 simd = ["libafl_bolts/simd", "libafl_bolts/wide"]
 
@@ -213,22 +198,17 @@ tuple_list_ex = { workspace = true }
 
 ahash = { workspace = true } # The hash function already used in hashbrown
 arbitrary-int = { workspace = true }
-arrayvec = { version = "0.7.6", optional = true, default-features = false } # used for fixed-len collects
-async-std = { version = "1.13.0", features = ["attributes"], optional = true }
 backtrace = { workspace = true, optional = true } # Used to get the stacktrace in StacktraceObserver
-bincode = { version = "2.0.1", optional = true, features = ["serde"] }
 bitbybit = { workspace = true }
 bitvec = { version = "1.0.1", optional = true, features = [
   "serde",
 ] } # used for string range storage
 cadence = { version = "1.5.0", optional = true } # For the statsd monitor
-clap = { workspace = true, optional = true }
 const_format = "0.2.33" # used for providing helpful compiler output
 const_panic = { version = "0.2.9", default-features = false } # similarly, for formatting const panic output
 crossterm = { version = "0.29.0", optional = true }
 enumflags2 = { version = "0.7.10", optional = true }
 fastbloom = { workspace = true, optional = true }
-fs2 = { workspace = true, optional = true } # used by OnDisk Corpus for file locking
 futures = { version = "0.3.30", optional = true }
 hashbrown = { workspace = true, features = [
   "serde",
@@ -245,7 +225,6 @@ nix = { workspace = true, optional = true, features = [
   "personality",
   "fs",
 ] }
-num_enum = { workspace = true, optional = true }
 num-traits = { workspace = true, default-features = false }
 postcard = { workspace = true } # no_std compatible serde serialization format
 prometheus-client = { version = "0.24.0", optional = true } # For the prometheus monitor
@@ -253,7 +232,6 @@ pyo3 = { workspace = true, optional = true }
 ratatui = { version = "0.30.0", default-features = false, features = [
   'crossterm',
 ], optional = true } # Commandline rendering, for TUI Monitor
-send_wrapper = { version = "0.6.0", optional = true } # To move data between threads
 serde = { workspace = true, features = ["alloc", "derive", "rc"] }
 serde_json = { workspace = true, default-features = false, features = [
   "alloc",
@@ -276,8 +254,6 @@ wait-timeout = { version = "0.2.0", optional = true } # used by CommandExecutor 
 regex = { workspace = true, optional = true }
 regex-syntax = { version = "0.8.4", optional = true } # For nautilus
 
-z3 = { workspace = true, optional = true } # for concolic mutation
-
 # optional-dev deps (change when target.'cfg(accessible(::std))'.test-dependencies will be stable)
 serial_test = { workspace = true, optional = true, default-features = false, features = [
   "logging",
@@ -285,14 +261,6 @@ serial_test = { workspace = true, optional = true, default-features = false, fea
 
 # Document all features of this crate (for `cargo doc`)
 document-features = { workspace = true, optional = true }
-# Optional
-# For Lua Mutators
-# TODO: macros is not needed/ a temporary fix for docsrs, see <https://github.com/mlua-rs/mlua/issues/579>
-mlua = { version = "0.11.5", features = [
-  "lua54",
-  "vendored",
-  "macros",
-], optional = true }
 
 [target.'cfg(unix)'.dependencies]
 libc = { workspace = true } # For (*nix) libc

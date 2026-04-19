@@ -9,8 +9,12 @@ use alloc::vec::Vec;
 use core::{fmt::Debug, marker::PhantomData};
 
 use crate::{
-    Error, common::DependencyResolver, corpus::Testcase, executors::ExitKind,
-    observers::TimeObserver, state::HasTestcase,
+    Error,
+    common::DependencyResolver,
+    corpus::{Testcase, TestcaseId},
+    executors::ExitKind,
+    observers::TimeObserver,
+    state::HasTestcase,
 };
 use libafl_bolts::{
     Named,
@@ -123,7 +127,7 @@ pub trait Feedback<I, OT, S>: Named + DependencyResolver {
         &mut self,
         _state: &mut S,
         _observers: &OT,
-        _testcase: &mut Testcase<I>,
+        _testcase: &TestcaseId,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -267,10 +271,10 @@ where
         &mut self,
         state: &mut S,
         observers: &OT,
-        testcase: &mut Testcase<I>,
+        testcase_id: &TestcaseId,
     ) -> Result<(), Error> {
-        self.first.append_metadata(state, observers, testcase)?;
-        self.second.append_metadata(state, observers, testcase)
+        self.first.append_metadata(state, observers, testcase_id)?;
+        self.second.append_metadata(state, observers, testcase_id)
     }
 }
 
@@ -622,9 +626,9 @@ where
         &mut self,
         state: &mut S,
         observers: &OT,
-        testcase: &mut Testcase<I>,
+        testcase_id: &TestcaseId,
     ) -> Result<(), Error> {
-        self.inner.append_metadata(state, observers, testcase)
+        self.inner.append_metadata(state, observers, testcase_id)
     }
 }
 
@@ -887,7 +891,7 @@ where
         &mut self,
         state: &mut S,
         observers: &OT,
-        testcase: &mut Testcase<I>,
+        testcase_id: &TestcaseId,
     ) -> Result<(), Error> {
         let Some(observer) = observers.get(&self.observer_handle) else {
             return Err(Error::illegal_state(
@@ -895,7 +899,7 @@ where
             ));
         };
 
-        *state.testcase_md_mut(testcase).exec_time_mut() = *observer.last_runtime();
+        *state.testcase_md_mut_from_id(testcase_id).exec_time_mut() = *observer.last_runtime();
 
         Ok(())
     }

@@ -86,8 +86,8 @@ pub trait FlatState {
     fn named_metadata_map_mut(&mut self) -> &mut NamedSerdeAnyMap;
 }
 
-pub trait State<C, I, OC>:
-    FlatState + DependencyResolver + HasCorpus + HasObjectiveCorpus + HasRand + HasTestcase<I>
+pub trait State<C, I, OC, SC>:
+    FlatState + DependencyResolver + HasCorpus<I, SC> + HasObjectiveCorpus<I> + HasRand + HasTestcase<I>
 {
 }
 
@@ -146,14 +146,18 @@ where
         self.testcase_metadata.entry(*id).or_default()
     }
 }
-pub trait HasCorpus {
-    type Corpus;
-    fn corpus(&self) -> &Self::Corpus;
+pub trait HasCorpus<I, SC> {
+    type Corpus: Corpus<I, SC>;
+    
 
+    fn corpus(&self) -> &Self::Corpus;
     fn corpus_mut(&mut self) -> &mut Self::Corpus;
 }
 
-impl<C, I, OC, R, SC> HasCorpus for StdState<C, I, OC, R, SC> {
+impl<C, I, OC, R, SC> HasCorpus<I, SC> for StdState<C, I, OC, R, SC>
+where
+    C: Corpus<I, SC>,
+{
     type Corpus = C;
 
     fn corpus(&self) -> &Self::Corpus {
@@ -165,14 +169,17 @@ impl<C, I, OC, R, SC> HasCorpus for StdState<C, I, OC, R, SC> {
     }
 }
 
-pub trait HasObjectiveCorpus {
-    type Corpus;
-    fn objective_corpus(&self) -> &Self::Corpus;
+pub trait HasObjectiveCorpus<I> {
+    type Corpus: Corpus<I, NopScheduler>;
 
+    fn objective_corpus(&self) -> &Self::Corpus;
     fn objective_corpus_mut(&mut self) -> &mut Self::Corpus;
 }
 
-impl<C, I, OC, R, SC> HasObjectiveCorpus for StdState<C, I, OC, R, SC> {
+impl<C, I, OC, R, SC> HasObjectiveCorpus<I> for StdState<C, I, OC, R, SC>
+where
+    OC: Corpus<I, NopScheduler>,
+{
     type Corpus = OC;
 
     fn objective_corpus(&self) -> &Self::Corpus {
@@ -780,11 +787,11 @@ where
     }
 }
 
-impl<C, I, OC, R, SC> State<C, I, OC> for StdState<C, I, OC, R, SC>
+impl<C, I, OC, R, SC> State<C, I, OC, SC> for StdState<C, I, OC, R, SC>
 where
     R: Rand,
-    C: DependencyResolver + Corpus<I, SC>,
-    OC: DependencyResolver + Corpus<I, NopScheduler>,
+    C: Corpus<I, SC>,
+    OC: Corpus<I, NopScheduler>,
 {
 }
 
