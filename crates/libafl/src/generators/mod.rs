@@ -1,34 +1,32 @@
 //! Generators may generate bytes or, in general, data, for inputs.
 
 use alloc::vec::Vec;
-use core::{marker::PhantomData, num::NonZeroUsize};
+use core::{cmp::max, marker::PhantomData, num::NonZeroUsize};
 
 use libafl_bolts::rands::Rand;
 
-use crate::{Error, inputs::bytes::BytesInput, non_zero, state::HasRand};
-
-use core::cmp::max;
+use crate::{Error, inputs::bytes::BytesInput, non_zero};
 
 #[cfg(feature = "nautilus")]
 pub mod nautilus;
 #[cfg(feature = "nautilus")]
 pub use nautilus::*;
 
-/// Generators can generate ranges of bytes.
-pub trait Generator<I, S> {
+/// Generators can generate inputs.
+pub trait Generator<I, R, S> {
     /// Generate a new input
-    fn generate(&mut self, state: &mut S) -> Result<I, Error>;
+    fn generate(&mut self, _rand: &mut R, state: &S) -> Result<I, Error>;
 }
 
 /// Iterators may be used as generators.
 ///
 /// `generate` throws a [`Error::Empty`] if an input is requested but
 /// [`Iterator::next`] returns `None`.
-impl<T, I, S> Generator<I, S> for T
+impl<T, I, S, R: Rand> Generator<I, R, S> for T
 where
     T: Iterator<Item = I>,
 {
-    fn generate(&mut self, _state: &mut S) -> Result<I, Error> {
+    fn generate(&mut self, _rand: &mut R, _state: &S) -> Result<I, Error> {
         match self.next() {
             Some(i) => Ok(i),
             None => Err(Error::empty(
@@ -38,35 +36,6 @@ where
     }
 }
 
-/// An [`Iterator`] built from a [`Generator`].
-#[derive(Debug)]
-pub struct GeneratorIter<'a, I, S, G> {
-    generator: G,
-    state: &'a mut S,
-    phantom: PhantomData<I>,
-}
-
-impl<'a, I, S, G> GeneratorIter<'a, I, S, G> {
-    /// Create a new [`GeneratorIter`]
-    pub fn new(generator: G, state: &'a mut S) -> Self {
-        Self {
-            generator,
-            state,
-            phantom: PhantomData,
-        }
-    }
-}
-
-impl<I, S, G> Iterator for GeneratorIter<'_, I, S, G>
-where
-    G: Generator<I, S>,
-{
-    type Item = I;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.generator.generate(self.state).ok()
-    }
-}
 
 #[derive(Debug, Clone)]
 /// Generates random bytes
@@ -75,17 +44,15 @@ pub struct RandBytesGenerator {
     max_size: NonZeroUsize,
 }
 
-impl<S> Generator<BytesInput, S> for RandBytesGenerator
-where
-    S: HasRand,
+impl<R, S> Generator<BytesInput, R, S> for RandBytesGenerator 
+where 
+    R: Rand,
 {
-    fn generate(&mut self, state: &mut S) -> Result<BytesInput, Error> {
-        let mut size = state
-            .rand_mut()
-            .between(self.min_size.get(), self.max_size.get());
+    fn generate(&mut self, rand: &mut R, _state: &S) -> Result<BytesInput, Error> {
+        let mut size = rand.between(self.min_size.get(), self.max_size.get());
         size = max(size, 1);
         let random_bytes: Vec<u8> = (0..size)
-            .map(|_| state.rand_mut().below(non_zero!(256)) as u8)
+            .map(|_| rand.below(non_zero!(256)) as u8)
             .collect();
         Ok(BytesInput::new(random_bytes))
     }
@@ -115,18 +82,13 @@ pub struct RandPrintablesGenerator {
     max_size: NonZeroUsize,
 }
 
-impl<S> Generator<BytesInput, S> for RandPrintablesGenerator
-where
-    S: HasRand,
-{
-    fn generate(&mut self, state: &mut S) -> Result<BytesInput, Error> {
-        let mut size = state
-            .rand_mut()
-            .between(self.min_size.get(), self.max_size.get());
+impl<R: Rand, S> Generator<BytesInput, R, S> for RandPrintablesGenerator {
+    fn generate(&mut self, rand: &mut R, _state: &S) -> Result<BytesInput, Error> {
+        let mut size = rand.between(self.min_size.get(), self.max_size.get());
         size = max(size, 1);
         let printables = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz \t\n!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~".as_bytes();
         let random_bytes: Vec<u8> = (0..size)
-            .map(|_| *state.rand_mut().choose(printables).unwrap())
+            .map(|_| *rand.choose(printables).unwrap())
             .collect();
         Ok(BytesInput::new(random_bytes))
     }

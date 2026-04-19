@@ -4,10 +4,6 @@
 use alloc::vec::Vec;
 use alloc::{boxed::Box, string::String};
 use core::{any::type_name, fmt::Debug, marker::PhantomData, time::Duration};
-#[cfg(debug_assertions)]
-use libafl_core::non_zero;
-#[cfg(not(debug_assertions))]
-use libafl_core::nonzero_macros::non_zero_unchecked;
 use std::{collections::HashMap, string::ToString};
 use std::{
     fs,
@@ -25,9 +21,7 @@ use crate::corpus::Scheduler;
 use crate::dependency::{DependencyResolver, Registrator};
 use crate::fuzzer::Evaluator;
 #[cfg(not(feature = "remove_me"))]
-use crate::fuzzer::{Evaluator, ExecuteInputResult};
-use crate::generators::Generator;
-#[cfg(not(feature = "remove_me"))]
+use crate::fuzzer::ExecuteInputResult;
 use crate::generators::Generator;
 use crate::inputs::NopContext;
 #[cfg(feature = "introspection")]
@@ -98,42 +92,8 @@ pub trait State<I>:
     + HasCorpus<I>
     + HasObjectiveCorpus<I>
     + HasScheduler
-    + HasRand
     + HasTestcase<I>
 {
-    fn random_testcase_id_from<const ENABLED: bool>(&mut self) -> Option<TestcaseId> {
-        let cnt = self.corpus().count();
-
-        #[cfg(debug_assertions)]
-        let nth = self
-            .rand_mut()
-            .below(non_zero!(cnt).expect("Corpus may not be empty!"));
-
-        // # Safety
-        // This is a hot path. We try to be as fast as possible here.
-        // In debug this is checked (see above.)
-        // The worst that can happen is a wrong integer to get returned.
-        // In this case, the call below will fail.
-        #[cfg(not(debug_assertions))]
-        let nth = self.rand_mut().below(non_zero_unchecked!(cnt));
-
-        self.corpus_mut().nth_from::<ENABLED>(nth)
-    }
-
-    fn random_testcase_id(&mut self) -> Option<TestcaseId> {
-        Self::random_testcase_id_from::<true>(self)
-    }
-
-    fn random_testcase_id_from_all(&mut self) -> Option<TestcaseId> {
-        Self::random_testcase_id_from::<false>(self)
-    }
-}
-
-pub trait HasRand {
-    type Rand: Rand;
-
-    fn rand(&self) -> &Self::Rand;
-    fn rand_mut(&mut self) -> &mut Self::Rand;
 }
 
 pub trait HasScheduler {
@@ -143,21 +103,6 @@ pub trait HasScheduler {
     fn scheduler_mut(&mut self) -> &mut Self::Scheduler;
 }
 
-impl<C, I, OC, R, SC> HasRand for StdState<C, I, OC, R, SC>
-where
-    R: Rand,
-    C: Corpus<I>,
-{
-    type Rand = R;
-
-    fn rand(&self) -> &Self::Rand {
-        &self.rand
-    }
-
-    fn rand_mut(&mut self) -> &mut Self::Rand {
-        &mut self.rand
-    }
-}
 
 pub trait HasTestcase<I> {
     fn testcase_md<'a>(&'a self, tc: &Testcase<I>) -> Option<&'a TestcaseMetadata>;
@@ -167,7 +112,7 @@ pub trait HasTestcase<I> {
     fn testcase(&self, id: TestcaseId) -> Result<Testcase<I>, Error>;
 }
 
-impl<C, I, OC, R, SC> HasTestcase<I> for StdState<C, I, OC, R, SC>
+impl<C, I, OC, SC> HasTestcase<I> for StdState<C, I, OC, SC>
 where
     C: Corpus<I>,
 {
@@ -198,7 +143,7 @@ pub trait HasCorpus<I> {
     fn corpus_mut(&mut self) -> &mut Self::Corpus;
 }
 
-impl<C, I, OC, R, SC> HasCorpus<I> for StdState<C, I, OC, R, SC>
+impl<C, I, OC, SC> HasCorpus<I> for StdState<C, I, OC, SC>
 where
     C: Corpus<I>,
 {
@@ -220,7 +165,7 @@ pub trait HasObjectiveCorpus<I> {
     fn objective_corpus_mut(&mut self) -> &mut Self::Corpus;
 }
 
-impl<C, I, OC, R, SC> HasObjectiveCorpus<I> for StdState<C, I, OC, R, SC>
+impl<C, I, OC, SC> HasObjectiveCorpus<I> for StdState<C, I, OC, SC>
 where
     OC: Corpus<I>,
 {
@@ -235,7 +180,7 @@ where
     }
 }
 
-impl<C, I, OC, R, SC> HasScheduler for StdState<C, I, OC, R, SC>
+impl<C, I, OC, SC> HasScheduler for StdState<C, I, OC, SC>
 where
     C: Corpus<I>,
 {
@@ -276,12 +221,9 @@ impl<I, S, Z> Debug for LoadConfig<'_, I, S, Z> {
 #[serde(bound = "
         C: serde::Serialize + for<'a> serde::Deserialize<'a>,
         OC: serde::Serialize + for<'a> serde::Deserialize<'a>,
-        R: serde::Serialize + for<'a> serde::Deserialize<'a>,
         SC: serde::Serialize + for<'a> serde::Deserialize<'a>,
     ")]
-pub struct StdState<C, I, OC, R, SC> {
-    /// RNG instance
-    rand: R,
+pub struct StdState<C, I, OC, SC> {
     /// How many times the executor ran the harness/target
     executions: u64,
     /// At what time the fuzzing started
@@ -746,7 +688,7 @@ impl PSMetadata {
 
 libafl_bolts::impl_serdeany!(PSMetadata);
 
-impl<C, I, R, SC, SO> FlatState for StdState<C, I, R, SC, SO> {
+impl<C, I, OC, SC> FlatState for StdState<C, I, OC, SC> {
     /// The max size allowed for the input
     fn max_size(&self) -> usize {
         self.max_size
@@ -839,7 +781,7 @@ impl<C, I, R, SC, SO> FlatState for StdState<C, I, R, SC, SO> {
     }
 }
 
-impl<C, I, OC, R, SC> DependencyResolver for StdState<C, I, OC, R, SC>
+impl<C, I, OC, SC> DependencyResolver for StdState<C, I, OC, SC>
 where
     C: DependencyResolver + Corpus<I>,
     OC: DependencyResolver + Corpus<I>,
@@ -852,21 +794,19 @@ where
     }
 }
 
-impl<C, I, OC, R, SC> State<I> for StdState<C, I, OC, R, SC>
+impl<C, I, OC, SC> State<I> for StdState<C, I, OC, SC>
 where
-    R: Rand,
     C: Corpus<I>,
     OC: Corpus<I>,
 {
 }
 
 #[cfg(feature = "std")]
-impl<C, I, OC, R, SC> StdState<C, I, OC, R, SC>
+impl<C, I, OC, SC> StdState<C, I, OC, SC>
 where
     C: Corpus<I>,
     I: Input,
     OC: Corpus<I>,
-    R: Rand,
 {
     #[cfg(feature = "introspection")]
     fn introspection_stats(&self) -> &ClientPerfStats {
@@ -1291,31 +1231,32 @@ where
     }
 }
 
-impl<C, I, R, SC, SO> StdState<C, I, R, SC, SO>
+impl<C, I, OC, SC> StdState<C, I, OC, SC>
 where
     C: Corpus<I>,
     I: Input,
-    R: Rand,
-    SO: Corpus<I>,
+    OC: Corpus<I>,
 {
     /// Generate `num` initial inputs, using the passed-in generator.
-    pub fn generate_initial_inputs<CT, G, E, Z>(
+    pub fn generate_initial_inputs<CT, G, E, R, Z>(
         &mut self,
         fuzzer: &mut Z,
         executor: &mut E,
         generator: &mut G,
+        rand: &mut R,
         driver: &mut RuntimeHandle<CT, Self>,
         controller: &mut CT,
         num: usize,
     ) -> Result<usize, Error>
     where
-        G: Generator<I, Self>,
+        R: Rand,
+        G: Generator<I, Self, R>,
         Z: Evaluator<CT, E, I, Self>,
     {
         let mut added = 0;
 
         for _ in 0..num {
-            let input = generator.generate(self)?;
+            let input = generator.generate(self, rand)?;
             let res = fuzzer.evaluate_input(self, executor, driver, controller, &input)?;
             if res.is_corpus_worthy() {
                 added += 1;
@@ -1326,21 +1267,19 @@ where
     }
 }
 
-impl<C, I, OC, R, SC> StdState<C, I, OC, R, SC>
+impl<C, I, OC, SC> StdState<C, I, OC, SC>
 where
     C: Corpus<I, Scheduler = SC>,
     I: Input,
     OC: Corpus<I>,
-    R: Rand,
 {
     /// Creates a new `State`, taking ownership of all of the individual components during fuzzing.
-    pub fn new(rand: R, corpus: C, objective_corpus: OC) -> Result<Self, Error>
+    pub fn new(corpus: C, objective_corpus: OC) -> Result<Self, Error>
     where
         OC: Serialize + DeserializeOwned + DependencyResolver,
         C: Serialize + DeserializeOwned + DependencyResolver,
     {
         let state = Self {
-            rand,
             executions: 0,
             imported: 0,
             start_time: libafl_bolts::current_time(),
@@ -1366,29 +1305,17 @@ where
     }
 }
 
-impl
-    StdState<
-        InMemoryCorpus<NopContext, NopInput, NopScheduler>,
-        NopInput,
-        StdRand,
-        NopScheduler,
-        InMemoryCorpus<NopContext, NopInput, NopScheduler>,
-    >
+impl StdState<
+    InMemoryCorpus<NopContext, NopInput, NopScheduler>,
+    NopInput,
+    InMemoryCorpus<NopContext, NopInput, NopScheduler>,
+    NopScheduler,
+>
 {
     /// Create an empty [`StdState`] that has very minimal uses.
     /// Potentially good for testing.
-    pub fn nop() -> Result<
-        StdState<
-            InMemoryCorpus<NopContext, NopInput, NopScheduler>,
-            NopInput,
-            InMemoryCorpus<NopContext, NopInput, NopScheduler>,
-            StdRand,
-            NopScheduler,
-        >,
-        Error,
-    > {
+    pub fn nop() -> Result<Self, Error> {
         StdState::new(
-            StdRand::with_seed(0),
             InMemoryCorpus::<NopContext, NopInput, NopScheduler>::new(NopContext, NopScheduler),
             InMemoryCorpus::new(NopContext, NopScheduler),
         )

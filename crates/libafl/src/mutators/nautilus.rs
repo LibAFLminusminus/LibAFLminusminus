@@ -20,7 +20,7 @@ use crate::{
     generators::nautilus::NautilusContext,
     inputs::nautilus::NautilusInput,
     mutators::{MutationResult, Mutator},
-    state::{FlatState, HasRand, named_metadata_mut},
+    state::{FlatState, named_metadata},
 };
 
 /// The randomic mutator for `Nautilus` grammar.
@@ -35,17 +35,18 @@ impl Debug for NautilusRandomMutator<'_> {
     }
 }
 
-impl<S: HasRand> Mutator<NautilusInput, S> for NautilusRandomMutator<'_> {
+impl<R: Rand, S> Mutator<NautilusInput, R, S> for NautilusRandomMutator<'_> {
     fn mutate(
         &mut self,
-        state: &mut S,
         input: &mut NautilusInput,
+        rand: &mut R,
+        _state: &S,
     ) -> Result<MutationResult, Error> {
         // TODO get rid of tmp
         let mut tmp = vec![];
         self.mutator
             .mut_random::<_, _>(
-                state.rand_mut(),
+                rand,
                 &input.tree,
                 self.ctx,
                 &mut |t: &TreeMutation, _ctx: &Context| {
@@ -105,11 +106,12 @@ impl Debug for NautilusRecursionMutator<'_> {
     }
 }
 
-impl<S: HasRand> Mutator<NautilusInput, S> for NautilusRecursionMutator<'_> {
+impl<R: Rand, S> Mutator<NautilusInput, R, S> for NautilusRecursionMutator<'_> {
     fn mutate(
         &mut self,
-        state: &mut S,
         input: &mut NautilusInput,
+        rand: &mut R,
+        _state: &S,
     ) -> Result<MutationResult, Error> {
         // TODO don't calc recursions here
         if let Some(ref mut recursions) = input.tree.calc_recursions(self.ctx) {
@@ -117,7 +119,7 @@ impl<S: HasRand> Mutator<NautilusInput, S> for NautilusRecursionMutator<'_> {
             let mut tmp = vec![];
             self.mutator
                 .mut_random_recursion::<_, _>(
-                    state.rand_mut(),
+                    rand,
                     &input.tree,
                     recursions,
                     self.ctx,
@@ -177,21 +179,22 @@ impl Debug for NautilusSpliceMutator<'_> {
     }
 }
 
-impl<S> Mutator<NautilusInput, S> for NautilusSpliceMutator<'_>
+impl<R: Rand, S> Mutator<NautilusInput, R, S> for NautilusSpliceMutator<'_>
 where
-    S: HasRand + FlatState,
+    S: FlatState,
 {
     fn mutate(
         &mut self,
-        state: &mut S,
         input: &mut NautilusInput,
+        rand: &mut R,
+        state: &S,
     ) -> Result<MutationResult, Error> {
         // TODO get rid of tmp
         let mut tmp = vec![];
         // Create a fast temp mutator to get around borrowing..
-        let mut rand_cpy = { RomuDuoJrRand::with_seed(state.rand_mut().next()) };
-        let meta = named_metadata_mut::<NautilusChunksMetadata>(
-            state.named_metadata_map_mut(),
+        let mut rand_cpy = { RomuDuoJrRand::with_seed(rand.next()) };
+        let meta = named_metadata::<NautilusChunksMetadata>(
+            state.named_metadata_map(),
             self.name(),
         )?;
         self.mutator

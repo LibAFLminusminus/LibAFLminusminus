@@ -39,6 +39,7 @@ pub trait RemovableScheduler<I, S> {
 /// It has hooks to corpus add/replace/remove to allow complex scheduling algorithms to collect data.
 pub trait Scheduler: DependencyResolver {
     /// Called when a [`Testcase`] is added to the corpus
+    /// You need to keep a vector of all the ids in your scheduler when you add a testcase to the corpus and schedulers
     fn on_add(&mut self, _id: TestcaseId) -> Result<(), Error>;
     // Add parent_id here if it has no inner
 

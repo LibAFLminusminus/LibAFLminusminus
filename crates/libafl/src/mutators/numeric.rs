@@ -13,9 +13,9 @@ use tuple_list_ex::{map_tuple_list_type, merge_tuple_list_type};
 
 use super::{MutationResult, Mutator, ToMappingMutator, ToStateAwareMappingMutator};
 use crate::{
-    corpus::Corpus,
-    random_corpus_id_with_disabled,
-    state::{HasCorpus, HasRand},
+    corpus::{Corpus, TestcaseId, schedulers::Scheduler},
+    inputs::value::Numeric,
+    state::{HasCorpus, HasScheduler},
 };
 
 /// All mutators for integer-like inputs
@@ -129,13 +129,13 @@ where
 #[derive(Debug)]
 pub struct BitFlipMutator;
 
-impl<I, S> Mutator<I, S> for BitFlipMutator
+impl<I, R, S> Mutator<I, R, S> for BitFlipMutator
 where
-    S: HasRand,
+    R: Rand,
     I: Numeric,
 {
-    fn mutate(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, Error> {
-        let offset = state.rand_mut().choose(0..size_of::<I>()).unwrap();
+    fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
+        let offset = rand.choose(0..size_of::<I>()).unwrap();
         input.flip_bit_at(offset);
         Ok(MutationResult::Mutated)
     }
@@ -143,7 +143,7 @@ where
     fn post_exec(
         &mut self,
         _state: &mut S,
-        _new_corpus_id: Option<crate::corpus::CorpusId>,
+        _new_testcase_id: Option<TestcaseId>,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -159,11 +159,11 @@ impl Named for BitFlipMutator {
 #[derive(Debug)]
 pub struct NegateMutator;
 
-impl<I, S> Mutator<I, S> for NegateMutator
+impl<I, R, S> Mutator<I, R, S> for NegateMutator
 where
     I: Numeric,
 {
-    fn mutate(&mut self, _state: &mut S, input: &mut I) -> Result<MutationResult, Error> {
+    fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
         input.flip_all_bits();
         Ok(MutationResult::Mutated)
     }
@@ -171,7 +171,7 @@ where
     fn post_exec(
         &mut self,
         _state: &mut S,
-        _new_corpus_id: Option<crate::corpus::CorpusId>,
+        _new_testcase_id: Option<TestcaseId>,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -187,11 +187,11 @@ impl Named for NegateMutator {
 #[derive(Debug)]
 pub struct IncMutator;
 
-impl<I, S> Mutator<I, S> for IncMutator
+impl<I, R, S> Mutator<I, R, S> for IncMutator
 where
     I: Numeric,
 {
-    fn mutate(&mut self, _state: &mut S, input: &mut I) -> Result<MutationResult, Error> {
+    fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
         input.wrapping_inc();
         Ok(MutationResult::Mutated)
     }
@@ -199,7 +199,7 @@ where
     fn post_exec(
         &mut self,
         _state: &mut S,
-        _new_corpus_id: Option<crate::corpus::CorpusId>,
+        _new_testcase_id: Option<TestcaseId>,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -215,11 +215,11 @@ impl Named for IncMutator {
 #[derive(Debug)]
 pub struct DecMutator;
 
-impl<I, S> Mutator<I, S> for DecMutator
+impl<I, R, S> Mutator<I, R, S> for DecMutator
 where
     I: Numeric,
 {
-    fn mutate(&mut self, _state: &mut S, input: &mut I) -> Result<MutationResult, Error> {
+    fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
         input.wrapping_dec();
         Ok(MutationResult::Mutated)
     }
@@ -227,7 +227,7 @@ where
     fn post_exec(
         &mut self,
         _state: &mut S,
-        _new_corpus_id: Option<crate::corpus::CorpusId>,
+        _new_testcase_id: Option<TestcaseId>,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -243,11 +243,11 @@ impl Named for DecMutator {
 #[derive(Debug)]
 pub struct TwosComplementMutator;
 
-impl<I, S> Mutator<I, S> for TwosComplementMutator
+impl<I, R, S> Mutator<I, R, S> for TwosComplementMutator
 where
     I: Numeric,
 {
-    fn mutate(&mut self, _state: &mut S, input: &mut I) -> Result<MutationResult, Error> {
+    fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
         input.twos_complement();
         Ok(MutationResult::Mutated)
     }
@@ -255,7 +255,7 @@ where
     fn post_exec(
         &mut self,
         _state: &mut S,
-        _new_corpus_id: Option<crate::corpus::CorpusId>,
+        _new_testcase_id: Option<TestcaseId>,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -271,21 +271,21 @@ impl Named for TwosComplementMutator {
 #[derive(Debug)]
 pub struct RandMutator;
 
-impl<I, S> Mutator<I, S> for RandMutator
+impl<I, R, S> Mutator<I, R, S> for RandMutator
 where
-    S: HasRand,
     I: Numeric,
+    R: Rand,
 {
-    fn mutate(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, Error> {
+    fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
         // set to random data byte-wise since the RNGs don't work for all numeric types
-        input.randomize(state.rand_mut());
+        input.randomize(rand);
         Ok(MutationResult::Mutated)
     }
     #[inline]
     fn post_exec(
         &mut self,
         _state: &mut S,
-        _new_corpus_id: Option<crate::corpus::CorpusId>,
+        _new_corpus_id: Option<TestcaseId>,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -301,27 +301,31 @@ impl Named for RandMutator {
 #[derive(Debug)]
 pub struct CrossoverMutator;
 
-impl<I, S> Mutator<I, S> for CrossoverMutator
+impl<I, R, S> Mutator<I, R, S> for CrossoverMutator
 where
-    S: HasRand + HasCorpus<I>,
+    R: Rand,
+    S: HasScheduler + HasCorpus<I>,
     I: Copy,
 {
-    fn mutate(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, Error> {
-        let id = random_corpus_id_with_disabled!(state.corpus(), state.rand_mut());
+    fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
+        let ids = state.scheduler().ids();
+        let Some(id) = rand.choose(ids.into_iter()) else {
+            return Ok(MutationResult::Skipped);
+        };
 
-        if state.corpus().current().is_some_and(|cur| cur == id) {
+        if state.scheduler().current().is_some_and(|cur| cur == *id) {
             return Ok(MutationResult::Skipped);
         }
 
-        let other_testcase = state.corpus().get_from_all(id)?.borrow_mut();
-        *input = *other_testcase.input().as_ref().unwrap();
+        let other_testcase = state.corpus().get_from_all(*id)?;
+        *input = *other_testcase.input();
         Ok(MutationResult::Mutated)
     }
     #[inline]
     fn post_exec(
         &mut self,
         _state: &mut S,
-        _new_corpus_id: Option<crate::corpus::CorpusId>,
+        _new_testcase_id: Option<TestcaseId>,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -349,22 +353,26 @@ impl<F, I> MappedCrossoverMutator<F, I> {
     }
 }
 
-impl<I, O, S, F> Mutator<O, S> for MappedCrossoverMutator<F, I>
+impl<I, O, R, S, F> Mutator<O, R, S> for MappedCrossoverMutator<F, I>
 where
-    S: HasRand + HasCorpus<I>,
+    R: Rand,
+    S: HasCorpus<I> + HasScheduler,
     for<'b> F: Fn(&'b I) -> &'b O,
     O: Clone,
 {
-    fn mutate(&mut self, state: &mut S, input: &mut O) -> Result<MutationResult, Error> {
-        let id = random_corpus_id_with_disabled!(state.corpus(), state.rand_mut());
+    fn mutate(&mut self, input: &mut O, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
+        let ids = state.scheduler().ids();
+        let Some(id) = rand.choose(ids.into_iter()) else {
+            return Ok(MutationResult::Skipped);
+        };
 
-        if state.corpus().current().is_some_and(|cur| cur == id) {
+        if state.scheduler().current().is_some_and(|cur| cur == *id) {
             return Ok(MutationResult::Skipped);
         }
 
-        let other_testcase = state.corpus().get_from_all(id)?.borrow_mut();
-        let other_input = other_testcase.input().as_ref().unwrap();
-        let mapped_input = (self.input_mapper)(other_input).clone();
+        let other_testcase = state.corpus().get_from_all(*id)?;
+        let other_input = other_testcase.input();
+        let mapped_input = (self.input_mapper)(&other_input).clone();
         *input = mapped_input;
         Ok(MutationResult::Mutated)
     }
@@ -372,7 +380,7 @@ where
     fn post_exec(
         &mut self,
         _state: &mut S,
-        _new_corpus_id: Option<crate::corpus::CorpusId>,
+        _new_testcase_id: Option<TestcaseId>,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -395,8 +403,11 @@ mod tests {
 
     use super::{Numeric, int_mutators};
     use crate::{
-        corpus::{Corpus as _, InMemoryCorpus, Testcase},
-        inputs::value::I16Input,
+        corpus::{Corpus, InMemoryCorpus, Testcase, schedulers::QueueScheduler},
+        inputs::{
+            bytes::{BytesContext, BytesInput},
+            value::{I16Input, PrimitiveContext},
+        },
         mutators::MutationResult,
         state::StdState,
     };
@@ -430,16 +441,14 @@ mod tests {
 
     #[test]
     fn all_mutate_owned() {
-        let mut corpus = InMemoryCorpus::new();
-        corpus.add(Testcase::new(42_i16.into())).unwrap();
+        let mut corpus = InMemoryCorpus::new(PrimitiveContext::default(), QueueScheduler::new());
+        corpus.add(I16Input::new(42_i16.into())).unwrap();
         let mut state = StdState::new(
-            XkcdRand::new(),
             corpus,
-            InMemoryCorpus::new(),
-            &mut (),
-            &mut (),
+            InMemoryCorpus::new(PrimitiveContext::default(), QueueScheduler::new()),
         )
         .unwrap();
+        let mut rand = XkcdRand::new();
 
         let mutators = int_mutators().into_vec();
 
@@ -447,7 +456,7 @@ mod tests {
             let mut input: I16Input = 1_i16.into();
             assert_eq!(
                 MutationResult::Mutated,
-                m.mutate(&mut state, &mut input).unwrap(),
+                m.mutate(&mut input, &mut rand, &state).unwrap(),
                 "Errored with {}",
                 m.name()
             );
