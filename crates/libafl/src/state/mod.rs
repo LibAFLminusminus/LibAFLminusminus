@@ -4,6 +4,10 @@
 use alloc::vec::Vec;
 use alloc::{boxed::Box, string::String};
 use core::{any::type_name, fmt::Debug, marker::PhantomData, time::Duration};
+#[cfg(debug_assertions)]
+use libafl_core::non_zero;
+#[cfg(not(debug_assertions))]
+use libafl_core::nonzero_macros::non_zero_unchecked;
 use std::{collections::HashMap, string::ToString};
 use std::{
     fs,
@@ -97,6 +101,32 @@ pub trait State<I>:
     + HasRand
     + HasTestcase<I>
 {
+    fn random_testcase_id_from<const ENABLED: bool>(&mut self) -> Option<TestcaseId> {
+        let cnt = self.corpus().count();
+
+        #[cfg(debug_assertions)]
+        let nth = self
+            .rand_mut()
+            .below(non_zero!(cnt).expect("Corpus may not be empty!"));
+
+        // # Safety
+        // This is a hot path. We try to be as fast as possible here.
+        // In debug this is checked (see above.)
+        // The worst that can happen is a wrong integer to get returned.
+        // In this case, the call below will fail.
+        #[cfg(not(debug_assertions))]
+        let nth = self.rand_mut().below(non_zero_unchecked!(cnt));
+
+        self.corpus_mut().nth_from::<ENABLED>(nth)
+    }
+
+    fn random_testcase_id(&mut self) -> Option<TestcaseId> {
+        Self::random_testcase_id_from::<true>(self)
+    }
+
+    fn random_testcase_id_from_all(&mut self) -> Option<TestcaseId> {
+        Self::random_testcase_id_from::<false>(self)
+    }
 }
 
 pub trait HasRand {

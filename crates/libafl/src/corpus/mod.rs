@@ -1,7 +1,7 @@
 //! Corpuses contain the testcases, either in memory, on disk, or somewhere else.
 
 use alloc::rc::Rc;
-use core::{fmt, marker::PhantomData};
+use core::{fmt, marker::PhantomData, num::NonZero};
 
 use crate::{DependencyResolver, Error, inputs::InputContext, state::HasScheduler};
 
@@ -87,12 +87,22 @@ pub trait Corpus<I>: HasScheduler + Sized + DependencyResolver {
         Self::get_from::<false>(self, id)
     }
 
+    /// Get testcase by id
+    fn get_from<const ENABLED: bool>(&self, id: TestcaseId) -> Result<Testcase<I>, Error>;
+
+    fn nth<const ENABLED: bool>(&self, nth: usize) -> Option<TestcaseId> {
+        Self::nth_from::<true>(self, nth)
+    }
+
+    fn nth_from_all<const ENABLED: bool>(&self, nth: usize) -> Option<TestcaseId> {
+        Self::nth_from::<false>(self, nth)
+    }
+
+    fn nth_from<const ENABLED: bool>(&self, nth: usize) -> Option<TestcaseId>;
+
     fn context(&self) -> &Self::Context;
 
     fn context_mut(&mut self) -> &mut Self::Context;
-
-    /// Get testcase by id
-    fn get_from<const ENABLED: bool>(&self, id: TestcaseId) -> Result<Testcase<I>, Error>;
 }
 
 /// Marker trait for corpus implementations that actually support enable/disable functionality

@@ -1,11 +1,22 @@
-use std::{path::PathBuf};
+use std::path::PathBuf;
 
 use libafl::{
-    Error, corpus::{
+    Error,
+    corpus::{
         InMemoryCorpus, OnDiskCorpus,
         schedulers::{NopScheduler, QueueScheduler},
-    }, executors::StdExecutor, feedbacks::{CrashFeedback, MaxMapFeedback}, fuzzer::StdFuzzer, generators::RandPrintablesGenerator, inputs::NopContext, non_zero, nop::NopController, observers::ConstMapObserver, runtimes::{RuntimeHandle, direct::DirectRuntime}, state::StdState,
+    },
+    executors::StdExecutor,
+    feedbacks::{CrashFeedback, MaxMapFeedback},
+    fuzzer::StdFuzzer,
+    generators::RandPrintablesGenerator,
+    inputs::NopContext,
+    non_zero,
+    nop::NopController,
+    observers::ConstMapObserver,
     runtimes::Runtime,
+    runtimes::{RuntimeHandle, direct::DirectRuntime},
+    state::StdState,
 };
 use libafl_bolts::{current_nanos, nonnull_raw_mut, rands::StdRand, tuples::tuple_list};
 
@@ -13,7 +24,11 @@ use crate::target::SIGNALS;
 
 mod target;
 
-fn run_fuzzer<CT, S>(driver: &mut RuntimeHandle<CT, S>, state: &mut S, controller: &mut CT) -> Result<(), Error> {
+fn run_fuzzer<CT, S>(
+    driver: &mut RuntimeHandle<CT, S>,
+    state: &mut S,
+    controller: &mut CT,
+) -> Result<(), Error> {
     env_logger::init();
 
     // Create an observation channel using the signals map
@@ -35,8 +50,7 @@ fn run_fuzzer<CT, S>(driver: &mut RuntimeHandle<CT, S>, state: &mut S, controlle
     let mut generator = RandPrintablesGenerator::new(non_zero!(32));
 
     // Generate 8 initial inputs
-    state
-        .generate_initial_inputs(&mut fuzzer, &mut executor, &mut generator, 8)?
+    state.generate_initial_inputs(&mut fuzzer, &mut executor, &mut generator, 8)?;
 
     // Setup a mutational stage with a basic bytes mutator
     let mutator = HavocScheduledMutator::new(havoc_mutations());
