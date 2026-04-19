@@ -40,27 +40,27 @@ pub trait Runtime<CT, S>: DependencyResolver {
     ///
     /// Once set, [`on_timeout`] will be executed after the input duration.
     fn set_timeout(&mut self, _timeout: Duration) -> Result<(), Error> {
-        unimplemented!("This runtime does not implement timeout")
+        Ok(())
     }
 
     /// Arm the timer, with the value previously provided to `set_timeout`
     ///
     /// If no timeout has been set previously, it's a no-op.
     fn arm_timeout(&mut self) -> Result<(), Error> {
-        unimplemented!("This runtime does not implement timeout")
+        Ok(())
     }
 
     /// Disarm the timer if it has been previously armed with `arm_timeout`.
     ///
     /// If not timer has been armed previously, it's a no-op.
     fn disarm_timeout(&mut self) -> Result<(), Error> {
-        unimplemented!("This runtime does not implement timeout")
+        Ok(())
     }
 
     /// Unset a previously set timeout.
     /// If no timeout has been set before, it's a no-op.
     fn unset_timeout(&mut self) -> Result<(), Error> {
-        unimplemented!("This runtime does not implement timeout")
+        Ok(())
     }
 }
 

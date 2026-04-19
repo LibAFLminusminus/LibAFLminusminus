@@ -655,6 +655,17 @@ pub mod serdeany_registry {
             Ok(())
         }
 
+        /// Merge another [`NamedSerdeAnyMap`] into this one, consuming the other.
+        ///
+        /// On collision (same type and name), entries from `other` overwrite
+        /// the existing ones, matching [`Self::insert`] semantics.
+        #[inline]
+        pub fn merge(&mut self, other: Self) {
+            for (type_repr, entries) in other.map {
+                self.map.entry(type_repr).or_default().extend(entries);
+            }
+        }
+
         /// Get a reference to the type map.
         #[inline]
         #[expect(unused_qualifications)]

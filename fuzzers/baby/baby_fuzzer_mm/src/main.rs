@@ -36,6 +36,9 @@ where
 {
     env_logger::init();
 
+    // The source of randomness
+    let mut rand = StdRand::with_seed(current_nanos());
+
     // Create an observation channel using the signals map
     let observer = unsafe { ConstMapObserver::from_mut_ptr("signals", nonnull_raw_mut!(SIGNALS)) };
 
@@ -45,17 +48,21 @@ where
     // A feedback to choose if an input is a solution or not
     let objective_feedback = CrashFeedback::new();
 
-    // A fuzzer with feedbacks and a corpus scheduler
-    let mut fuzzer = StdFuzzer::new(feedback, objective_feedback);
+    // Setup a mutational stage with a basic bytes mutator
+    let mutator = HavocScheduledMutator::new(havoc_mutations());
+    let mut stages = tuple_list!(StdMutationalStage::new(mutator));
 
     // Create the executor for an in-process function with just one observer
     let mut executor = StdExecutor::new(target::target, tuple_list!(observer), None);
 
+    // A fuzzer with feedbacks and a corpus scheduler
+    let mut fuzzer = StdFuzzer::new(feedback, objective_feedback);
+
+    // Initialize the fuzzer
+    fuzzer.init(&mut stages, &mut executor, state, rt_handle)?;
+
     // Generator of printable bytearrays of max size 32
     let mut generator = RandPrintablesGenerator::new(non_zero!(32));
-
-    // The source of randomness
-    let mut rand = StdRand::with_seed(current_nanos());
 
     // Generate 8 initial inputs
     state.generate_initial_inputs(
@@ -66,10 +73,6 @@ where
         rt_handle,
         8,
     )?;
-
-    // Setup a mutational stage with a basic bytes mutator
-    let mutator = HavocScheduledMutator::new(havoc_mutations());
-    let mut stages = tuple_list!(StdMutationalStage::new(mutator));
 
     fuzzer.fuzz_loop(&mut stages, &mut executor, &mut rand, state, rt_handle)
 }
