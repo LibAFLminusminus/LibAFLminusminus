@@ -14,7 +14,12 @@ use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "std")]
 use crate::observers::{StdErrObserver, StdOutObserver};
-use crate::{Error, observers::ObserversTuple, runtimes::RuntimeHandle, state::FlatState};
+use crate::{
+    Controller, Error,
+    observers::{Observer, ObserversTuple},
+    runtimes::RuntimeHandle,
+    state::FlatState,
+};
 
 // /// The module for all the executor hooks
 // pub mod hooks;
@@ -103,13 +108,16 @@ pub enum DiffExitKind {
 libafl_bolts::impl_serdeany!(DiffExitKind);
 
 /// Runs the fuzzer harness.
-pub trait Executor<CT, I, S> {
-    type Observers;
+pub trait Executor<I, S> {
+    type Observers: Observer<S>;
 
     /// The init function of the executor.
     /// It must be run once before the first execution of the executor.
-    fn init(&mut self, driver: &mut RuntimeHandle<CT, S>, controller: &mut CT)
-    -> Result<(), Error>;
+    fn init<CT: Controller>(
+        &mut self,
+        driver: &mut RuntimeHandle<CT, S>,
+        controller: &mut CT,
+    ) -> Result<(), Error>;
 
     /// Run the target with the given input.
     /// This is a "raw" run: it only runs the target and nothing else is done.
@@ -131,7 +139,7 @@ pub trait Executor<CT, I, S> {
     /// State and observers are updated accordingly.
     ///
     /// This is the main function to run an input.
-    fn execute(
+    fn execute<CT: Controller>(
         &mut self,
         state: &mut S,
         driver: &mut RuntimeHandle<CT, S>,
@@ -143,17 +151,23 @@ pub trait Executor<CT, I, S> {
     {
         *state.executions_mut() += 1;
 
-        self.observers_tuple_mut().pre_exec_all(state)?;
+        // start_timer!(state);
+        self.observers_mut().pre_exec(state)?;
+        // mark_feature_time!(state, PerfFeature::PreExecObservers);
 
         driver.arm_timeout()?;
 
+        // start_timer!(state);
         let mut exit_kind = unsafe { self.execute_impl(state, input)? };
+        // mark_feature_time!(state, PerfFeature::TargetExecution);
 
         driver.disarm_timeout()?;
 
-        self.observers_tuple_mut()
-            .post_exec_all(state, &mut exit_kind)
+        // start_timer!(state);
+        self.observers_mut()
+            .post_exec(state, &mut exit_kind)
             .map(|_| exit_kind)
+        // mark_feature_time!(state, PerfFeature::PostExecObservers);
     }
 
     /// Get the linked observers

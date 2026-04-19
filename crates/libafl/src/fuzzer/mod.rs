@@ -70,23 +70,15 @@ pub trait ExecutionProcessor<I, OT, S> {
 }
 
 /// Evaluate an input modifying the state of the fuzzer
-pub trait Evaluator<E, I, S> {
-    /// Runs the input and triggers observers and feedback
-    /// Retusn the "raw" result of the execution.
-    /// No post-processing is performed.
-    fn execute_input(
-        &mut self,
-        state: &mut S,
-        executor: &mut E,
-        input: &I,
-    ) -> Result<ExitKind, Error>;
-
+pub trait Evaluator<CT, E, I, S> {
     /// Runs the input and triggers observers and feedback,
     /// returns if is interesting an (option) the index of the new [`Testcase`] in the corpus
     fn evaluate_input(
         &mut self,
         state: &mut S,
         executor: &mut E,
+        driver: &mut RuntimeHandle<CT, S>,
+        controller: &mut CT,
         input: &I,
     ) -> Result<EvaluationResult, Error>;
 }
@@ -98,6 +90,7 @@ pub trait Fuzzer<CT, E, I, S, ST> {
         stages: &mut ST,
         executor: &mut E,
         state: &mut S,
+        driver: &mut RuntimeHandle<CT, S>,
         controller: &mut CT,
     ) -> Result<(), Error>;
 
@@ -111,6 +104,7 @@ pub trait Fuzzer<CT, E, I, S, ST> {
         stages: &mut ST,
         executor: &mut E,
         state: &mut S,
+        driver: &mut RuntimeHandle<CT, S>,
         controller: &mut CT,
     ) -> Result<(), Error>;
 
@@ -120,6 +114,7 @@ pub trait Fuzzer<CT, E, I, S, ST> {
         stages: &mut ST,
         executor: &mut E,
         state: &mut S,
+        driver: &mut RuntimeHandle<CT, S>,
         controller: &mut CT,
     ) -> Result<(), Error>;
 
@@ -133,6 +128,7 @@ pub trait Fuzzer<CT, E, I, S, ST> {
         stages: &mut ST,
         executor: &mut E,
         state: &mut S,
+        driver: &mut RuntimeHandle<CT, S>,
         controller: &mut CT,
         iters: u64,
     ) -> Result<(), Error>;
@@ -200,6 +196,7 @@ impl<CT, E, I, S, ST> Fuzzer<CT, E, I, S, ST> for NopFuzzer {
         _stages: &mut ST,
         _executor: &mut E,
         _state: &mut S,
+        _driver: &mut RuntimeHandle<CT, S>,
         _controller: &mut CT,
     ) -> Result<(), Error> {
         unimplemented!("NopFuzzer cannot fuzz");
@@ -210,6 +207,7 @@ impl<CT, E, I, S, ST> Fuzzer<CT, E, I, S, ST> for NopFuzzer {
         _stages: &mut ST,
         _executor: &mut E,
         _state: &mut S,
+        _driver: &mut RuntimeHandle<CT, S>,
         _ct: &mut CT,
     ) -> Result<(), Error> {
         unimplemented!("NopFuzzer cannot fuzz");
@@ -220,6 +218,7 @@ impl<CT, E, I, S, ST> Fuzzer<CT, E, I, S, ST> for NopFuzzer {
         _stages: &mut ST,
         _executor: &mut E,
         _state: &mut S,
+        _driver: &mut RuntimeHandle<CT, S>,
         _ct: &mut CT,
     ) -> Result<(), Error> {
         unimplemented!("NopFuzzer cannot fuzz");
@@ -230,6 +229,7 @@ impl<CT, E, I, S, ST> Fuzzer<CT, E, I, S, ST> for NopFuzzer {
         _stages: &mut ST,
         _executor: &mut E,
         _state: &mut S,
+        _driver: &mut RuntimeHandle<CT, S>,
         _ct: &mut CT,
         _iters: u64,
     ) -> Result<(), Error> {
