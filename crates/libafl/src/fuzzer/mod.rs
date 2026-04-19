@@ -92,18 +92,36 @@ pub trait Evaluator<E, I, S> {
 }
 
 /// The main fuzzer trait.
-pub trait Fuzzer<E, I, S, ST> {
-    fn init(&mut self, stages: &mut ST, executor: &mut E, state: &mut S) -> Result<(), Error>;
+pub trait Fuzzer<CT, E, I, S, ST> {
+    fn init(
+        &mut self,
+        stages: &mut ST,
+        executor: &mut E,
+        state: &mut S,
+        controller: &mut CT,
+    ) -> Result<(), Error>;
 
     /// Fuzz for a single iteration.
     ///
     /// (Note: An iteration represents a complete run of every stage.
     /// Therefore, it does not mean that the harness is executed for once,
     /// because each stage could run the harness for multiple times)
-    fn fuzz_one(&mut self, stages: &mut ST, executor: &mut E, state: &mut S) -> Result<(), Error>;
+    fn fuzz_one(
+        &mut self,
+        stages: &mut ST,
+        executor: &mut E,
+        state: &mut S,
+        controller: &mut CT,
+    ) -> Result<(), Error>;
 
     /// Fuzz forever (or until stopped)
-    fn fuzz_loop(&mut self, stages: &mut ST, executor: &mut E, state: &mut S) -> Result<(), Error>;
+    fn fuzz_loop(
+        &mut self,
+        stages: &mut ST,
+        executor: &mut E,
+        state: &mut S,
+        controller: &mut CT,
+    ) -> Result<(), Error>;
 
     /// Fuzz for n iterations.
     ///
@@ -115,6 +133,7 @@ pub trait Fuzzer<E, I, S, ST> {
         stages: &mut ST,
         executor: &mut E,
         state: &mut S,
+        controller: &mut CT,
         iters: u64,
     ) -> Result<(), Error>;
 }
@@ -175,8 +194,14 @@ impl Default for NopFuzzer {
     }
 }
 
-impl<E, I, S, ST> Fuzzer<E, I, S, ST> for NopFuzzer {
-    fn init(&mut self, stages: &mut ST, executor: &mut E, state: &mut S) -> Result<(), Error> {
+impl<CT, E, I, S, ST> Fuzzer<CT, E, I, S, ST> for NopFuzzer {
+    fn init(
+        &mut self,
+        _stages: &mut ST,
+        _executor: &mut E,
+        _state: &mut S,
+        _controller: &mut CT,
+    ) -> Result<(), Error> {
         unimplemented!("NopFuzzer cannot fuzz");
     }
 
@@ -185,6 +210,7 @@ impl<E, I, S, ST> Fuzzer<E, I, S, ST> for NopFuzzer {
         _stages: &mut ST,
         _executor: &mut E,
         _state: &mut S,
+        _ct: &mut CT,
     ) -> Result<(), Error> {
         unimplemented!("NopFuzzer cannot fuzz");
     }
@@ -194,6 +220,7 @@ impl<E, I, S, ST> Fuzzer<E, I, S, ST> for NopFuzzer {
         _stages: &mut ST,
         _executor: &mut E,
         _state: &mut S,
+        _ct: &mut CT,
     ) -> Result<(), Error> {
         unimplemented!("NopFuzzer cannot fuzz");
     }
@@ -203,6 +230,7 @@ impl<E, I, S, ST> Fuzzer<E, I, S, ST> for NopFuzzer {
         _stages: &mut ST,
         _executor: &mut E,
         _state: &mut S,
+        _ct: &mut CT,
         _iters: u64,
     ) -> Result<(), Error> {
         unimplemented!("NopFuzzer cannot fuzz");

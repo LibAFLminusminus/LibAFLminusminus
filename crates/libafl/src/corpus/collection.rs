@@ -16,6 +16,7 @@ use crate::{
         testcase::TestcaseId,
     },
     inputs::{Input, InputContext},
+    state::HasScheduler,
 };
 
 const DEFAULT_CACHE_LEN: usize = 32;
@@ -173,7 +174,22 @@ impl<CT, I, SC> InMemoryCorpus<CT, I, SC> {
 
 impl<CT, I, SC> DependencyResolver for InMemoryCorpus<CT, I, SC> {}
 
-impl<CT, I, SC> Corpus<I, SC> for InMemoryCorpus<CT, I, SC>
+impl<CT, I, SC> HasScheduler for InMemoryCorpus<CT, I, SC>
+where
+    SC: Scheduler,
+{
+    type Scheduler = SC;
+
+    fn scheduler(&self) -> &Self::Scheduler {
+        self.0.scheduler()
+    }
+
+    fn scheduler_mut(&mut self) -> &mut Self::Scheduler {
+        self.0.scheduler_mut()
+    }
+}
+
+impl<CT, I, SC> Corpus<I> for InMemoryCorpus<CT, I, SC>
 where
     CT: InputContext<I>,
     I: Input,
@@ -200,20 +216,12 @@ where
         self.0.get_from::<ENABLED>(id)
     }
 
-    fn scheduler(&self) -> &SC {
-        self.0.scheduler()
-    }
-
     fn context(&self) -> &Self::Context {
         self.0.context()
     }
 
     fn context_mut(&mut self) -> &mut Self::Context {
         self.0.context_mut()
-    }
-
-    fn scheduler_mut(&mut self) -> &mut SC {
-        self.0.scheduler_mut()
     }
 }
 
@@ -294,8 +302,23 @@ where
 
 impl<CT, I, SC> DependencyResolver for OnDiskCorpus<CT, I, SC> {}
 
+impl<CT, I, SC> HasScheduler for OnDiskCorpus<CT, I, SC>
+where
+    SC: Scheduler,
+{
+    type Scheduler = SC;
+
+    fn scheduler(&self) -> &Self::Scheduler {
+        self.0.scheduler()
+    }
+
+    fn scheduler_mut(&mut self) -> &mut Self::Scheduler {
+        self.0.scheduler_mut()
+    }
+}
+
 #[cfg(feature = "std")]
-impl<CT, I, SC> Corpus<I, SC> for OnDiskCorpus<CT, I, SC>
+impl<CT, I, SC> Corpus<I> for OnDiskCorpus<CT, I, SC>
 where
     CT: InputContext<I>,
     I: Input,
@@ -323,20 +346,12 @@ where
         self.0.get_from::<ENABLED>(id)
     }
 
-    fn scheduler(&self) -> &SC {
-        self.0.scheduler()
-    }
-
     fn context(&self) -> &Self::Context {
         self.0.context()
     }
 
     fn context_mut(&mut self) -> &mut Self::Context {
         self.0.context_mut()
-    }
-
-    fn scheduler_mut(&mut self) -> &mut SC {
-        self.0.scheduler_mut()
     }
 }
 

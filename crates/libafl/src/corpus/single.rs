@@ -13,6 +13,7 @@ use crate::{
     DependencyResolver,
     corpus::{Scheduler, schedulers::RemovableScheduler, testcase::TestcaseId},
     inputs::InputContext,
+    state::HasScheduler,
 };
 
 /// You average corpus.
@@ -52,7 +53,22 @@ pub trait DisableEntry {
 
 impl<CT, I, S, SC> DependencyResolver for SingleCorpus<CT, I, S, SC> {}
 
-impl<CT, I, S, SC> Corpus<I, SC> for SingleCorpus<CT, I, S, SC>
+impl<CT, I, S, SC> HasScheduler for SingleCorpus<CT, I, S, SC>
+where
+    SC: Scheduler,
+{
+    type Scheduler = SC;
+
+    fn scheduler(&self) -> &Self::Scheduler {
+        &self.scheduler
+    }
+
+    fn scheduler_mut(&mut self) -> &mut Self::Scheduler {
+        &mut self.scheduler
+    }
+}
+
+impl<CT, I, S, SC> Corpus<I> for SingleCorpus<CT, I, S, SC>
 where
     CT: InputContext<I>,
     S: Store<I>,
@@ -89,14 +105,6 @@ where
 
     fn context_mut(&mut self) -> &mut CT {
         &mut self.context
-    }
-
-    fn scheduler(&self) -> &SC {
-        &self.scheduler
-    }
-
-    fn scheduler_mut(&mut self) -> &mut SC {
-        &mut self.scheduler
     }
 }
 

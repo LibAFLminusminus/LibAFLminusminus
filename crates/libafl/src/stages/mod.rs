@@ -124,7 +124,7 @@ impl fmt::Display for StageId {
 
 /// A stage is one step in the fuzzing process.
 /// Multiple stages will be scheduled one by one for each input.
-pub trait Stage<C, E, S, Z> {
+pub trait Stage<CT, E, S, Z> {
     /// Run the stage.
     ///
     /// If you want this stage to restart, then
@@ -135,7 +135,7 @@ pub trait Stage<C, E, S, Z> {
         fuzzer: &mut Z,
         executor: &mut E,
         state: &mut S,
-        controller: &mut C,
+        controller: &mut CT,
     ) -> Result<(), Error>;
 }
 
@@ -153,33 +153,33 @@ pub trait Restartable<S> {
 }
 
 /// A tuple holding all `Stages` used for fuzzing.
-pub trait StagesTuple<C, E, S, Z> {
+pub trait StagesTuple<CT, E, S, Z> {
     /// Performs all `Stages` in this tuple.
     fn perform_all(
         &mut self,
         fuzzer: &mut Z,
         executor: &mut E,
         state: &mut S,
-        controller: &mut C,
+        controller: &mut CT,
     ) -> Result<(), Error>;
 }
 
-impl<C, E, S, Z> StagesTuple<C, E, S, Z> for () {
+impl<CT, E, S, Z> StagesTuple<CT, E, S, Z> for () {
     fn perform_all(
         &mut self,
         _: &mut Z,
         _: &mut E,
         state: &mut S,
-        controller: &mut C,
+        controller: &mut CT,
     ) -> Result<(), Error> {
         Ok(())
     }
 }
 
-impl<Head, Tail, C, E, S, Z> StagesTuple<C, E, S, Z> for (Head, Tail)
+impl<Head, Tail, CT, E, S, Z> StagesTuple<CT, E, S, Z> for (Head, Tail)
 where
-    Head: Stage<C, E, S, Z> + Restartable<S>,
-    Tail: StagesTuple<C, E, S, Z> + HasConstLen,
+    Head: Stage<CT, E, S, Z> + Restartable<S>,
+    Tail: StagesTuple<CT, E, S, Z> + HasConstLen,
 {
     /// Performs all stages in the tuple,
     /// Checks after every stage if state wants to stop
@@ -189,7 +189,7 @@ where
         fuzzer: &mut Z,
         executor: &mut E,
         state: &mut S,
-        controller: &mut C,
+        controller: &mut CT,
     ) -> Result<(), Error> {
         // match state.current_stage_id()? {
         //     Some(idx) if idx < StageId(Self::LEN) => {
@@ -269,7 +269,7 @@ impl<E, EM, S, Z> IntoVec<Box<dyn Stage<E, EM, S, Z>>> for Vec<Box<dyn Stage<E, 
     }
 }
 
-impl<C, E, S, Z> StagesTuple<C, E, S, Z> for Vec<Box<dyn Stage<C, E, S, Z>>> {
+impl<CT, E, S, Z> StagesTuple<CT, E, S, Z> for Vec<Box<dyn Stage<CT, E, S, Z>>> {
     /// Performs all stages in the `Vec`
     /// Checks after every stage if state wants to stop
     /// and returns an [`Error::ShuttingDown`] if so
@@ -278,7 +278,7 @@ impl<C, E, S, Z> StagesTuple<C, E, S, Z> for Vec<Box<dyn Stage<C, E, S, Z>>> {
         fuzzer: &mut Z,
         executor: &mut E,
         state: &mut S,
-        controller: &mut C,
+        controller: &mut CT,
     ) -> Result<(), Error> {
         self.iter_mut()
             .try_for_each(|stage| stage.perform(fuzzer, executor, state, controller))
@@ -291,19 +291,19 @@ impl<C, E, S, Z> StagesTuple<C, E, S, Z> for Vec<Box<dyn Stage<C, E, S, Z>>> {
 //
 // /// A [`Stage`] that will call a closure
 // #[derive(Debug)]
-// pub struct ClosureStage<C, CB, E, Z> {
+// pub struct ClosureStage<CT, CB, E, Z> {
 //     name: Cow<'static, str>,
 //     closure: CB,
 //     phantom: PhantomData<(C, E, Z)>,
 // }
 //
-// impl<C, CB, E, Z> Named for ClosureStage<C, CB, E, Z> {
+// impl<CT, CB, E, Z> Named for ClosureStage<CT, CB, E, Z> {
 //     fn name(&self) -> &Cow<'static, str> {
 //         &self.name
 //     }
 // }
 //
-// impl<C, CB, E, S, Z> Stage<C, E, S, Z> for ClosureStage<C, CB, E, Z>
+// impl<CT, CB, E, S, Z> Stage<CT, E, S, Z> for ClosureStage<CT, CB, E, Z>
 // where
 //     CB: FnMut(&mut Z, &mut E, &mut S, &mut C) -> Result<(), Error>,
 // {
