@@ -1,8 +1,7 @@
 //! Multiple map implementations for the in-memory store.
 
-use core::ops::Bound;
-
 use alloc::{collections::BTreeMap, vec::Vec};
+use core::ops::Bound;
 
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
