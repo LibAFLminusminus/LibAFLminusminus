@@ -1,23 +1,23 @@
 use std::path::PathBuf;
 
 use libafl::{
-    Error,
     corpus::{
-        Corpus, InMemoryCorpus, OnDiskCorpus, Scheduler,
         schedulers::{NopScheduler, QueueScheduler},
+        Corpus, InMemoryCorpus, OnDiskCorpus, Scheduler,
     },
     executors::StdExecutor,
     feedbacks::{CrashFeedback, MaxMapFeedback},
     fuzzer::{Fuzzer, StdFuzzer},
     generators::RandPrintablesGenerator,
-    inputs::{BytesInput, bytes::BytesContext},
-    mutators::{HavocScheduledMutator, havoc_mutations},
+    inputs::{bytes::BytesContext, BytesInput},
+    mutators::{havoc_mutations, HavocScheduledMutator},
     non_zero,
     nop::NopController,
     observers::ConstMapObserver,
-    runtimes::{Runtime, RuntimeHandle, direct::DirectRuntime},
+    runtimes::{direct::DirectRuntime, Runtime, RuntimeHandle},
     stages::StdMutationalStage,
     state::StdState,
+    Error,
 };
 use libafl_bolts::{current_nanos, nonnull_raw_mut, rands::StdRand, tuples::tuple_list};
 

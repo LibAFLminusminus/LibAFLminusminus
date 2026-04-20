@@ -319,7 +319,7 @@ where
         Ok(())
     }
 
-    unsafe fn fuzz_one(
+    unsafe fn fuzz_one_noinit(
         &mut self,
         stages: &mut ST,
         executor: &mut E,
@@ -352,49 +352,6 @@ where
         if state.stop_requested() {
             state.discard_stop_request();
             return Err(Error::shutting_down());
-        }
-
-        Ok(())
-    }
-
-    fn fuzz_loop(
-        &mut self,
-        stages: &mut ST,
-        executor: &mut E,
-        rand: &mut R,
-        state: &mut S,
-        rt_handle: &mut RuntimeHandle<CT, S>,
-    ) -> Result<(), Error> {
-        self.init(stages, executor, state, rt_handle)?;
-
-        loop {
-            unsafe {
-                self.fuzz_one(stages, executor, rand, state, rt_handle)?;
-            }
-        }
-    }
-
-    fn fuzz_loop_for(
-        &mut self,
-        stages: &mut ST,
-        executor: &mut E,
-        rand: &mut R,
-        state: &mut S,
-        rt_handle: &mut RuntimeHandle<CT, S>,
-        iters: u64,
-    ) -> Result<(), Error> {
-        if iters == 0 {
-            return Err(Error::illegal_argument(
-                "Cannot fuzz for 0 iterations!".to_string(),
-            ));
-        }
-
-        self.init(stages, executor, state, rt_handle)?;
-
-        for _ in 0..iters {
-            unsafe {
-                self.fuzz_one(stages, executor, rand, state, rt_handle)?;
-            }
         }
 
         Ok(())

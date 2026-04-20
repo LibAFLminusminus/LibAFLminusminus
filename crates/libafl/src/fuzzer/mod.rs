@@ -83,6 +83,15 @@ pub trait Evaluator<CT, E, I, S> {
 
 /// The main fuzzer trait.
 pub trait Fuzzer<CT, E, I, R, S, ST> {
+    /// Initialize the fuzzer
+    ///
+    /// It is used to initialize every structure just before fuzzing starts.
+    /// It is preferred to not call it manually and let the fuzzer call that directly
+    /// through the fuzz_* functions (except of course for `fuzz_one_noinit`).
+    ///
+    /// It should be possible to call this functions multiple times, and it is of the
+    /// fuzzer's responsibility to make sure it can be done without raising errors or
+    /// provoking undefined behavior.
     fn init(
         &mut self,
         stages: &mut ST,
@@ -101,7 +110,7 @@ pub trait Fuzzer<CT, E, I, R, S, ST> {
     ///
     /// The fuzzer must be initialized with [`Self::init`] before running this function.
     /// It will not be checked for performance reason.
-    unsafe fn fuzz_one(
+    unsafe fn fuzz_one_noinit(
         &mut self,
         stages: &mut ST,
         executor: &mut E,
@@ -109,6 +118,24 @@ pub trait Fuzzer<CT, E, I, R, S, ST> {
         state: &mut S,
         rt_handle: &mut RuntimeHandle<CT, S>,
     ) -> Result<(), Error>;
+
+    /// Fuzz for a single iteration.
+    ///
+    /// (Note: An iteration represents a complete run of every stage.
+    /// Therefore, it does not mean that the harness is executed for once,
+    /// because each stage could run the harness for multiple times)
+    fn fuzz_one(
+        &mut self,
+        stages: &mut ST,
+        executor: &mut E,
+        rand: &mut R,
+        state: &mut S,
+        rt_handle: &mut RuntimeHandle<CT, S>,
+    ) -> Result<(), Error> {
+        self.init(stages, executor, state, rt_handle)?;
+
+        unsafe { self.fuzz_one_noinit(stages, executor, rand, state, rt_handle) }
+    }
 
     /// Fuzz forever (or until stopped)
     fn fuzz_loop(
@@ -118,7 +145,15 @@ pub trait Fuzzer<CT, E, I, R, S, ST> {
         rand: &mut R,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<CT, S>,
-    ) -> Result<(), Error>;
+    ) -> Result<(), Error> {
+        self.init(stages, executor, state, rt_handle)?;
+
+        loop {
+            unsafe {
+                self.fuzz_one(stages, executor, rand, state, rt_handle)?;
+            }
+        }
+    }
 
     /// Fuzz for n iterations.
     ///
@@ -133,7 +168,23 @@ pub trait Fuzzer<CT, E, I, R, S, ST> {
         state: &mut S,
         rt_handle: &mut RuntimeHandle<CT, S>,
         iters: u64,
-    ) -> Result<(), Error>;
+    ) -> Result<(), Error> {
+        if iters == 0 {
+            return Err(Error::illegal_argument(
+                "Cannot fuzz for 0 iterations!".to_string(),
+            ));
+        }
+
+        self.init(stages, executor, state, rt_handle)?;
+
+        for _ in 0..iters {
+            unsafe {
+                self.fuzz_one(stages, executor, rand, state, rt_handle)?;
+            }
+        }
+
+        Ok(())
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -203,36 +254,13 @@ impl<CT, E, I, R, S, ST> Fuzzer<CT, E, I, R, S, ST> for NopFuzzer {
         unimplemented!("NopFuzzer cannot fuzz");
     }
 
-    unsafe fn fuzz_one(
+    unsafe fn fuzz_one_noinit(
         &mut self,
         _stages: &mut ST,
         _executor: &mut E,
         _rand: &mut R,
         _state: &mut S,
         _rt_handle: &mut RuntimeHandle<CT, S>,
-    ) -> Result<(), Error> {
-        unimplemented!("NopFuzzer cannot fuzz");
-    }
-
-    fn fuzz_loop(
-        &mut self,
-        _stages: &mut ST,
-        _executor: &mut E,
-        _rand: &mut R,
-        _state: &mut S,
-        _rt_handle: &mut RuntimeHandle<CT, S>,
-    ) -> Result<(), Error> {
-        unimplemented!("NopFuzzer cannot fuzz");
-    }
-
-    fn fuzz_loop_for(
-        &mut self,
-        _stages: &mut ST,
-        _executor: &mut E,
-        _rand: &mut R,
-        _state: &mut S,
-        _rt_handle: &mut RuntimeHandle<CT, S>,
-        _iters: u64,
     ) -> Result<(), Error> {
         unimplemented!("NopFuzzer cannot fuzz");
     }
