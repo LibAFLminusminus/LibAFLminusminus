@@ -121,7 +121,7 @@ impl<CT, E, I, M, R, S, Z> StdMutationalStage<CT, E, I, M, R, S, Z> {
     /// Creates a new default mutational stage
     pub fn new(mutator: M) -> Self {
         // Safe to unwrap: DEFAULT_MUTATIONAL_MAX_ITERATIONS is never 0.
-        Self::transforming_with_max_iterations(
+        Self::with_max_iterations(
             mutator,
             non_zero!(DEFAULT_MUTATIONAL_MAX_ITERATIONS),
         )
@@ -130,23 +130,6 @@ impl<CT, E, I, M, R, S, Z> StdMutationalStage<CT, E, I, M, R, S, Z> {
     /// Creates a new mutational stage with the given max iterations
     #[inline]
     pub fn with_max_iterations(mutator: M, max_iterations: NonZeroUsize) -> Self {
-        Self::transforming_with_max_iterations(mutator, max_iterations)
-    }
-}
-
-impl<CT, E, I, M, R, S, Z> StdMutationalStage<CT, E, I, M, R, S, Z> {
-    /// Creates a new transforming mutational stage with the default max iterations
-    pub fn transforming(mutator: M) -> Self {
-        // Safe to unwrap: DEFAULT_MUTATIONAL_MAX_ITERATIONS is never 0.
-        Self::transforming_with_max_iterations(
-            mutator,
-            non_zero!(DEFAULT_MUTATIONAL_MAX_ITERATIONS),
-        )
-    }
-
-    /// Creates a new transforming mutational stage with the given max iterations
-    #[inline]
-    pub fn transforming_with_max_iterations(mutator: M, max_iterations: NonZeroUsize) -> Self {
         let stage_id = unsafe {
             let ret = MUTATIONAL_STAGE_ID;
             MUTATIONAL_STAGE_ID += 1;

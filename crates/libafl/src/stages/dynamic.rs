@@ -1,6 +1,11 @@
 //! A stage implementation that can have dynamic stage runtime
 
-use super::{Restartable, Stage};
+use super::Stage;
+use crate::{
+    corpus::testcase::TestcaseId,
+    DependencyResolver,
+    stages::RuntimeHandle,
+};
 
 /// A dynamic stage implementation. This explicity uses enum so that rustc can better
 /// reason about the bounds.
@@ -12,40 +17,36 @@ pub enum DynamicStage<T1, T2> {
     Stage2(T2),
 }
 
-impl<T1, T2, E, EM, S, Z> Stage<E, EM, S, Z> for DynamicStage<T1, T2>
+impl<T1, T2> DependencyResolver for DynamicStage<T1, T2>
 where
-    T1: Stage<E, EM, S, Z>,
-    T2: Stage<E, EM, S, Z>,
+    T1: DependencyResolver,
+    T2: DependencyResolver,
+{
+    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<(), libafl_core::Error> {
+        match self {
+            Self::Stage1(st1) => st1.register(registrator),
+            Self::Stage2(st2) => st2.register(registrator),
+        }
+    }
+}
+
+impl<CT, E, R, S, T1, T2, Z> Stage<CT, E, R, S, Z> for DynamicStage<T1, T2>
+where
+    T1: Stage<CT, E, R, S, Z>,
+    T2: Stage<CT, E, R, S, Z>,
 {
     fn perform(
         &mut self,
         fuzzer: &mut Z,
         executor: &mut E,
+        rand: &mut R,
         state: &mut S,
-        manager: &mut EM,
+        rt_handle: &mut RuntimeHandle<CT, S>,
+        testcase_id: &TestcaseId,
     ) -> Result<(), libafl_bolts::Error> {
         match self {
-            Self::Stage1(st1) => st1.perform(fuzzer, executor, state, manager),
-            Self::Stage2(st2) => st2.perform(fuzzer, executor, state, manager),
-        }
-    }
-}
-
-impl<T1, T2, S> Restartable<S> for DynamicStage<T1, T2>
-where
-    T1: Restartable<S>,
-    T2: Restartable<S>,
-{
-    fn should_restart(&mut self, state: &mut S) -> Result<bool, libafl_bolts::Error> {
-        match self {
-            Self::Stage1(st1) => st1.should_restart(state),
-            Self::Stage2(st2) => st2.should_restart(state),
-        }
-    }
-    fn clear_progress(&mut self, state: &mut S) -> Result<(), libafl_bolts::Error> {
-        match self {
-            Self::Stage1(st1) => st1.clear_progress(state),
-            Self::Stage2(st2) => st2.clear_progress(state),
+            Self::Stage1(st1) => st1.perform(fuzzer, executor, rand, state, rt_handle, testcase_id),
+            Self::Stage2(st2) => st2.perform(fuzzer, executor, rand, state, rt_handle, testcase_id),
         }
     }
 }

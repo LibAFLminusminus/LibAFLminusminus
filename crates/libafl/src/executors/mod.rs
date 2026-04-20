@@ -32,9 +32,6 @@ use crate::{
 // #[cfg(feature = "std")]
 // pub use command::CommandExecutor;
 
-// pub mod differential;
-// pub use differential::DiffExecutor;
-
 // #[cfg(all(feature = "std", unix))]
 // pub mod forkserver;
 // #[cfg(all(feature = "std", unix))]

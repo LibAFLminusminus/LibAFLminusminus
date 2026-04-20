@@ -41,13 +41,6 @@ pub use new_hash_feedback::NewHashFeedback;
 #[cfg(feature = "std")]
 pub use new_hash_feedback::NewHashFeedbackMetadata;
 
-#[cfg(feature = "std")]
-#[cfg(not(feature = "remove_me"))]
-pub mod capture_feedback;
-#[cfg(feature = "std")]
-#[cfg(not(feature = "remove_me"))]
-pub use capture_feedback::CaptureTimeoutFeedback;
-
 pub mod bool;
 pub use bool::BoolValueFeedback;
 
