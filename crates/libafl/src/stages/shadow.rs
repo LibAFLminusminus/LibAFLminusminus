@@ -51,7 +51,7 @@ impl<E, EM, I, SOT, S, Z> Named for ShadowTracingStage<E, EM, I, SOT, S, Z> {
     }
 }
 
-impl<E, EM, I, SOT, S, Z> Stage<ShadowExecutor<E, I, S, SOT>, EM, S, Z>
+impl<E, EM, I, SOT, S, Z> Stage<CT, ShadowExecutor<E, I, S, SOT>, EM, S, Z>
     for ShadowTracingStage<E, EM, I, SOT, S, Z>
 where
     E: Executor<EM, I, S, Z> + HasObservers,

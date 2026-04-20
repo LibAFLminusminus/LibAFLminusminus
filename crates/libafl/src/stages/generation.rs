@@ -7,10 +7,7 @@
 use core::marker::PhantomData;
 
 use crate::{
-    Error,
-    generators::Generator,
-    stages::{Restartable, Stage},
-    state::HasRand,
+    DependencyResolver, Error, corpus::testcase::TestcaseId, fuzzer::Evaluator, generators::Generator, stages::{RuntimeHandle, Stage}
 };
 
 /// A [`Stage`] that generates a single input via a [`Generator`] and evaluates
@@ -18,43 +15,34 @@ use crate::{
 ///
 /// This stage can be used to construct black-box (e.g., grammar-based) fuzzers.
 #[derive(Debug)]
-pub struct GenStage<G, I, S, Z>(G, PhantomData<(I, S, Z)>);
+pub struct GenStage<G, I>(G, PhantomData<(I)>);
 
-impl<G, I, S, Z> GenStage<G, I, S, Z> {
+impl<G, I> GenStage<G, I> {
     /// Create a new [`GenStage`].
     pub fn new(g: G) -> Self {
         Self(g, PhantomData)
     }
 }
 
-impl<E, EM, G, I, S, Z> Stage<E, EM, S, Z> for GenStage<G, I, S, Z>
+impl<G, I> DependencyResolver for GenStage<G, I> { }
+
+impl<CT, E, G, I, R, S, Z> Stage<CT, E, R, S, Z> for GenStage<G, I>
 where
-    G: Generator<I, S>,
-    S: HasRand,
-    Z: Evaluator<E, EM, I, S>,
+    G: Generator<I, R, S>,
+    Z: Evaluator<CT, E, I, S>,
 {
     #[inline]
     fn perform(
         &mut self,
         fuzzer: &mut Z,
         executor: &mut E,
+        rand: &mut R,
         state: &mut S,
-        manager: &mut EM,
+        rt_handle: &mut RuntimeHandle<CT, S>,
+        testcase_id: &TestcaseId,
     ) -> Result<(), Error> {
-        let input = self.0.generate(state)?;
-        fuzzer.evaluate_filtered(state, executor, manager, &input)?;
-        Ok(())
-    }
-}
-
-impl<G, I, S, Z> Restartable<S> for GenStage<G, I, S, Z> {
-    fn should_restart(&mut self, _state: &mut S) -> Result<bool, Error> {
-        // It's a random generation stage
-        // so you can restart for whatever times you want
-        Ok(true)
-    }
-
-    fn clear_progress(&mut self, _state: &mut S) -> Result<(), Error> {
+        let input = self.0.generate(rand, state)?;
+        fuzzer.evaluate_input(state, executor, rt_handle, &input)?;
         Ok(())
     }
 }
