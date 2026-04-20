@@ -1,4 +1,4 @@
-use core::{marker::PhantomData, pin::Pin, time::Duration};
+use core::{marker::PhantomData, pin::Pin, ptr::NonNull, time::Duration};
 use std::boxed::Box;
 
 use libafl_bolts::TimerStruct;
@@ -8,6 +8,9 @@ use crate::{
     DependencyResolver,
     runtimes::{Runtime, RuntimeHandle},
 };
+
+pub mod standard;
+pub use standard::{StdInProcessData, StdInProcessRuntime};
 
 pub mod unix;
 pub use unix::OsSignalHandler;
@@ -61,7 +64,13 @@ where
     D: Send + Sync + Unpin + 'static,
     TH: FnMut(&mut D) -> Result<(), Error> + Send + Sync + Unpin + 'static,
 {
-    pub fn new(state: S, task: T, crash_handler: CH, signal_data: D, timeout_handler: TH) -> Self {
+    pub fn new_generic(
+        state: S,
+        task: T,
+        crash_handler: CH,
+        signal_data: D,
+        timeout_handler: TH,
+    ) -> Self {
         let signal_handler =
             InProcessSignalHandler::new(crash_handler, signal_data, timeout_handler);
 
