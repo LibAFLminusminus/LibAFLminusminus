@@ -1,23 +1,23 @@
 use std::path::PathBuf;
 
 use libafl::{
+    Error,
     corpus::{
-        schedulers::{NopScheduler, QueueScheduler},
         Corpus, InMemoryCorpus, OnDiskCorpus, Scheduler,
+        schedulers::{NopScheduler, QueueScheduler},
     },
     executors::StdExecutor,
     feedbacks::{CrashFeedback, MaxMapFeedback},
     fuzzer::{Fuzzer, StdFuzzer},
     generators::RandPrintablesGenerator,
-    inputs::{bytes::BytesContext, BytesInput},
-    mutators::{havoc_mutations, HavocScheduledMutator},
+    inputs::{BytesInput, bytes::BytesContext},
+    mutators::{HavocScheduledMutator, havoc_mutations},
     non_zero,
     nop::NopController,
     observers::ConstMapObserver,
-    runtimes::{direct::DirectRuntime, Runtime, RuntimeHandle},
+    runtimes::{Runtime, RuntimeHandle, inprocess::standard::StdInProcessRuntime},
     stages::StdMutationalStage,
     state::StdState,
-    Error,
 };
 use libafl_bolts::{current_nanos, nonnull_raw_mut, rands::StdRand, tuples::tuple_list};
 
@@ -91,7 +91,7 @@ pub fn main() {
     )
     .unwrap();
 
-    let mut runtime = DirectRuntime::new(state, run_fuzzer);
+    let mut runtime = StdInProcessRuntime::new(state, run_fuzzer);
 
     runtime.run(&mut NopController).unwrap()
 }

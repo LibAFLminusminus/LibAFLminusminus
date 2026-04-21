@@ -6,11 +6,13 @@ use libafl_core::Error;
 
 use crate::{
     DependencyResolver,
-    runtimes::{IntoSignalHandlerData, Runtime, RuntimeHandle},
+    runtimes::{
+        IntoSignalHandlerData, Runtime, RuntimeHandle, inprocess::unix::OsSignalHandlerParams,
+    },
 };
 
-// pub mod standard;
-// pub use standard::StdInProcessRuntime;
+pub mod standard;
+pub use standard::StdInProcessRuntime;
 
 pub mod unix;
 pub use unix::OsSignalHandler;
@@ -39,7 +41,6 @@ pub struct InProcessSignalHandler<CH, D, TH> {
     crash_handler: CH,
     timeout_handler: TH,
     signal_data: D,
-    in_target: bool,
 }
 
 unsafe impl<CH, D, TH> Send for InProcessSignalHandler<CH, D, TH>
@@ -60,9 +61,9 @@ where
 
 impl<CH, D, S, T, TH> InProcessRuntime<CH, D, S, T, TH>
 where
-    CH: FnMut(&mut D) -> Result<(), Error> + Send + Sync + Unpin + 'static,
+    CH: FnMut(&mut D, &OsSignalHandlerParams) -> Result<(), Error> + Send + Sync + Unpin + 'static,
     D: IntoSignalHandlerData + Send + Sync + Unpin + 'static,
-    TH: FnMut(&mut D) -> Result<(), Error> + Send + Sync + Unpin + 'static,
+    TH: FnMut(&mut D, &OsSignalHandlerParams) -> Result<(), Error> + Send + Sync + Unpin + 'static,
 {
     pub fn new_generic(
         state: S,
@@ -85,8 +86,8 @@ where
 
 impl<CH, D, TH> InProcessSignalHandler<CH, D, TH>
 where
-    CH: FnMut(&mut D) -> Result<(), Error>,
-    TH: FnMut(&mut D) -> Result<(), Error>,
+    CH: FnMut(&mut D, &OsSignalHandlerParams) -> Result<(), Error>,
+    TH: FnMut(&mut D, &OsSignalHandlerParams) -> Result<(), Error>,
 {
     pub fn new(crash_handler: CH, signal_data: D, timeout_handler: TH) -> Self {
         Self {
@@ -95,7 +96,6 @@ where
             signal_handler_depth: 0,
             signal_handler_max_depth: 3,
             signal_data,
-            in_target: false,
         }
     }
 
@@ -109,37 +109,21 @@ where
         self.signal_handler_depth -= 1;
     }
 
-    // pub fn handle_timeout(&mut self) {
-    //     (self.timeout_handler)(&mut self.signal_data)
-    // }
-
-    // pub fn handle_crash(&mut self) {
-    //     (self.crash_handler)(&mut self.signal_data)
-    // }
-
     pub fn max_depth(&self) -> usize {
         self.signal_handler_max_depth
     }
 
-    pub fn enter_target(&mut self) {
-        self.in_target = true;
-    }
-
-    pub fn exit_target(&mut self) {
-        self.in_target = false;
-    }
-
-    pub fn is_in_target(&self) -> bool {
-        self.in_target
+    pub fn signal_data_mut(&mut self) -> &mut D {
+        &mut self.signal_data
     }
 }
 
 impl<CT, CH, D, S, T, TH> Runtime<CT, S> for InProcessRuntime<CH, D, S, T, TH>
 where
-    T: FnMut(&mut RuntimeHandle<CT, S>, &mut S) -> Result<(), Error>,
-    CH: FnMut(&mut D) -> Result<(), Error> + Send + Sync + Unpin + 'static,
+    CH: FnMut(&mut D, &OsSignalHandlerParams) -> Result<(), Error> + Send + Sync + Unpin + 'static,
     D: IntoSignalHandlerData + Send + Sync + Unpin + 'static,
-    TH: FnMut(&mut D) -> Result<(), Error> + Send + Sync + Unpin + 'static,
+    T: FnMut(&mut RuntimeHandle<CT, S>, &mut S) -> Result<(), Error>,
+    TH: FnMut(&mut D, &OsSignalHandlerParams) -> Result<(), Error> + Send + Sync + Unpin + 'static,
 {
     unsafe fn run_impl(&mut self, rt_handle: &mut RuntimeHandle<CT, S>) -> Result<(), Error> {
         self.signal_handler.init()?;
@@ -194,7 +178,10 @@ mod tests {
     use crate::{
         inputs::NopInput,
         nop::NopController,
-        runtimes::{Runtime, RuntimeHandle, inprocess::InProcessRuntime},
+        runtimes::{
+            Runtime, RuntimeHandle, SignalHandlerData,
+            inprocess::{InProcessRuntime, unix::OsSignalHandlerParams},
+        },
         state::NopState,
     };
 
@@ -208,11 +195,11 @@ mod tests {
                 Err(Error::shutting_down())
             };
 
-            let crash_handler = |data: &mut ()| Ok(());
+            let crash_handler = |_data: &mut SignalHandlerData, _params: &OsSignalHandlerParams| Ok(());
 
-            let timeout_handler = |data: &mut ()| Ok(());
+            let timeout_handler = |_data: &mut SignalHandlerData, _params: &OsSignalHandlerParams| Ok(());
 
-            let mut runtime = InProcessRuntime::new(state, task, crash_handler, (), timeout_handler);
+            let mut runtime = InProcessRuntime::new_generic(state, task, crash_handler, SignalHandlerData::new(), timeout_handler);
 
             match runtime.run(&mut controller).err() {
                 Some(Error::ShuttingDown) => {}
@@ -230,14 +217,32 @@ mod tests {
                 &mut NopState<NopInput>,
             ) -> Result<(), Error>
             + 'static,
-        CH: FnMut(&mut ()) -> Result<(), Error> + Send + Sync + Unpin + 'static,
-        TH: FnMut(&mut ()) -> Result<(), Error> + Send + Sync + Unpin + 'static,
+        for<'a> CH: FnMut(&mut SignalHandlerData, &OsSignalHandlerParams<'a>) -> Result<(), Error>
+            + Send
+            + Sync
+            + Unpin
+            + 'static,
+        for<'a> TH: FnMut(&mut SignalHandlerData, &OsSignalHandlerParams<'a>) -> Result<(), Error>
+            + Send
+            + Sync
+            + Unpin
+            + 'static,
     {
         let state = NopState::<NopInput>::new();
         let mut controller = NopController;
 
-        let mut runtime = InProcessRuntime::new(state, task, crash_handler, (), timeout_handler);
-        runtime.signal_handler.inner_mut().enter_target();
+        let mut runtime = InProcessRuntime::new_generic(
+            state,
+            task,
+            crash_handler,
+            SignalHandlerData::new(),
+            timeout_handler,
+        );
+        runtime
+            .signal_handler
+            .inner_mut()
+            .signal_data_mut()
+            .set_input(&NopInput);
 
         runtime.run(&mut controller).unwrap();
     }
@@ -265,9 +270,9 @@ mod tests {
                     Ok::<(), Error>(())
                 };
 
-                let crash_handler = |_data: &mut ()| Ok(());
+                let crash_handler = |_data: &mut SignalHandlerData, _params: &OsSignalHandlerParams| Ok(());
 
-                let timeout_handler = |_data: &mut ()| Ok(());
+                let timeout_handler = |_data: &mut SignalHandlerData, _params: &OsSignalHandlerParams| Ok(());
 
                 run_runtime(task, crash_handler, timeout_handler)
             },
@@ -302,9 +307,9 @@ mod tests {
                     Ok::<(), Error>(())
                 };
 
-                let crash_handler = |_data: &mut ()| Ok(());
+                let crash_handler = |_data: &mut SignalHandlerData, _params: &OsSignalHandlerParams| Ok(());
 
-                let timeout_handler = |_data: &mut ()| Ok(());
+                let timeout_handler = |_data: &mut SignalHandlerData, _params: &OsSignalHandlerParams| Ok(());
 
                 run_runtime(task, crash_handler, timeout_handler)
             },
@@ -343,9 +348,9 @@ mod tests {
                     Ok::<(), Error>(())
                 };
 
-                let crash_handler = |_data: &mut ()| Ok(());
+                let crash_handler = |_data: &mut SignalHandlerData, _params: &OsSignalHandlerParams| Ok(());
 
-                let timeout_handler = |_data: &mut ()| unsafe {
+                let timeout_handler = |_data: &mut SignalHandlerData, _params: &OsSignalHandlerParams| unsafe {
                     libc::exit(114);
                 };
 
@@ -382,11 +387,11 @@ mod tests {
                     Ok::<(), Error>(())
                 };
 
-                let crash_handler = |_data: &mut ()| unsafe {
+                let crash_handler = |_data: &mut SignalHandlerData, _params: &OsSignalHandlerParams| unsafe {
                     libc::exit(114);
                 };
 
-                let timeout_handler = |_data: &mut ()| Ok(());
+                let timeout_handler = |_data: &mut SignalHandlerData, _params: &OsSignalHandlerParams| Ok(());
 
                 run_runtime(task, crash_handler, timeout_handler)
             },

@@ -17,7 +17,7 @@ use crate::observers::{StdErrObserver, StdOutObserver};
 use crate::{
     Controller, DependencyResolver, Error,
     observers::{Observer, ObserversTuple},
-    runtimes::RuntimeHandle,
+    runtimes::{RuntimeHandle, inprocess::unix::OsSignalHandlerParams},
     state::FlatState,
 };
 
@@ -150,7 +150,9 @@ pub trait Executor<I, S>: DependencyResolver {
         rt_handle.arm_timeout()?;
 
         // start_timer!(state);
+        rt_handle.set_input(input);
         let exit_kind = unsafe { self.execute_impl(state, input)? };
+        rt_handle.clear_input();
         // mark_feature_time!(state, PerfFeature::TargetExecution);
 
         rt_handle.disarm_timeout()?;
@@ -167,6 +169,18 @@ pub trait Executor<I, S>: DependencyResolver {
 
     /// Get the linked observers (mutable)
     fn observers_mut(&mut self) -> RefIndexable<&mut Self::Observers, Self::Observers>;
+
+    // TODO: connect to executors.
+    // this will be useful for qemu at least
+    fn handle_crash(params: &OsSignalHandlerParams) -> Result<(), Error> {
+        Ok(())
+    }
+
+    // TODO: connect to executors.
+    // this will be useful for qemu at least
+    fn handle_timeout(params: &OsSignalHandlerParams) -> Result<(), Error> {
+        Ok(())
+    }
 }
 
 /// Like [`crate::observers::ObserversTuple`], a list of executors
