@@ -1,17 +1,24 @@
-use core::time::Duration;
+use core::{marker::PhantomData, time::Duration};
 
 use libafl_core::Error;
+use nix::{
+    sys::wait::{WaitStatus, waitpid},
+    unistd::{ForkResult, fork},
+};
 
 use crate::{
     DependencyResolver,
     runtimes::{IntoSignalHandlerData, Runtime, RuntimeHandle, inprocess::InProcessRuntime},
 };
 
-pub struct RestartingRuntime<CH, D, S, T, TH> {
-    inner: InProcessRuntime<CH, D, S, T, TH>,
+pub struct RestartingRuntime<RT> {
+    inner: RT,
 }
 
-impl<CH, D, S, T, TH> DependencyResolver for RestartingRuntime<CH, D, S, T, TH> {
+impl<RT> DependencyResolver for RestartingRuntime<RT>
+where
+    RT: DependencyResolver,
+{
     fn register(&mut self, registrator: &mut crate::Registrator) -> Result<(), Error> {
         self.inner.register(registrator)
     }
@@ -21,15 +28,29 @@ impl<CH, D, S, T, TH> DependencyResolver for RestartingRuntime<CH, D, S, T, TH> 
     }
 }
 
-impl<CH, D, S, T, TH> Runtime<S> for RestartingRuntime<CH, D, S, T, TH>
+impl<CT, RT, S> Runtime<CT, S> for RestartingRuntime<RT>
 where
-    T: FnMut(&mut RuntimeHandle<S>, &mut S) -> Result<(), Error>,
-    CH: FnMut(&mut D) -> Result<(), Error> + Send + Sync + Unpin + 'static,
-    D: IntoSignalHandlerData + Send + Sync + Unpin + 'static,
-    TH: FnMut(&mut D) -> Result<(), Error> + Send + Sync + Unpin + 'static,
+    RT: Runtime<CT, S>,
 {
-    // TODO: handle fork, state snapshot restore
-    unsafe fn run_impl(&mut self, rt_handle: &mut RuntimeHandle<S>) -> Result<(), Error> {
+    unsafe fn run_impl(&mut self, rt_handle: &mut RuntimeHandle<CT, S>) -> Result<(), Error> {
+        match unsafe { fork() } {
+            Ok(ForkResult::Parent { child }) => match waitpid(child, None) {
+                Ok(WaitStatus::Exited(pid, status)) => {
+                    eprintln!("Child runtime {pid} exited with status: {status}");
+                    // save
+                }
+            },
+            Ok(ForkResult::Child) => {
+                // running the child runtime here
+                self.inner.run_impl(rt_handle)
+            }
+            Err(e) => {
+                return Err(Error::runtime(format!(
+                    "Restarting runtime error while forking: {e}"
+                )));
+            }
+        }
+
         unsafe { self.inner.run_impl(rt_handle) }
     }
 

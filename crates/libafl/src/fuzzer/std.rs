@@ -11,7 +11,10 @@ use crate::{
     feedbacks::Feedback,
     fuzzer::{EvaluationResult, Evaluator, Fuzzer, HasFeedback, HasObjective, Verdict},
     observers::ObserversTuple,
-    runtimes::{RuntimeHandle, SignalHandlerData, inprocess::unix::OsSignalHandlerParams},
+    runtimes::{
+        RuntimeHandle,
+        utils::{OsTerminationParams, TerminationHandlerData},
+    },
     stages::StagesTuple,
     state::{FlatState, HasCorpus, HasObjectiveCorpus, HasTestcase, State},
 };
@@ -19,8 +22,8 @@ use crate::{
 /// Crash signals will end up there, if it happens during a fuzzing run.
 /// Ending up here out of a fuzzing run is an error.
 unsafe fn std_on_crash<CT, E, F, I, OF, S>(
-    data: &mut SignalHandlerData,
-    _signal_params: &OsSignalHandlerParams,
+    data: &mut TerminationHandlerData,
+    _signal_params: &OsTerminationParams,
 ) where
     E: Executor<I, S>,
     F: Feedback<I, E::Observers, S>,
@@ -44,8 +47,8 @@ unsafe fn std_on_crash<CT, E, F, I, OF, S>(
 /// Timeout signals will end up there, if it happens during a fuzzing run.
 /// Ending up here out of a fuzzing run is an error.
 unsafe fn std_on_timeout<CT, E, F, I, OF, S>(
-    data: &mut SignalHandlerData,
-    _signal_params: &OsSignalHandlerParams,
+    data: &mut TerminationHandlerData,
+    _signal_params: &OsTerminationParams,
 ) where
     E: Executor<I, S>,
     F: Feedback<I, E::Observers, S>,
