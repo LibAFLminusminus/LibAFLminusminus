@@ -17,7 +17,7 @@ use crate::observers::{StdErrObserver, StdOutObserver};
 use crate::{
     Controller, DependencyResolver, Error,
     observers::{Observer, ObserversTuple},
-    runtimes::{RuntimeHandle, inprocess::unix::OsSignalHandlerParams},
+    runtimes::{RuntimeHandle, utils::unix::signal::OsTerminationParams},
     state::FlatState,
 };
 
@@ -172,13 +172,13 @@ pub trait Executor<I, S>: DependencyResolver {
 
     // TODO: connect to executors.
     // this will be useful for qemu at least
-    fn handle_crash(params: &OsSignalHandlerParams) -> Result<(), Error> {
+    fn handle_crash(params: &OsTerminationParams) -> Result<(), Error> {
         Ok(())
     }
 
     // TODO: connect to executors.
     // this will be useful for qemu at least
-    fn handle_timeout(params: &OsSignalHandlerParams) -> Result<(), Error> {
+    fn handle_timeout(params: &OsTerminationParams) -> Result<(), Error> {
         Ok(())
     }
 }
