@@ -6,11 +6,11 @@ use libafl_core::Error;
 
 use crate::{
     DependencyResolver,
-    runtimes::{Runtime, RuntimeHandle},
+    runtimes::{IntoSignalHandlerData, Runtime, RuntimeHandle},
 };
 
-pub mod standard;
-pub use standard::{StdInProcessData, StdInProcessRuntime};
+// pub mod standard;
+// pub use standard::StdInProcessRuntime;
 
 pub mod unix;
 pub use unix::OsSignalHandler;
@@ -61,7 +61,7 @@ where
 impl<CH, D, S, T, TH> InProcessRuntime<CH, D, S, T, TH>
 where
     CH: FnMut(&mut D) -> Result<(), Error> + Send + Sync + Unpin + 'static,
-    D: Send + Sync + Unpin + 'static,
+    D: IntoSignalHandlerData + Send + Sync + Unpin + 'static,
     TH: FnMut(&mut D) -> Result<(), Error> + Send + Sync + Unpin + 'static,
 {
     pub fn new_generic(
@@ -138,12 +138,16 @@ impl<CT, CH, D, S, T, TH> Runtime<CT, S> for InProcessRuntime<CH, D, S, T, TH>
 where
     T: FnMut(&mut RuntimeHandle<CT, S>, &mut S) -> Result<(), Error>,
     CH: FnMut(&mut D) -> Result<(), Error> + Send + Sync + Unpin + 'static,
-    D: Send + Sync + Unpin + 'static,
+    D: IntoSignalHandlerData + Send + Sync + Unpin + 'static,
     TH: FnMut(&mut D) -> Result<(), Error> + Send + Sync + Unpin + 'static,
 {
-    // TODO: handle signals
     unsafe fn run_impl(&mut self, rt_handle: &mut RuntimeHandle<CT, S>) -> Result<(), Error> {
-        self.signal_handler.init();
+        self.signal_handler.init()?;
+        rt_handle.signal_data = self
+            .signal_handler
+            .inner_mut()
+            .signal_data
+            .as_signal_handler_data();
 
         (self.task)(rt_handle, &mut self.state)
     }

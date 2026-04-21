@@ -4,7 +4,7 @@ use libafl_core::Error;
 
 use crate::{
     DependencyResolver,
-    runtimes::{Runtime, RuntimeHandle, inprocess::InProcessRuntime},
+    runtimes::{IntoSignalHandlerData, Runtime, RuntimeHandle, inprocess::InProcessRuntime},
 };
 
 pub struct RestartingRuntime<CH, D, S, T, TH> {
@@ -25,7 +25,7 @@ impl<CH, D, S, T, TH> Runtime<S> for RestartingRuntime<CH, D, S, T, TH>
 where
     T: FnMut(&mut RuntimeHandle<S>, &mut S) -> Result<(), Error>,
     CH: FnMut(&mut D) -> Result<(), Error> + Send + Sync + Unpin + 'static,
-    D: Send + Sync + Unpin + 'static,
+    D: IntoSignalHandlerData + Send + Sync + Unpin + 'static,
     TH: FnMut(&mut D) -> Result<(), Error> + Send + Sync + Unpin + 'static,
 {
     // TODO: handle fork, state snapshot restore
