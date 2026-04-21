@@ -11,22 +11,26 @@ use crate::{
     feedbacks::Feedback,
     fuzzer::{EvaluationResult, Evaluator, Fuzzer, HasFeedback, HasObjective, Verdict},
     observers::ObserversTuple,
-    runtimes::{RuntimeHandle, SignalHandlerData},
+    runtimes::{RuntimeHandle, SignalHandlerData, inprocess::unix::OsSignalHandlerParams},
     stages::StagesTuple,
     state::{FlatState, HasCorpus, HasObjectiveCorpus, HasTestcase, State},
 };
 
-unsafe fn std_on_crash<CT, E, F, I, OF, S>(data: &mut SignalHandlerData)
-where
+/// Crash signals will end up there, if it happens during a fuzzing run.
+/// Ending up here out of a fuzzing run is an error.
+unsafe fn std_on_crash<CT, E, F, I, OF, S>(
+    data: &mut SignalHandlerData,
+    _signal_params: &OsSignalHandlerParams,
+) where
     E: Executor<I, S>,
     F: Feedback<I, E::Observers, S>,
     I: Clone,
     OF: Feedback<I, E::Observers, S>,
     S: State<I>,
 {
+    // double check, not mandatory
     if !data.in_fuzzing() {
         panic!("A crash occured out of the fuzzing loop. This is a fuzzer bug.");
-        return;
     }
 
     let state = unsafe { data.state::<S>() };
@@ -34,20 +38,24 @@ where
     let input = unsafe { data.input::<I>() };
     let observers = unsafe { data.observers::<E::Observers>() };
 
-    todo!();
+    // TODO
 }
 
-unsafe fn std_on_timeout<CT, E, F, I, OF, S>(data: &mut SignalHandlerData)
-where
+/// Timeout signals will end up there, if it happens during a fuzzing run.
+/// Ending up here out of a fuzzing run is an error.
+unsafe fn std_on_timeout<CT, E, F, I, OF, S>(
+    data: &mut SignalHandlerData,
+    _signal_params: &OsSignalHandlerParams,
+) where
     E: Executor<I, S>,
     F: Feedback<I, E::Observers, S>,
     I: Clone,
     OF: Feedback<I, E::Observers, S>,
     S: State<I>,
 {
+    // double check, not mandatory
     if !data.in_fuzzing() {
         panic!("A timeout occured out of the fuzzing loop. This is a fuzzer bug.");
-        return;
     }
 
     let state = unsafe { data.state::<S>() };
@@ -55,7 +63,7 @@ where
     let input = unsafe { data.input::<I>() };
     let observers = unsafe { data.observers::<E::Observers>() };
 
-    todo!();
+    // TODO
 }
 
 /// Your default fuzzer instance, for everyday use.
@@ -363,8 +371,12 @@ where
             state,
             self,
             &mut *executor.observers_mut(),
-            |data| unsafe { std_on_crash::<CT, E, F, I, OF, S>(data) },
-            |data| unsafe { std_on_timeout::<CT, E, F, I, OF, S>(data) },
+            |data, signal_params| unsafe {
+                std_on_crash::<CT, E, F, I, OF, S>(data, signal_params)
+            },
+            |data, signal_params| unsafe {
+                std_on_timeout::<CT, E, F, I, OF, S>(data, signal_params)
+            },
         );
 
         self.initialized = true;

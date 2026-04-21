@@ -1,45 +1,42 @@
 use libafl_core::Error;
 
 use crate::runtimes::{
-    RuntimeHandle, SignalHandlerData,
-    inprocess::{InProcessRuntime, InProcessSignalHandler, OsSignalHandler},
+    SignalHandlerData,
+    inprocess::{InProcessRuntime, unix::OsSignalHandlerParams},
 };
 
-pub type StdInProcessSignalHandler = fn(&mut SignalHandlerData) -> Result<(), Error>;
-
-pub type StdInProcessRuntime<CT, I, O, OF, S, T> = InProcessRuntime<
-    StdInProcessSignalHandler,
+pub type StdInProcessRuntime<S, T> = InProcessRuntime<
+    fn(&mut SignalHandlerData, &OsSignalHandlerParams) -> Result<(), Error>,
     SignalHandlerData,
     S,
     T,
-    StdInProcessSignalHandler,
+    fn(&mut SignalHandlerData, &OsSignalHandlerParams) -> Result<(), Error>,
 >;
 
-impl<CT, I, O, OF, S, T> StdInProcessRuntime<CT, I, O, OF, S, T>
-where
-    CT: 'static,
-    I: 'static,
-    O: 'static,
-    OF: 'static,
-    S: 'static,
-{
+impl<S, T> StdInProcessRuntime<S, T> {
     pub fn new(state: S, task: T) -> Self {
         InProcessRuntime::new_generic(
             state,
             task,
-            std_inprocess_crash::<CT, I, O, OF, S>,
+            std_inprocess_crash,
             SignalHandlerData::new(),
-            std_inprocess_timeout::<CT, I, O, OF, S>,
+            std_inprocess_timeout,
         )
     }
 }
 
-fn std_inprocess_crash<CT, I, O, OF, S>(data: &mut SignalHandlerData) -> Result<(), Error> {
-    data.handle_crash();
+fn std_inprocess_crash(
+    data: &mut SignalHandlerData,
+    signal_params: &OsSignalHandlerParams,
+) -> Result<(), Error> {
+    data.handle_crash(signal_params);
     Ok(())
 }
 
-fn std_inprocess_timeout<CT, I, O, OF, S>(data: &mut SignalHandlerData) -> Result<(), Error> {
-    data.handle_timeout();
+fn std_inprocess_timeout(
+    data: &mut SignalHandlerData,
+    signal_params: &OsSignalHandlerParams,
+) -> Result<(), Error> {
+    data.handle_timeout(signal_params);
     Ok(())
 }

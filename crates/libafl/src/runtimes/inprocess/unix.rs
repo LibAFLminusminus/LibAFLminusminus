@@ -1,6 +1,9 @@
 use alloc::{boxed::Box, vec::Vec};
 use core::pin::Pin;
-use std::{io::Write, panic};
+use std::{
+    io::Write,
+    panic::{self, PanicHookInfo},
+};
 
 use libafl_bolts::os::{
     SIGNAL_RECURSION_EXIT,
@@ -9,7 +12,13 @@ use libafl_bolts::os::{
 use libafl_core::Error;
 use libc::siginfo_t;
 
-use crate::{executors::common_signals, runtimes::inprocess::InProcessSignalHandler};
+use crate::{
+    executors::common_signals,
+    runtimes::{IntoSignalHandlerData, inprocess::InProcessSignalHandler},
+};
+
+pub type OsSignalHandler<CH, D, TH> = UnixSignalHandler<CH, D, TH>;
+pub type OsSignalHandlerParams<'a> = SignalHandlerParams<'a>;
 
 /// Wrapper to assert `Send + Sync` for a raw pointer.
 ///
@@ -18,6 +27,15 @@ use crate::{executors::common_signals, runtimes::inprocess::InProcessSignalHandl
 /// in a thread-safe manner.
 struct SignalHandlerPtr<CH, D, TH> {
     signal_handler: *mut UnixSignalHandler<CH, D, TH>,
+}
+
+pub enum SignalHandlerParams<'a> {
+    Signal {
+        signal: &'a Signal,
+        siginfo: &'a siginfo_t,
+        context: Option<&'a ucontext_t>,
+    },
+    Panic(&'a PanicHookInfo<'a>),
 }
 
 unsafe impl<CH, D, TH> Send for SignalHandlerPtr<CH, D, TH>
@@ -46,8 +64,6 @@ impl<CH, D, TH> SignalHandlerPtr<CH, D, TH> {
     }
 }
 
-pub type OsSignalHandler<CH, D, TH> = UnixSignalHandler<CH, D, TH>;
-
 pub struct UnixSignalHandler<CH, D, TH> {
     inner: InProcessSignalHandler<CH, D, TH>,
 }
@@ -61,9 +77,17 @@ pub(crate) type SignalHandlerFn<CH, D, TH> = unsafe fn(
 
 impl<CH, D, TH> UnixSignalHandler<CH, D, TH>
 where
-    CH: FnMut(&mut D) -> Result<(), Error> + Send + Sync + Unpin + 'static,
-    D: Send + Sync + Unpin + 'static,
-    TH: FnMut(&mut D) -> Result<(), Error> + Send + Sync + Unpin + 'static,
+    for<'a> CH: FnMut(&mut D, &OsSignalHandlerParams<'a>) -> Result<(), Error>
+        + Send
+        + Sync
+        + Unpin
+        + 'static,
+    D: IntoSignalHandlerData + Send + Sync + Unpin + 'static,
+    for<'a> TH: FnMut(&mut D, &OsSignalHandlerParams<'a>) -> Result<(), Error>
+        + Send
+        + Sync
+        + Unpin
+        + 'static,
 {
     pub fn new(signal_handler: InProcessSignalHandler<CH, D, TH>) -> Self {
         Self {
@@ -95,10 +119,16 @@ where
     /// Well, signal handling is not safe
     pub fn timeout_handler(
         &mut self,
-        _signal: &Signal,
-        _siginfo: &siginfo_t,
-        _context: Option<&ucontext_t>,
+        signal: &Signal,
+        siginfo: &siginfo_t,
+        context: Option<&ucontext_t>,
     ) {
+        let signal_params = OsSignalHandlerParams::Signal {
+            signal,
+            siginfo,
+            context,
+        };
+
         unsafe {
             let max_depth_reached = self.enter();
 
@@ -111,13 +141,19 @@ where
                 libc::exit(SIGNAL_RECURSION_EXIT);
             }
 
-            if !self.inner().is_in_target() {
-                panic!("TIMEOUT or SIGUSR2 happened, but currently not fuzzing.");
+            if self
+                .inner
+                .signal_data
+                .as_signal_handler_data()
+                .map(|p| p.as_ref().in_fuzzing())
+                .unwrap_or(false)
+            {
+                (self.inner.timeout_handler)(&mut self.inner.signal_data, &signal_params);
+            } else {
+                panic!(
+                    "TIMEOUT or SIGUSR2 happened, but currently not fuzzing. This is a fuzzer bug."
+                );
             }
-
-            log::error!("Timeout in fuzz run.");
-
-            (self.inner.timeout_handler)(&mut self.inner.signal_data);
 
             libafl_bolts::os::exit(55);
         }
@@ -125,9 +161,9 @@ where
 
     /// Crash-Handler for in-process fuzzing.
     /// Will be used for signal handling.
-    /// It will store the current State to shmem, then exit.
     ///
     /// # Safety
+    ///
     /// Well, signal handling is not safe
     pub fn crash_handler(
         &mut self,
@@ -135,8 +171,21 @@ where
         siginfo: &siginfo_t,
         context: Option<&ucontext_t>,
     ) {
+        let signal_params = OsSignalHandlerParams::Signal {
+            signal,
+            siginfo,
+            context,
+        };
+
         unsafe {
-            if self.inner.is_in_target() {
+            if self
+                .inner
+                .signal_data
+                .as_signal_handler_data()
+                .map(|p| p.as_ref().in_fuzzing())
+                .unwrap_or(false)
+            {
+                // fuzzing in progress, propagate crash
                 log::error!("Target crashed with signal {signal}");
 
                 {
@@ -160,12 +209,10 @@ where
                     }
                 }
 
-                (self.inner.crash_handler)(&mut self.inner.signal_data)
+                (self.inner.crash_handler)(&mut self.inner.signal_data, &signal_params)
                     .expect("Error while handling crash handler")
             } else {
-                #[cfg(target_os = "android")]
-                let si_addr = (siginfo._pad[0] as i64) | ((_info._pad[1] as i64) << 32);
-                #[cfg(not(target_os = "android"))]
+                // not in fuzzing loop, this is a fuzzer bug.
                 let si_addr = { siginfo.si_addr() as usize };
 
                 log::error!(
@@ -217,6 +264,8 @@ where
         // The panic handler should only run when all other execution stopped.
         // At this point, accessing the global state should be sound.
         panic::set_hook(Box::new(move |panic_info| unsafe {
+            let signal_params = OsSignalHandlerParams::Panic(panic_info);
+
             old_hook(panic_info);
 
             let signal_handler: &mut Self = &mut *signal_handler_ptr.as_mut_ptr();
@@ -232,12 +281,21 @@ where
                 libc::exit(SIGNAL_RECURSION_EXIT);
             }
 
-            if !signal_handler.inner.is_in_target() {
+            if !signal_handler
+                .inner
+                .signal_data
+                .as_signal_handler_data()
+                .map(|p| p.as_ref().in_fuzzing())
+                .unwrap_or(false)
+            {
                 log::warn!("panic hook called, but currently not fuzzing.");
                 return;
             }
 
-            (signal_handler.inner.crash_handler)(&mut signal_handler.inner.signal_data);
+            (signal_handler.inner.crash_handler)(
+                &mut signal_handler.inner.signal_data,
+                &signal_params,
+            );
 
             libafl_bolts::os::exit(128 + 6); // SIGABRT exit code
         }));
@@ -246,9 +304,17 @@ where
 
 impl<CH, D, TH> SignalHandler for UnixSignalHandler<CH, D, TH>
 where
-    CH: FnMut(&mut D) -> Result<(), Error> + Send + Sync + Unpin + 'static,
-    D: Send + Sync + Unpin + 'static,
-    TH: FnMut(&mut D) -> Result<(), Error> + Send + Sync + Unpin + 'static,
+    for<'a> CH: FnMut(&mut D, &OsSignalHandlerParams<'a>) -> Result<(), Error>
+        + Send
+        + Sync
+        + Unpin
+        + 'static,
+    D: IntoSignalHandlerData + Send + Sync + Unpin + 'static,
+    for<'a> TH: FnMut(&mut D, &OsSignalHandlerParams<'a>) -> Result<(), Error>
+        + Send
+        + Sync
+        + Unpin
+        + 'static,
 {
     /// # Safety
     /// This will access global state.

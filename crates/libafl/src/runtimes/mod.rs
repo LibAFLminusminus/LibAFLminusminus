@@ -2,7 +2,10 @@ use core::{ffi::c_void, ptr::NonNull, time::Duration};
 
 use libafl_bolts::Error;
 
-use crate::DependencyResolver;
+use crate::{
+    DependencyResolver,
+    runtimes::inprocess::{OsSignalHandler, unix::OsSignalHandlerParams},
+};
 
 /// Type-erased data shared between the runtime and signal handlers.
 ///
@@ -14,8 +17,8 @@ pub struct SignalHandlerData {
     input_ptr: Option<NonNull<c_void>>,
     observers_ptr: Option<NonNull<c_void>>,
     fuzzer_ptr: Option<NonNull<c_void>>,
-    crash_handler: Option<fn(&mut Self)>,
-    timeout_handler: Option<fn(&mut Self)>,
+    crash_handler: Option<fn(&mut Self, &OsSignalHandlerParams)>,
+    timeout_handler: Option<fn(&mut Self, &OsSignalHandlerParams)>,
 }
 
 unsafe impl Send for SignalHandlerData {}
@@ -38,9 +41,13 @@ impl SignalHandlerData {
         state: &mut S,
         fuzzer: &mut Z,
         observers: &mut O,
-        on_crash: fn(&mut Self),
-        on_timeout: fn(&mut Self),
+        on_crash: fn(&mut Self, &OsSignalHandlerParams),
+        on_timeout: fn(&mut Self, &OsSignalHandlerParams),
     ) {
+        if self.state_ptr.is_some() {
+            panic!("Trying to initialize signal information multiple times. This is a fuzzer bug.");
+        }
+
         self.state_ptr = Some(NonNull::from(state).cast());
         self.fuzzer_ptr = Some(NonNull::from(fuzzer).cast());
         self.observers_ptr = Some(NonNull::from(observers).cast());
@@ -88,15 +95,15 @@ impl SignalHandlerData {
         self.input_ptr.is_some()
     }
 
-    pub fn handle_crash(&mut self) {
+    pub fn handle_crash(&mut self, signal_params: &OsSignalHandlerParams) {
         if let Some(handler) = self.crash_handler {
-            handler(self);
+            handler(self, signal_params);
         }
     }
 
-    pub fn handle_timeout(&mut self) {
+    pub fn handle_timeout(&mut self, signal_params: &OsSignalHandlerParams) {
         if let Some(handler) = self.timeout_handler {
-            handler(self);
+            handler(self, signal_params);
         }
     }
 }
@@ -225,14 +232,30 @@ impl<'a, CT, S> RuntimeHandle<'a, CT, S> {
         state: &mut S,
         fuzzer: &mut Z,
         observers: &mut O,
-        on_crash: fn(&mut SignalHandlerData),
-        on_timeout: fn(&mut SignalHandlerData),
+        on_crash: fn(&mut SignalHandlerData, &OsSignalHandlerParams),
+        on_timeout: fn(&mut SignalHandlerData, &OsSignalHandlerParams),
     ) {
         if let Some(mut signal_data) = self.signal_data {
             unsafe {
                 signal_data
                     .as_mut()
                     .init(state, fuzzer, observers, on_crash, on_timeout);
+            }
+        }
+    }
+
+    pub fn set_input<I>(&mut self, input: &I) {
+        if let Some(mut signal_data) = self.signal_data {
+            unsafe {
+                signal_data.as_mut().set_input(input);
+            }
+        }
+    }
+
+    pub fn clear_input(&mut self) {
+        if let Some(mut signal_data) = self.signal_data {
+            unsafe {
+                signal_data.as_mut().clear_input();
             }
         }
     }
