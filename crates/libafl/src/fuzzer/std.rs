@@ -11,10 +11,52 @@ use crate::{
     feedbacks::Feedback,
     fuzzer::{EvaluationResult, Evaluator, Fuzzer, HasFeedback, HasObjective, Verdict},
     observers::ObserversTuple,
-    runtimes::RuntimeHandle,
+    runtimes::{RuntimeHandle, SignalHandlerData},
     stages::StagesTuple,
     state::{FlatState, HasCorpus, HasObjectiveCorpus, HasTestcase, State},
 };
+
+unsafe fn std_on_crash<CT, E, F, I, OF, S>(data: &mut SignalHandlerData)
+where
+    E: Executor<I, S>,
+    F: Feedback<I, E::Observers, S>,
+    I: Clone,
+    OF: Feedback<I, E::Observers, S>,
+    S: State<I>,
+{
+    if !data.in_fuzzing() {
+        panic!("A crash occured out of the fuzzing loop. This is a fuzzer bug.");
+        return;
+    }
+
+    let state = unsafe { data.state::<S>() };
+    let fuzzer = unsafe { data.fuzzer::<StdFuzzer<F, OF>>() };
+    let input = unsafe { data.input::<I>() };
+    let observers = unsafe { data.observers::<E::Observers>() };
+
+    todo!();
+}
+
+unsafe fn std_on_timeout<CT, E, F, I, OF, S>(data: &mut SignalHandlerData)
+where
+    E: Executor<I, S>,
+    F: Feedback<I, E::Observers, S>,
+    I: Clone,
+    OF: Feedback<I, E::Observers, S>,
+    S: State<I>,
+{
+    if !data.in_fuzzing() {
+        panic!("A timeout occured out of the fuzzing loop. This is a fuzzer bug.");
+        return;
+    }
+
+    let state = unsafe { data.state::<S>() };
+    let fuzzer = unsafe { data.fuzzer::<StdFuzzer<F, OF>>() };
+    let input = unsafe { data.input::<I>() };
+    let observers = unsafe { data.observers::<E::Observers>() };
+
+    todo!();
+}
 
 /// Your default fuzzer instance, for everyday use.
 #[derive(Debug)]
@@ -277,6 +319,7 @@ where
     CT: Controller,
     E: Executor<I, S>,
     F: Feedback<I, E::Observers, S>,
+    I: Clone,
     OF: Feedback<I, E::Observers, S>,
     S: State<I>,
     ST: StagesTuple<CT, E, R, S, Self>,
@@ -313,6 +356,16 @@ where
 
         // 4 - initialize executor
         executor.init(rt_handle)?;
+
+        // 5 - populate signal handler data if the runtime supports it
+        // maybe do it before executor.init? so that executor can check rt is correctly initialized at runtime
+        rt_handle.init_signal_handlers(
+            state,
+            self,
+            &mut *executor.observers_mut(),
+            |data| unsafe { std_on_crash::<CT, E, F, I, OF, S>(data) },
+            |data| unsafe { std_on_timeout::<CT, E, F, I, OF, S>(data) },
+        );
 
         self.initialized = true;
 
