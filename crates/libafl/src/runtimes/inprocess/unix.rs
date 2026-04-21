@@ -1,6 +1,7 @@
 use alloc::{boxed::Box, vec::Vec};
 use core::pin::Pin;
 use std::{
+    backtrace::Backtrace,
     io::Write,
     panic::{self, PanicHookInfo},
 };
@@ -288,9 +289,14 @@ where
                 .map(|p| p.as_ref().in_fuzzing())
                 .unwrap_or(false)
             {
-                log::warn!("panic hook called, but currently not fuzzing.");
+                log::error!("Fuzzer panicked out of the fuzzing loop. This is a Fuzzer bug.");
                 return;
             }
+
+            // fuzzing in progress, propagate crash
+            log::error!("Target panicked");
+            let backtrace = Backtrace::force_capture();
+            eprintln!("stack backtrace:\n{backtrace}");
 
             (signal_handler.inner.crash_handler)(
                 &mut signal_handler.inner.signal_data,

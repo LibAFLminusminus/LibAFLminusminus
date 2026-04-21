@@ -38,7 +38,7 @@ unsafe fn std_on_crash<CT, E, F, I, OF, S>(
     let input = unsafe { data.input::<I>() };
     let observers = unsafe { data.observers::<E::Observers>() };
 
-    // TODO
+    eprintln!("TODO: Crash handling in std fuzzer");
 }
 
 /// Timeout signals will end up there, if it happens during a fuzzing run.
@@ -63,7 +63,7 @@ unsafe fn std_on_timeout<CT, E, F, I, OF, S>(
     let input = unsafe { data.input::<I>() };
     let observers = unsafe { data.observers::<E::Observers>() };
 
-    // TODO
+    eprintln!("TODO: Timeout handling in std fuzzer");
 }
 
 /// Your default fuzzer instance, for everyday use.
