@@ -220,6 +220,24 @@ impl<I, S, Z> Debug for LoadConfig<'_, I, S, Z> {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Stats {
+    /// How many times the executor ran the harness/target
+    executions: u64,
+    /// At what time the fuzzing started
+    start_time: Duration,
+    /// the number of new paths that imported from other fuzzers
+    imported: usize,
+    /// The last time we reported progress (if available/used).
+    /// This information is used by fuzzer `maybe_report_progress`.
+    last_report_time: Option<Duration>,
+    /// The last time something was added to the corpus
+    last_found_time: Duration,
+    /// Performance statistics for this fuzzer
+    #[cfg(feature = "introspection")]
+    introspection_stats: ClientPerfStats,
+}
+
 /// The state a fuzz run.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(bound = "
@@ -228,12 +246,6 @@ impl<I, S, Z> Debug for LoadConfig<'_, I, S, Z> {
         SC: serde::Serialize + for<'a> serde::Deserialize<'a>,
     ")]
 pub struct StdState<C, I, OC, SC> {
-    /// How many times the executor ran the harness/target
-    executions: u64,
-    /// At what time the fuzzing started
-    start_time: Duration,
-    /// the number of new paths that imported from other fuzzers
-    imported: usize,
     /// The corpus
     corpus: C,
     // Objectives corpus
@@ -244,28 +256,14 @@ pub struct StdState<C, I, OC, SC> {
     testcase_metadata: HashMap<TestcaseId, TestcaseMetadata>,
     /// `MaxSize` testcase size for mutators that appreciate it
     max_size: usize,
-    /// Performance statistics for this fuzzer
-    #[cfg(feature = "introspection")]
-    introspection_stats: ClientPerfStats,
     #[cfg(feature = "std")]
     /// Remaining initial inputs to load, if any
     remaining_initial_files: Option<Vec<PathBuf>>,
     #[cfg(feature = "std")]
     /// symlinks we have already traversed when loading `remaining_initial_files`
     dont_reenter: Option<Vec<PathBuf>>,
-    #[cfg(feature = "std")]
-    /// If inputs have been processed for multicore loading
-    /// relevant only for `load_initial_inputs_multicore`
-    multicore_inputs_processed: Option<bool>,
-    /// The last time we reported progress (if available/used).
-    /// This information is used by fuzzer `maybe_report_progress`.
-    last_report_time: Option<Duration>,
-    /// The last time something was added to the corpus
-    last_found_time: Duration,
-    /// Request the fuzzer to stop at the start of the next stage
-    /// or at the beginning of the next fuzzing iteration
-    stop_requested: bool,
     metadata_initialized: bool,
+    stats: Stats,
     phantom: PhantomData<(I, SC)>,
 }
 
@@ -701,54 +699,54 @@ impl<C, I, OC, SC> FlatState for StdState<C, I, OC, SC> {
 
     /// The executions counter
     fn executions(&self) -> u64 {
-        self.executions
+        self.stats.executions
     }
 
     /// The executions counter (mutable)
     fn executions_mut(&mut self) -> &mut u64 {
-        &mut self.executions
+        &mut self.stats.executions
     }
 
     ///the imported testcases counter
     fn imported(&self) -> usize {
-        self.imported
+        self.stats.imported
     }
 
     ///the imported testcases counter (mutable)
     fn imported_mut(&mut self) -> &mut usize {
-        &mut self.imported
+        &mut self.stats.imported
     }
 
     /// The starting time
     fn start_time(&self) -> &Duration {
-        &self.start_time
+        &self.stats.start_time
     }
 
     /// The starting time (mutable)
     fn start_time_mut(&mut self) -> &mut Duration {
-        &mut self.start_time
+        &mut self.stats.start_time
     }
 
     /// The last time we found something by ourselves
     fn last_found_time(&self) -> &Duration {
-        &self.last_found_time
+        &self.stats.last_found_time
     }
 
     /// The last time we found something by ourselves (mutable)
     fn last_found_time_mut(&mut self) -> &mut Duration {
-        &mut self.last_found_time
+        &mut self.stats.last_found_time
     }
 
     /// The last time we reported progress,if available/used.
     /// This information is used by fuzzer `maybe_report_progress`.
     fn last_report_time(&self) -> &Option<Duration> {
-        &self.last_report_time
+        &self.stats.last_report_time
     }
 
     /// The last time we reported progress,if available/used (mutable).
     /// This information is used by fuzzer `maybe_report_progress`.
     fn last_report_time_mut(&mut self) -> &mut Option<Duration> {
-        &mut self.last_report_time
+        &mut self.stats.last_report_time
     }
 
     /// Get all the metadata into an [`hashbrown::HashMap`]
@@ -761,18 +759,6 @@ impl<C, I, OC, SC> FlatState for StdState<C, I, OC, SC> {
     #[inline]
     fn named_metadata_map_mut(&mut self) -> &mut NamedSerdeAnyMap {
         &mut self.named_metadata
-    }
-
-    fn request_stop(&mut self) {
-        self.stop_requested = true;
-    }
-
-    fn discard_stop_request(&mut self) {
-        self.stop_requested = false;
-    }
-
-    fn stop_requested(&self) -> bool {
-        self.stop_requested
     }
 
     #[cfg(feature = "introspection")]
@@ -1162,87 +1148,6 @@ where
         }
         Ok(count)
     }
-    /// Loads initial inputs by dividing the from the passed-in `in_dirs`
-    /// in a multicore fashion. Divides the corpus in chunks spread across cores.
-    #[cfg(not(feature = "remove_me"))]
-    pub fn load_initial_inputs_multicore<E, Z>(
-        &mut self,
-        fuzzer: &mut Z,
-        executor: &mut E,
-        in_dirs: &[PathBuf],
-        core_id: &CoreId,
-        cores: &Cores,
-    ) -> Result<(), Error>
-    where
-        Z: Evaluator<E, I, Self>,
-    {
-        if self.multicore_inputs_processed.unwrap_or(false) {
-            self.continue_loading_initial_inputs_custom(
-                fuzzer,
-                executor,
-                LoadConfig {
-                    loader: &mut |_, _, path| I::from_file(path),
-                    forced: false,
-                    exit_on_solution: false,
-                },
-            )?;
-        } else {
-            self.canonicalize_input_dirs(in_dirs)?;
-            let corpus_size = self.calculate_corpus_size()?;
-            log::info!(
-                "{} total_corpus_size, {} cores",
-                corpus_size,
-                cores.ids.len()
-            );
-            self.reset_initial_files_state();
-            self.canonicalize_input_dirs(in_dirs)?;
-            if cores.ids.len() > corpus_size {
-                log::info!("low intial corpus count ({corpus_size}), no parallelism required.");
-            } else {
-                let core_index = cores
-                    .ids
-                    .iter()
-                    .enumerate()
-                    .find(|(_, c)| *c == core_id)
-                    .unwrap_or_else(|| panic!("core id {} not in cores list", core_id.0))
-                    .0;
-                let chunk_size = corpus_size.saturating_div(cores.ids.len());
-                let mut skip = core_index.saturating_mul(chunk_size);
-                let mut inputs_todo = chunk_size;
-                let mut collected_inputs = Vec::new();
-                log::info!(
-                    "core = {}, core_index = {}, chunk_size = {}, skip = {}",
-                    core_id.0,
-                    core_index,
-                    chunk_size,
-                    skip
-                );
-                loop {
-                    match self.next_file() {
-                        Ok(path) => {
-                            if skip != 0 {
-                                skip = skip.saturating_sub(1);
-                                continue;
-                            }
-                            if inputs_todo == 0 {
-                                break;
-                            }
-                            collected_inputs.push(path);
-                            inputs_todo = inputs_todo.saturating_sub(1);
-                        }
-                        Err(Error::IteratorEnd(_, _)) => break,
-                        Err(e) => {
-                            return Err(e);
-                        }
-                    }
-                }
-                self.remaining_initial_files = Some(collected_inputs);
-            }
-            self.multicore_inputs_processed = Some(true);
-            return self.load_initial_inputs_multicore(fuzzer, executor, in_dirs, core_id, cores);
-        }
-        Ok(())
-    }
 }
 
 impl<C, I, OC, SC> StdState<C, I, OC, SC> {
@@ -1288,25 +1193,24 @@ where
         C: Serialize + DeserializeOwned + DependencyResolver,
     {
         let state = Self {
-            executions: 0,
-            imported: 0,
-            start_time: libafl_bolts::current_time(),
+            stats: Stats {
+                executions: 0,
+                imported: 0,
+                start_time: libafl_bolts::current_time(),
+                last_report_time: None,
+                last_found_time: libafl_bolts::current_time(),
+            },
             named_metadata: NamedSerdeAnyMap::default(),
             corpus,
             objective_corpus,
             max_size: DEFAULT_MAX_SIZE,
-            stop_requested: false,
             #[cfg(feature = "introspection")]
             introspection_stats: ClientPerfStats::new(),
             #[cfg(feature = "std")]
             remaining_initial_files: None,
             #[cfg(feature = "std")]
             dont_reenter: None,
-            last_report_time: None,
-            last_found_time: libafl_bolts::current_time(),
             phantom: PhantomData,
-            #[cfg(feature = "std")]
-            multicore_inputs_processed: None,
             testcase_metadata: HashMap::new(),
             metadata_initialized: false,
         };
