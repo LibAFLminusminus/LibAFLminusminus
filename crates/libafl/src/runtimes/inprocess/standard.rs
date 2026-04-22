@@ -1,4 +1,5 @@
 use libafl_core::Error;
+use serde::Serialize;
 
 use crate::{
     DependencyResolver,
@@ -8,34 +9,38 @@ use crate::{
     },
 };
 
-type InnerRuntime<T> = InProcessRuntime<
+type InnerRuntime<S, T> = InProcessRuntime<
     fn(&mut TerminationHandlerData, &OsTerminationParams) -> Result<(), Error>,
     TerminationHandlerData,
+    S,
     T,
     fn(&mut TerminationHandlerData, &OsTerminationParams) -> Result<(), Error>,
 >;
 
-pub struct StdInProcessRuntime<T>(InnerRuntime<T>);
+pub struct StdInProcessRuntime<S, T>(InnerRuntime<S, T>);
 
-impl<T> StdInProcessRuntime<T> {
+impl<S, T> StdInProcessRuntime<S, T>
+where
+    S: Serialize,
+{
     pub fn new(task: T) -> Self {
         Self(InProcessRuntime::new(
             task,
-            std_inprocess_crash,
+            std_inprocess_crash::<S>,
             TerminationHandlerData::new(),
-            std_inprocess_timeout,
+            std_inprocess_timeout::<S>,
         ))
     }
 }
 
-impl<T> DependencyResolver for StdInProcessRuntime<T> {
+impl<S, T> DependencyResolver for StdInProcessRuntime<S, T> {
     fn register(&mut self, registrator: &mut crate::Registrator) -> Result<(), Error> {
         self.0.register(registrator)
     }
 
     fn register_with_ty(&mut self, registrator: &mut crate::Registrator) -> Result<(), Error> {
         registrator.register_ty::<Self>();
-        registrator.register_ty::<InnerRuntime<T>>();
+        registrator.register_ty::<InnerRuntime<S, T>>();
 
         self.register(registrator)
     }
@@ -45,7 +50,7 @@ impl<T> DependencyResolver for StdInProcessRuntime<T> {
     }
 }
 
-impl<CT, S, T> Runtime<CT, S> for StdInProcessRuntime<T>
+impl<CT, S, T> Runtime<CT, S> for StdInProcessRuntime<S, T>
 where
     T: FnMut(&mut RuntimeHandle<CT, S>, &mut S) -> Result<(), Error>,
 {
@@ -58,18 +63,32 @@ where
     }
 }
 
-fn std_inprocess_crash(
+fn std_inprocess_crash<S: Serialize>(
     data: &mut TerminationHandlerData,
     signal_params: &OsTerminationParams,
 ) -> Result<(), Error> {
-    data.handle_crash(signal_params);
+    if data.handle_crash(signal_params)
+        && let Some(saver) = unsafe { data.saver::<S>() }
+    {
+        unsafe {
+            saver.save(data.state());
+        }
+    }
+
     Ok(())
 }
 
-fn std_inprocess_timeout(
+fn std_inprocess_timeout<S: Serialize>(
     data: &mut TerminationHandlerData,
     signal_params: &OsTerminationParams,
 ) -> Result<(), Error> {
-    data.handle_timeout(signal_params);
+    if data.handle_timeout(signal_params)
+        && let Some(saver) = unsafe { data.saver::<S>() }
+    {
+        unsafe {
+            saver.save(data.state());
+        }
+    }
+
     Ok(())
 }

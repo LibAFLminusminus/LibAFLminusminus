@@ -57,8 +57,7 @@ impl OsSharedMemory {
     /// This MUST be called after set_size has been called on the shared memory
     pub unsafe fn data(&self) -> &[u8] {
         let hdr_size = mem::size_of::<AtomicUsize>();
-        let size_ptr = self.ptr.as_ptr() as *mut AtomicUsize;
-        let size = unsafe { (*size_ptr).load(Ordering::SeqCst) };
+        let size = self.get_size().expect("Invalid data size stored.");
 
         unsafe { slice::from_raw_parts(self.ptr.as_ptr().add(hdr_size), size) }
     }

@@ -15,10 +15,7 @@ use libafl::{
     non_zero,
     nop::NopController,
     observers::ConstMapObserver,
-    runtimes::{
-        Runtime, RuntimeHandle, inprocess::standard::StdInProcessRuntime,
-        restarting::RestartingRuntime,
-    },
+    runtimes::{Runtime, RuntimeHandle, restarting::RestartingRuntime},
     stages::StdMutationalStage,
     state::StdState,
 };
@@ -29,7 +26,7 @@ use crate::target::SIGNALS;
 mod target;
 
 fn run_fuzzer<C, OC, SC>(
-    rt_handle: &mut RuntimeHandle<'_, NopController, StdState<C, BytesInput, OC, SC>>,
+    rt_handle: &mut RuntimeHandle<NopController, StdState<C, BytesInput, OC, SC>>,
     state: &mut StdState<C, BytesInput, OC, SC>,
 ) -> Result<(), Error>
 where
@@ -58,14 +55,18 @@ where
     // Create the executor for an in-process function with just one observer
     let mut executor = StdExecutor::new(target::target, tuple_list!(observer), None);
 
-    // A fuzzer with feedbacks and a corpus scheduler
-    let mut fuzzer = StdFuzzer::new(feedback, objective_feedback);
-
-    // Initialize the fuzzer
-    fuzzer.init(&mut stages, &mut executor, state, rt_handle)?;
-
     // Generator of printable bytearrays of max size 32
     let mut generator = RandPrintablesGenerator::new(non_zero!(32));
+
+    // A fuzzer with feedbacks and a corpus scheduler
+    let mut fuzzer = StdFuzzer::new(
+        feedback,
+        objective_feedback,
+        &mut stages,
+        &mut executor,
+        state,
+        rt_handle,
+    )?;
 
     // Generate 8 initial inputs
     state.generate_initial_inputs(
@@ -94,10 +95,7 @@ pub fn main() {
     )
     .unwrap();
 
-    let mut runtime = RestartingRuntime::new(
-        StdInProcessRuntime::new(run_fuzzer),
-        NonZeroUsize::try_from(1 << 30).unwrap(),
-    );
+    let mut runtime = RestartingRuntime::new(run_fuzzer, NonZeroUsize::try_from(1 << 30).unwrap());
 
-    runtime.run(state, &mut NopController).unwrap()
+    runtime.run(state, NopController).unwrap()
 }

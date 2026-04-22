@@ -8,7 +8,7 @@ use crate::{
     corpus::{Corpus, Scheduler, Testcase},
     dependency::Registrator,
     executors::{Executor, ExitKind},
-    feedbacks::Feedback,
+    feedbacks::{Feedback, MapFeedbackMetadata},
     fuzzer::{EvaluationResult, Evaluator, Fuzzer, HasFeedback, HasObjective, Verdict},
     observers::ObserversTuple,
     runtimes::{
@@ -21,7 +21,7 @@ use crate::{
 
 /// Crash signals will end up there, if it happens during a fuzzing run.
 /// Ending up here out of a fuzzing run is an error.
-unsafe fn std_on_crash<CT, E, F, I, OF, S>(
+unsafe fn std_on_crash<E, F, I, OF, S>(
     data: &mut TerminationHandlerData,
     _signal_params: &OsTerminationParams,
 ) where
@@ -46,7 +46,7 @@ unsafe fn std_on_crash<CT, E, F, I, OF, S>(
 
 /// Timeout signals will end up there, if it happens during a fuzzing run.
 /// Ending up here out of a fuzzing run is an error.
-unsafe fn std_on_timeout<CT, E, F, I, OF, S>(
+unsafe fn std_on_timeout<E, F, I, OF, S>(
     data: &mut TerminationHandlerData,
     _signal_params: &OsTerminationParams,
 ) where
@@ -346,24 +346,27 @@ where
             return Ok(());
         }
 
-        // 1 - collect the required mds and involved types
-        let mut registrator = Registrator::new();
-        self.feedback.register_with_ty(&mut registrator)?;
-        self.objective.register_with_ty(&mut registrator)?;
-        stages.register_with_ty(&mut registrator)?;
-        state.register_with_ty(&mut registrator)?;
-        executor.register_with_ty(&mut registrator)?;
+        if state.should_initialize_metadata() {
+            // 1 - collect the required mds and involved types
+            let mut registrator = Registrator::new(state.named_metadata_map().clone());
 
-        // 2 - check that types and mds for each object
-        let mut checker = registrator.finish();
-        self.feedback.check(&mut checker)?;
-        self.objective.check(&mut checker)?;
-        stages.check(&mut checker)?;
-        state.check(&mut checker)?;
-        executor.check(&mut checker)?;
+            self.feedback.register_with_ty(&mut registrator)?;
+            self.objective.register_with_ty(&mut registrator)?;
+            stages.register_with_ty(&mut registrator)?;
+            state.register_with_ty(&mut registrator)?;
+            executor.register_with_ty(&mut registrator)?;
 
-        // 3 - add the global metadata to the md map
-        state.merge_metadata_map(checker.finish());
+            // 2 - check that types and mds for each object
+            let mut checker = registrator.finish();
+            self.feedback.check(&mut checker)?;
+            self.objective.check(&mut checker)?;
+            stages.check(&mut checker)?;
+            state.check(&mut checker)?;
+            executor.check(&mut checker)?;
+
+            // 3 - now state metadata get replaced by
+            *state.named_metadata_map_mut() = checker.finish();
+        }
 
         // 4 - initialize executor
         executor.init(rt_handle)?;
@@ -374,12 +377,8 @@ where
             state,
             self,
             &mut *executor.observers_mut(),
-            |data, signal_params| unsafe {
-                std_on_crash::<CT, E, F, I, OF, S>(data, signal_params)
-            },
-            |data, signal_params| unsafe {
-                std_on_timeout::<CT, E, F, I, OF, S>(data, signal_params)
-            },
+            |data, signal_params| unsafe { std_on_crash::<E, F, I, OF, S>(data, signal_params) },
+            |data, signal_params| unsafe { std_on_timeout::<E, F, I, OF, S>(data, signal_params) },
         );
 
         self.initialized = true;
@@ -387,7 +386,11 @@ where
         Ok(())
     }
 
-    unsafe fn fuzz_one_noinit(
+    fn is_initialized(&self) -> bool {
+        self.initialized
+    }
+
+    unsafe fn fuzz_one_initialized(
         &mut self,
         stages: &mut ST,
         executor: &mut E,
@@ -493,11 +496,31 @@ impl<F, OF> StdFuzzerBuilder<F, OF> {
 
 impl<F, OF> StdFuzzer<F, OF> {
     /// Creates a new [`StdFuzzer`] with standard behavior.
-    pub fn new(feedback: F, objective_feedback: OF) -> StdFuzzer<F, OF> {
-        StdFuzzerBuilder::new()
+    pub fn new<CT, E, I, R, S, ST>(
+        feedback: F,
+        objective_feedback: OF,
+        stages: &mut ST,
+        executor: &mut E,
+        state: &mut S,
+        rt_handle: &mut RuntimeHandle<CT, S>,
+    ) -> Result<StdFuzzer<F, OF>, Error>
+    where
+        CT: Controller,
+        E: Executor<I, S>,
+        F: Feedback<I, E::Observers, S>,
+        I: Clone,
+        OF: Feedback<I, E::Observers, S>,
+        S: State<I>,
+        ST: StagesTuple<CT, E, R, S, Self>,
+    {
+        let mut fuzzer = StdFuzzerBuilder::new()
             .feedback(feedback)
             .objective_feedback(objective_feedback)
-            .build()
+            .build();
+
+        fuzzer.init(stages, executor, state, rt_handle)?;
+
+        Ok(fuzzer)
     }
 }
 

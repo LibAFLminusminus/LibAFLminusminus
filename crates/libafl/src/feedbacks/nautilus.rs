@@ -73,7 +73,8 @@ impl Named for NautilusFeedback<'_> {
 
 impl DependencyResolver for NautilusFeedback<'_> {
     fn register(&mut self, registrator: &mut crate::Registrator) -> Result<(), Error> {
-        registrator.register_md_default::<NautilusChunksMetadata>(self.name().to_string())
+        registrator.register_md_default::<NautilusChunksMetadata>(self.name().to_string());
+        Ok(())
     }
 }
 

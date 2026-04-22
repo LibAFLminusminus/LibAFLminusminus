@@ -18,7 +18,7 @@ use crate::{
 pub mod standard;
 pub use standard::StdInProcessRuntime;
 
-impl<CH, D, T, TH> DependencyResolver for InProcessRuntime<CH, D, T, TH> {}
+impl<CH, D, S, T, TH> DependencyResolver for InProcessRuntime<CH, D, S, T, TH> {}
 
 /// Hooks the current process to set it up for in-process tasks.
 /// It will change signal handlers and "pollute" the current process.
@@ -29,13 +29,14 @@ impl<CH, D, T, TH> DependencyResolver for InProcessRuntime<CH, D, T, TH> {}
 /// To exit, simply exit the process.
 /// There are special exit codes used to convey what caused the exit.
 /// TODO: document these exit code
-pub struct InProcessRuntime<CH, D, T, TH> {
+pub struct InProcessRuntime<CH, D, S, T, TH> {
     task: T,
     termination_handler: Pin<Box<OsTerminationHandler<CH, D, TH>>>,
     timer: Option<TimerStruct>,
+    phantom: PhantomData<S>,
 }
 
-impl<CH, D, T, TH> InProcessRuntime<CH, D, T, TH>
+impl<CH, D, S, T, TH> InProcessRuntime<CH, D, S, T, TH>
 where
     CH: FnMut(&mut D, &OsTerminationParams) -> Result<(), Error> + Send + Sync + Unpin + 'static,
     D: IntoTerminationHandlerData + Send + Sync + Unpin + 'static,
@@ -48,11 +49,12 @@ where
             task,
             termination_handler: Box::pin(OsTerminationHandler::new(signal_handler)),
             timer: None,
+            phantom: PhantomData,
         }
     }
 }
 
-impl<CT, CH, D, S, T, TH> Runtime<CT, S> for InProcessRuntime<CH, D, T, TH>
+impl<CT, CH, D, S, T, TH> Runtime<CT, S> for InProcessRuntime<CH, D, S, T, TH>
 where
     CH: FnMut(&mut D, &OsTerminationParams) -> Result<(), Error> + Send + Sync + Unpin + 'static,
     D: IntoTerminationHandlerData + Send + Sync + Unpin + 'static,

@@ -88,9 +88,7 @@ pub trait FlatState {
     /// A map, storing all metadata (mutable)
     fn named_metadata_map_mut(&mut self) -> &mut NamedSerdeAnyMap;
 
-    fn merge_metadata_map(&mut self, any_map: NamedSerdeAnyMap) {
-        self.named_metadata_map_mut().merge(any_map);
-    }
+    fn should_initialize_metadata(&mut self) -> bool;
 }
 
 pub trait State<I>:
@@ -267,6 +265,7 @@ pub struct StdState<C, I, OC, SC> {
     /// Request the fuzzer to stop at the start of the next stage
     /// or at the beginning of the next fuzzing iteration
     stop_requested: bool,
+    metadata_initialized: bool,
     phantom: PhantomData<(I, SC)>,
 }
 
@@ -785,6 +784,15 @@ impl<C, I, OC, SC> FlatState for StdState<C, I, OC, SC> {
     fn introspection_stats_mut(&mut self) -> &mut ClientPerfStats {
         &mut self.introspection_stats
     }
+
+    fn should_initialize_metadata(&mut self) -> bool {
+        if !self.metadata_initialized {
+            self.metadata_initialized = true;
+            true
+        } else {
+            false
+        }
+    }
 }
 
 impl<C, I, OC, SC> DependencyResolver for StdState<C, I, OC, SC>
@@ -1300,6 +1308,7 @@ where
             #[cfg(feature = "std")]
             multicore_inputs_processed: None,
             testcase_metadata: HashMap::new(),
+            metadata_initialized: false,
         };
         Ok(state)
     }

@@ -14,7 +14,11 @@ use crate::{
 };
 
 pub mod inprocess;
+pub use inprocess::{InProcessRuntime, StdInProcessRuntime};
+
 pub mod restarting;
+pub use restarting::RestartingRuntime;
+
 pub mod simple;
 pub mod utils;
 
@@ -39,7 +43,7 @@ pub trait Runtime<CT, S>: DependencyResolver {
         rt_handle: &mut RuntimeHandle<CT, S>,
     ) -> Result<(), Error>;
 
-    fn run(&mut self, state: S, controller: &mut CT) -> Result<(), Error>
+    fn run(&mut self, state: S, controller: CT) -> Result<(), Error>
     where
         Self: Sized + 'static,
     {
@@ -83,15 +87,15 @@ pub trait Runtime<CT, S>: DependencyResolver {
 /// It can be used to perform runtime-level operations generically.
 ///
 /// It does not expose the runtime directly
-pub struct RuntimeHandle<'a, CT, S> {
+pub struct RuntimeHandle<CT, S> {
     runtime: NonNull<dyn Runtime<CT, S>>,
-    controller: &'a mut CT,
+    controller: CT,
     termination_data_ptr: Option<NonNull<TerminationHandlerData>>,
     saver: Option<OsSaver<S>>,
 }
 
-impl<'a, CT, S> RuntimeHandle<'a, CT, S> {
-    unsafe fn new(runtime: *mut dyn Runtime<CT, S>, controller: &'a mut CT) -> Self {
+impl<CT, S> RuntimeHandle<CT, S> {
+    unsafe fn new(runtime: *mut dyn Runtime<CT, S>, controller: CT) -> Self {
         Self {
             runtime: NonNull::new(runtime).expect("runtime ptr must be non-null"),
             controller,
@@ -135,7 +139,7 @@ impl<'a, CT, S> RuntimeHandle<'a, CT, S> {
             panic!("Termination data pointer has already been set. This is a Fuzzer bug.");
         }
 
-        self.termination_data_ptr = termination_data.as_signal_handler_data();
+        self.termination_data_ptr = termination_data.as_termination_handler_data();
     }
 
     pub fn set_saver(&mut self, saver: OsSaver<S>) {
@@ -159,6 +163,10 @@ impl<'a, CT, S> RuntimeHandle<'a, CT, S> {
                 termination_data
                     .as_mut()
                     .init(state, fuzzer, observers, on_crash, on_timeout);
+
+                if let Some(ref mut saver) = self.saver {
+                    termination_data.as_mut().set_saver_ptr(saver);
+                }
             }
         }
     }
@@ -180,7 +188,7 @@ impl<'a, CT, S> RuntimeHandle<'a, CT, S> {
     }
 }
 
-impl<'a, CT, S> DependencyResolver for RuntimeHandle<'a, CT, S> {
+impl<CT, S> DependencyResolver for RuntimeHandle<CT, S> {
     fn check(&self, checker: &crate::CompatibilityChecker) -> Result<(), Error> {
         unsafe { self.runtime().check(checker) }
     }
