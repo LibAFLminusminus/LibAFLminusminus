@@ -224,6 +224,7 @@ nix = { workspace = true, optional = true, features = [
   "ptrace",
   "personality",
   "fs",
+  "mman",
 ] }
 num-traits = { workspace = true, default-features = false }
 postcard = { workspace = true } # no_std compatible serde serialization format

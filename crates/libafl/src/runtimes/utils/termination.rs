@@ -5,9 +5,7 @@ use core::{ffi::c_void, ptr::NonNull};
 use libafl_core::Error;
 
 pub trait IntoTerminationHandlerData {
-    fn as_signal_handler_data(&mut self) -> Option<NonNull<TerminationHandlerData>> {
-        None
-    }
+    fn as_signal_handler_data(&mut self) -> Option<NonNull<TerminationHandlerData>>;
 }
 
 pub struct TerminationHandler<CH, D, TH> {
@@ -116,7 +114,11 @@ impl TerminationHandlerData {
     }
 }
 
-impl IntoTerminationHandlerData for () {}
+impl IntoTerminationHandlerData for () {
+    fn as_signal_handler_data(&mut self) -> Option<NonNull<TerminationHandlerData>> {
+        None
+    }
+}
 
 impl IntoTerminationHandlerData for TerminationHandlerData {
     fn as_signal_handler_data(&mut self) -> Option<NonNull<TerminationHandlerData>> {

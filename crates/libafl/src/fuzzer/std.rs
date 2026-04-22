@@ -370,7 +370,7 @@ where
 
         // 5 - populate signal handler data if the runtime supports it
         // maybe do it before executor.init? so that executor can check rt is correctly initialized at runtime
-        rt_handle.init_signal_handlers(
+        rt_handle.init_termination_handlers(
             state,
             self,
             &mut *executor.observers_mut(),
