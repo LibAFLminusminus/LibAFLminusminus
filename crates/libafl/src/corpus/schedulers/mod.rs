@@ -138,11 +138,11 @@ impl DependencyResolver for NopScheduler {}
 
 impl Scheduler for NopScheduler {
     fn on_add(&mut self, _id: TestcaseId) -> Result<(), Error> {
-        panic!("NopScheduler does not schedule")
+        Ok(())
     }
 
     fn current(&self) -> Option<TestcaseId> {
-        panic!("NopScheduler does not schedule")
+        None
     }
 
     fn next(&mut self) -> Result<TestcaseId, Error> {

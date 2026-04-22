@@ -301,7 +301,7 @@ where
             }
 
             // fuzzing in progress, propagate crash
-            log::error!("Target panicked");
+            log::error!("Target panicked: {panic_info}");
             let backtrace = Backtrace::force_capture();
             eprintln!("stack backtrace:\n{backtrace}");
 

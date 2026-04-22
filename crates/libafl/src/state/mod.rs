@@ -71,12 +71,6 @@ pub trait FlatState {
     /// This information is used by fuzzer `maybe_report_progress`.
     fn last_report_time_mut(&mut self) -> &mut Option<Duration>;
 
-    fn request_stop(&mut self);
-
-    fn discard_stop_request(&mut self);
-
-    fn stop_requested(&self) -> bool;
-
     #[cfg(feature = "introspection")]
     fn introspection_stats(&self) -> &ClientPerfStats;
 
