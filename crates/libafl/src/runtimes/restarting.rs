@@ -14,13 +14,18 @@ use nix::{
     },
     unistd::{ForkResult, fork, pipe},
 };
+use serde::{Deserialize, Serialize};
+use std::process::exit;
+
+pub const LIBAFL_EXIT_END: i32 = 100;
+pub const LIBAFL_EXIT_TERMINATION_INFINITE_RECURSION: i32 = 101;
 
 pub struct RestartingRuntime<RT> {
     inner: RT,
     // The RAM limit for writing state in a shared memory on crash / timeout
     // A good rule of thumb could be to use system_ram / nb_clients.
     // If your state ever gets that big, there is most likely something wrong anyway.
-    saving_ram_limit: NonZeroUsize,
+    state_ram_limit: NonZeroUsize,
 }
 
 impl<RT> DependencyResolver for RestartingRuntime<RT>
@@ -36,31 +41,74 @@ where
     }
 }
 
+impl<RT> RestartingRuntime<RT> {
+    pub fn new(runtime: RT, state_ram_limit: NonZeroUsize) -> Self {
+        Self {
+            inner: runtime,
+            state_ram_limit,
+        }
+    }
+}
+
 impl<CT, RT, S> Runtime<CT, S> for RestartingRuntime<RT>
 where
     RT: Runtime<CT, S>,
+    for<'de> S: Serialize + Deserialize<'de>,
 {
-    unsafe fn run_impl(&mut self, rt_handle: &mut RuntimeHandle<CT, S>) -> Result<(), Error> {
-        let (saver, restorer) = OsSaveRestoreBuilder::build(self.saving_ram_limit);
+    unsafe fn run_impl(
+        &mut self,
+        mut state: S,
+        rt_handle: &mut RuntimeHandle<CT, S>,
+    ) -> Result<(), Error> {
+        let (mut saver, mut restorer) = OsSaveRestoreBuilder::build(self.state_ram_limit)?;
 
         loop {
             match unsafe { fork() } {
                 Ok(ForkResult::Parent { child }) => {
                     // parent code, wait for child to end and eventually restart.
 
-                    match waitpid(child, None) {
+                    state = match waitpid(child, None) {
                         Ok(WaitStatus::Exited(pid, status)) => {
                             eprintln!("Child runtime {pid} exited with status: {status}");
-                            // save
+
+                            // the child exited with some status code, handle it here.
+                            match status {
+                                LIBAFL_EXIT_END => return Ok(()),
+                                LIBAFL_EXIT_TERMINATION_INFINITE_RECURSION => {
+                                    return Err(Error::runtime(format!(
+                                        "An infinite termination recursion occured in the child process."
+                                    )));
+                                }
+                                _ => {
+                                    // any other status exit is non-libafl process exit.
+                                    // the process must be restarted.
+                                    eprintln!("normal (non-libafl) process exit.")
+                                }
+                            }
+
+                            // at this point, the child finished and must be restarted with the new state. shm must be loaded with state.
+                            unsafe { restorer.restore()? }
                         }
-                    }
+                        Ok(WaitStatus::Signaled(pid, signal, core_dumped)) => {
+                            eprintln!("Child runtime {pid} exited because of signal: {signal}");
+
+                            panic!("Unexpected signal exit");
+                        }
+                        Ok(exit_reason) => panic!("Unexpected child exit reason: {exit_reason:?}"),
+                        Err(e) => {
+                            return Err(Error::runtime(format!("Restarter waitpid failed: {e}")));
+                        }
+                    };
                 }
                 Ok(ForkResult::Child) => {
                     // child code, setup the saver and start the runtime.
 
+                    // set the state saver, which should be called by the child on erroneous exit.
                     rt_handle.set_saver(saver);
 
-                    self.inner.run_impl(rt_handle)
+                    self.inner.run_impl(state, rt_handle);
+
+                    exit(LIBAFL_EXIT_END);
                 }
                 Err(e) => {
                     return Err(Error::runtime(format!(
@@ -69,8 +117,6 @@ where
                 }
             };
         }
-
-        unsafe { self.inner.run_impl(rt_handle) }
     }
 
     fn set_timeout(&mut self, timeout: Duration) -> Result<(), Error> {

@@ -1,16 +1,20 @@
 use core::{ffi::c_void, ptr::NonNull, time::Duration};
+use std::process::exit;
 
 use libafl_bolts::Error;
 
 use crate::{
     DependencyResolver,
-    runtimes::utils::{
-        IntoTerminationHandlerData, OsTerminationParams, TerminationHandlerData, unix::OsSaver,
+    runtimes::{
+        restarting::LIBAFL_EXIT_END,
+        utils::{
+            IntoTerminationHandlerData, OsTerminationParams, TerminationHandlerData, unix::OsSaver,
+        },
     },
 };
 
 pub mod inprocess;
-// pub mod restarting;
+pub mod restarting;
 pub mod simple;
 pub mod utils;
 
@@ -29,16 +33,22 @@ pub trait Runtime<CT, S>: DependencyResolver {
     /// The rt_handle MUST be linked to the current runtime.
     /// Using a `rt_handle` that is not instanciated with self as the runtime will lead to Undefined Behaviour.
     /// Use [`Self::run`], this function should not need to be called directly.
-    unsafe fn run_impl(&mut self, rt_handle: &mut RuntimeHandle<CT, S>) -> Result<(), Error>;
+    unsafe fn run_impl(
+        &mut self,
+        state: S,
+        rt_handle: &mut RuntimeHandle<CT, S>,
+    ) -> Result<(), Error>;
 
-    fn run(&mut self, controller: &mut CT) -> Result<(), Error>
+    fn run(&mut self, state: S, controller: &mut CT) -> Result<(), Error>
     where
         Self: Sized + 'static,
     {
         let mut rt_handle =
             unsafe { RuntimeHandle::new(self as *mut Self as *mut dyn Runtime<CT, S>, controller) };
 
-        unsafe { self.run_impl(&mut rt_handle) }
+        unsafe { self.run_impl(state, &mut rt_handle)? };
+
+        exit(LIBAFL_EXIT_END);
     }
 
     /// Set a timeout value for the runtime.
@@ -144,9 +154,9 @@ impl<'a, CT, S> RuntimeHandle<'a, CT, S> {
         on_crash: fn(&mut TerminationHandlerData, &OsTerminationParams),
         on_timeout: fn(&mut TerminationHandlerData, &OsTerminationParams),
     ) {
-        if let Some(mut signal_data) = self.termination_data_ptr {
+        if let Some(mut termination_data) = self.termination_data_ptr {
             unsafe {
-                signal_data
+                termination_data
                     .as_mut()
                     .init(state, fuzzer, observers, on_crash, on_timeout);
             }

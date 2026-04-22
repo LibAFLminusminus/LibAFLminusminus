@@ -1,6 +1,6 @@
 //! Termination is a generic term to talk about an abnormal program end, i.e. crash and timeout.
 
-use crate::runtimes::utils::OsTerminationParams;
+use crate::runtimes::{RuntimeHandle, utils::OsTerminationParams};
 use core::{ffi::c_void, ptr::NonNull};
 use libafl_core::Error;
 
