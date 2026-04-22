@@ -4,13 +4,15 @@ use libafl_bolts::Error;
 
 use crate::{
     DependencyResolver,
-    runtimes::utils::{OsTerminationParams, TerminationHandlerData},
+    runtimes::utils::{
+        IntoTerminationHandlerData, OsTerminationParams, TerminationHandlerData, unix::OsSaver,
+    },
 };
 
 pub mod inprocess;
-pub mod utils;
 // pub mod restarting;
 pub mod simple;
+pub mod utils;
 
 /// Environment used to run a task
 pub trait Runtime<CT, S>: DependencyResolver {
@@ -69,11 +71,13 @@ pub trait Runtime<CT, S>: DependencyResolver {
 
 /// Object enabling interacting with a runtime's environment from the task.
 /// It can be used to perform runtime-level operations generically.
+///
 /// It does not expose the runtime directly
 pub struct RuntimeHandle<'a, CT, S> {
     runtime: NonNull<dyn Runtime<CT, S>>,
     controller: &'a mut CT,
-    signal_data: Option<NonNull<TerminationHandlerData>>,
+    termination_data_ptr: Option<NonNull<TerminationHandlerData>>,
+    saver: Option<OsSaver<S>>,
 }
 
 impl<'a, CT, S> RuntimeHandle<'a, CT, S> {
@@ -81,7 +85,8 @@ impl<'a, CT, S> RuntimeHandle<'a, CT, S> {
         Self {
             runtime: NonNull::new(runtime).expect("runtime ptr must be non-null"),
             controller,
-            signal_data: None,
+            termination_data_ptr: None,
+            saver: None,
         }
     }
 
@@ -112,7 +117,26 @@ impl<'a, CT, S> RuntimeHandle<'a, CT, S> {
         unsafe { self.runtime_mut().unset_timeout() }
     }
 
-    pub fn init_signal_handlers<O, Z>(
+    pub unsafe fn set_termination_handler<THD: IntoTerminationHandlerData>(
+        &mut self,
+        termination_data: &mut THD,
+    ) {
+        if self.termination_data_ptr.is_some() {
+            panic!("Termination data pointer has already been set. This is a Fuzzer bug.");
+        }
+
+        self.termination_data_ptr = termination_data.as_signal_handler_data();
+    }
+
+    pub fn set_saver(&mut self, saver: OsSaver<S>) {
+        if self.saver.is_some() {
+            panic!("A saver is already set in the runtime handle. This is a Fuzzer bug.");
+        }
+
+        self.saver = Some(saver);
+    }
+
+    pub fn init_termination_handlers<O, Z>(
         &mut self,
         state: &mut S,
         fuzzer: &mut Z,
@@ -120,7 +144,7 @@ impl<'a, CT, S> RuntimeHandle<'a, CT, S> {
         on_crash: fn(&mut TerminationHandlerData, &OsTerminationParams),
         on_timeout: fn(&mut TerminationHandlerData, &OsTerminationParams),
     ) {
-        if let Some(mut signal_data) = self.signal_data {
+        if let Some(mut signal_data) = self.termination_data_ptr {
             unsafe {
                 signal_data
                     .as_mut()
@@ -130,7 +154,7 @@ impl<'a, CT, S> RuntimeHandle<'a, CT, S> {
     }
 
     pub fn set_input<I>(&mut self, input: &I) {
-        if let Some(mut signal_data) = self.signal_data {
+        if let Some(mut signal_data) = self.termination_data_ptr {
             unsafe {
                 signal_data.as_mut().set_input(input);
             }
@@ -138,7 +162,7 @@ impl<'a, CT, S> RuntimeHandle<'a, CT, S> {
     }
 
     pub fn clear_input(&mut self) {
-        if let Some(mut signal_data) = self.signal_data {
+        if let Some(mut signal_data) = self.termination_data_ptr {
             unsafe {
                 signal_data.as_mut().clear_input();
             }

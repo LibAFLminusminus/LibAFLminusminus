@@ -32,7 +32,7 @@ impl<CH, D, S, T, TH> DependencyResolver for InProcessRuntime<CH, D, S, T, TH> {
 pub struct InProcessRuntime<CH, D, S, T, TH> {
     state: S,
     task: T,
-    signal_handler: Pin<Box<OsTerminationHandler<CH, D, TH>>>,
+    termination_handler: Pin<Box<OsTerminationHandler<CH, D, TH>>>,
     timer: Option<TimerStruct>,
 }
 
@@ -48,7 +48,7 @@ where
         InProcessRuntime {
             state,
             task,
-            signal_handler: Box::pin(OsTerminationHandler::new(signal_handler)),
+            termination_handler: Box::pin(OsTerminationHandler::new(signal_handler)),
             timer: None,
         }
     }
@@ -62,12 +62,11 @@ where
     TH: FnMut(&mut D, &OsTerminationParams) -> Result<(), Error> + Send + Sync + Unpin + 'static,
 {
     unsafe fn run_impl(&mut self, rt_handle: &mut RuntimeHandle<CT, S>) -> Result<(), Error> {
-        self.signal_handler.init()?;
-        rt_handle.signal_data = self
-            .signal_handler
-            .inner_mut()
-            .data_mut()
-            .as_signal_handler_data();
+        // os-specific termination handler init
+        self.termination_handler.init()?;
+
+        // set the runtime handler pointer to the termination data
+        rt_handle.set_termination_handler(self.termination_handler.inner_mut().data_mut());
 
         (self.task)(rt_handle, &mut self.state)
     }

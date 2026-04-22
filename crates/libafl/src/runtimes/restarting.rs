@@ -1,18 +1,26 @@
-use core::{marker::PhantomData, time::Duration};
-
-use libafl_core::Error;
-use nix::{
-    sys::wait::{WaitStatus, waitpid},
-    unistd::{ForkResult, fork},
-};
-
 use crate::{
     DependencyResolver,
-    runtimes::{IntoSignalHandlerData, Runtime, RuntimeHandle, inprocess::InProcessRuntime},
+    runtimes::{
+        Runtime, RuntimeHandle,
+        utils::unix::{OsSaver, saver::OsSaveRestoreBuilder},
+    },
+};
+use core::{marker::PhantomData, num::NonZeroUsize, time::Duration};
+use libafl_core::Error;
+use nix::{
+    sys::{
+        mman::{MapFlags, ProtFlags, mmap_anonymous},
+        wait::{WaitStatus, waitpid},
+    },
+    unistd::{ForkResult, fork, pipe},
 };
 
 pub struct RestartingRuntime<RT> {
     inner: RT,
+    // The RAM limit for writing state in a shared memory on crash / timeout
+    // A good rule of thumb could be to use system_ram / nb_clients.
+    // If your state ever gets that big, there is most likely something wrong anyway.
+    saving_ram_limit: NonZeroUsize,
 }
 
 impl<RT> DependencyResolver for RestartingRuntime<RT>
@@ -33,22 +41,33 @@ where
     RT: Runtime<CT, S>,
 {
     unsafe fn run_impl(&mut self, rt_handle: &mut RuntimeHandle<CT, S>) -> Result<(), Error> {
-        match unsafe { fork() } {
-            Ok(ForkResult::Parent { child }) => match waitpid(child, None) {
-                Ok(WaitStatus::Exited(pid, status)) => {
-                    eprintln!("Child runtime {pid} exited with status: {status}");
-                    // save
+        let (saver, restorer) = OsSaveRestoreBuilder::build(self.saving_ram_limit);
+
+        loop {
+            match unsafe { fork() } {
+                Ok(ForkResult::Parent { child }) => {
+                    // parent code, wait for child to end and eventually restart.
+
+                    match waitpid(child, None) {
+                        Ok(WaitStatus::Exited(pid, status)) => {
+                            eprintln!("Child runtime {pid} exited with status: {status}");
+                            // save
+                        }
+                    }
                 }
-            },
-            Ok(ForkResult::Child) => {
-                // running the child runtime here
-                self.inner.run_impl(rt_handle)
-            }
-            Err(e) => {
-                return Err(Error::runtime(format!(
-                    "Restarting runtime error while forking: {e}"
-                )));
-            }
+                Ok(ForkResult::Child) => {
+                    // child code, setup the saver and start the runtime.
+
+                    rt_handle.set_saver(saver);
+
+                    self.inner.run_impl(rt_handle)
+                }
+                Err(e) => {
+                    return Err(Error::runtime(format!(
+                        "Restarting runtime error while forking: {e}"
+                    )));
+                }
+            };
         }
 
         unsafe { self.inner.run_impl(rt_handle) }
