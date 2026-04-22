@@ -29,8 +29,8 @@ use crate::{
     stages::StagesTuple,
 };
 
-pub mod std;
-pub use std::*;
+pub mod standard;
+pub use standard::*;
 
 /// Holds an feedback
 pub trait HasFeedback {
@@ -100,6 +100,8 @@ pub trait Fuzzer<CT, E, I, R, S, ST> {
         rt_handle: &mut RuntimeHandle<CT, S>,
     ) -> Result<(), Error>;
 
+    fn is_initialized(&self) -> bool;
+
     /// Fuzz for a single iteration.
     ///
     /// (Note: An iteration represents a complete run of every stage.
@@ -110,7 +112,7 @@ pub trait Fuzzer<CT, E, I, R, S, ST> {
     ///
     /// The fuzzer must be initialized with [`Self::init`] before running this function.
     /// It will not be checked for performance reason.
-    unsafe fn fuzz_one_noinit(
+    unsafe fn fuzz_one_initialized(
         &mut self,
         stages: &mut ST,
         executor: &mut E,
@@ -132,9 +134,13 @@ pub trait Fuzzer<CT, E, I, R, S, ST> {
         state: &mut S,
         rt_handle: &mut RuntimeHandle<CT, S>,
     ) -> Result<(), Error> {
-        self.init(stages, executor, state, rt_handle)?;
+        if !self.is_initialized() {
+            return Err(Error::runtime(
+                "Fuzzer not initialized. Run Fuzzer::init after creating the fuzzer.",
+            ));
+        }
 
-        unsafe { self.fuzz_one_noinit(stages, executor, rand, state, rt_handle) }
+        unsafe { self.fuzz_one_initialized(stages, executor, rand, state, rt_handle) }
     }
 
     /// Fuzz forever (or until stopped)
@@ -146,11 +152,15 @@ pub trait Fuzzer<CT, E, I, R, S, ST> {
         state: &mut S,
         rt_handle: &mut RuntimeHandle<CT, S>,
     ) -> Result<(), Error> {
-        self.init(stages, executor, state, rt_handle)?;
+        if !self.is_initialized() {
+            return Err(Error::runtime(
+                "Fuzzer not initialized. Run Fuzzer::init after creating the fuzzer.",
+            ));
+        }
 
         loop {
             unsafe {
-                self.fuzz_one(stages, executor, rand, state, rt_handle)?;
+                self.fuzz_one_initialized(stages, executor, rand, state, rt_handle)?;
             }
         }
     }
@@ -169,17 +179,21 @@ pub trait Fuzzer<CT, E, I, R, S, ST> {
         rt_handle: &mut RuntimeHandle<CT, S>,
         iters: u64,
     ) -> Result<(), Error> {
+        if !self.is_initialized() {
+            return Err(Error::runtime(
+                "Fuzzer not initialized. Run Fuzzer::init after creating the fuzzer.",
+            ));
+        }
+
         if iters == 0 {
             return Err(Error::illegal_argument(
                 "Cannot fuzz for 0 iterations!".to_string(),
             ));
         }
 
-        self.init(stages, executor, state, rt_handle)?;
-
         for _ in 0..iters {
             unsafe {
-                self.fuzz_one(stages, executor, rand, state, rt_handle)?;
+                self.fuzz_one_initialized(stages, executor, rand, state, rt_handle)?;
             }
         }
 
@@ -254,7 +268,11 @@ impl<CT, E, I, R, S, ST> Fuzzer<CT, E, I, R, S, ST> for NopFuzzer {
         unimplemented!("NopFuzzer cannot fuzz");
     }
 
-    unsafe fn fuzz_one_noinit(
+    fn is_initialized(&self) -> bool {
+        false
+    }
+
+    unsafe fn fuzz_one_initialized(
         &mut self,
         _stages: &mut ST,
         _executor: &mut E,

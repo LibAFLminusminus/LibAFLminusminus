@@ -21,22 +21,21 @@ pub struct CompatibilityChecker {
 }
 
 impl Registrator {
-    pub fn new() -> Self {
+    pub fn new(state_metadata: NamedSerdeAnyMap) -> Self {
         Self {
-            map: NamedSerdeAnyMap::new(),
+            map: state_metadata,
             types: HashSet::new(),
         }
     }
 
-    pub fn register_md<T: SerdeAny>(&mut self, name: String, value: T) -> Result<(), Error> {
+    pub fn register_md<T: SerdeAny>(&mut self, name: String, value: T) {
         add_named_metadata_checked::<T>(&mut self.map, &name, value)
+            .expect(format!("Addind same metadata twice: {name}").as_str())
     }
 
-    pub fn register_md_default<T: Default + SerdeAny>(
-        &mut self,
-        name: String,
-    ) -> Result<(), Error> {
+    pub fn register_md_default<T: Default + SerdeAny>(&mut self, name: String) {
         add_named_metadata_checked::<T>(&mut self.map, &name, T::default())
+            .expect(format!("Addind same metadata twice: {name}").as_str())
     }
 
     pub fn register_ty<T: ?Sized>(&mut self) -> bool {

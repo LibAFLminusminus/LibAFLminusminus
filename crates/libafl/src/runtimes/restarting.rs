@@ -1,7 +1,7 @@
 use crate::{
     DependencyResolver,
     runtimes::{
-        Runtime, RuntimeHandle,
+        Runtime, RuntimeHandle, StdInProcessRuntime,
         utils::unix::{OsSaver, saver::OsSaveRestoreBuilder},
     },
 };
@@ -17,8 +17,14 @@ use nix::{
 use serde::{Deserialize, Serialize};
 use std::process::exit;
 
+/// end the restarter. task job is over.
 pub const LIBAFL_EXIT_END: i32 = 100;
-pub const LIBAFL_EXIT_TERMINATION_INFINITE_RECURSION: i32 = 101;
+
+/// restart the task
+pub const LIBAFL_EXIT_CONTINUE: i32 = 101;
+
+/// infinite recursion bug in termination handlers.
+pub const LIBAFL_EXIT_TERMINATION_INFINITE_RECURSION: i32 = 102;
 
 pub struct RestartingRuntime<RT> {
     inner: RT,
@@ -41,8 +47,17 @@ where
     }
 }
 
+impl<S, T> RestartingRuntime<StdInProcessRuntime<S, T>>
+where
+    S: Serialize,
+{
+    pub fn new(task: T, state_ram_limit: NonZeroUsize) -> Self {
+        Self::new_generic(StdInProcessRuntime::new(task), state_ram_limit)
+    }
+}
+
 impl<RT> RestartingRuntime<RT> {
-    pub fn new(runtime: RT, state_ram_limit: NonZeroUsize) -> Self {
+    pub fn new_generic(runtime: RT, state_ram_limit: NonZeroUsize) -> Self {
         Self {
             inner: runtime,
             state_ram_limit,
@@ -74,23 +89,32 @@ where
                             // the child exited with some status code, handle it here.
                             match status {
                                 LIBAFL_EXIT_END => return Ok(()),
+                                LIBAFL_EXIT_CONTINUE => {
+                                    // at this point, the child finished and must be restarted with the new state. shm must be loaded with state.
+                                    // this must be hit on crash / timeout in the child
+                                    unsafe { restorer.restore()? }
+                                }
                                 LIBAFL_EXIT_TERMINATION_INFINITE_RECURSION => {
                                     return Err(Error::runtime(format!(
                                         "An infinite termination recursion occured in the child process."
                                     )));
                                 }
-                                _ => {
-                                    // any other status exit is non-libafl process exit.
-                                    // the process must be restarted.
-                                    eprintln!("normal (non-libafl) process exit.")
+                                0..128 => {
+                                    return Err(Error::runtime(format!(
+                                        "The child returned with exit code {status}. This means the target stopped without being able to save its state. This is a harness bug."
+                                    )));
+                                }
+
+                                signal_exit => {
+                                    /// the child returned with signal exit code
+                                    return Err(Error::runtime(format!(
+                                        "The child exited with code: {signal_exit}"
+                                    )));
                                 }
                             }
-
-                            // at this point, the child finished and must be restarted with the new state. shm must be loaded with state.
-                            unsafe { restorer.restore()? }
                         }
                         Ok(WaitStatus::Signaled(pid, signal, core_dumped)) => {
-                            eprintln!("Child runtime {pid} exited because of signal: {signal}");
+                            log::info!("Child runtime {pid} exited because of signal: {signal}");
 
                             panic!("Unexpected signal exit");
                         }
@@ -106,7 +130,9 @@ where
                     // set the state saver, which should be called by the child on erroneous exit.
                     rt_handle.set_saver(saver);
 
-                    self.inner.run_impl(state, rt_handle);
+                    self.inner
+                        .run_impl(state, rt_handle)
+                        .expect("Error while running the child runtime");
 
                     exit(LIBAFL_EXIT_END);
                 }

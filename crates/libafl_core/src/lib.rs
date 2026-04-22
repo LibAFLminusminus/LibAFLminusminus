@@ -97,9 +97,6 @@ use {
     core::str::Utf8Error,
 };
 
-/// Localhost addr, this is used, for example, for LLMP Client, which connects to this address
-pub const IP_LOCALHOST: &str = "127.0.0.1";
-
 /// The client ID for various use cases across `LibAFL`
 #[repr(transparent)]
 #[derive(Debug, Default, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -126,7 +123,7 @@ impl ErrorBacktrace {
 
 #[cfg(feature = "errors_backtrace")]
 fn display_error_backtrace(f: &mut fmt::Formatter, err: &ErrorBacktrace) -> fmt::Result {
-    write!(f, "\nBacktrace: {err:?}")
+    write!(f, "\nBacktrace: {err:#?}")
 }
 #[cfg(not(feature = "errors_backtrace"))]
 #[expect(clippy::unnecessary_wraps)]

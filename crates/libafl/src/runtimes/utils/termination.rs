@@ -5,7 +5,7 @@ use core::{ffi::c_void, ptr::NonNull};
 use libafl_core::Error;
 
 pub trait IntoTerminationHandlerData {
-    fn as_signal_handler_data(&mut self) -> Option<NonNull<TerminationHandlerData>>;
+    fn as_termination_handler_data(&mut self) -> Option<NonNull<TerminationHandlerData>>;
 }
 
 pub struct TerminationHandler<CH, D, TH> {
@@ -21,6 +21,7 @@ pub struct TerminationHandlerData {
     input_ptr: Option<NonNull<c_void>>,
     observers_ptr: Option<NonNull<c_void>>,
     fuzzer_ptr: Option<NonNull<c_void>>,
+    saver_ptr: Option<NonNull<c_void>>,
     crash_handler: Option<fn(&mut Self, &OsTerminationParams)>,
     timeout_handler: Option<fn(&mut Self, &OsTerminationParams)>,
 }
@@ -35,6 +36,7 @@ impl TerminationHandlerData {
             input_ptr: None,
             observers_ptr: None,
             fuzzer_ptr: None,
+            saver_ptr: None,
             crash_handler: None,
             timeout_handler: None,
         }
@@ -89,6 +91,22 @@ impl TerminationHandlerData {
         unsafe { self.input_ptr.map(|input| input.cast().as_ref()) }
     }
 
+    /// # Safety
+    ///
+    /// S must be the same type used when the saver was registered via `RuntimeHandle`.
+    #[cfg(unix)]
+    pub unsafe fn saver<S>(&self) -> Option<&mut crate::runtimes::utils::unix::OsSaver<S>> {
+        unsafe { self.saver_ptr.map(|p| p.cast().as_mut()) }
+    }
+
+    #[cfg(unix)]
+    pub(crate) fn set_saver_ptr<S>(
+        &mut self,
+        saver: &mut crate::runtimes::utils::unix::OsSaver<S>,
+    ) {
+        self.saver_ptr = Some(NonNull::from(saver).cast());
+    }
+
     pub fn set_input<I>(&mut self, input: &I) {
         self.input_ptr = Some(NonNull::from(input).cast());
     }
@@ -101,27 +119,33 @@ impl TerminationHandlerData {
         self.input_ptr.is_some()
     }
 
-    pub fn handle_crash(&mut self, termination_params: &OsTerminationParams) {
+    pub fn handle_crash(&mut self, termination_params: &OsTerminationParams) -> bool {
         if let Some(handler) = self.crash_handler {
             handler(self, termination_params);
+            true
+        } else {
+            false
         }
     }
 
-    pub fn handle_timeout(&mut self, termination_params: &OsTerminationParams) {
+    pub fn handle_timeout(&mut self, termination_params: &OsTerminationParams) -> bool {
         if let Some(handler) = self.timeout_handler {
             handler(self, termination_params);
+            true
+        } else {
+            false
         }
     }
 }
 
 impl IntoTerminationHandlerData for () {
-    fn as_signal_handler_data(&mut self) -> Option<NonNull<TerminationHandlerData>> {
+    fn as_termination_handler_data(&mut self) -> Option<NonNull<TerminationHandlerData>> {
         None
     }
 }
 
 impl IntoTerminationHandlerData for TerminationHandlerData {
-    fn as_signal_handler_data(&mut self) -> Option<NonNull<TerminationHandlerData>> {
+    fn as_termination_handler_data(&mut self) -> Option<NonNull<TerminationHandlerData>> {
         Some(NonNull::from(self))
     }
 }

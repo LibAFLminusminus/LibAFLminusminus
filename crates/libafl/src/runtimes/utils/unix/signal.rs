@@ -1,15 +1,20 @@
 use crate::{
     executors::common_signals,
-    runtimes::utils::{IntoTerminationHandlerData, TerminationHandler},
+    runtimes::{
+        restarting::{
+            LIBAFL_EXIT_CONTINUE, LIBAFL_EXIT_END, LIBAFL_EXIT_TERMINATION_INFINITE_RECURSION,
+        },
+        utils::{IntoTerminationHandlerData, TerminationHandler},
+    },
 };
 use alloc::{boxed::Box, vec::Vec};
 use core::pin::Pin;
 use libafl_bolts::os::{
-    SIGNAL_RECURSION_EXIT,
+    SIGNAL_RECURSION_EXIT, exit,
     unix_signals::{Signal, SignalHandler, setup_signal_handler, ucontext_t},
 };
 use libafl_core::Error;
-use libc::siginfo_t;
+use libc::{SIGABRT, siginfo_t};
 use std::{
     backtrace::Backtrace,
     io::Write,
@@ -137,24 +142,25 @@ where
                     self.inner().max_depth()
                 );
 
-                libc::exit(SIGNAL_RECURSION_EXIT);
+                libc::exit(LIBAFL_EXIT_TERMINATION_INFINITE_RECURSION);
             }
 
             if self
                 .inner
                 .data_mut()
-                .as_signal_handler_data()
+                .as_termination_handler_data()
                 .map(|p| p.as_ref().in_fuzzing())
                 .unwrap_or(false)
             {
                 (self.inner.timeout_handler)(&mut self.inner.termination_data, &signal_params);
-            } else {
-                panic!(
-                    "TIMEOUT or SIGUSR2 happened, but currently not fuzzing. This is a fuzzer bug."
-                );
-            }
 
-            libafl_bolts::os::exit(55);
+                exit(LIBAFL_EXIT_CONTINUE);
+            } else {
+                log::error!("Timeout out of fuzzing target. This is a fuzzer bug.");
+
+                // offset by 128 to signal a fuzzer crash
+                exit(128 + (*signal as i32));
+            }
         }
     }
 
@@ -180,7 +186,7 @@ where
             if self
                 .inner
                 .data_mut()
-                .as_signal_handler_data()
+                .as_termination_handler_data()
                 .map(|p| p.as_ref().in_fuzzing())
                 .unwrap_or(false)
             {
@@ -209,7 +215,9 @@ where
                 }
 
                 (self.inner.crash_handler)(&mut self.inner.termination_data, &signal_params)
-                    .expect("Error while handling crash handler")
+                    .expect("Error while handling crash handler");
+
+                exit(LIBAFL_EXIT_CONTINUE);
             } else {
                 // not in fuzzing loop, this is a fuzzer bug.
                 let si_addr = { siginfo.si_addr() as usize };
@@ -240,7 +248,7 @@ where
             }
 
             // offset by 128 to signal a fuzzer crash
-            libafl_bolts::os::exit(128 + (*signal as i32));
+            exit(128 + (*signal as i32));
         }
     }
 
@@ -283,11 +291,12 @@ where
             if !signal_handler
                 .inner
                 .termination_data
-                .as_signal_handler_data()
+                .as_termination_handler_data()
                 .map(|p| p.as_ref().in_fuzzing())
                 .unwrap_or(false)
             {
                 log::error!("Fuzzer panicked out of the fuzzing loop. This is a Fuzzer bug.");
+                libafl_bolts::os::exit(128 + SIGABRT);
                 return;
             }
 
@@ -301,7 +310,7 @@ where
                 &signal_params,
             );
 
-            libafl_bolts::os::exit(128 + 6); // SIGABRT exit code
+            libafl_bolts::os::exit(LIBAFL_EXIT_CONTINUE);
         }));
     }
 }

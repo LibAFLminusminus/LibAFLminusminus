@@ -253,7 +253,8 @@ where
 
 impl<CM> DependencyResolver for StdCmpObserver<'_, CM> {
     fn register(&mut self, registrator: &mut crate::Registrator) -> Result<(), Error> {
-        registrator.register_md_default::<CmpValuesMetadata>("CmpValues".to_string())
+        registrator.register_md_default::<CmpValuesMetadata>("CmpValues".to_string());
+        Ok(())
     }
 }
 
