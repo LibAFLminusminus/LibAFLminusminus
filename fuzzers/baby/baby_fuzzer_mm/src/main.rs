@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{num::NonZeroUsize, path::PathBuf};
 
 use libafl::{
     Error,
@@ -15,7 +15,10 @@ use libafl::{
     non_zero,
     nop::NopController,
     observers::ConstMapObserver,
-    runtimes::{Runtime, RuntimeHandle, inprocess::standard::StdInProcessRuntime},
+    runtimes::{
+        Runtime, RuntimeHandle, inprocess::standard::StdInProcessRuntime,
+        restarting::RestartingRuntime,
+    },
     stages::StdMutationalStage,
     state::StdState,
 };
@@ -91,7 +94,10 @@ pub fn main() {
     )
     .unwrap();
 
-    let mut runtime = StdInProcessRuntime::new(state, run_fuzzer);
+    let mut runtime = RestartingRuntime::new(
+        StdInProcessRuntime::new(run_fuzzer),
+        NonZeroUsize::try_from(1 << 30).unwrap(),
+    );
 
-    runtime.run(&mut NopController).unwrap()
+    runtime.run(state, &mut NopController).unwrap()
 }
