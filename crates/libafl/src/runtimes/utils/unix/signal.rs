@@ -320,7 +320,10 @@ where
         + Unpin
         + 'static,
 {
+    /// Signal handling entrypoint.
+    ///
     /// # Safety
+    ///
     /// This will access global state.
     unsafe fn handle(
         &mut self,

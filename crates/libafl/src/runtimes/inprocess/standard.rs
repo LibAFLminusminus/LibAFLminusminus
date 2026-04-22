@@ -8,20 +8,18 @@ use crate::{
     },
 };
 
-type InnerRuntime<S, T> = InProcessRuntime<
+type InnerRuntime<T> = InProcessRuntime<
     fn(&mut TerminationHandlerData, &OsTerminationParams) -> Result<(), Error>,
     TerminationHandlerData,
-    S,
     T,
     fn(&mut TerminationHandlerData, &OsTerminationParams) -> Result<(), Error>,
 >;
 
-pub struct StdInProcessRuntime<S, T>(InnerRuntime<S, T>);
+pub struct StdInProcessRuntime<T>(InnerRuntime<T>);
 
-impl<S, T> StdInProcessRuntime<S, T> {
-    pub fn new(state: S, task: T) -> Self {
+impl<T> StdInProcessRuntime<T> {
+    pub fn new(task: T) -> Self {
         Self(InProcessRuntime::new(
-            state,
             task,
             std_inprocess_crash,
             TerminationHandlerData::new(),
@@ -30,14 +28,14 @@ impl<S, T> StdInProcessRuntime<S, T> {
     }
 }
 
-impl<S, T> DependencyResolver for StdInProcessRuntime<S, T> {
+impl<T> DependencyResolver for StdInProcessRuntime<T> {
     fn register(&mut self, registrator: &mut crate::Registrator) -> Result<(), Error> {
         self.0.register(registrator)
     }
 
     fn register_with_ty(&mut self, registrator: &mut crate::Registrator) -> Result<(), Error> {
         registrator.register_ty::<Self>();
-        registrator.register_ty::<InnerRuntime<S, T>>();
+        registrator.register_ty::<InnerRuntime<T>>();
 
         self.register(registrator)
     }
@@ -47,12 +45,16 @@ impl<S, T> DependencyResolver for StdInProcessRuntime<S, T> {
     }
 }
 
-impl<CT, S, T> Runtime<CT, S> for StdInProcessRuntime<S, T>
+impl<CT, S, T> Runtime<CT, S> for StdInProcessRuntime<T>
 where
     T: FnMut(&mut RuntimeHandle<CT, S>, &mut S) -> Result<(), Error>,
 {
-    unsafe fn run_impl(&mut self, rt_handle: &mut RuntimeHandle<CT, S>) -> Result<(), Error> {
-        self.0.run_impl(rt_handle)
+    unsafe fn run_impl(
+        &mut self,
+        state: S,
+        rt_handle: &mut RuntimeHandle<CT, S>,
+    ) -> Result<(), Error> {
+        self.0.run_impl(state, rt_handle)
     }
 }
 

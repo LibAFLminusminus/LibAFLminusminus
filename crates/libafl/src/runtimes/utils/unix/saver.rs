@@ -13,6 +13,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::state::State;
 
+pub const INVALID_SHM_SIZE: usize = usize::MAX;
+
 #[derive(Debug, Clone)]
 pub struct OsSharedMemory {
     ptr: NonNull<u8>,
@@ -32,8 +34,22 @@ pub struct OsRestorer<S> {
 }
 
 impl OsSharedMemory {
-    pub unsafe fn new(ptr: NonNull<u8>, size: NonZeroUsize) -> Self {
-        Self { ptr, size }
+    pub unsafe fn new(ptr: NonNull<u8>, size: NonZeroUsize) -> Result<Self, Error> {
+        let mut shm = Self { ptr, size };
+
+        if size.get() < mem::size_of::<AtomicUsize>() {
+            return Err(Error::runtime(format!(
+                "Shared memory region is too smal: {} bytes",
+                size.get()
+            )));
+        }
+
+        // safety guard: start start with invalid value.
+        unsafe {
+            shm.set_size(INVALID_SHM_SIZE);
+        }
+
+        Ok(shm)
     }
 
     /// # Safety
@@ -66,10 +82,32 @@ impl OsSharedMemory {
         let size_ptr = self.ptr.as_ptr() as *mut AtomicUsize;
         unsafe { (*size_ptr).store(size, Ordering::SeqCst) }
     }
+
+    /// return None if the size is invalid.
+    pub fn get_size(&self) -> Option<usize> {
+        let size_ptr = self.ptr.as_ptr() as *const AtomicUsize;
+        let size = unsafe { (*size_ptr).load(Ordering::SeqCst) };
+
+        if size == INVALID_SHM_SIZE {
+            None
+        } else {
+            Some(size)
+        }
+    }
+
+    pub fn is_invalid(&self) -> bool {
+        self.get_size().is_none()
+    }
+
+    pub fn mark_invalid(&mut self) {
+        unsafe {
+            self.set_size(INVALID_SHM_SIZE);
+        }
+    }
 }
 
 impl OsSaveRestoreBuilder {
-    pub fn build<S>(max_state_size: NonZeroUsize) -> (OsSaver<S>, OsRestorer<S>) {
+    pub fn build<S>(max_state_size: NonZeroUsize) -> Result<(OsSaver<S>, OsRestorer<S>), Error> {
         let shared_memory = unsafe {
             mmap_anonymous(
                 None,
@@ -81,9 +119,9 @@ impl OsSaveRestoreBuilder {
         };
 
         unsafe {
-            let shm = OsSharedMemory::new(shared_memory.cast(), max_state_size);
+            let shm = OsSharedMemory::new(shared_memory.cast(), max_state_size)?;
 
-            (OsSaver::new(shm.clone()), OsRestorer::new(shm))
+            Ok((OsSaver::new(shm.clone()), OsRestorer::new(shm)))
         }
     }
 }
@@ -117,7 +155,7 @@ where
             Ok(used_slice) => used_slice.len(),
             Err(e) => {
                 return Err(Error::serialize(format!(
-                    "Error while serializing state for: {e}"
+                    "Error while serializing state: {e}"
                 )));
             }
         };
@@ -140,9 +178,18 @@ where
     /// There is no synchronization in place.
     /// You are responsible to synchronizing save and store correctly.
     pub unsafe fn restore(&mut self) -> Result<S, Error> {
-        let state_shm = unsafe { self.shm.data() };
+        if self.shm.is_invalid() {
+            return Err(Error::runtime(
+                "Trying to restore from an invalid shared memory. The state has most likely not been saved correctly.",
+            ));
+        }
 
-        postcard::from_bytes::<S>(state_shm)
-            .map_err(|e| Error::serialize(format!("Error while deserializing state: {e}")))
+        let state_shm = unsafe { self.shm.data() };
+        let state = postcard::from_bytes::<S>(state_shm)
+            .map_err(|e| Error::serialize(format!("Error while deserializing state: {e}.")))?;
+
+        self.shm.mark_invalid();
+
+        Ok(state)
     }
 }

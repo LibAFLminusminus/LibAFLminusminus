@@ -8,24 +8,27 @@ use crate::{
 };
 
 /// Simplest runtime, just runs the task.
-pub struct SimpleRuntime<S, T> {
-    state: S,
+pub struct SimpleRuntime<T> {
     task: T,
 }
 
-impl<S, T> SimpleRuntime<S, T> {
-    pub fn new(state: S, task: T) -> Self {
-        Self { state, task }
+impl<T> SimpleRuntime<T> {
+    pub fn new(task: T) -> Self {
+        Self { task }
     }
 }
 
-impl<S, T> DependencyResolver for SimpleRuntime<S, T> {}
+impl<T> DependencyResolver for SimpleRuntime<T> {}
 
-impl<CT, S, T> Runtime<CT, S> for SimpleRuntime<S, T>
+impl<CT, S, T> Runtime<CT, S> for SimpleRuntime<T>
 where
     T: FnMut(&mut RuntimeHandle<CT, S>, &mut S) -> Result<(), Error>,
 {
-    unsafe fn run_impl(&mut self, rt_handle: &mut RuntimeHandle<CT, S>) -> Result<(), Error> {
-        (self.task)(rt_handle, &mut self.state)
+    unsafe fn run_impl(
+        &mut self,
+        mut state: S,
+        rt_handle: &mut RuntimeHandle<CT, S>,
+    ) -> Result<(), Error> {
+        (self.task)(rt_handle, &mut state)
     }
 }
