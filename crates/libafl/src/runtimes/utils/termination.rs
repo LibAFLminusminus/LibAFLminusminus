@@ -93,6 +93,18 @@ impl TerminationHandlerData {
 
     /// # Safety
     ///
+    /// I must be the same as the one used during set_input
+    pub unsafe fn take_input<I: Clone>(&mut self) -> Option<I> {
+        unsafe {
+            self.input_ptr.take().map(|input| {
+                let input: &I = input.cast().as_ref();
+                input.clone()
+            })
+        }
+    }
+
+    /// # Safety
+    ///
     /// S must be the same type used when the saver was registered via `RuntimeHandle`.
     #[cfg(unix)]
     pub unsafe fn saver<S>(&self) -> Option<&mut crate::runtimes::utils::unix::OsSaver<S>> {

@@ -340,7 +340,7 @@ pub fn run_observers_and_save_state<E, EM, I, OF, S, Z>(
         .expect("Observers post_exec_all failed");
 
     let is_solution = fuzzer
-        .objective_mut()
+        .objective_feedback_mut()
         .is_interesting(state, input, &*observers, &exitkind)
         .expect("In run_observers_and_save_state objective failure.");
 
@@ -355,7 +355,7 @@ pub fn run_observers_and_save_state<E, EM, I, OF, S, Z>(
         }
 
         fuzzer
-            .objective_mut()
+            .objective_feedback_mut()
             .append_metadata(state, &*observers, &mut new_testcase)
             .expect("Failed adding metadata");
         state

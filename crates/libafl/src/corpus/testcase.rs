@@ -27,6 +27,12 @@ pub enum TestcaseFilenameFormat {
 #[derive(Serialize, Deserialize, Hash, Clone, Copy, Debug, PartialEq, Eq, Ord, PartialOrd)]
 pub struct TestcaseId(pub u64);
 
+impl TestcaseId {
+    pub fn default_filename(&self) -> String {
+        format!("{:016x}", self.0)
+    }
+}
+
 impl<I> Borrow<TestcaseId> for Testcase<I> {
     fn borrow(&self) -> &TestcaseId {
         &self.id
@@ -47,9 +53,9 @@ pub struct Testcase<I> {
 }
 
 impl TestcaseFilenameFormat {
-    pub fn to_filename(&self, id: &str) -> String {
+    pub fn to_filename(&self, id: &TestcaseId) -> String {
         match self {
-            TestcaseFilenameFormat::Id => id.to_string(),
+            TestcaseFilenameFormat::Id => id.default_filename(),
             TestcaseFilenameFormat::Prefix(prefix) => {
                 format!("{}-{}", prefix, id)
             }

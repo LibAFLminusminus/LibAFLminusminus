@@ -10,7 +10,7 @@ use crate::{
     executors::{Executor, ExitKind},
     feedbacks::{Feedback, MapFeedbackMetadata},
     fuzzer::{EvaluationResult, Evaluator, Fuzzer, HasFeedback, HasObjective, Verdict},
-    observers::ObserversTuple,
+    observers::{Observer, ObserversTuple},
     runtimes::{
         RuntimeHandle,
         utils::{OsTerminationParams, TerminationHandlerData},
@@ -18,6 +18,42 @@ use crate::{
     stages::StagesTuple,
     state::{FlatState, HasCorpus, HasObjectiveCorpus, HasTestcase, State},
 };
+
+/// Note: this code should not allocate at all.
+/// Any allocation can result in unexpected locks because of concurrency bug with the standard library.
+fn handle_objective<O, F, I, OF, S>(
+    observers: &mut O,
+    state: &mut S,
+    input: I,
+    fuzzer: &mut StdFuzzer<F, OF>,
+    exit_kind: ExitKind,
+) where
+    F: Feedback<I, O, S>,
+    I: Clone,
+    O: ObserversTuple<S>,
+    OF: Feedback<I, O, S>,
+    S: State<I>,
+{
+    observers
+        .post_exec_all(state, &exit_kind)
+        .expect("Post exec observers failed");
+
+    if fuzzer
+        .objective_feedback_mut()
+        .is_interesting(state, &input, observers, &exit_kind)
+        .expect("Objective feedback is_interesting failed")
+    {
+        let tc_id = state
+            .objective_corpus_mut()
+            .add(input)
+            .expect("Adding input to objective feedback failed");
+
+        fuzzer
+            .objective_feedback_mut()
+            .append_metadata(state, observers, &tc_id)
+            .expect("Appending metadata failed");
+    }
+}
 
 /// Crash signals will end up there, if it happens during a fuzzing run.
 /// Ending up here out of a fuzzing run is an error.
@@ -36,12 +72,14 @@ unsafe fn std_on_crash<E, F, I, OF, S>(
         panic!("A crash occured out of the fuzzing loop. This is a fuzzer bug.");
     }
 
+    // note: take input to signify we are out of target code
+    // it is useful if subsequent code panicks / raises another signal.
+    let input = unsafe { data.take_input::<I>() };
     let state = unsafe { data.state::<S>() };
     let fuzzer = unsafe { data.fuzzer::<StdFuzzer<F, OF>>() };
-    let input = unsafe { data.input::<I>() };
     let observers = unsafe { data.observers::<E::Observers>() };
 
-    eprintln!("TODO: Crash handling in std fuzzer");
+    handle_objective(observers, state, input.unwrap(), fuzzer, ExitKind::Crash);
 }
 
 /// Timeout signals will end up there, if it happens during a fuzzing run.
@@ -61,12 +99,14 @@ unsafe fn std_on_timeout<E, F, I, OF, S>(
         panic!("A timeout occured out of the fuzzing loop. This is a fuzzer bug.");
     }
 
+    // note: take input to signify we are out of target code
+    // it is useful if subsequent code panicks / raises another signal.
+    let input = unsafe { data.take_input::<I>() };
     let state = unsafe { data.state::<S>() };
     let fuzzer = unsafe { data.fuzzer::<StdFuzzer<F, OF>>() };
-    let input = unsafe { data.input::<I>() };
     let observers = unsafe { data.observers::<E::Observers>() };
 
-    eprintln!("TODO: Timeout handling in std fuzzer");
+    handle_objective(observers, state, input.unwrap(), fuzzer, ExitKind::Timeout);
 }
 
 /// Your default fuzzer instance, for everyday use.
@@ -107,7 +147,7 @@ impl<F, OF> HasObjective for StdFuzzer<F, OF> {
         &self.objective
     }
 
-    fn objective_mut(&mut self) -> &mut OF {
+    fn objective_feedback_mut(&mut self) -> &mut OF {
         &mut self.objective
     }
 }
@@ -154,7 +194,7 @@ impl<F, OF> StdFuzzer<F, OF> {
             #[cfg(feature = "track_hit_feedbacks")]
             self.objective_mut()
                 .append_hit_feedbacks(testcase.hit_objectives_mut())?;
-            self.objective_mut()
+            self.objective_feedback_mut()
                 .append_metadata(state, observers, &testcase_id)?;
 
             EvaluationResult::new(exit_kind, Verdict::Objective(testcase_id))
@@ -419,11 +459,6 @@ where
         state
             .testcase_md_mut_from_id(&testcase_id)
             .increase_scheduled_count();
-
-        if state.stop_requested() {
-            state.discard_stop_request();
-            return Err(Error::shutting_down());
-        }
 
         Ok(())
     }

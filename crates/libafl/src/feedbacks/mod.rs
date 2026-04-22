@@ -118,7 +118,7 @@ pub trait Feedback<I, OT, S>: Named + DependencyResolver {
         &mut self,
         _state: &mut S,
         _observers: &OT,
-        _testcase: &TestcaseId,
+        _testcase_id: &TestcaseId,
     ) -> Result<(), Error> {
         Ok(())
     }

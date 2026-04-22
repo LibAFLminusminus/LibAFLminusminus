@@ -53,7 +53,7 @@ pub trait HasObjective {
     fn objective(&self) -> &Self::Objective;
 
     /// The objective feedback (mutable)
-    fn objective_mut(&mut self) -> &mut Self::Objective;
+    fn objective_feedback_mut(&mut self) -> &mut Self::Objective;
 }
 
 /// Evaluates if an input is interesting using the feedback

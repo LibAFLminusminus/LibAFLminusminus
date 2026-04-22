@@ -38,7 +38,6 @@ pub struct OnDiskStore<I, M> {
 pub struct OnDiskStoreBuilder {
     pub(crate) root_dir: Option<PathBuf>,
     pub(crate) filename_format: TestcaseFilenameFormat,
-    pub(crate) md_format: OnDiskMetadataFormat,
 }
 
 /// A Disk Manager, able to load and store [`Testcase`]s
@@ -55,20 +54,6 @@ pub struct OnDiskTestcaseCell<I> {
     mgr: Rc<DiskMgr<I>>,
     id: String,
     modified: RefCell<bool>,
-}
-
-/// Options for the the format of the on-disk metadata
-#[derive(Default, Debug, Clone, Serialize, Deserialize)]
-pub enum OnDiskMetadataFormat {
-    /// A binary-encoded postcard
-    Postcard,
-    /// JSON
-    Json,
-    /// JSON formatted for readability
-    #[default]
-    JsonPretty,
-    /// The same as [`OnDiskMetadataFormat::JsonPretty`], but compressed
-    JsonGzip,
 }
 
 impl<I> OnDiskTestcaseCell<I> {
@@ -114,8 +99,7 @@ impl<I> DiskMgr<I> {
     }
 
     fn testcase_path(&self, id: &TestcaseId) -> PathBuf {
-        self.root_dir
-            .join(self.file_fmt.to_filename(id.to_string().as_str()))
+        self.root_dir.join(self.file_fmt.to_filename(id))
     }
 }
 
@@ -123,19 +107,14 @@ impl<I> DiskMgr<I>
 where
     I: Input,
 {
-    /// Save the input only to disk, according to metadata.
-    pub fn save_input(&self, input: &I) -> Result<TestcaseId, Error> {
+    /// Save the input and the metadata on disk
+    pub fn save_testcase(&self, input: &I) -> Result<TestcaseId, Error> {
         let testcase_id = Testcase::<I>::compute_id(input);
         let testcase_path = self.testcase_path(&testcase_id);
+
         input.to_file(testcase_path.as_path())?;
 
         Ok(testcase_id)
-    }
-
-    /// Save the input and the metadata on disk
-    pub fn save_testcase(&self, input: &I) -> Result<TestcaseId, Error> {
-        let id = self.save_input(input)?;
-        Ok(id)
     }
 
     /// load a testcase from its ID
@@ -206,16 +185,16 @@ where
     }
 
     fn add_shared<const ENABLED: bool>(&mut self, input: Rc<I>) -> Result<TestcaseId, Error> {
-        let testcase_id = self.disk_mgr.save_testcase(input.as_ref())?;
+        let testcase_id = Testcase::<I>::compute_id(input.as_ref());
 
-        let already = if ENABLED {
-            // id map
+        let is_present = if ENABLED {
             self.enabled_map.add(testcase_id, testcase_id)
         } else {
             self.disabled_map.add(testcase_id, testcase_id)
         };
-        if !already {
-            Ok(testcase_id)
+
+        if !is_present {
+            self.disk_mgr.save_testcase(input.as_ref())
         } else {
             return Err(Error::key_exists("Overwriting existing testcase"));
         }
@@ -262,12 +241,6 @@ impl OnDiskStoreBuilder {
     /// Set the on-disk filename format
     pub fn filename_format(&mut self, filename_format: TestcaseFilenameFormat) -> &mut Self {
         self.filename_format = filename_format;
-        self
-    }
-
-    /// Set the metadata serialization format.
-    pub fn md_format(&mut self, md_format: OnDiskMetadataFormat) -> &mut Self {
-        self.md_format = md_format;
         self
     }
 
