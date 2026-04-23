@@ -9,14 +9,14 @@ pub mod aflpp;
 pub mod nop;
 
 pub trait GlobalController {
-    type Client: Controller;
+    type Controller: Controller;
 
     fn create_controller(
         &mut self,
-        descriptor: <Self::Client as Controller>::Descriptor,
-    ) -> Result<Self::Client, Error>;
+        descriptor: <Self::Controller as Controller>::Descriptor,
+    ) -> Result<Self::Controller, Error>;
 
-    fn clients(&self) -> &[Self::Client];
+    fn clients(&self) -> &[Self::Controller];
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -33,7 +33,7 @@ impl SimpleGlobalController {
 }
 
 impl GlobalController for SimpleGlobalController {
-    type Client = SimpleClient;
+    type Controller = SimpleClient;
 
     fn create_controller(&mut self, descriptor: StdDescriptor) -> Result<SimpleClient, Error> {
         let cl = SimpleClient::new(descriptor);
@@ -41,7 +41,7 @@ impl GlobalController for SimpleGlobalController {
         Ok(cl)
     }
 
-    fn clients(&self) -> &[Self::Client] {
+    fn clients(&self) -> &[Self::Controller] {
         &self.clients
     }
 }
