@@ -75,6 +75,9 @@ impl
         NopState<NopInput>,
     >
 {
+    /// Create a default Launcher.
+    /// It is configured with a very minimal configuration.
+    /// It will spawn one fuzzing core on core 0 and run the provided task or runtime.
     pub fn builder() -> Result<
         StdLauncherBuilder<
             NopGlobalController,
@@ -87,7 +90,7 @@ impl
         let global_controller = NopGlobalController;
         let monitor = SimpleMonitor::new(&global_controller)?;
         let runtime = NopRuntime;
-        let cores = Cores::none();
+        let cores = Cores::one();
 
         Ok(StdLauncherBuilder {
             global_controller,
