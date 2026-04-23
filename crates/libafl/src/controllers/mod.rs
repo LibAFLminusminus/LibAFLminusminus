@@ -16,12 +16,12 @@ pub trait GlobalController {
         descriptor: <Self::Controller as Controller>::Descriptor,
     ) -> Result<Self::Controller, Error>;
 
-    fn clients(&self) -> &[Self::Controller];
+    fn controllers(&self) -> &[Self::Controller];
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SimpleGlobalController {
-    clients: Vec<SimpleClient>,
+    clients: Vec<SimpleController>,
 }
 
 impl SimpleGlobalController {
@@ -33,15 +33,15 @@ impl SimpleGlobalController {
 }
 
 impl GlobalController for SimpleGlobalController {
-    type Controller = SimpleClient;
+    type Controller = SimpleController;
 
-    fn create_controller(&mut self, descriptor: StdDescriptor) -> Result<SimpleClient, Error> {
-        let cl = SimpleClient::new(descriptor);
+    fn create_controller(&mut self, descriptor: StdDescriptor) -> Result<SimpleController, Error> {
+        let cl = SimpleController::new(descriptor);
         self.clients.push(cl.clone());
         Ok(cl)
     }
 
-    fn clients(&self) -> &[Self::Controller] {
+    fn controllers(&self) -> &[Self::Controller] {
         &self.clients
     }
 }
@@ -64,12 +64,12 @@ pub trait Controller {
 
 /// this is just a wrapper around stddescriptor
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SimpleClient {
+pub struct SimpleController {
     /// the descriptor describing this client
     descriptor: StdDescriptor,
 }
 
-impl Controller for SimpleClient {
+impl Controller for SimpleController {
     type Descriptor = StdDescriptor;
 
     fn id(&self) -> ClientId {
@@ -90,7 +90,7 @@ impl Controller for SimpleClient {
     }
 }
 
-impl SimpleClient {
+impl SimpleController {
     pub fn new(descriptor: StdDescriptor) -> Self {
         Self { descriptor }
     }

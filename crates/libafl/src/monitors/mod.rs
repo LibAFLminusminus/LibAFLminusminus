@@ -40,7 +40,7 @@ impl SimpleMonitor {
         update_interval: Duration,
     ) -> Result<Self, Error> {
         let paths: Vec<PathBuf> = global_controller
-            .clients()
+            .controllers()
             .iter()
             .map(|c| c.workdir().join("fuzzer_stats"))
             .collect();

@@ -14,7 +14,7 @@ impl GlobalController for NopMainController {
         Ok(NopController)
     }
 
-    fn clients(&self) -> &[Self::Controller] {
+    fn controllers(&self) -> &[Self::Controller] {
         unimplemented!("nop controller has no clients");
     }
 }
