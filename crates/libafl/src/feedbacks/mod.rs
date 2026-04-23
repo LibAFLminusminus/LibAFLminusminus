@@ -12,8 +12,6 @@ use libafl_bolts::{
 };
 use serde::{Deserialize, Serialize};
 
-#[cfg(feature = "introspection")]
-use crate::state::HasClientPerfMonitor;
 use crate::{
     Error,
     corpus::{Testcase, TestcaseId},
@@ -63,36 +61,6 @@ pub trait Feedback<I, OT, S>: Named + DependencyResolver {
         _exit_kind: &ExitKind,
     ) -> Result<bool, Error> {
         Ok(false)
-    }
-
-    /// Returns if the result of a run is interesting and the value input should be stored in a corpus.
-    /// It also keeps track of introspection stats.
-    #[cfg(feature = "introspection")]
-    fn is_interesting_introspection(
-        &mut self,
-        state: &mut S,
-        input: &I,
-        observers: &OT,
-        exit_kind: &ExitKind,
-    ) -> Result<bool, Error>
-    where
-        S: HasClientPerfMonitor,
-    {
-        // Start a timer for this feedback
-        let start_time = no_std_time::read_time_counter();
-
-        // Execute this feedback
-        let ret = self.is_interesting(state, manager, input, observers, exit_kind);
-
-        // Get the elapsed time for checking this feedback
-        let elapsed = no_std_time::read_time_counter() - start_time;
-
-        // Add this stat to the feedback metrics
-        state
-            .introspection_stats_mut()
-            .update_feedback(self.name(), elapsed);
-
-        ret
     }
 
     /// CUT MY LIFE INTO PIECES; THIS IS MY LAST [`Feedback::is_interesting`] run
@@ -214,32 +182,6 @@ where
         )
     }
 
-    #[cfg(feature = "introspection")]
-    fn is_interesting_introspection(
-        &mut self,
-        state: &mut S,
-        input: &I,
-        observers: &OT,
-        exit_kind: &ExitKind,
-    ) -> Result<bool, Error>
-    where
-        S: HasClientPerfMonitor,
-    {
-        FL::is_pair_interesting(
-            |state, manager, input, observers, exit_kind| {
-                self.first
-                    .is_interesting_introspection(state, input, observers, exit_kind)
-            },
-            |state, manager, input, observers, exit_kind| {
-                self.second
-                    .is_interesting_introspection(state, input, observers, exit_kind)
-            },
-            state,
-            input,
-            observers,
-            exit_kind,
-        )
-    }
 
     #[cfg(feature = "track_hit_feedbacks")]
     fn last_result(&self) -> Result<bool, Error> {

@@ -186,6 +186,10 @@ impl<CT, S> RuntimeHandle<CT, S> {
             }
         }
     }
+
+    pub fn controller(&self) -> &CT {
+        &self.controller
+    }
 }
 
 impl<CT, S> DependencyResolver for RuntimeHandle<CT, S> {

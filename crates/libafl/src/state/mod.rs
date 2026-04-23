@@ -24,8 +24,6 @@ use typed_builder::TypedBuilder;
 
 #[cfg(not(feature = "remove_me"))]
 use crate::fuzzer::ExecuteInputResult;
-#[cfg(feature = "introspection")]
-use crate::monitors::stats::ClientPerfStats;
 use crate::{
     Error,
     corpus::{
@@ -33,6 +31,7 @@ use crate::{
         schedulers::NopScheduler, testcase::TestcaseId,
     },
     dependency::{DependencyResolver, Registrator},
+    monitors::Stats,
     fuzzer::Evaluator,
     generators::Generator,
     inputs::{Input, NopContext, NopInput},
@@ -40,6 +39,7 @@ use crate::{
 };
 
 pub trait FlatState {
+    fn stats(&self) -> &Stats;
     /// The maximum size of an input
     fn max_size(&self) -> usize;
 
@@ -70,12 +70,6 @@ pub trait FlatState {
     /// The last time we reported progress,if available/used (mutable).
     /// This information is used by fuzzer `maybe_report_progress`.
     fn last_report_time_mut(&mut self) -> &mut Option<Duration>;
-
-    #[cfg(feature = "introspection")]
-    fn introspection_stats(&self) -> &ClientPerfStats;
-
-    #[cfg(feature = "introspection")]
-    fn introspection_stats_mut(&mut self) -> &mut ClientPerfStats;
 
     /// A map, storing all metadata
     fn named_metadata_map(&self) -> &NamedSerdeAnyMap;
@@ -212,24 +206,6 @@ impl<I, S, Z> Debug for LoadConfig<'_, I, S, Z> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "LoadConfig {{}}")
     }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Stats {
-    /// How many times the executor ran the harness/target
-    executions: u64,
-    /// At what time the fuzzing started
-    start_time: Duration,
-    /// the number of new paths that imported from other fuzzers
-    imported: usize,
-    /// The last time we reported progress (if available/used).
-    /// This information is used by fuzzer `maybe_report_progress`.
-    last_report_time: Option<Duration>,
-    /// The last time something was added to the corpus
-    last_found_time: Duration,
-    /// Performance statistics for this fuzzer
-    #[cfg(feature = "introspection")]
-    introspection_stats: ClientPerfStats,
 }
 
 /// The state a fuzz run.
@@ -686,6 +662,10 @@ impl PSMetadata {
 libafl_bolts::impl_serdeany!(PSMetadata);
 
 impl<C, I, OC, SC> FlatState for StdState<C, I, OC, SC> {
+    fn stats(&self) -> &Stats {
+        &self.stats
+    }
+
     /// The max size allowed for the input
     fn max_size(&self) -> usize {
         self.max_size
@@ -755,16 +735,6 @@ impl<C, I, OC, SC> FlatState for StdState<C, I, OC, SC> {
         &mut self.named_metadata
     }
 
-    #[cfg(feature = "introspection")]
-    fn introspection_stats(&self) -> &ClientPerfStats {
-        &self.introspection_stats
-    }
-
-    #[cfg(feature = "introspection")]
-    fn introspection_stats_mut(&mut self) -> &mut ClientPerfStats {
-        &mut self.introspection_stats
-    }
-
     fn should_initialize_metadata(&mut self) -> bool {
         if !self.metadata_initialized {
             self.metadata_initialized = true;
@@ -802,16 +772,6 @@ where
     I: Input,
     OC: Corpus<I>,
 {
-    #[cfg(feature = "introspection")]
-    fn introspection_stats(&self) -> &ClientPerfStats {
-        &self.introspection_stats
-    }
-
-    #[cfg(feature = "introspection")]
-    fn introspection_stats_mut(&mut self) -> &mut ClientPerfStats {
-        &mut self.introspection_stats
-    }
-
     /// Decide if the state must load the inputs
     pub fn must_load_initial_inputs(&self) -> bool {
         self.corpus().count() == 0
@@ -1198,8 +1158,6 @@ where
             corpus,
             objective_corpus,
             max_size: DEFAULT_MAX_SIZE,
-            #[cfg(feature = "introspection")]
-            introspection_stats: ClientPerfStats::new(),
             #[cfg(feature = "std")]
             remaining_initial_files: None,
             #[cfg(feature = "std")]

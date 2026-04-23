@@ -18,8 +18,6 @@ use libafl_bolts::{
 use serde::{Serialize, de::DeserializeOwned};
 
 use super::{DifferentIsNovel, Feedback, HasObserverHandle, MapFeedback};
-#[cfg(feature = "introspection")]
-use crate::state::HasClientPerfMonitor;
 use crate::{
     common::DependencyResolver,
     corpus::{Testcase, TestcaseId},
@@ -207,21 +205,6 @@ where
     ) -> Result<bool, Error> {
         let res = self.is_interesting_u8_simd_optimized(state, observers);
         Ok(res)
-    }
-
-    #[cfg(feature = "introspection")]
-    fn is_interesting_introspection(
-        &mut self,
-        state: &mut S,
-        input: &I,
-        observers: &OT,
-        exit_kind: &ExitKind,
-    ) -> Result<bool, Error>
-    where
-        S: HasClientPerfMonitor,
-    {
-        self.map
-            .is_interesting_introspection(state, input, observers, exit_kind)
     }
 
     #[cfg(feature = "track_hit_feedbacks")]

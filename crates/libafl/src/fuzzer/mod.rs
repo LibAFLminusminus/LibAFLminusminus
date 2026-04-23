@@ -16,8 +16,6 @@ use libafl_bolts::{current_time, tuples::MatchName};
 use serde::Deserialize;
 use serde::{Serialize, de::DeserializeOwned};
 
-#[cfg(feature = "introspection")]
-use crate::monitors::stats::PerfFeature;
 use crate::{
     Error,
     corpus::{Corpus, Testcase, TestcaseId, schedulers::Scheduler},
