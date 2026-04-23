@@ -40,7 +40,10 @@ impl SimpleMonitor {
             .map(|c| c.workdir().join("fuzzer_stats"))
             .collect();
         for p in &paths {
-            fs::remove_file(p)?;
+            // remove obsolete stats files.
+            if p.exists() && p.is_file() {
+                fs::remove_file(p)?;
+            }
         }
 
         Ok(Self {
