@@ -3,13 +3,13 @@
 #[cfg(feature = "std")]
 use alloc::vec::Vec;
 use alloc::{boxed::Box, string::String};
-use num_traits::Zero;
 use core::{
     any::type_name,
     fmt::{self, Debug},
     marker::PhantomData,
     time::Duration,
 };
+use num_traits::Zero;
 use std::{
     collections::HashMap,
     fs,
@@ -31,7 +31,7 @@ use typed_builder::TypedBuilder;
 #[cfg(not(feature = "remove_me"))]
 use crate::fuzzer::ExecuteInputResult;
 use crate::{
-    Error,
+    Error, Result,
     corpus::{
         Corpus, InMemoryCorpus, Scheduler, Testcase, TestcaseFilenameFormat,
         schedulers::NopScheduler, testcase::TestcaseId,
@@ -85,12 +85,16 @@ impl Stats {
     fn execs_per_sec(&self) -> u64 {
         let as_sec = (libafl_bolts::current_time() - self.start_time).as_secs();
 
-        if as_sec.is_zero() { 0 } else { self.executions / as_sec }
+        if as_sec.is_zero() {
+            0
+        } else {
+            self.executions / as_sec
+        }
     }
 }
 
 /// write to json stat file
-pub fn write_stats_json<P: AsRef<Path>>(stats: &Stats, path: &P) -> Result<(), Error> {
+pub fn write_stats_json<P: AsRef<Path>>(stats: &Stats, path: &P) -> Result<()> {
     let file = fs::File::create(path)?;
     serde_json::to_writer_pretty(file, stats)
         .map_err(|_| Error::runtime("Failed to dump the stats to a file"));
@@ -98,7 +102,7 @@ pub fn write_stats_json<P: AsRef<Path>>(stats: &Stats, path: &P) -> Result<(), E
 }
 
 /// read from a file.
-pub fn read_stats_json<P: AsRef<Path>>(path: P) -> Result<Stats, Error> {
+pub fn read_stats_json<P: AsRef<Path>>(path: P) -> Result<Stats> {
     let file = fs::File::open(path)?;
     serde_json::from_reader(file)
         .map_err(|_| Error::runtime("Failed to read the stats from a file"))
@@ -156,14 +160,14 @@ pub trait HasTestcase<I> {
     fn testcase_md_from_id<'a>(&'a self, id: &TestcaseId) -> Option<&'a TestcaseMetadata>;
     fn testcase_md_mut<'a>(&'a mut self, tc: &Testcase<I>) -> &'a mut TestcaseMetadata;
     fn testcase_md_mut_from_id<'a>(&'a mut self, id: &TestcaseId) -> &'a mut TestcaseMetadata;
-    fn testcase(&self, id: &TestcaseId) -> Result<Testcase<I>, Error>;
+    fn testcase(&self, id: &TestcaseId) -> Result<Testcase<I>>;
 }
 
 impl<C, I, OC, SC> HasTestcase<I> for StdState<C, I, OC, SC>
 where
     C: Corpus<I>,
 {
-    fn testcase(&self, id: &TestcaseId) -> Result<Testcase<I>, Error> {
+    fn testcase(&self, id: &TestcaseId) -> Result<Testcase<I>> {
         self.corpus.get(id)
     }
 
@@ -251,7 +255,7 @@ pub struct LoadConfig<'a, I, S, Z> {
     /// Load Input even if it was deemed "uninteresting" by the fuzzer
     forced: bool,
     /// Function to load input from a Path
-    loader: &'a mut dyn FnMut(&mut Z, &mut S, &Path) -> Result<I, Error>,
+    loader: &'a mut dyn FnMut(&mut Z, &mut S, &Path) -> Result<I>,
     /// Error if Input leads to a Solution.
     exit_on_solution: bool,
 }
@@ -343,11 +347,7 @@ where
 /// Add a metadata to the metadata map
 /// Return an error if there already is the metadata with the same name
 #[inline]
-pub fn add_named_metadata_checked<M>(
-    map: &mut NamedSerdeAnyMap,
-    name: &str,
-    meta: M,
-) -> Result<(), Error>
+pub fn add_named_metadata_checked<M>(map: &mut NamedSerdeAnyMap, name: &str, meta: M) -> Result<()>
 where
     M: SerdeAny,
 {
@@ -357,7 +357,7 @@ where
 /// Add a metadata to the metadata map
 /// Return an error if there already is the metadata with the same name
 #[inline]
-pub fn add_unnamed_metadata_checked<M>(map: &mut NamedSerdeAnyMap, meta: M) -> Result<(), Error>
+pub fn add_unnamed_metadata_checked<M>(map: &mut NamedSerdeAnyMap, meta: M) -> Result<()>
 where
     M: SerdeAny,
 {
@@ -431,7 +431,7 @@ where
 
 /// To get named metadata
 #[inline]
-pub fn named_metadata<'a, M>(map: &'a NamedSerdeAnyMap, name: &str) -> Result<&'a M, Error>
+pub fn named_metadata<'a, M>(map: &'a NamedSerdeAnyMap, name: &str) -> Result<&'a M>
 where
     M: SerdeAny,
 {
@@ -441,7 +441,7 @@ where
 
 /// To get named metadata
 #[inline]
-pub fn unnamed_metadata<'a, M>(map: &'a NamedSerdeAnyMap) -> Result<&'a M, Error>
+pub fn unnamed_metadata<'a, M>(map: &'a NamedSerdeAnyMap) -> Result<&'a M>
 where
     M: SerdeAny,
 {
@@ -451,10 +451,7 @@ where
 
 /// To get mutable named metadata
 #[inline]
-pub fn named_metadata_mut<'a, M>(
-    map: &'a mut NamedSerdeAnyMap,
-    name: &str,
-) -> Result<&'a mut M, Error>
+pub fn named_metadata_mut<'a, M>(map: &'a mut NamedSerdeAnyMap, name: &str) -> Result<&'a mut M>
 where
     M: SerdeAny,
 {
@@ -464,7 +461,7 @@ where
 
 /// To get mutable named metadata
 #[inline]
-pub fn unnamed_metadata_mut<'a, M>(map: &'a mut NamedSerdeAnyMap) -> Result<&'a mut M, Error>
+pub fn unnamed_metadata_mut<'a, M>(map: &'a mut NamedSerdeAnyMap) -> Result<&'a mut M>
 where
     M: SerdeAny,
 {
@@ -777,7 +774,7 @@ where
     C: DependencyResolver + Corpus<I>,
     OC: DependencyResolver + Corpus<I>,
 {
-    fn register(&mut self, registrator: &mut Registrator) -> Result<(), Error> {
+    fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
         self.corpus_mut().register(registrator);
         self.objective_corpus_mut().register(registrator);
 
@@ -807,7 +804,7 @@ where
     }
 
     /// List initial inputs from a directory.
-    fn next_file(&mut self) -> Result<PathBuf, Error> {
+    fn next_file(&mut self) -> Result<PathBuf> {
         loop {
             if let Some(path) = self.remaining_initial_files.as_mut().and_then(Vec::pop) {
                 let filename = path.file_name().unwrap().to_string_lossy();
@@ -858,7 +855,7 @@ where
     }
 
     /// Sets canonical paths for provided inputs
-    fn canonicalize_input_dirs(&mut self, in_dirs: &[PathBuf]) -> Result<(), Error> {
+    fn canonicalize_input_dirs(&mut self, in_dirs: &[PathBuf]) -> Result<()> {
         if let Some(remaining) = self.remaining_initial_files.as_ref() {
             // everything was loaded
             if remaining.is_empty() {
@@ -887,7 +884,7 @@ where
         executor: &mut E,
         file_list: &[PathBuf],
         load_config: LoadConfig<I, Self, Z>,
-    ) -> Result<(), Error>
+    ) -> Result<()>
     where
         Z: Evaluator<E, I, Self>,
     {
@@ -910,7 +907,7 @@ where
         fuzzer: &mut Z,
         executor: &mut E,
         config: &mut LoadConfig<I, Self, Z>,
-    ) -> Result<ExecuteInputResult, Error>
+    ) -> Result<ExecuteInputResult>
     where
         Z: Evaluator<E, I, Self>,
     {
@@ -949,7 +946,7 @@ where
         fuzzer: &mut Z,
         executor: &mut E,
         mut config: LoadConfig<I, Self, Z>,
-    ) -> Result<(), Error>
+    ) -> Result<()>
     where
         Z: Evaluator<E, I, Self>,
     {
@@ -973,13 +970,9 @@ where
     }
 
     /// Recursively walk supplied corpus directories
-    pub fn walk_initial_inputs<F>(
-        &mut self,
-        in_dirs: &[PathBuf],
-        mut closure: F,
-    ) -> Result<(), Error>
+    pub fn walk_initial_inputs<F>(&mut self, in_dirs: &[PathBuf], mut closure: F) -> Result<()>
     where
-        F: FnMut(&PathBuf) -> Result<(), Error>,
+        F: FnMut(&PathBuf) -> Result<()>,
     {
         self.canonicalize_input_dirs(in_dirs)?;
         loop {
@@ -1004,7 +997,7 @@ where
         fuzzer: &mut Z,
         executor: &mut E,
         file_list: &[PathBuf],
-    ) -> Result<(), Error>
+    ) -> Result<()>
     where
         Z: Evaluator<E, I, Self>,
     {
@@ -1029,7 +1022,7 @@ where
         fuzzer: &mut Z,
         executor: &mut E,
         in_dirs: &[PathBuf],
-    ) -> Result<(), Error>
+    ) -> Result<()>
     where
         Z: Evaluator<E, I, Self>,
     {
@@ -1053,7 +1046,7 @@ where
         fuzzer: &mut Z,
         executor: &mut E,
         file_list: &[PathBuf],
-    ) -> Result<(), Error>
+    ) -> Result<()>
     where
         Z: Evaluator<E, I, Self>,
     {
@@ -1076,7 +1069,7 @@ where
         fuzzer: &mut Z,
         executor: &mut E,
         in_dirs: &[PathBuf],
-    ) -> Result<(), Error>
+    ) -> Result<()>
     where
         Z: Evaluator<E, I, Self>,
     {
@@ -1100,7 +1093,7 @@ where
         fuzzer: &mut Z,
         executor: &mut E,
         in_dirs: &[PathBuf],
-    ) -> Result<(), Error>
+    ) -> Result<()>
     where
         Z: Evaluator<E, I, Self>,
     {
@@ -1116,7 +1109,7 @@ where
         )
     }
 
-    fn calculate_corpus_size(&mut self) -> Result<usize, Error> {
+    fn calculate_corpus_size(&mut self) -> Result<usize> {
         let mut count: usize = 0;
         loop {
             match self.next_file() {
@@ -1141,7 +1134,7 @@ impl<C, I, OC, SC> StdState<C, I, OC, SC> {
         rand: &mut R,
         rt_handle: &mut RuntimeHandle<CT, Self>,
         num: usize,
-    ) -> Result<usize, Error>
+    ) -> Result<usize>
     where
         R: Rand,
         G: Generator<I, R, Self>,
@@ -1168,7 +1161,7 @@ where
     OC: Corpus<I>,
 {
     /// Creates a new `State`, taking ownership of all of the individual components during fuzzing.
-    pub fn new(corpus: C, objective_corpus: OC) -> Result<Self, Error>
+    pub fn new(corpus: C, objective_corpus: OC) -> Result<Self>
     where
         OC: Serialize + DeserializeOwned + DependencyResolver,
         C: Serialize + DeserializeOwned + DependencyResolver,
@@ -1207,7 +1200,7 @@ impl
 {
     /// Create an empty [`StdState`] that has very minimal uses.
     /// Potentially good for testing.
-    pub fn nop() -> Result<Self, Error> {
+    pub fn nop() -> Result<Self> {
         StdState::new(
             InMemoryCorpus::<NopContext, NopInput, NopScheduler>::new(NopContext, NopScheduler),
             InMemoryCorpus::new(NopContext, NopScheduler),

@@ -1,5 +1,5 @@
-use core::{marker::PhantomData, pin::Pin, ptr::NonNull, time::Duration};
-use std::boxed::Box;
+use core::{fmt::Debug, marker::PhantomData, pin::Pin, ptr::NonNull, time::Duration};
+use std::{boxed::Box, fmt};
 
 use libafl_bolts::TimerStruct;
 use libafl_core::Error;
@@ -34,6 +34,34 @@ pub struct InProcessRuntime<CH, D, S, T, TH> {
     termination_handler: Pin<Box<OsTerminationHandler<CH, D, TH>>>,
     timer: Option<TimerStruct>,
     phantom: PhantomData<S>,
+}
+
+impl<CH, D, S, T, TH> Debug for InProcessRuntime<CH, D, S, T, TH>
+where
+    T: Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("InProcessRuntime")
+            .field("task", &self.task)
+            .finish()
+    }
+}
+
+impl<CH, D, S, T, TH> Clone for InProcessRuntime<CH, D, S, T, TH>
+where
+    CH: Clone,
+    D: Clone,
+    T: Clone,
+    TH: Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            task: self.task.clone(),
+            termination_handler: self.termination_handler.clone(),
+            timer: self.timer.clone(),
+            phantom: PhantomData,
+        }
+    }
 }
 
 impl<CH, D, S, T, TH> InProcessRuntime<CH, D, S, T, TH>

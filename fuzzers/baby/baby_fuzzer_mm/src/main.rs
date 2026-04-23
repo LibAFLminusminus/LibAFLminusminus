@@ -1,9 +1,8 @@
-use core::time::Duration;
-use std::{env, num::NonZeroUsize, path::PathBuf};
+use std::path::PathBuf;
 
 use libafl::{
-    Error,
-    controllers::{SimpleClient, StdDescriptor},
+    Result,
+    controllers::SimpleClient,
     corpus::{
         Corpus, InMemoryCorpus, OnDiskCorpus, Scheduler,
         schedulers::{NopScheduler, QueueScheduler},
@@ -13,20 +12,15 @@ use libafl::{
     fuzzer::{Fuzzer, StdFuzzer},
     generators::RandPrintablesGenerator,
     inputs::{BytesInput, bytes::BytesContext},
-    monitors::{Monitor, SimpleMonitor},
+    launchers::StdLauncher,
     mutators::{HavocScheduledMutator, havoc_mutations},
     non_zero,
     observers::ConstMapObserver,
-    runtimes::{Runtime, RuntimeHandle, restarting::RestartingRuntime},
+    runtimes::RuntimeHandle,
     stages::StdMutationalStage,
     state::StdState,
 };
-use libafl_bolts::{
-    current_nanos, nonnull_raw_mut,
-    os::{ForkResult, fork},
-    rands::StdRand,
-    tuples::tuple_list,
-};
+use libafl_bolts::{current_nanos, nonnull_raw_mut, rands::StdRand, tuples::tuple_list};
 
 use crate::target::SIGNALS;
 
@@ -35,7 +29,7 @@ mod target;
 fn run_fuzzer<C, OC, SC>(
     rt_handle: &mut RuntimeHandle<SimpleClient, StdState<C, BytesInput, OC, SC>>,
     state: &mut StdState<C, BytesInput, OC, SC>,
-) -> Result<(), Error>
+) -> Result<()>
 where
     C: Corpus<BytesInput>,
     OC: Corpus<BytesInput>,
@@ -88,40 +82,24 @@ where
     fuzzer.fuzz_loop(&mut stages, &mut executor, &mut rand, state, rt_handle)
 }
 
-pub fn main() {
-    // A queue policy to get testcasess from the corpus
-    let scheduler = QueueScheduler::new();
+pub fn main() -> Result<()> {
+    let state_builder = || {
+        // A queue policy to get testcasess from the corpus
+        let scheduler = QueueScheduler::new();
 
-    // create a State from scratch
-    let state = StdState::new(
-        // Corpus that will be evolved, we keep it in memory for performance
-        InMemoryCorpus::new(BytesContext, scheduler),
-        // Corpus in which we store solutions (crashes in this example),
-        // on disk so the user can get them after stopping the fuzzer
-        OnDiskCorpus::new(PathBuf::from("./crashes"), BytesContext, NopScheduler).unwrap(),
-    )
-    .unwrap();
+        // create a State from scratch
+        StdState::new(
+            // Corpus that will be evolved, we keep it in memory for performance
+            InMemoryCorpus::new(BytesContext, scheduler),
+            // Corpus in which we store solutions (crashes in this example),
+            // on disk so the user can get them after stopping the fuzzer
+            OnDiskCorpus::new(PathBuf::from("./crashes"), BytesContext, NopScheduler).unwrap(),
+        )
+    };
 
-    let mut runtime = RestartingRuntime::new(run_fuzzer, NonZeroUsize::try_from(1 << 30).unwrap());
-
-    let current_dir = env::current_dir().unwrap();
-
-    let mut master = SimpleMaster::new();
-    let client1 = StdDescriptor::new(PathBuf::from(current_dir), 0).unwrap();
-    let controller = master.create_controller(client1).unwrap();
-
-    // shitty launcher
-    match unsafe { fork() } {
-        Ok(ForkResult::Parent(_child)) => {
-            let mut monitor = SimpleMonitor::new(master, Duration::from_secs(1)).unwrap();
-            loop {
-                let _ = monitor.display();
-            }
-        }
-        Ok(ForkResult::Child) => {
-            println!("in child");
-            runtime.run(state, controller).unwrap()
-        }
-        Err(e) => eprintln!("fork failed: {}", e),
-    }
+    StdLauncher::builder()?
+        .state_builder(state_builder)
+        .task(run_fuzzer)
+        .build()?
+        .launch()
 }

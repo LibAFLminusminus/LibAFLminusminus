@@ -84,6 +84,26 @@ pub struct TimerStruct {
     pub(crate) itimerspec: libc::itimerspec,
 }
 
+impl Clone for TimerStruct {
+    fn clone(&self) -> Self {
+        Self {
+            // timeout time (windows)
+            #[cfg(windows)]
+            milli_sec: self.milli_sec.clone(),
+            #[cfg(windows)]
+            ptp_timer: PTP_TIMER,
+            #[cfg(windows)]
+            critical: CRITICAL_SECTION,
+            #[cfg(all(unix, not(target_os = "linux")))]
+            itimerval: self.itimerval.clone(),
+            #[cfg(target_os = "linux")]
+            timerid: null_mut(),
+            #[cfg(target_os = "linux")]
+            itimerspec: self.itimerspec.clone(),
+        }
+    }
+}
+
 #[cfg(windows)]
 #[expect(non_camel_case_types)]
 type PTP_TIMER_CALLBACK = unsafe extern "system" fn(

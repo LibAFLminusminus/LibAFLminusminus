@@ -82,9 +82,8 @@ extern crate std;
 #[doc(hidden)]
 pub extern crate alloc;
 
-use std::{slice, vec};
-
 use alloc::vec::Vec;
+use std::{slice, vec};
 
 use libafl_core::{Error, Result};
 use serde::{Deserialize, Serialize};
@@ -170,6 +169,11 @@ impl Cores {
     /// Pick no core
     pub fn none() -> Self {
         Self { ids: vec![] }
+    }
+
+    /// Are there cores?
+    pub fn is_empty(&self) -> bool {
+        self.ids.is_empty()
     }
 
     /// Trims the number of cores to the given value, dropping additional cores

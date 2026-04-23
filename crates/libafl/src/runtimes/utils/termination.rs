@@ -8,6 +8,7 @@ pub trait IntoTerminationHandlerData {
     fn as_termination_handler_data(&mut self) -> Option<NonNull<TerminationHandlerData>>;
 }
 
+#[derive(Debug, Clone)]
 pub struct TerminationHandler<CH, D, TH> {
     termination_handler_depth: usize,
     termination_handler_max_depth: usize,
@@ -16,6 +17,7 @@ pub struct TerminationHandler<CH, D, TH> {
     pub(crate) termination_data: D,
 }
 
+#[derive(Debug, Clone)]
 pub struct TerminationHandlerData {
     state_ptr: Option<NonNull<c_void>>,
     input_ptr: Option<NonNull<c_void>>,

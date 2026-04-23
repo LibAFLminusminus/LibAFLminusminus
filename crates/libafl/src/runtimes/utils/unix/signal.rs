@@ -68,6 +68,7 @@ impl<CH, D, TH> SignalHandlerPtr<CH, D, TH> {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct UnixSignalHandler<CH, D, TH> {
     inner: TerminationHandler<CH, D, TH>,
 }
