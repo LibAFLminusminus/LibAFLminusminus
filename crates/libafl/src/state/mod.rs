@@ -3,6 +3,7 @@
 #[cfg(feature = "std")]
 use alloc::vec::Vec;
 use alloc::{boxed::Box, string::String};
+use num_traits::Zero;
 use core::{
     any::type_name,
     fmt::{self, Debug},
@@ -82,8 +83,9 @@ impl Stats {
     }
 
     fn execs_per_sec(&self) -> u64 {
-        let secs = self.start_time.as_secs();
-        if secs == 0 { 0 } else { self.executions / secs }
+        let as_sec = (libafl_bolts::current_time() - self.start_time).as_secs();
+
+        if as_sec.is_zero() { 0 } else { self.executions / as_sec }
     }
 }
 
