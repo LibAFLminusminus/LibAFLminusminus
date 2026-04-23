@@ -1,7 +1,8 @@
 use crate::{
-    Error, GlobalController, Result, SimpleController, SimpleGlobalController,
+    Controller, Error, GlobalController, Result, SimpleController, SimpleGlobalController,
     inputs::NopInput,
     monitors::SimpleMonitor,
+    nop::{NopController, NopGlobalController},
     runtimes::{Runtime, RuntimeHandle, StdRuntime, nop::NopRuntime, simple::SimpleRuntime},
     state::NopState,
 };
@@ -23,7 +24,7 @@ pub struct StdLauncherBuilder<GCT, MT, RT, S, SB> {
 
 pub struct Instance<CT, RT, S> {
     runtime: RT,
-    state: S,
+    state: Option<S>,
     core: CoreId,
     phantom: PhantomData<CT>,
 }
@@ -38,7 +39,7 @@ impl<CT, RT, S> Instance<CT, RT, S> {
     pub fn new(runtime: RT, state: S, core: CoreId) -> Self {
         Self {
             runtime,
-            state,
+            state: Some(state),
             core,
             phantom: PhantomData,
         }
@@ -51,8 +52,8 @@ fn nop_state_builder() -> Result<NopState<NopInput>> {
 
 impl
     StdLauncher<
-        SimpleController,
-        SimpleGlobalController,
+        NopController,
+        NopGlobalController,
         SimpleMonitor,
         NopRuntime,
         fn() -> Result<NopState<NopInput>>,
@@ -60,14 +61,14 @@ impl
 {
     pub fn builder() -> Result<
         StdLauncherBuilder<
-            SimpleGlobalController,
+            NopGlobalController,
             SimpleMonitor,
             NopRuntime,
             NopState<NopInput>,
             fn() -> Result<NopState<NopInput>>,
         >,
     > {
-        let global_controller = SimpleGlobalController::new();
+        let global_controller = NopGlobalController;
         let monitor = SimpleMonitor::new(&global_controller)?;
         let runtime = NopRuntime;
         let cores = Cores::none();
@@ -92,8 +93,21 @@ impl<CT, GCT, MT, RT, S> StdLauncher<CT, GCT, MT, RT, S> {
             instances,
         }
     }
+}
 
-    pub fn launch(self) -> Result<()> {
+impl<CT, GCT, MT, RT, S> StdLauncher<CT, GCT, MT, RT, S>
+where
+    GCT: GlobalController<Controller = CT>,
+    CT: Controller,
+    RT: Runtime<CT, S> + 'static,
+{
+    pub fn launch(mut self) -> Result<()> {
+        for instance in &mut self.instances {
+            unsafe {
+                instance.spawn(&mut self.global_controller)?;
+            }
+        }
+
         Ok(())
     }
 }
@@ -188,11 +202,13 @@ where
 
 impl<CT, RT, S> Instance<CT, RT, S>
 where
-    RT: Runtime<CT, S>,
+    CT: Controller,
+    RT: Runtime<CT, S> + 'static,
 {
     /// # Safety
     ///
     /// This will spawn a new process, which could have side effects.
+    /// Once spawned, the parent process will take back the hand on the control flow immediately.
     pub unsafe fn spawn<GCT: GlobalController<Controller = CT>>(
         &mut self,
         global_controller: &mut GCT,
@@ -201,8 +217,16 @@ where
             ForkResult::Parent { child } => Ok(child),
             ForkResult::Child => {
                 let controller = global_controller.create_controller()?;
+                let state = self
+                    .state
+                    .take()
+                    .expect("State is not in the instance, this is a fuzzer bug.");
 
-                self.runtime.run()
+                self.runtime.run(state, controller)?;
+
+                // TODO: what should we do there in case it happens?
+                // i'll panic for now, but it's not the right solution
+                panic!("The runtime finished but did not exit cleanly.");
             }
         }
     }

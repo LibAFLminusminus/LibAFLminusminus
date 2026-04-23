@@ -2,7 +2,6 @@ use std::path::PathBuf;
 
 use libafl::{
     Result,
-    controllers::SimpleClient,
     corpus::{
         Corpus, InMemoryCorpus, OnDiskCorpus, Scheduler,
         schedulers::{NopScheduler, QueueScheduler},
@@ -15,6 +14,7 @@ use libafl::{
     launchers::StdLauncher,
     mutators::{HavocScheduledMutator, havoc_mutations},
     non_zero,
+    nop::NopController,
     observers::ConstMapObserver,
     runtimes::RuntimeHandle,
     stages::StdMutationalStage,
@@ -27,7 +27,7 @@ use crate::target::SIGNALS;
 mod target;
 
 fn run_fuzzer<C, OC, SC>(
-    rt_handle: &mut RuntimeHandle<SimpleClient, StdState<C, BytesInput, OC, SC>>,
+    rt_handle: &mut RuntimeHandle<NopController, StdState<C, BytesInput, OC, SC>>,
     state: &mut StdState<C, BytesInput, OC, SC>,
 ) -> Result<()>
 where
