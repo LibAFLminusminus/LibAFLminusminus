@@ -1,24 +1,23 @@
 use std::{env, num::NonZeroUsize, path::PathBuf};
 
 use libafl::{
-    Error,
     controllers::{SimpleController, StdDescriptor},
     corpus::{
-        Corpus, InMemoryCorpus, OnDiskCorpus, Scheduler,
         schedulers::{NopScheduler, QueueScheduler},
+        Corpus, InMemoryCorpus, OnDiskCorpus, Scheduler,
     },
     executors::StdExecutor,
     feedbacks::{CrashFeedback, MaxMapFeedback},
     fuzzer::{Fuzzer, StdFuzzer},
     generators::RandPrintablesGenerator,
-    inputs::{BytesInput, bytes::BytesContext},
-    mutators::{HavocScheduledMutator, havoc_mutations},
+    inputs::{bytes::BytesContext, BytesInput},
+    mutators::{havoc_mutations, HavocScheduledMutator},
     non_zero,
-    nop::NopController,
     observers::ConstMapObserver,
-    runtimes::{Runtime, RuntimeHandle, restarting::RestartingRuntime},
+    runtimes::{restarting::RestartingRuntime, Runtime, RuntimeHandle},
     stages::StdMutationalStage,
     state::StdState,
+    Error,
 };
 use libafl_bolts::{current_nanos, nonnull_raw_mut, rands::StdRand, tuples::tuple_list};
 
@@ -27,7 +26,7 @@ use crate::target::SIGNALS;
 mod target;
 
 fn run_fuzzer<C, OC, SC>(
-    rt_handle: &mut RuntimeHandle<NopController, StdState<C, BytesInput, OC, SC>>,
+    rt_handle: &mut RuntimeHandle<SimpleController, StdState<C, BytesInput, OC, SC>>,
     state: &mut StdState<C, BytesInput, OC, SC>,
 ) -> Result<(), Error>
 where
@@ -102,5 +101,5 @@ pub fn main() {
     let descriptor = StdDescriptor::main(current_dir, libafl_bolts::ClientId(0)).unwrap();
     let controller = SimpleController::new(descriptor);
 
-    runtime.run(state, NopController).unwrap()
+    runtime.run(state, controller).unwrap()
 }
