@@ -3,7 +3,12 @@
 #[cfg(feature = "std")]
 use alloc::vec::Vec;
 use alloc::{boxed::Box, string::String};
-use core::{any::type_name, fmt::Debug, marker::PhantomData, time::Duration};
+use core::{
+    any::type_name,
+    fmt::{self, Debug},
+    marker::PhantomData,
+    time::Duration,
+};
 use std::{
     collections::HashMap,
     fs,
@@ -31,16 +36,79 @@ use crate::{
         schedulers::NopScheduler, testcase::TestcaseId,
     },
     dependency::{DependencyResolver, Registrator},
-    monitors::Stats,
     fuzzer::Evaluator,
     generators::Generator,
     inputs::{Input, NopContext, NopInput},
     runtimes::RuntimeHandle,
 };
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Stats {
+    /// How many times the executor ran the harness/target
+    pub(crate) executions: u64,
+    /// At what time the fuzzing started
+    pub(crate) start_time: Duration,
+    /// number of corpus
+    pub(crate) corpus: usize,
+    /// number of objective
+    pub(crate) objective: usize,
+    /// last time smth was found
+    pub(crate) last_found_time: Duration,
+}
+
+impl fmt::Display for Stats {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "[{}] execs: {} ({}/s) | corpus: {} | objectives: {}",
+            humantime::format_duration(Duration::from_secs(
+                (libafl_bolts::current_time() - self.start_time).as_secs()
+            )),
+            self.executions,
+            self.execs_per_sec(),
+            self.corpus,
+            self.objective,
+        )
+    }
+}
+
+impl Stats {
+    fn update_corpus(&mut self, corpus: usize) {
+        self.corpus = corpus;
+    }
+
+    fn update_objective(&mut self, objective: usize) {
+        self.objective = objective;
+    }
+
+    fn execs_per_sec(&self) -> u64 {
+        let secs = self.start_time.as_secs();
+        if secs == 0 { 0 } else { self.executions / secs }
+    }
+}
+
+/// write to json stat file
+pub fn write_stats_json<P: AsRef<Path>>(stats: &Stats, path: &P) -> Result<(), Error> {
+    let file = fs::File::create(path)?;
+    serde_json::to_writer_pretty(file, stats)
+        .map_err(|_| Error::runtime("Failed to dump the stats to a file"));
+    Ok(())
+}
+
+/// read from a file.
+pub fn read_stats_json<P: AsRef<Path>>(path: P) -> Result<Stats, Error> {
+    let file = fs::File::open(path)?;
+    serde_json::from_reader(file)
+        .map_err(|_| Error::runtime("Failed to read the stats from a file"))
+}
+
+pub fn sync_stats<P: AsRef<Path>>(stats: &Stats, workdir: P) {
+    let stats_file = workdir.as_ref().to_path_buf().join("fuzzer_stats");
+    write_stats_json(stats, &stats_file);
+}
+
 pub trait FlatState {
     fn stats(&self) -> &Stats;
-
 
     fn stats_mut(&mut self) -> &mut Stats;
     /// The maximum size of an input

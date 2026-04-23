@@ -1,7 +1,8 @@
 use std::{env, num::NonZeroUsize, path::PathBuf};
-
+use core::time::Duration;
+use libafl_bolts::os::{fork, ForkResult};
 use libafl::{
-    controllers::{SimpleController, StdDescriptor},
+    controllers::{SimpleMaster, SimpleClient, StdDescriptor, MasterController},
     corpus::{
         schedulers::{NopScheduler, QueueScheduler},
         Corpus, InMemoryCorpus, OnDiskCorpus, Scheduler,
@@ -11,6 +12,7 @@ use libafl::{
     fuzzer::{Fuzzer, StdFuzzer},
     generators::RandPrintablesGenerator,
     inputs::{bytes::BytesContext, BytesInput},
+    monitors::{SimpleMonitor, Monitor},
     mutators::{havoc_mutations, HavocScheduledMutator},
     non_zero,
     observers::ConstMapObserver,
@@ -26,7 +28,7 @@ use crate::target::SIGNALS;
 mod target;
 
 fn run_fuzzer<C, OC, SC>(
-    rt_handle: &mut RuntimeHandle<SimpleController, StdState<C, BytesInput, OC, SC>>,
+    rt_handle: &mut RuntimeHandle<SimpleClient, StdState<C, BytesInput, OC, SC>>,
     state: &mut StdState<C, BytesInput, OC, SC>,
 ) -> Result<(), Error>
 where
@@ -98,8 +100,24 @@ pub fn main() {
     let mut runtime = RestartingRuntime::new(run_fuzzer, NonZeroUsize::try_from(1 << 30).unwrap());
 
     let current_dir = env::current_dir().unwrap();
-    let descriptor = StdDescriptor::main(current_dir, libafl_bolts::ClientId(0)).unwrap();
-    let controller = SimpleController::new(descriptor);
 
-    runtime.run(state, controller).unwrap()
+    let mut master = SimpleMaster::new();
+    let client1 = StdDescriptor::new(PathBuf::from(current_dir), 0).unwrap();
+    let controller = master.create_controller(client1).unwrap();
+
+    // shitty launcher
+    match unsafe { fork() } {
+        Ok(ForkResult::Parent(_child)) => {
+            let mut monitor = SimpleMonitor::new(master, Duration::from_secs(1)).unwrap();
+            loop {
+                let _ = monitor.display();
+            }
+        }
+        Ok(ForkResult::Child) => {
+            println!("in child");
+            runtime.run(state, controller).unwrap()
+        }
+        Err(e) => eprintln!("fork failed: {}", e),
+    }
+
 }

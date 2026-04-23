@@ -231,6 +231,7 @@ serde_json = { workspace = true, default-features = false, features = [
   "alloc",
 ], optional = true }
 tide = { version = "0.16.0", optional = true }
+humantime = "2.1"
 tokio = { version = "1.40.0", optional = true, features = [
   "sync",
   "net",
