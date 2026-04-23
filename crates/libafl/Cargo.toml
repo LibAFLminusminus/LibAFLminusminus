@@ -117,20 +117,6 @@ intel_pt = ["std", "dep:libafl_intelpt", "dep:nix"]
 ## Save all the Intel PT raw traces to files, use only for debug
 intel_pt_export_raw = ["intel_pt", "libafl_intelpt/export_raw"]
 
-## Enables the `PrometheusMonitor` which will monitor stats via UDP, for `Grafana` and others.
-prometheus_monitor = [
-  "std",
-  "prometheus-client",
-  "tide",
-  "futures",
-]
-
-## Enables the `StatsdMonitor`.
-statsd_monitor = ["std", "cadence"]
-
-## Enable the fancy TuiMonitor for a termanal UI using crossterm
-tui_monitor = ["ratatui", "crossterm"]
-
 ## Enables `UnicodeClassificationStage` and associated mutators, which allow for mutations which preserve the Unicode property data
 unicode = ["libafl_bolts/alloc", "ahash/std", "serde/rc"]
 
@@ -196,13 +182,10 @@ ahash = { workspace = true } # The hash function already used in hashbrown
 arbitrary-int = { workspace = true }
 backtrace = { workspace = true, optional = true } # Used to get the stacktrace in StacktraceObserver
 bitbybit = { workspace = true }
-cadence = { version = "1.5.0", optional = true } # For the statsd monitor
 const_format = "0.2.33" # used for providing helpful compiler output
 const_panic = { version = "0.2.9", default-features = false } # similarly, for formatting const panic output
-crossterm = { version = "0.29.0", optional = true }
 enumflags2 = { version = "0.7.10", optional = true }
 fastbloom = { workspace = true, optional = true }
-futures = { version = "0.3.30", optional = true }
 hashbrown = { workspace = true, features = [
   "serde",
   "default-hasher",
@@ -221,16 +204,11 @@ nix = { workspace = true, optional = true, features = [
 ] }
 num-traits = { workspace = true, default-features = false }
 postcard = { workspace = true } # no_std compatible serde serialization format
-prometheus-client = { version = "0.24.0", optional = true } # For the prometheus monitor
 pyo3 = { workspace = true, optional = true }
-ratatui = { version = "0.30.0", default-features = false, features = [
-  'crossterm',
-], optional = true } # Commandline rendering, for TUI Monitor
 serde = { workspace = true, features = ["alloc", "derive", "rc"] }
 serde_json = { workspace = true, default-features = false, features = [
   "alloc",
 ], optional = true }
-tide = { version = "0.16.0", optional = true }
 humantime = "2.1"
 tokio = { version = "1.40.0", optional = true, features = [
   "sync",
