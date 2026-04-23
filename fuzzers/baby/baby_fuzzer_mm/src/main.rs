@@ -99,7 +99,6 @@ pub fn main() -> Result<()> {
 
     StdLauncher::builder()?
         .state_builder(state_builder)
-        .task(run_fuzzer)
-        .build()?
+        .build_with_task(run_fuzzer)?
         .launch()
 }

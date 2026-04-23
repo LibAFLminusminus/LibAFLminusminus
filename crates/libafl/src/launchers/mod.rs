@@ -12,13 +12,16 @@ use nix::unistd::{ForkResult, Pid, fork};
 use serde::Serialize;
 use std::vec::Vec;
 
+// TODO: use a proper heuristic to choose correct ram size
+pub const DEFAULT_RAM_SIZE_PER_CLIENT: NonZeroUsize = NonZeroUsize::new(1 << 30).unwrap();
+
 pub struct StdLauncherBuilder<GCT, MT, RT, S, SB> {
     global_controller: GCT,
     monitor: MT,
     runtime: RT,
     cores: Cores,
     state_builder: SB,
-    ram_limit: Option<NonZeroUsize>,
+    ram_limit_per_client: Option<NonZeroUsize>,
     phantom: PhantomData<S>,
 }
 
@@ -87,7 +90,7 @@ impl
             runtime,
             cores,
             state_builder: nop_state_builder,
-            ram_limit: None,
+            ram_limit_per_client: None,
             phantom: PhantomData,
         })
     }
@@ -122,7 +125,7 @@ impl<GCT, MT, RT, S, SB> StdLauncherBuilder<GCT, MT, RT, S, SB> {
             cores: self.cores,
             runtime,
             state_builder: self.state_builder,
-            ram_limit: self.ram_limit,
+            ram_limit_per_client: self.ram_limit_per_client,
             phantom: self.phantom,
         }
     }
@@ -141,7 +144,7 @@ impl<GCT, MT, RT, S, SB> StdLauncherBuilder<GCT, MT, RT, S, SB> {
             cores: self.cores,
             runtime: self.runtime,
             state_builder: state_builder,
-            ram_limit: self.ram_limit,
+            ram_limit_per_client: self.ram_limit_per_client,
             phantom: PhantomData::<S2>,
         }
     }
@@ -149,27 +152,34 @@ impl<GCT, MT, RT, S, SB> StdLauncherBuilder<GCT, MT, RT, S, SB> {
 
 impl<GCT, MT, RT, S, SB> StdLauncherBuilder<GCT, MT, RT, S, SB>
 where
+    GCT: GlobalController,
     S: Serialize,
+    SB: FnMut(&GCT::Controller) -> Result<S>,
 {
-    /// Set the task, and use the standard runtime
-    pub fn task<CT, T>(self, task: T) -> StdLauncherBuilder<GCT, MT, StdRuntime<S, T>, S, SB>
+    pub fn build_with_task<T>(
+        self,
+        task: T,
+    ) -> Result<StdLauncher<GCT::Controller, GCT, MT, StdRuntime<S, T>, S>>
     where
         // this bound is needed to help rust link the state output by the state builder and
         // the one used by the task. otherwise, the compiler needs explicit typing.
-        T: FnMut(&mut RuntimeHandle<CT, S>, &mut S) -> Result<()>,
+        T: FnMut(&mut RuntimeHandle<GCT::Controller, S>, &mut S) -> Result<()> + Clone,
     {
-        StdLauncherBuilder {
+        let ram_limit = self
+            .ram_limit_per_client
+            .unwrap_or_else(|| DEFAULT_RAM_SIZE_PER_CLIENT);
+
+        let builder = StdLauncherBuilder {
             global_controller: self.global_controller,
             monitor: self.monitor,
             cores: self.cores,
-            runtime: StdRuntime::new(
-                task,
-                NonZeroUsize::new(1 << 30).expect("RAM limit is invalid"),
-            ),
+            runtime: StdRuntime::new(task, ram_limit),
             state_builder: self.state_builder,
-            ram_limit: self.ram_limit,
+            ram_limit_per_client: self.ram_limit_per_client,
             phantom: self.phantom,
-        }
+        };
+
+        builder.build()
     }
 }
 
