@@ -1,9 +1,9 @@
 use crate::{
-    Controller, Error, GlobalController, Result, SimpleController, SimpleGlobalController,
+    Controller, Error, GlobalController, Result,
     inputs::NopInput,
     monitors::SimpleMonitor,
     nop::{NopController, NopDescriptor, NopGlobalController},
-    runtimes::{Runtime, RuntimeHandle, StdRuntime, nop::NopRuntime, simple::SimpleRuntime},
+    runtimes::{Runtime, RuntimeHandle, StdRuntime, nop::NopRuntime},
     state::NopState,
 };
 use core::{borrow::Borrow, hash::Hash, marker::PhantomData, num::NonZeroUsize};
@@ -65,10 +65,6 @@ impl<CT, RT, S> Instance<CT, RT, S> {
     }
 }
 
-fn nop_state_builder() -> Result<NopState<NopInput>> {
-    Ok(NopState::new())
-}
-
 impl
     StdLauncher<
         NopController,
@@ -98,7 +94,7 @@ impl
             monitor,
             runtime,
             cores,
-            state_builder: nop_state_builder,
+            state_builder: || Ok(NopState::new()),
             max_state_size_per_client: None,
             phantom: PhantomData,
         })
@@ -304,6 +300,8 @@ where
                 Ok(InstanceRepr::new(child, controller.descriptor().clone()))
             }
             ForkResult::Child => {
+                self.core.set_affinity()?;
+
                 // start the child runtime
                 self.runtime.run(state, controller)?;
 
@@ -356,16 +354,22 @@ where
         while !self.active_instances.is_empty() {
             match wait() {
                 Ok(WaitStatus::Exited(pid, exit_code)) => {
-                    let instance_repr = self.active_instances.take(&pid).expect(format!(
-                        "Removed a PID ({pid}) not in the active PID list. This is a fuzzer bug.",
-                    ).as_str());
+                    let instance_repr = self
+                        .active_instances
+                        .take(&pid)
+                        .unwrap_or_else(||
+                            panic!("Removed a PID ({pid}) not in the active PID list. This is a fuzzer bug.")
+                        );
 
                     global_controller.on_exit(&instance_repr.descriptor, exit_code)?;
                 }
                 Ok(WaitStatus::Signaled(pid, signal, _)) => {
-                    let instance_repr = self.active_instances.take(&pid).expect(format!(
-                        "Removed a PID ({pid}) not in the active PID list. This is a fuzzer bug.",
-                    ).as_str());
+                    let instance_repr = self
+                        .active_instances
+                        .take(&pid)
+                        .unwrap_or_else(||
+                            panic!("Removed a PID ({pid}) not in the active PID list. This is a fuzzer bug.")
+                        );
 
                     global_controller.on_termination(&instance_repr.descriptor, signal)?;
                 }
