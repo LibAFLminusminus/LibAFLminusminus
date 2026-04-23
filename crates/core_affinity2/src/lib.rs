@@ -82,24 +82,21 @@ extern crate std;
 #[doc(hidden)]
 pub extern crate alloc;
 
-use alloc::{
-    string::{String, ToString},
-    vec::Vec,
-};
+use alloc::vec::Vec;
 
-use libafl_core::Error;
+use libafl_core::{Error, Result};
 use serde::{Deserialize, Serialize};
 
 /// This function tries to retrieve information
 /// on all the "cores" active on this system.
-pub fn get_core_ids() -> Result<Vec<CoreId>, Error> {
+pub fn get_core_ids() -> Result<Vec<CoreId>> {
     get_core_ids_helper()
 }
 
 /// Checks the current process/thread affinity.
 /// Returns the [`CoreId`] that this process is allowed to run on.
 /// Returns `Ok(None)` if no specific affinity is set (i.e., allowed to run on all cores).
-pub fn get_affinity() -> Result<Option<CoreId>, Error> {
+pub fn get_affinity() -> Result<Option<CoreId>> {
     get_affinity_helper()
 }
 
@@ -117,7 +114,7 @@ impl CoreId {
     /// Note: This will *_not_* fail if the target platform does not support core affinity.
     /// (only on error cases for supported platforms)
     /// If you really need to fail for unsupported platforms (like `aarch64` on `macOS`), use [`CoreId::set_affinity_forced`] instead.
-    pub fn set_affinity(&self) -> Result<(), Error> {
+    pub fn set_affinity(&self) -> Result<()> {
         match set_for_current_helper(*self) {
             Ok(()) | Err(Error::Unsupported(_, _)) => Ok(()),
             Err(e) => Err(e),
@@ -125,7 +122,7 @@ impl CoreId {
     }
 
     /// Set the affinity of the current process to this [`CoreId`]
-    pub fn set_affinity_forced(&self) -> Result<(), Error> {
+    pub fn set_affinity_forced(&self) -> Result<()> {
         set_for_current_helper(*self)
     }
 }
@@ -145,21 +142,36 @@ impl From<CoreId> for usize {
 /// A list of [`CoreId`] to use for fuzzing
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub struct Cores {
-    /// The original commandline used during parsing
-    pub cmdline: String,
-
     /// Vec of core ids
     pub ids: Vec<CoreId>,
 }
 
 impl Cores {
+    /// Create a list of [`CoreId`]
+    pub fn new(ids: Vec<CoreId>) -> Self {
+        Self { ids }
+    }
+
     /// Pick all cores
-    pub fn all() -> Result<Self, Error> {
-        Self::from_cmdline("all")
+    pub fn all() -> Result<Self> {
+        let mut cores: Vec<CoreId> = vec![];
+
+        // TODO: is this really correct? Core ID != core number?
+        let num_cores = get_core_ids()?.len();
+        for x in 0..num_cores {
+            cores.push(x.into());
+        }
+
+        Ok(Self { ids: cores })
+    }
+
+    /// Pick no core
+    pub fn none() -> Result<Self> {
+        Ok(Self { ids: vec![] })
     }
 
     /// Trims the number of cores to the given value, dropping additional cores
-    pub fn trim(&mut self, count: usize) -> Result<(), Error> {
+    pub fn trim(&mut self, count: usize) -> Result<()> {
         if count > self.ids.len() {
             return Err(Error::illegal_argument(format!(
                 "Core trim value {count} is larger than number of chosen cores of {}",
@@ -175,18 +187,15 @@ impl Cores {
     /// Returns a Vec of CPU IDs.
     /// * `./fuzzer --cores 1,2-4,6`: clients run in cores `1,2,3,4,6`
     /// * `./fuzzer --cores all`: one client runs on each available core
-    pub fn from_cmdline(args: &str) -> Result<Self, Error> {
-        let mut cores: Vec<CoreId> = vec![];
-
+    pub fn from_cmdline(args: &str) -> Result<Self> {
         // ./fuzzer --cores all -> one client runs in each available core
         if args == "all" {
-            // TODO: is this really correct? Core ID != core number?
-            let num_cores = get_core_ids()?.len();
-            for x in 0..num_cores {
-                cores.push(x.into());
-            }
+            Self::all()
+        } else if args == "none" {
+            Self::none()
         } else {
             let core_args: Vec<&str> = args.split(',').collect();
+            let mut cores: Vec<CoreId> = vec![];
 
             // ./fuzzer --cores 1,2-4,6 -> clients run in cores 1,2,3,4,6
             for csv in core_args {
@@ -199,18 +208,9 @@ impl Cores {
                     }
                 }
             }
-        }
 
-        if cores.is_empty() {
-            return Err(Error::illegal_argument(format!(
-                "No cores specified! parsed: {args}"
-            )));
+            Ok(Self::new(cores))
         }
-
-        Ok(Self {
-            cmdline: args.to_string(),
-            ids: cores,
-        })
     }
 
     /// Checks if this [`Cores`] instance contains a given ``core_id``
@@ -234,13 +234,8 @@ impl Cores {
 
 impl From<&[usize]> for Cores {
     fn from(cores: &[usize]) -> Self {
-        let cmdline = cores
-            .iter()
-            .map(ToString::to_string)
-            .collect::<Vec<String>>()
-            .join(",");
         let ids = cores.iter().map(|x| (*x).into()).collect();
-        Self { cmdline, ids }
+        Self { ids }
     }
 }
 
@@ -252,7 +247,7 @@ impl From<Vec<usize>> for Cores {
 
 impl TryFrom<&str> for Cores {
     type Error = Error;
-    fn try_from(cores: &str) -> Result<Self, Self::Error> {
+    fn try_from(cores: &str) -> Result<Self> {
         Self::from_cmdline(cores)
     }
 }
@@ -266,7 +261,7 @@ impl TryFrom<&str> for Cores {
     target_os = "freebsd"
 ))]
 #[inline]
-fn get_core_ids_helper() -> Result<Vec<CoreId>, Error> {
+fn get_core_ids_helper() -> Result<Vec<CoreId>> {
     unix::get_core_ids()
 }
 
@@ -277,7 +272,7 @@ fn get_core_ids_helper() -> Result<Vec<CoreId>, Error> {
     target_os = "freebsd"
 ))]
 #[inline]
-fn set_for_current_helper(core_id: CoreId) -> Result<(), Error> {
+fn set_for_current_helper(core_id: CoreId) -> Result<()> {
     unix::set_for_current(core_id)
 }
 
@@ -294,7 +289,7 @@ fn set_for_current_helper(core_id: CoreId) -> Result<(), Error> {
     target_os = "freebsd"
 ))]
 #[inline]
-fn get_affinity_helper() -> Result<Option<CoreId>, Error> {
+fn get_affinity_helper() -> Result<Option<CoreId>> {
     unix::get_affinity()
 }
 
@@ -319,12 +314,12 @@ mod unix {
     #[cfg(target_os = "dragonfly")]
     const CPU_SETSIZE: libc::c_int = 256;
 
-    use libafl_core::Error;
+    use libafl_core::{Error, Result};
 
     use super::CoreId;
 
     #[allow(trivial_numeric_casts)]
-    pub fn get_core_ids() -> Result<Vec<CoreId>, Error> {
+    pub fn get_core_ids() -> Result<Vec<CoreId>> {
         let full_set = get_affinity_mask()?;
         let mut core_ids: Vec<CoreId> = Vec::new();
 
@@ -337,7 +332,7 @@ mod unix {
         Ok(core_ids)
     }
 
-    pub fn set_for_current(core_id: CoreId) -> Result<(), Error> {
+    pub fn set_for_current(core_id: CoreId) -> Result<()> {
         // Turn `core_id` into a `libc::cpu_set_t` with only
         // one core active.
         let mut set = new_cpu_set();
@@ -360,7 +355,7 @@ mod unix {
         }
     }
 
-    fn get_affinity_mask() -> Result<cpu_set_t, Error> {
+    fn get_affinity_mask() -> Result<cpu_set_t> {
         let mut set = new_cpu_set();
 
         // Try to get current core affinity mask.
@@ -388,7 +383,7 @@ mod unix {
     }
 
     #[cfg(any(target_os = "linux", target_os = "android"))]
-    pub fn get_affinity() -> Result<Option<CoreId>, Error> {
+    pub fn get_affinity() -> Result<Option<CoreId>> {
         let status = std::fs::read_to_string("/proc/self/status").unwrap();
         let mut affinity = None;
         for line in status.lines() {
@@ -436,7 +431,7 @@ mod unix {
     }
 
     #[cfg(any(target_os = "netbsd", target_os = "freebsd", target_os = "dragonfly"))]
-    pub fn get_affinity() -> Result<Option<CoreId>, Error> {
+    pub fn get_affinity() -> Result<Option<CoreId>> {
         let mask = get_affinity_mask()?;
 
         let mut count = 0;
@@ -507,21 +502,21 @@ mod unix {
 #[cfg(target_os = "haiku")]
 #[expect(clippy::unnecessary_wraps)]
 #[inline]
-fn get_core_ids_helper() -> Result<Vec<CoreId>, Error> {
+fn get_core_ids_helper() -> Result<Vec<CoreId>> {
     haiku::get_core_ids()
 }
 
 #[cfg(target_os = "haiku")]
 #[expect(clippy::unnecessary_wraps)]
 #[inline]
-fn set_for_current_helper(_core_id: CoreId) -> Result<(), Error> {
+fn set_for_current_helper(_core_id: CoreId) -> Result<()> {
     Ok(())
 }
 
 #[cfg(target_os = "haiku")]
 #[expect(clippy::unnecessary_wraps)]
 #[inline]
-fn get_affinity_helper() -> Result<Option<CoreId>, Error> {
+fn get_affinity_helper() -> Result<Option<CoreId>> {
     Err(Error::not_implemented(
         "Target OS \"Haiku\" not supported for get_affinity",
     ))
@@ -535,7 +530,7 @@ mod haiku {
     use crate::{CoreId, Error};
 
     #[expect(clippy::unnecessary_wraps)]
-    pub fn get_core_ids() -> Result<Vec<CoreId>, Error> {
+    pub fn get_core_ids() -> Result<Vec<CoreId>> {
         Ok((0..(usize::from(available_parallelism()?)))
             .map(CoreId)
             .collect::<Vec<_>>())
@@ -546,19 +541,19 @@ mod haiku {
 
 #[cfg(target_os = "windows")]
 #[inline]
-fn get_core_ids_helper() -> Result<Vec<CoreId>, Error> {
+fn get_core_ids_helper() -> Result<Vec<CoreId>> {
     windows::get_core_ids()
 }
 
 #[cfg(target_os = "windows")]
 #[inline]
-fn set_for_current_helper(core_id: CoreId) -> Result<(), Error> {
+fn set_for_current_helper(core_id: CoreId) -> Result<()> {
     windows::set_for_current(core_id)
 }
 
 #[cfg(target_os = "windows")]
 #[inline]
-fn get_affinity_helper() -> Result<Option<CoreId>, Error> {
+fn get_affinity_helper() -> Result<Option<CoreId>> {
     windows::get_affinity()
 }
 
@@ -573,7 +568,7 @@ mod windows {
 
     use crate::{CoreId, Error};
 
-    pub fn get_core_ids() -> Result<Vec<CoreId>, Error> {
+    pub fn get_core_ids() -> Result<Vec<CoreId>> {
         let mut core_ids: Vec<CoreId> = Vec::new();
         match get_num_logical_cpus_ex_windows() {
             Some(total_cores) => {
@@ -586,7 +581,7 @@ mod windows {
         }
     }
 
-    pub fn set_for_current(id: CoreId) -> Result<(), Error> {
+    pub fn set_for_current(id: CoreId) -> Result<()> {
         let id: usize = id.into();
         let mut cpu_group = 0;
         let mut cpu_id = id;
@@ -732,7 +727,7 @@ mod windows {
         Some(n_logical_procs)
     }
 
-    pub fn get_affinity() -> Result<Option<CoreId>, Error> {
+    pub fn get_affinity() -> Result<Option<CoreId>> {
         use windows::Win32::System::Threading::GetThreadGroupAffinity;
 
         unsafe {
@@ -768,19 +763,19 @@ mod windows {
 
 #[cfg(target_vendor = "apple")]
 #[inline]
-fn get_core_ids_helper() -> Result<Vec<CoreId>, Error> {
+fn get_core_ids_helper() -> Result<Vec<CoreId>> {
     apple::get_core_ids()
 }
 
 #[cfg(target_vendor = "apple")]
 #[inline]
-fn set_for_current_helper(core_id: CoreId) -> Result<(), Error> {
+fn set_for_current_helper(core_id: CoreId) -> Result<()> {
     apple::set_for_current(core_id)
 }
 
 #[cfg(target_vendor = "apple")]
 #[inline]
-fn get_affinity_helper() -> Result<Option<CoreId>, Error> {
+fn get_affinity_helper() -> Result<Option<CoreId>> {
     apple::get_affinity()
 }
 
@@ -818,14 +813,14 @@ mod apple {
         ) -> kern_return_t;
     }
 
-    pub fn get_core_ids() -> Result<Vec<CoreId>, Error> {
+    pub fn get_core_ids() -> Result<Vec<CoreId>> {
         Ok((0..(usize::from(available_parallelism()?)))
             .map(CoreId)
             .collect::<Vec<_>>())
     }
 
     #[cfg(target_arch = "x86_64")]
-    pub fn set_for_current(core_id: CoreId) -> Result<(), Error> {
+    pub fn set_for_current(core_id: CoreId) -> Result<()> {
         let mut info = thread_affinity_policy_data_t {
             affinity_tag: core_id.0.try_into().unwrap(),
         };
@@ -851,7 +846,7 @@ mod apple {
 
     #[cfg(target_arch = "aarch64")]
     #[expect(clippy::unnecessary_wraps)]
-    pub fn set_for_current(_core_id: CoreId) -> Result<(), Error> {
+    pub fn set_for_current(_core_id: CoreId) -> Result<()> {
         // This is the best we can do, unlike on intel architecture
         // the system does not allow to pin a process/thread to specific cpu.
         // We just tell the system that we want performance.
@@ -867,7 +862,7 @@ mod apple {
     }
 
     #[allow(clippy::unnecessary_wraps)]
-    pub fn get_affinity() -> Result<Option<CoreId>, Error> {
+    pub fn get_affinity() -> Result<Option<CoreId>> {
         #[cfg(target_arch = "x86_64")]
         {
             let mut info = thread_affinity_policy_data_t { affinity_tag: 0 };
@@ -911,19 +906,19 @@ mod apple {
 
 #[cfg(target_os = "netbsd")]
 #[inline]
-fn get_core_ids_helper() -> Result<Vec<CoreId>, Error> {
+fn get_core_ids_helper() -> Result<Vec<CoreId>> {
     netbsd::get_core_ids()
 }
 
 #[cfg(target_os = "netbsd")]
 #[inline]
-fn set_for_current_helper(core_id: CoreId) -> Result<(), Error> {
+fn set_for_current_helper(core_id: CoreId) -> Result<()> {
     netbsd::set_for_current(core_id)
 }
 
 #[cfg(target_os = "netbsd")]
 #[inline]
-fn get_affinity_helper() -> Result<Option<CoreId>, Error> {
+fn get_affinity_helper() -> Result<Option<CoreId>> {
     netbsd::get_affinity()
 }
 
@@ -940,13 +935,13 @@ mod netbsd {
 
     use super::CoreId;
 
-    pub fn get_core_ids() -> Result<Vec<CoreId>, Error> {
+    pub fn get_core_ids() -> Result<Vec<CoreId>> {
         Ok((0..(usize::from(available_parallelism()?)))
             .map(CoreId)
             .collect::<Vec<_>>())
     }
 
-    pub fn set_for_current(core_id: CoreId) -> Result<(), Error> {
+    pub fn set_for_current(core_id: CoreId) -> Result<()> {
         let set = new_cpuset();
 
         unsafe { _cpuset_set(core_id.0 as u64, set) };
@@ -968,7 +963,7 @@ mod netbsd {
         }
     }
 
-    pub fn get_affinity() -> Result<Option<CoreId>, Error> {
+    pub fn get_affinity() -> Result<Option<CoreId>> {
         use libc::{_cpuset_isset, _cpuset_size, pthread_getaffinity_np, pthread_self};
         let set = new_cpuset();
         unsafe {
@@ -1012,20 +1007,20 @@ mod netbsd {
 
 #[cfg(target_os = "openbsd")]
 #[inline]
-fn get_core_ids_helper() -> Result<Vec<CoreId>, Error> {
+fn get_core_ids_helper() -> Result<Vec<CoreId>> {
     openbsd::get_core_ids()
 }
 
 #[cfg(target_os = "openbsd")]
 #[inline]
-fn get_affinity_helper() -> Result<Option<CoreId>, Error> {
+fn get_affinity_helper() -> Result<Option<CoreId>> {
     openbsd::get_affinity()
 }
 
 #[cfg(target_os = "openbsd")]
 #[expect(clippy::unnecessary_wraps)]
 #[inline]
-fn set_for_current_helper(core_id: CoreId) -> Result<(), Error> {
+fn set_for_current_helper(core_id: CoreId) -> Result<()> {
     openbsd::set_for_current(core_id)
 }
 
@@ -1038,19 +1033,19 @@ mod openbsd {
 
     use super::CoreId;
 
-    pub fn get_core_ids() -> Result<Vec<CoreId>, Error> {
+    pub fn get_core_ids() -> Result<Vec<CoreId>> {
         Ok((0..(usize::from(available_parallelism()?)))
             .map(CoreId)
             .collect::<Vec<_>>())
     }
 
-    pub fn set_for_current(_core_id: CoreId) -> Result<(), Error> {
+    pub fn set_for_current(_core_id: CoreId) -> Result<()> {
         Err(Error::unsupported(
             "OpenBSD affinity not supported yet (missing libc bindings)",
         ))
     }
 
-    pub fn get_affinity() -> Result<Option<CoreId>, Error> {
+    pub fn get_affinity() -> Result<Option<CoreId>> {
         Err(Error::unsupported(
             "OpenBSD affinity not supported yet (missing libc bindings)",
         ))
@@ -1059,19 +1054,19 @@ mod openbsd {
 
 #[cfg(any(target_os = "solaris", target_os = "illumos"))]
 #[inline]
-fn get_core_ids_helper() -> Result<Vec<CoreId>, Error> {
+fn get_core_ids_helper() -> Result<Vec<CoreId>> {
     solaris::get_core_ids()
 }
 
 #[cfg(any(target_os = "solaris", target_os = "illumos"))]
 #[inline]
-fn set_for_current_helper(core_id: CoreId) -> Result<(), Error> {
+fn set_for_current_helper(core_id: CoreId) -> Result<()> {
     solaris::set_for_current(core_id)
 }
 
 #[cfg(any(target_os = "solaris", target_os = "illumos"))]
 #[inline]
-fn get_affinity_helper() -> Result<Option<CoreId>, Error> {
+fn get_affinity_helper() -> Result<Option<CoreId>> {
     solaris::get_affinity()
 }
 
@@ -1085,13 +1080,13 @@ mod solaris {
     use super::CoreId;
 
     #[expect(clippy::unnecessary_wraps)]
-    pub fn get_core_ids() -> Result<Vec<CoreId>, Error> {
+    pub fn get_core_ids() -> Result<Vec<CoreId>> {
         Ok((0..(usize::from(available_parallelism()?)))
             .map(CoreId)
             .collect::<Vec<_>>())
     }
 
-    pub fn set_for_current(core_id: CoreId) -> Result<(), Error> {
+    pub fn set_for_current(core_id: CoreId) -> Result<()> {
         let result = unsafe {
             libc::processor_bind(
                 libc::P_PID,
@@ -1107,7 +1102,7 @@ mod solaris {
         }
     }
 
-    pub fn get_affinity() -> Result<Option<CoreId>, Error> {
+    pub fn get_affinity() -> Result<Option<CoreId>> {
         // Solaris/Illumos processor_bind query
         // processor_bind(P_LWPID, P_MYID, PBIND_QUERY, &binding)
         // PBIND_QUERY is -2. PBIND_NONE is -1.
