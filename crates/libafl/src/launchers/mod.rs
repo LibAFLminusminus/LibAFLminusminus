@@ -1,24 +1,67 @@
+use libafl_bolts::core_affinity::CoreId;
 use libafl_core::Error;
+use nix::unistd::Pid;
+use std::vec::Vec;
 
-pub struct StdLauncherBuilder<MCT, SB> {
-    global_controller: MCT,
-    state_builder: SB,
-}
+use crate::{
+    SimpleGlobalController,
+    monitors::SimpleMonitor,
+    runtimes::{nop::NopRuntime, simple::SimpleRuntime},
+};
 
-pub struct StdLauncher<MCT, RT> {
-    global_controller: MCT,
+pub struct StdLauncherBuilder<GCT, MT, RT> {
+    global_controller: GCT,
+    monitor: MT,
     runtime: RT,
 }
 
-impl<MCT, RT> StdLauncher<MCT, RT> {
-    pub fn new(main_controller: MCT, runtime: RT) -> Self {
+pub struct Instance<RT> {
+    core: CoreId,
+    pid: Option<Pid>,
+    runtime: RT,
+}
+
+pub struct StdLauncher<GCT, MT, RT> {
+    global_controller: GCT,
+    monitor: MT,
+    instances: Vec<Instance<RT>>,
+}
+
+impl StdLauncher<SimpleGlobalController, SimpleMonitor, NopRuntime> {
+    pub fn builder()
+    -> Result<StdLauncherBuilder<SimpleGlobalController, SimpleMonitor, NopRuntime>, Error> {
+        let global_controller = SimpleGlobalController::new();
+        let monitor = SimpleMonitor::new(&global_controller)?;
+        let runtime = NopRuntime;
+
+        Ok(StdLauncherBuilder {
+            global_controller,
+            monitor,
+            runtime: NopRuntime,
+        })
+    }
+}
+
+impl<GCT, MT, RT> StdLauncher<GCT, MT, RT> {
+    pub fn new(global_controller: GCT, monitor: MT, instances: Vec<Instance<RT>>) -> Self {
         Self {
-            global_controller: main_controller,
-            runtime,
+            global_controller,
+            monitor,
+            instances,
         }
     }
 
-    pub fn start(self) -> Result<(), Error> {
+    pub fn launch(self) -> Result<(), Error> {
         Ok(())
+    }
+}
+
+impl<GCT, MT, RT> StdLauncherBuilder<GCT, MT, RT> {
+    pub fn runtime<RT2>(self, runtime: RT2) -> StdLauncherBuilder<GCT, MT, RT2> {
+        StdLauncherBuilder {
+            global_controller: self.global_controller,
+            monitor: self.monitor,
+            runtime,
+        }
     }
 }
