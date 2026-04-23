@@ -1,27 +1,32 @@
-use std::{env, num::NonZeroUsize, path::PathBuf};
 use core::time::Duration;
-use libafl_bolts::os::{fork, ForkResult};
+use std::{env, num::NonZeroUsize, path::PathBuf};
+
 use libafl::{
-    controllers::{SimpleMaster, SimpleClient, StdDescriptor, MasterController},
+    Error,
+    controllers::{SimpleClient, StdDescriptor},
     corpus::{
-        schedulers::{NopScheduler, QueueScheduler},
         Corpus, InMemoryCorpus, OnDiskCorpus, Scheduler,
+        schedulers::{NopScheduler, QueueScheduler},
     },
     executors::StdExecutor,
     feedbacks::{CrashFeedback, MaxMapFeedback},
     fuzzer::{Fuzzer, StdFuzzer},
     generators::RandPrintablesGenerator,
-    inputs::{bytes::BytesContext, BytesInput},
-    monitors::{SimpleMonitor, Monitor},
-    mutators::{havoc_mutations, HavocScheduledMutator},
+    inputs::{BytesInput, bytes::BytesContext},
+    monitors::{Monitor, SimpleMonitor},
+    mutators::{HavocScheduledMutator, havoc_mutations},
     non_zero,
     observers::ConstMapObserver,
-    runtimes::{restarting::RestartingRuntime, Runtime, RuntimeHandle},
+    runtimes::{Runtime, RuntimeHandle, restarting::RestartingRuntime},
     stages::StdMutationalStage,
     state::StdState,
-    Error,
 };
-use libafl_bolts::{current_nanos, nonnull_raw_mut, rands::StdRand, tuples::tuple_list};
+use libafl_bolts::{
+    current_nanos, nonnull_raw_mut,
+    os::{ForkResult, fork},
+    rands::StdRand,
+    tuples::tuple_list,
+};
 
 use crate::target::SIGNALS;
 
@@ -119,5 +124,4 @@ pub fn main() {
         }
         Err(e) => eprintln!("fork failed: {}", e),
     }
-
 }

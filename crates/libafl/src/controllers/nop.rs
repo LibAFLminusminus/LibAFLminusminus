@@ -1,15 +1,15 @@
-use crate::{Controller, MasterController};
+use crate::{Controller, GlobalController};
 
 pub struct NopMainController;
 pub struct NopController;
 pub struct NopDescriptor;
 
-impl MasterController for NopMainController {
+impl GlobalController for NopMainController {
     type Client = NopController;
 
     fn create_controller(
         &mut self,
-        _descriptor: <<Self as MasterController>::Client as Controller>::Descriptor,
+        _descriptor: <<Self as GlobalController>::Client as Controller>::Descriptor,
     ) -> Result<Self::Client, libafl_core::Error> {
         Ok(NopController)
     }
@@ -17,7 +17,6 @@ impl MasterController for NopMainController {
     fn clients(&self) -> &[Self::Client] {
         unimplemented!("nop controller has no clients");
     }
-
 }
 
 impl Controller for NopController {

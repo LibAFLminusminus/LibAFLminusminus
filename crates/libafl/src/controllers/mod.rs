@@ -1,15 +1,15 @@
 use alloc::vec::Vec;
 use std::path::{Path, PathBuf};
 
+use hashbrown::HashMap;
 use libafl_bolts::core_affinity::CoreId;
 use libafl_core::{ClientId, Error};
 use serde::{Deserialize, Serialize};
-use hashbrown::HashMap;
 
 pub mod aflpp;
 pub mod nop;
 
-pub trait MasterController {
+pub trait GlobalController {
     type Client: Controller;
 
     fn create_controller(
@@ -21,11 +21,11 @@ pub trait MasterController {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SimpleMaster {
+pub struct SimpleGlobalController {
     clients: Vec<SimpleClient>,
 }
 
-impl SimpleMaster {
+impl SimpleGlobalController {
     pub fn new() -> Self {
         Self {
             clients: Vec::new(),
@@ -33,13 +33,10 @@ impl SimpleMaster {
     }
 }
 
-impl MasterController for SimpleMaster {
+impl GlobalController for SimpleGlobalController {
     type Client = SimpleClient;
 
-    fn create_controller(
-            &mut self,
-            descriptor: StdDescriptor,
-        ) -> Result<SimpleClient, Error> {
+    fn create_controller(&mut self, descriptor: StdDescriptor) -> Result<SimpleClient, Error> {
         let cl = SimpleClient::new(descriptor);
         self.clients.push(cl.clone());
         Ok(cl)
@@ -52,8 +49,10 @@ impl MasterController for SimpleMaster {
 
 pub trait Controller {
     type Descriptor;
+
     /// the client id
     fn id(&self) -> ClientId;
+
     /// returns the descriptor describing each fuzzer instances
     fn descriptor(&self) -> &Self::Descriptor;
 

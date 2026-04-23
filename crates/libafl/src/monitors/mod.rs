@@ -11,7 +11,7 @@ use nix::sys::ptrace::interrupt;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    Controller, MasterController,
+    Controller, GlobalController,
     fuzzer::HasObjective,
     runtimes::RuntimeHandle,
     state::{FlatState, read_stats_json},
@@ -33,7 +33,7 @@ pub struct SimpleMonitor {
 }
 
 impl SimpleMonitor {
-    pub fn new<CT: MasterController>(controller: CT, intervals: Duration) -> Result<Self, Error> {
+    pub fn new<CT: GlobalController>(controller: CT, intervals: Duration) -> Result<Self, Error> {
         let paths: Vec<PathBuf> = controller
             .clients()
             .iter()
