@@ -25,23 +25,31 @@ pub struct StdLauncherBuilder<GCT, MT, RT, S, SB> {
 pub struct Instance<CT, RT, S> {
     runtime: RT,
     state: Option<S>,
+    controller: Option<CT>,
     core: CoreId,
-    phantom: PhantomData<CT>,
+}
+
+// for now, this is unix-specific.
+// it should be per supported os.
+// keep os-specific things there as much as possible.
+pub struct Instances<CT, RT, S> {
+    instances: Vec<Instance<CT, RT, S>>,
+    active_pids: Vec<Pid>,
 }
 
 pub struct StdLauncher<CT, GCT, MT, RT, S> {
     global_controller: GCT,
     monitor: MT,
-    instances: Vec<Instance<CT, RT, S>>,
+    instances: Instances<CT, RT, S>,
 }
 
 impl<CT, RT, S> Instance<CT, RT, S> {
-    pub fn new(runtime: RT, state: S, core: CoreId) -> Self {
+    pub fn new(runtime: RT, state: S, controller: CT, core: CoreId) -> Self {
         Self {
             runtime,
             state: Some(state),
+            controller: Some(controller),
             core,
-            phantom: PhantomData,
         }
     }
 }
@@ -86,7 +94,7 @@ impl
 }
 
 impl<CT, GCT, MT, RT, S> StdLauncher<CT, GCT, MT, RT, S> {
-    pub fn new(global_controller: GCT, monitor: MT, instances: Vec<Instance<CT, RT, S>>) -> Self {
+    pub fn new(global_controller: GCT, monitor: MT, instances: Instances<CT, RT, S>) -> Self {
         Self {
             global_controller,
             monitor,
@@ -102,12 +110,6 @@ where
     RT: Runtime<CT, S> + 'static,
 {
     pub fn launch(mut self) -> Result<()> {
-        for instance in &mut self.instances {
-            unsafe {
-                instance.spawn(&mut self.global_controller)?;
-            }
-        }
-
         Ok(())
     }
 }
@@ -130,7 +132,8 @@ impl<GCT, MT, RT, S, SB> StdLauncherBuilder<GCT, MT, RT, S, SB> {
         state_builder: SB2,
     ) -> StdLauncherBuilder<GCT, MT, RT, S2, SB2>
     where
-        SB2: FnMut() -> Result<S2>,
+        GCT: GlobalController,
+        SB2: FnMut(&GCT::Controller) -> Result<S2>,
     {
         StdLauncherBuilder {
             global_controller: self.global_controller,
@@ -174,7 +177,7 @@ impl<GCT, MT, RT, S, SB> StdLauncherBuilder<GCT, MT, RT, S, SB>
 where
     GCT: GlobalController,
     RT: Clone,
-    SB: FnMut() -> Result<S>,
+    SB: FnMut(&GCT::Controller) -> Result<S>,
 {
     pub fn build(mut self) -> Result<StdLauncher<GCT::Controller, GCT, MT, RT, S>> {
         if self.cores.is_empty() {
@@ -183,13 +186,16 @@ where
             )));
         }
 
-        let mut instances: Vec<Instance<GCT::Controller, RT, S>> = Vec::new();
+        let mut instances: Instances<GCT::Controller, RT, S> = Instances::new();
 
         // create an instance per core, ready to run.
         for core in self.cores {
-            let state: S = (self.state_builder)()?;
+            // create the state for the
+            let controller = self.global_controller.create_controller()?;
 
-            instances.push(Instance::new(self.runtime.clone(), state, core));
+            let state: S = (self.state_builder)(&controller)?;
+
+            instances.add_instance(Instance::new(self.runtime.clone(), state, controller, core));
         }
 
         Ok(StdLauncher::new(
@@ -216,12 +222,17 @@ where
         match unsafe { fork()? } {
             ForkResult::Parent { child } => Ok(child),
             ForkResult::Child => {
-                let controller = global_controller.create_controller()?;
                 let state = self
                     .state
                     .take()
-                    .expect("State is not in the instance, this is a fuzzer bug.");
+                    .expect("State is not in the instance. This is a fuzzer bug.");
 
+                let controller = self
+                    .controller
+                    .take()
+                    .expect("Controller is not in the instance. This is a fuzzer bug.");
+
+                // start the child runtime
                 self.runtime.run(state, controller)?;
 
                 // TODO: what should we do there in case it happens?
@@ -229,5 +240,37 @@ where
                 panic!("The runtime finished but did not exit cleanly.");
             }
         }
+    }
+}
+
+impl<CT, RT, S> Instances<CT, RT, S> {
+    pub fn new() -> Self {
+        Self {
+            instances: Vec::new(),
+            active_pids: Vec::new(),
+        }
+    }
+
+    pub fn add_instance(&mut self, instance: Instance<CT, RT, S>) {
+        self.instances.push(instance);
+    }
+}
+
+impl<CT, RT, S> Instances<CT, RT, S>
+where
+    CT: Controller,
+    RT: Runtime<CT, S> + 'static,
+{
+    pub fn spawn_instances<GCT>(&mut self, global_controller: &mut GCT) -> Result<()>
+    where
+        GCT: GlobalController<Controller = CT>,
+    {
+        for instance in &mut self.instances {
+            unsafe {
+                self.active_pids.push(instance.spawn(global_controller)?);
+            }
+        }
+
+        Ok(())
     }
 }

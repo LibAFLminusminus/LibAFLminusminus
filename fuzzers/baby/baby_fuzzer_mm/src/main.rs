@@ -83,7 +83,7 @@ where
 }
 
 pub fn main() -> Result<()> {
-    let state_builder = || {
+    let state_builder = |_controller: &NopController| {
         // A queue policy to get testcasess from the corpus
         let scheduler = QueueScheduler::new();
 
