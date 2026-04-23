@@ -1,13 +1,13 @@
 use crate::{
-    Error, Result, SimpleGlobalController,
+    Error, GlobalController, Result, SimpleClient, SimpleGlobalController,
     inputs::NopInput,
     monitors::SimpleMonitor,
-    runtimes::{RuntimeHandle, StdRuntime, nop::NopRuntime, simple::SimpleRuntime},
+    runtimes::{Runtime, RuntimeHandle, StdRuntime, nop::NopRuntime, simple::SimpleRuntime},
     state::NopState,
 };
 use core::{marker::PhantomData, num::NonZeroUsize};
 use libafl_bolts::core_affinity::{CoreId, Cores};
-use nix::unistd::Pid;
+use nix::unistd::{ForkResult, Pid, fork};
 use serde::Serialize;
 use std::vec::Vec;
 
@@ -21,26 +21,26 @@ pub struct StdLauncherBuilder<GCT, MT, RT, S, SB> {
     phantom: PhantomData<S>,
 }
 
-pub struct Instance<RT, S> {
+pub struct Instance<CT, RT, S> {
     runtime: RT,
     state: S,
     core: CoreId,
-    pid: Option<Pid>,
+    phantom: PhantomData<CT>,
 }
 
-pub struct StdLauncher<GCT, MT, RT, S> {
+pub struct StdLauncher<CT, GCT, MT, RT, S> {
     global_controller: GCT,
     monitor: MT,
-    instances: Vec<Instance<RT, S>>,
+    instances: Vec<Instance<CT, RT, S>>,
 }
 
-impl<RT, S> Instance<RT, S> {
+impl<CT, RT, S> Instance<CT, RT, S> {
     pub fn new(runtime: RT, state: S, core: CoreId) -> Self {
         Self {
             runtime,
             state,
             core,
-            pid: None,
+            phantom: PhantomData,
         }
     }
 }
@@ -51,6 +51,7 @@ fn nop_state_builder() -> Result<NopState<NopInput>> {
 
 impl
     StdLauncher<
+        SimpleClient,
         SimpleGlobalController,
         SimpleMonitor,
         NopRuntime,
@@ -83,8 +84,8 @@ impl
     }
 }
 
-impl<GCT, MT, RT, S> StdLauncher<GCT, MT, RT, S> {
-    pub fn new(global_controller: GCT, monitor: MT, instances: Vec<Instance<RT, S>>) -> Self {
+impl<CT, GCT, MT, RT, S> StdLauncher<CT, GCT, MT, RT, S> {
+    pub fn new(global_controller: GCT, monitor: MT, instances: Vec<Instance<CT, RT, S>>) -> Self {
         Self {
             global_controller,
             monitor,
@@ -157,17 +158,18 @@ where
 
 impl<GCT, MT, RT, S, SB> StdLauncherBuilder<GCT, MT, RT, S, SB>
 where
+    GCT: GlobalController,
     RT: Clone,
     SB: FnMut() -> Result<S>,
 {
-    pub fn build(mut self) -> Result<StdLauncher<GCT, MT, RT, S>> {
+    pub fn build(mut self) -> Result<StdLauncher<GCT::Controller, GCT, MT, RT, S>> {
         if self.cores.is_empty() {
             return Err(Error::illegal_argument(format!(
                 "No cores have been declared."
             )));
         }
 
-        let mut instances: Vec<Instance<RT, S>> = Vec::new();
+        let mut instances: Vec<Instance<GCT::Controller, RT, S>> = Vec::new();
 
         // create an instance per core, ready to run.
         for core in self.cores {
@@ -181,5 +183,27 @@ where
             self.monitor,
             instances,
         ))
+    }
+}
+
+impl<CT, RT, S> Instance<CT, RT, S>
+where
+    RT: Runtime<CT, S>,
+{
+    /// # Safety
+    ///
+    /// This will spawn a new process, which could have side effects.
+    pub unsafe fn spawn<GCT: GlobalController<Controller = CT>>(
+        &mut self,
+        global_controller: &mut GCT,
+    ) -> Result<Pid> {
+        match unsafe { fork()? } {
+            ForkResult::Parent { child } => Ok(child),
+            ForkResult::Child => {
+                let controller = global_controller.create_controller()?;
+
+                self.runtime.run()
+            }
+        }
     }
 }

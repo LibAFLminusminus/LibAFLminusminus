@@ -5,16 +5,16 @@ pub struct NopController;
 pub struct NopDescriptor;
 
 impl GlobalController for NopMainController {
-    type Client = NopController;
+    type Controller = NopController;
 
     fn create_controller(
         &mut self,
-        _descriptor: <<Self as GlobalController>::Client as Controller>::Descriptor,
-    ) -> Result<Self::Client, libafl_core::Error> {
+        _descriptor: <<Self as GlobalController>::Controller as Controller>::Descriptor,
+    ) -> Result<Self::Controller, libafl_core::Error> {
         Ok(NopController)
     }
 
-    fn clients(&self) -> &[Self::Client] {
+    fn clients(&self) -> &[Self::Controller] {
         unimplemented!("nop controller has no clients");
     }
 }
