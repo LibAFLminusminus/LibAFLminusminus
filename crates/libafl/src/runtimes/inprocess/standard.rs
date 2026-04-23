@@ -17,7 +17,17 @@ type InnerRuntime<S, T> = InProcessRuntime<
     fn(&mut TerminationHandlerData, &OsTerminationParams) -> Result<(), Error>,
 >;
 
+#[derive(Debug)]
 pub struct StdInProcessRuntime<S, T>(InnerRuntime<S, T>);
+
+impl<S, T> Clone for StdInProcessRuntime<S, T>
+where
+    T: Clone,
+{
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
 
 impl<S, T> StdInProcessRuntime<S, T>
 where

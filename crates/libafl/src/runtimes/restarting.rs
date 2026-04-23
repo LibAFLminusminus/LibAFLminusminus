@@ -26,6 +26,7 @@ pub const LIBAFL_EXIT_CONTINUE: i32 = 101;
 /// infinite recursion bug in termination handlers.
 pub const LIBAFL_EXIT_TERMINATION_INFINITE_RECURSION: i32 = 102;
 
+#[derive(Debug, Clone)]
 pub struct RestartingRuntime<RT> {
     inner: RT,
     // The RAM limit for writing state in a shared memory on crash / timeout
