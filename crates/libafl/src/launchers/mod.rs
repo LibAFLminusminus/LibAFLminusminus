@@ -13,7 +13,7 @@ use serde::Serialize;
 use std::vec::Vec;
 
 // TODO: use a proper heuristic to choose correct ram size
-pub const DEFAULT_RAM_SIZE_PER_CLIENT: NonZeroUsize = NonZeroUsize::new(1 << 30).unwrap();
+pub const DEFAULT_MAX_STATE_SIZE_PER_CLIENT: NonZeroUsize = NonZeroUsize::new(1 << 30).unwrap();
 
 pub struct StdLauncherBuilder<GCT, MT, RT, S, SB> {
     global_controller: GCT,
@@ -21,7 +21,7 @@ pub struct StdLauncherBuilder<GCT, MT, RT, S, SB> {
     runtime: RT,
     cores: Cores,
     state_builder: SB,
-    ram_limit_per_client: Option<NonZeroUsize>,
+    max_state_size_per_client: Option<NonZeroUsize>,
     phantom: PhantomData<S>,
 }
 
@@ -90,7 +90,7 @@ impl
             runtime,
             cores,
             state_builder: nop_state_builder,
-            ram_limit_per_client: None,
+            max_state_size_per_client: None,
             phantom: PhantomData,
         })
     }
@@ -125,7 +125,7 @@ impl<GCT, MT, RT, S, SB> StdLauncherBuilder<GCT, MT, RT, S, SB> {
             cores: self.cores,
             runtime,
             state_builder: self.state_builder,
-            ram_limit_per_client: self.ram_limit_per_client,
+            max_state_size_per_client: self.max_state_size_per_client,
             phantom: self.phantom,
         }
     }
@@ -144,8 +144,29 @@ impl<GCT, MT, RT, S, SB> StdLauncherBuilder<GCT, MT, RT, S, SB> {
             cores: self.cores,
             runtime: self.runtime,
             state_builder: state_builder,
-            ram_limit_per_client: self.ram_limit_per_client,
+            max_state_size_per_client: self.max_state_size_per_client,
             phantom: PhantomData::<S2>,
+        }
+    }
+
+    /// Set the RAM limit per client for state.
+    ///
+    /// Note this is NOT a hard limit: we use it as the memory limit
+    /// used to save / restore the state in the restarting runtime.
+    ///
+    /// The default value is set to [`DEFAULT_MAX_STATE_SIZE_PER_CLIENT`].
+    pub fn max_state_size_per_client(
+        self,
+        max_state_size_per_client: NonZeroUsize,
+    ) -> StdLauncherBuilder<GCT, MT, RT, S, SB> {
+        StdLauncherBuilder {
+            global_controller: self.global_controller,
+            monitor: self.monitor,
+            cores: self.cores,
+            runtime: self.runtime,
+            state_builder: self.state_builder,
+            max_state_size_per_client: Some(max_state_size_per_client),
+            phantom: self.phantom,
         }
     }
 }
@@ -166,8 +187,8 @@ where
         T: FnMut(&mut RuntimeHandle<GCT::Controller, S>, &mut S) -> Result<()> + Clone,
     {
         let ram_limit = self
-            .ram_limit_per_client
-            .unwrap_or_else(|| DEFAULT_RAM_SIZE_PER_CLIENT);
+            .max_state_size_per_client
+            .unwrap_or_else(|| DEFAULT_MAX_STATE_SIZE_PER_CLIENT);
 
         let builder = StdLauncherBuilder {
             global_controller: self.global_controller,
@@ -175,7 +196,7 @@ where
             cores: self.cores,
             runtime: StdRuntime::new(task, ram_limit),
             state_builder: self.state_builder,
-            ram_limit_per_client: self.ram_limit_per_client,
+            max_state_size_per_client: self.max_state_size_per_client,
             phantom: self.phantom,
         };
 
