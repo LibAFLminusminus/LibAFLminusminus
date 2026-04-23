@@ -171,6 +171,13 @@ impl Cores {
         Self { ids: vec![] }
     }
 
+    /// Pick core 0
+    pub fn one() -> Self {
+        Self {
+            ids: vec![CoreId(0)],
+        }
+    }
+
     /// Are there cores?
     pub fn is_empty(&self) -> bool {
         self.ids.is_empty()
