@@ -1,7 +1,8 @@
-use std::string::ToString;
+use std::{string::ToString, thread::current};
 
 use libafl_bolts::current_time;
 use libafl_core::Error;
+use core::time::Duration;
 
 use crate::{
     Controller,
@@ -16,7 +17,7 @@ use crate::{
         utils::{OsTerminationParams, TerminationHandlerData},
     },
     stages::StagesTuple,
-    state::{FlatState, HasCorpus, HasObjectiveCorpus, HasTestcase, State},
+    state::{FlatState, HasCorpus, HasObjectiveCorpus, HasTestcase, State, sync_stats},
 };
 
 /// Note: this code should not allocate at all.
@@ -117,6 +118,7 @@ pub struct StdFuzzer<F, OF> {
     /// The [`Feedback`] that will store new testcases as solution (for example, a crash) if a run returns `is_interesting`.
     objective: OF,
     initialized: bool,
+    last_synced: Duration,
 }
 
 /// The builder for std fuzzer
@@ -191,6 +193,10 @@ impl<F, OF> StdFuzzer<F, OF> {
             self.objective_feedback_mut()
                 .append_metadata(state, observers, &testcase_id)?;
 
+            let stats = state.stats_mut();
+            stats.last_found_time = current_time();
+            stats.objective += 1;
+
             EvaluationResult::new(exit_kind, Verdict::Objective(testcase_id))
         } else {
             let corpus_worthy = self
@@ -215,21 +221,15 @@ impl<F, OF> StdFuzzer<F, OF> {
                 self.feedback_mut()
                     .append_metadata(state, observers, &testcase_id)?;
 
+                let stats = state.stats_mut();
+                stats.last_found_time = current_time();
+                stats.corpus += 1;
+
                 EvaluationResult::new(exit_kind, Verdict::Corpus(testcase_id))
             } else {
                 EvaluationResult::new(exit_kind, Verdict::Uninteresting)
             }
         };
-
-        let stats = state.stats_mut();
-        if eval_res.is_corpus_worthy() {
-            stats.last_found_time = current_time();
-            stats.corpus += 1;
-        }
-        else {
-            stats.last_found_time = current_time();
-            stats.objective += 1;
-        }
 
         Ok(eval_res)
     }
@@ -432,6 +432,11 @@ where
         state: &mut S,
         rt_handle: &mut RuntimeHandle<CT, S>,
     ) -> Result<(), Error> {
+        if current_time() - self.last_synced > Duration::from_secs(1) {
+            let workdir = rt_handle.controller().workdir();
+            sync_stats(state.stats(), workdir);
+        }
+
         // Get the next index from the scheduler
         let testcase_id = state.scheduler_mut().next()?;
 
@@ -507,6 +512,7 @@ impl<F, OF> StdFuzzerBuilder<F, OF> {
             feedback: self.feedback,
             objective: self.objective_feedback,
             initialized: false,
+            last_synced: current_time(),
         }
     }
 }

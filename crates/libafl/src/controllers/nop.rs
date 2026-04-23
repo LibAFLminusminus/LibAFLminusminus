@@ -1,18 +1,23 @@
-use crate::{Controller, MainController};
+use crate::{Controller, MasterController};
 
 pub struct NopMainController;
 pub struct NopController;
 pub struct NopDescriptor;
 
-impl MainController for NopMainController {
-    type ClientController = NopController;
+impl MasterController for NopMainController {
+    type Client = NopController;
 
     fn create_controller(
         &mut self,
-        _descriptor: <<Self as MainController>::ClientController as Controller>::Descriptor,
-    ) -> Result<Self::ClientController, libafl_core::Error> {
+        _descriptor: <<Self as MasterController>::Client as Controller>::Descriptor,
+    ) -> Result<Self::Client, libafl_core::Error> {
         Ok(NopController)
     }
+
+    fn clients(&self) -> &[Self::Client] {
+        unimplemented!("nop controller has no clients");
+    }
+
 }
 
 impl Controller for NopController {
@@ -26,16 +31,8 @@ impl Controller for NopController {
         &NopDescriptor
     }
 
-    fn is_main(&self) -> bool {
-        true
-    }
-
     fn workdir(&self) -> &std::path::PathBuf {
         unimplemented!("nop controller has no workdir");
-    }
-
-    fn child_workdirs(&self) -> Option<&[std::path::PathBuf]> {
-        unimplemented!("nop controller has no child workdir");
     }
 
     fn reconcile(&self) -> Result<(), libafl_core::Error> {
