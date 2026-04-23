@@ -82,6 +82,8 @@ extern crate std;
 #[doc(hidden)]
 pub extern crate alloc;
 
+use std::{slice, vec};
+
 use alloc::vec::Vec;
 
 use libafl_core::{Error, Result};
@@ -192,7 +194,7 @@ impl Cores {
         if args == "all" {
             Self::all()
         } else if args == "none" {
-            Self::none()
+            Ok(Self::none())
         } else {
             let core_args: Vec<&str> = args.split(',').collect();
             let mut cores: Vec<CoreId> = vec![];
@@ -229,6 +231,24 @@ impl Cores {
         self.ids
             .iter()
             .position(|&cur_core_id| cur_core_id == core_id)
+    }
+}
+
+impl IntoIterator for Cores {
+    type Item = CoreId;
+    type IntoIter = vec::IntoIter<CoreId>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.ids.into_iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a Cores {
+    type Item = &'a CoreId;
+    type IntoIter = slice::Iter<'a, CoreId>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.ids.iter()
     }
 }
 
