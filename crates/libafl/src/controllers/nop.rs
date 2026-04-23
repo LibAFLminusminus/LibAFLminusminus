@@ -1,16 +1,14 @@
 use crate::{Controller, GlobalController};
 
-pub struct NopMainController;
+pub struct NopGlobalController;
 pub struct NopController;
 pub struct NopDescriptor;
 
-impl GlobalController for NopMainController {
+impl GlobalController for NopGlobalController {
     type Controller = NopController;
+    type Descriptor = NopDescriptor;
 
-    fn create_controller(
-        &mut self,
-        _descriptor: <<Self as GlobalController>::Controller as Controller>::Descriptor,
-    ) -> Result<Self::Controller, libafl_core::Error> {
+    fn create_controller(&mut self) -> Result<Self::Controller, libafl_core::Error> {
         Ok(NopController)
     }
 
@@ -20,13 +18,13 @@ impl GlobalController for NopMainController {
 }
 
 impl Controller for NopController {
-    type Descriptor = NopDescriptor;
+    type GlobalController = NopGlobalController;
 
     fn id(&self) -> libafl_core::ClientId {
         unimplemented!("nop controller has no id");
     }
 
-    fn descriptor(&self) -> &Self::Descriptor {
+    fn descriptor(&self) -> &NopDescriptor {
         &NopDescriptor
     }
 
