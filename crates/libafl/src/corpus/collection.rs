@@ -12,7 +12,7 @@ use crate::{
         Corpus, InMemoryStore, OnDiskStore, Scheduler, SingleCorpus, Testcase,
         TestcaseFilenameFormat,
         maps::{self, InMemoryCorpusMap},
-        store::{Store, ondisk::OnDiskStoreBuilder},
+        store::{StorageResult, Store, ondisk::OnDiskStoreBuilder},
         testcase::TestcaseId,
     },
     inputs::{Input, InputContext},
@@ -122,7 +122,7 @@ where
         self.0.count_disabled()
     }
 
-    fn add_shared<const ENABLED: bool>(&mut self, input: Rc<I>) -> Result<TestcaseId, Error> {
+    fn add_shared<const ENABLED: bool>(&mut self, input: Rc<I>) -> Result<StorageResult, Error> {
         self.0.add_shared::<ENABLED>(input)
     }
 
@@ -147,7 +147,7 @@ where
         self.0.count_disabled()
     }
 
-    fn add_shared<const ENABLED: bool>(&mut self, input: Rc<I>) -> Result<TestcaseId, Error> {
+    fn add_shared<const ENABLED: bool>(&mut self, input: Rc<I>) -> Result<StorageResult, Error> {
         self.0.add_shared::<ENABLED>(input)
     }
 
