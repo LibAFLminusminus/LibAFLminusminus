@@ -11,8 +11,10 @@ use serde::{Deserialize, Serialize};
 use super::{Corpus, Testcase, store::Store};
 use crate::{
     DependencyResolver,
-    corpus::{Scheduler, schedulers::RemovableScheduler, testcase::TestcaseId},
-    inputs::InputContext,
+    corpus::{
+        Scheduler, schedulers::RemovableScheduler, store::StorageResult, testcase::TestcaseId,
+    },
+    inputs::{Input, InputContext},
     state::HasScheduler,
 };
 
@@ -71,6 +73,7 @@ where
 impl<CT, I, S, SC> Corpus<I> for SingleCorpus<CT, I, S, SC>
 where
     CT: InputContext<I>,
+    I: Input,
     S: Store<I>,
     SC: Scheduler,
 {
@@ -89,9 +92,15 @@ where
     }
 
     fn add_shared<const ENABLED: bool>(&mut self, input: Rc<I>) -> Result<TestcaseId, Error> {
-        let new_id = self.store.add_shared::<ENABLED>(input)?;
-        self.scheduler.on_add(new_id)?;
-        Ok(new_id)
+        let id = match self.store.add_shared::<ENABLED>(input)? {
+            StorageResult::Stored(id) => {
+                self.scheduler.on_add(id)?;
+                id
+            }
+            StorageResult::Duplicate(id) => id,
+        };
+
+        Ok(id)
     }
 
     /// Get testcase by id

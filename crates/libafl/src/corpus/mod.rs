@@ -58,6 +58,8 @@ pub trait Corpus<I>: HasScheduler + Sized + DependencyResolver {
     }
 
     /// Add an enabled testcase to the corpus and return its index
+    /// It is allowed to add the same input multiple times.
+    /// The corpus is responsible to handle that case without erroring out.
     ///
     /// The default [`TestcaseMetadata`] will be instantiated.
     fn add(&mut self, input: I) -> Result<TestcaseId, Error> {
@@ -65,6 +67,8 @@ pub trait Corpus<I>: HasScheduler + Sized + DependencyResolver {
     }
 
     /// Add a disabled testcase to the corpus and return its index
+    /// It is allowed to add the same input multiple times.
+    /// The corpus is responsible to handle that case without erroring out.
     ///
     /// The default [`TestcaseMetadata`] will be instantiated.
     fn add_disabled(&mut self, input: I) -> Result<TestcaseId, Error> {
@@ -73,6 +77,8 @@ pub trait Corpus<I>: HasScheduler + Sized + DependencyResolver {
 
     /// Add a testcase to the corpus, and returns its index.
     /// The associated type tells whether the input should be added to the enabled or the disabled corpus.
+    /// It is allowed to add the same input multiple times.
+    /// The corpus is responsible to handle that case without erroring out.
     ///
     /// The input can be shared through [`Rc`].
     fn add_shared<const ENABLED: bool>(&mut self, input: Rc<I>) -> Result<TestcaseId, Error>;

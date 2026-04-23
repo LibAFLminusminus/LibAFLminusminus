@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{InMemoryCorpusMap, Store};
 use crate::{
-    corpus::{Testcase, TestcaseFilenameFormat, testcase::TestcaseId},
+    corpus::{Testcase, TestcaseFilenameFormat, store::StorageResult, testcase::TestcaseId},
     inputs::Input,
 };
 
@@ -184,7 +184,7 @@ where
         self.disabled_map.count()
     }
 
-    fn add_shared<const ENABLED: bool>(&mut self, input: Rc<I>) -> Result<TestcaseId, Error> {
+    fn add_shared<const ENABLED: bool>(&mut self, input: Rc<I>) -> Result<StorageResult, Error> {
         let testcase_id = Testcase::<I>::compute_id(input.as_ref());
 
         let is_present = if ENABLED {
@@ -193,11 +193,14 @@ where
             self.disabled_map.add(testcase_id, testcase_id)
         };
 
-        if !is_present {
-            self.disk_mgr.save_testcase(input.as_ref())
+        let res = if is_present {
+            StorageResult::Duplicate(testcase_id)
         } else {
-            return Err(Error::key_exists("Overwriting existing testcase"));
-        }
+            self.disk_mgr.save_testcase(input.as_ref())?;
+            StorageResult::Stored(testcase_id)
+        };
+
+        Ok(res)
     }
 
     fn get_from<const ENABLED: bool>(&self, id: &TestcaseId) -> Result<Testcase<I>, Error> {

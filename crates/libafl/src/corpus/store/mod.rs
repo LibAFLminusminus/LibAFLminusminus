@@ -15,6 +15,13 @@ pub use inmemory::InMemoryStore;
 pub mod ondisk;
 pub use ondisk::{DiskMgr, OnDiskStore};
 
+pub enum StorageResult {
+    /// The store received a new testcase.
+    Stored(TestcaseId),
+    /// The store received an already stored testcase.
+    Duplicate(TestcaseId),
+}
+
 /// A store is responsible for storing and retrieving [`Testcase`]s, ordered by add time.
 pub trait Store<I> {
     /// Returns the number of all enabled entries
@@ -33,8 +40,8 @@ pub trait Store<I> {
         self.count() == 0
     }
 
-    /// Store the testcase associated to `corpus_id` to the set. Fails when there's another testcase already registered with the same testcase id.
-    fn add_shared<const ENABLED: bool>(&mut self, input: Rc<I>) -> Result<TestcaseId, Error>;
+    /// Store the input to the set.
+    fn add_shared<const ENABLED: bool>(&mut self, input: Rc<I>) -> Result<StorageResult, Error>;
 
     /// Get testcase by id; considers only enabled testcases
     fn get(&self, id: &TestcaseId) -> Result<Testcase<I>, Error> {

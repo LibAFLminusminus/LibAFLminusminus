@@ -1,4 +1,4 @@
-use std::{num::NonZeroUsize, path::PathBuf, env};
+use std::{env, num::NonZeroUsize, path::PathBuf};
 
 use libafl::{
     Error,
