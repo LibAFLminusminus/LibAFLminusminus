@@ -18,6 +18,10 @@ impl MainController for NopMainController {
 impl Controller for NopController {
     type Descriptor = NopDescriptor;
 
+    fn id(&self) -> libafl_core::ClientId {
+        unimplemented!("nop controller has no id");
+    }
+
     fn descriptor(&self) -> &Self::Descriptor {
         &NopDescriptor
     }

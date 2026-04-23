@@ -2,7 +2,7 @@ use alloc::vec::Vec;
 use std::path::{Path, PathBuf};
 
 use libafl_bolts::core_affinity::CoreId;
-use libafl_core::Error;
+use libafl_core::{ClientId, Error};
 use serde::{Deserialize, Serialize};
 
 pub mod aflpp;
@@ -16,9 +16,10 @@ pub trait MainController {
         descriptor: <<Self as MainController>::ClientController as Controller>::Descriptor,
     ) -> Result<Self::ClientController, Error>;
 }
-
 pub trait Controller {
     type Descriptor;
+    /// the client id
+    fn id(&self) -> ClientId;
     /// returns the descriptor describing each fuzzer instances
     fn descriptor(&self) -> &Self::Descriptor;
 
@@ -42,6 +43,13 @@ pub struct SimpleController {
 
 impl Controller for SimpleController {
     type Descriptor = StdDescriptor;
+
+    fn id(&self) -> ClientId {
+        match &self.descriptor {
+            StdDescriptor::Main(main) => main.client_id,
+            StdDescriptor::Secondary(sec) => sec.client_id,
+        }
+    }
 
     fn descriptor(&self) -> &Self::Descriptor {
         &self.descriptor
@@ -89,37 +97,41 @@ pub enum StdDescriptor {
 /// The launcher should create instantiate this alongside binding this instance to a specific core id
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct MainDescriptor {
+    /// id given to this instance
+    client_id: ClientId,
     /// the path to the workdir of this controller
     this: PathBuf,
     /// the vector of the paths to the secondary controllers. Some() if there're multiple instance AND this is held by main controller
     secondary: Vec<PathBuf>,
-    /// which core to bind this process to?
-    core_id: CoreId,
 }
 
 /// The launcher should create instantiate this alongside binding this instance to a specific core id
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct SecondaryDescriptor {
+    // id given to this instance
+    client_id: ClientId,
     /// the path to the workdir of this controller
     this: PathBuf,
     /// the vector path to the workdir of the main controller.
     main: PathBuf,
-    /// which core to bind this process to?
-    core_id: CoreId,
 }
 
-impl MainDescriptor {
+impl StdDescriptor {
     /// Default constructor
-    pub fn main<P: AsRef<Path>>(main: P, core_id: CoreId) -> Result<Self, Error> {
+    pub fn main<P: AsRef<Path>>(
+        main: P,
+        client_id: ClientId,
+    ) -> Result<Self, Error> {
         if !main.as_ref().is_dir() {
             return Err(Error::illegal_argument("main is not a valid directory"));
         }
-
-        Ok(Self {
+        let main = MainDescriptor {
+            client_id,
             this: main.as_ref().to_path_buf(),
             secondary: Vec::new(),
-            core_id,
-        })
+        };
+
+        Ok(StdDescriptor::Main(main))
     }
 
     /// Turn this stddescriptor given from main one to the secondary one.
@@ -128,18 +140,28 @@ impl MainDescriptor {
     fn spawn_secondary<P: AsRef<Path>>(
         mut self,
         path: P,
-        core_id: CoreId,
-    ) -> Result<SecondaryDescriptor, Error> {
-        if !path.as_ref().is_dir() {
-            return Err(Error::illegal_argument("path is not a valid directory"));
+        client_id: ClientId,
+    ) -> Result<Self, Error> {
+        match self {
+            StdDescriptor::Secondary(_) => {
+                return Err(Error::illegal_argument(
+                    "must pass a main descriptor to this function",
+                ));
+            }
+            StdDescriptor::Main(mut main) => {
+                if !path.as_ref().is_dir() {
+                    return Err(Error::illegal_argument("path is not a valid directory"));
+                }
+
+                main.secondary.push(path.as_ref().to_path_buf());
+
+                let sec = SecondaryDescriptor {
+                    client_id,
+                    this: path.as_ref().to_path_buf(),
+                    main: main.this,
+                };
+                Ok(StdDescriptor::Secondary(sec))
+            }
         }
-
-        self.secondary.push(path.as_ref().to_path_buf());
-
-        Ok(SecondaryDescriptor {
-            this: path.as_ref().to_path_buf(),
-            main: self.this,
-            core_id,
-        })
     }
 }

@@ -1,5 +1,5 @@
-use alloc::vec::Vec;
-use core::time::Duration;
+use alloc::{vec::Vec, string::String};
+use core::{time::Duration, fmt};
 use std::{
     fs,
     path::{Path, PathBuf},
@@ -10,7 +10,7 @@ use libafl_bolts::{Error, current_time};
 use nix::sys::ptrace::interrupt;
 use serde::{Deserialize, Serialize};
 
-use crate::{Controller, runtimes::RuntimeHandle, state::FlatState};
+use crate::{Controller, fuzzer::HasObjective, runtimes::RuntimeHandle, state::FlatState};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Stats {
@@ -18,16 +18,57 @@ pub struct Stats {
     pub(crate) executions: u64,
     /// At what time the fuzzing started
     pub(crate) start_time: Duration,
-    /// the number of new paths that imported from other fuzzers
-    pub(crate) imported: usize,
-    /// The last time we reported progress (if available/used).
-    /// This information is used by fuzzer `maybe_report_progress`.
-    pub(crate) last_report_time: Option<Duration>,
-    /// The last time something was added to the corpus
+    /// number of corpus
+    pub(crate) corpus: usize,
+    /// number of objective
+    pub(crate) objective: usize,
+    /// last time smth was found
     pub(crate) last_found_time: Duration,
 }
 
+impl fmt::Display for Stats {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "[{}] execs: {} ({}/s) | corpus: {} | objectives: {}",
+            format_duration(self.start_time),
+            self.executions,
+            self.execs_per_sec(),
+            self.corpus,
+            self.objective,
+        )
+    }
+}
+
+/// put duration in a human readable format
+fn format_duration(d: Duration) -> String {
+    let total = d.as_secs();
+    let days = total / 86_400;
+    let hours = (total % 86_400) / 3_600;
+    let mins = (total % 3_600) / 60;
+    let secs = total % 60;
+
+    if days > 0 {
+        format!("{days}d{hours:02}:{mins:02}:{secs:02}")
+    } else {
+        format!("{hours:02}:{mins:02}:{secs:02}")
+    }
+}
+
 impl Stats {
+    fn update_corpus(&mut self, corpus: usize) {
+        self.corpus = corpus;
+    }
+
+    fn update_objective(&mut self, objective: usize) {
+        self.objective = objective;
+    }
+
+    fn execs_per_sec(&self) -> u64 {
+        let secs = self.start_time.as_secs();
+        if secs == 0 { 0 } else { self.executions / secs }
+    }
+
     /// write to json stat file
     fn write_json<P: AsRef<Path>>(&self, path: &P) -> Result<(), Error> {
         let file = fs::File::create(path)?;
@@ -36,7 +77,7 @@ impl Stats {
         Ok(())
     }
     /// read from json stat file
-    fn read_json<P: AsRef<Path>>(path: &P) -> Result<Self, Error> {
+    fn read_json<P: AsRef<Path>>(&self, path: &P) -> Result<Self, Error> {
         let file = fs::File::open(path)?;
         serde_json::from_reader(file)
             .map_err(|_| Error::runtime("Failed to read the stats from a file"))
@@ -48,7 +89,7 @@ pub trait Monitor<S> {
     fn sync(&self, state: &S) -> Result<(), Error>;
 
     /// display (or not because you only want to display into the terminal if you are a main instance)
-    fn display(&self);
+    fn display(&self, state: &S) -> Result<(), Error>;
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -110,14 +151,18 @@ where
         Ok(())
     }
 
-    fn display(&self) {
+    fn display(&self, state: &S) -> Result<(), Error>  {
         match &self.role {
-            MonitorRole::Secondary => (),
+            MonitorRole::Secondary => {
+                Ok(())
+            },
             MonitorRole::Main { read_paths, display } => {
-                // gather all the stats. then show it.
+                for path in read_paths {
+                    let stat = state.stats().read_json(&path)?;
+                    println!("{:?}", stat);
+                }
+                Ok(())
             }
         }
-
-        println!("LOL!");
     }
 }
