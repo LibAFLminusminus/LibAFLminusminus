@@ -1,10 +1,9 @@
 use alloc::vec::Vec;
-use std::path::{Path, PathBuf};
-
 use hashbrown::HashMap;
 use libafl_bolts::core_affinity::CoreId;
 use libafl_core::{ClientId, Error};
 use serde::{Deserialize, Serialize};
+use std::path::{Path, PathBuf};
 
 pub mod aflpp;
 pub mod nop;
