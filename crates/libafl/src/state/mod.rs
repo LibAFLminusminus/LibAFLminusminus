@@ -40,6 +40,9 @@ use crate::{
 
 pub trait FlatState {
     fn stats(&self) -> &Stats;
+
+
+    fn stats_mut(&mut self) -> &mut Stats;
     /// The maximum size of an input
     fn max_size(&self) -> usize;
 
@@ -48,28 +51,10 @@ pub trait FlatState {
     /// The executions counter (mutable)
     fn executions_mut(&mut self) -> &mut u64;
 
-    ///the imported testcases counter
-    fn imported(&self) -> usize;
-    ///the imported testcases counter (mutable)
-    fn imported_mut(&mut self) -> &mut usize;
-
     /// The starting time
     fn start_time(&self) -> &Duration;
     /// The starting time (mutable)
     fn start_time_mut(&mut self) -> &mut Duration;
-
-    /// The last time we found something by ourselves
-    fn last_found_time(&self) -> &Duration;
-    /// The last time we found something by ourselves (mutable)
-    fn last_found_time_mut(&mut self) -> &mut Duration;
-
-    /// The last time we reported progress,if available/used.
-    /// This information is used by fuzzer `maybe_report_progress`.
-    fn last_report_time(&self) -> &Option<Duration>;
-
-    /// The last time we reported progress,if available/used (mutable).
-    /// This information is used by fuzzer `maybe_report_progress`.
-    fn last_report_time_mut(&mut self) -> &mut Option<Duration>;
 
     /// A map, storing all metadata
     fn named_metadata_map(&self) -> &NamedSerdeAnyMap;
@@ -666,6 +651,10 @@ impl<C, I, OC, SC> FlatState for StdState<C, I, OC, SC> {
         &self.stats
     }
 
+    fn stats_mut(&mut self) -> &mut Stats {
+        &mut self.stats
+    }
+
     /// The max size allowed for the input
     fn max_size(&self) -> usize {
         self.max_size
@@ -681,16 +670,6 @@ impl<C, I, OC, SC> FlatState for StdState<C, I, OC, SC> {
         &mut self.stats.executions
     }
 
-    ///the imported testcases counter
-    fn imported(&self) -> usize {
-        self.stats.imported
-    }
-
-    ///the imported testcases counter (mutable)
-    fn imported_mut(&mut self) -> &mut usize {
-        &mut self.stats.imported
-    }
-
     /// The starting time
     fn start_time(&self) -> &Duration {
         &self.stats.start_time
@@ -699,28 +678,6 @@ impl<C, I, OC, SC> FlatState for StdState<C, I, OC, SC> {
     /// The starting time (mutable)
     fn start_time_mut(&mut self) -> &mut Duration {
         &mut self.stats.start_time
-    }
-
-    /// The last time we found something by ourselves
-    fn last_found_time(&self) -> &Duration {
-        &self.stats.last_found_time
-    }
-
-    /// The last time we found something by ourselves (mutable)
-    fn last_found_time_mut(&mut self) -> &mut Duration {
-        &mut self.stats.last_found_time
-    }
-
-    /// The last time we reported progress,if available/used.
-    /// This information is used by fuzzer `maybe_report_progress`.
-    fn last_report_time(&self) -> &Option<Duration> {
-        &self.stats.last_report_time
-    }
-
-    /// The last time we reported progress,if available/used (mutable).
-    /// This information is used by fuzzer `maybe_report_progress`.
-    fn last_report_time_mut(&mut self) -> &mut Option<Duration> {
-        &mut self.stats.last_report_time
     }
 
     /// Get all the metadata into an [`hashbrown::HashMap`]
@@ -1149,10 +1106,10 @@ where
         let state = Self {
             stats: Stats {
                 executions: 0,
-                imported: 0,
-                start_time: libafl_bolts::current_time(),
-                last_report_time: None,
+                corpus: 0,
+                objective: 0,
                 last_found_time: libafl_bolts::current_time(),
+                start_time: libafl_bolts::current_time(),
             },
             named_metadata: NamedSerdeAnyMap::default(),
             corpus,

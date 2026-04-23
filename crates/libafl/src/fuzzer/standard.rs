@@ -221,8 +221,14 @@ impl<F, OF> StdFuzzer<F, OF> {
             }
         };
 
+        let stats = state.stats_mut();
         if eval_res.is_corpus_worthy() {
-            *state.last_found_time_mut() = current_time();
+            stats.last_found_time = current_time();
+            stats.corpus += 1;
+        }
+        else {
+            stats.last_found_time = current_time();
+            stats.objective += 1;
         }
 
         Ok(eval_res)

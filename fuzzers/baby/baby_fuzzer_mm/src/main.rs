@@ -1,7 +1,8 @@
-use std::{num::NonZeroUsize, path::PathBuf};
+use std::{num::NonZeroUsize, path::PathBuf, env};
 
 use libafl::{
     Error,
+    controllers::{SimpleController, StdDescriptor},
     corpus::{
         Corpus, InMemoryCorpus, OnDiskCorpus, Scheduler,
         schedulers::{NopScheduler, QueueScheduler},
@@ -96,6 +97,10 @@ pub fn main() {
     .unwrap();
 
     let mut runtime = RestartingRuntime::new(run_fuzzer, NonZeroUsize::try_from(1 << 30).unwrap());
+
+    let current_dir = env::current_dir().unwrap();
+    let descriptor = StdDescriptor::main(current_dir, libafl_bolts::ClientId(0)).unwrap();
+    let controller = SimpleController::new(descriptor);
 
     runtime.run(state, NopController).unwrap()
 }
