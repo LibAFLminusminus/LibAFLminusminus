@@ -2,6 +2,8 @@ use crate::{Controller, GlobalController};
 
 pub struct NopGlobalController;
 pub struct NopController;
+
+#[derive(Clone)]
 pub struct NopDescriptor;
 
 impl GlobalController for NopGlobalController {
