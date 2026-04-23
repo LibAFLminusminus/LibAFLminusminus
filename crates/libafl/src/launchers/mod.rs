@@ -1,5 +1,5 @@
 use crate::{
-    Error, GlobalController, Result, SimpleClient, SimpleGlobalController,
+    Error, GlobalController, Result, SimpleController, SimpleGlobalController,
     inputs::NopInput,
     monitors::SimpleMonitor,
     runtimes::{Runtime, RuntimeHandle, StdRuntime, nop::NopRuntime, simple::SimpleRuntime},
@@ -51,7 +51,7 @@ fn nop_state_builder() -> Result<NopState<NopInput>> {
 
 impl
     StdLauncher<
-        SimpleClient,
+        SimpleController,
         SimpleGlobalController,
         SimpleMonitor,
         NopRuntime,
