@@ -72,7 +72,7 @@ impl
         NopGlobalController,
         SimpleMonitor,
         NopRuntime,
-        fn() -> Result<NopState<NopInput>>,
+        NopState<NopInput>,
     >
 {
     pub fn builder() -> Result<
@@ -200,7 +200,7 @@ where
     SB: FnMut(&GCT::Controller) -> Result<S>,
 {
     pub fn build_with_task<T>(
-        self,
+        mut self,
         task: T,
     ) -> Result<StdLauncher<GCT::Controller, GCT::Descriptor, GCT, MT, StdRuntime<S, T>, S>>
     where
@@ -208,9 +208,13 @@ where
         // the one used by the task. otherwise, the compiler needs explicit typing.
         T: FnMut(&mut RuntimeHandle<GCT::Controller, S>, &mut S) -> Result<()> + Clone,
     {
+        if self.cores.is_empty() {
+            return Err(Error::illegal_argument("No cores have been declared."));
+        }
+
         let ram_limit = self
             .max_state_size_per_client
-            .unwrap_or_else(|| DEFAULT_MAX_STATE_SIZE_PER_CLIENT);
+            .unwrap_or(DEFAULT_MAX_STATE_SIZE_PER_CLIENT);
 
         let builder = StdLauncherBuilder {
             global_controller: self.global_controller,
@@ -377,9 +381,7 @@ where
                 Ok(_) => {
                     // ignore, this is harmless stuff
                 }
-                Err(e) => {
-                    panic!("Error while waiting: {e}");
-                }
+                Err(e) => return Err(Error::runtime(format!("wait() failed: {e}"))),
             }
         }
 
