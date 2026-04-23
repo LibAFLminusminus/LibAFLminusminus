@@ -166,15 +166,9 @@ impl<F, OF> StdFuzzer<F, OF> {
         OF: Feedback<I, OT, S>,
         S: State<I>,
     {
-        #[cfg(not(feature = "introspection"))]
         let is_solution = self
             .objective
             .is_interesting(state, input, observers, &exit_kind)?;
-
-        #[cfg(feature = "introspection")]
-        let is_solution = self
-            .objective
-            .is_interesting_introspection(state, input, observers, &exit_kind)?;
 
         let eval_res: EvaluationResult = if is_solution {
             let executions = state.executions();
@@ -199,15 +193,9 @@ impl<F, OF> StdFuzzer<F, OF> {
 
             EvaluationResult::new(exit_kind, Verdict::Objective(testcase_id))
         } else {
-            #[cfg(not(feature = "introspection"))]
             let corpus_worthy = self
                 .feedback
                 .is_interesting(state, input, observers, &exit_kind)?;
-
-            #[cfg(feature = "introspection")]
-            let corpus_worthy = self
-                .feedback
-                .is_interesting_introspection(state, input, observers, &exit_kind)?;
 
             if corpus_worthy {
                 // Not a solution
@@ -438,20 +426,8 @@ where
         state: &mut S,
         rt_handle: &mut RuntimeHandle<CT, S>,
     ) -> Result<(), Error> {
-        // Init timer for scheduler
-        #[cfg(feature = "introspection")]
-        state.introspection_stats_mut().start_timer();
-
         // Get the next index from the scheduler
         let testcase_id = state.scheduler_mut().next()?;
-
-        // Mark the elapsed time for the scheduler
-        #[cfg(feature = "introspection")]
-        state.introspection_stats_mut().mark_scheduler_time();
-
-        // Mark the elapsed time for the scheduler
-        #[cfg(feature = "introspection")]
-        state.introspection_stats_mut().reset_stage_index();
 
         // Execute all stages
         stages.perform_all(self, executor, rand, state, rt_handle, &testcase_id)?;

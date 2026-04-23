@@ -10,18 +10,14 @@ use core::{marker::PhantomData, num::NonZeroUsize};
 use libafl_bolts::{Named, rands::Rand};
 use libafl_core::non_zero;
 
-#[cfg(feature = "introspection")]
-use crate::monitors::stats::PerfFeature;
 use crate::{
     DependencyResolver, Error,
     corpus::{Corpus, Testcase, TestcaseId},
     fuzzer::Evaluator,
     inputs::Input,
-    mark_feature_time,
     mutators::{MultiMutator, MutationResult, Mutator},
     runtimes::RuntimeHandle,
     stages::Stage,
-    start_timer,
     state::{HasCorpus, State},
 };
 
@@ -164,7 +160,6 @@ where
         rt_handle: &mut RuntimeHandle<CT, S>,
         testcase_id: &TestcaseId,
     ) -> Result<(), Error> {
-        start_timer!(state);
 
         // Here saturating_sub is needed as self.iterations() might be actually smaller than the previous value before reset.
         /*
@@ -173,16 +168,13 @@ where
             .saturating_sub(self.execs_since_progress_start(state)?);
         */
         let num = self.iterations(rand)?;
-        mark_feature_time!(state, PerfFeature::GetInputFromCorpus);
 
         let tc = state.corpus().get(testcase_id)?;
 
         for _ in 0..num {
             let mut input = tc.cloned_input();
 
-            start_timer!(state);
             let mutated = self.mutator_mut().mutate(&mut input, rand, state)?;
-            mark_feature_time!(state, PerfFeature::Mutate);
 
             if mutated == MutationResult::Skipped {
                 continue;
@@ -190,9 +182,7 @@ where
 
             let eval_res = fuzzer.evaluate_input(state, executor, rt_handle, &input)?;
 
-            start_timer!(state);
             self.mutator_mut().post_exec(state, &eval_res)?;
-            mark_feature_time!(state, PerfFeature::MutatePostExec);
         }
 
         Ok(())

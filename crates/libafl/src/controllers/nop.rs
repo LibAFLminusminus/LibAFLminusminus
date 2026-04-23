@@ -21,4 +21,20 @@ impl Controller for NopController {
     fn descriptor(&self) -> &Self::Descriptor {
         &NopDescriptor
     }
+
+    fn is_main(&self) -> bool {
+        true
+    }
+
+    fn workdir(&self) -> &std::path::PathBuf {
+        unimplemented!("nop controller has no workdir");
+    }
+
+    fn child_workdirs(&self) -> Option<&[std::path::PathBuf]> {
+        unimplemented!("nop controller has no child workdir");
+    }
+
+    fn reconcile(&self) -> Result<(), libafl_core::Error> {
+        Ok(())
+    }
 }

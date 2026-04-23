@@ -182,10 +182,6 @@ where
         //     }
         // }
 
-        // Mark the elapsed time for the scheduler
-        #[cfg(feature = "introspection")]
-        state.introspection_stats_mut().finish_stage();
-
         // Execute the remaining stages
         self.1
             .perform_all(fuzzer, executor, rand, state, rt_handle, testcase_id)

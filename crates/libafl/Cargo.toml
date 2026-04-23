@@ -74,9 +74,6 @@ track_hit_feedbacks = ["std"]
 ## `ValueBloomFeedback` checks if an observed value has already been observed, and returns `is_interesting=true` otherwise.
 value_bloom_feedback = ["fastbloom", "fastbloom/serde"]
 
-## Collects performance statistics of the fuzzing pipeline and displays it on `Monitor` components
-introspection = []
-
 ## Expose `libafl::prelude` for access without additional using directives
 prelude = ["libafl_bolts/prelude"]
 

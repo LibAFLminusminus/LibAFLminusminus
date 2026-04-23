@@ -40,9 +40,6 @@ default = [
 ## Enables features that need rust's `std` lib to work, like print, env, ... support
 std = ["libafl/std"]
 
-## Collects performance statistics of the fuzzing pipeline and displays it on `Monitor` components
-introspection = ["libafl/introspection"]
-
 ## Support for the `sancov` 8-bit counters.
 ## This feature enables the `8-bit-counters` runtime for `LibAFL`, which uses a global `COUNTERS_MAPS` to store coverage maps.
 ## It is compatible with LLVM's `SanitizerCoverage` 8-bit counters instrumentation.
