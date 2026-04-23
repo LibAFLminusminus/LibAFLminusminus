@@ -2,15 +2,18 @@ use crate::{
     Controller, Error, GlobalController, Result, SimpleController, SimpleGlobalController,
     inputs::NopInput,
     monitors::SimpleMonitor,
-    nop::{NopController, NopGlobalController},
+    nop::{NopController, NopDescriptor, NopGlobalController},
     runtimes::{Runtime, RuntimeHandle, StdRuntime, nop::NopRuntime, simple::SimpleRuntime},
     state::NopState,
 };
-use core::{marker::PhantomData, num::NonZeroUsize};
+use core::{borrow::Borrow, hash::Hash, marker::PhantomData, num::NonZeroUsize};
 use libafl_bolts::core_affinity::{CoreId, Cores};
-use nix::unistd::{ForkResult, Pid, fork};
+use nix::{
+    sys::wait::{WaitStatus, wait},
+    unistd::{ForkResult, Pid, fork},
+};
 use serde::Serialize;
-use std::vec::Vec;
+use std::{collections::HashSet, vec::Vec};
 
 // TODO: use a proper heuristic to choose correct ram size
 pub const DEFAULT_MAX_STATE_SIZE_PER_CLIENT: NonZeroUsize = NonZeroUsize::new(1 << 30).unwrap();
@@ -32,18 +35,23 @@ pub struct Instance<CT, RT, S> {
     core: CoreId,
 }
 
+pub struct InstanceRepr<D> {
+    pid: Pid,
+    descriptor: D,
+}
+
 // for now, this is unix-specific.
 // it should be per supported os.
 // keep os-specific things there as much as possible.
-pub struct Instances<CT, RT, S> {
+pub struct Instances<CT, D, RT, S> {
     instances: Vec<Instance<CT, RT, S>>,
-    active_pids: Vec<Pid>,
+    active_instances: HashSet<InstanceRepr<D>>,
 }
 
-pub struct StdLauncher<CT, GCT, MT, RT, S> {
+pub struct StdLauncher<CT, D, GCT, MT, RT, S> {
     global_controller: GCT,
     monitor: MT,
-    instances: Instances<CT, RT, S>,
+    instances: Instances<CT, D, RT, S>,
 }
 
 impl<CT, RT, S> Instance<CT, RT, S> {
@@ -64,6 +72,7 @@ fn nop_state_builder() -> Result<NopState<NopInput>> {
 impl
     StdLauncher<
         NopController,
+        NopDescriptor,
         NopGlobalController,
         SimpleMonitor,
         NopRuntime,
@@ -96,8 +105,8 @@ impl
     }
 }
 
-impl<CT, GCT, MT, RT, S> StdLauncher<CT, GCT, MT, RT, S> {
-    pub fn new(global_controller: GCT, monitor: MT, instances: Instances<CT, RT, S>) -> Self {
+impl<CT, D, GCT, MT, RT, S> StdLauncher<CT, D, GCT, MT, RT, S> {
+    pub fn new(global_controller: GCT, monitor: MT, instances: Instances<CT, D, RT, S>) -> Self {
         Self {
             global_controller,
             monitor,
@@ -106,18 +115,35 @@ impl<CT, GCT, MT, RT, S> StdLauncher<CT, GCT, MT, RT, S> {
     }
 }
 
-impl<CT, GCT, MT, RT, S> StdLauncher<CT, GCT, MT, RT, S>
+impl<CT, D, GCT, MT, RT, S> StdLauncher<CT, D, GCT, MT, RT, S>
 where
-    GCT: GlobalController<Controller = CT>,
-    CT: Controller,
+    GCT: GlobalController<Controller = CT, Descriptor = D>,
+    CT: Controller<GlobalController = GCT>,
     RT: Runtime<CT, S> + 'static,
 {
     pub fn launch(mut self) -> Result<()> {
+        self.instances
+            .spawn_instances(&mut self.global_controller)?;
+
+        self.instances.wait_instances(&mut self.global_controller)?;
+
         Ok(())
     }
 }
 
 impl<GCT, MT, RT, S, SB> StdLauncherBuilder<GCT, MT, RT, S, SB> {
+    pub fn cores(self, cores: Cores) -> StdLauncherBuilder<GCT, MT, RT, S, SB> {
+        StdLauncherBuilder {
+            global_controller: self.global_controller,
+            monitor: self.monitor,
+            cores: cores,
+            runtime: self.runtime,
+            state_builder: self.state_builder,
+            max_state_size_per_client: self.max_state_size_per_client,
+            phantom: self.phantom,
+        }
+    }
+
     pub fn runtime<RT2>(self, runtime: RT2) -> StdLauncherBuilder<GCT, MT, RT2, S, SB> {
         StdLauncherBuilder {
             global_controller: self.global_controller,
@@ -180,7 +206,7 @@ where
     pub fn build_with_task<T>(
         self,
         task: T,
-    ) -> Result<StdLauncher<GCT::Controller, GCT, MT, StdRuntime<S, T>, S>>
+    ) -> Result<StdLauncher<GCT::Controller, GCT::Descriptor, GCT, MT, StdRuntime<S, T>, S>>
     where
         // this bound is needed to help rust link the state output by the state builder and
         // the one used by the task. otherwise, the compiler needs explicit typing.
@@ -210,22 +236,26 @@ where
     RT: Clone,
     SB: FnMut(&GCT::Controller) -> Result<S>,
 {
-    pub fn build(mut self) -> Result<StdLauncher<GCT::Controller, GCT, MT, RT, S>> {
+    pub fn build(
+        mut self,
+    ) -> Result<StdLauncher<GCT::Controller, GCT::Descriptor, GCT, MT, RT, S>> {
         if self.cores.is_empty() {
             return Err(Error::illegal_argument(format!(
                 "No cores have been declared."
             )));
         }
 
-        let mut instances: Instances<GCT::Controller, RT, S> = Instances::new();
+        let mut instances: Instances<GCT::Controller, GCT::Descriptor, RT, S> = Instances::new();
 
         // create an instance per core, ready to run.
         for core in self.cores {
-            // create the state for the
+            // spawn a controller for the instance
             let controller = self.global_controller.create_controller()?;
 
+            // create the state for the instance
             let state: S = (self.state_builder)(&controller)?;
 
+            // add the instance to the list
             instances.add_instance(Instance::new(self.runtime.clone(), state, controller, core));
         }
 
@@ -239,30 +269,41 @@ where
 
 impl<CT, RT, S> Instance<CT, RT, S>
 where
-    CT: Controller,
     RT: Runtime<CT, S> + 'static,
 {
     /// # Safety
     ///
     /// This will spawn a new process, which could have side effects.
     /// Once spawned, the parent process will take back the hand on the control flow immediately.
-    pub unsafe fn spawn<GCT: GlobalController<Controller = CT>>(
+    pub unsafe fn spawn<GCT>(
         &mut self,
         global_controller: &mut GCT,
-    ) -> Result<Pid> {
+    ) -> Result<InstanceRepr<GCT::Descriptor>>
+    where
+        GCT: GlobalController<Controller = CT>,
+        CT: Controller<GlobalController = GCT>,
+    {
+        // take these out before fork, to mark these as used in the father.
+        // the father process will be able to drop the controller in the
+        // father process as well.
+
+        let state = self
+            .state
+            .take()
+            .expect("State is not in the instance. This is a fuzzer bug.");
+
+        let controller = self
+            .controller
+            .take()
+            .expect("Controller is not in the instance. This is a fuzzer bug.");
+
         match unsafe { fork()? } {
-            ForkResult::Parent { child } => Ok(child),
+            ForkResult::Parent { child } => {
+                global_controller.on_start(controller.descriptor())?;
+
+                Ok(InstanceRepr::new(child, controller.descriptor().clone()))
+            }
             ForkResult::Child => {
-                let state = self
-                    .state
-                    .take()
-                    .expect("State is not in the instance. This is a fuzzer bug.");
-
-                let controller = self
-                    .controller
-                    .take()
-                    .expect("Controller is not in the instance. This is a fuzzer bug.");
-
                 // start the child runtime
                 self.runtime.run(state, controller)?;
 
@@ -274,11 +315,11 @@ where
     }
 }
 
-impl<CT, RT, S> Instances<CT, RT, S> {
+impl<CT, D, RT, S> Instances<CT, D, RT, S> {
     pub fn new() -> Self {
         Self {
             instances: Vec::new(),
-            active_pids: Vec::new(),
+            active_instances: HashSet::new(),
         }
     }
 
@@ -287,21 +328,85 @@ impl<CT, RT, S> Instances<CT, RT, S> {
     }
 }
 
-impl<CT, RT, S> Instances<CT, RT, S>
+impl<CT, D, RT, S> Instances<CT, D, RT, S>
 where
     CT: Controller,
     RT: Runtime<CT, S> + 'static,
 {
     pub fn spawn_instances<GCT>(&mut self, global_controller: &mut GCT) -> Result<()>
     where
-        GCT: GlobalController<Controller = CT>,
+        GCT: GlobalController<Controller = CT, Descriptor = D>,
+        CT: Controller<GlobalController = GCT>,
     {
         for instance in &mut self.instances {
             unsafe {
-                self.active_pids.push(instance.spawn(global_controller)?);
+                self.active_instances
+                    .insert(instance.spawn(global_controller)?);
             }
         }
 
         Ok(())
+    }
+
+    pub fn wait_instances<GCT>(&mut self, global_controller: &mut GCT) -> Result<()>
+    where
+        GCT: GlobalController<Controller = CT, Descriptor = D>,
+        CT: Controller<GlobalController = GCT>,
+    {
+        while !self.active_instances.is_empty() {
+            match wait() {
+                Ok(WaitStatus::Exited(pid, exit_code)) => {
+                    let instance_repr = self.active_instances.take(&pid).expect(format!(
+                        "Removed a PID ({pid}) not in the active PID list. This is a fuzzer bug.",
+                    ).as_str());
+
+                    global_controller.on_exit(&instance_repr.descriptor, exit_code)?;
+                }
+                Ok(WaitStatus::Signaled(pid, signal, _)) => {
+                    let instance_repr = self.active_instances.take(&pid).expect(format!(
+                        "Removed a PID ({pid}) not in the active PID list. This is a fuzzer bug.",
+                    ).as_str());
+
+                    global_controller.on_termination(&instance_repr.descriptor, signal)?;
+                }
+
+                Ok(_) => {
+                    // ignore, this is harmless stuff
+                }
+                Err(e) => {
+                    panic!("Error while waiting: {e}");
+                }
+            }
+        }
+
+        log::info!("All instances finished successfully.");
+
+        Ok(())
+    }
+}
+
+impl<D> InstanceRepr<D> {
+    pub fn new(pid: Pid, descriptor: D) -> Self {
+        Self { pid, descriptor }
+    }
+}
+
+impl<D> Borrow<Pid> for InstanceRepr<D> {
+    fn borrow(&self) -> &Pid {
+        &self.pid
+    }
+}
+
+impl<D> PartialEq for InstanceRepr<D> {
+    fn eq(&self, other: &Self) -> bool {
+        self.pid == other.pid
+    }
+}
+
+impl<D> Eq for InstanceRepr<D> {}
+
+impl<D> Hash for InstanceRepr<D> {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
+        self.pid.hash(state);
     }
 }

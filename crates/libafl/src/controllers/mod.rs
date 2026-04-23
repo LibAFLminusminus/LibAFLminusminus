@@ -1,7 +1,9 @@
+use crate::Result;
 use alloc::vec::Vec;
 use hashbrown::HashMap;
 use libafl_bolts::core_affinity::CoreId;
 use libafl_core::{ClientId, Error};
+use nix::sys::signal::Signal;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
@@ -10,11 +12,29 @@ pub mod nop;
 
 pub trait GlobalController {
     type Controller: Controller;
-    type Descriptor;
+    type Descriptor: Clone;
 
-    fn create_controller(&mut self) -> Result<Self::Controller, Error>;
+    fn create_controller(&mut self) -> Result<Self::Controller>;
 
     fn controllers(&self) -> &[Self::Controller];
+
+    fn on_start(&mut self, descriptor: &Self::Descriptor) -> Result<()> {
+        Ok(())
+    }
+
+    /// Called when a controller exits with some exit code
+    fn on_exit(&mut self, descriptor: &Self::Descriptor, exit_code: i32) -> Result<()> {
+        Ok(())
+    }
+
+    /// Called when a controller exits with a termination (e.g. signal / exception)
+    fn on_termination(
+        &mut self,
+        descriptor: &Self::Descriptor,
+        termination_code: Signal, // TODO: make this os-agnostic
+    ) -> Result<()> {
+        Ok(())
+    }
 }
 
 pub trait Controller {
@@ -30,7 +50,7 @@ pub trait Controller {
     fn workdir(&self) -> &PathBuf;
 
     /// do the work related to reconciling between instances; like sharing corpus.. etc.
-    fn reconcile(&self) -> Result<(), Error>;
+    fn reconcile(&self) -> Result<()>;
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -69,7 +89,7 @@ impl GlobalController for SimpleGlobalController {
     type Controller = SimpleController;
     type Descriptor = StdDescriptor;
 
-    fn create_controller(&mut self) -> Result<SimpleController, Error> {
+    fn create_controller(&mut self) -> Result<SimpleController> {
         let client_id = ClientId(self.client_ctr);
         self.client_ctr += 1;
 
@@ -103,7 +123,7 @@ impl Controller for SimpleController {
         &self.descriptor.path
     }
 
-    fn reconcile(&self) -> Result<(), Error> {
+    fn reconcile(&self) -> Result<()> {
         // do nothing
         Ok(())
     }
@@ -118,7 +138,7 @@ impl SimpleController {
 /// The launcher should create instantiate this alongside binding this instance to a specific core id
 impl StdDescriptor {
     /// Default constructor
-    pub fn new<P: AsRef<Path>>(path: P, client_id: ClientId) -> Result<Self, Error> {
+    pub fn new<P: AsRef<Path>>(path: P, client_id: ClientId) -> Result<Self> {
         if !path.as_ref().is_dir() {
             return Err(Error::illegal_argument(
                 "The client directory does not exit. This is a fuzzer bug.",
