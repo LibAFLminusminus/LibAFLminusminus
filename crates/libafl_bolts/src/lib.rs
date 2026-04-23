@@ -88,7 +88,8 @@ pub use argparse::*;
 pub mod target_args;
 pub use fast_rands as rands;
 pub use libafl_core::{
-    AsIter, AsIterMut, AsSlice, AsSliceMut, ClientId, Error, HasLen, HasRefCnt, Named, Truncate,
+    AsIter, AsIterMut, AsSlice, AsSliceMut, ClientId, Error, HasLen, HasRefCnt, Named, Result,
+    Truncate,
 };
 pub use ownedref::{self, subrange};
 #[cfg(feature = "alloc")]
@@ -298,7 +299,7 @@ impl SimpleStdoutLogger {
     }
 
     /// register stdout logger
-    pub fn set_logger() -> Result<(), Error> {
+    pub fn set_logger() -> Result<()> {
         log::set_logger(&LIBAFL_STDOUT_LOGGER)
             .map_err(|err| Error::illegal_state(format!("Failed to set logger: {err:?}")))
     }
@@ -464,7 +465,7 @@ impl SimpleStderrLogger {
     }
 
     /// register stderr logger
-    pub fn set_logger() -> Result<(), Error> {
+    pub fn set_logger() -> Result<()> {
         log::set_logger(&LIBAFL_STDERR_LOGGER)
             .map_err(|err| Error::illegal_state(format!("Could not set logger: {err:?}")))
     }
@@ -521,7 +522,7 @@ impl SimpleFdLogger {
     /// # Safety
     /// This function may not be called multiple times concurrently.
     /// The passed-in `fd` has to be a legal file descriptor to log to.
-    pub unsafe fn set_logger(log_fd: RawFd) -> Result<(), Error> {
+    pub unsafe fn set_logger(log_fd: RawFd) -> Result<()> {
         // # Safety
         // The passed-in `fd` has to be a legal file descriptor to log to.
         // We also access a shared variable here.

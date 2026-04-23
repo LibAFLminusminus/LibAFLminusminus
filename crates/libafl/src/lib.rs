@@ -69,6 +69,7 @@ pub mod corpus;
 pub mod executors;
 pub mod feedbacks;
 pub mod fuzzer;
+pub use fuzzer::*;
 pub mod generators;
 pub mod inputs;
 pub mod launchers;
@@ -79,9 +80,8 @@ pub mod runtimes;
 pub mod stages;
 pub mod state;
 
-#[cfg(not(feature = "remove_me"))]
-pub use fuzzer::*;
-pub use libafl_bolts::{Error, non_zero, non_zero_const};
+pub use libafl_bolts::{non_zero, non_zero_const};
+pub use libafl_core::{Error, Result};
 
 /// The purpose of this module is to alleviate imports of many components by adding a glob import.
 #[cfg(feature = "prelude")]

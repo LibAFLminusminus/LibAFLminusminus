@@ -15,10 +15,9 @@ use crate::{
 
 pub mod inprocess;
 pub use inprocess::{InProcessRuntime, StdInProcessRuntime};
-
 pub mod restarting;
 pub use restarting::RestartingRuntime;
-
+pub mod nop;
 pub mod simple;
 pub mod utils;
 

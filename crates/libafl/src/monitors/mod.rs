@@ -22,6 +22,8 @@ pub trait Monitor {
     fn display(&mut self) -> Result<(), Error>;
 }
 
+pub const DEFAULT_INTERVAL: Duration = Duration::from_secs(5);
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SimpleMonitor {
     /// the path that this instance writes its stats to
@@ -29,12 +31,15 @@ pub struct SimpleMonitor {
     /// the last time monitor was updated,
     last_update: Duration,
     /// the intervals to update monitor
-    intervals: Duration,
+    update_interval: Duration,
 }
 
 impl SimpleMonitor {
-    pub fn new<CT: GlobalController>(controller: CT, intervals: Duration) -> Result<Self, Error> {
-        let paths: Vec<PathBuf> = controller
+    pub fn with_duration<GCT: GlobalController>(
+        global_controller: &GCT,
+        update_interval: Duration,
+    ) -> Result<Self, Error> {
+        let paths: Vec<PathBuf> = global_controller
             .clients()
             .iter()
             .map(|c| c.workdir().join("fuzzer_stats"))
@@ -49,14 +54,18 @@ impl SimpleMonitor {
         Ok(Self {
             paths,
             last_update: current_time(),
-            intervals,
+            update_interval,
         })
+    }
+
+    pub fn new<GCT: GlobalController>(global_controller: &GCT) -> Result<Self, Error> {
+        Self::with_duration(global_controller, DEFAULT_INTERVAL.clone())
     }
 }
 
 impl Monitor for SimpleMonitor {
     fn display(&mut self) -> Result<(), Error> {
-        if current_time() - self.last_update > self.intervals {
+        if current_time() - self.last_update > self.update_interval {
             self.last_update = current_time();
         } else {
             return Ok(());

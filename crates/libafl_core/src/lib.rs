@@ -131,6 +131,9 @@ fn display_error_backtrace(_f: &mut fmt::Formatter, _err: &ErrorBacktrace) -> fm
     fmt::Result::Ok(())
 }
 
+/// Shorthand for std::result::Result<T, libafl_core::Error>.
+pub type Result<T> = std::result::Result<T, Error>;
+
 /// Main error struct for `LibAFL`
 #[derive(Debug)]
 pub enum Error {
@@ -715,9 +718,9 @@ pub use nonzero_macros::{non_zero, non_zero_const, nonnull_raw_mut, try_non_zero
 // TODO: Use MaybeUninit API at some point.
 #[cfg(feature = "alloc")]
 #[expect(clippy::uninit_vec)]
-pub unsafe fn vec_init<E, F, T>(nb_elts: usize, init_fn: F) -> Result<Vec<T>, E>
+pub unsafe fn vec_init<E, F, T>(nb_elts: usize, init_fn: F) -> std::result::Result<Vec<T>, E>
 where
-    F: FnOnce(&mut Vec<T>) -> Result<(), E>,
+    F: FnOnce(&mut Vec<T>) -> std::result::Result<(), E>,
 {
     unsafe {
         let mut new_vec: Vec<T> = Vec::with_capacity(nb_elts);
