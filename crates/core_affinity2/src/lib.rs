@@ -166,8 +166,8 @@ impl Cores {
     }
 
     /// Pick no core
-    pub fn none() -> Result<Self> {
-        Ok(Self { ids: vec![] })
+    pub fn none() -> Self {
+        Self { ids: vec![] }
     }
 
     /// Trims the number of cores to the given value, dropping additional cores
