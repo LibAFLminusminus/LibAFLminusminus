@@ -30,6 +30,9 @@ use crate::{
 pub mod standard;
 pub use standard::*;
 
+pub mod hooks;
+pub use hooks::*;
+
 /// Holds an feedback
 pub trait HasFeedback {
     /// The feedback type
