@@ -1,13 +1,16 @@
 use core::{ffi::c_void, ptr::NonNull, time::Duration};
 use std::process::exit;
 
-use libafl_bolts::{Error, shm::OsShmSender};
+use libafl_bolts::Error;
 
 use crate::{
     DependencyResolver,
     runtimes::{
         restarting::LIBAFL_EXIT_END,
-        utils::{IntoTerminationHandlerData, OsTerminationParams, TerminationHandlerData},
+        utils::{
+            IntoTerminationHandlerData, OsTerminationParams, TerminationHandlerData,
+            unix::OsShmSender,
+        },
     },
 };
 
