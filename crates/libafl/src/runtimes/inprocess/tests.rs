@@ -39,6 +39,9 @@ rusty_fork_test! {
     }
 }
 
+/// set_input is important:
+/// - if it is set, the runner considers we are in fuzzing loop, so crash / timeout is expected
+/// - if it is not set, the runner considers we are out of the fuzzing loop, so crash / timeout is unexpected (fuzzer bug)
 fn run_runtime<CH, T, TH>(task: T, crash_handler: CH, timeout_handler: TH, set_input: bool)
 where
     T: FnMut(
