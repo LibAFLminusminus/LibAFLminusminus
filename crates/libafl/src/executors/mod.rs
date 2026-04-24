@@ -34,9 +34,11 @@ pub mod command;
 #[cfg(feature = "std")]
 pub use command::CommandExecutor;
 
+#[cfg(not(feature = "remove_me"))]
 #[cfg(all(feature = "std", unix))]
 pub mod forkserver;
 #[cfg(all(feature = "std", unix))]
+#[cfg(not(feature = "remove_me"))]
 pub use forkserver::{Forkserver, ForkserverExecutor};
 
 pub mod nop;
