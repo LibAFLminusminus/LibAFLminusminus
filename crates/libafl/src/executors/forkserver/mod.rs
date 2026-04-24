@@ -11,7 +11,7 @@ use std::{
     ffi::OsString,
     io::{self, ErrorKind, Read, Write},
     os::{
-        fd::{AsRawFd, BorrowedFd},
+        fd::{AsRawFd, BorrowedFd, OwnedFd, FromRawFd},
         unix::{io::RawFd, process::CommandExt},
     },
     path::PathBuf,
@@ -28,7 +28,6 @@ use libafl_bolts::{
     shmem::{ShMem, ShMemProvider, UnixShMem, UnixShMemProvider},
     tuples::{MatchNameRef, Prepend, RefIndexable},
 };
-use libc::RLIM_INFINITY;
 use nix::{
     sys::{
         select::{FdSet, pselect},
@@ -55,8 +54,11 @@ use crate::{
     state::{FlatState, HasCorpus},
 };
 
+pub mod config;
+pub use config::*;
+
 /// Pinned fd number for forkserver communication
-pub const FORKSRV_FD: i32 = 198;
+pub const FORKSRV_FD_NUM: i32 = 198;
 #[expect(clippy::cast_possible_wrap)]
 const FS_NEW_ERROR: i32 = 0xeffe0000_u32 as i32;
 
@@ -176,164 +178,6 @@ pub const AFL_GCC_ONLY_FSRV_VAR: &str = "AFL_GCC_ONLY_FSRV";
 /// The default signal to use to kill child processes
 const KILL_SIGNAL_DEFAULT: Signal = Signal::SIGTERM;
 
-/// Configure the target, `limit`, `setsid`, `pipe_stdin`, the code was borrowed from the [`Angora`](https://github.com/AngoraFuzzer/Angora) fuzzer
-pub trait ConfigTarget {
-    /// Sets the sid
-    fn setsid(&mut self) -> &mut Self;
-
-    /// Sets a mem limit
-    fn setlimit(&mut self, memlimit: u64) -> &mut Self;
-
-    /// enables core dumps (rlimit = infinity)
-    fn set_coredump(&mut self, enable: bool) -> &mut Self;
-
-    /// Sets the AFL forkserver pipes
-    ///
-    /// # Safety
-    /// All pipes must be valid file descriptors. They will be dup2-ed internally.
-    unsafe fn setpipe(
-        &mut self,
-        st_read: RawFd,
-        st_write: RawFd,
-        ctl_read: RawFd,
-        ctl_write: RawFd,
-    ) -> &mut Self;
-
-    /// [`dup2`] the specific `fd`, used for `stdio`
-    ///
-    /// # Safety
-    /// The file descriptors must be valid. They will be `dup2-ed`.
-    unsafe fn setdup2(&mut self, old_fd: RawFd, new_fd: RawFd) -> &mut Self;
-
-    /// Bind children to a single core
-    fn bind(&mut self, core: CoreId) -> &mut Self;
-}
-
-impl ConfigTarget for Command {
-    fn setsid(&mut self) -> &mut Self {
-        let func = move || {
-            // # Safety
-            // raw libc call without any parameters
-            unsafe {
-                if libc::setsid() == -1 {
-                    log::warn!("Failed to set sid. Error: {:?}", last_error_str());
-                }
-            };
-            Ok(())
-        };
-        unsafe { self.pre_exec(func) }
-    }
-
-    /// # Safety
-    /// All pipes must be valid file descriptors. They will be dup2-ed internally.
-    unsafe fn setpipe(
-        &mut self,
-        st_read: RawFd,
-        st_write: RawFd,
-        ctl_read: RawFd,
-        ctl_write: RawFd,
-    ) -> &mut Self {
-        // # Safety
-        // If this was called with correct parameters, we're good.
-        unsafe {
-            let func = move || {
-                match dup2(ctl_read, FORKSRV_FD) {
-                    Ok(()) => (),
-                    Err(_) => {
-                        return Err(io::Error::last_os_error());
-                    }
-                }
-
-                match dup2(st_write, FORKSRV_FD + 1) {
-                    Ok(()) => (),
-                    Err(_) => {
-                        return Err(io::Error::last_os_error());
-                    }
-                }
-                libc::close(st_read);
-                libc::close(st_write);
-                libc::close(ctl_read);
-                libc::close(ctl_write);
-                Ok(())
-            };
-            self.pre_exec(func)
-        }
-    }
-
-    // libc::rlim_t is i64 in freebsd and trivial_numeric_casts check will failed
-    #[allow(trivial_numeric_casts)] // on 32 bit it does not trigger
-    fn setlimit(&mut self, memlimit: u64) -> &mut Self {
-        if memlimit == 0 {
-            return self;
-        }
-        // # Safety
-        // This method does not do shady pointer foo.
-        // It merely call libc functions.
-        let func = move || {
-            let memlimit: libc::rlim_t = (memlimit as libc::rlim_t) << 20;
-            let r = libc::rlimit {
-                rlim_cur: memlimit,
-                rlim_max: memlimit,
-            };
-            #[cfg(target_os = "openbsd")]
-            let ret = unsafe { libc::setrlimit(libc::RLIMIT_RSS, &r) };
-            #[cfg(not(target_os = "openbsd"))]
-            let ret = unsafe { libc::setrlimit(libc::RLIMIT_AS, &raw const r) };
-            if ret < 0 {
-                return Err(io::Error::last_os_error());
-            }
-            Ok(())
-        };
-        // # Safety
-        // This calls our non-shady function from above.
-        unsafe { self.pre_exec(func) }
-    }
-
-    fn set_coredump(&mut self, enable: bool) -> &mut Self {
-        let func = move || {
-            let r0 = libc::rlimit {
-                rlim_cur: if enable { RLIM_INFINITY } else { 0 },
-                rlim_max: if enable { RLIM_INFINITY } else { 0 },
-            };
-            let ret = unsafe { libc::setrlimit(libc::RLIMIT_CORE, &raw const r0) };
-            if ret < 0 {
-                return Err(io::Error::last_os_error());
-            }
-            Ok(())
-        };
-        // # Safety
-        // This calls our non-shady function from above.
-        unsafe { self.pre_exec(func) }
-    }
-
-    unsafe fn setdup2(&mut self, old_fd: RawFd, new_fd: RawFd) -> &mut Self {
-        let func = move || {
-            // # Safety
-            // The fd should be valid at this point - depending on parameters.
-            let ret = unsafe { libc::dup2(old_fd, new_fd) };
-            if ret < 0 {
-                return Err(io::Error::last_os_error());
-            }
-            Ok(())
-        };
-        // # Safety
-        // This calls our non-shady function from above.
-        unsafe { self.pre_exec(func) }
-    }
-
-    fn bind(&mut self, core: CoreId) -> &mut Self {
-        let func = move || {
-            if let Err(e) = core.set_affinity_forced() {
-                return Err(io::Error::other(e));
-            }
-
-            Ok(())
-        };
-        // # Safety
-        // This calls our non-shady function from above.
-        unsafe { self.pre_exec(func) }
-    }
-}
 
 /// The [`Forkserver`] is communication channel with a child process that forks on request of the fuzzer.
 /// The communication happens via pipe.
@@ -523,7 +367,7 @@ impl Forkserver {
         // # Saftey
         // The pipe file descriptors used for `setpipe` are valid at this point.
         let fsrv_handle = unsafe {
-            match ConfigTarget::setsid(
+            match ConfigForkserver::setsid(
                 command
                     .env("LD_BIND_NOW", "1")
                     .envs(envs)
@@ -531,10 +375,8 @@ impl Forkserver {
                     .set_coredump(afl_debug),
             )
             .setpipe(
-                st_pipe.read_end().unwrap(),
                 st_pipe.write_end().unwrap(),
                 ctl_pipe.read_end().unwrap(),
-                ctl_pipe.write_end().unwrap(),
             )
             .spawn()
             {
