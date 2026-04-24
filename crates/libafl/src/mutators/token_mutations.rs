@@ -44,6 +44,8 @@ pub struct Tokens {
 
 libafl_bolts::impl_serdeany!(Tokens);
 
+pub static DEFAULT_TOKEN_MAP: &str = "default_tokens";
+
 /// The metadata used for token mutators
 impl Tokens {
     /// Creates a new tokens metadata (old-skool afl name: `dictornary`)
@@ -305,13 +307,14 @@ pub struct TokenInsert;
 
 impl<I, R, S> Mutator<I, R, S> for TokenInsert
 where
+    R: Rand,
     S: FlatState,
     I: ResizableMutator<u8> + HasMutatorBytes,
 {
     fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
         let max_size = state.max_size();
         let tokens_len = {
-            let Some(meta) = state.metadata_map().get::<Tokens>() else {
+            let Some(meta) = state.named_metadata_map().get::<Tokens>(DEFAULT_TOKEN_MAP) else {
                 return Ok(MutationResult::Skipped);
             };
             if let Some(tokens_len) = NonZero::new(meta.tokens().len()) {
@@ -320,17 +323,16 @@ where
                 return Ok(MutationResult::Skipped);
             }
         };
-        let token_idx = state.rand_mut().below(tokens_len);
+        let token_idx = rand.below(tokens_len);
 
         let size = input.mutator_bytes().len();
         // # Safety
         // after saturating add it's always above 0
 
-        let off = state
-            .rand_mut()
+        let off = rand
             .below(unsafe { NonZero::new_unchecked(size.saturating_add(1)) });
 
-        let meta = state.metadata_map().get::<Tokens>().unwrap();
+        let meta = state.named_metadata_map().get::<Tokens>(DEFAULT_TOKEN_MAP).unwrap();
         let token = &meta.tokens()[token_idx];
         let mut len = token.len();
 
@@ -378,19 +380,20 @@ pub struct TokenReplace;
 
 impl<I, R, S> Mutator<I, R, S> for TokenReplace
 where
+    R: Rand,
     S: FlatState,
     I: ResizableMutator<u8> + HasMutatorBytes,
 {
     fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
         let size = input.mutator_bytes().len();
         let off = if let Some(nz) = NonZero::new(size) {
-            state.rand_mut().below(nz)
+            rand.below(nz)
         } else {
             return Ok(MutationResult::Skipped);
         };
 
         let tokens_len = {
-            let Some(meta) = state.metadata_map().get::<Tokens>() else {
+            let Some(meta) = state.named_metadata_map().get::<Tokens>(DEFAULT_TOKEN_MAP) else {
                 return Ok(MutationResult::Skipped);
             };
             if let Some(tokens_len) = NonZero::new(meta.tokens().len()) {
@@ -399,9 +402,9 @@ where
                 return Ok(MutationResult::Skipped);
             }
         };
-        let token_idx = state.rand_mut().below(tokens_len);
+        let token_idx = rand.below(tokens_len);
 
-        let meta = state.metadata_map().get::<Tokens>().unwrap();
+        let meta = state.named_metadata_map().get::<Tokens>(DEFAULT_TOKEN_MAP).unwrap();
         let token = &meta.tokens()[token_idx];
         let mut len = token.len();
         if off + len > size {
