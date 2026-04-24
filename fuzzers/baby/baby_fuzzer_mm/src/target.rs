@@ -1,6 +1,6 @@
 use std::ptr::write;
 
-use libafl::{Error, executors::ExitKind, inputs::BytesInput};
+use libafl::{executors::ExitKind, inputs::BytesInput, Error};
 
 /// Coverage map with explicit assignments due to the lack of instrumentation
 pub const SIGNALS_LEN: usize = 16;
@@ -23,7 +23,7 @@ pub fn target<S>(_state: &mut S, input: &BytesInput) -> Result<ExitKind, Error> 
             signals_set(2);
             if buf.len() > 2 && buf[2] == b'c' {
                 #[cfg(unix)]
-                // panic!("Artificial bug triggered =)");
+                panic!("Artificial bug triggered =)");
 
                 // panic!() raises a STATUS_STACK_BUFFER_OVERRUN exception which cannot be caught by the exception handler.
                 // Here we make it raise STATUS_ACCESS_VIOLATION instead.
