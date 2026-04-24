@@ -9,7 +9,6 @@ use core::{
     marker::PhantomData,
     time::Duration,
 };
-use num_traits::Zero;
 use std::{
     collections::HashMap,
     fs,
@@ -25,6 +24,8 @@ use libafl_bolts::{
 use libafl_core::non_zero;
 #[cfg(not(debug_assertions))]
 use libafl_core::nonzero_macros::non_zero_unchecked;
+use nix::unistd::Pid;
+use num_traits::Zero;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use typed_builder::TypedBuilder;
 
@@ -43,9 +44,11 @@ use crate::{
     runtimes::RuntimeHandle,
 };
 
+pub type InstanceId = u32;
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Stats {
-    pub(crate) pid: u32,
+    pub(crate) pid: InstanceId,
     /// How many times the executor ran the harness/target
     pub(crate) executions: u64,
     /// At what time the fuzzing started
@@ -1178,7 +1181,7 @@ where
                 objective: 0,
                 last_found_time: libafl_bolts::current_time(),
                 start_time: libafl_bolts::current_time(),
-                user_map: NamedSerdeAnyMap::new()
+                user_map: NamedSerdeAnyMap::new(),
             },
             named_metadata: NamedSerdeAnyMap::default(),
             corpus,

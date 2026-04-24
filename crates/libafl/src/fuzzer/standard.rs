@@ -437,19 +437,19 @@ where
         state: &mut S,
         rt_handle: &mut RuntimeHandle<CT, S>,
     ) -> Result<(), Error> {
-        self.fuzzer_hooks.on_step_start_all(executor, state);
+        self.fuzzer_hooks.pre_step_start_all(executor, state, rt_handle);
 
         if current_time() - self.last_synced > Duration::from_secs(1) {
             let workdir = rt_handle.controller().workdir();
             sync_stats(state.stats(), workdir);
         }
 
-        self.fuzzer_hooks.on_schedule_all(executor, state);
+        self.fuzzer_hooks.pre_schedule_all(executor, state, rt_handle);
 
         // Get the next index from the scheduler
         let testcase_id = state.scheduler_mut().next()?;
 
-        self.fuzzer_hooks.on_perform_all(executor, state);
+        self.fuzzer_hooks.pre_perform_all(executor, state, rt_handle, testcase_id);
 
         // Execute all stages
         stages.perform_all(self, executor, rand, state, rt_handle, &testcase_id)?;
@@ -458,7 +458,7 @@ where
             .testcase_md_mut_from_id(&testcase_id)
             .increase_scheduled_count();
 
-        self.fuzzer_hooks.on_step_end_all(executor, state);
+        self.fuzzer_hooks.pre_step_end_all(executor, state, rt_handle);
 
         Ok(())
     }
