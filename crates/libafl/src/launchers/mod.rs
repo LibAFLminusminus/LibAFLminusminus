@@ -25,6 +25,9 @@ use crate::{
     state::NopState,
 };
 
+pub mod os;
+pub use os::{Instance, InstanceId, InstanceRepr, Instances};
+
 // TODO: use a proper heuristic to choose correct ram size
 pub const DEFAULT_MAX_STATE_SIZE_PER_CLIENT: NonZeroUsize = NonZeroUsize::new(1 << 30).unwrap();
 
@@ -40,52 +43,10 @@ pub struct StdLauncherBuilder<CT, MT, RT, S, SB> {
     phantom: PhantomData<S>,
 }
 
-pub struct Instance<RT, S, W> {
-    runtime: RT,
-    state: Option<S>,
-    worker: Option<W>,
-    core: CoreId,
-    stdout_file: Option<File>,
-    stderr_file: Option<File>,
-}
-
-pub struct InstanceRepr<D> {
-    pid: Pid,
-    descriptor: D,
-}
-
-// for now, this is unix-specific.
-// it should be per supported os.
-// keep os-specific things there as much as possible.
-struct Instances<D, RT, S, W> {
-    instances: Vec<Instance<RT, S, W>>,
-    active_instances: HashSet<InstanceRepr<D>>,
-}
-
 pub struct StdLauncher<D, CT, MT, RT, S, W> {
     controller: CT,
     monitor: MT,
     instances: Instances<D, RT, S, W>,
-}
-
-impl<RT, S, W> Instance<RT, S, W> {
-    fn new(
-        runtime: RT,
-        state: S,
-        worker: W,
-        core: CoreId,
-        stdout_file: Option<File>,
-        stderr_file: Option<File>,
-    ) -> Self {
-        Self {
-            runtime,
-            state: Some(state),
-            worker: Some(worker),
-            core,
-            stdout_file,
-            stderr_file,
-        }
-    }
 }
 
 impl
@@ -383,185 +344,33 @@ where
             // create the state for the instance
             let state: S = (self.state_builder)(&controller)?;
 
+            let stdout_file = match stdout_file.as_ref() {
+                Some(f) => Some(
+                    f.try_clone()
+                        .map_err(|e| Error::runtime(format!("Failed to clone stdout_file: {e}")))?,
+                ),
+                None => None,
+            };
+
+            let stderr_file = match stderr_file.as_ref() {
+                Some(f) => Some(
+                    f.try_clone()
+                        .map_err(|e| Error::runtime(format!("Failed to clone stderr_file: {e}")))?,
+                ),
+                None => None,
+            };
+
             // add the instance to the list
             instances.add_instance(Instance::new(
                 self.runtime.clone(),
                 state,
                 controller,
                 core,
-                match stdout_file.as_ref() {
-                    Some(f) => Some(f.try_clone().map_err(|e| {
-                        Error::runtime(format!("Failed to clone stdout_file: {e}"))
-                    })?),
-                    None => None,
-                },
-                match stderr_file.as_ref() {
-                    Some(f) => Some(f.try_clone().map_err(|e| {
-                        Error::runtime(format!("Failed to clone stderr_file: {e}"))
-                    })?),
-                    None => None,
-                },
+                stdout_file,
+                stderr_file,
             ));
         }
 
         Ok(StdLauncher::new(controller, monitor, instances))
-    }
-}
-
-impl<RT, S, W> Instance<RT, S, W>
-where
-    RT: Runtime<S, W> + 'static,
-{
-    /// # Safety
-    ///
-    /// This will spawn a new process, which could have side effects.
-    /// Once spawned, the parent process will take back the hand on the control flow immediately.
-    pub unsafe fn spawn<CT>(&mut self, controller: &mut CT) -> Result<InstanceRepr<CT::Descriptor>>
-    where
-        CT: Controller<Worker = W>,
-        W: Worker<Controller = CT>,
-    {
-        // take these out before fork, to mark these as used in the father.
-        // the father process will be able to drop the controller in the
-        // father process as well.
-
-        let state = self
-            .state
-            .take()
-            .expect("State is not in the instance. This is a fuzzer bug.");
-
-        let worker = self
-            .worker
-            .take()
-            .expect("Controller is not in the instance. This is a fuzzer bug.");
-
-        match unsafe { fork()? } {
-            ForkResult::Parent { child } => {
-                controller.on_start(worker.descriptor())?;
-
-                Ok(InstanceRepr::new(child, worker.descriptor().clone()))
-            }
-            ForkResult::Child => {
-                self.core.set_affinity()?;
-                if let Some(ref f) = self.stdout_file {
-                    dup2_stdout(f)?;
-                }
-                if let Some(ref f) = self.stderr_file {
-                    dup2_stderr(f)?;
-                }
-
-                println!("LOL");
-                // start the child runtime
-                self.runtime.run(state, worker)?;
-
-                // TODO: what should we do there in case it happens?
-                // i'll panic for now, but it's not the right solution
-                panic!("The runtime finished but did not exit cleanly.");
-            }
-        }
-    }
-}
-
-impl<D, RT, S, W> Instances<D, RT, S, W> {
-    pub fn new() -> Self {
-        Self {
-            instances: Vec::new(),
-            active_instances: HashSet::new(),
-        }
-    }
-
-    pub fn add_instance(&mut self, instance: Instance<RT, S, W>) {
-        self.instances.push(instance);
-    }
-}
-
-impl<D, RT, S, W> Instances<D, RT, S, W>
-where
-    W: Worker,
-    RT: Runtime<S, W> + 'static,
-{
-    pub fn spawn_instances<CT>(&mut self, controller: &mut CT) -> Result<()>
-    where
-        CT: Controller<Worker = W, Descriptor = D>,
-        W: Worker<Controller = CT>,
-    {
-        for instance in &mut self.instances {
-            unsafe {
-                self.active_instances.insert(instance.spawn(controller)?);
-            }
-        }
-
-        Ok(())
-    }
-
-    pub fn wait_instances<CT, MT>(&mut self, controller: &mut CT, monitor: &mut MT) -> Result<()>
-    where
-        W: Worker<Controller = CT>,
-        CT: Controller<Worker = W, Descriptor = D>,
-        MT: Monitor,
-    {
-        // TODO: create a proper even-based loop, i'll do later on.
-        sleep(Duration::from_secs(5));
-        monitor.display(controller)?;
-
-        while !self.active_instances.is_empty() {
-            match wait() {
-                Ok(WaitStatus::Exited(pid, exit_code)) => {
-                    let instance_repr = self
-                        .active_instances
-                        .take(&pid)
-                        .unwrap_or_else(||
-                            panic!("Removed a PID ({pid}) not in the active PID list. This is a fuzzer bug.")
-                        );
-
-                    controller.on_exit(&instance_repr.descriptor, exit_code)?;
-                }
-                Ok(WaitStatus::Signaled(pid, signal, _)) => {
-                    let instance_repr = self
-                        .active_instances
-                        .take(&pid)
-                        .unwrap_or_else(||
-                            panic!("Removed a PID ({pid}) not in the active PID list. This is a fuzzer bug.")
-                        );
-
-                    controller.on_termination(&instance_repr.descriptor, signal)?;
-                }
-
-                Ok(_) => {
-                    // ignore, this is harmless stuff
-                }
-                Err(e) => return Err(Error::runtime(format!("wait() failed: {e}"))),
-            }
-        }
-
-        log::info!("All instances finished successfully.");
-
-        Ok(())
-    }
-}
-
-impl<D> InstanceRepr<D> {
-    pub fn new(pid: Pid, descriptor: D) -> Self {
-        Self { pid, descriptor }
-    }
-}
-
-impl<D> Borrow<Pid> for InstanceRepr<D> {
-    fn borrow(&self) -> &Pid {
-        &self.pid
-    }
-}
-
-impl<D> PartialEq for InstanceRepr<D> {
-    fn eq(&self, other: &Self) -> bool {
-        self.pid == other.pid
-    }
-}
-
-impl<D> Eq for InstanceRepr<D> {}
-
-impl<D> Hash for InstanceRepr<D> {
-    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
-        self.pid.hash(state);
     }
 }

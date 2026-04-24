@@ -34,8 +34,6 @@ where
     OC: Corpus<BytesInput>,
     SC: Scheduler,
 {
-    env_logger::init();
-
     // The source of randomness
     let mut rand = StdRand::with_seed(current_nanos());
 
@@ -83,6 +81,8 @@ where
 }
 
 pub fn main() -> Result<()> {
+    env_logger::init();
+
     let state_builder = |worker: &SimpleWorker| {
         // A queue policy to get testcasess from the corpus
         let scheduler = QueueScheduler::new();
@@ -98,7 +98,7 @@ pub fn main() -> Result<()> {
         )
     };
 
-    let controller = SimpleController::new()?;
+    let controller = SimpleController::builder().overwrite(true).build()?;
     let monitor = SimpleMonitor::new()?;
 
     StdLauncher::builder()?
