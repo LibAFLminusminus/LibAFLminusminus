@@ -14,9 +14,7 @@ pub mod scheduled;
 pub use scheduled::*;
 pub mod mutations;
 pub use mutations::*;
-#[cfg(not(feature = "remove_me"))]
 pub mod token_mutations;
-#[cfg(not(feature = "remove_me"))]
 pub use token_mutations::*;
 pub mod havoc_mutations;
 pub use havoc_mutations::*;

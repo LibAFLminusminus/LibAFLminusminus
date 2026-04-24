@@ -35,33 +35,15 @@ pub mod command;
 pub use command::CommandExecutor;
 
 #[cfg(all(feature = "std", unix))]
-#[cfg(not(feature = "remove_me"))]
 pub mod forkserver;
 #[cfg(all(feature = "std", unix))]
-#[cfg(not(feature = "remove_me"))]
 pub use forkserver::{Forkserver, ForkserverExecutor};
 
 pub mod nop;
 pub use nop::NopExecutor;
 
-/// SAND(<https://github.com/wtdcode/sand-aflpp>) implementation
-#[cfg(feature = "simd")]
-#[cfg(not(feature = "remove_me"))]
-pub mod sand;
-
 pub mod shadow;
 pub use shadow::ShadowExecutor;
-
-#[cfg(not(feature = "remove_me"))]
-pub mod with_observers;
-#[cfg(not(feature = "remove_me"))]
-pub use with_observers::WithObservers;
-
-#[cfg(not(feature = "remove_me"))]
-pub use inprocess::InProcessExecutor;
-#[cfg(all(feature = "std", unix))]
-#[cfg(not(feature = "remove_me"))]
-pub use inprocess_fork::InProcessForkExecutor;
 
 mod std;
 pub use std::StdExecutor;
