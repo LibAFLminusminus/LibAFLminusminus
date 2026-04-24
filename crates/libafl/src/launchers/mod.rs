@@ -1,3 +1,14 @@
+use alloc::string::String;
+use core::{borrow::Borrow, hash::Hash, marker::PhantomData, num::NonZeroUsize};
+use std::{collections::HashSet, fs::File, path::{Path, PathBuf}, vec::Vec};
+
+use libafl_bolts::core_affinity::{CoreId, Cores};
+use nix::{
+    sys::wait::{WaitStatus, wait},
+    unistd::{ForkResult, Pid, dup2_stderr, dup2_stdout, fork},
+};
+use serde::Serialize;
+
 use crate::{
     Controller, Error, GlobalController, Result,
     inputs::NopInput,
@@ -7,14 +18,6 @@ use crate::{
     simple::SimpleGlobalController,
     state::NopState,
 };
-use core::{borrow::Borrow, hash::Hash, marker::PhantomData, num::NonZeroUsize};
-use libafl_bolts::core_affinity::{CoreId, Cores};
-use nix::{
-    sys::wait::{WaitStatus, wait},
-    unistd::{ForkResult, Pid, fork},
-};
-use serde::Serialize;
-use std::{collections::HashSet, vec::Vec};
 
 // TODO: use a proper heuristic to choose correct ram size
 pub const DEFAULT_MAX_STATE_SIZE_PER_CLIENT: NonZeroUsize = NonZeroUsize::new(1 << 30).unwrap();
@@ -26,6 +29,8 @@ pub struct StdLauncherBuilder<GCT, MT, RT, S, SB> {
     cores: Cores,
     state_builder: SB,
     max_state_size_per_client: Option<NonZeroUsize>,
+    stdout_file: Option<PathBuf>,
+    stderr_file: Option<PathBuf>,
     phantom: PhantomData<S>,
 }
 
@@ -34,6 +39,8 @@ pub struct Instance<CT, RT, S> {
     state: Option<S>,
     controller: Option<CT>,
     core: CoreId,
+    stdout_file: Option<PathBuf>,
+    stderr_file: Option<PathBuf>,
 }
 
 pub struct InstanceRepr<D> {
@@ -44,7 +51,7 @@ pub struct InstanceRepr<D> {
 // for now, this is unix-specific.
 // it should be per supported os.
 // keep os-specific things there as much as possible.
-pub struct Instances<CT, D, RT, S> {
+struct Instances<CT, D, RT, S> {
     instances: Vec<Instance<CT, RT, S>>,
     active_instances: HashSet<InstanceRepr<D>>,
 }
@@ -56,12 +63,21 @@ pub struct StdLauncher<CT, D, GCT, MT, RT, S> {
 }
 
 impl<CT, RT, S> Instance<CT, RT, S> {
-    pub fn new(runtime: RT, state: S, controller: CT, core: CoreId) -> Self {
+    fn new(
+        runtime: RT,
+        state: S,
+        controller: CT,
+        core: CoreId,
+        stdout_file: Option<PathBuf>,
+        stderr_file: Option<PathBuf>,
+    ) -> Self {
         Self {
             runtime,
             state: Some(state),
             controller: Some(controller),
             core,
+            stdout_file,
+            stderr_file,
         }
     }
 }
@@ -98,6 +114,8 @@ impl
             cores,
             state_builder: || Ok(NopState::new()),
             max_state_size_per_client: None,
+            stdout_file: None,
+            stderr_file: None,
             phantom: PhantomData,
         })
     }
@@ -138,6 +156,8 @@ impl<GCT, MT, RT, S, SB> StdLauncherBuilder<GCT, MT, RT, S, SB> {
             runtime: self.runtime,
             state_builder: self.state_builder,
             max_state_size_per_client: self.max_state_size_per_client,
+            stdout_file: self.stdout_file,
+            stderr_file: self.stderr_file,
             phantom: self.phantom,
         }
     }
@@ -150,6 +170,8 @@ impl<GCT, MT, RT, S, SB> StdLauncherBuilder<GCT, MT, RT, S, SB> {
             runtime: self.runtime,
             state_builder: self.state_builder,
             max_state_size_per_client: self.max_state_size_per_client,
+            stdout_file: self.stdout_file,
+            stderr_file: self.stderr_file,
             phantom: self.phantom,
         }
     }
@@ -165,6 +187,8 @@ impl<GCT, MT, RT, S, SB> StdLauncherBuilder<GCT, MT, RT, S, SB> {
             runtime: self.runtime,
             state_builder: self.state_builder,
             max_state_size_per_client: self.max_state_size_per_client,
+            stdout_file: self.stdout_file,
+            stderr_file: self.stderr_file,
             phantom: self.phantom,
         }
     }
@@ -177,6 +201,8 @@ impl<GCT, MT, RT, S, SB> StdLauncherBuilder<GCT, MT, RT, S, SB> {
             runtime,
             state_builder: self.state_builder,
             max_state_size_per_client: self.max_state_size_per_client,
+            stdout_file: self.stdout_file,
+            stderr_file: self.stderr_file,
             phantom: self.phantom,
         }
     }
@@ -196,6 +222,8 @@ impl<GCT, MT, RT, S, SB> StdLauncherBuilder<GCT, MT, RT, S, SB> {
             runtime: self.runtime,
             state_builder: state_builder,
             max_state_size_per_client: self.max_state_size_per_client,
+            stdout_file: self.stdout_file,
+            stderr_file: self.stderr_file,
             phantom: PhantomData::<S2>,
         }
     }
@@ -217,6 +245,46 @@ impl<GCT, MT, RT, S, SB> StdLauncherBuilder<GCT, MT, RT, S, SB> {
             runtime: self.runtime,
             state_builder: self.state_builder,
             max_state_size_per_client: Some(max_state_size_per_client),
+            stdout_file: self.stdout_file,
+            stderr_file: self.stderr_file,
+            phantom: self.phantom,
+        }
+    }
+
+    /// set the stdout file where the stdout of the fuzzer client should go
+    /// point it to dev null if you want to shut it up.
+    pub fn stdout_file<P: AsRef<Path>>(
+        self,
+        stdout_file: &P,
+    ) -> StdLauncherBuilder<GCT, MT, RT, S, SB> {
+        StdLauncherBuilder {
+            global_controller: self.global_controller,
+            monitor: self.monitor,
+            cores: self.cores,
+            runtime: self.runtime,
+            state_builder: self.state_builder,
+            max_state_size_per_client: self.max_state_size_per_client,
+            stdout_file: Some(stdout_file.as_ref().to_path_buf()),
+            stderr_file: self.stderr_file,
+            phantom: self.phantom,
+        }
+    }
+
+    /// set the stderr file where the stderr of the fuzzer client should go
+    /// point it to dev null if you want to shut it up.
+    pub fn stderr_file<P: AsRef<Path>>(
+        self,
+        stderr_file: &P,
+    ) -> StdLauncherBuilder<GCT, MT, RT, S, SB> {
+        StdLauncherBuilder {
+            global_controller: self.global_controller,
+            monitor: self.monitor,
+            cores: self.cores,
+            runtime: self.runtime,
+            state_builder: self.state_builder,
+            max_state_size_per_client: self.max_state_size_per_client,
+            stdout_file: self.stdout_file,
+            stderr_file: Some(stderr_file.as_ref().to_path_buf()),
             phantom: self.phantom,
         }
     }
@@ -252,6 +320,8 @@ where
             runtime: StdRuntime::new(task, ram_limit),
             state_builder: self.state_builder,
             max_state_size_per_client: self.max_state_size_per_client,
+            stdout_file: self.stdout_file,
+            stderr_file: self.stderr_file,
             phantom: self.phantom,
         };
 
@@ -297,7 +367,14 @@ where
             let state: S = (self.state_builder)(&controller)?;
 
             // add the instance to the list
-            instances.add_instance(Instance::new(self.runtime.clone(), state, controller, core));
+            instances.add_instance(Instance::new(
+                self.runtime.clone(),
+                state,
+                controller,
+                core,
+                self.stdout_file.clone(),
+                self.stderr_file.clone(),
+            ));
         }
 
         Ok(StdLauncher::new(global_controller, monitor, instances))
@@ -342,7 +419,18 @@ where
             }
             ForkResult::Child => {
                 self.core.set_affinity()?;
+                if let Some(ref p) = self.stdout_file {
+                    let f = File::create(p)
+                        .map_err(|e| Error::runtime(format!("Failed to open stdout_file: {e}")))?;
+                    dup2_stdout(&f)?;
+                }
+                if let Some(ref p) = self.stderr_file {
+                    let f = File::create(p)
+                        .map_err(|e| Error::runtime(format!("Failed to open stderr_file: {e}")))?;
+                    dup2_stderr(&f)?;
+                }
 
+                println!("LOL");
                 // start the child runtime
                 self.runtime.run(state, controller)?;
 

@@ -45,6 +45,7 @@ use crate::{
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Stats {
+    pub(crate) pid: u32,
     /// How many times the executor ran the harness/target
     pub(crate) executions: u64,
     /// At what time the fuzzing started
@@ -55,13 +56,16 @@ pub struct Stats {
     pub(crate) objective: usize,
     /// last time smth was found
     pub(crate) last_found_time: Duration,
+    /// usermap to hold additional info they want
+    pub(crate) user_map: NamedSerdeAnyMap,
 }
 
 impl fmt::Display for Stats {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "[{}] execs: {} ({}/s) | corpus: {} | objectives: {}",
+            "[{}] [{}] execs: {} ({}/s) | corpus: {} | objectives: {}",
+            self.pid,
             humantime::format_duration(Duration::from_secs(
                 (libafl_bolts::current_time() - self.start_time).as_secs()
             )),
@@ -1168,11 +1172,13 @@ where
     {
         let state = Self {
             stats: Stats {
+                pid: std::process::id(),
                 executions: 0,
                 corpus: 0,
                 objective: 0,
                 last_found_time: libafl_bolts::current_time(),
                 start_time: libafl_bolts::current_time(),
+                user_map: NamedSerdeAnyMap::new()
             },
             named_metadata: NamedSerdeAnyMap::default(),
             corpus,
