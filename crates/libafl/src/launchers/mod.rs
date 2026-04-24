@@ -1,20 +1,20 @@
 use crate::{
     Controller, Error, GlobalController, Result,
     inputs::NopInput,
-    monitors::SimpleMonitor,
+    monitors::{Monitor, SimpleMonitor},
     nop::{NopController, NopDescriptor, NopGlobalController},
     runtimes::{Runtime, RuntimeHandle, StdRuntime, nop::NopRuntime},
     simple::SimpleGlobalController,
     state::NopState,
 };
-use core::{borrow::Borrow, hash::Hash, marker::PhantomData, num::NonZeroUsize};
+use core::{borrow::Borrow, hash::Hash, marker::PhantomData, num::NonZeroUsize, time::Duration};
 use libafl_bolts::core_affinity::{CoreId, Cores};
 use nix::{
     sys::wait::{WaitStatus, wait},
     unistd::{ForkResult, Pid, fork},
 };
 use serde::Serialize;
-use std::{collections::HashSet, vec::Vec};
+use std::{collections::HashSet, thread::sleep, vec::Vec};
 
 // TODO: use a proper heuristic to choose correct ram size
 pub const DEFAULT_MAX_STATE_SIZE_PER_CLIENT: NonZeroUsize = NonZeroUsize::new(1 << 30).unwrap();
@@ -115,15 +115,17 @@ impl<CT, D, GCT, MT, RT, S> StdLauncher<CT, D, GCT, MT, RT, S> {
 
 impl<CT, D, GCT, MT, RT, S> StdLauncher<CT, D, GCT, MT, RT, S>
 where
-    GCT: GlobalController<Controller = CT, Descriptor = D>,
     CT: Controller<GlobalController = GCT>,
+    GCT: GlobalController<Controller = CT, Descriptor = D>,
+    MT: Monitor,
     RT: Runtime<CT, S> + 'static,
 {
     pub fn launch(mut self) -> Result<()> {
         self.instances
             .spawn_instances(&mut self.global_controller)?;
 
-        self.instances.wait_instances(&mut self.global_controller)?;
+        self.instances
+            .wait_instances(&mut self.global_controller, &mut self.monitor)?;
 
         Ok(())
     }
@@ -387,11 +389,20 @@ where
         Ok(())
     }
 
-    pub fn wait_instances<GCT>(&mut self, global_controller: &mut GCT) -> Result<()>
+    pub fn wait_instances<GCT, MT>(
+        &mut self,
+        global_controller: &mut GCT,
+        monitor: &mut MT,
+    ) -> Result<()>
     where
-        GCT: GlobalController<Controller = CT, Descriptor = D>,
         CT: Controller<GlobalController = GCT>,
+        GCT: GlobalController<Controller = CT, Descriptor = D>,
+        MT: Monitor,
     {
+        // TODO: create a proper even-based loop, i'll do later on.
+        sleep(Duration::from_secs(5));
+        monitor.display()?;
+
         while !self.active_instances.is_empty() {
             match wait() {
                 Ok(WaitStatus::Exited(pid, exit_code)) => {
