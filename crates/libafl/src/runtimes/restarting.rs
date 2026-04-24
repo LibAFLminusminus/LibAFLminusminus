@@ -66,15 +66,15 @@ impl<RT> RestartingRuntime<RT> {
     }
 }
 
-impl<CT, RT, S> Runtime<CT, S> for RestartingRuntime<RT>
+impl<RT, S, W> Runtime<S, W> for RestartingRuntime<RT>
 where
-    RT: Runtime<CT, S>,
+    RT: Runtime<S, W>,
     for<'de> S: Serialize + Deserialize<'de>,
 {
     unsafe fn run_impl(
         &mut self,
         mut state: S,
-        rt_handle: &mut RuntimeHandle<CT, S>,
+        rt_handle: &mut RuntimeHandle<S, W>,
     ) -> Result<(), Error> {
         let (mut saver, mut restorer) = OsSaveRestoreBuilder::build(self.state_ram_limit)?;
 

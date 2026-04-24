@@ -7,7 +7,11 @@
 use core::marker::PhantomData;
 
 use crate::{
-    DependencyResolver, Error, corpus::testcase::TestcaseId, fuzzer::Evaluator, generators::Generator, stages::{RuntimeHandle, Stage}
+    DependencyResolver, Error,
+    corpus::testcase::TestcaseId,
+    fuzzer::Evaluator,
+    generators::Generator,
+    stages::{RuntimeHandle, Stage},
 };
 
 /// A [`Stage`] that generates a single input via a [`Generator`] and evaluates
@@ -24,12 +28,12 @@ impl<G, I> GenStage<G, I> {
     }
 }
 
-impl<G, I> DependencyResolver for GenStage<G, I> { }
+impl<G, I> DependencyResolver for GenStage<G, I> {}
 
-impl<CT, E, G, I, R, S, Z> Stage<CT, E, R, S, Z> for GenStage<G, I>
+impl<E, G, I, R, S, W, Z> Stage<E, R, S, W, Z> for GenStage<G, I>
 where
     G: Generator<I, R, S>,
-    Z: Evaluator<CT, E, I, S>,
+    Z: Evaluator<E, I, S, W>,
 {
     #[inline]
     fn perform(
@@ -38,7 +42,7 @@ where
         executor: &mut E,
         rand: &mut R,
         state: &mut S,
-        rt_handle: &mut RuntimeHandle<CT, S>,
+        rt_handle: &mut RuntimeHandle<S, W>,
         testcase_id: &TestcaseId,
     ) -> Result<(), Error> {
         let input = self.0.generate(rand, state)?;

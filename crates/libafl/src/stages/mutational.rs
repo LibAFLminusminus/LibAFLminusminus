@@ -42,21 +42,21 @@ pub trait MutationalStage<R> {
 /// It may randomly continue earlier.
 pub const DEFAULT_MUTATIONAL_MAX_ITERATIONS: usize = 128;
 
-impl<CT, E, I, M, R, S, Z> DependencyResolver for StdMutationalStage<CT, E, I, M, R, S, Z> {}
+impl<E, I, M, R, S, W, Z> DependencyResolver for StdMutationalStage<E, I, M, R, S, W, Z> {}
 
 /// The default mutational stage
 #[derive(Debug, Clone)]
-pub struct StdMutationalStage<CT, E, I, M, R, S, Z> {
+pub struct StdMutationalStage<E, I, M, R, S, W, Z> {
     /// The name
     name: Cow<'static, str>,
     /// The mutator(s) to use
     mutator: M,
     /// The maximum amount of iterations we should do each round
     max_iterations: NonZeroUsize,
-    phantom: PhantomData<(CT, E, I, R, S, Z)>,
+    phantom: PhantomData<(E, I, R, S, W, Z)>,
 }
 
-impl<CT, E, I, M, R, S, Z> MutationalStage<R> for StdMutationalStage<CT, E, I, M, R, S, Z>
+impl<E, I, M, R, S, W, Z> MutationalStage<R> for StdMutationalStage<E, I, M, R, S, W, Z>
 where
     R: Rand,
 {
@@ -85,19 +85,19 @@ static mut MUTATIONAL_STAGE_ID: usize = 0;
 /// The name for mutational stage
 pub static MUTATIONAL_STAGE_NAME: &str = "mutational";
 
-impl<CT, E, I, M, R, S, Z> Named for StdMutationalStage<CT, E, I, M, R, S, Z> {
+impl<E, I, M, R, S, W, Z> Named for StdMutationalStage<E, I, M, R, S, W, Z> {
     fn name(&self) -> &Cow<'static, str> {
         &self.name
     }
 }
 
-impl<CT, E, I, M, R, S, Z> Stage<CT, E, R, S, Z> for StdMutationalStage<CT, E, I, M, R, S, Z>
+impl<E, I, M, R, S, W, Z> Stage<E, R, S, W, Z> for StdMutationalStage<E, I, M, R, S, W, Z>
 where
     I: Input,
     M: Mutator<I, R, S>,
     R: Rand,
     S: State<I>,
-    Z: Evaluator<CT, E, I, S>,
+    Z: Evaluator<E, I, S, W>,
 {
     #[inline]
     fn perform(
@@ -106,21 +106,18 @@ where
         executor: &mut E,
         rand: &mut R,
         state: &mut S,
-        rt_handle: &mut RuntimeHandle<CT, S>,
+        rt_handle: &mut RuntimeHandle<S, W>,
         testcase_id: &TestcaseId,
     ) -> Result<(), Error> {
         self.perform_mutational(fuzzer, executor, rand, state, rt_handle, testcase_id)
     }
 }
 
-impl<CT, E, I, M, R, S, Z> StdMutationalStage<CT, E, I, M, R, S, Z> {
+impl<E, I, M, R, S, W, Z> StdMutationalStage<E, I, M, R, S, W, Z> {
     /// Creates a new default mutational stage
     pub fn new(mutator: M) -> Self {
         // Safe to unwrap: DEFAULT_MUTATIONAL_MAX_ITERATIONS is never 0.
-        Self::with_max_iterations(
-            mutator,
-            non_zero!(DEFAULT_MUTATIONAL_MAX_ITERATIONS),
-        )
+        Self::with_max_iterations(mutator, non_zero!(DEFAULT_MUTATIONAL_MAX_ITERATIONS))
     }
 
     /// Creates a new mutational stage with the given max iterations
@@ -142,13 +139,13 @@ impl<CT, E, I, M, R, S, Z> StdMutationalStage<CT, E, I, M, R, S, Z> {
     }
 }
 
-impl<CT, E, I, M, R, S, Z> StdMutationalStage<CT, E, I, M, R, S, Z>
+impl<E, I, M, R, S, W, Z> StdMutationalStage<E, I, M, R, S, W, Z>
 where
     I: Clone,
     M: Mutator<I, R, S>,
     R: Rand,
     S: State<I>,
-    Z: Evaluator<CT, E, I, S>,
+    Z: Evaluator<E, I, S, W>,
 {
     /// Runs this (mutational) stage for the given testcase
     fn perform_mutational(
@@ -157,10 +154,9 @@ where
         executor: &mut E,
         rand: &mut R,
         state: &mut S,
-        rt_handle: &mut RuntimeHandle<CT, S>,
+        rt_handle: &mut RuntimeHandle<S, W>,
         testcase_id: &TestcaseId,
     ) -> Result<(), Error> {
-
         // Here saturating_sub is needed as self.iterations() might be actually smaller than the previous value before reset.
         /*
         let num = self
@@ -190,10 +186,10 @@ where
 }
 /// A mutational stage that operates on multiple inputs, as returned by [`MultiMutator::multi_mutate`].
 #[derive(Debug, Clone)]
-pub struct MultiMutationalStage<CT, E, I, M, R, S, Z> {
+pub struct MultiMutationalStage<E, I, M, R, S, W, Z> {
     name: Cow<'static, str>,
     mutator: M,
-    phantom: PhantomData<(CT, E, I, R, S, Z)>,
+    phantom: PhantomData<(E, I, R, S, W, Z)>,
 }
 
 /// The unique id for multi mutational stage
@@ -201,20 +197,20 @@ static mut MULTI_MUTATIONAL_STAGE_ID: usize = 0;
 /// The name for multi mutational stage
 pub static MULTI_MUTATIONAL_STAGE_NAME: &str = "multimutational";
 
-impl<CT, E, I, M, R, S, Z> Named for MultiMutationalStage<CT, E, I, M, R, S, Z> {
+impl<E, I, M, R, S, W, Z> Named for MultiMutationalStage<E, I, M, R, S, W, Z> {
     fn name(&self) -> &Cow<'static, str> {
         &self.name
     }
 }
 
-impl<CT, E, I, M, R, S, Z> DependencyResolver for MultiMutationalStage<CT, E, I, M, R, S, Z> {}
+impl<E, I, M, R, S, W, Z> DependencyResolver for MultiMutationalStage<E, I, M, R, S, W, Z> {}
 
-impl<CT, E, I, M, R, S, Z> Stage<CT, E, R, S, Z> for MultiMutationalStage<CT, E, I, M, R, S, Z>
+impl<E, I, M, R, S, W, Z> Stage<E, R, S, W, Z> for MultiMutationalStage<E, I, M, R, S, W, Z>
 where
     I: Clone,
     M: MultiMutator<I, R, S>,
     S: State<I>,
-    Z: Evaluator<CT, E, I, S>,
+    Z: Evaluator<E, I, S, W>,
 {
     #[inline]
     fn perform(
@@ -223,7 +219,7 @@ where
         executor: &mut E,
         rand: &mut R,
         state: &mut S,
-        rt_handle: &mut RuntimeHandle<CT, S>,
+        rt_handle: &mut RuntimeHandle<S, W>,
         testcase_id: &TestcaseId,
     ) -> Result<(), Error> {
         let tc = state.corpus().get(testcase_id)?;
@@ -238,14 +234,14 @@ where
     }
 }
 
-impl<CT, E, I, R, M, S, Z> MultiMutationalStage<CT, E, I, M, R, S, Z> {
+impl<E, I, R, M, S, W, Z> MultiMutationalStage<E, I, M, R, S, W, Z> {
     /// Creates a new [`MultiMutationalStage`]
     pub fn new(mutator: M) -> Self {
         Self::transforming(mutator)
     }
 }
 
-impl<CT, E, I, R, M, S, Z> MultiMutationalStage<CT, E, I, M, R, S, Z> {
+impl<E, I, R, M, S, W, Z> MultiMutationalStage<E, I, M, R, S, W, Z> {
     /// Creates a new transforming mutational stage
     pub fn transforming(mutator: M) -> Self {
         // unsafe but impossible that you create two threads both instantiating this instance

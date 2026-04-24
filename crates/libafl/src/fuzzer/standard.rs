@@ -334,14 +334,14 @@ impl<F, H, OF> StdFuzzer<F, H, OF> {
 //     }
 // }
 
-impl<CT, E, F, H, I, OF, S> Evaluator<CT, E, I, S> for StdFuzzer<F, H, OF>
+impl<E, F, H, I, OF, S, W> Evaluator<E, I, S, W> for StdFuzzer<F, H, OF>
 where
-    CT: Worker,
     E: Executor<I, S>,
     F: Feedback<I, E::Observers, S>,
     OF: Feedback<I, E::Observers, S>,
     I: Clone,
     S: State<I>,
+    W: Worker,
 {
     /// Process one input, adding to the respective corpora if needed and firing the right events
     #[inline]
@@ -349,7 +349,7 @@ where
         &mut self,
         state: &mut S,
         executor: &mut E,
-        rt_handle: &mut RuntimeHandle<CT, S>,
+        rt_handle: &mut RuntimeHandle<S, W>,
         input: &I,
     ) -> Result<EvaluationResult, Error> {
         let exit_kind = executor.execute(state, rt_handle, input)?;
@@ -364,23 +364,23 @@ where
     }
 }
 
-impl<CT, E, F, H, I, OF, R, S, ST> Fuzzer<CT, E, I, R, S, ST> for StdFuzzer<F, H, OF>
+impl<E, F, H, I, OF, R, S, ST, W> Fuzzer<E, I, R, S, ST, W> for StdFuzzer<F, H, OF>
 where
-    CT: Worker,
     E: Executor<I, S>,
     F: Feedback<I, E::Observers, S>,
     H: FuzzerHooksTuple,
     I: Clone,
     OF: Feedback<I, E::Observers, S>,
     S: State<I>,
-    ST: StagesTuple<CT, E, R, S, Self>,
+    ST: StagesTuple<E, R, S, W, Self>,
+    W: Worker,
 {
     fn init(
         &mut self,
         stages: &mut ST,
         executor: &mut E,
         state: &mut S,
-        rt_handle: &mut RuntimeHandle<CT, S>,
+        rt_handle: &mut RuntimeHandle<S, W>,
     ) -> Result<(), Error> {
         if self.initialized {
             return Ok(());
@@ -437,12 +437,12 @@ where
         executor: &mut E,
         rand: &mut R,
         state: &mut S,
-        rt_handle: &mut RuntimeHandle<CT, S>,
+        rt_handle: &mut RuntimeHandle<S, W>,
     ) -> Result<(), Error> {
         self.fuzzer_hooks.pre_step_all(executor, state, rt_handle);
 
         if self.clock.now() - self.last_synced > Duration::from_secs(1) {
-            let workdir = rt_handle.controller().workdir();
+            let workdir = rt_handle.worker().workdir();
             sync_stats(state.stats(), workdir);
         }
 
@@ -541,24 +541,24 @@ impl<F, H, OF> StdFuzzerBuilder<F, H, OF> {
 
 impl<F, H, OF> StdFuzzer<F, H, OF> {
     /// Creates a new [`StdFuzzer`] with standard behavior.
-    pub fn new<CT, E, I, R, S, ST>(
+    pub fn new<E, I, R, S, ST, W>(
         feedback: F,
         objective_feedback: OF,
         hooks: H,
         stages: &mut ST,
         executor: &mut E,
         state: &mut S,
-        rt_handle: &mut RuntimeHandle<CT, S>,
+        rt_handle: &mut RuntimeHandle<S, W>,
     ) -> Result<StdFuzzer<F, H, OF>, Error>
     where
-        CT: Worker,
         E: Executor<I, S>,
         F: Feedback<I, E::Observers, S>,
         H: FuzzerHooksTuple,
         I: Clone,
         OF: Feedback<I, E::Observers, S>,
         S: State<I>,
-        ST: StagesTuple<CT, E, R, S, Self>,
+        ST: StagesTuple<E, R, S, W, Self>,
+        W: Worker,
     {
         let mut fuzzer = StdFuzzerBuilder::new()
             .feedback(feedback)

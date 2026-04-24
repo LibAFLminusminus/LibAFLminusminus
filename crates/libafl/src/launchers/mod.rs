@@ -40,10 +40,10 @@ pub struct StdLauncherBuilder<CT, MT, RT, S, SB> {
     phantom: PhantomData<S>,
 }
 
-pub struct Instance<W, RT, S> {
+pub struct Instance<RT, S, W> {
     runtime: RT,
     state: Option<S>,
-    controller: Option<W>,
+    worker: Option<W>,
     core: CoreId,
     stdout_file: Option<File>,
     stderr_file: Option<File>,
@@ -57,22 +57,22 @@ pub struct InstanceRepr<D> {
 // for now, this is unix-specific.
 // it should be per supported os.
 // keep os-specific things there as much as possible.
-struct Instances<W, D, RT, S> {
-    instances: Vec<Instance<W, RT, S>>,
+struct Instances<D, RT, S, W> {
+    instances: Vec<Instance<RT, S, W>>,
     active_instances: HashSet<InstanceRepr<D>>,
 }
 
-pub struct StdLauncher<W, D, CT, MT, RT, S> {
+pub struct StdLauncher<D, CT, MT, RT, S, W> {
     controller: CT,
     monitor: MT,
-    instances: Instances<W, D, RT, S>,
+    instances: Instances<D, RT, S, W>,
 }
 
-impl<W, RT, S> Instance<W, RT, S> {
+impl<RT, S, W> Instance<RT, S, W> {
     fn new(
         runtime: RT,
         state: S,
-        controller: W,
+        worker: W,
         core: CoreId,
         stdout_file: Option<File>,
         stderr_file: Option<File>,
@@ -80,7 +80,7 @@ impl<W, RT, S> Instance<W, RT, S> {
         Self {
             runtime,
             state: Some(state),
-            controller: Some(controller),
+            worker: Some(worker),
             core,
             stdout_file,
             stderr_file,
@@ -127,8 +127,8 @@ impl
     }
 }
 
-impl<W, D, CT, MT, RT, S> StdLauncher<W, D, CT, MT, RT, S> {
-    pub fn new(controller: CT, monitor: MT, instances: Instances<W, D, RT, S>) -> Self {
+impl<D, CT, MT, RT, S, W> StdLauncher<D, CT, MT, RT, S, W> {
+    pub fn new(controller: CT, monitor: MT, instances: Instances<D, RT, S, W>) -> Self {
         Self {
             controller,
             monitor,
@@ -137,12 +137,12 @@ impl<W, D, CT, MT, RT, S> StdLauncher<W, D, CT, MT, RT, S> {
     }
 }
 
-impl<W, D, CT, MT, RT, S> StdLauncher<W, D, CT, MT, RT, S>
+impl<D, CT, MT, RT, S, W> StdLauncher<D, CT, MT, RT, S, W>
 where
     W: Worker<Controller = CT>,
     CT: Controller<Worker = W, Descriptor = D>,
     MT: Monitor,
-    RT: Runtime<W, S> + 'static,
+    RT: Runtime<S, W> + 'static,
 {
     pub fn launch(mut self) -> Result<()> {
         self.instances.spawn_instances(&mut self.controller)?;
@@ -303,11 +303,11 @@ where
     pub fn build_with_task<T>(
         mut self,
         task: T,
-    ) -> Result<StdLauncher<CT::Worker, CT::Descriptor, CT, MT, StdRuntime<S, T>, S>>
+    ) -> Result<StdLauncher<CT::Descriptor, CT, MT, StdRuntime<S, T>, S, CT::Worker>>
     where
         // this bound is needed to help rust link the state output by the state builder and
         // the one used by the task. otherwise, the compiler needs explicit typing.
-        T: FnMut(&mut RuntimeHandle<CT::Worker, S>, &mut S) -> Result<()> + Clone,
+        T: FnMut(&mut RuntimeHandle<S, CT::Worker>, &mut S) -> Result<()> + Clone,
     {
         if self.cores.is_empty() {
             return Err(Error::illegal_argument("No cores have been declared."));
@@ -339,7 +339,7 @@ where
     RT: Clone,
     SB: FnMut(&CT::Worker) -> Result<S>,
 {
-    pub fn build(mut self) -> Result<StdLauncher<CT::Worker, CT::Descriptor, CT, MT, RT, S>> {
+    pub fn build(mut self) -> Result<StdLauncher<CT::Descriptor, CT, MT, RT, S, CT::Worker>> {
         if self.cores.is_empty() {
             return Err(Error::illegal_argument(format!(
                 "No CPU cores have been allocated."
@@ -355,7 +355,7 @@ where
             "No global controller have been set.",
         ))?;
 
-        let mut instances: Instances<CT::Worker, CT::Descriptor, RT, S> = Instances::new();
+        let mut instances: Instances<CT::Descriptor, RT, S, CT::Worker> = Instances::new();
 
         let stdout_file: Option<File> = self
             .stdout_file
@@ -408,9 +408,9 @@ where
     }
 }
 
-impl<W, RT, S> Instance<W, RT, S>
+impl<RT, S, W> Instance<RT, S, W>
 where
-    RT: Runtime<W, S> + 'static,
+    RT: Runtime<S, W> + 'static,
 {
     /// # Safety
     ///
@@ -430,16 +430,16 @@ where
             .take()
             .expect("State is not in the instance. This is a fuzzer bug.");
 
-        let controller = self
-            .controller
+        let worker = self
+            .worker
             .take()
             .expect("Controller is not in the instance. This is a fuzzer bug.");
 
         match unsafe { fork()? } {
             ForkResult::Parent { child } => {
-                controller.on_start(controller.descriptor())?;
+                controller.on_start(worker.descriptor())?;
 
-                Ok(InstanceRepr::new(child, controller.descriptor().clone()))
+                Ok(InstanceRepr::new(child, worker.descriptor().clone()))
             }
             ForkResult::Child => {
                 self.core.set_affinity()?;
@@ -452,7 +452,7 @@ where
 
                 println!("LOL");
                 // start the child runtime
-                self.runtime.run(state, controller)?;
+                self.runtime.run(state, worker)?;
 
                 // TODO: what should we do there in case it happens?
                 // i'll panic for now, but it's not the right solution
@@ -462,7 +462,7 @@ where
     }
 }
 
-impl<W, D, RT, S> Instances<W, D, RT, S> {
+impl<D, RT, S, W> Instances<D, RT, S, W> {
     pub fn new() -> Self {
         Self {
             instances: Vec::new(),
@@ -470,15 +470,15 @@ impl<W, D, RT, S> Instances<W, D, RT, S> {
         }
     }
 
-    pub fn add_instance(&mut self, instance: Instance<W, RT, S>) {
+    pub fn add_instance(&mut self, instance: Instance<RT, S, W>) {
         self.instances.push(instance);
     }
 }
 
-impl<W, D, RT, S> Instances<W, D, RT, S>
+impl<D, RT, S, W> Instances<D, RT, S, W>
 where
     W: Worker,
-    RT: Runtime<W, S> + 'static,
+    RT: Runtime<S, W> + 'static,
 {
     pub fn spawn_instances<CT>(&mut self, controller: &mut CT) -> Result<()>
     where

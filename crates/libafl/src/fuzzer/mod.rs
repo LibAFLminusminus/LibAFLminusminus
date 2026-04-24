@@ -70,20 +70,20 @@ pub trait ExecutionProcessor<I, OT, S> {
 }
 
 /// Evaluate an input modifying the state of the fuzzer
-pub trait Evaluator<CT, E, I, S> {
+pub trait Evaluator<E, I, S, W> {
     /// Runs the input and triggers observers and feedback,
     /// returns if is interesting an (option) the index of the new [`Testcase`] in the corpus
     fn evaluate_input(
         &mut self,
         state: &mut S,
         executor: &mut E,
-        rt_handle: &mut RuntimeHandle<CT, S>,
+        rt_handle: &mut RuntimeHandle<S, W>,
         input: &I,
     ) -> Result<EvaluationResult, Error>;
 }
 
 /// The main fuzzer trait.
-pub trait Fuzzer<CT, E, I, R, S, ST> {
+pub trait Fuzzer<E, I, R, S, ST, W> {
     /// Initialize the fuzzer
     ///
     /// It is used to initialize every structure just before fuzzing starts.
@@ -98,7 +98,7 @@ pub trait Fuzzer<CT, E, I, R, S, ST> {
         stages: &mut ST,
         executor: &mut E,
         state: &mut S,
-        rt_handle: &mut RuntimeHandle<CT, S>,
+        rt_handle: &mut RuntimeHandle<S, W>,
     ) -> Result<(), Error>;
 
     fn is_initialized(&self) -> bool;
@@ -119,7 +119,7 @@ pub trait Fuzzer<CT, E, I, R, S, ST> {
         executor: &mut E,
         rand: &mut R,
         state: &mut S,
-        rt_handle: &mut RuntimeHandle<CT, S>,
+        rt_handle: &mut RuntimeHandle<S, W>,
     ) -> Result<(), Error>;
 
     /// Fuzz for a single iteration.
@@ -133,7 +133,7 @@ pub trait Fuzzer<CT, E, I, R, S, ST> {
         executor: &mut E,
         rand: &mut R,
         state: &mut S,
-        rt_handle: &mut RuntimeHandle<CT, S>,
+        rt_handle: &mut RuntimeHandle<S, W>,
     ) -> Result<(), Error> {
         if !self.is_initialized() {
             return Err(Error::runtime(
@@ -151,7 +151,7 @@ pub trait Fuzzer<CT, E, I, R, S, ST> {
         executor: &mut E,
         rand: &mut R,
         state: &mut S,
-        rt_handle: &mut RuntimeHandle<CT, S>,
+        rt_handle: &mut RuntimeHandle<S, W>,
     ) -> Result<(), Error> {
         if !self.is_initialized() {
             return Err(Error::runtime(
@@ -177,7 +177,7 @@ pub trait Fuzzer<CT, E, I, R, S, ST> {
         executor: &mut E,
         rand: &mut R,
         state: &mut S,
-        rt_handle: &mut RuntimeHandle<CT, S>,
+        rt_handle: &mut RuntimeHandle<S, W>,
         iters: u64,
     ) -> Result<(), Error> {
         if !self.is_initialized() {
@@ -258,13 +258,13 @@ impl Default for NopFuzzer {
     }
 }
 
-impl<CT, E, I, R, S, ST> Fuzzer<CT, E, I, R, S, ST> for NopFuzzer {
+impl<E, I, R, S, ST, W> Fuzzer<E, I, R, S, ST, W> for NopFuzzer {
     fn init(
         &mut self,
         _stages: &mut ST,
         _executor: &mut E,
         _state: &mut S,
-        _rt_handle: &mut RuntimeHandle<CT, S>,
+        _rt_handle: &mut RuntimeHandle<S, W>,
     ) -> Result<(), Error> {
         unimplemented!("NopFuzzer cannot fuzz");
     }
@@ -279,7 +279,7 @@ impl<CT, E, I, R, S, ST> Fuzzer<CT, E, I, R, S, ST> for NopFuzzer {
         _executor: &mut E,
         _rand: &mut R,
         _state: &mut S,
-        _rt_handle: &mut RuntimeHandle<CT, S>,
+        _rt_handle: &mut RuntimeHandle<S, W>,
     ) -> Result<(), Error> {
         unimplemented!("NopFuzzer cannot fuzz");
     }

@@ -103,10 +103,10 @@ pub trait Executor<I, S>: DependencyResolver {
 
     /// The init function of the executor.
     /// It must be run once before the first execution of the executor.
-    fn init<CT: Worker>(
+    fn init<W: Worker>(
         &mut self,
         state: &mut S,
-        rt_handle: &mut RuntimeHandle<CT, S>,
+        rt_handle: &mut RuntimeHandle<S, W>,
     ) -> Result<(), Error>;
 
     /// Run the target with the given input.
@@ -130,10 +130,10 @@ pub trait Executor<I, S>: DependencyResolver {
     /// State and observers are updated accordingly.
     ///
     /// This is the main function to run an input.
-    fn execute<CT: Worker>(
+    fn execute<W: Worker>(
         &mut self,
         state: &mut S,
-        rt_handle: &mut RuntimeHandle<CT, S>,
+        rt_handle: &mut RuntimeHandle<S, W>,
         input: &I,
     ) -> Result<ExitKind, Error>
     where
