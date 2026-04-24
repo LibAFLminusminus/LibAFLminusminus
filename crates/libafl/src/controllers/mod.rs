@@ -77,4 +77,8 @@ impl StdDescriptor {
             client_id,
         })
     }
+
+    pub fn path(&self) -> &Path {
+        self.path.as_path()
+    }
 }

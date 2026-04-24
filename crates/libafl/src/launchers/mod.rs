@@ -4,6 +4,7 @@ use crate::{
     monitors::SimpleMonitor,
     nop::{NopController, NopDescriptor, NopGlobalController},
     runtimes::{Runtime, RuntimeHandle, StdRuntime, nop::NopRuntime},
+    simple::SimpleGlobalController,
     state::NopState,
 };
 use core::{borrow::Borrow, hash::Hash, marker::PhantomData, num::NonZeroUsize};
@@ -19,8 +20,8 @@ use std::{collections::HashSet, vec::Vec};
 pub const DEFAULT_MAX_STATE_SIZE_PER_CLIENT: NonZeroUsize = NonZeroUsize::new(1 << 30).unwrap();
 
 pub struct StdLauncherBuilder<GCT, MT, RT, S, SB> {
-    global_controller: GCT,
-    monitor: MT,
+    global_controller: Option<GCT>,
+    monitor: Option<MT>,
     runtime: RT,
     cores: Cores,
     state_builder: SB,
@@ -69,7 +70,7 @@ impl
     StdLauncher<
         NopController,
         NopDescriptor,
-        NopGlobalController,
+        SimpleGlobalController,
         SimpleMonitor,
         NopRuntime,
         NopState<NopInput>,
@@ -80,21 +81,19 @@ impl
     /// It will spawn one fuzzing core on core 0 and run the provided task or runtime.
     pub fn builder() -> Result<
         StdLauncherBuilder<
-            NopGlobalController,
+            SimpleGlobalController,
             SimpleMonitor,
             NopRuntime,
             NopState<NopInput>,
             fn() -> Result<NopState<NopInput>>,
         >,
     > {
-        let global_controller = NopGlobalController;
-        let monitor = SimpleMonitor::new(&global_controller)?;
         let runtime = NopRuntime;
         let cores = Cores::one();
 
         Ok(StdLauncherBuilder {
-            global_controller,
-            monitor,
+            global_controller: None,
+            monitor: None,
             runtime,
             cores,
             state_builder: || Ok(NopState::new()),
@@ -136,6 +135,33 @@ impl<GCT, MT, RT, S, SB> StdLauncherBuilder<GCT, MT, RT, S, SB> {
             global_controller: self.global_controller,
             monitor: self.monitor,
             cores: cores,
+            runtime: self.runtime,
+            state_builder: self.state_builder,
+            max_state_size_per_client: self.max_state_size_per_client,
+            phantom: self.phantom,
+        }
+    }
+
+    pub fn monitor<MT2>(self, monitor: MT2) -> StdLauncherBuilder<GCT, MT2, RT, S, SB> {
+        StdLauncherBuilder {
+            global_controller: self.global_controller,
+            monitor: Some(monitor),
+            cores: self.cores,
+            runtime: self.runtime,
+            state_builder: self.state_builder,
+            max_state_size_per_client: self.max_state_size_per_client,
+            phantom: self.phantom,
+        }
+    }
+
+    pub fn global_controller<GCT2>(
+        self,
+        global_controller: GCT2,
+    ) -> StdLauncherBuilder<GCT2, MT, RT, S, SB> {
+        StdLauncherBuilder {
+            global_controller: Some(global_controller),
+            monitor: self.monitor,
+            cores: self.cores,
             runtime: self.runtime,
             state_builder: self.state_builder,
             max_state_size_per_client: self.max_state_size_per_client,
@@ -244,16 +270,28 @@ where
     ) -> Result<StdLauncher<GCT::Controller, GCT::Descriptor, GCT, MT, RT, S>> {
         if self.cores.is_empty() {
             return Err(Error::illegal_argument(format!(
-                "No cores have been declared."
+                "No CPU cores have been allocated."
             )));
         }
+
+        let monitor = self
+            .monitor
+            .take()
+            .ok_or(Error::illegal_argument("No monitor have been set."))?;
+
+        let mut global_controller =
+            self.global_controller
+                .take()
+                .ok_or(Error::illegal_argument(
+                    "No global controller have been set.",
+                ))?;
 
         let mut instances: Instances<GCT::Controller, GCT::Descriptor, RT, S> = Instances::new();
 
         // create an instance per core, ready to run.
         for core in self.cores {
             // spawn a controller for the instance
-            let controller = self.global_controller.create_controller()?;
+            let controller = global_controller.create_controller()?;
 
             // create the state for the instance
             let state: S = (self.state_builder)(&controller)?;
@@ -262,11 +300,7 @@ where
             instances.add_instance(Instance::new(self.runtime.clone(), state, controller, core));
         }
 
-        Ok(StdLauncher::new(
-            self.global_controller,
-            self.monitor,
-            instances,
-        ))
+        Ok(StdLauncher::new(global_controller, monitor, instances))
     }
 }
 
