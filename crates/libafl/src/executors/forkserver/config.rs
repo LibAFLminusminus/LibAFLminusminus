@@ -16,7 +16,7 @@ use nix::{
 };
 
 use crate::executors::FORKSRV_FD_NUM;
-pub trait ConfigForkserver {
+pub(crate) trait Config {
     /// Sets the sid
     fn setsid(&mut self) -> &mut Self;
 
@@ -42,7 +42,7 @@ pub trait ConfigForkserver {
     fn bind(&mut self, core: CoreId) -> &mut Self;
 }
 
-impl ConfigForkserver for Command {
+impl Config for Command {
     fn setsid(&mut self) -> &mut Self {
         let func = move || {
             // # Safety
