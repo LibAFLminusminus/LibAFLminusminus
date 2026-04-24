@@ -35,7 +35,7 @@ impl Monitor for SimpleMonitor {
         }
 
         for controller in global_controller.controllers() {
-            let stat = read_stats_json(controller.descriptor().)?;
+            let stat = read_stats_json(controller.descriptor())?;
             println!("{}", stat);
         }
 
