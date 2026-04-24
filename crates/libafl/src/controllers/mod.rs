@@ -1,4 +1,4 @@
-use crate::Result;
+use crate::{Result, launchers::InstanceId};
 use alloc::vec::Vec;
 use hashbrown::HashMap;
 use libafl_bolts::core_affinity::CoreId;
@@ -19,7 +19,7 @@ pub trait Controller {
 
     fn controllers(&self) -> &[Self::Worker];
 
-    fn on_start(&mut self, descriptor: &Self::Descriptor) -> Result<()> {
+    fn on_start(&mut self, descriptor: &Self::Descriptor, id: InstanceId) -> Result<()> {
         Ok(())
     }
 

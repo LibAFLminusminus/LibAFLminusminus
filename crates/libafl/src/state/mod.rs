@@ -41,10 +41,9 @@ use crate::{
     fuzzer::Evaluator,
     generators::Generator,
     inputs::{Input, NopContext, NopInput},
+    launchers::InstanceId,
     runtimes::RuntimeHandle,
 };
-
-pub type InstanceId = u32;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Stats {
