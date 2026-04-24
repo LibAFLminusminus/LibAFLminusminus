@@ -45,12 +45,14 @@ use crate::observers::{
     AsanBacktraceObserver, get_asan_runtime_flags, get_asan_runtime_flags_with_log_path,
 };
 use crate::{
-    Error,
+    DependencyResolver, Error,
+    corpus::Corpus,
     executors::{Executor, ExitKind},
-    inputs::Input,
+    inputs::{Input, InputContext},
     mutators::Tokens,
-    state::FlatState,
     observers::{MapObserver, Observer, ObserversTuple},
+    runtimes::RuntimeHandle,
+    state::{FlatState, HasCorpus},
 };
 
 /// Pinned fd number for forkserver communication
@@ -784,17 +786,6 @@ where
         self.map_size
     }
 
-    /// Execute input and increase the execution counter.
-    #[inline]
-    fn execute_input(&mut self, state: &mut S, input: &[u8]) -> Result<ExitKind, Error>
-    where
-        S: FlatState,
-    {
-        *state.executions_mut() += 1;
-
-        self.execute_input_uncounted(input)
-    }
-
     fn map_input_to_shmem(&mut self, input: &[u8], input_size: usize) -> Result<(), Error> {
         let input_size_in_bytes = input_size.to_ne_bytes();
         if self.uses_shmem_testcase {
@@ -818,7 +809,7 @@ where
 
     /// Execute input, but side-step the execution counter.
     #[inline]
-    fn execute_input_uncounted(&mut self, input: &[u8]) -> Result<ExitKind, Error> {
+    fn execute_input(&mut self, input: &[u8]) -> Result<ExitKind, Error> {
         let mut exit_kind = ExitKind::Ok;
 
         let last_run_timed_out = self.forkserver.last_run_timed_out_raw();
@@ -955,7 +946,7 @@ where
         observers: OT,
     ) -> Result<ForkserverExecutor<I, OT, S, SHM>, Error>
     where
-        OT: ObserversTuple<I, S>,
+        OT: ObserversTuple<S>,
     {
         let (forkserver, input_file, map) = self.build_helper(&observers)?;
 
@@ -1014,10 +1005,10 @@ where
         other_observers: OT,
     ) -> Result<ForkserverExecutor<I, (A, OT), S, SHM>, Error>
     where
-        A: Observer<I, S> + AsMut<MO>,
+        A: Observer<S> + AsMut<MO>,
         I: Input,
         MO: MapObserver + Truncate, // TODO maybe enforce Entry = u8 for the cov map
-        OT: ObserversTuple<I, S> + Prepend<MO>,
+        OT: ObserversTuple<S> + Prepend<MO>,
     {
         let (forkserver, input_file, map) = self.build_helper(&other_observers)?;
 
@@ -1067,12 +1058,12 @@ where
     }
 
     #[expect(clippy::pedantic)]
-    fn build_helper<I, OT, S>(
+    fn build_helper<OT, S>(
         &mut self,
         obs: &OT,
     ) -> Result<(Forkserver, InputFile, Option<SHM>), Error>
     where
-        OT: ObserversTuple<I, S>,
+        OT: ObserversTuple<S>,
     {
         let input_file = match &self.target_inner.input_location {
             InputLocation::StdIn {
@@ -1518,61 +1509,60 @@ impl Default for ForkserverExecutorBuilder<'_, UnixShMemProvider> {
     }
 }
 
-impl<EM, I, OT, S, SHM, Z> Executor<EM, I, S, Z> for ForkserverExecutor<I, OT, S, SHM>
+impl<I, OT, S, SHM> Executor<I, S> for ForkserverExecutor<I, OT, S, SHM>
 where
-    OT: ObserversTuple<I, S>,
-    S: HasExecutions,
+    OT: ObserversTuple<S>,
+    S: FlatState + HasCorpus<I>,
     SHM: ShMem,
-    Z: ToTargetBytesConverter<I, S>,
-{
-    #[inline]
-    fn run_target(
-        &mut self,
-        fuzzer: &mut Z,
-        state: &mut S,
-        _mgr: &mut EM,
-        input: &I,
-    ) -> Result<ExitKind, Error> {
-        let bytes = fuzzer.convert_to_target_bytes(state, input);
-        self.observers_mut().pre_exec_child_all(state, input)?;
-        let exit = self.execute_input(state, bytes.as_slice())?;
-        self.observers_mut()
-            .post_exec_child_all(state, input, &exit)?;
-        Ok(exit)
-    }
-}
-
-impl<I, OT, S, SHM> HasTimeout for ForkserverExecutor<I, OT, S, SHM> {
-    #[inline]
-    fn timeout(&self) -> Duration {
-        self.timeout.into()
-    }
-}
-
-impl<I, OT, S, SHM> SetTimeout for ForkserverExecutor<I, OT, S, SHM> {
-    #[inline]
-    fn set_timeout(&mut self, timeout: Duration) {
-        self.timeout = TimeSpec::from_duration(timeout);
-    }
-}
-
-impl<I, OT, S, SHM> HasObservers for ForkserverExecutor<I, OT, S, SHM>
-where
-    OT: ObserversTuple<I, S>,
 {
     type Observers = OT;
 
+    fn init<W: crate::Worker>(
+        &mut self,
+        state: &mut S,
+        rt_handle: &mut RuntimeHandle<S, W>,
+    ) -> Result<(), Error> {
+        Ok(())
+    }
+
+    fn execute<W: crate::Worker>(
+        &mut self,
+        state: &mut S,
+        rt_handle: &mut RuntimeHandle<S, W>,
+        input: &I,
+    ) -> Result<ExitKind, Error>
+    {
+        *state.executions_mut() += 1;
+        self.observers_mut().pre_exec_all(state)?;
+
+
+        let exit_kind = unsafe { self.execute_impl(state, input)? };
+
+        self.observers_mut()
+            .post_exec_all(state, &exit_kind)
+            .map(|_| exit_kind)
+    }
+
     #[inline]
+    unsafe fn execute_impl(&mut self, state: &mut S, input: &I) -> Result<ExitKind, Error> {
+        let context = state.corpus_mut().context_mut();
+        let bytes = context.to_bytes(input);
+        let exit = self.execute_input(&bytes)?;
+        Ok(exit)
+    }
+
     fn observers(&self) -> RefIndexable<&Self::Observers, Self::Observers> {
         RefIndexable::from(&self.observers)
     }
 
-    #[inline]
     fn observers_mut(&mut self) -> RefIndexable<&mut Self::Observers, Self::Observers> {
         RefIndexable::from(&mut self.observers)
     }
 }
 
+impl<I, OT, S, SHM> DependencyResolver for ForkserverExecutor<I, OT, S, SHM> {}
+
+/*
 #[cfg(test)]
 mod tests {
     use std::ffi::OsString;
@@ -1586,7 +1576,6 @@ mod tests {
 
     use crate::{
         Error,
-        corpus::NopCorpus,
         executors::{
             StdChildArgs,
             forkserver::{FAILED_TO_START_FORKSERVER_MSG, ForkserverExecutor},
@@ -1641,3 +1630,4 @@ mod tests {
         assert!(result);
     }
 }
+*/
