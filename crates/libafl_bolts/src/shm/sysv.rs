@@ -1,15 +1,17 @@
 //! A simple system V shared memory model
 
-use crate::shm::SharedMemory;
 use core::{
     ffi::c_void,
     ptr::{self, NonNull},
 };
+use std::string::{String, ToString};
+
 use libafl_core::{Result, last_os_error};
 use libc::{IPC_CREAT, IPC_EXCL, IPC_PRIVATE, key_t, shmat, shmget};
 use num_traits::{Bounded, NumCast};
-use std::string::{String, ToString};
 use wide::bytemuck::NoUninit;
+
+use crate::shm::SharedMemory;
 
 /// A simple abstraction over System V shared memory
 #[derive(Debug)]
