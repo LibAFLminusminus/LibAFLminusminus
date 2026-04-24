@@ -1,12 +1,14 @@
 //! A simple POSIX Shared Memory model
 
-use crate::shm::SharedMemory;
 use core::marker::PhantomData;
+
 use libafl_core::{Result, non_zero, runtime, serialize};
 use nix::sys::mman::{MapFlags, ProtFlags, mmap_anonymous};
 use num_traits::{Bounded, NumCast};
 use serde::{Deserialize, Serialize};
 use wide::bytemuck::NoUninit;
+
+use crate::shm::SharedMemory;
 
 /// A helper builder
 ///

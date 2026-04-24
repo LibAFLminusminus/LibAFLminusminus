@@ -55,12 +55,11 @@ extern crate std;
 pub extern crate alloc;
 
 pub mod shm;
-pub use shm::{AnonShmBuilder, AnonShmReceiver, AnonShmSender, SharedMemory, SysVShm};
-
 #[cfg(feature = "std")]
 pub use build_id2 as build_id;
 #[cfg(feature = "alloc")]
 pub use serde_anymap::anymap;
+pub use shm::{AnonShmBuilder, AnonShmReceiver, AnonShmSender, SharedMemory, SysVShm};
 #[cfg(all(
     any(feature = "cli", feature = "frida_cli", feature = "qemu_cli"),
     feature = "std"
