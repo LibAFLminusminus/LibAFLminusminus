@@ -5,7 +5,7 @@ use tuple_list::tuple_list;
 use tuple_list_ex::RefIndexable;
 
 use crate::{
-    CompatibilityChecker, Controller, DependencyResolver, Registrator,
+    CompatibilityChecker, Worker, DependencyResolver, Registrator,
     executors::{Executor, ExitKind, hooks::ExecutorHooksTuple},
     observers::ObserversTuple,
     runtimes::RuntimeHandle,
@@ -62,7 +62,7 @@ where
 {
     type Observers = O;
 
-    fn init<CT: Controller>(
+    fn init<CT: Worker>(
         &mut self,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<CT, S>,

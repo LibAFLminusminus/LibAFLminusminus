@@ -1,22 +1,28 @@
-use crate::{Controller, GlobalController, Result, monitors::Monitor, state::read_stats_json};
+use crate::{Controller, Result, Worker, monitors::Monitor, state::read_stats_json};
 use core::time::Duration;
 use libafl_bolts::current_time;
+use quanta::{Clock, Instant};
 use std::{fs, path::PathBuf, vec::Vec};
 
 pub const DEFAULT_INTERVAL: Duration = Duration::from_secs(5);
 
 #[derive(Debug, Clone)]
 pub struct SimpleMonitor {
+    clock: Clock,
     /// the last time monitor was updated,
-    last_update: Duration,
+    last_update: Instant,
     /// the intervals to update monitor
     update_interval: Duration,
 }
 
 impl SimpleMonitor {
     pub fn with_duration(update_interval: Duration) -> Result<Self> {
+        let clock = Clock::new();
+        let now = clock.now();
+
         Ok(Self {
-            last_update: current_time(),
+            clock,
+            last_update: now,
             update_interval,
         })
     }
@@ -27,17 +33,20 @@ impl SimpleMonitor {
 }
 
 impl Monitor for SimpleMonitor {
-    fn display<GCT: GlobalController>(&mut self, global_controller: &mut GCT) -> Result<()> {
-        if current_time() - self.last_update > self.update_interval {
-            self.last_update = current_time();
+    fn display<GCT: Controller>(&mut self, global_controller: &mut GCT) -> Result<()> {
+        let now = self.clock.now();
+
+        if now - self.last_update > self.update_interval {
+            self.last_update = now;
         } else {
             return Ok(());
         }
 
-        for controller in global_controller.controllers() {
-            let stat = read_stats_json(controller.descriptor())?;
-            println!("{}", stat);
-        }
+        // TODO: fix print stats
+        // for controller in global_controller.controllers() {
+        //     let stat = read_stats_json(controller.descriptor())?;
+        //     println!("{}", stat);
+        // }
 
         Ok(())
     }

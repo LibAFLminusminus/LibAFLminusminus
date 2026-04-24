@@ -9,7 +9,7 @@ use libafl::monitors::{
     stats::{ClientStats, manager::ClientStatsManager},
     tui::TuiMonitor,
 };
-use libafl_bolts::ClientId;
+use libafl_bolts::WorkerId;
 
 pub fn main() {
     let mut monitor = TuiMonitor::builder().build();
@@ -17,6 +17,6 @@ pub fn main() {
     let _client_stats = ClientStats::default();
     let mut client_stats_manager = ClientStatsManager::default();
 
-    let _ = monitor.display(&mut client_stats_manager, "Test", ClientId(0));
+    let _ = monitor.display(&mut client_stats_manager, "Test", WorkerId(0));
     sleep(Duration::from_secs(10));
 }

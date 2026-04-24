@@ -3,9 +3,10 @@ use std::{string::ToString, thread::current};
 
 use libafl_bolts::current_time;
 use libafl_core::Error;
+use quanta::{Clock, Instant};
 
 use crate::{
-    Controller, FuzzerHooksTuple,
+    FuzzerHooksTuple, Worker,
     corpus::{Corpus, Scheduler, Testcase},
     dependency::Registrator,
     executors::{Executor, ExitKind},
@@ -119,7 +120,8 @@ pub struct StdFuzzer<F, H, OF> {
     objective: OF,
     fuzzer_hooks: H,
     initialized: bool,
-    last_synced: Duration,
+    clock: Clock,
+    last_synced: Instant,
 }
 
 /// The builder for std fuzzer
@@ -334,7 +336,7 @@ impl<F, H, OF> StdFuzzer<F, H, OF> {
 
 impl<CT, E, F, H, I, OF, S> Evaluator<CT, E, I, S> for StdFuzzer<F, H, OF>
 where
-    CT: Controller,
+    CT: Worker,
     E: Executor<I, S>,
     F: Feedback<I, E::Observers, S>,
     OF: Feedback<I, E::Observers, S>,
@@ -364,7 +366,7 @@ where
 
 impl<CT, E, F, H, I, OF, R, S, ST> Fuzzer<CT, E, I, R, S, ST> for StdFuzzer<F, H, OF>
 where
-    CT: Controller,
+    CT: Worker,
     E: Executor<I, S>,
     F: Feedback<I, E::Observers, S>,
     H: FuzzerHooksTuple,
@@ -439,17 +441,19 @@ where
     ) -> Result<(), Error> {
         self.fuzzer_hooks.pre_step_all(executor, state, rt_handle);
 
-        if current_time() - self.last_synced > Duration::from_secs(1) {
+        if self.clock.now() - self.last_synced > Duration::from_secs(1) {
             let workdir = rt_handle.controller().workdir();
             sync_stats(state.stats(), workdir);
         }
 
-        self.fuzzer_hooks.pre_schedule_all(executor, state, rt_handle);
+        self.fuzzer_hooks
+            .pre_schedule_all(executor, state, rt_handle);
 
         // Get the next index from the scheduler
         let testcase_id = state.scheduler_mut().next()?;
 
-        self.fuzzer_hooks.pre_perform_all(executor, state, rt_handle, testcase_id);
+        self.fuzzer_hooks
+            .pre_perform_all(executor, state, rt_handle, testcase_id);
 
         // Execute all stages
         stages.perform_all(self, executor, rand, state, rt_handle, &testcase_id)?;
@@ -521,12 +525,16 @@ impl<F, H, OF> StdFuzzerBuilder<F, H, OF> {
 impl<F, H, OF> StdFuzzerBuilder<F, H, OF> {
     /// Build a [`StdFuzzer`] from this builder.
     pub fn build(self) -> StdFuzzer<F, H, OF> {
+        let clock = Clock::new();
+        let now = clock.now();
+
         StdFuzzer {
             feedback: self.feedback,
             objective: self.objective_feedback,
             fuzzer_hooks: self.hooks,
             initialized: false,
-            last_synced: current_time(),
+            clock,
+            last_synced: now,
         }
     }
 }
@@ -543,7 +551,7 @@ impl<F, H, OF> StdFuzzer<F, H, OF> {
         rt_handle: &mut RuntimeHandle<CT, S>,
     ) -> Result<StdFuzzer<F, H, OF>, Error>
     where
-        CT: Controller,
+        CT: Worker,
         E: Executor<I, S>,
         F: Feedback<I, E::Observers, S>,
         H: FuzzerHooksTuple,

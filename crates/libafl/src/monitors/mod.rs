@@ -1,5 +1,5 @@
 use crate::{
-    Controller, GlobalController,
+    Controller, Worker,
     fuzzer::HasObjective,
     runtimes::RuntimeHandle,
     state::{FlatState, read_stats_json},
@@ -20,5 +20,5 @@ pub use simple::SimpleMonitor;
 
 pub trait Monitor {
     /// display (or not because you only want to display into the terminal if you are a main instance)
-    fn display<GCT: GlobalController>(&mut self, global_controller: &mut GCT) -> Result<(), Error>;
+    fn display<GCT: Controller>(&mut self, global_controller: &mut GCT) -> Result<(), Error>;
 }

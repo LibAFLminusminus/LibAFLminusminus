@@ -16,20 +16,20 @@ use nix::{
 use serde::Serialize;
 
 use crate::{
-    Controller, Error, GlobalController, Result,
+    Controller, Error, Result, Worker,
     inputs::NopInput,
     monitors::{Monitor, SimpleMonitor},
-    nop::{NopController, NopDescriptor, NopGlobalController},
+    nop::{NopDescriptor, NopWorker},
     runtimes::{Runtime, RuntimeHandle, StdRuntime, nop::NopRuntime},
-    simple::SimpleGlobalController,
+    simple::SimpleController,
     state::NopState,
 };
 
 // TODO: use a proper heuristic to choose correct ram size
 pub const DEFAULT_MAX_STATE_SIZE_PER_CLIENT: NonZeroUsize = NonZeroUsize::new(1 << 30).unwrap();
 
-pub struct StdLauncherBuilder<GCT, MT, RT, S, SB> {
-    global_controller: Option<GCT>,
+pub struct StdLauncherBuilder<CT, MT, RT, S, SB> {
+    global_controller: Option<CT>,
     monitor: Option<MT>,
     runtime: RT,
     cores: Cores,
@@ -40,10 +40,10 @@ pub struct StdLauncherBuilder<GCT, MT, RT, S, SB> {
     phantom: PhantomData<S>,
 }
 
-pub struct Instance<CT, RT, S> {
+pub struct Instance<W, RT, S> {
     runtime: RT,
     state: Option<S>,
-    controller: Option<CT>,
+    controller: Option<W>,
     core: CoreId,
     stdout_file: Option<File>,
     stderr_file: Option<File>,
@@ -57,22 +57,22 @@ pub struct InstanceRepr<D> {
 // for now, this is unix-specific.
 // it should be per supported os.
 // keep os-specific things there as much as possible.
-struct Instances<CT, D, RT, S> {
-    instances: Vec<Instance<CT, RT, S>>,
+struct Instances<W, D, RT, S> {
+    instances: Vec<Instance<W, RT, S>>,
     active_instances: HashSet<InstanceRepr<D>>,
 }
 
-pub struct StdLauncher<CT, D, GCT, MT, RT, S> {
-    global_controller: GCT,
+pub struct StdLauncher<W, D, CT, MT, RT, S> {
+    global_controller: CT,
     monitor: MT,
-    instances: Instances<CT, D, RT, S>,
+    instances: Instances<W, D, RT, S>,
 }
 
-impl<CT, RT, S> Instance<CT, RT, S> {
+impl<W, RT, S> Instance<W, RT, S> {
     fn new(
         runtime: RT,
         state: S,
-        controller: CT,
+        controller: W,
         core: CoreId,
         stdout_file: Option<File>,
         stderr_file: Option<File>,
@@ -90,9 +90,9 @@ impl<CT, RT, S> Instance<CT, RT, S> {
 
 impl
     StdLauncher<
-        NopController,
+        NopWorker,
         NopDescriptor,
-        SimpleGlobalController,
+        SimpleController,
         SimpleMonitor,
         NopRuntime,
         NopState<NopInput>,
@@ -103,7 +103,7 @@ impl
     /// It will spawn one fuzzing core on core 0 and run the provided task or runtime.
     pub fn builder() -> Result<
         StdLauncherBuilder<
-            SimpleGlobalController,
+            SimpleController,
             SimpleMonitor,
             NopRuntime,
             NopState<NopInput>,
@@ -127,8 +127,8 @@ impl
     }
 }
 
-impl<CT, D, GCT, MT, RT, S> StdLauncher<CT, D, GCT, MT, RT, S> {
-    pub fn new(global_controller: GCT, monitor: MT, instances: Instances<CT, D, RT, S>) -> Self {
+impl<W, D, CT, MT, RT, S> StdLauncher<W, D, CT, MT, RT, S> {
+    pub fn new(global_controller: CT, monitor: MT, instances: Instances<W, D, RT, S>) -> Self {
         Self {
             global_controller,
             monitor,
@@ -137,12 +137,12 @@ impl<CT, D, GCT, MT, RT, S> StdLauncher<CT, D, GCT, MT, RT, S> {
     }
 }
 
-impl<CT, D, GCT, MT, RT, S> StdLauncher<CT, D, GCT, MT, RT, S>
+impl<W, D, CT, MT, RT, S> StdLauncher<W, D, CT, MT, RT, S>
 where
-    CT: Controller<GlobalController = GCT>,
-    GCT: GlobalController<Controller = CT, Descriptor = D>,
+    W: Worker<Controller = CT>,
+    CT: Controller<Worker = W, Descriptor = D>,
     MT: Monitor,
-    RT: Runtime<CT, S> + 'static,
+    RT: Runtime<W, S> + 'static,
 {
     pub fn launch(mut self) -> Result<()> {
         self.instances
@@ -155,8 +155,8 @@ where
     }
 }
 
-impl<GCT, MT, RT, S, SB> StdLauncherBuilder<GCT, MT, RT, S, SB> {
-    pub fn cores(self, cores: Cores) -> StdLauncherBuilder<GCT, MT, RT, S, SB> {
+impl<CT, MT, RT, S, SB> StdLauncherBuilder<CT, MT, RT, S, SB> {
+    pub fn cores(self, cores: Cores) -> StdLauncherBuilder<CT, MT, RT, S, SB> {
         StdLauncherBuilder {
             global_controller: self.global_controller,
             monitor: self.monitor,
@@ -170,7 +170,7 @@ impl<GCT, MT, RT, S, SB> StdLauncherBuilder<GCT, MT, RT, S, SB> {
         }
     }
 
-    pub fn monitor<MT2>(self, monitor: MT2) -> StdLauncherBuilder<GCT, MT2, RT, S, SB> {
+    pub fn monitor<MT2>(self, monitor: MT2) -> StdLauncherBuilder<CT, MT2, RT, S, SB> {
         StdLauncherBuilder {
             global_controller: self.global_controller,
             monitor: Some(monitor),
@@ -184,10 +184,10 @@ impl<GCT, MT, RT, S, SB> StdLauncherBuilder<GCT, MT, RT, S, SB> {
         }
     }
 
-    pub fn global_controller<GCT2>(
+    pub fn global_controller<CT2>(
         self,
-        global_controller: GCT2,
-    ) -> StdLauncherBuilder<GCT2, MT, RT, S, SB> {
+        global_controller: CT2,
+    ) -> StdLauncherBuilder<CT2, MT, RT, S, SB> {
         StdLauncherBuilder {
             global_controller: Some(global_controller),
             monitor: self.monitor,
@@ -201,7 +201,7 @@ impl<GCT, MT, RT, S, SB> StdLauncherBuilder<GCT, MT, RT, S, SB> {
         }
     }
 
-    pub fn runtime<RT2>(self, runtime: RT2) -> StdLauncherBuilder<GCT, MT, RT2, S, SB> {
+    pub fn runtime<RT2>(self, runtime: RT2) -> StdLauncherBuilder<CT, MT, RT2, S, SB> {
         StdLauncherBuilder {
             global_controller: self.global_controller,
             monitor: self.monitor,
@@ -218,10 +218,10 @@ impl<GCT, MT, RT, S, SB> StdLauncherBuilder<GCT, MT, RT, S, SB> {
     pub fn state_builder<S2, SB2>(
         self,
         state_builder: SB2,
-    ) -> StdLauncherBuilder<GCT, MT, RT, S2, SB2>
+    ) -> StdLauncherBuilder<CT, MT, RT, S2, SB2>
     where
-        GCT: GlobalController,
-        SB2: FnMut(&GCT::Controller) -> Result<S2>,
+        CT: Controller,
+        SB2: FnMut(&CT::Worker) -> Result<S2>,
     {
         StdLauncherBuilder {
             global_controller: self.global_controller,
@@ -245,7 +245,7 @@ impl<GCT, MT, RT, S, SB> StdLauncherBuilder<GCT, MT, RT, S, SB> {
     pub fn max_state_size_per_client(
         self,
         max_state_size_per_client: NonZeroUsize,
-    ) -> StdLauncherBuilder<GCT, MT, RT, S, SB> {
+    ) -> StdLauncherBuilder<CT, MT, RT, S, SB> {
         StdLauncherBuilder {
             global_controller: self.global_controller,
             monitor: self.monitor,
@@ -264,7 +264,7 @@ impl<GCT, MT, RT, S, SB> StdLauncherBuilder<GCT, MT, RT, S, SB> {
     pub fn stdout_file<P: AsRef<Path>>(
         self,
         stdout_file: &P,
-    ) -> StdLauncherBuilder<GCT, MT, RT, S, SB> {
+    ) -> StdLauncherBuilder<CT, MT, RT, S, SB> {
         StdLauncherBuilder {
             global_controller: self.global_controller,
             monitor: self.monitor,
@@ -283,7 +283,7 @@ impl<GCT, MT, RT, S, SB> StdLauncherBuilder<GCT, MT, RT, S, SB> {
     pub fn stderr_file<P: AsRef<Path>>(
         self,
         stderr_file: &P,
-    ) -> StdLauncherBuilder<GCT, MT, RT, S, SB> {
+    ) -> StdLauncherBuilder<CT, MT, RT, S, SB> {
         StdLauncherBuilder {
             global_controller: self.global_controller,
             monitor: self.monitor,
@@ -298,20 +298,20 @@ impl<GCT, MT, RT, S, SB> StdLauncherBuilder<GCT, MT, RT, S, SB> {
     }
 }
 
-impl<GCT, MT, RT, S, SB> StdLauncherBuilder<GCT, MT, RT, S, SB>
+impl<CT, MT, RT, S, SB> StdLauncherBuilder<CT, MT, RT, S, SB>
 where
-    GCT: GlobalController,
+    CT: Controller,
     S: Serialize,
-    SB: FnMut(&GCT::Controller) -> Result<S>,
+    SB: FnMut(&CT::Worker) -> Result<S>,
 {
     pub fn build_with_task<T>(
         mut self,
         task: T,
-    ) -> Result<StdLauncher<GCT::Controller, GCT::Descriptor, GCT, MT, StdRuntime<S, T>, S>>
+    ) -> Result<StdLauncher<CT::Worker, CT::Descriptor, CT, MT, StdRuntime<S, T>, S>>
     where
         // this bound is needed to help rust link the state output by the state builder and
         // the one used by the task. otherwise, the compiler needs explicit typing.
-        T: FnMut(&mut RuntimeHandle<GCT::Controller, S>, &mut S) -> Result<()> + Clone,
+        T: FnMut(&mut RuntimeHandle<CT::Worker, S>, &mut S) -> Result<()> + Clone,
     {
         if self.cores.is_empty() {
             return Err(Error::illegal_argument("No cores have been declared."));
@@ -337,15 +337,13 @@ where
     }
 }
 
-impl<GCT, MT, RT, S, SB> StdLauncherBuilder<GCT, MT, RT, S, SB>
+impl<CT, MT, RT, S, SB> StdLauncherBuilder<CT, MT, RT, S, SB>
 where
-    GCT: GlobalController,
+    CT: Controller,
     RT: Clone,
-    SB: FnMut(&GCT::Controller) -> Result<S>,
+    SB: FnMut(&CT::Worker) -> Result<S>,
 {
-    pub fn build(
-        mut self,
-    ) -> Result<StdLauncher<GCT::Controller, GCT::Descriptor, GCT, MT, RT, S>> {
+    pub fn build(mut self) -> Result<StdLauncher<CT::Worker, CT::Descriptor, CT, MT, RT, S>> {
         if self.cores.is_empty() {
             return Err(Error::illegal_argument(format!(
                 "No CPU cores have been allocated."
@@ -364,9 +362,10 @@ where
                     "No global controller have been set.",
                 ))?;
 
-        let mut instances: Instances<GCT::Controller, GCT::Descriptor, RT, S> = Instances::new();
+        let mut instances: Instances<CT::Worker, CT::Descriptor, RT, S> = Instances::new();
 
-        let stdout_file: Option<File> = self.stdout_file
+        let stdout_file: Option<File> = self
+            .stdout_file
             .as_ref()
             .map(|p| {
                 File::create(p)
@@ -374,7 +373,8 @@ where
             })
             .transpose()?;
 
-        let stderr_file: Option<File> = self.stderr_file
+        let stderr_file: Option<File> = self
+            .stderr_file
             .as_ref()
             .map(|p| {
                 File::create(p)
@@ -397,11 +397,15 @@ where
                 controller,
                 core,
                 match stdout_file.as_ref() {
-                    Some(f) => Some(f.try_clone().map_err(|e| Error::runtime(format!("Failed to clone stdout_file: {e}")))?),
+                    Some(f) => Some(f.try_clone().map_err(|e| {
+                        Error::runtime(format!("Failed to clone stdout_file: {e}"))
+                    })?),
                     None => None,
                 },
                 match stderr_file.as_ref() {
-                    Some(f) => Some(f.try_clone().map_err(|e| Error::runtime(format!("Failed to clone stderr_file: {e}")))?),
+                    Some(f) => Some(f.try_clone().map_err(|e| {
+                        Error::runtime(format!("Failed to clone stderr_file: {e}"))
+                    })?),
                     None => None,
                 },
             ));
@@ -411,21 +415,21 @@ where
     }
 }
 
-impl<CT, RT, S> Instance<CT, RT, S>
+impl<W, RT, S> Instance<W, RT, S>
 where
-    RT: Runtime<CT, S> + 'static,
+    RT: Runtime<W, S> + 'static,
 {
     /// # Safety
     ///
     /// This will spawn a new process, which could have side effects.
     /// Once spawned, the parent process will take back the hand on the control flow immediately.
-    pub unsafe fn spawn<GCT>(
+    pub unsafe fn spawn<CT>(
         &mut self,
-        global_controller: &mut GCT,
-    ) -> Result<InstanceRepr<GCT::Descriptor>>
+        global_controller: &mut CT,
+    ) -> Result<InstanceRepr<CT::Descriptor>>
     where
-        GCT: GlobalController<Controller = CT>,
-        CT: Controller<GlobalController = GCT>,
+        CT: Controller<Worker = W>,
+        W: Worker<Controller = CT>,
     {
         // take these out before fork, to mark these as used in the father.
         // the father process will be able to drop the controller in the
@@ -468,7 +472,7 @@ where
     }
 }
 
-impl<CT, D, RT, S> Instances<CT, D, RT, S> {
+impl<W, D, RT, S> Instances<W, D, RT, S> {
     pub fn new() -> Self {
         Self {
             instances: Vec::new(),
@@ -476,20 +480,20 @@ impl<CT, D, RT, S> Instances<CT, D, RT, S> {
         }
     }
 
-    pub fn add_instance(&mut self, instance: Instance<CT, RT, S>) {
+    pub fn add_instance(&mut self, instance: Instance<W, RT, S>) {
         self.instances.push(instance);
     }
 }
 
-impl<CT, D, RT, S> Instances<CT, D, RT, S>
+impl<W, D, RT, S> Instances<W, D, RT, S>
 where
-    CT: Controller,
-    RT: Runtime<CT, S> + 'static,
+    W: Worker,
+    RT: Runtime<W, S> + 'static,
 {
-    pub fn spawn_instances<GCT>(&mut self, global_controller: &mut GCT) -> Result<()>
+    pub fn spawn_instances<CT>(&mut self, global_controller: &mut CT) -> Result<()>
     where
-        GCT: GlobalController<Controller = CT, Descriptor = D>,
-        CT: Controller<GlobalController = GCT>,
+        CT: Controller<Worker = W, Descriptor = D>,
+        W: Worker<Controller = CT>,
     {
         for instance in &mut self.instances {
             unsafe {
@@ -501,19 +505,19 @@ where
         Ok(())
     }
 
-    pub fn wait_instances<GCT, MT>(
+    pub fn wait_instances<CT, MT>(
         &mut self,
-        global_controller: &mut GCT,
+        global_controller: &mut CT,
         monitor: &mut MT,
     ) -> Result<()>
     where
-        CT: Controller<GlobalController = GCT>,
-        GCT: GlobalController<Controller = CT, Descriptor = D>,
+        W: Worker<Controller = CT>,
+        CT: Controller<Worker = W, Descriptor = D>,
         MT: Monitor,
     {
         // TODO: create a proper even-based loop, i'll do later on.
         sleep(Duration::from_secs(5));
-        monitor.display()?;
+        monitor.display(global_controller)?;
 
         while !self.active_instances.is_empty() {
             match wait() {

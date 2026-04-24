@@ -178,6 +178,7 @@ libafl_derive = { workspace = true, default-features = true, optional = true }
 libafl_intelpt = { workspace = true, default-features = true, optional = true }
 tuple_list_ex = { workspace = true }
 
+quanta = "0.12.6"
 ahash = { workspace = true } # The hash function already used in hashbrown
 arbitrary-int = { workspace = true }
 backtrace = { workspace = true, optional = true } # Used to get the stacktrace in StacktraceObserver
