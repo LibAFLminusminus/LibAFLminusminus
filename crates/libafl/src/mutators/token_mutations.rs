@@ -24,14 +24,13 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "std")]
 use crate::mutators::str_decode;
 use crate::{
-    Error,
+    Error, EvaluationResult,
     inputs::{HasMutatorBytes, ResizableMutator},
     mutators::{
         MultiMutator, MutationResult, Mutator, Named, buffer_self_copy, mutations::buffer_copy,
     },
     observers::cmp::{AflppCmpValuesMetadata, CmpValues, CmpValuesMetadata},
-    stages::TaintMetadata,
-    state::{HasCorpus, HasMaxSize, HasRand},
+    state::{FlatState, HasCorpus},
 };
 
 /// A state metadata holding a list of tokens
@@ -304,12 +303,12 @@ impl<'it> IntoIterator for &'it Tokens {
 #[derive(Debug, Default)]
 pub struct TokenInsert;
 
-impl<I, S> Mutator<I, S> for TokenInsert
+impl<I, R, S> Mutator<I, R, S> for TokenInsert
 where
-    S: HasMetadata + HasRand + HasMaxSize,
+    S: FlatState,
     I: ResizableMutator<u8> + HasMutatorBytes,
 {
-    fn mutate(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, Error> {
+    fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
         let max_size = state.max_size();
         let tokens_len = {
             let Some(meta) = state.metadata_map().get::<Tokens>() else {
@@ -352,7 +351,7 @@ where
         Ok(MutationResult::Mutated)
     }
     #[inline]
-    fn post_exec(&mut self, _state: &mut S, _new_corpus_id: Option<CorpusId>) -> Result<(), Error> {
+    fn post_exec(&mut self, _state: &mut S, _eval_res: &EvaluationResult) -> Result<(), Error> {
         Ok(())
     }
 }
@@ -377,12 +376,12 @@ impl TokenInsert {
 #[derive(Debug, Default)]
 pub struct TokenReplace;
 
-impl<I, S> Mutator<I, S> for TokenReplace
+impl<I, R, S> Mutator<I, R, S> for TokenReplace
 where
-    S: HasMetadata + HasRand + HasMaxSize,
+    S: FlatState,
     I: ResizableMutator<u8> + HasMutatorBytes,
 {
-    fn mutate(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, Error> {
+    fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
         let size = input.mutator_bytes().len();
         let off = if let Some(nz) = NonZero::new(size) {
             state.rand_mut().below(nz)
@@ -416,7 +415,7 @@ where
         Ok(MutationResult::Mutated)
     }
     #[inline]
-    fn post_exec(&mut self, _state: &mut S, _new_corpus_id: Option<CorpusId>) -> Result<(), Error> {
+    fn post_exec(&mut self, _state: &mut S, _eval_res: &EvaluationResult) -> Result<(), Error> {
         Ok(())
     }
 }
@@ -436,14 +435,16 @@ impl TokenReplace {
     }
 }
 
+/*
+
 /// A `I2SRandReplace` [`Mutator`] replaces a random matching input-2-state comparison operand with the other.
 /// It needs a valid [`CmpValuesMetadata`] in the state.
 #[derive(Debug, Default)]
 pub struct I2SRandReplace;
 
-impl<I, S> Mutator<I, S> for I2SRandReplace
+impl<I, R, S> Mutator<I, R, S> for I2SRandReplace
 where
-    S: HasMetadata + HasRand + HasMaxSize,
+    S: FlatState,
     I: ResizableMutator<u8> + HasMutatorBytes,
 {
     #[expect(clippy::too_many_lines)]
@@ -2160,3 +2161,5 @@ token2="B"
         );
     }
 }
+
+*/

@@ -39,18 +39,18 @@ use nix::{
     unistd::Pid,
 };
 
-use super::{HasTimeout, StdChildArgs, StdChildArgsInner};
+use super::{StdChildArgs, StdChildArgsInner};
 #[cfg(feature = "regex")]
 use crate::observers::{
     AsanBacktraceObserver, get_asan_runtime_flags, get_asan_runtime_flags_with_log_path,
 };
 use crate::{
     Error,
-    executors::{Executor, ExitKind, HasObservers, SetTimeout},
-    inputs::{Input, ToTargetBytesConverter},
+    executors::{Executor, ExitKind},
+    inputs::Input,
     mutators::Tokens,
+    state::FlatState,
     observers::{MapObserver, Observer, ObserversTuple},
-    state::HasExecutions,
 };
 
 /// Pinned fd number for forkserver communication
@@ -751,7 +751,7 @@ impl ForkserverExecutor<(), (), UnixShMem, ()> {
 
 impl<I, OT, S, SHM> ForkserverExecutor<I, OT, S, SHM>
 where
-    OT: ObserversTuple<I, S>,
+    OT: ObserversTuple<S>,
     SHM: ShMem,
 {
     /// The `target` binary that's going to run.
@@ -788,7 +788,7 @@ where
     #[inline]
     fn execute_input(&mut self, state: &mut S, input: &[u8]) -> Result<ExitKind, Error>
     where
-        S: HasExecutions,
+        S: FlatState,
     {
         *state.executions_mut() += 1;
 
