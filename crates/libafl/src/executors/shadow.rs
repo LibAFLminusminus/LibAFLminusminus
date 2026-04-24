@@ -8,10 +8,9 @@ use core::{
 
 use libafl_bolts::tuples::RefIndexable;
 
-use super::{HasTimeout, SetTimeout};
 use crate::{
-    Error,
-    executors::{Executor, ExitKind, HasObservers},
+    DependencyResolver, Error,
+    executors::{Executor, ExitKind},
     observers::ObserversTuple,
 };
 
@@ -39,8 +38,8 @@ where
 
 impl<E, I, S, SOT> ShadowExecutor<E, I, S, SOT>
 where
-    E: HasObservers,
-    SOT: ObserversTuple<I, S>,
+    E: Executor<I, S>,
+    SOT: ObserversTuple<S>,
 {
     /// Create a new `ShadowExecutor`, wrapping the given `executor`.
     pub fn new(executor: E, shadow_observers: SOT) -> Self {
@@ -76,54 +75,31 @@ where
     }
 }
 
-impl<E, EM, I, S, SOT, Z> Executor<EM, I, S, Z> for ShadowExecutor<E, I, S, SOT>
-where
-    E: Executor<EM, I, S, Z> + HasObservers,
-    SOT: ObserversTuple<I, S>,
-{
-    fn run_target(
-        &mut self,
-        fuzzer: &mut Z,
-        state: &mut S,
-        mgr: &mut EM,
-        input: &I,
-    ) -> Result<ExitKind, Error> {
-        self.executor.run_target(fuzzer, state, mgr, input)
-    }
-}
+impl<E, I, S, SOT> DependencyResolver for ShadowExecutor<E, I, S, SOT> {}
 
-impl<E, I, S, SOT> HasTimeout for ShadowExecutor<E, I, S, SOT>
+impl<E, I, S, SOT> Executor<I, S> for ShadowExecutor<E, I, S, SOT>
 where
-    E: HasTimeout,
-{
-    #[inline]
-    fn timeout(&self) -> Duration {
-        self.executor.timeout()
-    }
-}
-
-impl<E, I, S, SOT> SetTimeout for ShadowExecutor<E, I, S, SOT>
-where
-    E: SetTimeout,
-{
-    #[inline]
-    fn set_timeout(&mut self, timeout: Duration) {
-        self.executor.set_timeout(timeout);
-    }
-}
-
-impl<E, I, S, SOT> HasObservers for ShadowExecutor<E, I, S, SOT>
-where
-    E: HasObservers,
-    SOT: ObserversTuple<I, S>,
+    E: Executor<I, S>,
+    SOT: ObserversTuple<S>,
 {
     type Observers = E::Observers;
-    #[inline]
+
+    fn init<CT: crate::Controller>(
+        &mut self,
+        state: &mut S,
+        rt_handle: &mut crate::runtimes::RuntimeHandle<CT, S>,
+    ) -> Result<(), Error> {
+        self.executor.init(state, rt_handle)
+    }
+
+    unsafe fn execute_impl(&mut self, state: &mut S, input: &I) -> Result<ExitKind, Error> {
+        self.executor.execute_impl(state, input)
+    }
+
     fn observers(&self) -> RefIndexable<&Self::Observers, Self::Observers> {
         self.executor.observers()
     }
 
-    #[inline]
     fn observers_mut(&mut self) -> RefIndexable<&mut Self::Observers, Self::Observers> {
         self.executor.observers_mut()
     }
