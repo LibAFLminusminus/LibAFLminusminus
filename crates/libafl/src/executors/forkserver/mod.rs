@@ -66,6 +66,10 @@ const FS_NEW_ERROR: i32 = 0xeffe0000_u32 as i32;
 pub const FS_NEW_VERSION_MIN: u32 = 1;
 /// Maximum number for new version
 pub const FS_NEW_VERSION_MAX: u32 = 1;
+/// Base magic value for new-protocol forkserver status ("AFL\0")
+pub const FS_NEW_VERSION_MAGIC_BASE: u32 = 0x41464c00;
+/// Upper bound (inclusive) for new-protocol forkserver status
+pub const FS_NEW_VERSION_MAGIC_MAX: u32 = 0x41464cff;
 
 /// Whether forkserver option customization for old forkserver is enabled
 #[expect(clippy::cast_possible_wrap)]
@@ -367,7 +371,7 @@ impl Forkserver {
         // # Saftey
         // The pipe file descriptors used for `setpipe` are valid at this point.
         let fsrv_handle = unsafe {
-            match ConfigForkserver::setsid(
+            match Config::setsid(
                 command
                     .env("LD_BIND_NOW", "1")
                     .envs(envs)
@@ -441,8 +445,8 @@ impl Forkserver {
 
     /// The child pid
     #[must_use]
-    pub fn child_pid(&self) -> Pid {
-        self.child_pid.unwrap()
+    pub fn child_pid(&self) -> Option<Pid> {
+        self.child_pid
     }
 
     /// Set the child pid
@@ -474,17 +478,7 @@ impl Forkserver {
 
     /// Read bytes of any length from the st pipe
     pub fn read_st_of_len(&mut self, size: usize) -> Result<Vec<u8>, Error> {
-        let mut buf = Vec::with_capacity(size);
-        // SAFETY: `buf` will not be returned with `Ok` unless it is filled with `size` bytes.
-        //         So it is ok to set the length to `size` such that the length of `&mut buf` is `size`
-        //         and the `read_exact` call will try to read `size` bytes.
-        #[allow(
-            clippy::uninit_vec,
-            reason = "The vec will be filled right after setting the length."
-        )] // expect for some reason does not work
-        unsafe {
-            buf.set_len(size);
-        }
+        let mut buf = vec![0u8; size];
         self.st_pipe.read_exact(&mut buf)?;
         Ok(buf)
     }
@@ -585,10 +579,10 @@ where
     }
 }
 
-impl ForkserverExecutor<(), (), UnixShMem, ()> {
+impl ForkserverExecutor<(), (), (), ()> {
     /// Builder for `ForkserverExecutor`
     #[must_use]
-    pub fn builder() -> ForkserverExecutorBuilder<'static, UnixShMemProvider> {
+    pub fn builder() -> ForkserverExecutorBuilder<'static, ()> {
         ForkserverExecutorBuilder::new()
     }
 }
@@ -662,11 +656,10 @@ where
             input_size = self.max_input_size;
             self.map_input_to_shmem(input, input_size)?;
         } else if input_size < self.min_input_size {
-            // Extend like AFL++ does
-            input_size = self.min_input_size;
-            let mut input_bytes_copy = Vec::with_capacity(input_size);
-            input_bytes_copy.as_slice_mut().copy_from_slice(input);
-            self.map_input_to_shmem(&input_bytes_copy, input_size)?;
+            // Extend like AFL++ does: copy input then zero-pad to min_input_size
+            let mut padded = input.to_vec();
+            padded.resize(self.min_input_size, 0);
+            self.map_input_to_shmem(&padded, self.min_input_size)?;
         } else {
             self.map_input_to_shmem(input, input_size)?;
         }
@@ -710,7 +703,9 @@ where
             self.forkserver.set_last_run_timed_out(true);
 
             // We need to kill the child in case he has timed out, or we can't get the correct pid in the next call to self.executor.forkserver_mut().read_st()?
-            let _ = kill(self.forkserver().child_pid(), self.forkserver.kill_signal);
+            if let Some(pid) = self.forkserver().child_pid() {
+                let _ = kill(pid, self.forkserver.kill_signal);
+            }
             if let Err(err) = self.forkserver.read_st() {
                 return Err(Error::unknown(format!(
                     "Could not kill timed-out child: {err:?}"
@@ -772,6 +767,22 @@ impl<SP> StdTargetArgs for ForkserverExecutorBuilder<'_, SP> {
     }
 }
 
+struct BuiltForkserver<SHM> {
+    forkserver: Forkserver,
+    input_file: InputFile,
+    map: Option<SHM>,
+    target: OsString,
+    args: Vec<OsString>,
+    uses_shmem_testcase: bool,
+    map_size: Option<usize>,
+    min_input_size: usize,
+    max_input_size: usize,
+    timeout: TimeSpec,
+    #[cfg(feature = "regex")]
+    asan_obs: Handle<AsanBacktraceObserver>,
+    crash_exitcode: Option<i8>,
+}
+
 impl<'a, SHM, SP> ForkserverExecutorBuilder<'a, SP>
 where
     SHM: ShMem,
@@ -790,56 +801,27 @@ where
     where
         OT: ObserversTuple<S>,
     {
-        let (forkserver, input_file, map) = self.build_helper(&observers)?;
-
-        let target = self.target_inner.program.take().unwrap();
-        log::info!(
-            "ForkserverExecutor: program: {:?}, arguments: {:?}, use_stdin: {:?}",
-            target,
-            self.target_inner.arguments.clone(),
-            self.use_stdin()
-        );
-
-        if self.uses_shmem_testcase && map.is_none() {
-            return Err(Error::illegal_state(
-                "Map must always be set for `uses_shmem_testcase`",
-            ));
-        }
-
-        let timeout: TimeSpec = self.child_env_inner.timeout.into();
-        if self.min_input_size > self.max_input_size {
-            return Err(Error::illegal_argument(
-                format!(
-                    "Minimum input size ({}) must not exceed maximum input size ({})",
-                    self.min_input_size, self.max_input_size
-                )
-                .as_str(),
-            ));
-        }
-
+        let cfg = self.build_forkserver(&observers)?;
         Ok(ForkserverExecutor {
-            target,
-            args: self.target_inner.arguments.clone(),
-            input_file,
-            uses_shmem_testcase: self.uses_shmem_testcase,
-            forkserver,
+            target: cfg.target,
+            args: cfg.args,
+            input_file: cfg.input_file,
+            uses_shmem_testcase: cfg.uses_shmem_testcase,
+            forkserver: cfg.forkserver,
             observers,
-            map,
+            map: cfg.map,
             phantom: PhantomData,
-            map_size: self.map_size,
-            min_input_size: self.min_input_size,
-            max_input_size: self.max_input_size,
-            timeout,
+            map_size: cfg.map_size,
+            min_input_size: cfg.min_input_size,
+            max_input_size: cfg.max_input_size,
+            timeout: cfg.timeout,
             #[cfg(feature = "regex")]
-            asan_obs: self
-                .asan_obs
-                .clone()
-                .unwrap_or(AsanBacktraceObserver::default().handle()),
-            crash_exitcode: self.crash_exitcode,
+            asan_obs: cfg.asan_obs,
+            crash_exitcode: cfg.crash_exitcode,
         })
     }
 
-    /// Builds `ForkserverExecutor` downsizing the coverage map to fit exaclty the AFL++ map size.
+    /// Builds `ForkserverExecutor` downsizing the coverage map to fit exactly the AFL++ map size.
     #[expect(clippy::pedantic)]
     pub fn build_dynamic_map<A, MO, OT, I, S>(
         mut self,
@@ -847,63 +829,52 @@ where
         other_observers: OT,
     ) -> Result<ForkserverExecutor<I, (A, OT), S, SHM>, Error>
     where
-        A: Observer<S> + AsMut<MO>,
-        I: Input,
-        MO: MapObserver + Truncate, // TODO maybe enforce Entry = u8 for the cov map
-        OT: ObserversTuple<S> + Prepend<MO>,
+        A: AsMut<MO>,
+        MO: MapObserver + Truncate,
+        OT: ObserversTuple<S>,
+        (A, OT): ObserversTuple<S>,
     {
-        let (forkserver, input_file, map) = self.build_helper(&other_observers)?;
+        let cfg = self.build_forkserver(&other_observers)?;
 
-        let target = self.target_inner.program.take().unwrap();
         log::info!(
             "ForkserverExecutor: program: {:?}, arguments: {:?}, use_stdin: {:?}, map_size: {:?}",
-            target,
-            self.target_inner.arguments.clone(),
+            cfg.target,
+            cfg.args,
             self.use_stdin(),
-            self.map_size
+            cfg.map_size
         );
 
-        if let Some(dynamic_map_size) = self.map_size {
+        if let Some(dynamic_map_size) = cfg.map_size {
             map_observer.as_mut().truncate(dynamic_map_size);
         }
 
-        let observers = (map_observer, other_observers);
-
-        if self.uses_shmem_testcase && map.is_none() {
+        if cfg.uses_shmem_testcase && cfg.map.is_none() {
             return Err(Error::illegal_state(
                 "Map must always be set for `uses_shmem_testcase`",
             ));
         }
 
-        let timeout: TimeSpec = self.child_env_inner.timeout.into();
-
         Ok(ForkserverExecutor {
-            target,
-            args: self.target_inner.arguments.clone(),
-            input_file,
-            uses_shmem_testcase: self.uses_shmem_testcase,
-            forkserver,
-            observers,
-            map,
+            target: cfg.target,
+            args: cfg.args,
+            input_file: cfg.input_file,
+            uses_shmem_testcase: cfg.uses_shmem_testcase,
+            forkserver: cfg.forkserver,
+            observers: (map_observer, other_observers),
+            map: cfg.map,
             phantom: PhantomData,
-            map_size: self.map_size,
-            min_input_size: self.min_input_size,
-            max_input_size: self.max_input_size,
-            timeout,
+            map_size: cfg.map_size,
+            min_input_size: cfg.min_input_size,
+            max_input_size: cfg.max_input_size,
+            timeout: cfg.timeout,
             #[cfg(feature = "regex")]
-            asan_obs: self
-                .asan_obs
-                .clone()
-                .unwrap_or(AsanBacktraceObserver::default().handle()),
-            crash_exitcode: self.crash_exitcode,
+            asan_obs: cfg.asan_obs,
+            crash_exitcode: cfg.crash_exitcode,
         })
     }
 
     #[expect(clippy::pedantic)]
-    fn build_helper<OT, S>(
-        &mut self,
-        obs: &OT,
-    ) -> Result<(Forkserver, InputFile, Option<SHM>), Error>
+    fn build_forkserver<OT, S>(&mut self, obs: &OT) -> Result<BuiltForkserver<SHM>, Error>
     where
         OT: ObserversTuple<S>,
     {
@@ -928,7 +899,7 @@ where
                 // setup shared memory
                 let mut shmem = provider.new_shmem(self.max_input_size + SHMEM_FUZZ_HDR_SIZE)?;
                 // # Safety
-                // This is likely single threade here, we're likely fine if it's not.
+                // This is likely single threaded here, we're likely fine if it's not.
                 unsafe {
                     shmem.write_to_env(SHM_FUZZ_ENV_VAR)?;
                     env::set_var(SHM_FUZZ_MAP_SIZE_ENV_VAR, format!("{}", shmem.len()));
@@ -940,44 +911,41 @@ where
             }
         };
 
-        let mut forkserver = match &self.target_inner.program {
-            Some(t) => Forkserver::new(
-                t.clone(),
-                self.target_inner.arguments.clone(),
-                self.target_inner.envs.clone(),
-                input_file.as_raw_fd(),
-                self.use_stdin(),
-                0,
-                self.is_persistent,
-                self.is_deferred_frksrv,
-                self.is_fsrv_only,
-                self.has_asan_obs(),
-                self.map_size,
-                self.child_env_inner.debug_child,
-                self.kill_signal.unwrap_or(KILL_SIGNAL_DEFAULT),
-                self.child_env_inner.stdout_observer.as_ref().map(|t| {
-                    obs.get(t)
-                        .as_ref()
-                        .expect("stdout observer not passed in the builder")
-                        .as_raw_fd()
-                        .expect("only memory fd backend is allowed for forkserver executor")
-                }),
-                self.child_env_inner.stderr_observer.as_ref().map(|t| {
-                    obs.get(t)
-                        .as_ref()
-                        .expect("stderr observer not passed in the builder")
-                        .as_raw_fd()
-                        .expect("only memory fd backend is allowed for forkserver executor")
-                }),
-                self.child_env_inner.current_directory.clone(),
-                self.child_env_inner.core,
-            )?,
-            None => {
-                return Err(Error::illegal_argument(
-                    "ForkserverExecutorBuilder::build: target file not found".to_string(),
-                ));
-            }
-        };
+        let target = self.target_inner.program.take().ok_or_else(|| {
+            Error::illegal_argument("ForkserverExecutorBuilder::build: target file not found")
+        })?;
+
+        let mut forkserver = Forkserver::new(
+            target.clone(),
+            self.target_inner.arguments.clone(),
+            self.target_inner.envs.clone(),
+            input_file.as_raw_fd(),
+            self.use_stdin(),
+            0,
+            self.is_persistent,
+            self.is_deferred_frksrv,
+            self.is_fsrv_only,
+            self.has_asan_obs(),
+            self.map_size,
+            self.child_env_inner.debug_child,
+            self.kill_signal.unwrap_or(KILL_SIGNAL_DEFAULT),
+            self.child_env_inner.stdout_observer.as_ref().map(|t| {
+                obs.get(t)
+                    .as_ref()
+                    .expect("stdout observer not passed in the builder")
+                    .as_raw_fd()
+                    .expect("only memory fd backend is allowed for forkserver executor")
+            }),
+            self.child_env_inner.stderr_observer.as_ref().map(|t| {
+                obs.get(t)
+                    .as_ref()
+                    .expect("stderr observer not passed in the builder")
+                    .as_raw_fd()
+                    .expect("only memory fd backend is allowed for forkserver executor")
+            }),
+            self.child_env_inner.current_directory.clone(),
+            self.child_env_inner.core,
+        )?;
 
         // Initial handshake, read 4-bytes hello message from the forkserver.
         let version_status = forkserver.read_st().map_err(|err| {
@@ -988,17 +956,45 @@ where
             report_error_and_exit(version_status & 0x0000ffff)?;
         }
 
-        if Self::is_old_forkserver(version_status) {
-            log::info!("Old fork server model is used by the target, this still works though.");
-            self.initialize_old_forkserver(version_status, map.as_ref(), &mut forkserver)?;
-        } else {
-            self.initialize_forkserver(version_status, map.as_ref(), &mut forkserver)?;
+        self.initialize_forkserver(version_status, map.as_ref(), &mut forkserver)?;
+
+        if self.uses_shmem_testcase && map.is_none() {
+            return Err(Error::illegal_state(
+                "Map must always be set for `uses_shmem_testcase`",
+            ));
         }
-        Ok((forkserver, input_file, map))
+
+        log::info!(
+            "ForkserverExecutor: program: {:?}, arguments: {:?}, use_stdin: {:?}, map_size: {:?}",
+            target,
+            self.target_inner.arguments,
+            self.use_stdin(),
+            self.map_size
+        );
+
+        Ok(BuiltForkserver {
+            forkserver,
+            input_file,
+            map,
+            target,
+            args: self.target_inner.arguments.clone(),
+            uses_shmem_testcase: self.uses_shmem_testcase,
+            map_size: self.map_size,
+            min_input_size: self.min_input_size,
+            max_input_size: self.max_input_size,
+            timeout: self.child_env_inner.timeout.into(),
+            #[cfg(feature = "regex")]
+            asan_obs: self
+                .asan_obs
+                .clone()
+                .unwrap_or(AsanBacktraceObserver::default().handle()),
+            crash_exitcode: self.crash_exitcode,
+        })
     }
 
     fn is_old_forkserver(version_status: i32) -> bool {
-        !(0x41464c00..0x41464cff).contains(&version_status)
+        let v = version_status as u32;
+        !(FS_NEW_VERSION_MAGIC_BASE..=FS_NEW_VERSION_MAGIC_MAX).contains(&v)
     }
 
     /// Intialize forkserver > v4.20c
@@ -1010,8 +1006,8 @@ where
         map: Option<&SHM>,
         forkserver: &mut Forkserver,
     ) -> Result<(), Error> {
-        let keep = status;
-        let version: u32 = status as u32 - 0x41464c00_u32;
+        let initial_status = status;
+        let version: u32 = status as u32 - FS_NEW_VERSION_MAGIC_BASE;
         match version {
             0 => {
                 return Err(Error::illegal_state(
@@ -1091,86 +1087,11 @@ where
             Error::illegal_state(format!("Reading from forkserver failed: {err:?}"))
         })?;
 
-        if aflx != keep {
+        if aflx != initial_status {
             return Err(Error::unknown(format!(
-                "Error in forkserver communication ({aflx:?}=>{keep:?})",
+                "Error in forkserver communication ({aflx:?}=>{initial_status:?})",
             )));
         }
-        Ok(())
-    }
-
-    /// Intialize old forkserver. < v4.20c
-    #[expect(clippy::cast_sign_loss)]
-    fn initialize_old_forkserver(
-        &mut self,
-        status: i32,
-        map: Option<&SHM>,
-        forkserver: &mut Forkserver,
-    ) -> Result<(), Error> {
-        if status & FS_OPT_ENABLED == FS_OPT_ENABLED && status & FS_OPT_MAPSIZE == FS_OPT_MAPSIZE {
-            let fsrv_map_size = fs_opt_get_mapsize(status);
-            self.set_map_size(fsrv_map_size)?;
-        }
-
-        // Only with SHMEM or AUTODTCT we can send send_status back or it breaks!
-        // If forkserver is responding, we then check if there's any option enabled.
-        // We'll send 4-bytes message back to the forkserver to tell which features to use
-        // The forkserver is listening to our response if either shmem fuzzing is enabled or auto dict is enabled
-        // <https://github.com/AFLplusplus/AFLplusplus/blob/147654f8715d237fe45c1657c87b2fe36c4db22a/instrumentation/afl-compiler-rt.o.c#L1026>
-        if status & FS_OPT_ENABLED == FS_OPT_ENABLED
-            && (status & FS_OPT_SHDMEM_FUZZ == FS_OPT_SHDMEM_FUZZ
-                || status & FS_OPT_AUTODTCT == FS_OPT_AUTODTCT)
-        {
-            let mut send_status = FS_OPT_ENABLED;
-
-            if (status & FS_OPT_SHDMEM_FUZZ == FS_OPT_SHDMEM_FUZZ) && map.is_some() {
-                log::info!("Using SHARED MEMORY FUZZING feature.");
-                send_status |= FS_OPT_SHDMEM_FUZZ;
-                self.uses_shmem_testcase = true;
-            }
-
-            if (status & FS_OPT_AUTODTCT == FS_OPT_AUTODTCT) && self.autotokens.is_some() {
-                log::info!("Using AUTODTCT feature");
-                send_status |= FS_OPT_AUTODTCT;
-            }
-
-            if send_status != FS_OPT_ENABLED {
-                // if send_status is not changed (Options are available but we didn't use any), then don't send the next write_ctl message.
-                // This is important
-
-                if let Err(err) = forkserver.write_ctl(send_status) {
-                    return Err(Error::illegal_state(format!(
-                        "Writing to forkserver failed: {err:?}"
-                    )));
-                }
-
-                if (send_status & FS_OPT_AUTODTCT) == FS_OPT_AUTODTCT {
-                    let dict_size = forkserver.read_st().map_err(|err| {
-                        Error::illegal_state(format!("Reading from forkserver failed: {err:?}"))
-                    })?;
-
-                    if !(2..=0xffffff).contains(&dict_size) {
-                        return Err(Error::illegal_state(
-                            "Dictionary has an illegal size".to_string(),
-                        ));
-                    }
-
-                    log::info!("Autodict size {dict_size:x}");
-
-                    let buf = forkserver
-                        .read_st_of_len(dict_size as usize)
-                        .map_err(|err| {
-                            Error::unknown(format!("Failed to load autodictionary: {err:?}"))
-                        })?;
-                    if let Some(t) = &mut self.autotokens {
-                        t.parse_autodict(&buf, dict_size as usize);
-                    }
-                }
-            }
-        } else {
-            log::warn!("Forkserver Options are not available.");
-        }
-
         Ok(())
     }
 
@@ -1288,7 +1209,7 @@ where
     }
 }
 
-impl<'a> ForkserverExecutorBuilder<'a, UnixShMemProvider> {
+impl<'a> ForkserverExecutorBuilder<'a, ()> {
     /// Creates a new `AFL`-style [`ForkserverExecutor`] with the given target, arguments and observers.
     /// This is the builder for `ForkserverExecutor`
     /// This Forkserver will attempt to provide inputs over shared mem when `shmem_provider` is given.
@@ -1296,7 +1217,7 @@ impl<'a> ForkserverExecutorBuilder<'a, UnixShMemProvider> {
     /// in case no input file is specified.
     /// If `debug_child` is set, the child will print to `stdout`/`stderr`.
     #[must_use]
-    pub fn new() -> ForkserverExecutorBuilder<'a, UnixShMemProvider> {
+    pub fn new() -> ForkserverExecutorBuilder<'a, ()> {
         ForkserverExecutorBuilder {
             target_inner: StdTargetArgsInner::default(),
             child_env_inner: StdChildArgsInner::default(),
@@ -1317,7 +1238,7 @@ impl<'a> ForkserverExecutorBuilder<'a, UnixShMemProvider> {
     }
 }
 
-impl<'a> ForkserverExecutorBuilder<'a, UnixShMemProvider> {
+impl<'a> ForkserverExecutorBuilder<'a, ()> {
     /// Shmem provider for forkserver's shared memory testcase feature.
     pub fn shmem_provider<SP>(
         self,
@@ -1342,12 +1263,6 @@ impl<'a> ForkserverExecutorBuilder<'a, UnixShMemProvider> {
             asan_obs: self.asan_obs,
             crash_exitcode: self.crash_exitcode,
         }
-    }
-}
-
-impl Default for ForkserverExecutorBuilder<'_, UnixShMemProvider> {
-    fn default() -> Self {
-        Self::new()
     }
 }
 
