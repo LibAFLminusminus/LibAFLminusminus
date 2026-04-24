@@ -2,6 +2,8 @@
 
 use crate::runtimes::{RuntimeHandle, utils::OsTerminationParams};
 use core::{ffi::c_void, ptr::NonNull};
+#[cfg(unix)]
+use libafl_bolts::shm::OsShmSender;
 use libafl_core::Error;
 
 pub trait IntoTerminationHandlerData {
@@ -23,7 +25,7 @@ pub struct TerminationHandlerData {
     input_ptr: Option<NonNull<c_void>>,
     observers_ptr: Option<NonNull<c_void>>,
     fuzzer_ptr: Option<NonNull<c_void>>,
-    saver_ptr: Option<NonNull<c_void>>,
+    state_sender_ptr: Option<NonNull<c_void>>,
     crash_handler: Option<fn(&mut Self, &OsTerminationParams)>,
     timeout_handler: Option<fn(&mut Self, &OsTerminationParams)>,
 }
@@ -38,7 +40,7 @@ impl TerminationHandlerData {
             input_ptr: None,
             observers_ptr: None,
             fuzzer_ptr: None,
-            saver_ptr: None,
+            state_sender_ptr: None,
             crash_handler: None,
             timeout_handler: None,
         }
@@ -109,16 +111,13 @@ impl TerminationHandlerData {
     ///
     /// S must be the same type used when the saver was registered via `RuntimeHandle`.
     #[cfg(unix)]
-    pub unsafe fn saver<S>(&self) -> Option<&mut crate::runtimes::utils::unix::OsSaver<S>> {
-        unsafe { self.saver_ptr.map(|p| p.cast().as_mut()) }
+    pub unsafe fn saver<S>(&self) -> Option<&mut OsShmSender<S>> {
+        unsafe { self.state_sender_ptr.map(|p| p.cast().as_mut()) }
     }
 
     #[cfg(unix)]
-    pub(crate) fn set_saver_ptr<S>(
-        &mut self,
-        saver: &mut crate::runtimes::utils::unix::OsSaver<S>,
-    ) {
-        self.saver_ptr = Some(NonNull::from(saver).cast());
+    pub(crate) fn set_saver_ptr<S>(&mut self, shm_sender: &mut OsShmSender<S>) {
+        self.state_sender_ptr = Some(NonNull::from(shm_sender).cast());
     }
 
     pub fn set_input<I>(&mut self, input: &I) {

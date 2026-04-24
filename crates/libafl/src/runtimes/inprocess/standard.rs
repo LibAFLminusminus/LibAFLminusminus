@@ -81,7 +81,7 @@ fn std_inprocess_crash<S: Serialize>(
         && let Some(saver) = unsafe { data.saver::<S>() }
     {
         unsafe {
-            saver.save(data.state());
+            saver.send(data.state());
         }
     }
 
@@ -96,7 +96,7 @@ fn std_inprocess_timeout<S: Serialize>(
         && let Some(saver) = unsafe { data.saver::<S>() }
     {
         unsafe {
-            saver.save(data.state());
+            saver.send(data.state());
         }
     }
 

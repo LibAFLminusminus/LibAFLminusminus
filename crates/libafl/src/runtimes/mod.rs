@@ -1,15 +1,13 @@
 use core::{ffi::c_void, ptr::NonNull, time::Duration};
 use std::process::exit;
 
-use libafl_bolts::Error;
+use libafl_bolts::{Error, shm::OsShmSender};
 
 use crate::{
     DependencyResolver,
     runtimes::{
         restarting::LIBAFL_EXIT_END,
-        utils::{
-            IntoTerminationHandlerData, OsTerminationParams, TerminationHandlerData, unix::OsSaver,
-        },
+        utils::{IntoTerminationHandlerData, OsTerminationParams, TerminationHandlerData},
     },
 };
 
@@ -92,7 +90,7 @@ pub struct RuntimeHandle<S, W> {
     runtime: NonNull<dyn Runtime<S, W>>,
     worker: W,
     termination_data_ptr: Option<NonNull<TerminationHandlerData>>,
-    saver: Option<OsSaver<S>>,
+    state_shm_sender: Option<OsShmSender<S>>,
 }
 
 impl<S, W> RuntimeHandle<S, W> {
@@ -101,7 +99,7 @@ impl<S, W> RuntimeHandle<S, W> {
             runtime: NonNull::new(runtime).expect("runtime ptr must be non-null"),
             worker,
             termination_data_ptr: None,
-            saver: None,
+            state_shm_sender: None,
         }
     }
 
@@ -137,18 +135,20 @@ impl<S, W> RuntimeHandle<S, W> {
         termination_data: &mut THD,
     ) {
         if self.termination_data_ptr.is_some() {
-            panic!("Termination data pointer has already been set. This is a Fuzzer bug.");
+            panic!("Termination data pointer has already been set. This is a fuzzer bug.");
         }
 
         self.termination_data_ptr = termination_data.as_termination_handler_data();
     }
 
-    pub fn set_saver(&mut self, saver: OsSaver<S>) {
-        if self.saver.is_some() {
-            panic!("A saver is already set in the runtime handle. This is a Fuzzer bug.");
+    pub fn set_saver(&mut self, state_shm_sender: OsShmSender<S>) {
+        if self.state_shm_sender.is_some() {
+            panic!(
+                "A state shm sender is already set in the runtime handle. This is a fuzzer bug."
+            );
         }
 
-        self.saver = Some(saver);
+        self.state_shm_sender = Some(state_shm_sender);
     }
 
     pub fn init_termination_handlers<O, Z>(
@@ -165,7 +165,7 @@ impl<S, W> RuntimeHandle<S, W> {
                     .as_mut()
                     .init(state, fuzzer, observers, on_crash, on_timeout);
 
-                if let Some(ref mut saver) = self.saver {
+                if let Some(ref mut saver) = self.state_shm_sender {
                     termination_data.as_mut().set_saver_ptr(saver);
                 }
             }

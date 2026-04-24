@@ -54,6 +54,9 @@ extern crate std;
 #[doc(hidden)]
 pub extern crate alloc;
 
+pub mod shm;
+pub use shm::{OsSharedMemory, OsShmBuilder, OsShmReceiver, OsShmSender};
+
 #[cfg(feature = "std")]
 pub use build_id2 as build_id;
 #[cfg(feature = "alloc")]
