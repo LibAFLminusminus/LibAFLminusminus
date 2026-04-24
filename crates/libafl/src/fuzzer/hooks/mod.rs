@@ -8,7 +8,7 @@ use crate::{Fuzzer, corpus::TestcaseId, runtimes::RuntimeHandle};
 
 pub trait FuzzerHook: Named {
     /// Run before one fuzzing loop starts
-    fn pre_step_start<CT, E, S>(
+    fn pre_step<CT, E, S>(
         &self,
         executor: &mut E,
         state: &mut S,
@@ -33,7 +33,7 @@ pub trait FuzzerHook: Named {
     ) {
     }
     /// Run before one fuzzing loop ends
-    fn pre_step_end<CT, E, S>(
+    fn post_step<CT, E, S>(
         &self,
         executor: &mut E,
         state: &mut S,
@@ -43,7 +43,7 @@ pub trait FuzzerHook: Named {
 }
 
 pub trait FuzzerHooksTuple: MatchName {
-    fn pre_step_start_all<CT, E, S>(
+    fn pre_step_all<CT, E, S>(
         &self,
         executor: &mut E,
         state: &mut S,
@@ -62,7 +62,7 @@ pub trait FuzzerHooksTuple: MatchName {
         rt_handle: &mut RuntimeHandle<CT, S>,
         testcase: TestcaseId,
     );
-    fn pre_step_end_all<CT, E, S>(
+    fn post_step_all<CT, E, S>(
         &self,
         executor: &mut E,
         state: &mut S,
@@ -71,7 +71,7 @@ pub trait FuzzerHooksTuple: MatchName {
 }
 
 impl FuzzerHooksTuple for () {
-    fn pre_step_start_all<CT, E, S>(
+    fn pre_step_all<CT, E, S>(
         &self,
         executor: &mut E,
         state: &mut S,
@@ -93,7 +93,7 @@ impl FuzzerHooksTuple for () {
         testcase: TestcaseId,
     ) {
     }
-    fn pre_step_end_all<CT, E, S>(
+    fn post_step_all<CT, E, S>(
         &self,
         executor: &mut E,
         state: &mut S,
@@ -107,14 +107,14 @@ where
     Head: FuzzerHook,
     Tail: FuzzerHooksTuple,
 {
-    fn pre_step_start_all<CT, E, S>(
+    fn pre_step_all<CT, E, S>(
         &self,
         executor: &mut E,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<CT, S>,
     ) {
-        self.0.pre_step_start(executor, state, rt_handle);
-        self.1.pre_step_start_all(executor, state, rt_handle);
+        self.0.pre_step(executor, state, rt_handle);
+        self.1.pre_step_all(executor, state, rt_handle);
     }
 
     fn pre_schedule_all<CT, E, S>(
@@ -136,13 +136,13 @@ where
         self.0.pre_perform(executor, state, rt_handle, testcase);
         self.1.pre_perform_all(executor, state, rt_handle, testcase);
     }
-    fn pre_step_end_all<CT, E, S>(
+    fn post_step_all<CT, E, S>(
         &self,
         executor: &mut E,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<CT, S>,
     ) {
-        self.0.pre_step_end(executor, state, rt_handle);
-        self.1.pre_step_end_all(executor, state, rt_handle);
+        self.0.post_step(executor, state, rt_handle);
+        self.1.post_step_all(executor, state, rt_handle);
     }
 }

@@ -45,8 +45,8 @@ pub struct Instance<CT, RT, S> {
     state: Option<S>,
     controller: Option<CT>,
     core: CoreId,
-    stdout_file: Option<PathBuf>,
-    stderr_file: Option<PathBuf>,
+    stdout_file: Option<File>,
+    stderr_file: Option<File>,
 }
 
 pub struct InstanceRepr<D> {
@@ -74,8 +74,8 @@ impl<CT, RT, S> Instance<CT, RT, S> {
         state: S,
         controller: CT,
         core: CoreId,
-        stdout_file: Option<PathBuf>,
-        stderr_file: Option<PathBuf>,
+        stdout_file: Option<File>,
+        stderr_file: Option<File>,
     ) -> Self {
         Self {
             runtime,
@@ -366,6 +366,22 @@ where
 
         let mut instances: Instances<GCT::Controller, GCT::Descriptor, RT, S> = Instances::new();
 
+        let stdout_file: Option<File> = self.stdout_file
+            .as_ref()
+            .map(|p| {
+                File::create(p)
+                    .map_err(|e| Error::runtime(format!("Failed to open stdout_file: {e}")))
+            })
+            .transpose()?;
+
+        let stderr_file: Option<File> = self.stderr_file
+            .as_ref()
+            .map(|p| {
+                File::create(p)
+                    .map_err(|e| Error::runtime(format!("Failed to open stderr_file: {e}")))
+            })
+            .transpose()?;
+
         // create an instance per core, ready to run.
         for core in self.cores {
             // spawn a controller for the instance
@@ -380,8 +396,14 @@ where
                 state,
                 controller,
                 core,
-                self.stdout_file.clone(),
-                self.stderr_file.clone(),
+                match stdout_file.as_ref() {
+                    Some(f) => Some(f.try_clone().map_err(|e| Error::runtime(format!("Failed to clone stdout_file: {e}")))?),
+                    None => None,
+                },
+                match stderr_file.as_ref() {
+                    Some(f) => Some(f.try_clone().map_err(|e| Error::runtime(format!("Failed to clone stderr_file: {e}")))?),
+                    None => None,
+                },
             ));
         }
 
@@ -427,15 +449,11 @@ where
             }
             ForkResult::Child => {
                 self.core.set_affinity()?;
-                if let Some(ref p) = self.stdout_file {
-                    let f = File::create(p)
-                        .map_err(|e| Error::runtime(format!("Failed to open stdout_file: {e}")))?;
-                    dup2_stdout(&f)?;
+                if let Some(ref f) = self.stdout_file {
+                    dup2_stdout(f)?;
                 }
-                if let Some(ref p) = self.stderr_file {
-                    let f = File::create(p)
-                        .map_err(|e| Error::runtime(format!("Failed to open stderr_file: {e}")))?;
-                    dup2_stderr(&f)?;
+                if let Some(ref f) = self.stderr_file {
+                    dup2_stderr(f)?;
                 }
 
                 println!("LOL");
