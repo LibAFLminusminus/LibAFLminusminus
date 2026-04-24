@@ -34,16 +34,16 @@ pub mod command;
 #[cfg(feature = "std")]
 pub use command::CommandExecutor;
 
-#[cfg(all(feature = "std", unix))]
-pub mod forkserver;
-#[cfg(all(feature = "std", unix))]
-pub use forkserver::{Forkserver, ForkserverExecutor};
-
 pub mod nop;
 pub use nop::NopExecutor;
 
 pub mod shadow;
 pub use shadow::ShadowExecutor;
+
+#[cfg(all(feature = "std", unix))]
+pub mod forkserver;
+#[cfg(all(feature = "std", unix))]
+pub use forkserver::*;
 
 mod std;
 pub use std::StdExecutor;
