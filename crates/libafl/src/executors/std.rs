@@ -5,7 +5,7 @@ use tuple_list::tuple_list;
 use tuple_list_ex::RefIndexable;
 
 use crate::{
-    CompatibilityChecker, Worker, DependencyResolver, Registrator,
+    CompatibilityChecker, DependencyResolver, Registrator, Worker,
     executors::{Executor, ExitKind, hooks::ExecutorHooksTuple},
     observers::ObserversTuple,
     runtimes::RuntimeHandle,
@@ -62,10 +62,10 @@ where
 {
     type Observers = O;
 
-    fn init<CT: Worker>(
+    fn init<W: Worker>(
         &mut self,
         state: &mut S,
-        rt_handle: &mut RuntimeHandle<CT, S>,
+        rt_handle: &mut RuntimeHandle<S, W>,
     ) -> Result<(), Error> {
         if !self.initialized {
             if let Some(tmout) = &self.timeout {

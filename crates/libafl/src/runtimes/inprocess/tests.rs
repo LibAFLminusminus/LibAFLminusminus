@@ -18,9 +18,9 @@ rusty_fork_test! {
     #[test]
     fn test_runtime_create() {
         let mut state = NopState::<NopInput>::new();
-        let mut controller = NopWorker;
+        let worker = NopWorker;
 
-        let task = |_rt_handle: &mut RuntimeHandle<NopWorker, NopState<NopInput>>, _state: &mut NopState<NopInput>| {
+        let task = |_rt_handle: &mut RuntimeHandle<NopState<NopInput>, NopWorker>, _state: &mut NopState<NopInput>| {
             Err(Error::shutting_down())
         };
 
@@ -30,7 +30,7 @@ rusty_fork_test! {
 
         let mut runtime = InProcessRuntime::new(task, crash_handler, TerminationHandlerData::new(), timeout_handler);
 
-        match runtime.run(state, controller).err() {
+        match runtime.run(state, worker).err() {
             Some(Error::ShuttingDown) => {}
             _ => {
                 panic!("Task did not run successfully");
@@ -45,7 +45,7 @@ rusty_fork_test! {
 fn run_runtime<CH, T, TH>(task: T, crash_handler: CH, timeout_handler: TH, set_input: bool)
 where
     T: FnMut(
-            &mut RuntimeHandle<NopWorker, NopState<NopInput>>,
+            &mut RuntimeHandle<NopState<NopInput>, NopWorker>,
             &mut NopState<NopInput>,
         ) -> Result<(), Error>
         + 'static,
@@ -61,7 +61,7 @@ where
         + 'static,
 {
     let state = NopState::<NopInput>::new();
-    let mut controller = NopWorker;
+    let mut worker = NopWorker;
 
     let mut runtime = InProcessRuntime::new(
         task,
@@ -78,7 +78,7 @@ where
             .set_input(&NopInput);
     }
 
-    runtime.run(state, controller).unwrap();
+    runtime.run(state, worker).unwrap();
 }
 
 #[test]
@@ -91,7 +91,7 @@ fn test_runtime_timeout() {
         |_| (),
         |child, _| child.wait().unwrap(),
         || {
-            let task = |rt_handle: &mut RuntimeHandle<NopWorker, NopState<NopInput>>,
+            let task = |rt_handle: &mut RuntimeHandle<NopState<NopInput>, NopWorker>,
                         _state: &mut NopState<NopInput>| {
                 rt_handle.set_timeout(Duration::from_millis(10));
 
@@ -131,7 +131,7 @@ fn test_runtime_crash() {
         |_| (),
         |child, _| child.wait().unwrap(),
         || {
-            let task = |_rt_handle: &mut RuntimeHandle<NopWorker, NopState<NopInput>>,
+            let task = |_rt_handle: &mut RuntimeHandle<NopState<NopInput>, NopWorker>,
                         _state: &mut NopState<NopInput>| {
                 unsafe {
                     libc::raise(libc::SIGSEGV);
@@ -172,7 +172,7 @@ fn test_runtime_timeout_handler() {
         |_| (),
         |child, _| child.wait().unwrap(),
         || {
-            let task = |rt_handle: &mut RuntimeHandle<NopWorker, NopState<NopInput>>,
+            let task = |rt_handle: &mut RuntimeHandle<NopState<NopInput>, NopWorker>,
                         _state: &mut NopState<NopInput>| {
                 rt_handle.set_timeout(Duration::from_millis(10));
 
@@ -215,7 +215,7 @@ fn test_runtime_crash_handler() {
         |_| (),
         |child, _| child.wait().unwrap(),
         || {
-            let task = |_rt_handle: &mut RuntimeHandle<NopWorker, NopState<NopInput>>,
+            let task = |_rt_handle: &mut RuntimeHandle<NopState<NopInput>, NopWorker>,
                         _state: &mut NopState<NopInput>| {
                 unsafe {
                     libc::raise(libc::SIGSEGV);

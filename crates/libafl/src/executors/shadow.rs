@@ -9,7 +9,7 @@ use core::{
 use libafl_bolts::tuples::RefIndexable;
 
 use crate::{
-    DependencyResolver, Error,
+    DependencyResolver, Error, Worker,
     executors::{Executor, ExitKind},
     observers::ObserversTuple,
 };
@@ -84,10 +84,10 @@ where
 {
     type Observers = E::Observers;
 
-    fn init<CT: crate::Worker>(
+    fn init<W: Worker>(
         &mut self,
         state: &mut S,
-        rt_handle: &mut crate::runtimes::RuntimeHandle<CT, S>,
+        rt_handle: &mut crate::runtimes::RuntimeHandle<S, W>,
     ) -> Result<(), Error> {
         self.executor.init(state, rt_handle)
     }

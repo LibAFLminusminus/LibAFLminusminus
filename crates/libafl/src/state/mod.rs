@@ -1133,19 +1133,19 @@ where
 
 impl<C, I, OC, SC> StdState<C, I, OC, SC> {
     /// Generate `num` initial inputs, using the passed-in generator.
-    pub fn generate_initial_inputs<CT, G, E, R, Z>(
+    pub fn generate_initial_inputs<G, E, R, W, Z>(
         &mut self,
         fuzzer: &mut Z,
         executor: &mut E,
         generator: &mut G,
         rand: &mut R,
-        rt_handle: &mut RuntimeHandle<CT, Self>,
+        rt_handle: &mut RuntimeHandle<Self, W>,
         num: usize,
     ) -> Result<usize>
     where
         R: Rand,
         G: Generator<I, R, Self>,
-        Z: Evaluator<CT, E, I, Self>,
+        Z: Evaluator<E, I, Self, W>,
     {
         let mut added = 0;
 

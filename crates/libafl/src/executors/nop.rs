@@ -1,7 +1,7 @@
 //! Trivial Constant Executor
 
 use super::{Executor, ExitKind};
-use crate::{DependencyResolver, Result, observers::ObserversTuple};
+use crate::{DependencyResolver, Result, Worker, observers::ObserversTuple};
 use core::time::Duration;
 use libafl_bolts::tuples::RefIndexable;
 
@@ -55,10 +55,10 @@ where
 {
     type Observers = OT;
 
-    fn init<CT: crate::Worker>(
+    fn init<W: Worker>(
         &mut self,
         _state: &mut S,
-        _rt_handle: &mut crate::runtimes::RuntimeHandle<CT, S>,
+        _rt_handle: &mut crate::runtimes::RuntimeHandle<S, W>,
     ) -> Result<()> {
         Ok(())
     }
