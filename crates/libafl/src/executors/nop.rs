@@ -55,7 +55,7 @@ where
 {
     type Observers = OT;
 
-    fn init<CT: crate::Controller>(
+    fn init<CT: crate::Worker>(
         &mut self,
         _state: &mut S,
         _rt_handle: &mut crate::runtimes::RuntimeHandle<CT, S>,

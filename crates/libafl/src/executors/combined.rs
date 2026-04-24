@@ -41,7 +41,7 @@ where
 {
     type Observers = A::Observers;
 
-    fn init<CT: crate::Controller>(
+    fn init<CT: crate::Worker>(
         &mut self,
         state: &mut S,
         rt_handle: &mut crate::runtimes::RuntimeHandle<CT, S>,

@@ -88,7 +88,7 @@ pub use argparse::*;
 pub mod target_args;
 pub use fast_rands as rands;
 pub use libafl_core::{
-    AsIter, AsIterMut, AsSlice, AsSliceMut, ClientId, Error, HasLen, HasRefCnt, Named, Result,
+    AsIter, AsIterMut, AsSlice, AsSliceMut, WorkerId, Error, HasLen, HasRefCnt, Named, Result,
     Truncate,
 };
 pub use ownedref::{self, subrange};

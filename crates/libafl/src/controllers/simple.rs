@@ -1,23 +1,23 @@
-use crate::{Controller, GlobalController, Result, StdDescriptor};
-use libafl_core::{ClientId, Error, illegal_argument, internal_bug};
+use crate::{Controller, Result, StdDescriptor, Worker};
+use libafl_core::{Error, WorkerId, illegal_argument, internal_bug};
 use serde::{Deserialize, Serialize};
 use std::{fs, path::PathBuf, vec::Vec};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SimpleGlobalController {
+pub struct SimpleController {
     root_dir: PathBuf,
-    client_ctr: u32,
-    clients: Vec<SimpleController>,
+    id_ctr: u32,
+    workers: Vec<SimpleWorker>,
 }
 
 /// this is just a wrapper around StdDescriptor
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SimpleController {
+pub struct SimpleWorker {
     /// the descriptor describing this client
     descriptor: StdDescriptor,
 }
 
-impl SimpleGlobalController {
+impl SimpleController {
     /// Create a new [`SimpleGlobalController`] and will use `root_dir` as the root directory.
     ///
     /// The directory must not exist before calling this function.
@@ -33,8 +33,8 @@ impl SimpleGlobalController {
 
         Ok(Self {
             root_dir,
-            clients: Vec::new(),
-            client_ctr: 0,
+            workers: Vec::new(),
+            id_ctr: 0,
         })
     }
 
@@ -46,13 +46,13 @@ impl SimpleGlobalController {
     }
 }
 
-impl GlobalController for SimpleGlobalController {
-    type Controller = SimpleController;
+impl Controller for SimpleController {
+    type Worker = SimpleWorker;
     type Descriptor = StdDescriptor;
 
-    fn create_controller(&mut self) -> Result<SimpleController> {
-        let client_id = ClientId(self.client_ctr);
-        self.client_ctr += 1;
+    fn create_controller(&mut self) -> Result<SimpleWorker> {
+        let client_id = WorkerId(self.id_ctr);
+        self.id_ctr += 1;
 
         let client_dir = self.root_dir.join(format!("client_{}", client_id.0));
 
@@ -67,21 +67,21 @@ impl GlobalController for SimpleGlobalController {
 
         let descriptor = StdDescriptor::new(client_dir, client_id)?;
 
-        let cl = SimpleController::new(descriptor);
-        self.clients.push(cl.clone());
+        let cl = SimpleWorker::new(descriptor);
+        self.workers.push(cl.clone());
         Ok(cl)
     }
 
-    fn controllers(&self) -> &[Self::Controller] {
-        &self.clients
+    fn controllers(&self) -> &[Self::Worker] {
+        &self.workers
     }
 }
 
-impl Controller for SimpleController {
-    type GlobalController = SimpleGlobalController;
+impl Worker for SimpleWorker {
+    type Controller = SimpleController;
 
-    fn id(&self) -> ClientId {
-        self.descriptor.client_id
+    fn id(&self) -> WorkerId {
+        self.descriptor.id
     }
 
     fn descriptor(&self) -> &StdDescriptor {
@@ -98,7 +98,7 @@ impl Controller for SimpleController {
     }
 }
 
-impl SimpleController {
+impl SimpleWorker {
     pub fn new(descriptor: StdDescriptor) -> Self {
         Self { descriptor }
     }

@@ -15,7 +15,7 @@ use tuple_list_ex::RefIndexable;
 #[cfg(feature = "std")]
 use crate::observers::{StdErrObserver, StdOutObserver};
 use crate::{
-    Controller, DependencyResolver, Error,
+    DependencyResolver, Error, Worker,
     observers::{Observer, ObserversTuple},
     runtimes::{RuntimeHandle, utils::unix::signal::OsTerminationParams},
     state::FlatState,
@@ -121,7 +121,7 @@ pub trait Executor<I, S>: DependencyResolver {
 
     /// The init function of the executor.
     /// It must be run once before the first execution of the executor.
-    fn init<CT: Controller>(
+    fn init<CT: Worker>(
         &mut self,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<CT, S>,
@@ -148,7 +148,7 @@ pub trait Executor<I, S>: DependencyResolver {
     /// State and observers are updated accordingly.
     ///
     /// This is the main function to run an input.
-    fn execute<CT: Controller>(
+    fn execute<CT: Worker>(
         &mut self,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<CT, S>,

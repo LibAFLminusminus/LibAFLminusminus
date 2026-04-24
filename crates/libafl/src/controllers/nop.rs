@@ -1,28 +1,28 @@
-use crate::{Controller, GlobalController};
+use crate::{Controller, Worker};
 
-pub struct NopGlobalController;
 pub struct NopController;
+pub struct NopWorker;
 
 #[derive(Clone)]
 pub struct NopDescriptor;
 
-impl GlobalController for NopGlobalController {
-    type Controller = NopController;
+impl Controller for NopController {
+    type Worker = NopWorker;
     type Descriptor = NopDescriptor;
 
-    fn create_controller(&mut self) -> Result<Self::Controller, libafl_core::Error> {
-        Ok(NopController)
+    fn create_controller(&mut self) -> Result<Self::Worker, libafl_core::Error> {
+        Ok(NopWorker)
     }
 
-    fn controllers(&self) -> &[Self::Controller] {
+    fn controllers(&self) -> &[Self::Worker] {
         unimplemented!("nop controller has no clients");
     }
 }
 
-impl Controller for NopController {
-    type GlobalController = NopGlobalController;
+impl Worker for NopWorker {
+    type Controller = NopController;
 
-    fn id(&self) -> libafl_core::ClientId {
+    fn id(&self) -> libafl_core::WorkerId {
         unimplemented!("nop controller has no id");
     }
 
