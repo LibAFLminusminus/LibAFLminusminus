@@ -18,10 +18,7 @@ pub struct WhileStage<CB, ST> {
 impl<CB, ST> WhileStage<CB, ST> {
     /// Constructor
     pub fn new(closure: CB, stages: ST) -> Self {
-        Self {
-            closure,
-            stages,
-        }
+        Self { closure, stages }
     }
 }
 
@@ -34,10 +31,10 @@ where
     }
 }
 
-impl<CB, CT, E, R, ST, S, Z> Stage<CT, E, R, S, Z> for WhileStage<CB, ST>
+impl<CB, E, R, ST, S, W, Z> Stage<E, R, S, W, Z> for WhileStage<CB, ST>
 where
-    CB: FnMut(&mut RuntimeHandle<CT, S>, &mut E, &mut R, &mut S, &mut Z) -> Result<bool, Error>,
-    ST: StagesTuple<CT, E, R, S, Z>,
+    CB: FnMut(&mut RuntimeHandle<S, W>, &mut E, &mut R, &mut S, &mut Z) -> Result<bool, Error>,
+    ST: StagesTuple<E, R, S, W, Z>,
 {
     fn perform(
         &mut self,
@@ -45,7 +42,7 @@ where
         executor: &mut E,
         rand: &mut R,
         state: &mut S,
-        rt_handle: &mut RuntimeHandle<CT, S>,
+        rt_handle: &mut RuntimeHandle<S, W>,
         testcase_id: &TestcaseId,
     ) -> Result<(), Error> {
         while (self.closure)(rt_handle, executor, rand, state, fuzzer)? {
@@ -77,17 +74,14 @@ where
 impl<CB, ST> IfStage<CB, ST> {
     /// Constructor
     pub fn new(closure: CB, if_stages: ST) -> Self {
-        Self {
-            closure,
-            if_stages,
-        }
+        Self { closure, if_stages }
     }
 }
 
-impl<CB, CT, E, R, ST, S, Z> Stage<CT, E, R, S, Z> for IfStage<CB, ST>
+impl<CB, E, R, ST, S, W, Z> Stage<E, R, S, W, Z> for IfStage<CB, ST>
 where
-    CB: FnMut(&mut RuntimeHandle<CT, S>, &mut E, &mut R, &mut S, &mut Z) -> Result<bool, Error>,
-    ST: StagesTuple<CT, E, R, S, Z>,
+    CB: FnMut(&mut RuntimeHandle<S, W>, &mut E, &mut R, &mut S, &mut Z) -> Result<bool, Error>,
+    ST: StagesTuple<E, R, S, W, Z>,
 {
     fn perform(
         &mut self,
@@ -95,7 +89,7 @@ where
         executor: &mut E,
         rand: &mut R,
         state: &mut S,
-        rt_handle: &mut RuntimeHandle<CT, S>,
+        rt_handle: &mut RuntimeHandle<S, W>,
         testcase_id: &TestcaseId,
     ) -> Result<(), Error> {
         if (self.closure)(rt_handle, executor, rand, state, fuzzer)? {
@@ -135,12 +129,11 @@ impl<CB, ST1, ST2> IfElseStage<CB, ST1, ST2> {
     }
 }
 
-impl<CB, CT, E, R, ST1, ST2, S, Z> Stage<CT, E, R, S, Z>
-    for IfElseStage<CB, ST1, ST2>
+impl<CB, E, R, ST1, ST2, S, W, Z> Stage<E, R, S, W, Z> for IfElseStage<CB, ST1, ST2>
 where
-    CB: FnMut(&mut RuntimeHandle<CT, S>, &mut E, &mut R, &mut S, &mut Z) -> Result<bool, Error>,
-    ST1: StagesTuple<CT, E, R, S, Z>,
-    ST2: StagesTuple<CT, E, R, S, Z>,
+    CB: FnMut(&mut RuntimeHandle<S, W>, &mut E, &mut R, &mut S, &mut Z) -> Result<bool, Error>,
+    ST1: StagesTuple<E, R, S, W, Z>,
+    ST2: StagesTuple<E, R, S, W, Z>,
 {
     fn perform(
         &mut self,
@@ -148,7 +141,7 @@ where
         executor: &mut E,
         rand: &mut R,
         state: &mut S,
-        rt_handle: &mut RuntimeHandle<CT, S>,
+        rt_handle: &mut RuntimeHandle<S, W>,
         testcase_id: &TestcaseId,
     ) -> Result<(), Error> {
         if (self.closure)(rt_handle, executor, rand, state, fuzzer)? {

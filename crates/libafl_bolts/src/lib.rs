@@ -88,8 +88,8 @@ pub use argparse::*;
 pub mod target_args;
 pub use fast_rands as rands;
 pub use libafl_core::{
-    AsIter, AsIterMut, AsSlice, AsSliceMut, WorkerId, Error, HasLen, HasRefCnt, Named, Result,
-    Truncate,
+    AsIter, AsIterMut, AsSlice, AsSliceMut, Error, HasLen, HasRefCnt, Named, Result, Truncate,
+    WorkerId,
 };
 pub use ownedref::{self, subrange};
 #[cfg(feature = "alloc")]

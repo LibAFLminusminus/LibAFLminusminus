@@ -10,11 +10,11 @@ pub struct NopRuntime;
 
 impl DependencyResolver for NopRuntime {}
 
-impl<CT, S> Runtime<CT, S> for NopRuntime {
+impl<S, W> Runtime<S, W> for NopRuntime {
     unsafe fn run_impl(
         &mut self,
         mut state: S,
-        rt_handle: &mut RuntimeHandle<CT, S>,
+        rt_handle: &mut RuntimeHandle<S, W>,
     ) -> Result<(), Error> {
         panic!("NopRuntime does not run")
     }

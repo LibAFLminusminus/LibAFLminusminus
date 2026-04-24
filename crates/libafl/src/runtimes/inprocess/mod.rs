@@ -85,17 +85,17 @@ where
     }
 }
 
-impl<CT, CH, D, S, T, TH> Runtime<CT, S> for InProcessRuntime<CH, D, S, T, TH>
+impl<CH, D, S, T, TH, W> Runtime<S, W> for InProcessRuntime<CH, D, S, T, TH>
 where
     CH: FnMut(&mut D, &OsTerminationParams) -> Result<(), Error> + Send + Sync + Unpin + 'static,
     D: IntoTerminationHandlerData + Send + Sync + Unpin + 'static,
-    T: FnMut(&mut RuntimeHandle<CT, S>, &mut S) -> Result<(), Error>,
+    T: FnMut(&mut RuntimeHandle<S, W>, &mut S) -> Result<(), Error>,
     TH: FnMut(&mut D, &OsTerminationParams) -> Result<(), Error> + Send + Sync + Unpin + 'static,
 {
     unsafe fn run_impl(
         &mut self,
         mut state: S,
-        rt_handle: &mut RuntimeHandle<CT, S>,
+        rt_handle: &mut RuntimeHandle<S, W>,
     ) -> Result<(), Error> {
         // os-specific termination handler init
         self.termination_handler.init()?;

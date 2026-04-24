@@ -1,23 +1,23 @@
 use libafl::{
+    Result, Worker,
     corpus::{
-        schedulers::{NopScheduler, QueueScheduler},
         Corpus, InMemoryCorpus, OnDiskCorpus, Scheduler,
+        schedulers::{NopScheduler, QueueScheduler},
     },
     executors::StdExecutor,
     feedbacks::{CrashFeedback, MaxMapFeedback},
     fuzzer::{Fuzzer, StdFuzzer},
     generators::RandPrintablesGenerator,
-    inputs::{bytes::BytesContext, BytesInput},
+    inputs::{BytesInput, bytes::BytesContext},
     launchers::StdLauncher,
     monitors::SimpleMonitor,
-    mutators::{havoc_mutations, HavocScheduledMutator},
+    mutators::{HavocScheduledMutator, havoc_mutations},
     non_zero,
     observers::ConstMapObserver,
     runtimes::RuntimeHandle,
-    simple::{SimpleController, SimpleGlobalController},
+    simple::{SimpleController, SimpleWorker},
     stages::StdMutationalStage,
     state::StdState,
-    Controller, Result,
 };
 use libafl_bolts::{current_nanos, nonnull_raw_mut, rands::StdRand, tuples::tuple_list};
 
@@ -26,7 +26,7 @@ use crate::target::SIGNALS;
 mod target;
 
 fn run_fuzzer<C, OC, SC>(
-    rt_handle: &mut RuntimeHandle<SimpleController, StdState<C, BytesInput, OC, SC>>,
+    rt_handle: &mut RuntimeHandle<StdState<C, BytesInput, OC, SC>, SimpleWorker>,
     state: &mut StdState<C, BytesInput, OC, SC>,
 ) -> Result<()>
 where
@@ -62,6 +62,7 @@ where
     let mut fuzzer = StdFuzzer::new(
         feedback,
         objective_feedback,
+        tuple_list!(),
         &mut stages,
         &mut executor,
         state,
@@ -82,10 +83,10 @@ where
 }
 
 pub fn main() -> Result<()> {
-    let state_builder = |controller: &SimpleController| {
+    let state_builder = |worker: &SimpleWorker| {
         // A queue policy to get testcasess from the corpus
         let scheduler = QueueScheduler::new();
-        let crash_dir = controller.descriptor().path().join("crashes");
+        let crash_dir = worker.descriptor().path().join("crashes");
 
         // create a State from scratch
         StdState::new(
@@ -97,8 +98,8 @@ pub fn main() -> Result<()> {
         )
     };
 
-    let controller = SimpleGlobalController::new()?;
-    let monitor = SimpleMonitor::new(&controller)?;
+    let controller = SimpleController::new()?;
+    let monitor = SimpleMonitor::new()?;
 
     StdLauncher::builder()?
         .controller(controller)

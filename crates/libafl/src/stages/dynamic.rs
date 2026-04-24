@@ -1,11 +1,7 @@
 //! A stage implementation that can have dynamic stage runtime
 
 use super::Stage;
-use crate::{
-    corpus::testcase::TestcaseId,
-    DependencyResolver,
-    stages::RuntimeHandle,
-};
+use crate::{DependencyResolver, corpus::testcase::TestcaseId, stages::RuntimeHandle};
 
 /// A dynamic stage implementation. This explicity uses enum so that rustc can better
 /// reason about the bounds.
@@ -30,10 +26,10 @@ where
     }
 }
 
-impl<CT, E, R, S, T1, T2, Z> Stage<CT, E, R, S, Z> for DynamicStage<T1, T2>
+impl<E, R, S, T1, T2, W, Z> Stage<E, R, S, W, Z> for DynamicStage<T1, T2>
 where
-    T1: Stage<CT, E, R, S, Z>,
-    T2: Stage<CT, E, R, S, Z>,
+    T1: Stage<E, R, S, W, Z>,
+    T2: Stage<E, R, S, W, Z>,
 {
     fn perform(
         &mut self,
@@ -41,7 +37,7 @@ where
         executor: &mut E,
         rand: &mut R,
         state: &mut S,
-        rt_handle: &mut RuntimeHandle<CT, S>,
+        rt_handle: &mut RuntimeHandle<S, W>,
         testcase_id: &TestcaseId,
     ) -> Result<(), libafl_bolts::Error> {
         match self {
