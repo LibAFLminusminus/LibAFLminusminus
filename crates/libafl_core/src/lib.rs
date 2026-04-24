@@ -123,7 +123,13 @@ impl ErrorBacktrace {
 
 #[cfg(feature = "errors_backtrace")]
 fn display_error_backtrace(f: &mut fmt::Formatter, err: &ErrorBacktrace) -> fmt::Result {
-    write!(f, "\nBacktrace: {err:#?}")
+    match err.status() {
+        std::backtrace::BacktraceStatus::Captured => write!(f, "\nBacktrace:\n{err}"),
+        std::backtrace::BacktraceStatus::Disabled => {
+            write!(f, "\nRun with `RUST_BACKTRACE=1` to see a backtrace.")
+        }
+        _ => Ok(()),
+    }
 }
 #[cfg(not(feature = "errors_backtrace"))]
 #[expect(clippy::unnecessary_wraps)]
@@ -135,7 +141,6 @@ fn display_error_backtrace(_f: &mut fmt::Formatter, _err: &ErrorBacktrace) -> fm
 pub type Result<T> = std::result::Result<T, Error>;
 
 /// Main error struct for `LibAFL`
-#[derive(Debug)]
 pub enum Error {
     /// Serialization error
     Serialize(String, ErrorBacktrace),
@@ -174,6 +179,9 @@ pub enum Error {
     Runtime(String, ErrorBacktrace),
     /// The `Input` was invalid.
     InvalidInput(String, ErrorBacktrace),
+    /// This is an error due to a LibAFLmm bug.
+    /// Please report it.
+    InternalBug(String, ErrorBacktrace),
 }
 
 impl Error {
@@ -339,11 +347,124 @@ impl Error {
         Error::Runtime(arg.into(), ErrorBacktrace::capture())
     }
 
+    /// General LibAFLmm bug
+    #[must_use]
+    pub fn internal_bug<S>(arg: S) -> Self
+    where
+        S: Into<String>,
+    {
+        Error::InternalBug(arg.into(), ErrorBacktrace::capture())
+    }
+
     /// Skip the remaining stages for this input
     #[must_use]
     pub fn skip_remaining_stages() -> Self {
         Error::SkipRemainingStages
     }
+}
+
+/// build an [`Error::Serialize`].
+#[macro_export]
+macro_rules! serialize {
+    ($($arg:tt)*) => { $crate::Error::serialize($crate::format!($($arg)*)) };
+}
+
+/// build an [`Error::EmptyOptional`].
+#[macro_export]
+macro_rules! empty_optional {
+    ($($arg:tt)*) => { $crate::Error::empty_optional($crate::format!($($arg)*)) };
+}
+
+/// build an [`Error::InvalidInput`].
+#[macro_export]
+macro_rules! invalid_input {
+    ($($arg:tt)*) => { $crate::Error::invalid_input($crate::format!($($arg)*)) };
+}
+
+/// build an [`Error::KeyNotFound`].
+#[macro_export]
+macro_rules! key_not_found {
+    ($($arg:tt)*) => { $crate::Error::key_not_found($crate::format!($($arg)*)) };
+}
+
+/// build an [`Error::KeyExists`].
+#[macro_export]
+macro_rules! key_exists {
+    ($($arg:tt)*) => { $crate::Error::key_exists($crate::format!($($arg)*)) };
+}
+
+/// build an [`Error::Empty`].
+#[macro_export]
+macro_rules! empty {
+    ($($arg:tt)*) => { $crate::Error::empty($crate::format!($($arg)*)) };
+}
+
+/// build an [`Error::IteratorEnd`].
+#[macro_export]
+macro_rules! iterator_end {
+    ($($arg:tt)*) => { $crate::Error::iterator_end($crate::format!($($arg)*)) };
+}
+
+/// build an [`Error::NotImplemented`].
+#[macro_export]
+macro_rules! not_implemented {
+    ($($arg:tt)*) => { $crate::Error::not_implemented($crate::format!($($arg)*)) };
+}
+
+/// build an [`Error::IllegalState`].
+#[macro_export]
+macro_rules! illegal_state {
+    ($($arg:tt)*) => { $crate::Error::illegal_state($crate::format!($($arg)*)) };
+}
+
+/// build an [`Error::IllegalArgument`].
+#[macro_export]
+macro_rules! illegal_argument {
+    ($($arg:tt)*) => { $crate::Error::illegal_argument($crate::format!($($arg)*)) };
+}
+
+/// build an [`Error::Unsupported`].
+#[macro_export]
+macro_rules! unsupported {
+    ($($arg:tt)*) => { $crate::Error::unsupported($crate::format!($($arg)*)) };
+}
+
+/// build an [`Error::Unknown`].
+#[macro_export]
+macro_rules! unknown {
+    ($($arg:tt)*) => { $crate::Error::unknown($crate::format!($($arg)*)) };
+}
+
+/// build an [`Error::InvalidCorpus`].
+#[macro_export]
+macro_rules! invalid_corpus {
+    ($($arg:tt)*) => { $crate::Error::invalid_corpus($crate::format!($($arg)*)) };
+}
+
+/// build an [`Error::Runtime`].
+#[macro_export]
+macro_rules! runtime {
+    ($($arg:tt)*) => { $crate::Error::runtime($crate::format!($($arg)*)) };
+}
+
+/// build an [`Error::InternalBug`].
+#[macro_export]
+macro_rules! internal_bug {
+    ($($arg:tt)*) => { $crate::Error::internal_bug($crate::format!($($arg)*)) };
+}
+
+/// build an [`Error::OsError`] from an [`io::Error`].
+#[cfg(feature = "std")]
+#[macro_export]
+macro_rules! os_error {
+    ($err:expr, $($arg:tt)*) => { $crate::Error::os_error($err, $crate::format!($($arg)*)) };
+}
+
+/// build an [`Error::OsError`] from [`io::Error::last_os_error`].
+#[cfg(feature = "std")]
+#[macro_export]
+macro_rules! last_os_error {
+    ($($arg:tt)*) => { $crate::Error::last_os_error($crate::format!($($arg)*)) };
 }
 
 impl core::error::Error for Error {
@@ -354,6 +475,12 @@ impl core::error::Error for Error {
         } else {
             None
         }
+    }
+}
+
+impl fmt::Debug for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        Display::fmt(self, f)
     }
 }
 
@@ -430,6 +557,14 @@ impl Display for Error {
                 write!(f, "Encountered an invalid input: {0}", &s)?;
                 display_error_backtrace(f, b)
             }
+            Self::InternalBug(s, b) => {
+                writeln!(f, "LibAFL internal bug: {0}", &s)?;
+                write!(
+                    f,
+                    "This is a LibAFLmm bug, please open an issue at https://github.com/rmalmain/LibAFLminusminus.",
+                )?;
+                display_error_backtrace(f, b)
+            }
             Self::SkipRemainingStages => write!(f, "Skip remaining stages"),
         }
     }
@@ -438,18 +573,14 @@ impl Display for Error {
 #[cfg(feature = "alloc")]
 impl From<BorrowError> for Error {
     fn from(err: BorrowError) -> Self {
-        Self::illegal_state(format!(
-            "Couldn't borrow from a RefCell as immutable: {err:?}"
-        ))
+        crate::illegal_state!("Couldn't borrow from a RefCell as immutable: {err:?}")
     }
 }
 
 #[cfg(feature = "alloc")]
 impl From<BorrowMutError> for Error {
     fn from(err: BorrowMutError) -> Self {
-        Self::illegal_state(format!(
-            "Couldn't borrow from a RefCell as mutable: {err:?}"
-        ))
+        crate::illegal_state!("Couldn't borrow from a RefCell as mutable: {err:?}")
     }
 }
 
@@ -457,14 +588,14 @@ impl From<BorrowMutError> for Error {
 #[cfg(all(feature = "alloc", feature = "postcard"))]
 impl From<postcard::Error> for Error {
     fn from(err: postcard::Error) -> Self {
-        Self::serialize(format!("{err:?}"))
+        crate::serialize!("{err:?}")
     }
 }
 
 #[cfg(all(unix, feature = "std", feature = "nix"))]
 impl From<nix::Error> for Error {
     fn from(err: nix::Error) -> Self {
-        Self::unknown(format!("Unix error: {err:?}"))
+        crate::unknown!("Unix error: {err:?}")
     }
 }
 
@@ -472,49 +603,49 @@ impl From<nix::Error> for Error {
 #[cfg(feature = "std")]
 impl From<io::Error> for Error {
     fn from(err: io::Error) -> Self {
-        Self::os_error(err, "io::Error ocurred")
+        crate::os_error!(err, "io::Error ocurred")
     }
 }
 
 #[cfg(feature = "alloc")]
 impl From<FromUtf8Error> for Error {
     fn from(err: FromUtf8Error) -> Self {
-        Self::unknown(format!("Could not convert byte / utf-8: {err:?}"))
+        crate::unknown!("Could not convert byte / utf-8: {err:?}")
     }
 }
 
 #[cfg(feature = "alloc")]
 impl From<Utf8Error> for Error {
     fn from(err: Utf8Error) -> Self {
-        Self::unknown(format!("Could not convert byte / utf-8: {err:?}"))
+        crate::unknown!("Could not convert byte / utf-8: {err:?}")
     }
 }
 
 #[cfg(feature = "std")]
 impl From<VarError> for Error {
     fn from(err: VarError) -> Self {
-        Self::empty(format!("Could not get env var: {err:?}"))
+        crate::empty!("Could not get env var: {err:?}")
     }
 }
 
 impl From<ParseIntError> for Error {
     #[allow(unused_variables)] // err is unused without std
     fn from(err: ParseIntError) -> Self {
-        Self::unknown(format!("Failed to parse Int: {err:?}"))
+        crate::unknown!("Failed to parse Int: {err:?}")
     }
 }
 
 impl From<TryFromIntError> for Error {
     #[allow(unused_variables)] // err is unused without std
     fn from(err: TryFromIntError) -> Self {
-        Self::illegal_state(format!("Expected conversion failed: {err:?}"))
+        crate::illegal_state!("Expected conversion failed: {err:?}")
     }
 }
 
 impl From<TryFromSliceError> for Error {
     #[allow(unused_variables)] // err is unused without std
     fn from(err: TryFromSliceError) -> Self {
-        Self::illegal_argument(format!("Could not convert slice: {err:?}"))
+        crate::illegal_argument!("Could not convert slice: {err:?}")
     }
 }
 
@@ -522,7 +653,7 @@ impl From<TryFromSliceError> for Error {
 impl From<windows_result::Error> for Error {
     #[allow(unused_variables)] // err is unused without std
     fn from(err: windows_result::Error) -> Self {
-        Self::unknown(format!("Windows API error: {err:?}"))
+        crate::unknown!("Windows API error: {err:?}")
     }
 }
 
