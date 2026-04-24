@@ -1,11 +1,11 @@
+use core::time::Duration;
 use std::{string::ToString, thread::current};
 
-use core::time::Duration;
 use libafl_bolts::current_time;
 use libafl_core::Error;
 
 use crate::{
-    Controller,
+    Controller, FuzzerHooksTuple,
     corpus::{Corpus, Scheduler, Testcase},
     dependency::Registrator,
     executors::{Executor, ExitKind},
@@ -22,11 +22,11 @@ use crate::{
 
 /// Note: this code should not allocate at all.
 /// Any allocation can result in unexpected locks because of concurrency bug with the standard library.
-fn handle_objective<O, F, I, OF, S>(
+fn handle_objective<O, F, H, I, OF, S>(
     observers: &mut O,
     state: &mut S,
     input: I,
-    fuzzer: &mut StdFuzzer<F, OF>,
+    fuzzer: &mut StdFuzzer<F, H, OF>,
     exit_kind: ExitKind,
 ) where
     F: Feedback<I, O, S>,
@@ -58,7 +58,7 @@ fn handle_objective<O, F, I, OF, S>(
 
 /// Crash signals will end up there, if it happens during a fuzzing run.
 /// Ending up here out of a fuzzing run is an error.
-unsafe fn std_on_crash<E, F, I, OF, S>(
+unsafe fn std_on_crash<E, F, H, I, OF, S>(
     data: &mut TerminationHandlerData,
     _signal_params: &OsTerminationParams,
 ) where
@@ -77,7 +77,7 @@ unsafe fn std_on_crash<E, F, I, OF, S>(
     // it is useful if subsequent code panicks / raises another signal.
     let input = unsafe { data.take_input::<I>() };
     let state = unsafe { data.state::<S>() };
-    let fuzzer = unsafe { data.fuzzer::<StdFuzzer<F, OF>>() };
+    let fuzzer = unsafe { data.fuzzer::<StdFuzzer<F, H, OF>>() };
     let observers = unsafe { data.observers::<E::Observers>() };
 
     handle_objective(observers, state, input.unwrap(), fuzzer, ExitKind::Crash);
@@ -85,7 +85,7 @@ unsafe fn std_on_crash<E, F, I, OF, S>(
 
 /// Timeout signals will end up there, if it happens during a fuzzing run.
 /// Ending up here out of a fuzzing run is an error.
-unsafe fn std_on_timeout<E, F, I, OF, S>(
+unsafe fn std_on_timeout<E, F, H, I, OF, S>(
     data: &mut TerminationHandlerData,
     _signal_params: &OsTerminationParams,
 ) where
@@ -104,7 +104,7 @@ unsafe fn std_on_timeout<E, F, I, OF, S>(
     // it is useful if subsequent code panicks / raises another signal.
     let input = unsafe { data.take_input::<I>() };
     let state = unsafe { data.state::<S>() };
-    let fuzzer = unsafe { data.fuzzer::<StdFuzzer<F, OF>>() };
+    let fuzzer = unsafe { data.fuzzer::<StdFuzzer<F, H, OF>>() };
     let observers = unsafe { data.observers::<E::Observers>() };
 
     handle_objective(observers, state, input.unwrap(), fuzzer, ExitKind::Timeout);
@@ -112,25 +112,28 @@ unsafe fn std_on_timeout<E, F, I, OF, S>(
 
 /// Your default fuzzer instance, for everyday use.
 #[derive(Debug)]
-pub struct StdFuzzer<F, OF> {
+pub struct StdFuzzer<F, H, OF> {
     /// The [`Feedback`] that will store new testcases on if a run returns `is_interesting`.
     feedback: F,
     /// The [`Feedback`] that will store new testcases as solution (for example, a crash) if a run returns `is_interesting`.
     objective: OF,
+    fuzzer_hooks: H,
     initialized: bool,
     last_synced: Duration,
 }
 
 /// The builder for std fuzzer
 #[derive(Debug)]
-pub struct StdFuzzerBuilder<F, OF> {
+pub struct StdFuzzerBuilder<F, H, OF> {
     /// The [`Feedback`] that will store new testcases on if a run returns `is_interesting`.
     feedback: F,
     /// The [`Feedback`] that will store new testcases as solution (for example, a crash) if a run returns `is_interesting`.
     objective_feedback: OF,
+    /// the hooks to the fuzzer,
+    hooks: H,
 }
 
-impl<F, OF> HasFeedback for StdFuzzer<F, OF> {
+impl<F, H, OF> HasFeedback for StdFuzzer<F, H, OF> {
     type Feedback = F;
 
     fn feedback(&self) -> &Self::Feedback {
@@ -142,7 +145,7 @@ impl<F, OF> HasFeedback for StdFuzzer<F, OF> {
     }
 }
 
-impl<F, OF> HasObjective for StdFuzzer<F, OF> {
+impl<F, H, OF> HasObjective for StdFuzzer<F, H, OF> {
     type Objective = OF;
 
     fn objective(&self) -> &OF {
@@ -154,7 +157,7 @@ impl<F, OF> HasObjective for StdFuzzer<F, OF> {
     }
 }
 
-impl<F, OF> StdFuzzer<F, OF> {
+impl<F, H, OF> StdFuzzer<F, H, OF> {
     fn evaluate_execution<I, OT, S, SC, Z>(
         &mut self,
         state: &mut S,
@@ -310,7 +313,7 @@ impl<F, OF> StdFuzzer<F, OF> {
 //     Ok(id)
 // }
 
-// impl<CS, F, I, IC, IF, OF, OT, S> ExecutionProcessor<I, OT, S> for StdFuzzer<F, OF> {
+// impl<CS, F, I, IC, IF, H, OF, OT, S> ExecutionProcessor<I, OT, S> for StdFuzzer<F, H, OF> {
 //     /// Post process a testcase depending the testcase execution results
 //     /// returns corpus id if it put something into corpus (not solution)
 //     /// This code will not be reached by inprocess executor if crash happened.
@@ -329,7 +332,7 @@ impl<F, OF> StdFuzzer<F, OF> {
 //     }
 // }
 
-impl<CT, E, F, I, OF, S> Evaluator<CT, E, I, S> for StdFuzzer<F, OF>
+impl<CT, E, F, H, I, OF, S> Evaluator<CT, E, I, S> for StdFuzzer<F, H, OF>
 where
     CT: Controller,
     E: Executor<I, S>,
@@ -359,11 +362,12 @@ where
     }
 }
 
-impl<CT, E, F, I, OF, R, S, ST> Fuzzer<CT, E, I, R, S, ST> for StdFuzzer<F, OF>
+impl<CT, E, F, H, I, OF, R, S, ST> Fuzzer<CT, E, I, R, S, ST> for StdFuzzer<F, H, OF>
 where
     CT: Controller,
     E: Executor<I, S>,
     F: Feedback<I, E::Observers, S>,
+    H: FuzzerHooksTuple,
     I: Clone,
     OF: Feedback<I, E::Observers, S>,
     S: State<I>,
@@ -407,8 +411,10 @@ where
             state,
             self,
             &mut *executor.observers_mut(),
-            |data, signal_params| unsafe { std_on_crash::<E, F, I, OF, S>(data, signal_params) },
-            |data, signal_params| unsafe { std_on_timeout::<E, F, I, OF, S>(data, signal_params) },
+            |data, signal_params| unsafe { std_on_crash::<E, F, H, I, OF, S>(data, signal_params) },
+            |data, signal_params| unsafe {
+                std_on_timeout::<E, F, H, I, OF, S>(data, signal_params)
+            },
         );
 
         // 5 - initialize executor
@@ -431,13 +437,19 @@ where
         state: &mut S,
         rt_handle: &mut RuntimeHandle<CT, S>,
     ) -> Result<(), Error> {
+        self.fuzzer_hooks.on_step_start_all(executor, state);
+
         if current_time() - self.last_synced > Duration::from_secs(1) {
             let workdir = rt_handle.controller().workdir();
             sync_stats(state.stats(), workdir);
         }
 
+        self.fuzzer_hooks.on_schedule_all(executor, state);
+
         // Get the next index from the scheduler
         let testcase_id = state.scheduler_mut().next()?;
+
+        self.fuzzer_hooks.on_perform_all(executor, state);
 
         // Execute all stages
         stages.perform_all(self, executor, rand, state, rt_handle, &testcase_id)?;
@@ -446,90 +458,95 @@ where
             .testcase_md_mut_from_id(&testcase_id)
             .increase_scheduled_count();
 
+        self.fuzzer_hooks.on_step_end_all(executor, state);
+
         Ok(())
     }
 }
 
-impl StdFuzzerBuilder<(), ()> {
+impl StdFuzzerBuilder<(), (), ()> {
     /// Creates a new [`StdFuzzerBuilder`] with default (nop) types.
     #[must_use]
     pub fn new() -> Self {
         Self {
             feedback: (),
             objective_feedback: (),
+            hooks: (),
         }
     }
 }
 
-impl Default for StdFuzzerBuilder<(), ()> {
+impl Default for StdFuzzerBuilder<(), (), ()> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<F, OF> StdFuzzerBuilder<F, OF> {
-    /// Sets the converter to target bytes.
-    /// The converter converts the input to bytes that can be sent to the target (for example, to a [`CommandExecutor`](crate::executors::CommandExecutor).
-    #[must_use]
-    pub fn target_bytes_converter<I, IC2>(
-        self,
-        target_bytes_converter: IC2,
-    ) -> StdFuzzerBuilder<F, OF> {
-        StdFuzzerBuilder {
-            feedback: self.feedback,
-            objective_feedback: self.objective_feedback,
-        }
-    }
-}
-
-impl<F, OF> StdFuzzerBuilder<F, OF> {
+impl<F, H, OF> StdFuzzerBuilder<F, H, OF> {
     /// Sets the feedback that will store new testcases on if a run returns `is_interesting`.
     #[must_use]
-    pub fn feedback<F2>(self, feedback: F2) -> StdFuzzerBuilder<F2, OF> {
+    pub fn feedback<F2>(self, feedback: F2) -> StdFuzzerBuilder<F2, H, OF> {
         StdFuzzerBuilder {
             feedback,
             objective_feedback: self.objective_feedback,
+            hooks: self.hooks,
         }
     }
 }
 
-impl<F, OF> StdFuzzerBuilder<F, OF> {
+impl<F, H, OF> StdFuzzerBuilder<F, H, OF> {
     /// Sets the feedback that will store new testcases as solution (for example, a crash) if a run returns `is_interesting`.
     #[must_use]
-    pub fn objective_feedback<OF2>(self, objective_feedback: OF2) -> StdFuzzerBuilder<F, OF2> {
+    pub fn objective_feedback<OF2>(self, objective_feedback: OF2) -> StdFuzzerBuilder<F, H, OF2> {
         StdFuzzerBuilder {
             feedback: self.feedback,
             objective_feedback,
+            hooks: self.hooks,
         }
     }
 }
 
-impl<F, OF> StdFuzzerBuilder<F, OF> {
+impl<F, H, OF> StdFuzzerBuilder<F, H, OF> {
+    /// Sets the feedback that will store new testcases as solution (for example, a crash) if a run returns `is_interesting`.
+    #[must_use]
+    pub fn fuzzer_hooks<H2>(self, fuzzer_hooks: H2) -> StdFuzzerBuilder<F, H2, OF> {
+        StdFuzzerBuilder {
+            feedback: self.feedback,
+            objective_feedback: self.objective_feedback,
+            hooks: fuzzer_hooks,
+        }
+    }
+}
+
+impl<F, H, OF> StdFuzzerBuilder<F, H, OF> {
     /// Build a [`StdFuzzer`] from this builder.
-    pub fn build(self) -> StdFuzzer<F, OF> {
+    pub fn build(self) -> StdFuzzer<F, H, OF> {
         StdFuzzer {
             feedback: self.feedback,
             objective: self.objective_feedback,
+            fuzzer_hooks: self.hooks,
             initialized: false,
             last_synced: current_time(),
         }
     }
 }
 
-impl<F, OF> StdFuzzer<F, OF> {
+impl<F, H, OF> StdFuzzer<F, H, OF> {
     /// Creates a new [`StdFuzzer`] with standard behavior.
     pub fn new<CT, E, I, R, S, ST>(
         feedback: F,
         objective_feedback: OF,
+        hooks: H,
         stages: &mut ST,
         executor: &mut E,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<CT, S>,
-    ) -> Result<StdFuzzer<F, OF>, Error>
+    ) -> Result<StdFuzzer<F, H, OF>, Error>
     where
         CT: Controller,
         E: Executor<I, S>,
         F: Feedback<I, E::Observers, S>,
+        H: FuzzerHooksTuple,
         I: Clone,
         OF: Feedback<I, E::Observers, S>,
         S: State<I>,
@@ -538,6 +555,7 @@ impl<F, OF> StdFuzzer<F, OF> {
         let mut fuzzer = StdFuzzerBuilder::new()
             .feedback(feedback)
             .objective_feedback(objective_feedback)
+            .fuzzer_hooks(hooks)
             .build();
 
         fuzzer.init(stages, executor, state, rt_handle)?;
@@ -546,10 +564,10 @@ impl<F, OF> StdFuzzer<F, OF> {
     }
 }
 
-impl StdFuzzer<(), ()> {
+impl StdFuzzer<(), (), ()> {
     /// Creates a new [`StdFuzzerBuilder`] with default types.
     #[must_use]
-    pub fn builder() -> StdFuzzerBuilder<(), ()> {
+    pub fn builder() -> StdFuzzerBuilder<(), (), ()> {
         StdFuzzerBuilder::new()
     }
 }
