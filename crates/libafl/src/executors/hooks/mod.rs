@@ -1,17 +1,6 @@
 //! Hooks for the executors.
 //! These will be executed right before and after the executor's harness run.
 
-/// windows crash/timeout handler and asan death callback
-#[cfg(all(windows, feature = "std"))]
-pub mod windows;
-
-/// *nix crash handler
-#[cfg(all(unix, feature = "std"))]
-pub mod unix;
-
-/// The hook for inprocess executor
-pub mod inprocess;
-
 /// Intel Processor Trace (PT)
 #[cfg(all(feature = "intel_pt", target_os = "linux"))]
 pub mod intel_pt;

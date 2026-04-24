@@ -1,25 +1,28 @@
 use core::{marker::PhantomData, time::Duration};
 
 use libafl_core::Error;
+use tuple_list::tuple_list;
 use tuple_list_ex::RefIndexable;
 
 use crate::{
     CompatibilityChecker, Controller, DependencyResolver, Registrator,
-    executors::{Executor, ExitKind},
+    executors::{Executor, ExitKind, hooks::ExecutorHooksTuple},
     observers::ObserversTuple,
     runtimes::RuntimeHandle,
 };
 
-pub struct StdExecutor<H, I, O, S> {
+pub struct StdExecutor<EH, H, I, O, S> {
+    hooks: EH,
     harness: H,
     observers: O,
     timeout: Option<Duration>,
     initialized: bool,
     phantom: PhantomData<(I, S)>,
 }
-impl<H, I, O, S> StdExecutor<H, I, O, S> {
-    pub fn new(harness: H, observers: O, timeout: Option<Duration>) -> Self {
+impl<EH, H, I, O, S> StdExecutor<EH, H, I, O, S> {
+    pub fn with_hooks(hooks: EH, harness: H, observers: O, timeout: Option<Duration>) -> Self {
         Self {
+            hooks,
             harness,
             observers,
             timeout,
@@ -29,7 +32,13 @@ impl<H, I, O, S> StdExecutor<H, I, O, S> {
     }
 }
 
-impl<H, I, O, S> DependencyResolver for StdExecutor<H, I, O, S>
+impl<H, I, O, S> StdExecutor<(), H, I, O, S> {
+    pub fn new(harness: H, observers: O, timeout: Option<Duration>) -> Self {
+        Self::with_hooks(tuple_list!(), harness, observers, timeout)
+    }
+}
+
+impl<EH, H, I, O, S> DependencyResolver for StdExecutor<EH, H, I, O, S>
 where
     O: ObserversTuple<S> + DependencyResolver,
 {
@@ -45,18 +54,25 @@ where
     }
 }
 
-impl<H, I, O, S> Executor<I, S> for StdExecutor<H, I, O, S>
+impl<EH, H, I, O, S> Executor<I, S> for StdExecutor<EH, H, I, O, S>
 where
+    EH: ExecutorHooksTuple<I, S>,
     H: FnMut(&mut S, &I) -> Result<ExitKind, Error>,
     O: ObserversTuple<S> + DependencyResolver,
 {
     type Observers = O;
 
-    fn init<CT: Controller>(&mut self, rt_handle: &mut RuntimeHandle<CT, S>) -> Result<(), Error> {
+    fn init<CT: Controller>(
+        &mut self,
+        state: &mut S,
+        rt_handle: &mut RuntimeHandle<CT, S>,
+    ) -> Result<(), Error> {
         if !self.initialized {
             if let Some(tmout) = &self.timeout {
                 rt_handle.set_timeout(tmout.clone());
             }
+
+            self.hooks.init_all(state);
 
             self.initialized = true;
         }
@@ -67,7 +83,13 @@ where
     unsafe fn execute_impl(&mut self, state: &mut S, input: &I) -> Result<ExitKind, Error> {
         debug_assert!(self.initialized);
 
-        (self.harness)(state, input)
+        self.hooks.pre_exec_all(state, input);
+
+        let res = (self.harness)(state, input)?;
+
+        self.hooks.post_exec_all(state, input);
+
+        Ok(res)
     }
 
     fn observers(&self) -> tuple_list_ex::RefIndexable<&Self::Observers, Self::Observers> {

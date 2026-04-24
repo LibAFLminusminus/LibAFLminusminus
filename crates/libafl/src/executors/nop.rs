@@ -1,11 +1,9 @@
 //! Trivial Constant Executor
 
+use super::{Executor, ExitKind};
+use crate::{DependencyResolver, Result, observers::ObserversTuple};
 use core::time::Duration;
-
 use libafl_bolts::tuples::RefIndexable;
-
-use super::{Executor, ExitKind, HasObservers, HasTimeout};
-use crate::executors::SetTimeout;
 
 /// [`NopExecutor`] is an executor that does nothing
 pub type NopExecutor = ConstantExecutor<()>;
@@ -49,38 +47,31 @@ impl ConstantExecutor<()> {
     }
 }
 
-/// These are important to allow [`ConstantExecutor`] to be used with other components
-impl<OT> HasObservers for ConstantExecutor<OT> {
+impl<OT> DependencyResolver for ConstantExecutor<OT> {}
+
+impl<OT, I, S> Executor<I, S> for ConstantExecutor<OT>
+where
+    OT: ObserversTuple<S>,
+{
     type Observers = OT;
+
+    fn init<CT: crate::Controller>(
+        &mut self,
+        _state: &mut S,
+        _rt_handle: &mut crate::runtimes::RuntimeHandle<CT, S>,
+    ) -> Result<()> {
+        Ok(())
+    }
+
+    unsafe fn execute_impl(&mut self, _state: &mut S, _input: &I) -> Result<ExitKind> {
+        Ok(self.exit)
+    }
+
     fn observers(&self) -> RefIndexable<&Self::Observers, Self::Observers> {
         RefIndexable::from(&self.ot)
     }
 
     fn observers_mut(&mut self) -> RefIndexable<&mut Self::Observers, Self::Observers> {
         RefIndexable::from(&mut self.ot)
-    }
-}
-
-impl<OT> HasTimeout for ConstantExecutor<OT> {
-    fn timeout(&self) -> Duration {
-        self.tm
-    }
-}
-
-impl<OT> SetTimeout for ConstantExecutor<OT> {
-    fn set_timeout(&mut self, timeout: Duration) {
-        self.tm = timeout;
-    }
-}
-
-impl<OT, EM, I, S, Z> Executor<EM, I, S, Z> for ConstantExecutor<OT> {
-    fn run_target(
-        &mut self,
-        _fuzzer: &mut Z,
-        _state: &mut S,
-        _mgr: &mut EM,
-        _input: &I,
-    ) -> Result<ExitKind, libafl_bolts::Error> {
-        Ok(self.exit)
     }
 }

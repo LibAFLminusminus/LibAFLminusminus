@@ -1,8 +1,8 @@
 use std::{string::ToString, thread::current};
 
+use core::time::Duration;
 use libafl_bolts::current_time;
 use libafl_core::Error;
-use core::time::Duration;
 
 use crate::{
     Controller,
@@ -402,11 +402,7 @@ where
             *state.named_metadata_map_mut() = checker.finish();
         }
 
-        // 4 - initialize executor
-        executor.init(rt_handle)?;
-
-        // 5 - populate signal handler data if the runtime supports it
-        // maybe do it before executor.init? so that executor can check rt is correctly initialized at runtime
+        // 4 - populate signal handler data if the runtime needs it
         rt_handle.init_termination_handlers(
             state,
             self,
@@ -414,6 +410,9 @@ where
             |data, signal_params| unsafe { std_on_crash::<E, F, I, OF, S>(data, signal_params) },
             |data, signal_params| unsafe { std_on_timeout::<E, F, I, OF, S>(data, signal_params) },
         );
+
+        // 5 - initialize executor
+        executor.init(state, rt_handle)?;
 
         self.initialized = true;
 

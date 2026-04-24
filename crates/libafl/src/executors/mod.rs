@@ -21,36 +21,47 @@ use crate::{
     state::FlatState,
 };
 
-// /// The module for all the executor hooks
-// pub mod hooks;
+/// The module for all the executor hooks
+pub mod hooks;
 
-// pub mod combined;
-// pub use combined::CombinedExecutor;
+pub mod combined;
+pub use combined::CombinedExecutor;
 
-// #[cfg(feature = "std")]
-// pub mod command;
-// #[cfg(feature = "std")]
-// pub use command::CommandExecutor;
+#[cfg(feature = "std")]
+#[cfg(not(feature = "remove_me"))]
+pub mod command;
+#[cfg(not(feature = "remove_me"))]
+#[cfg(feature = "std")]
+pub use command::CommandExecutor;
 
-// #[cfg(all(feature = "std", unix))]
-// pub mod forkserver;
-// #[cfg(all(feature = "std", unix))]
-// pub use forkserver::{Forkserver, ForkserverExecutor};
+#[cfg(all(feature = "std", unix))]
+#[cfg(not(feature = "remove_me"))]
+pub mod forkserver;
+#[cfg(all(feature = "std", unix))]
+#[cfg(not(feature = "remove_me"))]
+pub use forkserver::{Forkserver, ForkserverExecutor};
 
-// pub mod nop;
-// /// SAND(<https://github.com/wtdcode/sand-aflpp>) implementation
-// #[cfg(feature = "simd")]
-// pub mod sand;
+pub mod nop;
+pub use nop::NopExecutor;
 
-// pub mod shadow;
-// pub use shadow::ShadowExecutor;
+/// SAND(<https://github.com/wtdcode/sand-aflpp>) implementation
+#[cfg(feature = "simd")]
+#[cfg(not(feature = "remove_me"))]
+pub mod sand;
 
-// pub mod with_observers;
-// pub use with_observers::WithObservers;
+pub mod shadow;
+pub use shadow::ShadowExecutor;
 
-// pub use inprocess::InProcessExecutor;
-// #[cfg(all(feature = "std", unix))]
-// pub use inprocess_fork::InProcessForkExecutor;
+#[cfg(not(feature = "remove_me"))]
+pub mod with_observers;
+#[cfg(not(feature = "remove_me"))]
+pub use with_observers::WithObservers;
+
+#[cfg(not(feature = "remove_me"))]
+pub use inprocess::InProcessExecutor;
+#[cfg(all(feature = "std", unix))]
+#[cfg(not(feature = "remove_me"))]
+pub use inprocess_fork::InProcessForkExecutor;
 
 mod std;
 pub use std::StdExecutor;
@@ -110,7 +121,11 @@ pub trait Executor<I, S>: DependencyResolver {
 
     /// The init function of the executor.
     /// It must be run once before the first execution of the executor.
-    fn init<CT: Controller>(&mut self, rt_handle: &mut RuntimeHandle<CT, S>) -> Result<(), Error>;
+    fn init<CT: Controller>(
+        &mut self,
+        state: &mut S,
+        rt_handle: &mut RuntimeHandle<CT, S>,
+    ) -> Result<(), Error>;
 
     /// Run the target with the given input.
     /// This is a "raw" run: it only runs the target and nothing else is done.
@@ -119,7 +134,8 @@ pub trait Executor<I, S>: DependencyResolver {
     ///     - state is not updated
     ///     - timeout is not re-armed
     ///
-    /// You most likely do NOT want to use this function.
+    /// You most likely do NOT want to use this function directly, except if calling
+    /// in an inner executor.
     /// Prefer `run_target` in most cases.
     ///
     ///

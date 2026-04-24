@@ -1,4 +1,27 @@
+/// THIS IS OLD executors/hooks/windows.rs!
+/// TODO: port it and expose the os stuff here
+///
+/// Part of windows stuff to sort out:
+///
+/// #[cfg(windows)]
+/// // Some initialization necessary for windows.
+/// unsafe {
+///     /*
+///         See https://github.com/AFLplusplus/LibAFL/pull/403
+///         This one reserves certain amount of memory for the stack.
+///         If stack overflow happens during fuzzing on windows, the program is transferred to our exception handler for windows.
+///         However, if we run out of the stack memory again in this exception handler, we'll crash with STATUS_ACCESS_VIOLATION.
+///         We need this API call because with the llmp_compression
+///         feature enabled, the exception handler uses a lot of stack memory (in the compression lib code) on release build.
+///         As far as I have observed, the compression uses around 0x10000 bytes, but for safety let's just reserve 0x20000 bytes for our exception handlers.
+///         This number 0x20000 could vary depending on the compilers optimization for future compression library changes.
+///     */
+///     let mut stack_reserved = 0x20000;
+///     SetThreadStackGuarantee(&raw mut stack_reserved)?;
+/// }
+///
 /// In-Process crash handling for `Windows`
+
 pub mod windows_asan_handler {
     use alloc::string::String;
     use core::sync::atomic::{Ordering, compiler_fence};
