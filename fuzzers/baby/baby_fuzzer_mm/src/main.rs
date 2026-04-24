@@ -1,7 +1,5 @@
-use std::path::PathBuf;
-
 use libafl::{
-    Result,
+    Controller, Result,
     corpus::{
         Corpus, InMemoryCorpus, OnDiskCorpus, Scheduler,
         schedulers::{NopScheduler, QueueScheduler},
@@ -12,11 +10,12 @@ use libafl::{
     generators::RandPrintablesGenerator,
     inputs::{BytesInput, bytes::BytesContext},
     launchers::StdLauncher,
+    monitors::SimpleMonitor,
     mutators::{HavocScheduledMutator, havoc_mutations},
     non_zero,
-    nop::NopController,
     observers::ConstMapObserver,
     runtimes::RuntimeHandle,
+    simple::{SimpleController, SimpleGlobalController},
     stages::StdMutationalStage,
     state::StdState,
 };
@@ -27,7 +26,7 @@ use crate::target::SIGNALS;
 mod target;
 
 fn run_fuzzer<C, OC, SC>(
-    rt_handle: &mut RuntimeHandle<NopController, StdState<C, BytesInput, OC, SC>>,
+    rt_handle: &mut RuntimeHandle<SimpleController, StdState<C, BytesInput, OC, SC>>,
     state: &mut StdState<C, BytesInput, OC, SC>,
 ) -> Result<()>
 where
@@ -83,9 +82,10 @@ where
 }
 
 pub fn main() -> Result<()> {
-    let state_builder = |_controller: &NopController| {
+    let state_builder = |controller: &SimpleController| {
         // A queue policy to get testcasess from the corpus
         let scheduler = QueueScheduler::new();
+        let crash_dir = controller.descriptor().path().join("crashes");
 
         // create a State from scratch
         StdState::new(
@@ -93,11 +93,16 @@ pub fn main() -> Result<()> {
             InMemoryCorpus::new(BytesContext, scheduler),
             // Corpus in which we store solutions (crashes in this example),
             // on disk so the user can get them after stopping the fuzzer
-            OnDiskCorpus::new(PathBuf::from("./crashes"), BytesContext, NopScheduler).unwrap(),
+            OnDiskCorpus::new(crash_dir, BytesContext, NopScheduler).unwrap(),
         )
     };
 
+    let global_controller = SimpleGlobalController::new()?;
+    let monitor = SimpleMonitor::new(&global_controller)?;
+
     StdLauncher::builder()?
+        .global_controller(global_controller)
+        .monitor(monitor)
         .state_builder(state_builder)
         .build_with_task(run_fuzzer)?
         .launch()
