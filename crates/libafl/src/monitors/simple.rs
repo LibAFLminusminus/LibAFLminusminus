@@ -33,7 +33,7 @@ impl SimpleMonitor {
 }
 
 impl Monitor for SimpleMonitor {
-    fn display<GCT: Controller>(&mut self, global_controller: &mut GCT) -> Result<()> {
+    fn display<CT: Controller>(&mut self, controller: &mut CT) -> Result<()> {
         let now = self.clock.now();
 
         if now - self.last_update > self.update_interval {
@@ -43,7 +43,7 @@ impl Monitor for SimpleMonitor {
         }
 
         // TODO: fix print stats
-        // for controller in global_controller.controllers() {
+        // for controller in controller.workers() {
         //     let stat = read_stats_json(controller.descriptor())?;
         //     println!("{}", stat);
         // }

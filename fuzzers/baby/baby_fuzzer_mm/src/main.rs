@@ -1,23 +1,23 @@
 use libafl::{
-    Controller, Result,
     corpus::{
-        Corpus, InMemoryCorpus, OnDiskCorpus, Scheduler,
         schedulers::{NopScheduler, QueueScheduler},
+        Corpus, InMemoryCorpus, OnDiskCorpus, Scheduler,
     },
     executors::StdExecutor,
     feedbacks::{CrashFeedback, MaxMapFeedback},
     fuzzer::{Fuzzer, StdFuzzer},
     generators::RandPrintablesGenerator,
-    inputs::{BytesInput, bytes::BytesContext},
+    inputs::{bytes::BytesContext, BytesInput},
     launchers::StdLauncher,
     monitors::SimpleMonitor,
-    mutators::{HavocScheduledMutator, havoc_mutations},
+    mutators::{havoc_mutations, HavocScheduledMutator},
     non_zero,
     observers::ConstMapObserver,
     runtimes::RuntimeHandle,
     simple::{SimpleController, SimpleGlobalController},
     stages::StdMutationalStage,
     state::StdState,
+    Controller, Result,
 };
 use libafl_bolts::{current_nanos, nonnull_raw_mut, rands::StdRand, tuples::tuple_list};
 
@@ -97,11 +97,11 @@ pub fn main() -> Result<()> {
         )
     };
 
-    let global_controller = SimpleGlobalController::new()?;
-    let monitor = SimpleMonitor::new(&global_controller)?;
+    let controller = SimpleGlobalController::new()?;
+    let monitor = SimpleMonitor::new(&controller)?;
 
     StdLauncher::builder()?
-        .global_controller(global_controller)
+        .controller(controller)
         .monitor(monitor)
         .state_builder(state_builder)
         .build_with_task(run_fuzzer)?

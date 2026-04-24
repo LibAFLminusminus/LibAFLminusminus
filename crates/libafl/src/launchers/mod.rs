@@ -29,7 +29,7 @@ use crate::{
 pub const DEFAULT_MAX_STATE_SIZE_PER_CLIENT: NonZeroUsize = NonZeroUsize::new(1 << 30).unwrap();
 
 pub struct StdLauncherBuilder<CT, MT, RT, S, SB> {
-    global_controller: Option<CT>,
+    controller: Option<CT>,
     monitor: Option<MT>,
     runtime: RT,
     cores: Cores,
@@ -63,7 +63,7 @@ struct Instances<W, D, RT, S> {
 }
 
 pub struct StdLauncher<W, D, CT, MT, RT, S> {
-    global_controller: CT,
+    controller: CT,
     monitor: MT,
     instances: Instances<W, D, RT, S>,
 }
@@ -114,7 +114,7 @@ impl
         let cores = Cores::one();
 
         Ok(StdLauncherBuilder {
-            global_controller: None,
+            controller: None,
             monitor: None,
             runtime,
             cores,
@@ -128,9 +128,9 @@ impl
 }
 
 impl<W, D, CT, MT, RT, S> StdLauncher<W, D, CT, MT, RT, S> {
-    pub fn new(global_controller: CT, monitor: MT, instances: Instances<W, D, RT, S>) -> Self {
+    pub fn new(controller: CT, monitor: MT, instances: Instances<W, D, RT, S>) -> Self {
         Self {
-            global_controller,
+            controller,
             monitor,
             instances,
         }
@@ -145,11 +145,10 @@ where
     RT: Runtime<W, S> + 'static,
 {
     pub fn launch(mut self) -> Result<()> {
-        self.instances
-            .spawn_instances(&mut self.global_controller)?;
+        self.instances.spawn_instances(&mut self.controller)?;
 
         self.instances
-            .wait_instances(&mut self.global_controller, &mut self.monitor)?;
+            .wait_instances(&mut self.controller, &mut self.monitor)?;
 
         Ok(())
     }
@@ -158,7 +157,7 @@ where
 impl<CT, MT, RT, S, SB> StdLauncherBuilder<CT, MT, RT, S, SB> {
     pub fn cores(self, cores: Cores) -> StdLauncherBuilder<CT, MT, RT, S, SB> {
         StdLauncherBuilder {
-            global_controller: self.global_controller,
+            controller: self.controller,
             monitor: self.monitor,
             cores: cores,
             runtime: self.runtime,
@@ -172,7 +171,7 @@ impl<CT, MT, RT, S, SB> StdLauncherBuilder<CT, MT, RT, S, SB> {
 
     pub fn monitor<MT2>(self, monitor: MT2) -> StdLauncherBuilder<CT, MT2, RT, S, SB> {
         StdLauncherBuilder {
-            global_controller: self.global_controller,
+            controller: self.controller,
             monitor: Some(monitor),
             cores: self.cores,
             runtime: self.runtime,
@@ -184,12 +183,9 @@ impl<CT, MT, RT, S, SB> StdLauncherBuilder<CT, MT, RT, S, SB> {
         }
     }
 
-    pub fn global_controller<CT2>(
-        self,
-        global_controller: CT2,
-    ) -> StdLauncherBuilder<CT2, MT, RT, S, SB> {
+    pub fn controller<CT2>(self, controller: CT2) -> StdLauncherBuilder<CT2, MT, RT, S, SB> {
         StdLauncherBuilder {
-            global_controller: Some(global_controller),
+            controller: Some(controller),
             monitor: self.monitor,
             cores: self.cores,
             runtime: self.runtime,
@@ -203,7 +199,7 @@ impl<CT, MT, RT, S, SB> StdLauncherBuilder<CT, MT, RT, S, SB> {
 
     pub fn runtime<RT2>(self, runtime: RT2) -> StdLauncherBuilder<CT, MT, RT2, S, SB> {
         StdLauncherBuilder {
-            global_controller: self.global_controller,
+            controller: self.controller,
             monitor: self.monitor,
             cores: self.cores,
             runtime,
@@ -224,7 +220,7 @@ impl<CT, MT, RT, S, SB> StdLauncherBuilder<CT, MT, RT, S, SB> {
         SB2: FnMut(&CT::Worker) -> Result<S2>,
     {
         StdLauncherBuilder {
-            global_controller: self.global_controller,
+            controller: self.controller,
             monitor: self.monitor,
             cores: self.cores,
             runtime: self.runtime,
@@ -247,7 +243,7 @@ impl<CT, MT, RT, S, SB> StdLauncherBuilder<CT, MT, RT, S, SB> {
         max_state_size_per_client: NonZeroUsize,
     ) -> StdLauncherBuilder<CT, MT, RT, S, SB> {
         StdLauncherBuilder {
-            global_controller: self.global_controller,
+            controller: self.controller,
             monitor: self.monitor,
             cores: self.cores,
             runtime: self.runtime,
@@ -266,7 +262,7 @@ impl<CT, MT, RT, S, SB> StdLauncherBuilder<CT, MT, RT, S, SB> {
         stdout_file: &P,
     ) -> StdLauncherBuilder<CT, MT, RT, S, SB> {
         StdLauncherBuilder {
-            global_controller: self.global_controller,
+            controller: self.controller,
             monitor: self.monitor,
             cores: self.cores,
             runtime: self.runtime,
@@ -285,7 +281,7 @@ impl<CT, MT, RT, S, SB> StdLauncherBuilder<CT, MT, RT, S, SB> {
         stderr_file: &P,
     ) -> StdLauncherBuilder<CT, MT, RT, S, SB> {
         StdLauncherBuilder {
-            global_controller: self.global_controller,
+            controller: self.controller,
             monitor: self.monitor,
             cores: self.cores,
             runtime: self.runtime,
@@ -322,7 +318,7 @@ where
             .unwrap_or(DEFAULT_MAX_STATE_SIZE_PER_CLIENT);
 
         let builder = StdLauncherBuilder {
-            global_controller: self.global_controller,
+            controller: self.controller,
             monitor: self.monitor,
             cores: self.cores,
             runtime: StdRuntime::new(task, ram_limit),
@@ -355,12 +351,9 @@ where
             .take()
             .ok_or(Error::illegal_argument("No monitor have been set."))?;
 
-        let mut global_controller =
-            self.global_controller
-                .take()
-                .ok_or(Error::illegal_argument(
-                    "No global controller have been set.",
-                ))?;
+        let mut controller = self.controller.take().ok_or(Error::illegal_argument(
+            "No global controller have been set.",
+        ))?;
 
         let mut instances: Instances<CT::Worker, CT::Descriptor, RT, S> = Instances::new();
 
@@ -385,7 +378,7 @@ where
         // create an instance per core, ready to run.
         for core in self.cores {
             // spawn a controller for the instance
-            let controller = global_controller.create_controller()?;
+            let controller = controller.create_controller()?;
 
             // create the state for the instance
             let state: S = (self.state_builder)(&controller)?;
@@ -411,7 +404,7 @@ where
             ));
         }
 
-        Ok(StdLauncher::new(global_controller, monitor, instances))
+        Ok(StdLauncher::new(controller, monitor, instances))
     }
 }
 
@@ -423,10 +416,7 @@ where
     ///
     /// This will spawn a new process, which could have side effects.
     /// Once spawned, the parent process will take back the hand on the control flow immediately.
-    pub unsafe fn spawn<CT>(
-        &mut self,
-        global_controller: &mut CT,
-    ) -> Result<InstanceRepr<CT::Descriptor>>
+    pub unsafe fn spawn<CT>(&mut self, controller: &mut CT) -> Result<InstanceRepr<CT::Descriptor>>
     where
         CT: Controller<Worker = W>,
         W: Worker<Controller = CT>,
@@ -447,7 +437,7 @@ where
 
         match unsafe { fork()? } {
             ForkResult::Parent { child } => {
-                global_controller.on_start(controller.descriptor())?;
+                controller.on_start(controller.descriptor())?;
 
                 Ok(InstanceRepr::new(child, controller.descriptor().clone()))
             }
@@ -490,26 +480,21 @@ where
     W: Worker,
     RT: Runtime<W, S> + 'static,
 {
-    pub fn spawn_instances<CT>(&mut self, global_controller: &mut CT) -> Result<()>
+    pub fn spawn_instances<CT>(&mut self, controller: &mut CT) -> Result<()>
     where
         CT: Controller<Worker = W, Descriptor = D>,
         W: Worker<Controller = CT>,
     {
         for instance in &mut self.instances {
             unsafe {
-                self.active_instances
-                    .insert(instance.spawn(global_controller)?);
+                self.active_instances.insert(instance.spawn(controller)?);
             }
         }
 
         Ok(())
     }
 
-    pub fn wait_instances<CT, MT>(
-        &mut self,
-        global_controller: &mut CT,
-        monitor: &mut MT,
-    ) -> Result<()>
+    pub fn wait_instances<CT, MT>(&mut self, controller: &mut CT, monitor: &mut MT) -> Result<()>
     where
         W: Worker<Controller = CT>,
         CT: Controller<Worker = W, Descriptor = D>,
@@ -517,7 +502,7 @@ where
     {
         // TODO: create a proper even-based loop, i'll do later on.
         sleep(Duration::from_secs(5));
-        monitor.display(global_controller)?;
+        monitor.display(controller)?;
 
         while !self.active_instances.is_empty() {
             match wait() {
@@ -529,7 +514,7 @@ where
                             panic!("Removed a PID ({pid}) not in the active PID list. This is a fuzzer bug.")
                         );
 
-                    global_controller.on_exit(&instance_repr.descriptor, exit_code)?;
+                    controller.on_exit(&instance_repr.descriptor, exit_code)?;
                 }
                 Ok(WaitStatus::Signaled(pid, signal, _)) => {
                     let instance_repr = self
@@ -539,7 +524,7 @@ where
                             panic!("Removed a PID ({pid}) not in the active PID list. This is a fuzzer bug.")
                         );
 
-                    global_controller.on_termination(&instance_repr.descriptor, signal)?;
+                    controller.on_termination(&instance_repr.descriptor, signal)?;
                 }
 
                 Ok(_) => {
