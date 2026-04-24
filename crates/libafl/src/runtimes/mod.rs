@@ -24,7 +24,7 @@ pub mod utils;
 pub type StdRuntime<S, T> = RestartingRuntime<StdInProcessRuntime<S, T>>;
 
 /// Environment used to run a task
-pub trait Runtime<CT, S>: DependencyResolver {
+pub trait Runtime<S, W>: DependencyResolver {
     /// Run the runtime.
     /// A runtime task is terminal: it is called only once and the runtime will immediately exit when the task returns.
     ///
@@ -41,15 +41,15 @@ pub trait Runtime<CT, S>: DependencyResolver {
     unsafe fn run_impl(
         &mut self,
         state: S,
-        rt_handle: &mut RuntimeHandle<CT, S>,
+        rt_handle: &mut RuntimeHandle<S, W>,
     ) -> Result<(), Error>;
 
-    fn run(&mut self, state: S, controller: CT) -> Result<(), Error>
+    fn run(&mut self, state: S, worker: W) -> Result<(), Error>
     where
         Self: Sized + 'static,
     {
         let mut rt_handle =
-            unsafe { RuntimeHandle::new(self as *mut Self as *mut dyn Runtime<CT, S>, controller) };
+            unsafe { RuntimeHandle::new(self as *mut Self as *mut dyn Runtime<S, W>, worker) };
 
         unsafe { self.run_impl(state, &mut rt_handle)? };
 
@@ -88,28 +88,28 @@ pub trait Runtime<CT, S>: DependencyResolver {
 /// It can be used to perform runtime-level operations generically.
 ///
 /// It does not expose the runtime directly
-pub struct RuntimeHandle<CT, S> {
-    runtime: NonNull<dyn Runtime<CT, S>>,
-    controller: CT,
+pub struct RuntimeHandle<S, W> {
+    runtime: NonNull<dyn Runtime<S, W>>,
+    worker: W,
     termination_data_ptr: Option<NonNull<TerminationHandlerData>>,
     saver: Option<OsSaver<S>>,
 }
 
-impl<CT, S> RuntimeHandle<CT, S> {
-    unsafe fn new(runtime: *mut dyn Runtime<CT, S>, controller: CT) -> Self {
+impl<S, W> RuntimeHandle<S, W> {
+    unsafe fn new(runtime: *mut dyn Runtime<S, W>, worker: W) -> Self {
         Self {
             runtime: NonNull::new(runtime).expect("runtime ptr must be non-null"),
-            controller,
+            worker,
             termination_data_ptr: None,
             saver: None,
         }
     }
 
-    unsafe fn runtime(&self) -> &dyn Runtime<CT, S> {
+    unsafe fn runtime(&self) -> &dyn Runtime<S, W> {
         unsafe { self.runtime.as_ref() }
     }
 
-    unsafe fn runtime_mut(&mut self) -> &mut dyn Runtime<CT, S> {
+    unsafe fn runtime_mut(&mut self) -> &mut dyn Runtime<S, W> {
         unsafe { self.runtime.as_mut() }
     }
 
@@ -188,12 +188,12 @@ impl<CT, S> RuntimeHandle<CT, S> {
         }
     }
 
-    pub fn controller(&self) -> &CT {
-        &self.controller
+    pub fn worker(&self) -> &W {
+        &self.worker
     }
 }
 
-impl<CT, S> DependencyResolver for RuntimeHandle<CT, S> {
+impl<S, W> DependencyResolver for RuntimeHandle<S, W> {
     fn check(&self, checker: &crate::CompatibilityChecker) -> Result<(), Error> {
         unsafe { self.runtime().check(checker) }
     }

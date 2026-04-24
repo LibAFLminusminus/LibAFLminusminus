@@ -2,7 +2,7 @@
 //! In comparison to the [`crate::executors::DiffExecutor`] it does not run the secondary executor in `run_target`.
 
 use crate::{
-    DependencyResolver, Result,
+    DependencyResolver, Result, Worker,
     executors::{Executor, ExitKind},
 };
 use core::{fmt::Debug, time::Duration};
@@ -41,10 +41,10 @@ where
 {
     type Observers = A::Observers;
 
-    fn init<CT: crate::Worker>(
+    fn init<W: Worker>(
         &mut self,
         state: &mut S,
-        rt_handle: &mut crate::runtimes::RuntimeHandle<CT, S>,
+        rt_handle: &mut crate::runtimes::RuntimeHandle<S, W>,
     ) -> core::result::Result<(), libafl_core::Error> {
         self.primary.init(state, rt_handle)
     }

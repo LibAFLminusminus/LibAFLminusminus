@@ -17,14 +17,14 @@ impl NopStage {
 
 impl DependencyResolver for NopStage {}
 
-impl<CT, E, R, S, Z> Stage<CT, E, R, S, Z> for NopStage {
+impl<E, R, S, W, Z> Stage<E, R, S, W, Z> for NopStage {
     fn perform(
         &mut self,
         _fuzzer: &mut Z,
         _executor: &mut E,
         _rand: &mut R,
         _state: &mut S,
-        _rt_handle: &mut RuntimeHandle<CT, S>,
+        _rt_handle: &mut RuntimeHandle<S, W>,
         _testcase_id: &TestcaseId,
     ) -> Result<(), libafl_bolts::Error> {
         Ok(())

@@ -60,14 +60,14 @@ impl<S, T> DependencyResolver for StdInProcessRuntime<S, T> {
     }
 }
 
-impl<CT, S, T> Runtime<CT, S> for StdInProcessRuntime<S, T>
+impl<S, W, T> Runtime<S, W> for StdInProcessRuntime<S, T>
 where
-    T: FnMut(&mut RuntimeHandle<CT, S>, &mut S) -> Result<(), Error>,
+    T: FnMut(&mut RuntimeHandle<S, W>, &mut S) -> Result<(), Error>,
 {
     unsafe fn run_impl(
         &mut self,
         state: S,
-        rt_handle: &mut RuntimeHandle<CT, S>,
+        rt_handle: &mut RuntimeHandle<S, W>,
     ) -> Result<(), Error> {
         self.0.run_impl(state, rt_handle)
     }
