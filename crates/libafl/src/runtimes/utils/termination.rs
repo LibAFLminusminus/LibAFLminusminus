@@ -1,9 +1,10 @@
 //! Termination is a generic term to talk about an abnormal program end, i.e. crash and timeout.
 
+#[cfg(unix)]
+use crate::runtimes::utils::unix::OsShmSender;
 use crate::runtimes::{RuntimeHandle, utils::OsTerminationParams};
 use core::{ffi::c_void, ptr::NonNull};
 #[cfg(unix)]
-use libafl_bolts::shm::OsShmSender;
 use libafl_core::Error;
 
 pub trait IntoTerminationHandlerData {

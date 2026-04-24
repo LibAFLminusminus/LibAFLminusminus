@@ -1,9 +1,8 @@
 use crate::{
     DependencyResolver,
-    runtimes::{Runtime, RuntimeHandle, StdInProcessRuntime},
+    runtimes::{Runtime, RuntimeHandle, StdInProcessRuntime, utils::unix::OsShmBuilder},
 };
 use core::{marker::PhantomData, num::NonZeroUsize, time::Duration};
-use libafl_bolts::shm::OsShmBuilder;
 use libafl_core::Error;
 use nix::{
     sys::{
@@ -74,7 +73,8 @@ where
         mut state: S,
         rt_handle: &mut RuntimeHandle<S, W>,
     ) -> Result<(), Error> {
-        let (mut saver, mut restorer) = OsShmBuilder::build(self.state_ram_limit)?;
+        let (mut state_sender, mut state_receiver) =
+            OsShmBuilder::build(self.state_ram_limit.get())?;
 
         loop {
             match unsafe { fork() } {
@@ -91,7 +91,7 @@ where
                                 LIBAFL_EXIT_CONTINUE => {
                                     // at this point, the child finished and must be restarted with the new state. shm must be loaded with state.
                                     // this must be hit on crash / timeout in the child
-                                    unsafe { restorer.receive()? }
+                                    unsafe { state_receiver.receive()? }
                                 }
                                 LIBAFL_EXIT_TERMINATION_INFINITE_RECURSION => {
                                     return Err(Error::runtime(format!(
@@ -127,7 +127,7 @@ where
                     // child code, setup the saver and start the runtime.
 
                     // set the state saver, which should be called by the child on erroneous exit.
-                    rt_handle.set_saver(saver);
+                    rt_handle.set_saver(state_sender);
 
                     self.inner
                         .run_impl(state, rt_handle)
