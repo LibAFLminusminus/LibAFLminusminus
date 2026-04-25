@@ -544,21 +544,9 @@ impl Forkserver {
 /// Shared memory feature is also available, but you have to set things up in your code.
 /// Please refer to AFL++'s docs. <https://github.com/AFLplusplus/AFLplusplus/blob/stable/instrumentation/README.persistent_mode.md>
 pub struct ForkserverExecutor<I, OT, S, SHM> {
-    target: OsString,
-    args: Vec<OsString>,
-    input_file: InputFile,
-    uses_shmem_testcase: bool,
-    forkserver: Forkserver,
+    inner: BuiltForkserver<SHM>,
     observers: OT,
-    map: Option<SHM>,
     phantom: PhantomData<fn() -> (I, S)>, // For Send/Sync
-    map_size: Option<usize>,
-    min_input_size: usize,
-    max_input_size: usize,
-    #[cfg(feature = "regex")]
-    asan_obs: Handle<AsanBacktraceObserver>,
-    timeout: TimeSpec,
-    crash_exitcode: Option<i8>,
 }
 
 impl<I, OT, S, SHM> Debug for ForkserverExecutor<I, OT, S, SHM>
@@ -568,13 +556,13 @@ where
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("ForkserverExecutor")
-            .field("target", &self.target)
-            .field("args", &self.args)
-            .field("input_file", &self.input_file)
-            .field("uses_shmem_testcase", &self.uses_shmem_testcase)
-            .field("forkserver", &self.forkserver)
+            .field("target", &self.inner.target)
+            .field("args", &self.inner.args)
+            .field("input_file", &self.inner.input_file)
+            .field("uses_shmem_testcase", &self.inner.uses_shmem_testcase)
+            .field("forkserver", &self.inner.forkserver)
             .field("observers", &self.observers)
-            .field("map", &self.map)
+            .field("map", &self.inner.map)
             .finish_non_exhaustive()
     }
 }
@@ -592,53 +580,23 @@ where
     OT: ObserversTuple<S>,
     SHM: ShMem,
 {
-    /// The `target` binary that's going to run.
-    pub fn target(&self) -> &OsString {
-        &self.target
-    }
-
-    /// The `args` used for the binary.
-    pub fn args(&self) -> &[OsString] {
-        &self.args
-    }
-
-    /// Get a reference to the [`Forkserver`] instance.
-    pub fn forkserver(&self) -> &Forkserver {
-        &self.forkserver
-    }
-
-    /// Get a mutable reference to the [`Forkserver`] instance.
-    pub fn forkserver_mut(&mut self) -> &mut Forkserver {
-        &mut self.forkserver
-    }
-
-    /// The [`InputFile`] used by this [`Executor`].
-    pub fn input_file(&self) -> &InputFile {
-        &self.input_file
-    }
-
-    /// The coverage map size if specified by the target
-    pub fn coverage_map_size(&self) -> Option<usize> {
-        self.map_size
-    }
-
     fn map_input_to_shmem(&mut self, input: &[u8], input_size: usize) -> Result<(), Error> {
         let input_size_in_bytes = input_size.to_ne_bytes();
-        if self.uses_shmem_testcase {
+        if self.inner.uses_shmem_testcase {
             debug_assert!(
-                self.map.is_some(),
+                self.inner.map.is_some(),
                 "The uses_shmem_testcase() bool can only exist when a map is set"
             );
             // # Safety
             // Struct can never be created when uses_shmem_testcase is true and map is none.
-            let map = unsafe { self.map.as_mut().unwrap_unchecked() };
+            let map = unsafe { self.inner.map.as_mut().unwrap_unchecked() };
             // The first four bytes declares the size of the shmem.
             map.as_slice_mut()[..SHMEM_FUZZ_HDR_SIZE]
                 .copy_from_slice(&input_size_in_bytes[..SHMEM_FUZZ_HDR_SIZE]);
             map.as_slice_mut()[SHMEM_FUZZ_HDR_SIZE..(SHMEM_FUZZ_HDR_SIZE + input_size)]
                 .copy_from_slice(&input[..input_size]);
         } else {
-            self.input_file.write_buf(&input[..input_size])?;
+            self.inner.input_file.write_buf(&input[..input_size])?;
         }
         Ok(())
     }
@@ -648,30 +606,30 @@ where
     fn execute_input(&mut self, input: &[u8]) -> Result<ExitKind, Error> {
         let mut exit_kind = ExitKind::Ok;
 
-        let last_run_timed_out = self.forkserver.last_run_timed_out_raw();
+        let last_run_timed_out = self.inner.forkserver.last_run_timed_out_raw();
 
         let mut input_size = input.len();
-        if input_size > self.max_input_size {
+        if input_size > self.inner.max_input_size {
             // Truncate like AFL++ does
-            input_size = self.max_input_size;
+            input_size = self.inner.max_input_size;
             self.map_input_to_shmem(input, input_size)?;
-        } else if input_size < self.min_input_size {
+        } else if input_size < self.inner.min_input_size {
             // Extend like AFL++ does: copy input then zero-pad to min_input_size
             let mut padded = input.to_vec();
-            padded.resize(self.min_input_size, 0);
-            self.map_input_to_shmem(&padded, self.min_input_size)?;
+            padded.resize(self.inner.min_input_size, 0);
+            self.map_input_to_shmem(&padded, self.inner.min_input_size)?;
         } else {
             self.map_input_to_shmem(input, input_size)?;
         }
 
-        self.forkserver.set_last_run_timed_out(false);
-        if let Err(err) = self.forkserver.write_ctl(last_run_timed_out) {
+        self.inner.forkserver.set_last_run_timed_out(false);
+        if let Err(err) = self.inner.forkserver.write_ctl(last_run_timed_out) {
             return Err(Error::unknown(format!(
                 "Unable to request new process from fork server (OOM?): {err:?}"
             )));
         }
 
-        let pid = self.forkserver.read_st().map_err(|err| {
+        let pid = self.inner.forkserver.read_st().map_err(|err| {
             Error::unknown(format!(
                 "Unable to request new process from fork server (OOM?): {err:?}"
             ))
@@ -683,30 +641,30 @@ where
             ));
         }
 
-        self.forkserver.set_child_pid(Pid::from_raw(pid));
+        self.inner.forkserver.set_child_pid(Pid::from_raw(pid));
 
-        if let Some(status) = self.forkserver.read_st_timed(&self.timeout)? {
-            self.forkserver.set_status(status);
-            let exitcode_is_crash = if let Some(crash_exitcode) = self.crash_exitcode {
-                (libc::WEXITSTATUS(self.forkserver().status()) as i8) == crash_exitcode
+        if let Some(status) = self.inner.forkserver.read_st_timed(&self.inner.timeout)? {
+            self.inner.forkserver.set_status(status);
+            let exitcode_is_crash = if let Some(crash_exitcode) = self.inner.crash_exitcode {
+                (libc::WEXITSTATUS(self.inner.forkserver.status()) as i8) == crash_exitcode
             } else {
                 false
             };
-            if libc::WIFSIGNALED(self.forkserver().status()) || exitcode_is_crash {
+            if libc::WIFSIGNALED(self.inner.forkserver.status()) || exitcode_is_crash {
                 exit_kind = ExitKind::Crash;
                 #[cfg(feature = "regex")]
-                if let Some(asan_observer) = self.observers.get_mut(&self.asan_obs) {
+                if let Some(asan_observer) = self.observers.get_mut(&self.inner.asan_obs) {
                     asan_observer.parse_asan_output_from_asan_log_file(pid)?;
                 }
             }
         } else {
-            self.forkserver.set_last_run_timed_out(true);
+            self.inner.forkserver.set_last_run_timed_out(true);
 
             // We need to kill the child in case he has timed out, or we can't get the correct pid in the next call to self.executor.forkserver_mut().read_st()?
-            if let Some(pid) = self.forkserver().child_pid() {
-                let _ = kill(pid, self.forkserver.kill_signal);
+            if let Some(pid) = self.inner.forkserver.child_pid() {
+                let _ = kill(pid, self.inner.forkserver.kill_signal);
             }
-            if let Err(err) = self.forkserver.read_st() {
+            if let Err(err) = self.inner.forkserver.read_st() {
                 return Err(Error::unknown(format!(
                     "Could not kill timed-out child: {err:?}"
                 )));
@@ -714,13 +672,66 @@ where
             exit_kind = ExitKind::Timeout;
         }
 
-        if !libc::WIFSTOPPED(self.forkserver().status()) {
-            self.forkserver.reset_child_pid();
+        if !libc::WIFSTOPPED(self.inner.forkserver.status()) {
+            self.inner.forkserver.reset_child_pid();
         }
 
         Ok(exit_kind)
     }
 }
+
+impl<I, OT, S, SHM> Executor<I, S> for ForkserverExecutor<I, OT, S, SHM>
+where
+    OT: ObserversTuple<S>,
+    S: FlatState + HasCorpus<I>,
+    SHM: ShMem,
+{
+    type Observers = OT;
+
+    fn init<W: crate::Worker>(
+        &mut self,
+        state: &mut S,
+        rt_handle: &mut RuntimeHandle<S, W>,
+    ) -> Result<(), Error> {
+        Ok(())
+    }
+
+    fn execute<W: crate::Worker>(
+        &mut self,
+        state: &mut S,
+        rt_handle: &mut RuntimeHandle<S, W>,
+        input: &I,
+    ) -> Result<ExitKind, Error>
+    {
+        *state.executions_mut() += 1;
+        self.observers_mut().pre_exec_all(state)?;
+
+
+        let exit_kind = unsafe { self.execute_impl(state, input)? };
+
+        self.observers_mut()
+            .post_exec_all(state, &exit_kind)
+            .map(|_| exit_kind)
+    }
+
+    #[inline]
+    unsafe fn execute_impl(&mut self, state: &mut S, input: &I) -> Result<ExitKind, Error> {
+        let context = state.corpus_mut().context_mut();
+        let bytes = context.to_bytes(input);
+        let exit = self.execute_input(&bytes)?;
+        Ok(exit)
+    }
+
+    fn observers(&self) -> RefIndexable<&Self::Observers, Self::Observers> {
+        RefIndexable::from(&self.observers)
+    }
+
+    fn observers_mut(&mut self) -> RefIndexable<&mut Self::Observers, Self::Observers> {
+        RefIndexable::from(&mut self.observers)
+    }
+}
+
+impl<I, OT, S, SHM> DependencyResolver for ForkserverExecutor<I, OT, S, SHM> {}
 
 /// The builder for `ForkserverExecutor`
 #[derive(Debug)]
@@ -801,23 +812,11 @@ where
     where
         OT: ObserversTuple<S>,
     {
-        let cfg = self.build_forkserver(&observers)?;
+        let built = self.build_forkserver(&observers)?;
         Ok(ForkserverExecutor {
-            target: cfg.target,
-            args: cfg.args,
-            input_file: cfg.input_file,
-            uses_shmem_testcase: cfg.uses_shmem_testcase,
-            forkserver: cfg.forkserver,
+            inner: built,
             observers,
-            map: cfg.map,
             phantom: PhantomData,
-            map_size: cfg.map_size,
-            min_input_size: cfg.min_input_size,
-            max_input_size: cfg.max_input_size,
-            timeout: cfg.timeout,
-            #[cfg(feature = "regex")]
-            asan_obs: cfg.asan_obs,
-            crash_exitcode: cfg.crash_exitcode,
         })
     }
 
@@ -834,42 +833,30 @@ where
         OT: ObserversTuple<S>,
         (A, OT): ObserversTuple<S>,
     {
-        let cfg = self.build_forkserver(&other_observers)?;
+        let built = self.build_forkserver(&other_observers)?;
 
         log::info!(
             "ForkserverExecutor: program: {:?}, arguments: {:?}, use_stdin: {:?}, map_size: {:?}",
-            cfg.target,
-            cfg.args,
+            built.target,
+            built.args,
             self.use_stdin(),
-            cfg.map_size
+            built.map_size
         );
 
-        if let Some(dynamic_map_size) = cfg.map_size {
+        if let Some(dynamic_map_size) = built.map_size {
             map_observer.as_mut().truncate(dynamic_map_size);
         }
 
-        if cfg.uses_shmem_testcase && cfg.map.is_none() {
+        if built.uses_shmem_testcase && built.map.is_none() {
             return Err(Error::illegal_state(
                 "Map must always be set for `uses_shmem_testcase`",
             ));
         }
 
         Ok(ForkserverExecutor {
-            target: cfg.target,
-            args: cfg.args,
-            input_file: cfg.input_file,
-            uses_shmem_testcase: cfg.uses_shmem_testcase,
-            forkserver: cfg.forkserver,
+            inner: built,
             observers: (map_observer, other_observers),
-            map: cfg.map,
             phantom: PhantomData,
-            map_size: cfg.map_size,
-            min_input_size: cfg.min_input_size,
-            max_input_size: cfg.max_input_size,
-            timeout: cfg.timeout,
-            #[cfg(feature = "regex")]
-            asan_obs: cfg.asan_obs,
-            crash_exitcode: cfg.crash_exitcode,
         })
     }
 
@@ -1266,58 +1253,7 @@ impl<'a> ForkserverExecutorBuilder<'a, ()> {
     }
 }
 
-impl<I, OT, S, SHM> Executor<I, S> for ForkserverExecutor<I, OT, S, SHM>
-where
-    OT: ObserversTuple<S>,
-    S: FlatState + HasCorpus<I>,
-    SHM: ShMem,
-{
-    type Observers = OT;
 
-    fn init<W: crate::Worker>(
-        &mut self,
-        state: &mut S,
-        rt_handle: &mut RuntimeHandle<S, W>,
-    ) -> Result<(), Error> {
-        Ok(())
-    }
-
-    fn execute<W: crate::Worker>(
-        &mut self,
-        state: &mut S,
-        rt_handle: &mut RuntimeHandle<S, W>,
-        input: &I,
-    ) -> Result<ExitKind, Error>
-    {
-        *state.executions_mut() += 1;
-        self.observers_mut().pre_exec_all(state)?;
-
-
-        let exit_kind = unsafe { self.execute_impl(state, input)? };
-
-        self.observers_mut()
-            .post_exec_all(state, &exit_kind)
-            .map(|_| exit_kind)
-    }
-
-    #[inline]
-    unsafe fn execute_impl(&mut self, state: &mut S, input: &I) -> Result<ExitKind, Error> {
-        let context = state.corpus_mut().context_mut();
-        let bytes = context.to_bytes(input);
-        let exit = self.execute_input(&bytes)?;
-        Ok(exit)
-    }
-
-    fn observers(&self) -> RefIndexable<&Self::Observers, Self::Observers> {
-        RefIndexable::from(&self.observers)
-    }
-
-    fn observers_mut(&mut self) -> RefIndexable<&mut Self::Observers, Self::Observers> {
-        RefIndexable::from(&mut self.observers)
-    }
-}
-
-impl<I, OT, S, SHM> DependencyResolver for ForkserverExecutor<I, OT, S, SHM> {}
 
 /*
 #[cfg(test)]
