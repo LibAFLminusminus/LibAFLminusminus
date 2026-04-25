@@ -101,13 +101,13 @@ impl Stats {
 }
 
 /// read from a file.
-pub fn read_stats_json<P: AsRef<Path>>(path: P) -> Result<Stats> {
-    let file = fs::File::open(path)?;
+pub fn read_stats_json(mut file: File) -> Result<Stats> {
+    file.seek(SeekFrom::Start(0));
     serde_json::from_reader(file)
         .map_err(|_| Error::runtime("Failed to read the stats from a file"))
 }
 
-pub fn sync_stats(file: &mut File, stats: &Stats) -> Result<()> {
+pub fn sync_stats(mut file: File, stats: &Stats) -> Result<()> {
     file.seek(SeekFrom::Start(0));
     serde_json::to_writer_pretty(file, stats)
         .map_err(|_| Error::runtime("Failed to dump the stats to a file"));

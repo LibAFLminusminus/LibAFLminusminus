@@ -1,10 +1,20 @@
-use crate::{Controller, Workdir, Worker};
+use crate::{Controller, Descriptor, Workdir, Worker};
 
 pub struct NopController;
 pub struct NopWorker;
 
 #[derive(Clone)]
 pub struct NopDescriptor;
+
+impl Descriptor for NopDescriptor {
+    fn workdir(&self) -> &Workdir {
+        panic!("No descriptor for NopDescriptor.");
+    }
+
+    fn workdir_mut(&mut self) -> &mut Workdir {
+        panic!("No descriptor for NopDescriptor.");
+    }
+}
 
 impl Controller for NopController {
     type Worker = NopWorker;
@@ -14,7 +24,11 @@ impl Controller for NopController {
         Ok(NopWorker)
     }
 
-    fn workers(&self) -> &[Self::Descriptor] {
+    fn worker_descriptors(&self) -> &[Self::Descriptor] {
+        unimplemented!("nop controller has no workers");
+    }
+
+    fn worker_descriptors_mut(&mut self) -> &mut [Self::Descriptor] {
         unimplemented!("nop controller has no workers");
     }
 }

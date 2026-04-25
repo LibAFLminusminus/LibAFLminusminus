@@ -1,4 +1,4 @@
-use crate::{Controller, Result, Workdir, WorkdirFile, Worker, launchers::InstanceId};
+use crate::{Controller, Descriptor, Result, Workdir, WorkdirFile, Worker, launchers::InstanceId};
 use libafl_core::{Error, WorkerId, illegal_argument, internal_bug};
 use nix::unistd::{dup2_stderr, dup2_stdout};
 use serde::{Deserialize, Serialize};
@@ -134,8 +134,15 @@ impl Controller for SimpleController {
         Ok(cl)
     }
 
-    fn workers(&self) -> impl IntoIterator<Item = &Self::Descriptor> {
+    fn worker_descriptors(&self) -> impl IntoIterator<Item = &Self::Descriptor> {
         self.workers.iter().map(|repr| &repr.descriptor).into_iter()
+    }
+
+    fn worker_descriptors_mut(&mut self) -> impl IntoIterator<Item = &mut Self::Descriptor> {
+        self.workers
+            .iter_mut()
+            .map(|repr| &mut repr.descriptor)
+            .into_iter()
     }
 
     fn on_worker_start(&mut self, descriptor: &Self::Descriptor, id: InstanceId) -> Result<()> {
@@ -242,5 +249,15 @@ impl SimpleControllerBuilder {
             self.worker_stats,
             self.overwrite,
         )
+    }
+}
+
+impl Descriptor for SimpleDescriptor {
+    fn workdir(&self) -> &Workdir {
+        &self.workdir
+    }
+
+    fn workdir_mut(&mut self) -> &mut Workdir {
+        &mut self.workdir
     }
 }

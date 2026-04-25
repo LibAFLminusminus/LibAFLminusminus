@@ -21,11 +21,13 @@ pub mod simple;
 
 pub trait Controller {
     type Worker: Worker;
-    type Descriptor: Clone;
+    type Descriptor: Descriptor;
 
     fn create_worker(&mut self) -> Result<Self::Worker>;
 
-    fn workers(&self) -> impl IntoIterator<Item = &Self::Descriptor>;
+    fn worker_descriptors(&self) -> impl IntoIterator<Item = &Self::Descriptor>;
+
+    fn worker_descriptors_mut(&mut self) -> impl IntoIterator<Item = &mut Self::Descriptor>;
 
     fn on_worker_start(&mut self, descriptor: &Self::Descriptor, id: InstanceId) -> Result<()> {
         Ok(())
@@ -69,6 +71,11 @@ pub trait Worker {
     }
 }
 
+pub trait Descriptor: Clone {
+    fn workdir(&self) -> &Workdir;
+    fn workdir_mut(&mut self) -> &mut Workdir;
+}
+
 #[derive(Debug, Clone)]
 pub struct Workdir {
     root_dir: PathBuf,
@@ -93,7 +100,38 @@ impl Clone for WorkdirFile {
 }
 
 impl WorkdirFile {
-    pub fn get_file<P: AsRef<Path>>(&mut self, root_dir: P) -> Result<&mut File> {
+    pub fn get_file_rd<P: AsRef<Path>>(&mut self, root_dir: P) -> Result<Option<File>> {
+        let path: Option<PathBuf> = if let WorkdirFile::Path(p) = self {
+            Some(p.clone())
+        } else {
+            None
+        };
+
+        if let Some(p) = path {
+            let full_path = root_dir.as_ref().join(p.as_path());
+
+            if !full_path.exists() {
+                return Ok(None);
+            }
+
+            let file = OpenOptions::new().read(true).open(full_path)?;
+
+            *self = WorkdirFile::File(file);
+        }
+
+        let file: &mut File = match self {
+            WorkdirFile::File(file) => file,
+            _ => {
+                return Err(internal_bug!(
+                    "The workdir file should be a file at this point"
+                ));
+            }
+        };
+
+        Ok(Some(file.try_clone().unwrap()))
+    }
+
+    pub fn get_file_wr<P: AsRef<Path>>(&mut self, root_dir: P) -> Result<File> {
         let path: Option<PathBuf> = if let WorkdirFile::Path(p) = self {
             Some(p.clone())
         } else {
@@ -102,7 +140,6 @@ impl WorkdirFile {
 
         if let Some(p) = path {
             let file = OpenOptions::new()
-                .read(true)
                 .write(true)
                 .create(true)
                 .open(root_dir.as_ref().join(p.as_path()))?;
@@ -119,7 +156,7 @@ impl WorkdirFile {
             }
         };
 
-        Ok(file)
+        Ok(file.try_clone().unwrap())
     }
 }
 
@@ -144,18 +181,18 @@ impl Workdir {
         })
     }
 
-    pub fn stdout(&mut self) -> Result<Option<&mut File>> {
+    pub fn stdout(&mut self) -> Result<Option<File>> {
         if let Some(wd_f) = &mut self.stdout {
-            wd_f.get_file(self.root_dir.as_path())
+            wd_f.get_file_wr(self.root_dir.as_path())
                 .map(|file| Some(file))
         } else {
             Ok(None)
         }
     }
 
-    pub fn stderr(&mut self) -> Result<Option<&mut File>> {
+    pub fn stderr(&mut self) -> Result<Option<File>> {
         if let Some(wd_f) = &mut self.stderr {
-            wd_f.get_file(self.root_dir.as_path())
+            wd_f.get_file_wr(self.root_dir.as_path())
                 .map(|file| Some(file))
         } else {
             Ok(None)
@@ -180,6 +217,14 @@ impl Workdir {
         Ok(file)
     }
 
+    pub fn get_stats(&mut self) -> Result<Option<File>> {
+        if let Some(stats_f) = &mut self.stats {
+            Ok(stats_f.get_file_rd(self.root_dir.as_path())?)
+        } else {
+            Ok(None)
+        }
+    }
+
     /// create a new directory, relative to the workdir.
     ///
     /// Errors out if the directory already exists.
@@ -192,7 +237,7 @@ impl Workdir {
 
     pub fn report_stats(&mut self, stats: &Stats) -> Result<()> {
         if let Some(stats_f) = &mut self.stats {
-            let stats_ref = stats_f.get_file(self.root_dir.as_path())?;
+            let stats_ref = stats_f.get_file_wr(self.root_dir.as_path())?;
             sync_stats(stats_ref, stats)?;
         }
 
