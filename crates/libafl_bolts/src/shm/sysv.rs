@@ -2,6 +2,7 @@
 
 use core::{
     ffi::c_void,
+    ops::{Deref, DerefMut},
     ptr::{self, NonNull},
 };
 use std::{
@@ -22,6 +23,20 @@ use crate::{
 pub struct SysVShm<SZ: ShmHeader> {
     shm: SharedMemory<SZ>,
     shm_id: key_t,
+}
+
+impl Deref for SysVShm<EmptyShmHeader> {
+    type Target = [u8];
+
+    fn deref(&self) -> &Self::Target {
+        self.shm.deref()
+    }
+}
+
+impl DerefMut for SysVShm<EmptyShmHeader> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.shm.deref_mut()
+    }
 }
 
 impl SysVShm<EmptyShmHeader> {

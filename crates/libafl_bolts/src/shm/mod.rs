@@ -3,7 +3,14 @@
 //!
 //! It supports both header-based and header-less style shared memory.
 
-use core::{fmt, marker::PhantomData, ptr::NonNull, slice, sync::atomic::Ordering};
+use core::{
+    fmt,
+    marker::PhantomData,
+    ops::{Deref, DerefMut},
+    ptr::NonNull,
+    slice,
+    sync::atomic::Ordering,
+};
 
 use atomic::Atomic;
 use libafl_core::{Result, runtime};
@@ -123,6 +130,22 @@ pub struct SharedMemory<SZ: ShmHeader> {
     ptr: NonNull<u8>,
     total_size: usize,
     phantom: PhantomData<SZ>,
+}
+
+impl Deref for SharedMemory<EmptyShmHeader> {
+    type Target = [u8];
+
+    fn deref(&self) -> &Self::Target {
+        // safe because there is no header to take care of
+        unsafe { self.data() }
+    }
+}
+
+impl DerefMut for SharedMemory<EmptyShmHeader> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        // safe because there is no header to take care of
+        unsafe { self.data_mut() }
+    }
 }
 
 impl<SZ: ShmHeader> fmt::Debug for SharedMemory<SZ> {
