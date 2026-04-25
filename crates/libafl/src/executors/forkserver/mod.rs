@@ -4,6 +4,7 @@ use alloc::{string::ToString, vec::Vec};
 use core::{
     fmt::{self, Debug, Formatter},
     marker::PhantomData,
+    ops::{Deref, DerefMut},
     time::Duration,
 };
 use std::{
@@ -11,15 +12,13 @@ use std::{
     ffi::OsString,
     io::{self, ErrorKind, Read, Write},
     os::{
-        fd::{AsRawFd, BorrowedFd, OwnedFd, FromRawFd},
+        fd::{AsRawFd, BorrowedFd, FromRawFd, OwnedFd},
         unix::{io::RawFd, process::CommandExt},
     },
     path::PathBuf,
     process::{Child, Command, Stdio},
 };
 
-#[cfg(feature = "regex")]
-use libafl_bolts::tuples::{Handle, Handled};
 use libafl_bolts::{
     AsSlice, AsSliceMut, InputLocation, StdTargetArgs, StdTargetArgsInner, Truncate,
     core_affinity::CoreId,
@@ -39,10 +38,6 @@ use nix::{
 };
 
 use super::{StdChildArgs, StdChildArgsInner};
-#[cfg(feature = "regex")]
-use crate::observers::{
-    AsanBacktraceObserver, get_asan_runtime_flags, get_asan_runtime_flags_with_log_path,
-};
 use crate::{
     DependencyResolver, Error,
     corpus::Corpus,
@@ -182,7 +177,6 @@ pub const AFL_GCC_ONLY_FSRV_VAR: &str = "AFL_GCC_ONLY_FSRV";
 /// The default signal to use to kill child processes
 const KILL_SIGNAL_DEFAULT: Signal = Signal::SIGTERM;
 
-
 /// The [`Forkserver`] is communication channel with a child process that forks on request of the fuzzer.
 /// The communication happens via pipe.
 #[derive(Debug)]
@@ -243,32 +237,49 @@ const fn fs_opt_get_mapsize(x: i32) -> i32 {
     ((x & 0x00fffffe) >> 1) + 1
 }
 
-#[expect(clippy::fn_params_excessive_bools)]
+struct ForkserverSpawnConfig {
+    target: OsString,
+    args: Vec<OsString>,
+    envs: Vec<(OsString, OsString)>,
+    input_filefd: RawFd,
+    use_stdin: bool,
+    memlimit: u64,
+    is_persistent: bool,
+    is_deferred_frksrv: bool,
+    is_fsrv_only: bool,
+    coverage_map_size: Option<usize>,
+    debug_output: bool,
+    kill_signal: Signal,
+    stdout_memfd: Option<RawFd>,
+    stderr_memfd: Option<RawFd>,
+    cwd: Option<PathBuf>,
+    core: Option<CoreId>,
+}
+
 #[allow(unstable_name_collisions)]
 impl Forkserver {
     /// Create a new [`Forkserver`] that will kill child processes
     /// with the given `kill_signal`.
     /// Using `Forkserver::new(..)` will default to [`Signal::SIGTERM`].
-    #[expect(clippy::too_many_arguments)]
-    fn new(
-        target: OsString,
-        args: Vec<OsString>,
-        envs: Vec<(OsString, OsString)>,
-        input_filefd: RawFd,
-        use_stdin: bool,
-        memlimit: u64,
-        is_persistent: bool,
-        is_deferred_frksrv: bool,
-        is_fsrv_only: bool,
-        dump_asan_logs: bool,
-        coverage_map_size: Option<usize>,
-        debug_output: bool,
-        kill_signal: Signal,
-        stdout_memfd: Option<RawFd>,
-        stderr_memfd: Option<RawFd>,
-        cwd: Option<PathBuf>,
-        core: Option<CoreId>,
-    ) -> Result<Self, Error> {
+    fn new(cfg: ForkserverSpawnConfig) -> Result<Self, Error> {
+        let ForkserverSpawnConfig {
+            target,
+            args,
+            envs,
+            input_filefd,
+            use_stdin,
+            memlimit,
+            is_persistent,
+            is_deferred_frksrv,
+            is_fsrv_only,
+            coverage_map_size,
+            debug_output,
+            kill_signal,
+            stdout_memfd,
+            stderr_memfd,
+            cwd,
+            core,
+        } = cfg;
         let Some(coverage_map_size) = coverage_map_size else {
             return Err(Error::unknown(
                 "Coverage map size unknown. Use coverage_map_size() to tell the forkserver about the map size.",
@@ -352,18 +363,6 @@ impl Forkserver {
             command.env(AFL_LLVM_ONLY_FSRV_VAR, "1");
         }
 
-        #[cfg(feature = "regex")]
-        {
-            let asan_options = if dump_asan_logs {
-                get_asan_runtime_flags_with_log_path()
-            } else {
-                get_asan_runtime_flags()
-            };
-            command.env("ASAN_OPTIONS", asan_options);
-        }
-        #[cfg(not(feature = "regex"))]
-        let _ = dump_asan_logs;
-
         if let Some(cwd) = cwd {
             command.current_dir(cwd);
         }
@@ -378,10 +377,7 @@ impl Forkserver {
                     .setlimit(memlimit)
                     .set_coredump(afl_debug),
             )
-            .setpipe(
-                st_pipe.write_end().unwrap(),
-                ctl_pipe.read_end().unwrap(),
-            )
+            .setpipe(st_pipe.write_end().unwrap(), ctl_pipe.read_end().unwrap())
             .spawn()
             {
                 Ok(fsrv_handle) => fsrv_handle,
@@ -556,14 +552,27 @@ where
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("ForkserverExecutor")
-            .field("target", &self.inner.target)
-            .field("args", &self.inner.args)
-            .field("input_file", &self.inner.input_file)
-            .field("uses_shmem_testcase", &self.inner.uses_shmem_testcase)
-            .field("forkserver", &self.inner.forkserver)
+            .field("target", &self.target)
+            .field("args", &self.args)
+            .field("input_file", &self.input_file)
+            .field("uses_shmem_testcase", &self.uses_shmem_testcase)
+            .field("forkserver", &self.forkserver)
             .field("observers", &self.observers)
-            .field("map", &self.inner.map)
+            .field("map", &self.map)
             .finish_non_exhaustive()
+    }
+}
+
+impl<I, OT, S, SHM> Deref for ForkserverExecutor<I, OT, S, SHM> {
+    type Target = BuiltForkserver<SHM>;
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+impl<I, OT, S, SHM> DerefMut for ForkserverExecutor<I, OT, S, SHM> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.inner
     }
 }
 
@@ -582,21 +591,21 @@ where
 {
     fn map_input_to_shmem(&mut self, input: &[u8], input_size: usize) -> Result<(), Error> {
         let input_size_in_bytes = input_size.to_ne_bytes();
-        if self.inner.uses_shmem_testcase {
+        if self.uses_shmem_testcase {
             debug_assert!(
-                self.inner.map.is_some(),
+                self.map.is_some(),
                 "The uses_shmem_testcase() bool can only exist when a map is set"
             );
             // # Safety
             // Struct can never be created when uses_shmem_testcase is true and map is none.
-            let map = unsafe { self.inner.map.as_mut().unwrap_unchecked() };
+            let map = unsafe { self.map.as_mut().unwrap_unchecked() };
             // The first four bytes declares the size of the shmem.
             map.as_slice_mut()[..SHMEM_FUZZ_HDR_SIZE]
                 .copy_from_slice(&input_size_in_bytes[..SHMEM_FUZZ_HDR_SIZE]);
             map.as_slice_mut()[SHMEM_FUZZ_HDR_SIZE..(SHMEM_FUZZ_HDR_SIZE + input_size)]
                 .copy_from_slice(&input[..input_size]);
         } else {
-            self.inner.input_file.write_buf(&input[..input_size])?;
+            self.input_file.write_buf(&input[..input_size])?;
         }
         Ok(())
     }
@@ -606,30 +615,30 @@ where
     fn execute_input(&mut self, input: &[u8]) -> Result<ExitKind, Error> {
         let mut exit_kind = ExitKind::Ok;
 
-        let last_run_timed_out = self.inner.forkserver.last_run_timed_out_raw();
+        let last_run_timed_out = self.forkserver.last_run_timed_out_raw();
 
         let mut input_size = input.len();
-        if input_size > self.inner.max_input_size {
+        if input_size > self.max_input_size {
             // Truncate like AFL++ does
-            input_size = self.inner.max_input_size;
+            input_size = self.max_input_size;
             self.map_input_to_shmem(input, input_size)?;
-        } else if input_size < self.inner.min_input_size {
+        } else if input_size < self.min_input_size {
             // Extend like AFL++ does: copy input then zero-pad to min_input_size
             let mut padded = input.to_vec();
-            padded.resize(self.inner.min_input_size, 0);
-            self.map_input_to_shmem(&padded, self.inner.min_input_size)?;
+            padded.resize(self.min_input_size, 0);
+            self.map_input_to_shmem(&padded, self.min_input_size)?;
         } else {
             self.map_input_to_shmem(input, input_size)?;
         }
 
-        self.inner.forkserver.set_last_run_timed_out(false);
-        if let Err(err) = self.inner.forkserver.write_ctl(last_run_timed_out) {
+        self.forkserver.set_last_run_timed_out(false);
+        if let Err(err) = self.forkserver.write_ctl(last_run_timed_out) {
             return Err(Error::unknown(format!(
                 "Unable to request new process from fork server (OOM?): {err:?}"
             )));
         }
 
-        let pid = self.inner.forkserver.read_st().map_err(|err| {
+        let pid = self.forkserver.read_st().map_err(|err| {
             Error::unknown(format!(
                 "Unable to request new process from fork server (OOM?): {err:?}"
             ))
@@ -641,30 +650,27 @@ where
             ));
         }
 
-        self.inner.forkserver.set_child_pid(Pid::from_raw(pid));
+        self.forkserver.set_child_pid(Pid::from_raw(pid));
 
-        if let Some(status) = self.inner.forkserver.read_st_timed(&self.inner.timeout)? {
-            self.inner.forkserver.set_status(status);
-            let exitcode_is_crash = if let Some(crash_exitcode) = self.inner.crash_exitcode {
-                (libc::WEXITSTATUS(self.inner.forkserver.status()) as i8) == crash_exitcode
+        let timeout = self.timeout;
+        if let Some(status) = self.forkserver.read_st_timed(&timeout)? {
+            self.forkserver.set_status(status);
+            let exitcode_is_crash = if let Some(crash_exitcode) = self.crash_exitcode {
+                (libc::WEXITSTATUS(self.forkserver.status()) as i8) == crash_exitcode
             } else {
                 false
             };
-            if libc::WIFSIGNALED(self.inner.forkserver.status()) || exitcode_is_crash {
+            if libc::WIFSIGNALED(self.forkserver.status()) || exitcode_is_crash {
                 exit_kind = ExitKind::Crash;
-                #[cfg(feature = "regex")]
-                if let Some(asan_observer) = self.observers.get_mut(&self.inner.asan_obs) {
-                    asan_observer.parse_asan_output_from_asan_log_file(pid)?;
-                }
             }
         } else {
-            self.inner.forkserver.set_last_run_timed_out(true);
+            self.forkserver.set_last_run_timed_out(true);
 
             // We need to kill the child in case he has timed out, or we can't get the correct pid in the next call to self.executor.forkserver_mut().read_st()?
-            if let Some(pid) = self.inner.forkserver.child_pid() {
-                let _ = kill(pid, self.inner.forkserver.kill_signal);
+            if let Some(pid) = self.forkserver.child_pid() {
+                let _ = kill(pid, self.forkserver.kill_signal);
             }
-            if let Err(err) = self.inner.forkserver.read_st() {
+            if let Err(err) = self.forkserver.read_st() {
                 return Err(Error::unknown(format!(
                     "Could not kill timed-out child: {err:?}"
                 )));
@@ -672,8 +678,8 @@ where
             exit_kind = ExitKind::Timeout;
         }
 
-        if !libc::WIFSTOPPED(self.inner.forkserver.status()) {
-            self.inner.forkserver.reset_child_pid();
+        if !libc::WIFSTOPPED(self.forkserver.status()) {
+            self.forkserver.reset_child_pid();
         }
 
         Ok(exit_kind)
@@ -701,11 +707,9 @@ where
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
         input: &I,
-    ) -> Result<ExitKind, Error>
-    {
+    ) -> Result<ExitKind, Error> {
         *state.executions_mut() += 1;
         self.observers_mut().pre_exec_all(state)?;
-
 
         let exit_kind = unsafe { self.execute_impl(state, input)? };
 
@@ -749,8 +753,6 @@ pub struct ForkserverExecutorBuilder<'a, SP> {
     min_input_size: usize,
     map_size: Option<usize>,
     kill_signal: Option<Signal>,
-    #[cfg(feature = "regex")]
-    asan_obs: Option<Handle<AsanBacktraceObserver>>,
     crash_exitcode: Option<i8>,
 }
 
@@ -778,7 +780,7 @@ impl<SP> StdTargetArgs for ForkserverExecutorBuilder<'_, SP> {
     }
 }
 
-struct BuiltForkserver<SHM> {
+pub struct BuiltForkserver<SHM> {
     forkserver: Forkserver,
     input_file: InputFile,
     map: Option<SHM>,
@@ -789,8 +791,6 @@ struct BuiltForkserver<SHM> {
     min_input_size: usize,
     max_input_size: usize,
     timeout: TimeSpec,
-    #[cfg(feature = "regex")]
-    asan_obs: Handle<AsanBacktraceObserver>,
     crash_exitcode: Option<i8>,
 }
 
@@ -902,37 +902,36 @@ where
             Error::illegal_argument("ForkserverExecutorBuilder::build: target file not found")
         })?;
 
-        let mut forkserver = Forkserver::new(
-            target.clone(),
-            self.target_inner.arguments.clone(),
-            self.target_inner.envs.clone(),
-            input_file.as_raw_fd(),
-            self.use_stdin(),
-            0,
-            self.is_persistent,
-            self.is_deferred_frksrv,
-            self.is_fsrv_only,
-            self.has_asan_obs(),
-            self.map_size,
-            self.child_env_inner.debug_child,
-            self.kill_signal.unwrap_or(KILL_SIGNAL_DEFAULT),
-            self.child_env_inner.stdout_observer.as_ref().map(|t| {
+        let mut forkserver = Forkserver::new(ForkserverSpawnConfig {
+            target: target.clone(),
+            args: self.target_inner.arguments.clone(),
+            envs: self.target_inner.envs.clone(),
+            input_filefd: input_file.as_raw_fd(),
+            use_stdin: self.use_stdin(),
+            memlimit: 0,
+            is_persistent: self.is_persistent,
+            is_deferred_frksrv: self.is_deferred_frksrv,
+            is_fsrv_only: self.is_fsrv_only,
+            coverage_map_size: self.map_size,
+            debug_output: self.child_env_inner.debug_child,
+            kill_signal: self.kill_signal.unwrap_or(KILL_SIGNAL_DEFAULT),
+            stdout_memfd: self.child_env_inner.stdout_observer.as_ref().map(|t| {
                 obs.get(t)
                     .as_ref()
                     .expect("stdout observer not passed in the builder")
                     .as_raw_fd()
                     .expect("only memory fd backend is allowed for forkserver executor")
             }),
-            self.child_env_inner.stderr_observer.as_ref().map(|t| {
+            stderr_memfd: self.child_env_inner.stderr_observer.as_ref().map(|t| {
                 obs.get(t)
                     .as_ref()
                     .expect("stderr observer not passed in the builder")
                     .as_raw_fd()
                     .expect("only memory fd backend is allowed for forkserver executor")
             }),
-            self.child_env_inner.current_directory.clone(),
-            self.child_env_inner.core,
-        )?;
+            cwd: self.child_env_inner.current_directory.clone(),
+            core: self.child_env_inner.core,
+        })?;
 
         // Initial handshake, read 4-bytes hello message from the forkserver.
         let version_status = forkserver.read_st().map_err(|err| {
@@ -970,11 +969,6 @@ where
             min_input_size: self.min_input_size,
             max_input_size: self.max_input_size,
             timeout: self.child_env_inner.timeout.into(),
-            #[cfg(feature = "regex")]
-            asan_obs: self
-                .asan_obs
-                .clone()
-                .unwrap_or(AsanBacktraceObserver::default().handle()),
             crash_exitcode: self.crash_exitcode,
         })
     }
@@ -1180,20 +1174,6 @@ where
         self.kill_signal = Some(kill_signal);
         self
     }
-
-    /// Determine if the asan observer is present (always false if feature "regex" is disabled)
-    #[cfg(feature = "regex")]
-    #[must_use]
-    pub fn has_asan_obs(&self) -> bool {
-        self.asan_obs.is_some()
-    }
-
-    /// Determine if the asan observer is present (always false if feature "regex" is disabled)
-    #[cfg(not(feature = "regex"))]
-    #[must_use]
-    pub fn has_asan_obs(&self) -> bool {
-        false
-    }
 }
 
 impl<'a> ForkserverExecutorBuilder<'a, ()> {
@@ -1218,8 +1198,6 @@ impl<'a> ForkserverExecutorBuilder<'a, ()> {
             max_input_size: MAX_INPUT_SIZE_DEFAULT,
             min_input_size: MIN_INPUT_SIZE_DEFAULT,
             kill_signal: None,
-            #[cfg(feature = "regex")]
-            asan_obs: None,
             crash_exitcode: None,
         }
     }
@@ -1246,22 +1224,17 @@ impl<'a> ForkserverExecutorBuilder<'a, ()> {
             max_input_size: self.max_input_size,
             min_input_size: self.min_input_size,
             kill_signal: self.kill_signal,
-            #[cfg(feature = "regex")]
-            asan_obs: self.asan_obs,
             crash_exitcode: self.crash_exitcode,
         }
     }
 }
 
-
-
-/*
 #[cfg(test)]
 mod tests {
     use std::ffi::OsString;
 
     use libafl_bolts::{
-        AsSliceMut, StdTargetArgs,
+        AsSliceMut, StdTargetArgs, SysVShm,
         shmem::{ShMem, ShMemProvider, UnixShMemProvider},
         tuples::tuple_list,
     };
@@ -1286,9 +1259,7 @@ mod tests {
         let bin = OsString::from("echo");
         let args = vec![OsString::from("@@")];
 
-        let mut shmem_provider = UnixShMemProvider::new().unwrap();
-
-        let mut shmem = shmem_provider.new_shmem(MAP_SIZE).unwrap();
+        let shmem = SysVShm::new(MAP_SIZE);
         // # Safety
         // There's a slight chance this is racey but very unlikely in the normal use case
         unsafe {
@@ -1323,4 +1294,3 @@ mod tests {
         assert!(result);
     }
 }
-*/
