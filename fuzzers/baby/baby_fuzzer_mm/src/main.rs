@@ -60,7 +60,6 @@ where
     let mut fuzzer = StdFuzzer::new(
         feedback,
         objective_feedback,
-        tuple_list!(),
         &mut stages,
         &mut executor,
         state,
