@@ -82,9 +82,9 @@ where
     ///
     /// This MUST be called after set_size has been called on the shared memory
     pub unsafe fn data(&self) -> &[u8] {
-        let hdr_size = size_of::<SZ>();
+        let hdr_size: usize = size_of::<SZ>();
         let size = self.get_size().expect("Invalid data size stored.");
-        let size_usize = NumCast::from(size).unwrap();
+        let size_usize: usize = NumCast::from(size).unwrap();
 
         unsafe { slice::from_raw_parts(self.ptr.as_ptr().add(hdr_size), size_usize) }
     }

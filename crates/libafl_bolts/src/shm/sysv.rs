@@ -10,13 +10,14 @@ use libafl_core::{Result, last_os_error};
 use libc::{IPC_CREAT, IPC_EXCL, IPC_PRIVATE, key_t, shmat, shmget};
 use num_traits::{Bounded, NumCast};
 use wide::bytemuck::NoUninit;
-
+use std::env;
 use crate::shm::SharedMemory;
 
 /// A simple abstraction over System V shared memory
 #[derive(Debug)]
 pub struct SysVShm<SZ: NoUninit> {
     shm: SharedMemory<SZ>,
+    shm_size_usize: usize,
     shm_id: key_t,
 }
 
@@ -48,7 +49,7 @@ where
 
         let shm = unsafe { SharedMemory::new(shm_ptr, shm_size)? };
 
-        Ok(Self { shm, shm_id })
+        Ok(Self { shm, shm_size_usize, shm_id })
     }
 
     /// Get the string representation of the System V shared memory ID
@@ -61,8 +62,28 @@ where
         &self.shm
     }
 
+    /// get the allocated size of this memory region
+    pub fn shm_size_usize(&self) -> usize {
+        self.shm_size_usize
+    }
+
     /// Get a mutable ref to the underlying shared memory
     pub fn shm_mut(&mut self) -> &mut SharedMemory<SZ> {
         &mut self.shm
+    }
+
+    /// Write this map's config to env
+    ///
+    /// # Safety
+    /// Writes to env variables and may only be done single-threaded.
+    #[cfg(feature = "std")]
+    pub unsafe fn write_to_env(&self, env_name: &str) -> Result<()> {
+        let map_size = self.shm_size_usize;
+        let map_size_env = format!("{env_name}_SIZE");
+        // TODO: Audit that the environment access only happens in single-threaded code.
+        unsafe { env::set_var(env_name, self.shm_id().to_string()) };
+        // TODO: Audit that the environment access only happens in single-threaded code.
+        unsafe { env::set_var(map_size_env, format!("{map_size}")) };
+        Ok(())
     }
 }
