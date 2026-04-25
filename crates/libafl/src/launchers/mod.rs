@@ -235,42 +235,6 @@ impl<CT, MT, RT, S, SB> StdLauncherBuilder<CT, MT, RT, S, SB> {
             phantom: self.phantom,
         }
     }
-
-    /// set the stdout file where the stdout of the fuzzer client should go
-    /// point it to dev null if you want to shut it up.
-    pub fn stdout_file<P: AsRef<Path>>(
-        self,
-        stdout_file: &P,
-    ) -> StdLauncherBuilder<CT, MT, RT, S, SB> {
-        StdLauncherBuilder {
-            controller: self.controller,
-            monitor: self.monitor,
-            cores: self.cores,
-            runtime: self.runtime,
-            state_builder: self.state_builder,
-            max_state_size_per_client: self.max_state_size_per_client,
-            monitor_refresh: self.monitor_refresh,
-            phantom: self.phantom,
-        }
-    }
-
-    /// set the stderr file where the stderr of the fuzzer client should go
-    /// point it to dev null if you want to shut it up.
-    pub fn stderr_file<P: AsRef<Path>>(
-        self,
-        stderr_file: &P,
-    ) -> StdLauncherBuilder<CT, MT, RT, S, SB> {
-        StdLauncherBuilder {
-            controller: self.controller,
-            monitor: self.monitor,
-            cores: self.cores,
-            runtime: self.runtime,
-            state_builder: self.state_builder,
-            max_state_size_per_client: self.max_state_size_per_client,
-            monitor_refresh: self.monitor_refresh,
-            phantom: self.phantom,
-        }
-    }
 }
 
 impl<CT, MT, RT, S, SB> StdLauncherBuilder<CT, MT, RT, S, SB>

@@ -5,7 +5,8 @@ use libafl::{
         schedulers::{NopScheduler, QueueScheduler},
     },
     executors::StdExecutor,
-    feedbacks::{CrashFeedback, MaxMapFeedback},
+    feedback_or_fast,
+    feedbacks::{CrashFeedback, MaxMapFeedback, TimeoutFeedback},
     fuzzers::{Fuzzer, StdFuzzer},
     generators::RandPrintablesGenerator,
     inputs::{BytesInput, bytes::BytesContext},
@@ -44,7 +45,7 @@ where
     let feedback = MaxMapFeedback::new(&observer);
 
     // A feedback to choose if an input is a solution or not
-    let objective_feedback = CrashFeedback::new();
+    let objective_feedback = feedback_or_fast!(CrashFeedback::new(), TimeoutFeedback::new());
 
     // Setup a mutational stage with a basic bytes mutator
     let mutator = HavocScheduledMutator::new(havoc_mutations());
@@ -100,7 +101,11 @@ pub fn main() -> Result<()> {
     };
 
     // The launcher supervises the fuzzer and communicates with the workers.
-    let controller = SimpleController::builder().overwrite(true).build()?;
+    let controller = SimpleController::builder()
+        .worker_stdout(None)
+        .worker_stderr(None)
+        .overwrite(true)
+        .build()?;
 
     // The monitor tracks the fuzzing current status.
     let monitor = SimpleMonitor::new();

@@ -1,3 +1,5 @@
+use core::time::Duration;
+
 use libafl_core::Error;
 use serde::Serialize;
 
@@ -70,6 +72,22 @@ where
         rt_handle: &mut RuntimeHandle<S, W>,
     ) -> Result<(), Error> {
         self.0.run_impl(state, rt_handle)
+    }
+
+    fn set_timeout(&mut self, timeout: Duration) -> Result<(), Error> {
+        self.0.set_timeout(timeout)
+    }
+
+    fn arm_timeout(&mut self) -> Result<(), Error> {
+        self.0.arm_timeout()
+    }
+
+    fn disarm_timeout(&mut self) -> Result<(), Error> {
+        self.0.disarm_timeout()
+    }
+
+    fn unset_timeout(&mut self) -> Result<(), Error> {
+        self.0.unset_timeout()
     }
 }
 

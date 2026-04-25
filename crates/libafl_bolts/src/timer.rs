@@ -203,8 +203,12 @@ impl TimerStruct {
 
     #[cfg(target_os = "linux")]
     #[must_use]
-    /// Create a `TimerStruct` with the specified timeout
-    pub fn new(exec_tmout: Duration) -> Self {
+    /// Create a `TimerStruct` with the specified timeout.
+    ///
+    /// # Safety
+    ///
+    /// It must be created in the process in which the fuzzer will run.
+    pub unsafe fn new(exec_tmout: Duration) -> Self {
         let milli_sec = exec_tmout.as_millis();
         let it_value = libc::timespec {
             tv_sec: (milli_sec / 1000) as _,
