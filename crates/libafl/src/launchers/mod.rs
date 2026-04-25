@@ -16,7 +16,7 @@ use nix::{
 use serde::Serialize;
 
 use crate::{
-    Controller, Error, Result, Worker,
+    Controller, Error, Result, WorkdirFile, Worker,
     inputs::NopInput,
     monitors::{Monitor, SimpleMonitor},
     nop::{NopDescriptor, NopWorker},
@@ -81,8 +81,8 @@ impl
             cores,
             state_builder: || Ok(NopState::new()),
             max_state_size_per_client: None,
-            stdout_file: None,
-            stderr_file: None,
+            stdout_file: Some(PathBuf::from("logs.out")),
+            stderr_file: Some(PathBuf::from("logs.err")),
             phantom: PhantomData,
         })
     }
@@ -318,56 +318,22 @@ where
 
         let mut instances: Instances<CT::Descriptor, RT, S, CT::Worker> = Instances::new();
 
-        let stdout_file: Option<File> = self
-            .stdout_file
-            .as_ref()
-            .map(|p| {
-                File::create(p)
-                    .map_err(|e| Error::runtime(format!("Failed to open stdout_file: {e}")))
-            })
-            .transpose()?;
-
-        let stderr_file: Option<File> = self
-            .stderr_file
-            .as_ref()
-            .map(|p| {
-                File::create(p)
-                    .map_err(|e| Error::runtime(format!("Failed to open stderr_file: {e}")))
-            })
-            .transpose()?;
-
         // create an instance per core, ready to run.
         for core in self.cores {
             // spawn a controller for the instance
-            let controller = controller.create_controller()?;
+            let worker = controller.create_worker()?;
 
             // create the state for the instance
-            let state: S = (self.state_builder)(&controller)?;
-
-            let stdout_file = match stdout_file.as_ref() {
-                Some(f) => Some(
-                    f.try_clone()
-                        .map_err(|e| Error::runtime(format!("Failed to clone stdout_file: {e}")))?,
-                ),
-                None => None,
-            };
-
-            let stderr_file = match stderr_file.as_ref() {
-                Some(f) => Some(
-                    f.try_clone()
-                        .map_err(|e| Error::runtime(format!("Failed to clone stderr_file: {e}")))?,
-                ),
-                None => None,
-            };
+            let state: S = (self.state_builder)(&worker)?;
 
             // add the instance to the list
             instances.add_instance(Instance::new(
                 self.runtime.clone(),
                 state,
-                controller,
+                worker,
                 core,
-                stdout_file,
-                stderr_file,
+                self.stdout_file.clone().map(|f| WorkdirFile::Path(f)),
+                self.stderr_file.clone().map(|f| WorkdirFile::Path(f)),
             ));
         }
 

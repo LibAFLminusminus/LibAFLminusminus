@@ -11,7 +11,8 @@ use core::{
 };
 use std::{
     collections::HashMap,
-    fs,
+    fs::{self, File},
+    io::{Seek, SeekFrom},
     path::{Path, PathBuf},
     string::ToString,
 };
@@ -99,14 +100,6 @@ impl Stats {
     }
 }
 
-/// write to json stat file
-pub fn write_stats_json<P: AsRef<Path>>(stats: &Stats, path: &P) -> Result<()> {
-    let file = fs::File::create(path)?;
-    serde_json::to_writer_pretty(file, stats)
-        .map_err(|_| Error::runtime("Failed to dump the stats to a file"));
-    Ok(())
-}
-
 /// read from a file.
 pub fn read_stats_json<P: AsRef<Path>>(path: P) -> Result<Stats> {
     let file = fs::File::open(path)?;
@@ -114,9 +107,11 @@ pub fn read_stats_json<P: AsRef<Path>>(path: P) -> Result<Stats> {
         .map_err(|_| Error::runtime("Failed to read the stats from a file"))
 }
 
-pub fn sync_stats<P: AsRef<Path>>(stats: &Stats, workdir: P) {
-    let stats_file = workdir.as_ref().to_path_buf().join("fuzzer_stats");
-    write_stats_json(stats, &stats_file);
+pub fn sync_stats(file: &mut File, stats: &Stats) -> Result<()> {
+    file.seek(SeekFrom::Start(0));
+    serde_json::to_writer_pretty(file, stats)
+        .map_err(|_| Error::runtime("Failed to dump the stats to a file"));
+    Ok(())
 }
 
 pub trait FlatState {

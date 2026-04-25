@@ -1,4 +1,4 @@
-use crate::{Controller, Worker};
+use crate::{Controller, Workdir, Worker};
 
 pub struct NopController;
 pub struct NopWorker;
@@ -10,12 +10,12 @@ impl Controller for NopController {
     type Worker = NopWorker;
     type Descriptor = NopDescriptor;
 
-    fn create_controller(&mut self) -> Result<Self::Worker, libafl_core::Error> {
+    fn create_worker(&mut self) -> Result<Self::Worker, libafl_core::Error> {
         Ok(NopWorker)
     }
 
-    fn controllers(&self) -> &[Self::Worker] {
-        unimplemented!("nop controller has no clients");
+    fn workers(&self) -> &[Self::Descriptor] {
+        unimplemented!("nop controller has no workers");
     }
 }
 
@@ -30,7 +30,7 @@ impl Worker for NopWorker {
         &NopDescriptor
     }
 
-    fn workdir(&self) -> &std::path::PathBuf {
+    fn workdir(&self) -> &Workdir {
         unimplemented!("nop controller has no workdir");
     }
 

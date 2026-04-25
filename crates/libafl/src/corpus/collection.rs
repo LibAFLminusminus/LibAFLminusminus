@@ -275,13 +275,13 @@ where
     I: Input,
 {
     /// Create a new [`OnDiskCorpus`]
-    pub fn new(root: PathBuf, context: CT, scheduler: SC) -> Result<Self, Error> {
+    pub fn new<P: AsRef<Path>>(root: P, context: CT, scheduler: SC) -> Result<Self, Error> {
         Self::new_with_format(root, TestcaseFilenameFormat::Id, context, scheduler)
     }
 
     /// Create a new [`OnDiskCorpus`]
-    pub fn new_with_format(
-        root: PathBuf,
+    pub fn new_with_format<P: AsRef<Path>>(
+        root: P,
         filename_format: TestcaseFilenameFormat,
         context: CT,
         scheduler: SC,
