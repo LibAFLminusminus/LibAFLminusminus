@@ -4,6 +4,7 @@ use std::{fs::File, string::ToString, thread::current};
 use libafl_bolts::current_time;
 use libafl_core::Error;
 use quanta::{Clock, Instant};
+use tuple_list::tuple_list;
 
 use crate::{
     FuzzerHooksTuple, Worker,
@@ -458,9 +459,40 @@ impl<F, H, OF> StdFuzzerBuilder<F, H, OF> {
     }
 }
 
-impl<F, H, OF> StdFuzzer<F, H, OF> {
+impl<F, OF> StdFuzzer<F, (), OF> {
     /// Creates a new [`StdFuzzer`] with standard behavior.
     pub fn new<E, I, R, S, ST, W>(
+        feedback: F,
+        objective_feedback: OF,
+        stages: &mut ST,
+        executor: &mut E,
+        state: &mut S,
+        rt_handle: &mut RuntimeHandle<S, W>,
+    ) -> Result<StdFuzzer<F, (), OF>, Error>
+    where
+        E: Executor<I, S>,
+        F: Feedback<I, E::Observers, S>,
+        I: Clone,
+        OF: Feedback<I, E::Observers, S>,
+        S: State<I>,
+        ST: StagesTuple<E, R, S, W, Self>,
+        W: Worker,
+    {
+        Self::with_hooks(
+            feedback,
+            objective_feedback,
+            tuple_list!(),
+            stages,
+            executor,
+            state,
+            rt_handle,
+        )
+    }
+}
+
+impl<F, H, OF> StdFuzzer<F, H, OF> {
+    /// Creates a new [`StdFuzzer`] with standard behavior.
+    pub fn with_hooks<E, I, R, S, ST, W>(
         feedback: F,
         objective_feedback: OF,
         hooks: H,
