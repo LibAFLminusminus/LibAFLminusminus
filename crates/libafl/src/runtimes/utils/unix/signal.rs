@@ -211,7 +211,7 @@ where
                         let _ = writer.flush();
                     }
                     if let Ok(r) = core::str::from_utf8(&bsod) {
-                        log::error!("{r}");
+                        log::error!("\n{r}");
                     }
                 }
 
@@ -243,7 +243,7 @@ where
                         let _ = writer.flush();
                     }
                     if let Ok(r) = core::str::from_utf8(&bsod) {
-                        log::error!("{r}");
+                        log::error!("\n{r}");
                     }
                 }
             }
@@ -274,8 +274,6 @@ where
         panic::set_hook(Box::new(move |panic_info| unsafe {
             let signal_params = OsTerminationParams::Panic(panic_info);
 
-            old_hook(panic_info);
-
             let signal_handler: &mut Self = &mut *signal_handler_ptr.as_mut_ptr();
 
             let max_depth_reached = signal_handler.enter();
@@ -296,12 +294,14 @@ where
                 .map(|p| p.as_ref().in_fuzzing())
                 .unwrap_or(false)
             {
+                // not in a fuzzing run: use the default hook (includes RUST_BACKTRACE output)
+                old_hook(panic_info);
                 log::error!("Fuzzer panicked out of the fuzzing loop. This is a Fuzzer bug.");
                 libafl_bolts::os::exit(128 + SIGABRT);
                 return;
             }
 
-            // fuzzing in progress, propagate crash
+            // fuzzing in progress: print our own backtrace, skip the default hook
             log::error!("Target panicked: {panic_info}");
             let backtrace = Backtrace::force_capture();
             eprintln!("stack backtrace:\n{backtrace}");
