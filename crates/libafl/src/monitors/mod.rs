@@ -19,6 +19,9 @@ pub mod simple;
 pub use simple::SimpleMonitor;
 
 pub trait Monitor {
-    /// display (or not because you only want to display into the terminal if you are a main instance)
+    /// Display tick.
+    ///
+    /// This will be called regularly by the launcher to let the Monitor update its state
+    /// and display updated information
     fn display<CT: Controller>(&mut self, controller: &mut CT) -> Result<(), Error>;
 }

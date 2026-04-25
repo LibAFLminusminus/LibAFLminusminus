@@ -1,6 +1,6 @@
 use std::ptr::write;
 
-use libafl::{Error, executors::ExitKind, inputs::BytesInput};
+use libafl::{executors::ExitKind, inputs::BytesInput, Error};
 
 /// Coverage map with explicit assignments due to the lack of instrumentation
 pub const SIGNALS_LEN: usize = 16;

@@ -2,10 +2,21 @@ use crate::{Controller, Error, Result, WorkdirFile, Worker, monitors::Monitor, r
 use core::{borrow::Borrow, hash::Hash, time::Duration};
 use libafl_bolts::core_affinity::CoreId;
 use nix::{
-    sys::wait::{WaitStatus, wait},
+    poll::{PollFd, PollFlags, PollTimeout, poll},
+    sys::{
+        signal::{SigSet, SigmaskHow, Signal, sigprocmask},
+        signalfd::{SfdFlags, SignalFd},
+        wait::{WaitPidFlag, WaitStatus, waitpid},
+    },
     unistd::{ForkResult, Pid, dup2_stderr, dup2_stdout, fork, pipe},
 };
-use std::{collections::HashSet, fs::File, os::fd::OwnedFd, vec::Vec};
+use std::{
+    collections::HashSet,
+    fs::File,
+    os::fd::{AsFd, OwnedFd},
+    time::Instant,
+    vec::Vec,
+};
 
 pub type InstanceId = u32;
 
@@ -113,44 +124,91 @@ where
         Ok(())
     }
 
-    pub fn wait_instances<CT, MT>(&mut self, controller: &mut CT, monitor: &mut MT) -> Result<()>
+    pub fn wait_instances<CT, MT>(
+        &mut self,
+        controller: &mut CT,
+        monitor: &mut MT,
+        timeout: Duration,
+    ) -> Result<()>
     where
         W: Worker<Controller = CT>,
         CT: Controller<Worker = W, Descriptor = D>,
         MT: Monitor,
     {
+        let mut sigset = SigSet::empty();
+        sigset.add(Signal::SIGCHLD);
+        sigprocmask(SigmaskHow::SIG_BLOCK, Some(&sigset), None)
+            .map_err(|e| Error::runtime(format!("sigprocmask failed: {e}")))?;
+
+        let sfd = SignalFd::with_flags(&sigset, SfdFlags::SFD_NONBLOCK | SfdFlags::SFD_CLOEXEC)
+            .map_err(|e| Error::runtime(format!("signalfd failed: {e}")))?;
+
+        // collect children that exited before we set up the signalfd.
+        self.drain_children(controller)?;
+
+        let poll_timeout = PollTimeout::try_from(timeout).expect("Incorrect poll timeout");
+
         while !self.active_instances.is_empty() {
-            match wait() {
-                Ok(WaitStatus::Exited(pid, exit_code)) => {
-                    let instance_repr = self
-                        .active_instances
-                        .take(&pid)
-                        .unwrap_or_else(||
-                            panic!("Removed a PID ({pid}) not in the active PID list. This is a fuzzer bug.")
-                        );
+            monitor.display(controller)?;
 
-                    controller.on_worker_exit(&instance_repr.descriptor, exit_code)?;
+            let mut fds = [PollFd::new(sfd.as_fd(), PollFlags::POLLIN)];
+            match poll(&mut fds, poll_timeout) {
+                Err(nix::errno::Errno::EINTR) => {
+                    // Interrupted by a signal unrelated to SIGCHLD; retry.
                 }
-                Ok(WaitStatus::Signaled(pid, signal, _)) => {
-                    let instance_repr = self
-                        .active_instances
-                        .take(&pid)
-                        .unwrap_or_else(||
-                            panic!("Removed a PID ({pid}) not in the active PID list. This is a fuzzer bug.")
-                        );
+                Err(e) => return Err(Error::runtime(format!("poll failed: {e}"))),
+                Ok(0) => {
+                    // poll timed out. loop over.
+                }
+                Ok(n) => {
+                    // consume the pending signals
+                    while matches!(sfd.read_signal(), Ok(Some(_))) {}
 
-                    controller.on_worker_termination(&instance_repr.descriptor, signal)?;
+                    // collect children that exited
+                    self.drain_children(controller)?;
                 }
-
-                Ok(_) => {
-                    // ignore, this is harmless stuff
-                }
-                Err(e) => return Err(Error::runtime(format!("wait() failed: {e}"))),
             }
         }
 
         log::info!("All instances finished successfully.");
 
+        Ok(())
+    }
+
+    /// collect dead children correctly.
+    fn drain_children<CT>(&mut self, controller: &mut CT) -> Result<()>
+    where
+        CT: Controller<Worker = W, Descriptor = D>,
+        W: Worker<Controller = CT>,
+    {
+        loop {
+            match waitpid(Pid::from_raw(-1), Some(WaitPidFlag::WNOHANG)) {
+                Ok(WaitStatus::StillAlive) => break,
+                Ok(WaitStatus::Exited(pid, exit_code)) => {
+                    log::info!("Worker with PID {pid} exited with exit code {exit_code}");
+
+                    let instance_repr = self
+                        .active_instances
+                        .take(&pid)
+                        .unwrap_or_else(|| panic!("Removed a PID ({pid}) not in the active PID list. This is a fuzzer bug."));
+
+                    controller.on_worker_exit(&instance_repr.descriptor, exit_code)?;
+                }
+                Ok(WaitStatus::Signaled(pid, signal, _)) => {
+                    log::info!("Worker with PID {pid} exited because of signal {signal}");
+
+                    let instance_repr = self
+                        .active_instances
+                        .take(&pid)
+                        .unwrap_or_else(|| panic!("Removed a PID ({pid}) not in the active PID list. This is a fuzzer bug."));
+
+                    controller.on_worker_termination(&instance_repr.descriptor, signal)?;
+                }
+                Ok(_) => {}
+                Err(nix::errno::Errno::ECHILD) => break,
+                Err(e) => return Err(Error::runtime(format!("waitpid failed: {e}"))),
+            }
+        }
         Ok(())
     }
 }

@@ -198,6 +198,7 @@ log = { workspace = true }
 meminterval = { workspace = true, features = ["serde"] }
 nix = { workspace = true, optional = true, features = [
   "signal",
+  "poll",
   "ptrace",
   "personality",
   "fs",

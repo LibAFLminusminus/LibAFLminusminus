@@ -1,25 +1,27 @@
 use libafl::{
-    Result, Worker,
     corpus::{
-        Corpus, InMemoryCorpus, OnDiskCorpus, Scheduler,
         schedulers::{NopScheduler, QueueScheduler},
+        Corpus, InMemoryCorpus, OnDiskCorpus, Scheduler,
     },
     executors::StdExecutor,
     feedbacks::{CrashFeedback, MaxMapFeedback},
     fuzzer::{Fuzzer, StdFuzzer},
     generators::RandPrintablesGenerator,
-    inputs::{BytesInput, bytes::BytesContext},
+    inputs::{bytes::BytesContext, BytesInput},
     launchers::StdLauncher,
     monitors::SimpleMonitor,
-    mutators::{HavocScheduledMutator, havoc_mutations},
+    mutators::{havoc_mutations, HavocScheduledMutator},
     non_zero,
     observers::ConstMapObserver,
     runtimes::RuntimeHandle,
     simple::{SimpleController, SimpleWorker},
     stages::StdMutationalStage,
     state::StdState,
+    Result, Worker,
 };
-use libafl_bolts::{current_nanos, nonnull_raw_mut, rands::StdRand, tuples::tuple_list};
+use libafl_bolts::{
+    core_affinity::Cores, current_nanos, nonnull_raw_mut, rands::StdRand, tuples::tuple_list,
+};
 
 use crate::target::SIGNALS;
 
