@@ -211,7 +211,7 @@ where
                         let _ = writer.flush();
                     }
                     if let Ok(r) = core::str::from_utf8(&bsod) {
-                        log::error!("{r}");
+                        log::error!("\n{r}");
                     }
                 }
 
@@ -243,7 +243,7 @@ where
                         let _ = writer.flush();
                     }
                     if let Ok(r) = core::str::from_utf8(&bsod) {
-                        log::error!("{r}");
+                        log::error!("\n{r}");
                     }
                 }
             }

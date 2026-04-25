@@ -104,7 +104,7 @@ impl WorkdirFile {
             let file = OpenOptions::new()
                 .read(true)
                 .write(true)
-                .create_new(true)
+                .create(true)
                 .open(root_dir.as_ref().join(p.as_path()))?;
 
             *self = WorkdirFile::File(file);
