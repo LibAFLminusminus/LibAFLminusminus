@@ -539,13 +539,12 @@ impl Forkserver {
 ///
 /// Shared memory feature is also available, but you have to set things up in your code.
 /// Please refer to AFL++'s docs. <https://github.com/AFLplusplus/AFLplusplus/blob/stable/instrumentation/README.persistent_mode.md>
-pub struct ForkserverExecutor<I, OT, S, SHM> {
+pub struct ForkserverExecutor<OT, SHM> {
     inner: BuiltForkserver<SHM>,
     observers: OT,
-    phantom: PhantomData<fn() -> (I, S)>, // For Send/Sync
 }
 
-impl<I, OT, S, SHM> Debug for ForkserverExecutor<I, OT, S, SHM>
+impl<OT, SHM> Debug for ForkserverExecutor<OT, SHM>
 where
     OT: Debug,
     SHM: Debug,
@@ -563,20 +562,20 @@ where
     }
 }
 
-impl<I, OT, S, SHM> Deref for ForkserverExecutor<I, OT, S, SHM> {
+impl<OT, SHM> Deref for ForkserverExecutor<OT, SHM> {
     type Target = BuiltForkserver<SHM>;
     fn deref(&self) -> &Self::Target {
         &self.inner
     }
 }
 
-impl<I, OT, S, SHM> DerefMut for ForkserverExecutor<I, OT, S, SHM> {
+impl<OT, SHM> DerefMut for ForkserverExecutor<OT, SHM> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.inner
     }
 }
 
-impl ForkserverExecutor<(), (), (), ()> {
+impl ForkserverExecutor<(), ()> {
     /// Builder for `ForkserverExecutor`
     #[must_use]
     pub fn builder() -> ForkserverExecutorBuilder<'static, ()> {
@@ -584,9 +583,8 @@ impl ForkserverExecutor<(), (), (), ()> {
     }
 }
 
-impl<I, OT, S, SHM> ForkserverExecutor<I, OT, S, SHM>
+impl<OT, SHM> ForkserverExecutor<OT, SHM>
 where
-    OT: ObserversTuple<S>,
     SHM: ShMem,
 {
     fn map_input_to_shmem(&mut self, input: &[u8], input_size: usize) -> Result<(), Error> {
@@ -686,7 +684,7 @@ where
     }
 }
 
-impl<I, OT, S, SHM> Executor<I, S> for ForkserverExecutor<I, OT, S, SHM>
+impl<I, OT, S, SHM> Executor<I, S> for ForkserverExecutor<OT, SHM>
 where
     OT: ObserversTuple<S>,
     S: FlatState + HasCorpus<I>,
@@ -735,7 +733,7 @@ where
     }
 }
 
-impl<I, OT, S, SHM> DependencyResolver for ForkserverExecutor<I, OT, S, SHM> {}
+impl<OT, SHM> DependencyResolver for ForkserverExecutor<OT, SHM> {}
 
 /// The builder for `ForkserverExecutor`
 #[derive(Debug)]
@@ -805,10 +803,10 @@ where
     /// in case no input file is specified.
     /// If `debug_child` is set, the child will print to `stdout`/`stderr`.
     #[expect(clippy::pedantic)]
-    pub fn build<I, OT, S>(
+    pub fn build<OT, S>(
         mut self,
         observers: OT,
-    ) -> Result<ForkserverExecutor<I, OT, S, SHM>, Error>
+    ) -> Result<ForkserverExecutor<OT, SHM>, Error>
     where
         OT: ObserversTuple<S>,
     {
@@ -816,17 +814,16 @@ where
         Ok(ForkserverExecutor {
             inner: built,
             observers,
-            phantom: PhantomData,
         })
     }
 
     /// Builds `ForkserverExecutor` downsizing the coverage map to fit exactly the AFL++ map size.
     #[expect(clippy::pedantic)]
-    pub fn build_dynamic_map<A, MO, OT, I, S>(
+    pub fn build_dynamic_map<A, MO, OT, S>(
         mut self,
         mut map_observer: A,
         other_observers: OT,
-    ) -> Result<ForkserverExecutor<I, (A, OT), S, SHM>, Error>
+    ) -> Result<ForkserverExecutor<(A, OT), SHM>, Error>
     where
         A: AsMut<MO>,
         MO: MapObserver + Truncate,
@@ -856,7 +853,6 @@ where
         Ok(ForkserverExecutor {
             inner: built,
             observers: (map_observer, other_observers),
-            phantom: PhantomData,
         })
     }
 
