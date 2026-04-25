@@ -1,7 +1,9 @@
 //! A simple typed shared memory implementation
 //! It is mostly boilerplate code to use in libafl for various shared-memory based operations.
+//!
+//! It supports both header-based and header-less style shared memory.
 
-use core::{ptr::NonNull, slice, sync::atomic::Ordering};
+use core::{fmt, marker::PhantomData, ptr::NonNull, slice, sync::atomic::Ordering};
 
 use atomic::Atomic;
 use libafl_core::{Result, runtime};
@@ -14,133 +16,227 @@ pub use anonymous::{AnonShmBuilder, AnonShmReceiver, AnonShmSender};
 pub mod sysv;
 pub use sysv::SysVShm;
 
-/// The magic value signaling the shared memory value is invalid.
+/// The invalid marker for a given memory region.
+#[inline]
 pub fn invalid_shm_size<SZ: NumCast + Bounded>() -> SZ {
     SZ::max_value()
 }
 
-/// A piece of shared memory
-///
-/// It must be created using one of the implemented shared memory models (System V, POSIX, etc...)
-/// It has the following layout in memory:
-///
-/// |                 size                  |
-/// |                                       |
-/// <-- real_size --><-------- data -------->
-/// |                |                      |
-/// |  size_of<SZ>() | size - size_of<SZ>() |
-#[derive(Debug)]
-pub struct SharedMemory<SZ: NoUninit> {
-    ptr: NonNull<u8>,
-    size: Atomic<SZ>,
+/// Describes the header layout of a [`SharedMemory`] region.
+pub trait ShmHeader {
+    /// The size of the header in bytes.
+    const HEADER_SIZE: usize;
+
+    /// Returns `Some(data_size)` when the region holds valid data, `None` when invalid.
+    ///
+    /// # Safety
+    ///
+    /// `ptr` must point to the start of a live shared memory region of at least
+    /// `HEADER_SIZE + total_minus_header` bytes.
+    unsafe fn read_real_size(ptr: NonNull<u8>, total_minus_header: usize) -> Option<usize>;
+
+    /// Stores `size` into the header.
+    ///
+    /// # Safety
+    ///
+    /// `ptr` must point to the start of a live shared memory region with at least
+    /// `HEADER_SIZE` bytes.
+    unsafe fn write_real_sie(ptr: NonNull<u8>, size: usize);
+
+    /// Marks the region as invalid by writing the sentinel value into the header.
+    ///
+    /// # Safety
+    ///
+    /// Same requirements as [`write_size`].
+    unsafe fn invalidate(ptr: NonNull<u8>);
 }
 
-impl<SZ: NoUninit> Clone for SharedMemory<SZ> {
+/// Marks an SHM header as empty.
+/// There will be no size header if use.
+///
+/// The shared memory is guaranteed to behave exactly like a usual
+/// memory slice.
+#[derive(Debug)]
+pub struct EmptyShmHeader;
+
+impl ShmHeader for EmptyShmHeader {
+    const HEADER_SIZE: usize = 0;
+
+    #[inline]
+    unsafe fn read_real_size(_ptr: NonNull<u8>, total_minus_header: usize) -> Option<usize> {
+        Some(total_minus_header)
+    }
+
+    #[inline]
+    unsafe fn write_real_sie(_ptr: NonNull<u8>, _size: usize) {}
+
+    #[inline]
+    unsafe fn invalidate(_ptr: NonNull<u8>) {}
+}
+
+impl<SZ> ShmHeader for SZ
+where
+    SZ: NoUninit + NumCast + Bounded + PartialEq,
+{
+    const HEADER_SIZE: usize = size_of::<SZ>();
+
+    unsafe fn read_real_size(ptr: NonNull<u8>, _total_minus_header: usize) -> Option<usize> {
+        let size_ptr = ptr.as_ptr() as *const Atomic<SZ>;
+        let size = unsafe { (*size_ptr).load(Ordering::SeqCst) };
+
+        if size == invalid_shm_size::<SZ>() {
+            None
+        } else {
+            Some(NumCast::from(size).unwrap())
+        }
+    }
+
+    unsafe fn write_real_sie(ptr: NonNull<u8>, size: usize) {
+        let sz: SZ = NumCast::from(size).unwrap();
+        let size_ptr = ptr.as_ptr() as *mut Atomic<SZ>;
+
+        unsafe { (*size_ptr).store(sz, Ordering::SeqCst) }
+    }
+
+    unsafe fn invalidate(ptr: NonNull<u8>) {
+        let size_ptr = ptr.as_ptr() as *mut Atomic<SZ>;
+
+        unsafe { (*size_ptr).store(invalid_shm_size::<SZ>(), Ordering::SeqCst) }
+    }
+}
+
+/// A piece of shared memory.
+///
+/// Layout when `SZ` is a numeric type:
+///
+/// ```text
+/// |<------------ total_size ------------->|
+/// |                                       |
+/// |<-- real_size --><-------- data ------>|
+/// |                |                      |
+/// |  size_of<SZ>() | size - size_of<SZ>() |
+/// ```
+///
+/// When `SZ = EmptyShmHeader` there is no `real_size` header.
+/// the full allocation is the data region.
+pub struct SharedMemory<SZ: ShmHeader> {
+    ptr: NonNull<u8>,
+    total_size: usize,
+    phantom: PhantomData<SZ>,
+}
+
+impl<SZ: ShmHeader> fmt::Debug for SharedMemory<SZ> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("SharedMemory")
+            .field("ptr", &self.ptr)
+            .field("total_size", &self.total_size)
+            .finish()
+    }
+}
+
+impl<SZ: ShmHeader> Clone for SharedMemory<SZ> {
     fn clone(&self) -> Self {
         Self {
-            ptr: self.ptr.clone(),
-            size: Atomic::new(self.size.load(Ordering::Relaxed)),
+            ptr: self.ptr,
+            total_size: self.total_size,
+            phantom: PhantomData,
         }
     }
 }
 
-impl<SZ> SharedMemory<SZ>
-where
-    SZ: NoUninit + NumCast + Bounded + PartialEq,
-{
-    /// Create a new shared memory section.
+impl<SZ: ShmHeader> SharedMemory<SZ> {
+    /// Create a new [`SharedMemory`] view over an already-allocated region.
+    ///
+    /// `total_size` is the size of the **entire** allocation, including the header.
     ///
     /// # Safety
     ///
-    /// Of course, the ptr and size should be valid shared memory.
-    ///
-    /// `size` should be the total size of the underlying shared memory.
-    /// Be careful, as `size` includes the size taken by the "real" size field in the first few bytes.
-    pub unsafe fn new(ptr: NonNull<u8>, size: SZ) -> Result<Self> {
-        let size_atomic = Atomic::new(size);
-        let size_usize: usize = NumCast::from(size).unwrap();
-
-        if size_usize < size_of::<SZ>() {
+    /// `ptr` and `total_size` must describe a valid, live shared memory region.
+    pub unsafe fn new(ptr: NonNull<u8>, total_size: usize) -> Result<Self> {
+        if total_size < SZ::HEADER_SIZE {
             return Err(runtime!(
-                "Shared memory region is too smal: {} bytes",
-                size_usize
+                "Shared memory region is too small: {} bytes",
+                total_size
             ));
         }
 
         let mut shm = Self {
             ptr,
-            size: size_atomic,
+            total_size,
+            phantom: PhantomData,
         };
 
-        // safety guard: start start with invalid value.
         shm.mark_invalid();
 
         Ok(shm)
     }
 
-    /// # Safety
-    ///
-    /// This MUST be called after set_size has been called on the shared memory
-    pub unsafe fn data(&self) -> &[u8] {
-        let hdr_size: usize = size_of::<SZ>();
-        let size = self.get_size().expect("Invalid data size stored.");
-        let size_usize: usize = NumCast::from(size).unwrap();
-
-        unsafe { slice::from_raw_parts(self.ptr.as_ptr().add(hdr_size), size_usize) }
+    /// Total size of the allocation, including the header.
+    pub fn total_size(&self) -> usize {
+        self.total_size
     }
 
-    /// Get the inner full shared memory data as mutable.
+    /// Returns a slice of the effectively written data.
     ///
     /// # Safety
     ///
-    /// The function [`set_size`] MUST be called after writing to the shared memory
-    /// with the size effectively written.
-    /// [`set_size`] (or [`mark_invalid`]) must be called before any other calls to [`Self`] after calling this function.
-    pub unsafe fn data_mut(&mut self) -> &mut [u8] {
-        let hdr_size = size_of::<SZ>();
-        let size = self.size.load(Ordering::SeqCst);
-        let size_usize: usize = NumCast::from(size).unwrap();
+    /// For numeric `SZ`, [`set_size`] must have been called after the last write through [`data_mut`] with
+    /// the corresponding real data size.
+    ///
+    /// Calling this before [`data_mut`] has been called in general has an undefined behavior.
+    pub unsafe fn data(&self) -> &[u8] {
+        let data_size = unsafe { SZ::read_real_size(self.ptr, self.total_size - SZ::HEADER_SIZE) }
+            .expect("Invalid data size stored.");
 
+        unsafe { slice::from_raw_parts(self.ptr.as_ptr().add(SZ::HEADER_SIZE), data_size) }
+    }
+
+    /// Returns a mutable slice covering the full writable region (excluding the header).
+    ///
+    /// # Safety
+    ///
+    /// The caller must call [`set_size`] (or [`mark_invalid`]) before any subsequent
+    /// call to [`data`].
+    ///
+    /// For [`EmptyShmHeader`], this is always safe to use.
+    pub unsafe fn data_mut(&mut self) -> &mut [u8] {
         unsafe {
             slice::from_raw_parts_mut(
-                self.ptr.as_ptr().add(hdr_size),
-                size_usize.checked_sub(hdr_size).unwrap(),
+                self.ptr.as_ptr().add(SZ::HEADER_SIZE),
+                self.total_size - SZ::HEADER_SIZE,
             )
         }
     }
 
-    /// Set the size effectively written while manipulating data_mut.
+    /// Records how many bytes of data were written.
+    ///
+    /// `size` is the number of data bytes, **not** including the header.
     ///
     /// # Safety
     ///
-    /// It MUST be set before reading data using [`data`] and after writing through [`data_mut`].
-    /// The ONLY valid call to this function without writing is to write a size of 0.
-    pub unsafe fn set_size(&mut self, size: SZ) {
-        let size_ptr = self.ptr.as_ptr() as *mut Atomic<SZ>;
-        unsafe { (*size_ptr).store(size, Ordering::SeqCst) }
+    /// Must be called after every write through [`data_mut`].
+    pub unsafe fn set_size(&mut self, size: usize) {
+        unsafe { SZ::write_real_sie(self.ptr, size) }
     }
 
-    /// return Some with the effective size, and None if the size is invalid.
-    pub fn get_size(&self) -> Option<SZ> {
-        let size_ptr = self.ptr.as_ptr() as *const Atomic<SZ>;
-        let size = unsafe { (*size_ptr).load(Ordering::SeqCst) };
-
-        if size == invalid_shm_size() {
-            None
-        } else {
-            Some(size)
-        }
+    /// Returns the effective data size, or `None` if the region is marked invalid.
+    ///
+    /// For [`EmptyShmHeader`], always returns `Some(total_size)`.
+    pub fn get_size(&self) -> Option<usize> {
+        unsafe { SZ::read_real_size(self.ptr, self.total_size - SZ::HEADER_SIZE) }
     }
 
-    /// Is there a valid shared data available?
+    /// Returns `true` if the region is marked invalid.
+    ///
+    /// For [`EmptyShmHeader`], always returns `Some(total_size)`.
     pub fn is_invalid(&self) -> bool {
         self.get_size().is_none()
     }
 
-    /// Mark the shared data as invalid.
+    /// Marks the region as invalid so the next receiver knows no data is ready.
+    ///
+    /// For [`EmptyShmHeader`], this does nothing.
     pub fn mark_invalid(&mut self) {
-        unsafe {
-            self.set_size(invalid_shm_size());
-        }
+        unsafe { SZ::invalidate(self.ptr) }
     }
 }

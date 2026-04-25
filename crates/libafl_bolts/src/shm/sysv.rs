@@ -11,31 +11,33 @@ use std::{
 
 use libafl_core::{Result, last_os_error};
 use libc::{IPC_CREAT, IPC_EXCL, IPC_PRIVATE, key_t, shmat, shmget};
-use num_traits::{Bounded, NumCast};
-use wide::bytemuck::NoUninit;
 
-use crate::shm::SharedMemory;
+use crate::{
+    EmptyShmHeader,
+    shm::{SharedMemory, ShmHeader},
+};
 
 /// A simple abstraction over System V shared memory
 #[derive(Debug)]
-pub struct SysVShm<SZ: NoUninit> {
+pub struct SysVShm<SZ: ShmHeader> {
     shm: SharedMemory<SZ>,
-    shm_size_usize: usize,
     shm_id: key_t,
 }
 
-impl<SZ> SysVShm<SZ>
-where
-    SZ: NoUninit + NumCast + Bounded + PartialEq,
-{
-    /// Create a System V-backed shared memory region.
-    /// max_size corresponds to the data size to store.
-    pub fn new(max_size: SZ) -> Result<Self> {
-        let max_size_usize: usize = NumCast::from(max_size).unwrap();
-        let shm_size_usize = max_size_usize + size_of::<SZ>();
-        let shm_size: SZ = NumCast::from(shm_size_usize).unwrap();
+impl SysVShm<EmptyShmHeader> {
+    /// Create a System V-backed shared memory region of `size` bytes.
+    pub fn new(size: usize) -> Result<Self> {
+        Self::new_with_hdr(size)
+    }
+}
 
-        let shm_id = unsafe { shmget(IPC_PRIVATE, shm_size_usize, IPC_CREAT | IPC_EXCL | 0o600) };
+impl<SZ: ShmHeader> SysVShm<SZ> {
+    /// Create a System V-backed shared memory region.
+    /// `max_size` is the maximum number of data bytes (not including the header).
+    pub fn new_with_hdr(max_size: usize) -> Result<Self> {
+        let total_size = max_size + SZ::HEADER_SIZE;
+
+        let shm_id = unsafe { shmget(IPC_PRIVATE, total_size, IPC_CREAT | IPC_EXCL | 0o600) };
 
         if shm_id == -1 {
             return Err(last_os_error!("shmget failed"));
@@ -50,13 +52,9 @@ where
         let shm_ptr = NonNull::new(shm_ptr.cast())
             .expect("Shared memory pointer should be non-null at this point");
 
-        let shm = unsafe { SharedMemory::new(shm_ptr, shm_size)? };
+        let shm = unsafe { SharedMemory::new(shm_ptr, total_size)? };
 
-        Ok(Self {
-            shm,
-            shm_size_usize,
-            shm_id,
-        })
+        Ok(Self { shm, shm_id })
     }
 
     /// Get the string representation of the System V shared memory ID
@@ -69,9 +67,9 @@ where
         &self.shm
     }
 
-    /// get the allocated size of this memory region
+    /// Total size of the underlying allocation (header (if any) + data).
     pub fn shm_size_usize(&self) -> usize {
-        self.shm_size_usize
+        self.shm.total_size()
     }
 
     /// Get a mutable ref to the underlying shared memory
@@ -85,7 +83,7 @@ where
     /// Writes to env variables and may only be done single-threaded.
     #[cfg(feature = "std")]
     pub unsafe fn write_to_env(&self, env_name: &str) -> Result<()> {
-        let map_size = self.shm_size_usize;
+        let map_size = self.shm.total_size();
         let map_size_env = format!("{env_name}_SIZE");
         // TODO: Audit that the environment access only happens in single-threaded code.
         unsafe { env::set_var(env_name, self.shm_id().to_string()) };

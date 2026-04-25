@@ -19,9 +19,7 @@ use libafl::{
     stages::StdMutationalStage,
     state::StdState,
 };
-use libafl_bolts::{
-    core_affinity::Cores, current_nanos, nonnull_raw_mut, rands::StdRand, tuples::tuple_list,
-};
+use libafl_bolts::{current_nanos, nonnull_raw_mut, rands::StdRand, tuples::tuple_list};
 
 use crate::target::SIGNALS;
 

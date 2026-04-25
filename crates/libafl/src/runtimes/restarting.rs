@@ -74,7 +74,7 @@ where
         rt_handle: &mut RuntimeHandle<S, W>,
     ) -> Result<(), Error> {
         let (mut state_sender, mut state_receiver) =
-            OsShmBuilder::build(self.state_ram_limit.get())?;
+            OsShmBuilder::build_with_hdr::<usize, S>(self.state_ram_limit.get())?;
 
         loop {
             match unsafe { fork() } {

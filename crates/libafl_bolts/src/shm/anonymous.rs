@@ -4,11 +4,12 @@ use core::marker::PhantomData;
 
 use libafl_core::{Result, non_zero, runtime, serialize};
 use nix::sys::mman::{MapFlags, ProtFlags, mmap_anonymous};
-use num_traits::{Bounded, NumCast};
 use serde::{Deserialize, Serialize};
-use wide::bytemuck::NoUninit;
 
-use crate::shm::SharedMemory;
+use crate::{
+    EmptyShmHeader,
+    shm::{SharedMemory, ShmHeader},
+};
 
 /// A helper builder
 ///
@@ -21,7 +22,7 @@ pub struct AnonShmBuilder;
 /// It sends some value on the shared memory,
 /// ready to be consumed by the [`AnonShmReceiver`]
 #[derive(Debug)]
-pub struct AnonShmSender<SZ: NoUninit, T> {
+pub struct AnonShmSender<SZ: ShmHeader, T> {
     shm: SharedMemory<SZ>,
     phantom: PhantomData<T>,
 }
@@ -30,29 +31,38 @@ pub struct AnonShmSender<SZ: NoUninit, T> {
 ///
 /// It receives memory sent by the [`AnonShmSender`].
 #[derive(Debug)]
-pub struct AnonShmReceiver<SZ: NoUninit, T> {
+pub struct AnonShmReceiver<SZ: ShmHeader, T> {
     shm: SharedMemory<SZ>,
     phantom: PhantomData<T>,
 }
 
 impl AnonShmBuilder {
+    /// Same as [`build_with_hdr`], but the size is always the full shared memory.
+    /// There is not size header.
+    pub fn build<T>(
+        size: usize,
+    ) -> Result<(
+        AnonShmSender<EmptyShmHeader, T>,
+        AnonShmReceiver<EmptyShmHeader, T>,
+    )> {
+        Self::build_with_hdr::<EmptyShmHeader, T>(size)
+    }
+
     /// Build a pair of shared data sender / receiver.
     /// The sender writes the data to share, and the receiver handles it.
     /// Once data is received, the shared memory is marked as invalid until the sender sends something new.
-    pub fn build<SZ, T>(max_data_size: SZ) -> Result<(AnonShmSender<SZ, T>, AnonShmReceiver<SZ, T>)>
-    where
-        SZ: NoUninit + NumCast + Bounded + PartialEq,
-    {
-        let max_data_size_usize: usize = NumCast::from(max_data_size).unwrap();
-        let shm_size_usize: usize = max_data_size_usize + size_of::<SZ>();
-        let shm_size: SZ = NumCast::from(shm_size_usize).unwrap();
-
-        let nonzero_shm_size = non_zero!(shm_size_usize);
+    ///
+    /// `max_data_size` is the maximum number of data bytes the shared memory can store.
+    pub fn build_with_hdr<SZ: ShmHeader, T>(
+        max_data_size: usize,
+    ) -> Result<(AnonShmSender<SZ, T>, AnonShmReceiver<SZ, T>)> {
+        let total_size = max_data_size + SZ::HEADER_SIZE;
+        let nonzero_total_size = non_zero!(total_size);
 
         let shared_memory = unsafe {
             mmap_anonymous(
                 None,
-                nonzero_shm_size,
+                nonzero_total_size,
                 ProtFlags::PROT_READ | ProtFlags::PROT_WRITE,
                 MapFlags::MAP_SHARED,
             )
@@ -60,14 +70,14 @@ impl AnonShmBuilder {
         };
 
         unsafe {
-            let shm = SharedMemory::new(shared_memory.cast(), shm_size)?;
+            let shm = SharedMemory::new(shared_memory.cast(), total_size)?;
 
             Ok((AnonShmSender::new(shm.clone()), AnonShmReceiver::new(shm)))
         }
     }
 }
 
-impl<SZ: NoUninit, T> AnonShmSender<SZ, T> {
+impl<SZ: ShmHeader, T> AnonShmSender<SZ, T> {
     unsafe fn new(shm: SharedMemory<SZ>) -> Self {
         Self {
             shm,
@@ -76,7 +86,7 @@ impl<SZ: NoUninit, T> AnonShmSender<SZ, T> {
     }
 }
 
-impl<SZ: NoUninit, T> AnonShmReceiver<SZ, T> {
+impl<SZ: ShmHeader, T> AnonShmReceiver<SZ, T> {
     unsafe fn new(shm: SharedMemory<SZ>) -> Self {
         Self {
             shm,
@@ -87,7 +97,7 @@ impl<SZ: NoUninit, T> AnonShmReceiver<SZ, T> {
 
 impl<SZ, T> AnonShmSender<SZ, T>
 where
-    SZ: NoUninit + NumCast + Bounded + PartialEq,
+    SZ: ShmHeader,
     T: Serialize,
 {
     /// Send some data on the shared memory
@@ -96,14 +106,13 @@ where
     pub fn send(&mut self, data: &T) -> Result<()> {
         let data_shm = unsafe { self.shm.data_mut() };
 
-        let used_len_usize = match postcard::to_slice(data, data_shm) {
+        let used_len = match postcard::to_slice(data, data_shm) {
             Ok(used_slice) => used_slice.len(),
             Err(e) => {
                 return Err(serialize!("Error while serializing data: {e}"));
             }
         };
 
-        let used_len: SZ = NumCast::from(used_len_usize).unwrap();
         unsafe {
             self.shm.set_size(used_len);
         }
@@ -114,7 +123,7 @@ where
 
 impl<SZ, T> AnonShmReceiver<SZ, T>
 where
-    SZ: NoUninit + NumCast + Bounded + PartialEq,
+    SZ: ShmHeader,
     for<'de> T: Deserialize<'de>,
 {
     /// # Safety
