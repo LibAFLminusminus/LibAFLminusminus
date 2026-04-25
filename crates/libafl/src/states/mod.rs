@@ -1245,7 +1245,7 @@ impl<I> NopState<I> {
 
 #[cfg(test)]
 mod test {
-    use crate::state::StdState;
+    use crate::states::StdState;
 
     #[test]
     fn test_std_state() {
