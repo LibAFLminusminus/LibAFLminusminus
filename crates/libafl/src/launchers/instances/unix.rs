@@ -4,16 +4,19 @@ use libafl_bolts::core_affinity::CoreId;
 use nix::{
     poll::{PollFd, PollFlags, PollTimeout, poll},
     sys::{
+        prctl::set_pdeathsig,
         signal::{SigSet, SigmaskHow, Signal, sigprocmask},
         signalfd::{SfdFlags, SignalFd},
         wait::{WaitPidFlag, WaitStatus, waitpid},
     },
-    unistd::{ForkResult, Pid, dup2_stderr, dup2_stdout, fork, pipe},
+    unistd::{ForkResult, Pid, dup2_stderr, dup2_stdout, fork, getpid, getppid, pipe},
 };
 use std::{
     collections::HashSet,
     fs::File,
     os::fd::{AsFd, OwnedFd},
+    process::exit,
+    thread::sleep,
     time::Instant,
     vec::Vec,
 };
@@ -69,6 +72,8 @@ where
             .take()
             .expect("Controller is not in the instance. This is a fuzzer bug.");
 
+        let parent_pid = getpid();
+
         match unsafe { fork()? } {
             ForkResult::Parent { child } => {
                 controller
@@ -77,6 +82,13 @@ where
                 Ok(InstanceRepr::new(child, worker.descriptor().clone()))
             }
             ForkResult::Child => {
+                set_pdeathsig(Signal::SIGKILL)?;
+
+                if getppid() != parent_pid {
+                    // race condition between set_pdeathsig call and parent dying.
+                    exit(0);
+                }
+
                 self.core.set_affinity()?;
 
                 worker.pre_runtime_exec()?;
