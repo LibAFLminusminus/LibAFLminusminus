@@ -25,6 +25,9 @@ const STATS_UPDATE_INTERVAL: Duration = Duration::from_secs(5);
 
 /// Note: this code should not allocate at all.
 /// Any allocation can result in unexpected locks because of concurrency bug with the standard library.
+///
+/// In practice, it's very hard to enforce, and most likely some allocations will happen there.
+/// If it is ever a real bug, investigate there.
 fn handle_objective_in_termination_handler<O, F, H, I, OF, S>(
     observers: &mut O,
     state: &mut S,
@@ -45,6 +48,10 @@ fn handle_objective_in_termination_handler<O, F, H, I, OF, S>(
     fuzzer
         .evaluate_execution(state, &input, observers, exit_kind)
         .unwrap();
+
+    // update stats before exit
+    let stats_file = fuzzer.stats_file.as_mut().unwrap();
+    sync_stats(stats_file, state.stats()).unwrap();
 }
 
 /// Crash signals will end up there, if it happens during a fuzzing run.
