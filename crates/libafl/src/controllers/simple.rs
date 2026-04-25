@@ -162,28 +162,12 @@ impl Worker for SimpleWorker {
     }
 
     fn pre_runtime_exec(&mut self) -> Result<()> {
-        if let Some(ref f) = self.descriptor.workdir.stdout {
-            let file = match f {
-                WorkdirFile::Path(p) => {
-                    let file = File::open(p.as_path())?;
-                    dup2_stdout(file)?;
-                }
-                WorkdirFile::File(file) => {
-                    dup2_stdout(file)?;
-                }
-            };
+        if let Some(f) = self.descriptor.workdir.stdout()? {
+            dup2_stdout(f)?;
         }
 
-        if let Some(ref f) = self.descriptor.workdir.stderr {
-            let file = match f {
-                WorkdirFile::Path(p) => {
-                    let file = File::open(p.as_path())?;
-                    dup2_stderr(file)?;
-                }
-                WorkdirFile::File(file) => {
-                    dup2_stderr(file)?;
-                }
-            };
+        if let Some(f) = self.descriptor.workdir.stderr()? {
+            dup2_stderr(f)?;
         }
 
         Ok(())
@@ -201,8 +185,8 @@ impl Default for SimpleControllerBuilder {
         Self {
             overwrite: false,
             root_dir: PathBuf::from("./workdir"),
-            worker_stdout: None,
-            worker_stderr: None,
+            worker_stdout: Some(WorkdirFile::Path(PathBuf::from("logs.out"))),
+            worker_stderr: Some(WorkdirFile::Path(PathBuf::from("logs.err"))),
         }
     }
 }

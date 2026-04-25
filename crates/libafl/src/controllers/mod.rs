@@ -84,6 +84,22 @@ impl Clone for WorkdirFile {
     }
 }
 
+impl WorkdirFile {
+    // TODO: i think we can do better than giving root_dir like that here...
+    pub fn to_file(&self, root_dir: &Path) -> Result<File> {
+        let file = match self {
+            WorkdirFile::Path(p) => OpenOptions::new()
+                .read(true)
+                .write(true)
+                .create_new(true)
+                .open(root_dir.join(p.as_path()))?,
+            WorkdirFile::File(file) => file.try_clone()?,
+        };
+
+        Ok(file)
+    }
+}
+
 impl Workdir {
     pub fn new<P: AsRef<Path>>(
         root_dir: P,
@@ -101,6 +117,22 @@ impl Workdir {
             stdout,
             stderr,
         })
+    }
+
+    pub fn stdout(&self) -> Result<Option<File>> {
+        if let Some(wd_f) = &self.stdout {
+            wd_f.to_file(self.root_dir.as_path()).map(|file| Some(file))
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub fn stderr(&self) -> Result<Option<File>> {
+        if let Some(wd_f) = &self.stderr {
+            wd_f.to_file(self.root_dir.as_path()).map(|file| Some(file))
+        } else {
+            Ok(None)
+        }
     }
 
     /// Create a new file, relative to the workdir.
