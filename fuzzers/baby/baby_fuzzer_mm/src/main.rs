@@ -76,12 +76,14 @@ where
         8,
     )?;
 
+    // Start the fuzzer
     fuzzer.fuzz_loop(&mut stages, &mut executor, &mut rand, state, rt_handle)
 }
 
 pub fn main() -> Result<()> {
     env_logger::init();
 
+    // The state creation closure.
     let state_builder = |worker: &SimpleWorker| {
         // A queue policy to get testcasess from the corpus
         let scheduler = QueueScheduler::new();
@@ -97,9 +99,13 @@ pub fn main() -> Result<()> {
         )
     };
 
+    // The launcher supervises the fuzzer and communicates with the workers.
     let controller = SimpleController::builder().overwrite(true).build()?;
+
+    // The monitor tracks the fuzzing current status.
     let monitor = SimpleMonitor::new()?;
 
+    // Launch the fuzzer
     StdLauncher::builder()?
         .controller(controller)
         .monitor(monitor)
