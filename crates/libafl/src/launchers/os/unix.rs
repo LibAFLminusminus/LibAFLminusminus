@@ -1,4 +1,4 @@
-use crate::{Controller, Error, Result, Worker, monitors::Monitor, runtimes::Runtime};
+use crate::{Controller, Error, Result, WorkdirFile, Worker, monitors::Monitor, runtimes::Runtime};
 use core::{borrow::Borrow, hash::Hash, time::Duration};
 use libafl_bolts::core_affinity::CoreId;
 use nix::{
@@ -14,8 +14,8 @@ pub struct Instance<RT, S, W> {
     state: Option<S>,
     worker: Option<W>,
     core: CoreId,
-    stdout_file: Option<File>,
-    stderr_file: Option<File>,
+    stdout_file: Option<WorkdirFile>,
+    stderr_file: Option<WorkdirFile>,
 }
 
 pub struct InstanceRepr<D> {
@@ -53,25 +53,22 @@ where
             .take()
             .expect("State is not in the instance. This is a fuzzer bug.");
 
-        let worker = self
+        let mut worker = self
             .worker
             .take()
             .expect("Controller is not in the instance. This is a fuzzer bug.");
 
         match unsafe { fork()? } {
             ForkResult::Parent { child } => {
-                controller.on_start(worker.descriptor(), child.as_raw().try_into().unwrap())?;
+                controller
+                    .on_worker_start(worker.descriptor(), child.as_raw().try_into().unwrap())?;
 
                 Ok(InstanceRepr::new(child, worker.descriptor().clone()))
             }
             ForkResult::Child => {
                 self.core.set_affinity()?;
-                if let Some(ref f) = self.stdout_file {
-                    dup2_stdout(f)?;
-                }
-                if let Some(ref f) = self.stderr_file {
-                    dup2_stderr(f)?;
-                }
+
+                worker.pre_runtime_exec()?;
 
                 // start the child runtime
                 self.runtime.run(state, worker)?;
@@ -132,7 +129,7 @@ where
                             panic!("Removed a PID ({pid}) not in the active PID list. This is a fuzzer bug.")
                         );
 
-                    controller.on_exit(&instance_repr.descriptor, exit_code)?;
+                    controller.on_worker_exit(&instance_repr.descriptor, exit_code)?;
                 }
                 Ok(WaitStatus::Signaled(pid, signal, _)) => {
                     let instance_repr = self
@@ -142,7 +139,7 @@ where
                             panic!("Removed a PID ({pid}) not in the active PID list. This is a fuzzer bug.")
                         );
 
-                    controller.on_termination(&instance_repr.descriptor, signal)?;
+                    controller.on_worker_termination(&instance_repr.descriptor, signal)?;
                 }
 
                 Ok(_) => {
@@ -190,8 +187,8 @@ impl<RT, S, W> Instance<RT, S, W> {
         state: S,
         worker: W,
         core: CoreId,
-        stdout_file: Option<File>,
-        stderr_file: Option<File>,
+        stdout_file: Option<WorkdirFile>,
+        stderr_file: Option<WorkdirFile>,
     ) -> Self {
         Self {
             runtime,

@@ -2,6 +2,7 @@
 
 use alloc::{rc::Rc, string::String};
 use core::{cell::RefCell, marker::PhantomData};
+use libafl_core::illegal_argument;
 use std::{
     fs, io,
     path::{Path, PathBuf},
@@ -70,23 +71,33 @@ impl<I> OnDiskTestcaseCell<I> {
 
 impl<I> DiskMgr<I> {
     /// Create a new [`DiskMgr`]
-    pub fn new(root_dir: PathBuf) -> Result<Self, Error> {
+    pub fn new<P: AsRef<Path>>(root_dir: P) -> Result<Self, Error> {
         Self::new_with_format(root_dir, TestcaseFilenameFormat::default())
     }
 
     /// Create a new [`DiskMgr`]
-    pub fn new_with_format(
-        root_dir: PathBuf,
+    pub fn new_with_format<P: AsRef<Path>>(
+        root_dir: P,
         file_fmt: TestcaseFilenameFormat,
     ) -> Result<Self, Error> {
-        match fs::create_dir_all(&root_dir) {
-            Ok(()) => {}
-            Err(e) if e.kind() == io::ErrorKind::AlreadyExists => {}
-            Err(e) => return Err(e.into()),
+        let dir = root_dir.as_ref();
+
+        if !dir.is_dir() {
+            return Err(illegal_argument!(
+                "On-disk root directory is not a directory: {}",
+                dir.display()
+            ));
+        }
+
+        if !dir.exists() {
+            return Err(illegal_argument!(
+                "Corpus on-disk directory does not exist: {}",
+                dir.display()
+            ));
         }
 
         Ok(Self {
-            root_dir,
+            root_dir: dir.to_path_buf(),
             file_fmt,
             phantom: PhantomData,
         })
@@ -151,7 +162,10 @@ where
     M: Default,
 {
     /// Create a new [`OnDiskStore`]
-    pub fn new(root: PathBuf, filename_format: TestcaseFilenameFormat) -> Result<Self, Error> {
+    pub fn new<P: AsRef<Path>>(
+        root: P,
+        filename_format: TestcaseFilenameFormat,
+    ) -> Result<Self, Error> {
         let disk_mgr = Rc::new(DiskMgr::new(root)?);
 
         Ok(Self {

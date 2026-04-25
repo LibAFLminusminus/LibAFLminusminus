@@ -1,32 +1,69 @@
-use crate::{Controller, Result, StdDescriptor, Worker, launchers::InstanceId};
+use crate::{Controller, Result, Workdir, WorkdirFile, Worker, launchers::InstanceId};
 use libafl_core::{Error, WorkerId, illegal_argument, internal_bug};
+use nix::unistd::{dup2_stderr, dup2_stdout};
 use serde::{Deserialize, Serialize};
-use std::{fs, path::PathBuf, vec::Vec};
+use std::{
+    fs::{self, File},
+    path::{Path, PathBuf},
+    vec::Vec,
+};
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct SimpleControllerBuilder {
     root_dir: PathBuf,
     overwrite: bool,
+    worker_stdout: Option<WorkdirFile>,
+    worker_stderr: Option<WorkdirFile>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug)]
 pub struct SimpleController {
     root_dir: PathBuf,
     id_ctr: u32,
-    workers: Vec<SimpleWorker>,
+    workers: Vec<SimpleDescriptor>,
+    worker_stdout: Option<WorkdirFile>,
+    worker_stderr: Option<WorkdirFile>,
 }
 
 /// this is just a wrapper around StdDescriptor
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct SimpleWorker {
     /// the descriptor describing this client
-    descriptor: StdDescriptor,
+    descriptor: SimpleDescriptor,
+}
+
+#[derive(Debug, Clone)]
+pub struct SimpleDescriptor {
+    /// workdir of the worker
+    workdir: Workdir,
+    /// client id of this process
+    id: WorkerId,
+}
+
+/// The launcher should create instantiate this alongside binding this instance to a specific core id
+impl SimpleDescriptor {
+    /// Default constructor
+    pub fn new<P: AsRef<Path>>(
+        root_dir: P,
+        stdout: Option<WorkdirFile>,
+        stderr: Option<WorkdirFile>,
+        id: WorkerId,
+    ) -> Result<Self> {
+        let workdir = Workdir::new(root_dir, stdout, stderr)?;
+
+        Ok(SimpleDescriptor { workdir, id })
+    }
 }
 
 impl SimpleController {
     /// Create a new [`SimpleGlobalController`] and will use `root_dir` as the root directory.
     /// If overwrite is true, the root_dir will be removed before being created again.
-    pub fn new(root_dir: PathBuf, overwrite: bool) -> Result<Self> {
+    pub fn new(
+        root_dir: PathBuf,
+        worker_stdout: Option<WorkdirFile>,
+        worker_stderr: Option<WorkdirFile>,
+        overwrite: bool,
+    ) -> Result<Self> {
         if root_dir.exists() {
             if overwrite {
                 fs::remove_dir_all(root_dir.as_path())?;
@@ -42,6 +79,8 @@ impl SimpleController {
 
         Ok(Self {
             root_dir,
+            worker_stdout,
+            worker_stderr,
             workers: Vec::new(),
             id_ctr: 0,
         })
@@ -54,40 +93,45 @@ impl SimpleController {
 
 impl Controller for SimpleController {
     type Worker = SimpleWorker;
-    type Descriptor = StdDescriptor;
+    type Descriptor = SimpleDescriptor;
 
-    fn create_controller(&mut self) -> Result<SimpleWorker> {
-        let client_id = WorkerId(self.id_ctr);
+    fn create_worker(&mut self) -> Result<SimpleWorker> {
+        let worker_id = WorkerId(self.id_ctr);
         self.id_ctr += 1;
 
-        let client_dir = self.root_dir.join(format!("client_{}", client_id.0));
+        let worker_dir = self.root_dir.join(format!("worker_{}", worker_id.0));
 
-        if client_dir.exists() {
+        if worker_dir.exists() {
             return Err(internal_bug!(
-                "The client dir \"{}\" already exists.",
-                client_dir.display()
+                "The worker dir \"{}\" already exists.",
+                worker_dir.display()
             ));
         }
 
-        fs::create_dir(client_dir.as_path())?;
+        fs::create_dir(worker_dir.as_path())?;
 
-        let descriptor = StdDescriptor::new(client_dir, client_id)?;
+        let descriptor = SimpleDescriptor::new(
+            worker_dir,
+            self.worker_stdout.clone(),
+            self.worker_stderr.clone(),
+            worker_id,
+        )?;
 
-        let cl = SimpleWorker::new(descriptor);
-        self.workers.push(cl.clone());
+        let cl = SimpleWorker::new(descriptor.clone());
+        self.workers.push(descriptor);
         Ok(cl)
     }
 
-    fn controllers(&self) -> &[Self::Worker] {
+    fn workers(&self) -> &[Self::Descriptor] {
         &self.workers
     }
 
-    fn on_start(&mut self, descriptor: &Self::Descriptor, id: InstanceId) -> Result<()> {
+    fn on_worker_start(&mut self, descriptor: &Self::Descriptor, id: InstanceId) -> Result<()> {
         log::info!("Started worker {:?}", descriptor.id);
         Ok(())
     }
 
-    fn on_termination(
+    fn on_worker_termination(
         &mut self,
         descriptor: &Self::Descriptor,
         termination_code: nix::sys::signal::Signal,
@@ -104,22 +148,50 @@ impl Worker for SimpleWorker {
         self.descriptor.id
     }
 
-    fn descriptor(&self) -> &StdDescriptor {
+    fn descriptor(&self) -> &SimpleDescriptor {
         &self.descriptor
     }
 
-    fn workdir(&self) -> &PathBuf {
-        &self.descriptor.path
+    fn workdir(&self) -> &Workdir {
+        &self.descriptor.workdir
     }
 
     fn reconcile(&self) -> Result<()> {
         // do nothing
         Ok(())
     }
+
+    fn pre_runtime_exec(&mut self) -> Result<()> {
+        if let Some(ref f) = self.descriptor.workdir.stdout {
+            let file = match f {
+                WorkdirFile::Path(p) => {
+                    let file = File::open(p.as_path())?;
+                    dup2_stdout(file)?;
+                }
+                WorkdirFile::File(file) => {
+                    dup2_stdout(file)?;
+                }
+            };
+        }
+
+        if let Some(ref f) = self.descriptor.workdir.stderr {
+            let file = match f {
+                WorkdirFile::Path(p) => {
+                    let file = File::open(p.as_path())?;
+                    dup2_stderr(file)?;
+                }
+                WorkdirFile::File(file) => {
+                    dup2_stderr(file)?;
+                }
+            };
+        }
+
+        Ok(())
+    }
 }
 
 impl SimpleWorker {
-    pub fn new(descriptor: StdDescriptor) -> Self {
+    pub fn new(descriptor: SimpleDescriptor) -> Self {
         Self { descriptor }
     }
 }
@@ -129,22 +201,39 @@ impl Default for SimpleControllerBuilder {
         Self {
             overwrite: false,
             root_dir: PathBuf::from("./workdir"),
+            worker_stdout: None,
+            worker_stderr: None,
         }
     }
 }
 
 impl SimpleControllerBuilder {
-    pub fn overwrite(&mut self, overwrite: bool) -> &mut Self {
+    pub fn overwrite(mut self, overwrite: bool) -> Self {
         self.overwrite = overwrite;
         self
     }
 
-    pub fn root_dir(&mut self, root_dir: impl Into<PathBuf>) -> &mut Self {
+    pub fn root_dir(mut self, root_dir: impl Into<PathBuf>) -> Self {
         self.root_dir = root_dir.into();
         self
     }
 
-    pub fn build(&mut self) -> Result<SimpleController> {
-        SimpleController::new(self.root_dir.clone(), self.overwrite)
+    pub fn worker_stdout(mut self, file_output: WorkdirFile) -> Self {
+        self.worker_stdout = Some(file_output);
+        self
+    }
+
+    pub fn worker_stderr(mut self, file_output: WorkdirFile) -> Self {
+        self.worker_stderr = Some(file_output);
+        self
+    }
+
+    pub fn build(self) -> Result<SimpleController> {
+        SimpleController::new(
+            self.root_dir,
+            self.worker_stdout,
+            self.worker_stderr,
+            self.overwrite,
+        )
     }
 }

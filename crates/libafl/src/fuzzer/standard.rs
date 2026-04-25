@@ -1,5 +1,5 @@
 use core::time::Duration;
-use std::{string::ToString, thread::current};
+use std::{fs::File, string::ToString, thread::current};
 
 use libafl_bolts::current_time;
 use libafl_core::Error;
@@ -23,7 +23,7 @@ use crate::{
 
 /// Note: this code should not allocate at all.
 /// Any allocation can result in unexpected locks because of concurrency bug with the standard library.
-fn handle_objective<O, F, H, I, OF, S>(
+fn handle_objective_in_termination_handler<O, F, H, I, OF, S>(
     observers: &mut O,
     state: &mut S,
     input: I,
@@ -40,21 +40,9 @@ fn handle_objective<O, F, H, I, OF, S>(
         .post_exec_all(state, &exit_kind)
         .expect("Post exec observers failed");
 
-    if fuzzer
-        .objective_feedback_mut()
-        .is_interesting(state, &input, observers, &exit_kind)
-        .expect("Objective feedback is_interesting failed")
-    {
-        let tc_id = state
-            .objective_corpus_mut()
-            .add(input)
-            .expect("Adding input to objective feedback failed");
-
-        fuzzer
-            .objective_feedback_mut()
-            .append_metadata(state, observers, &tc_id)
-            .expect("Appending metadata failed");
-    }
+    fuzzer
+        .evaluate_execution(state, &input, observers, exit_kind)
+        .unwrap();
 }
 
 /// Crash signals will end up there, if it happens during a fuzzing run.
@@ -81,7 +69,13 @@ unsafe fn std_on_crash<E, F, H, I, OF, S>(
     let fuzzer = unsafe { data.fuzzer::<StdFuzzer<F, H, OF>>() };
     let observers = unsafe { data.observers::<E::Observers>() };
 
-    handle_objective(observers, state, input.unwrap(), fuzzer, ExitKind::Crash);
+    handle_objective_in_termination_handler(
+        observers,
+        state,
+        input.unwrap(),
+        fuzzer,
+        ExitKind::Crash,
+    );
 }
 
 /// Timeout signals will end up there, if it happens during a fuzzing run.
@@ -108,7 +102,13 @@ unsafe fn std_on_timeout<E, F, H, I, OF, S>(
     let fuzzer = unsafe { data.fuzzer::<StdFuzzer<F, H, OF>>() };
     let observers = unsafe { data.observers::<E::Observers>() };
 
-    handle_objective(observers, state, input.unwrap(), fuzzer, ExitKind::Timeout);
+    handle_objective_in_termination_handler(
+        observers,
+        state,
+        input.unwrap(),
+        fuzzer,
+        ExitKind::Timeout,
+    );
 }
 
 /// Your default fuzzer instance, for everyday use.
@@ -122,6 +122,7 @@ pub struct StdFuzzer<F, H, OF> {
     initialized: bool,
     clock: Clock,
     last_synced: Instant,
+    stats_file: Option<File>,
 }
 
 /// The builder for std fuzzer
@@ -160,7 +161,7 @@ impl<F, H, OF> HasObjective for StdFuzzer<F, H, OF> {
 }
 
 impl<F, H, OF> StdFuzzer<F, H, OF> {
-    fn evaluate_execution<I, OT, S, SC, Z>(
+    fn evaluate_execution<I, OT, S>(
         &mut self,
         state: &mut S,
         input: &I,
@@ -240,100 +241,6 @@ impl<F, H, OF> StdFuzzer<F, H, OF> {
     }
 }
 
-// TODO: do we really need to keep this?
-// i don't see when it's really useful
-//
-// /// Adds an input, even if it's not considered `interesting` by any of the executors
-// /// If you are using inprocess executor, be careful.
-// /// Your crash-causing testcase will *NOT* be added into the corpus (only to solution)
-// fn add_input<E, I, OT, S, Z>(
-//     fuzzer: &mut Z,
-//     state: &mut S,
-//     executor: &mut E,
-//     input: I,
-// ) -> Result<CorpusId, Error> {
-//     *state.last_found_time_mut() = current_time();
-//
-//     let exit_kind = fuzzer.execute_input(state, executor, &input)?;
-//     let observers = executor.observers();
-//     // Always consider this to be "interesting"
-//     let mut testcase = Testcase::from(input.clone());
-//     testcase.set_executions(*state.executions());
-//
-//     // Maybe a solution
-//     #[cfg(not(feature = "introspection"))]
-//     let is_solution: bool =
-//         fuzzer
-//             .objective_mut()
-//             .is_interesting(state, &input, &*observers, &exit_kind)?;
-//
-//     #[cfg(feature = "introspection")]
-//     let is_solution = self.objective_mut().is_interesting_introspection(
-//         state,
-//         &input,
-//         &*observers,
-//         &exit_kind,
-//     )?;
-//
-//     if is_solution {
-//         #[cfg(feature = "track_hit_feedbacks")]
-//         self.objective_mut()
-//             .append_hit_feedbacks(testcase.hit_objectives_mut())?;
-//         fuzzer
-//             .objective_mut()
-//             .append_metadata(state, &*observers, &mut testcase)?;
-//         // we don't care about solution id
-//         let id = state.solutions_mut().add(testcase)?;
-//
-//         return Ok(id);
-//     }
-//
-//     // several is_interesting implementations collect some data about the run, later used in
-//     // append_metadata; we *must* invoke is_interesting here to collect it
-//     #[cfg(not(feature = "introspection"))]
-//     let _corpus_worthy =
-//         fuzzer
-//             .feedback_mut()
-//             .is_interesting(state, &input, &*observers, &exit_kind)?;
-//
-//     #[cfg(feature = "introspection")]
-//     let _corpus_worthy =
-//         self.feedback_mut()
-//             .is_interesting_introspection(state, &input, &*observers, &exit_kind)?;
-//
-//     #[cfg(feature = "track_hit_feedbacks")]
-//     fuzzer
-//         .feedback_mut()
-//         .append_hit_feedbacks(testcase.hit_feedbacks_mut())?;
-//     // Add the input to the main corpus
-//     fuzzer
-//         .feedback_mut()
-//         .append_metadata(state, &*observers, &mut testcase)?;
-//     let id = state.corpus_mut().add(testcase)?;
-//     fuzzer.scheduler_mut().on_add(state, id)?;
-//
-//     Ok(id)
-// }
-
-// impl<CS, F, I, IC, IF, H, OF, OT, S> ExecutionProcessor<I, OT, S> for StdFuzzer<F, H, OF> {
-//     /// Post process a testcase depending the testcase execution results
-//     /// returns corpus id if it put something into corpus (not solution)
-//     /// This code will not be reached by inprocess executor if crash happened.
-//     fn process_execution(
-//         &mut self,
-//         state: &mut S,
-//         input: &I,
-//         eval_res: &EvaluationResult,
-//         observers: &OT,
-//     ) -> Result<Option<CorpusId>, Error> {
-//         match eval_res.verdict() {
-//             Verdict::Uninteresting => Ok(None),
-//             Verdict::Corpus(testcase_id) => {}
-//             ExecuteInputResult::Solution => {}
-//         }
-//     }
-// }
-
 impl<E, F, H, I, OF, S, W> Evaluator<E, I, S, W> for StdFuzzer<F, H, OF>
 where
     E: Executor<I, S>,
@@ -355,12 +262,7 @@ where
         let exit_kind = executor.execute(state, rt_handle, input)?;
 
         let observers = executor.observers();
-        self.evaluate_execution::<I, E::Observers, S, S::Scheduler, Self>(
-            state,
-            &*input,
-            &*observers,
-            exit_kind,
-        )
+        self.evaluate_execution::<I, E::Observers, S>(state, &*input, &*observers, exit_kind)
     }
 }
 
@@ -422,6 +324,9 @@ where
         // 5 - initialize executor
         executor.init(state, rt_handle)?;
 
+        // 6 - other stuff init
+        self.stats_file = Some(rt_handle.worker().workdir().create_file("fuzzer_stats")?);
+
         self.initialized = true;
 
         Ok(())
@@ -442,8 +347,8 @@ where
         self.fuzzer_hooks.pre_step_all(executor, state, rt_handle);
 
         if self.clock.now() - self.last_synced > Duration::from_secs(1) {
-            let workdir = rt_handle.worker().workdir();
-            sync_stats(state.stats(), workdir);
+            let stats_file = self.stats_file.as_mut().unwrap();
+            sync_stats(stats_file, state.stats())?;
         }
 
         self.fuzzer_hooks
@@ -535,6 +440,7 @@ impl<F, H, OF> StdFuzzerBuilder<F, H, OF> {
             initialized: false,
             clock,
             last_synced: now,
+            stats_file: None,
         }
     }
 }

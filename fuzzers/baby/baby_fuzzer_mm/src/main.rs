@@ -86,7 +86,7 @@ pub fn main() -> Result<()> {
     let state_builder = |worker: &SimpleWorker| {
         // A queue policy to get testcasess from the corpus
         let scheduler = QueueScheduler::new();
-        let crash_dir = worker.descriptor().path().join("crashes");
+        let crash_dir = worker.workdir().create_dir("crashes")?;
 
         // create a State from scratch
         StdState::new(
