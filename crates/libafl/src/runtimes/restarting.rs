@@ -32,6 +32,8 @@ pub struct RestartingRuntime<RT> {
     // A good rule of thumb could be to use system_ram / nb_clients.
     // If your state ever gets that big, there is most likely something wrong anyway.
     state_ram_limit: NonZeroUsize,
+    // the runtime timeout
+    timeout: Option<Duration>,
 }
 
 impl<RT> DependencyResolver for RestartingRuntime<RT>
@@ -51,16 +53,21 @@ impl<S, T> RestartingRuntime<StdInProcessRuntime<S, T>>
 where
     S: Serialize,
 {
-    pub fn new(task: T, state_ram_limit: NonZeroUsize) -> Self {
-        Self::new_generic(StdInProcessRuntime::new(task), state_ram_limit)
+    pub fn new(task: T, state_ram_limit: NonZeroUsize, timeout: Option<Duration>) -> Self {
+        Self::new_generic(StdInProcessRuntime::new(task), state_ram_limit, timeout)
     }
 }
 
 impl<RT> RestartingRuntime<RT> {
-    pub fn new_generic(runtime: RT, state_ram_limit: NonZeroUsize) -> Self {
+    pub fn new_generic(
+        runtime: RT,
+        state_ram_limit: NonZeroUsize,
+        timeout: Option<Duration>,
+    ) -> Self {
         Self {
             inner: runtime,
             state_ram_limit,
+            timeout,
         }
     }
 }
@@ -139,7 +146,10 @@ where
                     // set the state saver, which should be called by the child on erroneous exit.
                     rt_handle.set_saver(state_sender);
 
-                    self.inner.set_timeout(Duration::from_secs(1));
+                    // we are in the final process, we can set the timeout now
+                    if let Some(timeout) = self.timeout.take() {
+                        self.set_timeout(timeout);
+                    }
 
                     self.inner
                         .run_impl(state, rt_handle)

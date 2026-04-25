@@ -1,6 +1,6 @@
 use std::ptr::write;
 
-use libafl::{Error, executors::ExitKind, inputs::BytesInput};
+use libafl::{executors::ExitKind, inputs::BytesInput, Error};
 
 /// Coverage map with explicit assignments due to the lack of instrumentation
 pub const SIGNALS_LEN: usize = 16;
@@ -22,9 +22,6 @@ pub fn target<S>(_state: &mut S, input: &BytesInput) -> Result<ExitKind, Error> 
         if buf.len() > 1 && buf[1] == b'b' {
             signals_set(2);
             if buf.len() > 2 && buf[2] == b'c' {
-                eprintln!("infinite loop");
-                loop {}
-
                 // #[cfg(unix)]
                 // panic!("Artificial bug triggered =)");
 
