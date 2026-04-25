@@ -1,23 +1,23 @@
 use libafl::{
+    Result, Worker,
     corpus::{
-        schedulers::{NopScheduler, QueueScheduler},
         Corpus, InMemoryCorpus, OnDiskCorpus, Scheduler,
+        schedulers::{NopScheduler, QueueScheduler},
     },
     executors::StdExecutor,
     feedbacks::{CrashFeedback, MaxMapFeedback},
     fuzzer::{Fuzzer, StdFuzzer},
     generators::RandPrintablesGenerator,
-    inputs::{bytes::BytesContext, BytesInput},
+    inputs::{BytesInput, bytes::BytesContext},
     launchers::StdLauncher,
     monitors::SimpleMonitor,
-    mutators::{havoc_mutations, HavocScheduledMutator},
+    mutators::{HavocScheduledMutator, havoc_mutations},
     non_zero,
     observers::ConstMapObserver,
     runtimes::RuntimeHandle,
     simple::{SimpleController, SimpleWorker},
     stages::StdMutationalStage,
     state::StdState,
-    Result, Worker,
 };
 use libafl_bolts::{
     core_affinity::Cores, current_nanos, nonnull_raw_mut, rands::StdRand, tuples::tuple_list,
