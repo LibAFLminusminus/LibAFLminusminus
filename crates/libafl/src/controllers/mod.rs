@@ -86,13 +86,13 @@ impl Clone for WorkdirFile {
 
 impl WorkdirFile {
     // TODO: i think we can do better than giving root_dir like that here...
-    pub fn to_file(&self, root_dir: &Path) -> Result<File> {
+    pub fn to_file<P: AsRef<Path>>(&self, root_dir: P) -> Result<File> {
         let file = match self {
             WorkdirFile::Path(p) => OpenOptions::new()
                 .read(true)
                 .write(true)
                 .create_new(true)
-                .open(root_dir.join(p.as_path()))?,
+                .open(root_dir.as_ref().join(p.as_path()))?,
             WorkdirFile::File(file) => file.try_clone()?,
         };
 
