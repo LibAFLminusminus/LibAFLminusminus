@@ -162,11 +162,18 @@ impl<S, W> RuntimeHandle<S, W> {
         on_crash: fn(&mut TerminationHandlerData, &OsTerminationParams),
         on_timeout: fn(&mut TerminationHandlerData, &OsTerminationParams),
     ) {
+        let rt_handle_ptr = NonNull::from_mut(self);
+
         if let Some(mut termination_data) = self.termination_data_ptr {
             unsafe {
-                termination_data
-                    .as_mut()
-                    .init(state, fuzzer, observers, on_crash, on_timeout);
+                termination_data.as_mut().init(
+                    state,
+                    fuzzer,
+                    observers,
+                    rt_handle_ptr,
+                    on_crash,
+                    on_timeout,
+                );
 
                 if let Some(ref mut saver) = self.state_shm_sender {
                     termination_data.as_mut().set_saver_ptr(saver);
@@ -193,6 +200,10 @@ impl<S, W> RuntimeHandle<S, W> {
 
     pub fn worker(&self) -> &W {
         &self.worker
+    }
+
+    pub fn worker_mut(&mut self) -> &mut W {
+        &mut self.worker
     }
 }
 
