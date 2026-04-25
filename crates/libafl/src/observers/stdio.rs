@@ -36,7 +36,7 @@ use crate::{DependencyResolver, Error, Registrator, observers::Observer};
 ///     mutators::{MutationResult, NopMutator},
 ///     observers::{ObserversTuple, StdErrObserver, StdOutObserver},
 ///     schedulers::QueueScheduler,
-///     stages::StdMutationalStage, state::{HasCorpus, StdState},
+///     stages::StdMutationalStage, states::{HasCorpus, StdState},
 /// };
 /// use libafl_bolts::{
 ///     Named, current_nanos,

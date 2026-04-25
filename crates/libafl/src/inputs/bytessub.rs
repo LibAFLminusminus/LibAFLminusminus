@@ -218,7 +218,7 @@ mod tests {
     use crate::{
         inputs::{BytesInput, HasMutatorBytes, NopInput, ResizableMutator},
         mutators::{MutatorsTuple, havoc_mutations_no_crossover},
-        state::NopState,
+        states::NopState,
     };
 
     fn init_bytes_input() -> (BytesInput, usize) {

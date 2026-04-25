@@ -18,7 +18,7 @@ use crate::{
     dependency::{DependencyResolver, Registrator},
     executors::ExitKind,
     observers::TimeObserver,
-    state::HasTestcase,
+    states::HasTestcase,
 };
 
 pub mod list;
@@ -181,7 +181,6 @@ where
             exit_kind,
         )
     }
-
 
     #[cfg(feature = "track_hit_feedbacks")]
     fn last_result(&self) -> Result<bool, Error> {

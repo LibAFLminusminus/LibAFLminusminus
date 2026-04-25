@@ -93,6 +93,8 @@ where
 
                 worker.pre_runtime_exec()?;
 
+                self.runtime.set_timeout(Duration::from_secs(3));
+
                 // start the child runtime
                 self.runtime.run(state, worker)?;
 

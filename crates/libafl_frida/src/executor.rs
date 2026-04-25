@@ -19,7 +19,7 @@ use libafl::{
     executors::{Executor, ExitKind, HasObservers, InProcessExecutor},
     inputs::{Input, ToTargetBytesConverter},
     observers::ObserversTuple,
-    state::{HasCurrentTestcase, HasExecutions, HasSolutions},
+    states::{HasCurrentTestcase, HasExecutions, HasSolutions},
 };
 use libafl_bolts::{AsSlice, tuples::RefIndexable};
 

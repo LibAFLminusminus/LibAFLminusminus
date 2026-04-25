@@ -1,3 +1,5 @@
+use libafl_core::WorkerId;
+
 use crate::{Controller, Descriptor, Workdir, Worker};
 
 pub struct NopController;
@@ -12,6 +14,10 @@ impl Descriptor for NopDescriptor {
     }
 
     fn workdir_mut(&mut self) -> &mut Workdir {
+        panic!("No descriptor for NopDescriptor.");
+    }
+
+    fn worker_id(&self) -> WorkerId {
         panic!("No descriptor for NopDescriptor.");
     }
 }

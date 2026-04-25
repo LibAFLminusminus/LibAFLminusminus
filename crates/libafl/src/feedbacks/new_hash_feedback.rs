@@ -17,7 +17,7 @@ use crate::{
     executors::ExitKind,
     feedbacks::{Feedback, HasObserverHandle},
     observers::ObserverWithHashField,
-    state::FlatState,
+    states::FlatState,
 };
 
 /// The prefix of the metadata names

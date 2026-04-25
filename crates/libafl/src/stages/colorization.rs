@@ -23,7 +23,7 @@ use crate::{
     nonzero,
     observers::ObserversTuple,
     stages::{Restartable, RetryCountRestartHelper, Stage},
-    state::{HasCorpus, HasCurrentTestcase, HasRand},
+    states::{HasCorpus, HasCurrentTestcase, HasRand},
 };
 
 // Bigger range is better

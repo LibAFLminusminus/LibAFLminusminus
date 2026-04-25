@@ -224,6 +224,7 @@ tokio = { version = "1.40.0", optional = true, features = [
 tuple_list = { workspace = true }
 typed-builder = { workspace = true, optional = true } # Implement the builder pattern at compiletime
 wait-timeout = { version = "0.2.0", optional = true } # used by CommandExecutor to wait for child process
+human-repr = "1.1.0"
 
 regex = { workspace = true, optional = true }
 regex-syntax = { version = "0.8.4", optional = true } # For nautilus

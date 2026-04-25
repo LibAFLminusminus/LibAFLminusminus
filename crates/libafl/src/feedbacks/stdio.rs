@@ -15,7 +15,7 @@ use crate::{
     corpus::{Testcase, TestcaseId},
     feedbacks::Feedback,
     observers::{StdErrObserver, StdOutObserver},
-    state::{FlatState, HasTestcase},
+    states::{FlatState, HasTestcase},
 };
 
 /// Metadata for [`StdOutToMetadataFeedback`].

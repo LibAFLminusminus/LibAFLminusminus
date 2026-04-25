@@ -14,13 +14,13 @@ use libafl_bolts::{
 use crate::{
     Error,
     corpus::{Corpus, Scheduler, testcase::TestcaseId},
-    fuzzer::EvaluationResult,
+    fuzzers::EvaluationResult,
     inputs::EncodedInput,
     mutators::{
         MutationResult, Mutator, Named,
         mutations::{ARITH_MAX, buffer_copy, buffer_self_copy},
     },
-    state::{FlatState, HasCorpus, HasScheduler},
+    states::{FlatState, HasCorpus, HasScheduler},
 };
 
 /// Set a code in the input as a random value

@@ -22,6 +22,8 @@ pub fn target<S>(_state: &mut S, input: &BytesInput) -> Result<ExitKind, Error> 
         if buf.len() > 1 && buf[1] == b'b' {
             signals_set(2);
             if buf.len() > 2 && buf[2] == b'c' {
+                loop {}
+
                 // #[cfg(unix)]
                 // panic!("Artificial bug triggered =)");
 

@@ -18,7 +18,7 @@ use crate::{
     events::{Event, EventFirer, EventWithStats, LogSeverity},
     executors::{Executor, ExitKind, HasObservers},
     feedbacks::{HasObserverHandle, map::MapFeedbackMetadata},
-    fuzzer::Evaluator,
+    fuzzers::Evaluator,
     inputs::Input,
     monitors::stats::{
         AggregatorOps, UserStats, UserStatsValue, user_stats::TAG_CALIBRATE_STABILITY,
@@ -26,7 +26,7 @@ use crate::{
     observers::{MapObserver, ObserversTuple},
     schedulers::powersched::SchedulerMetadata,
     stages::{Restartable, RetryCountRestartHelper, Stage},
-    state::{HasCorpus, HasCurrentTestcase, HasExecutions},
+    states::{HasCorpus, HasCurrentTestcase, HasExecutions},
 };
 
 /// AFL++'s `CAL_CYCLES_FAST` + 1
@@ -475,7 +475,7 @@ mod tests {
         inputs::NopInput,
         observers::StdMapObserver,
         stages::{CalibrationStage, Restartable},
-        state::{HasCorpus, StdState},
+        states::{HasCorpus, StdState},
     };
 
     #[test]

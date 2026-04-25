@@ -9,7 +9,7 @@ use libafl::{
     executors::{Executor, ExitKind, HasObservers, HasTimeout, SetTimeout},
     inputs::HasTargetBytes,
     observers::{ObserversTuple, StdOutObserver},
-    state::HasExecutions,
+    states::HasExecutions,
 };
 use libafl_bolts::{
     AsSlice,

@@ -1,8 +1,8 @@
 use crate::{
     Controller, Worker,
-    fuzzer::HasObjective,
+    fuzzers::HasObjective,
     runtimes::RuntimeHandle,
-    state::{FlatState, read_stats_json},
+    states::{FlatState, read_stats_json},
 };
 use alloc::{string::String, vec::Vec};
 use core::{fmt, time::Duration};

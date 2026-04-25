@@ -19,7 +19,7 @@ use crate::{
     observers::ObserversTuple,
     stages::{Restartable, RetryCountRestartHelper, Stage},
     start_timer,
-    state::{HasCorpus, HasCurrentTestcase, HasExecutions, MaybeHasClientPerfMonitor},
+    states::{HasCorpus, HasCurrentTestcase, HasExecutions, MaybeHasClientPerfMonitor},
 };
 
 /// A stage that runs the shadow executor using also the shadow observers

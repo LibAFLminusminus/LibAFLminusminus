@@ -32,7 +32,7 @@ use crate::{
     executors::ExitKind,
     feedbacks::{Feedback, HasObserverHandle},
     observers::{CanTrack, MapObserver},
-    state::{FlatState, HasTestcase},
+    states::{FlatState, HasTestcase},
 };
 
 #[cfg(feature = "simd")]

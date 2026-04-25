@@ -34,7 +34,7 @@ use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use typed_builder::TypedBuilder;
 
 #[cfg(not(feature = "remove_me"))]
-use crate::fuzzer::ExecuteInputResult;
+use crate::fuzzers::ExecuteInputResult;
 use crate::{
     Error, Result,
     corpus::{
@@ -42,7 +42,7 @@ use crate::{
         schedulers::NopScheduler, testcase::TestcaseId,
     },
     dependency::{DependencyResolver, Registrator},
-    fuzzer::Evaluator,
+    fuzzers::Evaluator,
     generators::Generator,
     inputs::{Input, NopContext, NopInput},
     launchers::InstanceId,
@@ -92,7 +92,7 @@ impl Stats {
         self.objective = objective;
     }
 
-    fn execs_per_sec(&self) -> u64 {
+    pub fn execs_per_sec(&self) -> u64 {
         let as_sec = (libafl_bolts::current_time() - self.start_time).as_secs();
 
         if as_sec.is_zero() {
@@ -104,16 +104,16 @@ impl Stats {
 }
 
 pub fn read_stats_json(file: File) -> Result<Stats> {
-    let mut locked = Flock::lock(file, FlockArg::LockShared)
-        .map_err(|(_, e)| nix::Error::from(e))?;
+    let mut locked =
+        Flock::lock(file, FlockArg::LockShared).map_err(|(_, e)| nix::Error::from(e))?;
     locked.seek(SeekFrom::Start(0))?;
     serde_json::from_reader(&mut *locked)
         .map_err(|_| Error::runtime("Failed to read the stats from a file"))
 }
 
 pub fn sync_stats(file: File, stats: &Stats) -> Result<()> {
-    let mut locked = Flock::lock(file, FlockArg::LockExclusive)
-        .map_err(|(_, e)| nix::Error::from(e))?;
+    let mut locked =
+        Flock::lock(file, FlockArg::LockExclusive).map_err(|(_, e)| nix::Error::from(e))?;
     locked.set_len(0)?;
     locked.seek(SeekFrom::Start(0))?;
     serde_json::to_writer_pretty(&mut *locked, stats)
@@ -129,8 +129,8 @@ pub trait FlatState {
 
     /// The executions counter
     fn executions(&self) -> u64;
-    /// The executions counter (mutable)
-    fn executions_mut(&mut self) -> &mut u64;
+    /// Increment the execution counter
+    fn increment_execs(&mut self);
 
     /// The starting time
     fn start_time(&self) -> &Duration;
@@ -739,9 +739,9 @@ impl<C, I, OC, SC> FlatState for StdState<C, I, OC, SC> {
         self.stats.executions
     }
 
-    /// The executions counter (mutable)
-    fn executions_mut(&mut self) -> &mut u64 {
-        &mut self.stats.executions
+    /// Increment the execution counter
+    fn increment_execs(&mut self) {
+        self.stats.executions += 1;
     }
 
     /// The starting time

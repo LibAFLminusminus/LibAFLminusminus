@@ -38,10 +38,10 @@ pub mod windows_asan_handler {
             inprocess::run_observers_and_save_state,
         },
         feedbacks::Feedback,
-        fuzzer::HasObjective,
+        fuzzers::HasObjective,
         inputs::Input,
         observers::ObserversTuple,
-        state::{HasCurrentTestcase, HasExecutions, HasSolutions},
+        states::{HasCurrentTestcase, HasExecutions, HasSolutions},
     };
 
     // On windows, there's no SA_NODEFER so nested signal never occurs so we need no depth check
@@ -117,7 +117,7 @@ pub mod windows_asan_handler {
                 // Make sure we don't crash in the crash handler forever.
                 let input = (*data).take_current_input::<I>();
 
-                run_observers_and_save_state::<E, EM, I, OF, S, Z>(
+                run_observers_and_save_states::<E, EM, I, OF, S, Z>(
                     executor,
                     state,
                     input,
@@ -166,10 +166,10 @@ pub mod windows_exception_handler {
             inprocess::{HasInProcessHooks, run_observers_and_save_state},
         },
         feedbacks::Feedback,
-        fuzzer::HasObjective,
+        fuzzers::HasObjective,
         inputs::Input,
         observers::ObserversTuple,
-        state::{HasCurrentTestcase, HasExecutions, HasSolutions},
+        states::{HasCurrentTestcase, HasExecutions, HasSolutions},
     };
 
     pub(crate) type HandlerFuncPtr =
@@ -255,7 +255,7 @@ pub mod windows_exception_handler {
 
                 let input = (*data).take_current_input::<I>();
 
-                run_observers_and_save_state::<E, EM, I, OF, S, Z>(
+                run_observers_and_save_states::<E, EM, I, OF, S, Z>(
                     executor,
                     state,
                     input,
@@ -323,7 +323,7 @@ pub mod windows_exception_handler {
                 let input = unsafe { (data.current_input_ptr as *const I).as_ref().unwrap() };
                 data.current_input_ptr = ptr::null_mut();
 
-                run_observers_and_save_state::<E, EM, I, OF, S, Z>(
+                run_observers_and_save_states::<E, EM, I, OF, S, Z>(
                     executor,
                     state,
                     input,
@@ -462,7 +462,7 @@ pub mod windows_exception_handler {
                 log::warn!("Running observers and exiting!");
                 // // I want to disable the hooks before doing anything, especially before taking a stack dump
                 let input = unsafe { data.take_current_input::<I>() };
-                run_observers_and_save_state::<E, EM, I, OF, S, Z>(
+                run_observers_and_save_states::<E, EM, I, OF, S, Z>(
                     executor,
                     state,
                     input,

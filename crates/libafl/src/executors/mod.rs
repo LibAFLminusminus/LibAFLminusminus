@@ -18,7 +18,7 @@ use crate::{
     DependencyResolver, Error, Worker,
     observers::{Observer, ObserversTuple},
     runtimes::{RuntimeHandle, utils::unix::signal::OsTerminationParams},
-    state::FlatState,
+    states::FlatState,
 };
 
 /// The module for all the executor hooks
@@ -139,7 +139,7 @@ pub trait Executor<I, S>: DependencyResolver {
     where
         S: FlatState,
     {
-        *state.executions_mut() += 1;
+        state.increment_execs();
 
         // start_timer!(state);
         self.observers_mut().pre_exec_all(state)?;
@@ -310,7 +310,7 @@ pub mod test {
     use crate::{
         executors::{Executor, ExitKind},
         inputs::BytesInput,
-        state::NopState,
+        states::NopState,
     };
 
     #[test]

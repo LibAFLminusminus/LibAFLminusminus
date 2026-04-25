@@ -16,7 +16,7 @@ use crate::{
         testcase::TestcaseId,
     },
     inputs::{Input, InputContext},
-    state::HasScheduler,
+    states::HasScheduler,
 };
 
 const DEFAULT_CACHE_LEN: usize = 32;

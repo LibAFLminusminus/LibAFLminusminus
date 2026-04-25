@@ -18,9 +18,9 @@ use super::MutationId;
 use crate::{
     Error,
     corpus::{Corpus, TestcaseId, testcase},
-    fuzzer::EvaluationResult,
+    fuzzers::EvaluationResult,
     mutators::{MutationResult, Mutator, MutatorsTuple},
-    state::HasCorpus,
+    states::HasCorpus,
 };
 
 /// The metadata placed in a [`crate::corpus::Testcase`] by a [`LoggerScheduledMutator`].
@@ -296,7 +296,7 @@ mod tests {
             mutations::SpliceMutator,
             scheduled::{HavocScheduledMutator, SingleChoiceScheduledMutator},
         },
-        state::StdState,
+        states::StdState,
     };
 
     #[test]

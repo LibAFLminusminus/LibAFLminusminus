@@ -16,7 +16,7 @@ use crate::{
     feedbacks::Feedback,
     generators::NautilusContext,
     inputs::NautilusInput,
-    state::{FlatState, HasCorpus, named_metadata_mut},
+    states::{FlatState, HasCorpus, named_metadata_mut},
 };
 
 /// Metadata for Nautilus grammar mutator chunks

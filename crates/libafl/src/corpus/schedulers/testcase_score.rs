@@ -1,7 +1,7 @@
 //! The `TestcaseScore` is an evaluator providing scores of corpus items.
 use libafl_bolts::HasLen;
 
-use crate::{Error, corpus::Testcase, state::HasTestcase};
+use crate::{Error, corpus::Testcase, states::HasTestcase};
 
 /// Compute the favor factor of a [`Testcase`]. Higher is better.
 pub trait TestcaseScore<I, SC> {

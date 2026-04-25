@@ -7,7 +7,7 @@ use std::{cell::RefCell, ops::Add, pin::Pin};
 
 use hashbrown::HashMap;
 use libafl::{
-    executors::ExitKind, inputs::HasTargetBytes, observers::ObserversTuple, state::HasExecutions,
+    executors::ExitKind, inputs::HasTargetBytes, observers::ObserversTuple, states::HasExecutions,
 };
 use libafl_qemu_sys::{GuestAddr, GuestPhysAddr, GuestUsize, GuestVirtAddr};
 

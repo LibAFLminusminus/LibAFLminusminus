@@ -6,7 +6,7 @@ use libafl::{
     },
     executors::StdExecutor,
     feedbacks::{CrashFeedback, MaxMapFeedback},
-    fuzzer::{Fuzzer, StdFuzzer},
+    fuzzers::{Fuzzer, StdFuzzer},
     generators::RandPrintablesGenerator,
     inputs::{BytesInput, bytes::BytesContext},
     launchers::StdLauncher,
@@ -17,7 +17,7 @@ use libafl::{
     runtimes::RuntimeHandle,
     simple::{SimpleController, SimpleWorker},
     stages::StdMutationalStage,
-    state::StdState,
+    states::StdState,
 };
 use libafl_bolts::{current_nanos, nonnull_raw_mut, rands::StdRand, tuples::tuple_list};
 

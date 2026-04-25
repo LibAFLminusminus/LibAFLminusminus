@@ -11,7 +11,7 @@ use crate::{
         Runtime, RuntimeHandle, TerminationHandlerData, inprocess::InProcessRuntime,
         restarting::LIBAFL_EXIT_CONTINUE, utils::OsTerminationParams,
     },
-    state::NopState,
+    states::NopState,
 };
 
 rusty_fork_test! {

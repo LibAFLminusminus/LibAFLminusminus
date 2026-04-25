@@ -9,7 +9,7 @@ use core::marker::PhantomData;
 use crate::{
     DependencyResolver, Error,
     corpus::testcase::TestcaseId,
-    fuzzer::Evaluator,
+    fuzzers::Evaluator,
     generators::Generator,
     stages::{RuntimeHandle, Stage},
 };

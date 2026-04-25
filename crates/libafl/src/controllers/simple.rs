@@ -45,7 +45,7 @@ pub struct SimpleDescriptor {
     /// workdir of the worker
     workdir: Workdir,
     /// client id of this process
-    id: WorkerId,
+    worker_id: WorkerId,
 }
 
 /// The launcher should create instantiate this alongside binding this instance to a specific core id
@@ -60,7 +60,10 @@ impl SimpleDescriptor {
     ) -> Result<Self> {
         let workdir = Workdir::new(root_dir, stdout, stderr, stats)?;
 
-        Ok(SimpleDescriptor { workdir, id })
+        Ok(SimpleDescriptor {
+            workdir,
+            worker_id: id,
+        })
     }
 }
 
@@ -146,7 +149,7 @@ impl Controller for SimpleController {
     }
 
     fn on_worker_start(&mut self, descriptor: &Self::Descriptor, id: InstanceId) -> Result<()> {
-        log::info!("Started worker {:?}", descriptor.id);
+        log::info!("Started worker {:?}", descriptor.worker_id);
         Ok(())
     }
 
@@ -155,7 +158,7 @@ impl Controller for SimpleController {
         descriptor: &Self::Descriptor,
         termination_code: nix::sys::signal::Signal,
     ) -> Result<()> {
-        log::info!("Started worker {:?}", descriptor.id);
+        log::info!("Started worker {:?}", descriptor.worker_id);
         Ok(())
     }
 }
@@ -164,7 +167,7 @@ impl Worker for SimpleWorker {
     type Controller = SimpleController;
 
     fn id(&self) -> WorkerId {
-        self.descriptor.id
+        self.descriptor.worker_id
     }
 
     fn descriptor(&self) -> &SimpleDescriptor {
@@ -259,5 +262,9 @@ impl Descriptor for SimpleDescriptor {
 
     fn workdir_mut(&mut self) -> &mut Workdir {
         &mut self.workdir
+    }
+
+    fn worker_id(&self) -> WorkerId {
+        self.worker_id
     }
 }

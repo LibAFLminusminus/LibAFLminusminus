@@ -44,7 +44,7 @@ pub use multi_map::*;
 /// # use libafl::inputs::BytesInput;
 /// use libafl::observers::{StdMapObserver, CanTrack};
 /// use libafl::schedulers::{IndexesLenTimeMinimizerScheduler, QueueScheduler};
-/// # use libafl::state::StdState;
+/// # use libafl::states::StdState;
 /// # use libafl_bolts::serdeany::RegistryBuilder;
 /// #
 /// # #[cfg(any(not(feature = "serdeany_autoreg"), miri))]

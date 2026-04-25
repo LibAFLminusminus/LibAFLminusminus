@@ -65,7 +65,7 @@ use crate::{
     executors::{Executor, ExitKind, HasObservers, HasTimeout, SetTimeout},
     inputs::{HasTargetBytes, ToTargetBytesConverter},
     observers::{ObserversTuple, StdErrObserver, StdOutObserver},
-    state::HasExecutions,
+    states::HasExecutions,
 };
 
 /// How do we capture stdout/stderr. Not intended for public use.
@@ -754,7 +754,7 @@ impl CommandExecutorBuilder {
 ///     corpus::Corpus,
 ///     executors::{Executor, HasTimeout, command::CommandConfigurator},
 ///     inputs::{BytesInput, HasTargetBytes, Input, ToTargetBytesConverter},
-///     state::HasExecutions,
+///     states::HasExecutions,
 /// };
 /// use libafl_bolts::ownedref::OwnedSlice;
 /// #[derive(Debug)]
@@ -892,10 +892,10 @@ mod tests {
             Executor,
             command::{CommandExecutor, InputLocation},
         },
-        fuzzer::NopFuzzer,
+        fuzzers::NopFuzzer,
         inputs::{BytesInput, NopInput},
         monitors::SimpleMonitor,
-        state::NopState,
+        states::NopState,
     };
     #[cfg(unix)]
     use crate::{executors::StdChildArgs, observers::StdOutObserver};

@@ -10,7 +10,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::{ptr, str};
 
 #[cfg(feature = "usermode")]
-use libafl::state::HasCorpus;
+use libafl::states::HasCorpus;
 use libafl::{
     Error, ExecutionProcessor,
     events::{EventFirer, EventRestarter},
@@ -24,7 +24,7 @@ use libafl::{
     fuzzer::HasObjective,
     inputs::Input,
     observers::ObserversTuple,
-    state::{HasCurrentTestcase, HasExecutions, HasSolutions},
+    states::{HasCurrentTestcase, HasExecutions, HasSolutions},
 };
 #[cfg(feature = "usermode")]
 use libafl_bolts::minibsod;

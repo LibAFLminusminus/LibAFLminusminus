@@ -306,7 +306,7 @@ mod tests {
         observers::ValueObserver,
         schedulers::QueueScheduler,
         stages::nop::NopStage,
-        state::StdState,
+        states::StdState,
     };
 
     fn setup_encoder_decoder() -> (TokenInputEncoderDecoder, EncodedInput) {
