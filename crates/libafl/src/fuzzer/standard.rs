@@ -21,6 +21,8 @@ use crate::{
     state::{FlatState, HasCorpus, HasObjectiveCorpus, HasTestcase, State, sync_stats},
 };
 
+const STATS_UPDATE_INTERVAL: Duration = Duration::from_secs(5);
+
 /// Note: this code should not allocate at all.
 /// Any allocation can result in unexpected locks because of concurrency bug with the standard library.
 fn handle_objective_in_termination_handler<O, F, H, I, OF, S>(
@@ -324,8 +326,10 @@ where
         // 5 - initialize executor
         executor.init(state, rt_handle)?;
 
-        // 6 - other stuff init
-        self.stats_file = Some(rt_handle.worker().workdir().create_file("fuzzer_stats")?);
+        // 6 - stats init
+        let mut stats_file = rt_handle.worker().workdir().create_file("fuzzer_stats")?;
+        sync_stats(&mut stats_file, state.stats())?;
+        self.stats_file = Some(stats_file);
 
         self.initialized = true;
 
@@ -346,9 +350,11 @@ where
     ) -> Result<(), Error> {
         self.fuzzer_hooks.pre_step_all(executor, state, rt_handle);
 
-        if self.clock.now() - self.last_synced > Duration::from_secs(1) {
+        let now = self.clock.now();
+        if now - self.last_synced > STATS_UPDATE_INTERVAL {
             let stats_file = self.stats_file.as_mut().unwrap();
             sync_stats(stats_file, state.stats())?;
+            self.last_synced = now;
         }
 
         self.fuzzer_hooks

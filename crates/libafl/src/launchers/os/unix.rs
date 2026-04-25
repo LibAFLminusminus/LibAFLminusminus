@@ -14,8 +14,6 @@ pub struct Instance<RT, S, W> {
     state: Option<S>,
     worker: Option<W>,
     core: CoreId,
-    stdout_file: Option<WorkdirFile>,
-    stderr_file: Option<WorkdirFile>,
 }
 
 pub struct InstanceRepr<D> {
@@ -182,21 +180,12 @@ impl<D> Hash for InstanceRepr<D> {
 }
 
 impl<RT, S, W> Instance<RT, S, W> {
-    pub fn new(
-        runtime: RT,
-        state: S,
-        worker: W,
-        core: CoreId,
-        stdout_file: Option<WorkdirFile>,
-        stderr_file: Option<WorkdirFile>,
-    ) -> Self {
+    pub fn new(runtime: RT, state: S, worker: W, core: CoreId) -> Self {
         Self {
             runtime,
             state: Some(state),
             worker: Some(worker),
             core,
-            stdout_file,
-            stderr_file,
         }
     }
 }

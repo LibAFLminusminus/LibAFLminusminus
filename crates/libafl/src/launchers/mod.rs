@@ -38,8 +38,6 @@ pub struct StdLauncherBuilder<CT, MT, RT, S, SB> {
     cores: Cores,
     state_builder: SB,
     max_state_size_per_client: Option<NonZeroUsize>,
-    stdout_file: Option<PathBuf>,
-    stderr_file: Option<PathBuf>,
     phantom: PhantomData<S>,
 }
 
@@ -81,8 +79,6 @@ impl
             cores,
             state_builder: || Ok(NopState::new()),
             max_state_size_per_client: None,
-            stdout_file: Some(PathBuf::from("logs.out")),
-            stderr_file: Some(PathBuf::from("logs.err")),
             phantom: PhantomData,
         })
     }
@@ -124,8 +120,6 @@ impl<CT, MT, RT, S, SB> StdLauncherBuilder<CT, MT, RT, S, SB> {
             runtime: self.runtime,
             state_builder: self.state_builder,
             max_state_size_per_client: self.max_state_size_per_client,
-            stdout_file: self.stdout_file,
-            stderr_file: self.stderr_file,
             phantom: self.phantom,
         }
     }
@@ -138,8 +132,6 @@ impl<CT, MT, RT, S, SB> StdLauncherBuilder<CT, MT, RT, S, SB> {
             runtime: self.runtime,
             state_builder: self.state_builder,
             max_state_size_per_client: self.max_state_size_per_client,
-            stdout_file: self.stdout_file,
-            stderr_file: self.stderr_file,
             phantom: self.phantom,
         }
     }
@@ -152,8 +144,6 @@ impl<CT, MT, RT, S, SB> StdLauncherBuilder<CT, MT, RT, S, SB> {
             runtime: self.runtime,
             state_builder: self.state_builder,
             max_state_size_per_client: self.max_state_size_per_client,
-            stdout_file: self.stdout_file,
-            stderr_file: self.stderr_file,
             phantom: self.phantom,
         }
     }
@@ -166,8 +156,6 @@ impl<CT, MT, RT, S, SB> StdLauncherBuilder<CT, MT, RT, S, SB> {
             runtime,
             state_builder: self.state_builder,
             max_state_size_per_client: self.max_state_size_per_client,
-            stdout_file: self.stdout_file,
-            stderr_file: self.stderr_file,
             phantom: self.phantom,
         }
     }
@@ -187,8 +175,6 @@ impl<CT, MT, RT, S, SB> StdLauncherBuilder<CT, MT, RT, S, SB> {
             runtime: self.runtime,
             state_builder: state_builder,
             max_state_size_per_client: self.max_state_size_per_client,
-            stdout_file: self.stdout_file,
-            stderr_file: self.stderr_file,
             phantom: PhantomData::<S2>,
         }
     }
@@ -210,8 +196,6 @@ impl<CT, MT, RT, S, SB> StdLauncherBuilder<CT, MT, RT, S, SB> {
             runtime: self.runtime,
             state_builder: self.state_builder,
             max_state_size_per_client: Some(max_state_size_per_client),
-            stdout_file: self.stdout_file,
-            stderr_file: self.stderr_file,
             phantom: self.phantom,
         }
     }
@@ -229,8 +213,6 @@ impl<CT, MT, RT, S, SB> StdLauncherBuilder<CT, MT, RT, S, SB> {
             runtime: self.runtime,
             state_builder: self.state_builder,
             max_state_size_per_client: self.max_state_size_per_client,
-            stdout_file: Some(stdout_file.as_ref().to_path_buf()),
-            stderr_file: self.stderr_file,
             phantom: self.phantom,
         }
     }
@@ -248,8 +230,6 @@ impl<CT, MT, RT, S, SB> StdLauncherBuilder<CT, MT, RT, S, SB> {
             runtime: self.runtime,
             state_builder: self.state_builder,
             max_state_size_per_client: self.max_state_size_per_client,
-            stdout_file: self.stdout_file,
-            stderr_file: Some(stderr_file.as_ref().to_path_buf()),
             phantom: self.phantom,
         }
     }
@@ -285,8 +265,6 @@ where
             runtime: StdRuntime::new(task, ram_limit),
             state_builder: self.state_builder,
             max_state_size_per_client: self.max_state_size_per_client,
-            stdout_file: self.stdout_file,
-            stderr_file: self.stderr_file,
             phantom: self.phantom,
         };
 
@@ -327,14 +305,7 @@ where
             let state: S = (self.state_builder)(&worker)?;
 
             // add the instance to the list
-            instances.add_instance(Instance::new(
-                self.runtime.clone(),
-                state,
-                worker,
-                core,
-                self.stdout_file.clone().map(|f| WorkdirFile::Path(f)),
-                self.stderr_file.clone().map(|f| WorkdirFile::Path(f)),
-            ));
+            instances.add_instance(Instance::new(self.runtime.clone(), state, worker, core));
         }
 
         Ok(StdLauncher::new(controller, monitor, instances))
