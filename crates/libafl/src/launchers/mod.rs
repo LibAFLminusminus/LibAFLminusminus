@@ -31,6 +31,7 @@ pub use instances::{Instance, InstanceId, InstanceRepr, Instances};
 // TODO: use a proper heuristic to choose correct ram size
 pub const DEFAULT_MAX_STATE_SIZE_PER_CLIENT: NonZeroUsize = NonZeroUsize::new(1 << 30).unwrap();
 pub const DEFAULT_MONITOR_REFRESH: Duration = Duration::from_secs(5);
+pub const DEFAULT_TIMEOUT: Duration = Duration::from_secs(5);
 
 pub struct StdLauncherBuilder<CT, MT, RT, S, SB> {
     controller: Option<CT>,
@@ -40,6 +41,7 @@ pub struct StdLauncherBuilder<CT, MT, RT, S, SB> {
     state_builder: SB,
     max_state_size_per_client: Option<NonZeroUsize>,
     monitor_refresh: Duration,
+    timeout: Option<Duration>,
     phantom: PhantomData<S>,
 }
 
@@ -83,6 +85,7 @@ impl
             state_builder: || Ok(NopState::new()),
             max_state_size_per_client: None,
             monitor_refresh: DEFAULT_MONITOR_REFRESH.clone(),
+            timeout: Some(DEFAULT_TIMEOUT.clone()),
             phantom: PhantomData,
         })
     }
@@ -134,6 +137,21 @@ impl<CT, MT, RT, S, SB> StdLauncherBuilder<CT, MT, RT, S, SB> {
             state_builder: self.state_builder,
             max_state_size_per_client: self.max_state_size_per_client,
             monitor_refresh: self.monitor_refresh,
+            timeout: self.timeout,
+            phantom: self.phantom,
+        }
+    }
+
+    pub fn timeout(self, timeout: Option<Duration>) -> Self {
+        StdLauncherBuilder {
+            controller: self.controller,
+            monitor: self.monitor,
+            cores: self.cores,
+            runtime: self.runtime,
+            state_builder: self.state_builder,
+            max_state_size_per_client: self.max_state_size_per_client,
+            monitor_refresh: self.monitor_refresh,
+            timeout: timeout,
             phantom: self.phantom,
         }
     }
@@ -147,6 +165,7 @@ impl<CT, MT, RT, S, SB> StdLauncherBuilder<CT, MT, RT, S, SB> {
             state_builder: self.state_builder,
             max_state_size_per_client: self.max_state_size_per_client,
             monitor_refresh: self.monitor_refresh,
+            timeout: self.timeout,
             phantom: self.phantom,
         }
     }
@@ -160,6 +179,7 @@ impl<CT, MT, RT, S, SB> StdLauncherBuilder<CT, MT, RT, S, SB> {
             state_builder: self.state_builder,
             max_state_size_per_client: self.max_state_size_per_client,
             monitor_refresh: self.monitor_refresh,
+            timeout: self.timeout,
             phantom: self.phantom,
         }
     }
@@ -173,6 +193,7 @@ impl<CT, MT, RT, S, SB> StdLauncherBuilder<CT, MT, RT, S, SB> {
             state_builder: self.state_builder,
             max_state_size_per_client: self.max_state_size_per_client,
             monitor_refresh: self.monitor_refresh,
+            timeout: self.timeout,
             phantom: self.phantom,
         }
     }
@@ -193,6 +214,7 @@ impl<CT, MT, RT, S, SB> StdLauncherBuilder<CT, MT, RT, S, SB> {
             state_builder: state_builder,
             max_state_size_per_client: self.max_state_size_per_client,
             monitor_refresh: self.monitor_refresh,
+            timeout: self.timeout,
             phantom: PhantomData::<S2>,
         }
     }
@@ -215,6 +237,7 @@ impl<CT, MT, RT, S, SB> StdLauncherBuilder<CT, MT, RT, S, SB> {
             state_builder: self.state_builder,
             max_state_size_per_client: Some(max_state_size_per_client),
             monitor_refresh: self.monitor_refresh,
+            timeout: self.timeout,
             phantom: self.phantom,
         }
     }
@@ -232,6 +255,7 @@ impl<CT, MT, RT, S, SB> StdLauncherBuilder<CT, MT, RT, S, SB> {
             state_builder: self.state_builder,
             max_state_size_per_client: self.max_state_size_per_client,
             monitor_refresh: monitor_refresh,
+            timeout: self.timeout,
             phantom: self.phantom,
         }
     }
@@ -264,10 +288,11 @@ where
             controller: self.controller,
             monitor: self.monitor,
             cores: self.cores,
-            runtime: StdRuntime::new(task, ram_limit),
+            runtime: StdRuntime::new(task, ram_limit, self.timeout.clone()),
             state_builder: self.state_builder,
             max_state_size_per_client: self.max_state_size_per_client,
             monitor_refresh: self.monitor_refresh,
+            timeout: self.timeout,
             phantom: self.phantom,
         };
 
