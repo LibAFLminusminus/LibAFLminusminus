@@ -8,7 +8,7 @@ use libafl_bolts::{
     serdeany::{NamedSerdeAnyMap, SerdeAny},
 };
 
-use crate::state::add_named_metadata_checked;
+use crate::states::add_named_metadata_checked;
 
 pub struct Registrator {
     map: NamedSerdeAnyMap,

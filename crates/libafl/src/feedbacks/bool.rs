@@ -102,7 +102,7 @@ mod test {
         executors::ExitKind,
         feedbacks::{BoolValueFeedback, Feedback},
         observers::ValueObserver,
-        state::NopState,
+        states::NopState,
     };
 
     #[test]

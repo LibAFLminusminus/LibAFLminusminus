@@ -3,7 +3,7 @@
 use alloc::rc::Rc;
 use core::{fmt, marker::PhantomData, num::NonZero};
 
-use crate::{DependencyResolver, Error, inputs::InputContext, state::HasScheduler};
+use crate::{DependencyResolver, Error, inputs::InputContext, states::HasScheduler};
 
 pub mod testcase;
 pub use testcase::{Testcase, TestcaseFilenameFormat, TestcaseId};

@@ -68,8 +68,8 @@ pub use controllers::*;
 pub mod corpus;
 pub mod executors;
 pub mod feedbacks;
-pub mod fuzzer;
-pub use fuzzer::*;
+pub mod fuzzers;
+pub use fuzzers::*;
 pub mod generators;
 pub mod inputs;
 pub mod launchers;
@@ -78,7 +78,7 @@ pub mod mutators;
 pub mod observers;
 pub mod runtimes;
 pub mod stages;
-pub mod state;
+pub mod states;
 
 pub use libafl_bolts::{non_zero, non_zero_const};
 pub use libafl_core::{Error, Result};
@@ -90,8 +90,8 @@ pub mod prelude {
     #![expect(ambiguous_glob_reexports)]
 
     pub use super::{
-        corpus::*, events::*, executors::*, feedbacks::*, fuzzer::*, generators::*, inputs::*,
-        monitors::*, mutators::*, observers::*, schedulers::*, stages::*, state::*, *,
+        corpus::*, events::*, executors::*, feedbacks::*, fuzzers::*, generators::*, inputs::*,
+        monitors::*, mutators::*, observers::*, schedulers::*, stages::*, states::*, *,
     };
 }
 
@@ -124,13 +124,13 @@ mod tests {
         events::NopEventManager,
         executors::{ExitKind, InProcessExecutor},
         feedbacks::ConstFeedback,
-        fuzzer::Fuzzer,
+        fuzzers::Fuzzer,
         inputs::BytesInput,
         monitors::SimpleMonitor,
         mutators::{HavocScheduledMutator, mutations::BitFlipMutator},
         schedulers::RandScheduler,
         stages::StdMutationalStage,
-        state::{HasCorpus, StdState},
+        states::{HasCorpus, StdState},
     };
 
     #[test]
@@ -177,7 +177,7 @@ mod tests {
             &mut harness,
             tuple_list!(),
             &mut fuzzer,
-            &mut state,
+            &mut states,
             &mut event_manager,
         )
         .unwrap();
@@ -187,14 +187,14 @@ mod tests {
 
         for i in 0..1000 {
             fuzzer
-                .fuzz_one(&mut stages, &mut executor, &mut state, &mut event_manager)
+                .fuzz_one(&mut stages, &mut executor, &mut states, &mut event_manager)
                 .unwrap_or_else(|err| panic!("Error in iter {i}: {err:?}"));
             if cfg!(miri) {
                 break;
             }
         }
 
-        let state_serialized = postcard::to_allocvec(&state).unwrap();
+        let state_serialized = postcard::to_allocvec(&states).unwrap();
         let state_deserialized: StdState<
             InMemoryCorpus<BytesInput>,
             _,
@@ -211,7 +211,7 @@ mod tests {
         .unwrap();
         assert_eq!(state.corpus().count(), state_deserialized.corpus().count());
 
-        let corpus_serialized = postcard::to_allocvec(state.corpus()).unwrap();
+        let corpus_serialized = postcard::to_allocvec(states.corpus()).unwrap();
         let corpus_deserialized: InMemoryCorpus<BytesInput> =
             postcard::from_bytes(corpus_serialized.as_slice()).unwrap();
         assert_eq!(state.corpus().count(), corpus_deserialized.count());

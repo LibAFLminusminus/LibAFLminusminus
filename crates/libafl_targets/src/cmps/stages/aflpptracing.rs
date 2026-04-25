@@ -8,7 +8,7 @@ use libafl::{
     inputs::BytesInput,
     observers::ObserversTuple,
     stages::{Restartable, RetryCountRestartHelper, Stage, colorization::TaintMetadata},
-    state::{HasCorpus, HasCurrentTestcase},
+    states::{HasCorpus, HasCurrentTestcase},
 };
 use libafl_bolts::{
     Named,

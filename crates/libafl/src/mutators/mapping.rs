@@ -6,7 +6,7 @@ use libafl_bolts::{Named, rands::Rand, tuples::MappingFunctor};
 use crate::{
     Error,
     corpus::TestcaseId,
-    fuzzer::EvaluationResult,
+    fuzzers::EvaluationResult,
     mutators::{MutationResult, Mutator},
 };
 
@@ -23,7 +23,7 @@ use crate::{
 ///
 /// use libafl::{
 ///     mutators::{ByteIncMutator, MappingMutator, MutationResult, Mutator},
-///     state::NopState,
+///     states::NopState,
 /// };
 /// use libafl_bolts::rands::StdRand;
 ///
@@ -104,7 +104,7 @@ impl<M, F> Named for MappingMutator<M, F> {
 ///     mutators::{
 ///         ByteIncMutator, MutationResult, MutatorsTuple, ToMappingMutator,
 ///     },
-///     state::NopState,
+///     states::NopState,
 /// };
 ///
 /// use libafl_bolts::{rands::StdRand, tuples::{tuple_list, Map}};
@@ -168,7 +168,7 @@ where
 /// use libafl::{
 ///     inputs::MutVecInput,
 ///     mutators::{ByteIncMutator, MutationResult, Mutator, OptionalMutator},
-///     state::NopState,
+///     states::NopState,
 /// };
 /// use libafl_bolts::rands::StdRand;
 ///
@@ -245,7 +245,7 @@ where
 /// use libafl::{
 ///     inputs::MutVecInput,
 ///     mutators::{ByteIncMutator, MutationResult, Mutator, ToOptionalMutator},
-///     state::NopState,
+///     states::NopState,
 /// };
 /// use libafl_bolts::{rands::StdRand, tuples::{tuple_list, Map}};
 ///
@@ -293,7 +293,7 @@ where
 ///
 /// use libafl::{
 ///     mutators::{ByteIncMutator, MutationResult, Mutator, StateAwareMappingMutator},
-///     state::{HasRand, NopState},
+///     states::{HasRand, NopState},
 /// };
 /// use libafl_bolts::rands::{Rand as _, StdRand};
 ///
@@ -392,7 +392,7 @@ impl<M, F> Named for StateAwareMappingMutator<M, F> {
 ///     mutators::{
 ///         ByteIncMutator, MutationResult, MutatorsTuple, ToStateAwareMappingMutator,
 ///     },
-///     state::{HasRand, NopState},
+///     states::{HasRand, NopState},
 /// };
 ///
 /// use libafl_bolts::{

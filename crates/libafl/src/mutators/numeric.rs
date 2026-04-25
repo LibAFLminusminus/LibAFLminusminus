@@ -14,9 +14,9 @@ use tuple_list_ex::{map_tuple_list_type, merge_tuple_list_type};
 use super::{MutationResult, Mutator, ToMappingMutator, ToStateAwareMappingMutator};
 use crate::{
     corpus::{Corpus, TestcaseId, schedulers::Scheduler},
-    fuzzer::EvaluationResult,
+    fuzzers::EvaluationResult,
     inputs::value::Numeric,
-    state::{HasCorpus, HasScheduler},
+    states::{HasCorpus, HasScheduler},
 };
 
 /// All mutators for integer-like inputs
@@ -378,7 +378,7 @@ mod tests {
             value::{I16Input, PrimitiveContext},
         },
         mutators::MutationResult,
-        state::StdState,
+        states::StdState,
     };
 
     #[test]

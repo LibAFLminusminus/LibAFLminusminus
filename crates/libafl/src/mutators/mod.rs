@@ -39,7 +39,7 @@ pub mod nautilus;
 #[cfg(feature = "nautilus")]
 pub use nautilus::*;
 
-use crate::{corpus::TestcaseId, fuzzer::EvaluationResult};
+use crate::{corpus::TestcaseId, fuzzers::EvaluationResult};
 
 // TODO mutator stats method that produces something that can be sent with the NewTestcase event
 // We can use it to report which mutations generated the testcase in the broker logs

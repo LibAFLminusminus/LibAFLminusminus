@@ -18,10 +18,10 @@ use libafl_core::non_zero;
 use crate::{
     Error,
     corpus::{Corpus, Scheduler, TestcaseId},
-    fuzzer::EvaluationResult,
+    fuzzers::EvaluationResult,
     inputs::{HasMutatorBytes, ResizableMutator},
     mutators::{MutationResult, Mutator},
-    state::{FlatState, HasCorpus, HasScheduler, State},
+    states::{FlatState, HasCorpus, HasScheduler, State},
 };
 
 /// Mem move in the own vec
@@ -1707,7 +1707,7 @@ mod tests {
         },
         inputs::{BytesInput, bytes::BytesContext},
         mutators::MutatorsTuple,
-        state::StdState,
+        states::StdState,
     };
 
     type TestMutatorsTupleType = tuple_list_type!(

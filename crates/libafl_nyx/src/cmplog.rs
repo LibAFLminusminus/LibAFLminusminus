@@ -8,7 +8,7 @@ use libafl::{
     Error, HasMetadata,
     executors::ExitKind,
     observers::{CmpValues, CmpValuesMetadata, Observer},
-    state::HasExecutions,
+    states::HasExecutions,
 };
 use libafl_bolts::Named;
 pub use libafl_targets::{

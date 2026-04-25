@@ -1,7 +1,7 @@
 use crate::{
     Result,
     launchers::InstanceId,
-    state::{Stats, sync_stats},
+    states::{Stats, sync_stats},
 };
 use alloc::vec::Vec;
 use hashbrown::HashMap;
@@ -74,6 +74,7 @@ pub trait Worker {
 pub trait Descriptor: Clone {
     fn workdir(&self) -> &Workdir;
     fn workdir_mut(&mut self) -> &mut Workdir;
+    fn worker_id(&self) -> WorkerId;
 }
 
 #[derive(Debug, Clone)]

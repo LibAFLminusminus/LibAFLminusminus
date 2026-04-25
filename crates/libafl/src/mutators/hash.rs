@@ -6,7 +6,7 @@ use core::hash::Hash;
 use libafl_bolts::{Error, Named, generic_hash_std, rands::Rand};
 
 use super::{MutationResult, Mutator};
-use crate::{corpus::testcase::TestcaseId, fuzzer::EvaluationResult};
+use crate::{corpus::testcase::TestcaseId, fuzzers::EvaluationResult};
 
 /// A wrapper around a [`Mutator`] that ensures an input really changed [`MutationResult::Mutated`]
 /// by hashing pre- and post-mutation and comparing the values
@@ -60,7 +60,7 @@ mod tests {
     use crate::{
         inputs::BytesInput,
         mutators::{BytesSetMutator, MutationChecker, MutationResult, Mutator},
-        state::NopState,
+        states::NopState,
     };
 
     #[test]

@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use crate::{
     common::DependencyResolver, corpus::TestcaseId, executors::ExitKind, feedbacks::Feedback,
-    observers::ListObserver, state::FlatState,
+    observers::ListObserver, states::FlatState,
 };
 
 /// The metadata to remember past observed value

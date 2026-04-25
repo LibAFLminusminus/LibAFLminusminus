@@ -370,7 +370,7 @@ mod tests {
         mutators::{HavocScheduledMutator, mutations::BitFlipMutator},
         schedulers::StdScheduler,
         stages::StdMutationalStage,
-        state::{HasSolutions, StdState},
+        states::{HasSolutions, StdState},
     };
     use libafl_bolts::{
         AsSlice, SimpleStdoutLogger, cli::FuzzerOptions, rands::StdRand, tuples::tuple_list,

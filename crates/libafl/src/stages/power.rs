@@ -14,7 +14,7 @@ use crate::{
     Error, HasMetadata, HasNamedMetadata,
     corpus::HasCurrentCorpusId,
     executors::{Executor, HasObservers},
-    fuzzer::Evaluator,
+    fuzzers::Evaluator,
     mark_feature_time,
     mutators::{MutationResult, Mutator},
     schedulers::{TestcaseScore, testcase_score::CorpusPowerTestcaseScore},
@@ -23,7 +23,7 @@ use crate::{
         mutational::{MutatedTransform, MutatedTransformPost},
     },
     start_timer,
-    state::{HasCurrentTestcase, HasExecutions, HasRand, MaybeHasClientPerfMonitor},
+    states::{HasCurrentTestcase, HasExecutions, HasRand, MaybeHasClientPerfMonitor},
 };
 
 /// The unique id for this stage

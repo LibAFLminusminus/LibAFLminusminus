@@ -85,7 +85,7 @@ mod tests {
             schedulers::{NopScheduler, QueueScheduler, Scheduler},
         },
         inputs::bytes::{BytesContext, BytesInput},
-        state::{HasCorpus, HasScheduler, StdState},
+        states::{HasCorpus, HasScheduler, StdState},
     };
 
     #[test]

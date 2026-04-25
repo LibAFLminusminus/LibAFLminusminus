@@ -24,7 +24,7 @@ use crate::{
     executors::ExitKind,
     feedbacks::MapFeedbackMetadata,
     observers::{CanTrack, MapObserver},
-    state::{FlatState, HasTestcase},
+    states::{FlatState, HasTestcase},
 };
 
 /// Stable Rust wrapper for SIMD accelerated map feedback. Unfortunately, we have to
@@ -100,7 +100,7 @@ where
 
 /// Implementation that mocks [`MapFeedback`], note the bound of O is intentionally stricter
 /// than we we need to hint users when their entry is not `u8`. Without this bound, there
-/// would be bound related errors in [`crate::fuzzer::StdFuzzer`], which is super confusing
+/// would be bound related errors in [`crate::fuzzers::StdFuzzer`], which is super confusing
 /// and misleading.
 impl<C, O, R, V> SimdMapFeedback<C, O, R, V>
 where

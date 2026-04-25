@@ -9,7 +9,7 @@ use libafl_bolts::tuples::RefIndexable;
 pub type NopExecutor = ConstantExecutor<()>;
 
 /// Constant Executor that returns a fixed value. Mostly helpful
-/// when you need it to satisfy some bounds like [`crate::fuzzer::NopFuzzer`]
+/// when you need it to satisfy some bounds like [`crate::fuzzers::NopFuzzer`]
 #[derive(Debug)]
 pub struct ConstantExecutor<OT = ()> {
     exit: ExitKind,

@@ -17,11 +17,11 @@ use crate::{
     },
     corpus::{Testcase, TestcaseId},
     feedbacks::NautilusChunksMetadata,
-    fuzzer::EvaluationResult,
+    fuzzers::EvaluationResult,
     generators::nautilus::NautilusContext,
     inputs::nautilus::NautilusInput,
     mutators::{MutationResult, Mutator},
-    state::{FlatState, named_metadata},
+    states::{FlatState, named_metadata},
 };
 
 /// The randomic mutator for `Nautilus` grammar.

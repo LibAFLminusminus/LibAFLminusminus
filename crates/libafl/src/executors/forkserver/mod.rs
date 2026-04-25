@@ -46,7 +46,7 @@ use crate::{
     mutators::Tokens,
     observers::{MapObserver, Observer, ObserversTuple},
     runtimes::RuntimeHandle,
-    state::{FlatState, HasCorpus},
+    states::{FlatState, HasCorpus},
 };
 
 pub mod config;
@@ -706,7 +706,8 @@ where
         rt_handle: &mut RuntimeHandle<S, W>,
         input: &I,
     ) -> Result<ExitKind, Error> {
-        *state.executions_mut() += 1;
+        state.increment_execs();
+
         self.observers_mut().pre_exec_all(state)?;
 
         let exit_kind = unsafe { self.execute_impl(state, input)? };
@@ -803,10 +804,7 @@ where
     /// in case no input file is specified.
     /// If `debug_child` is set, the child will print to `stdout`/`stderr`.
     #[expect(clippy::pedantic)]
-    pub fn build<OT, S>(
-        mut self,
-        observers: OT,
-    ) -> Result<ForkserverExecutor<OT, SHM>, Error>
+    pub fn build<OT, S>(mut self, observers: OT) -> Result<ForkserverExecutor<OT, SHM>, Error>
     where
         OT: ObserversTuple<S>,
     {

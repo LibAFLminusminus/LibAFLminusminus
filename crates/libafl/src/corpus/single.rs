@@ -15,7 +15,7 @@ use crate::{
         Scheduler, schedulers::RemovableScheduler, store::StorageResult, testcase::TestcaseId,
     },
     inputs::{Input, InputContext},
-    state::HasScheduler,
+    states::HasScheduler,
 };
 
 /// You average corpus.

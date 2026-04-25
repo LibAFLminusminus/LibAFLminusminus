@@ -22,7 +22,7 @@ use crate::{
     nop::{NopDescriptor, NopWorker},
     runtimes::{Runtime, RuntimeHandle, StdRuntime, nop::NopRuntime},
     simple::SimpleController,
-    state::NopState,
+    states::NopState,
 };
 
 pub mod instances;
@@ -30,7 +30,7 @@ pub use instances::{Instance, InstanceId, InstanceRepr, Instances};
 
 // TODO: use a proper heuristic to choose correct ram size
 pub const DEFAULT_MAX_STATE_SIZE_PER_CLIENT: NonZeroUsize = NonZeroUsize::new(1 << 30).unwrap();
-pub const DEFAULT_MONITOR_REFRESH: Duration = Duration::from_secs(2);
+pub const DEFAULT_MONITOR_REFRESH: Duration = Duration::from_secs(5);
 
 pub struct StdLauncherBuilder<CT, MT, RT, S, SB> {
     controller: Option<CT>,

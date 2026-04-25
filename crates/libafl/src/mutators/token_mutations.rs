@@ -30,7 +30,7 @@ use crate::{
         MultiMutator, MutationResult, Mutator, Named, buffer_self_copy, mutations::buffer_copy,
     },
     observers::cmp::{AflppCmpValuesMetadata, CmpValues, CmpValuesMetadata},
-    state::{FlatState, HasCorpus},
+    states::{FlatState, HasCorpus},
 };
 
 /// A state metadata holding a list of tokens
@@ -329,10 +329,12 @@ where
         // # Safety
         // after saturating add it's always above 0
 
-        let off = rand
-            .below(unsafe { NonZero::new_unchecked(size.saturating_add(1)) });
+        let off = rand.below(unsafe { NonZero::new_unchecked(size.saturating_add(1)) });
 
-        let meta = state.named_metadata_map().get::<Tokens>(DEFAULT_TOKEN_MAP).unwrap();
+        let meta = state
+            .named_metadata_map()
+            .get::<Tokens>(DEFAULT_TOKEN_MAP)
+            .unwrap();
         let token = &meta.tokens()[token_idx];
         let mut len = token.len();
 
@@ -404,7 +406,10 @@ where
         };
         let token_idx = rand.below(tokens_len);
 
-        let meta = state.named_metadata_map().get::<Tokens>(DEFAULT_TOKEN_MAP).unwrap();
+        let meta = state
+            .named_metadata_map()
+            .get::<Tokens>(DEFAULT_TOKEN_MAP)
+            .unwrap();
         let token = &meta.tokens()[token_idx];
         let mut len = token.len();
         if off + len > size {

@@ -21,7 +21,7 @@ use serde::{Deserialize, Serialize};
 use tuple_list::NonEmptyTuple;
 
 use crate::{
-    DependencyResolver, Error, corpus::TestcaseId, runtimes::RuntimeHandle, state::FlatState,
+    DependencyResolver, Error, corpus::TestcaseId, runtimes::RuntimeHandle, states::FlatState,
 };
 
 /// Mutational stage is the normal fuzzing stage.
@@ -495,7 +495,7 @@ impl<E, R, S, W, Z> StagesTuple<E, R, S, W, Z> for Vec<Box<dyn Stage<E, R, S, W,
 //         corpus::{Corpus, Testcase},
 //         inputs::NopInput,
 //         stages::RetryCountRestartHelper,
-//         state::{HasCorpus, StdState},
+//         states::{HasCorpus, StdState},
 //     };
 //
 //     /// Test to test retries in stages

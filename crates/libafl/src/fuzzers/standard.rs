@@ -12,17 +12,17 @@ use crate::{
     dependency::Registrator,
     executors::{Executor, ExitKind},
     feedbacks::{Feedback, MapFeedbackMetadata},
-    fuzzer::{EvaluationResult, Evaluator, Fuzzer, HasFeedback, HasObjective, Verdict},
+    fuzzers::{EvaluationResult, Evaluator, Fuzzer, HasFeedback, HasObjective, Verdict},
     observers::{Observer, ObserversTuple},
     runtimes::{
         Runtime, RuntimeHandle,
         utils::{OsTerminationParams, TerminationHandlerData},
     },
     stages::StagesTuple,
-    state::{FlatState, HasCorpus, HasObjectiveCorpus, HasTestcase, State, sync_stats},
+    states::{FlatState, HasCorpus, HasObjectiveCorpus, HasTestcase, State, sync_stats},
 };
 
-const STATS_UPDATE_INTERVAL: Duration = Duration::from_secs(5);
+const STATS_UPDATE_INTERVAL: Duration = Duration::from_secs(4);
 
 /// Note: this code should not allocate at all.
 /// Any allocation can result in unexpected locks because of concurrency bug with the standard library.
@@ -345,6 +345,12 @@ where
 
         // 5 - initialize executor
         executor.init(state, rt_handle)?;
+
+        // report empty start during init
+        rt_handle
+            .worker_mut()
+            .workdir_mut()
+            .report_stats(state.stats())?;
 
         self.initialized = true;
 

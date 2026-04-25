@@ -19,7 +19,7 @@ use crate::{
         UnicodeIdentificationMetadata, extract_metadata,
         mutational::{MutatedTransform, MutatedTransformPost},
     },
-    state::{HasCorpus, HasMaxSize, HasRand},
+    states::{HasCorpus, HasMaxSize, HasRand},
 };
 
 /// Unicode category data, as used by string analysis and mutators.
@@ -499,7 +499,7 @@ mod test {
         inputs::{BytesInput, HasMutatorBytes},
         mutators::{Mutator, UnicodeCategoryRandMutator, UnicodeSubcategoryRandMutator},
         stages::extract_metadata,
-        state::StdState,
+        states::StdState,
     };
 
     // a not-so-useful test for this
