@@ -15,7 +15,7 @@ use crate::{
     fuzzer::{EvaluationResult, Evaluator, Fuzzer, HasFeedback, HasObjective, Verdict},
     observers::{Observer, ObserversTuple},
     runtimes::{
-        RuntimeHandle,
+        Runtime, RuntimeHandle,
         utils::{OsTerminationParams, TerminationHandlerData},
     },
     stages::StagesTuple,
@@ -29,11 +29,12 @@ const STATS_UPDATE_INTERVAL: Duration = Duration::from_secs(5);
 ///
 /// In practice, it's very hard to enforce, and most likely some allocations will happen there.
 /// If it is ever a real bug, investigate there.
-fn handle_objective_in_termination_handler<O, F, H, I, OF, S>(
+fn handle_objective_in_termination_handler<O, F, H, I, OF, S, W>(
     observers: &mut O,
     state: &mut S,
     input: I,
     fuzzer: &mut StdFuzzer<F, H, OF>,
+    rt_handle: &mut RuntimeHandle<S, W>,
     exit_kind: ExitKind,
 ) where
     F: Feedback<I, O, S>,
@@ -41,6 +42,7 @@ fn handle_objective_in_termination_handler<O, F, H, I, OF, S>(
     O: ObserversTuple<S>,
     OF: Feedback<I, O, S>,
     S: State<I>,
+    W: Worker,
 {
     observers
         .post_exec_all(state, &exit_kind)
@@ -51,13 +53,16 @@ fn handle_objective_in_termination_handler<O, F, H, I, OF, S>(
         .unwrap();
 
     // update stats before exit
-    let stats_file = fuzzer.stats_file.as_mut().unwrap();
-    sync_stats(stats_file, state.stats()).unwrap();
+    rt_handle
+        .worker_mut()
+        .workdir_mut()
+        .report_stats(state.stats())
+        .unwrap();
 }
 
 /// Crash signals will end up there, if it happens during a fuzzing run.
 /// Ending up here out of a fuzzing run is an error.
-unsafe fn std_on_crash<E, F, H, I, OF, S>(
+unsafe fn std_on_crash<E, F, H, I, OF, S, W>(
     data: &mut TerminationHandlerData,
     _signal_params: &OsTerminationParams,
 ) where
@@ -66,6 +71,7 @@ unsafe fn std_on_crash<E, F, H, I, OF, S>(
     I: Clone,
     OF: Feedback<I, E::Observers, S>,
     S: State<I>,
+    W: Worker,
 {
     // double check, not mandatory
     if !data.in_fuzzing() {
@@ -78,19 +84,21 @@ unsafe fn std_on_crash<E, F, H, I, OF, S>(
     let state = unsafe { data.state::<S>() };
     let fuzzer = unsafe { data.fuzzer::<StdFuzzer<F, H, OF>>() };
     let observers = unsafe { data.observers::<E::Observers>() };
+    let rt_handle = unsafe { data.rt_handle::<S, W>() };
 
     handle_objective_in_termination_handler(
         observers,
         state,
         input.unwrap(),
         fuzzer,
+        rt_handle,
         ExitKind::Crash,
     );
 }
 
 /// Timeout signals will end up there, if it happens during a fuzzing run.
 /// Ending up here out of a fuzzing run is an error.
-unsafe fn std_on_timeout<E, F, H, I, OF, S>(
+unsafe fn std_on_timeout<E, F, H, I, OF, S, W>(
     data: &mut TerminationHandlerData,
     _signal_params: &OsTerminationParams,
 ) where
@@ -99,6 +107,7 @@ unsafe fn std_on_timeout<E, F, H, I, OF, S>(
     I: Clone,
     OF: Feedback<I, E::Observers, S>,
     S: State<I>,
+    W: Worker,
 {
     // double check, not mandatory
     if !data.in_fuzzing() {
@@ -111,12 +120,14 @@ unsafe fn std_on_timeout<E, F, H, I, OF, S>(
     let state = unsafe { data.state::<S>() };
     let fuzzer = unsafe { data.fuzzer::<StdFuzzer<F, H, OF>>() };
     let observers = unsafe { data.observers::<E::Observers>() };
+    let rt_handle = unsafe { data.rt_handle::<S, W>() };
 
     handle_objective_in_termination_handler(
         observers,
         state,
         input.unwrap(),
         fuzzer,
+        rt_handle,
         ExitKind::Timeout,
     );
 }
@@ -132,7 +143,6 @@ pub struct StdFuzzer<F, H, OF> {
     initialized: bool,
     clock: Clock,
     last_synced: Instant,
-    stats_file: Option<File>,
 }
 
 /// The builder for std fuzzer
@@ -325,19 +335,16 @@ where
             state,
             self,
             &mut *executor.observers_mut(),
-            |data, signal_params| unsafe { std_on_crash::<E, F, H, I, OF, S>(data, signal_params) },
             |data, signal_params| unsafe {
-                std_on_timeout::<E, F, H, I, OF, S>(data, signal_params)
+                std_on_crash::<E, F, H, I, OF, S, W>(data, signal_params)
+            },
+            |data, signal_params| unsafe {
+                std_on_timeout::<E, F, H, I, OF, S, W>(data, signal_params)
             },
         );
 
         // 5 - initialize executor
         executor.init(state, rt_handle)?;
-
-        // 6 - stats init
-        let mut stats_file = rt_handle.worker().workdir().create_file("fuzzer_stats")?;
-        sync_stats(&mut stats_file, state.stats())?;
-        self.stats_file = Some(stats_file);
 
         self.initialized = true;
 
@@ -360,8 +367,10 @@ where
 
         let now = self.clock.now();
         if now - self.last_synced > STATS_UPDATE_INTERVAL {
-            let stats_file = self.stats_file.as_mut().unwrap();
-            sync_stats(stats_file, state.stats())?;
+            rt_handle
+                .worker_mut()
+                .workdir_mut()
+                .report_stats(state.stats())?;
             self.last_synced = now;
         }
 
@@ -454,7 +463,6 @@ impl<F, H, OF> StdFuzzerBuilder<F, H, OF> {
             initialized: false,
             clock,
             last_synced: now,
-            stats_file: None,
         }
     }
 }

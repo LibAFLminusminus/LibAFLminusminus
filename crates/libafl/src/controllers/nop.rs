@@ -34,6 +34,10 @@ impl Worker for NopWorker {
         unimplemented!("nop controller has no workdir");
     }
 
+    fn workdir_mut(&mut self) -> &mut Workdir {
+        unimplemented!("nop controller has no workdir");
+    }
+
     fn reconcile(&self) -> Result<(), libafl_core::Error> {
         Ok(())
     }
