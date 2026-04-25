@@ -26,6 +26,7 @@ pub struct TerminationHandlerData {
     input_ptr: Option<NonNull<c_void>>,
     observers_ptr: Option<NonNull<c_void>>,
     fuzzer_ptr: Option<NonNull<c_void>>,
+    rt_handle_ptr: Option<NonNull<c_void>>,
     state_sender_ptr: Option<NonNull<c_void>>,
     crash_handler: Option<fn(&mut Self, &OsTerminationParams)>,
     timeout_handler: Option<fn(&mut Self, &OsTerminationParams)>,
@@ -41,17 +42,19 @@ impl TerminationHandlerData {
             input_ptr: None,
             observers_ptr: None,
             fuzzer_ptr: None,
+            rt_handle_ptr: None,
             state_sender_ptr: None,
             crash_handler: None,
             timeout_handler: None,
         }
     }
 
-    pub fn init<O, S, Z>(
+    pub fn init<O, S, W, Z>(
         &mut self,
         state: &mut S,
         fuzzer: &mut Z,
         observers: &mut O,
+        rt_handle_ptr: NonNull<RuntimeHandle<S, W>>,
         on_crash: fn(&mut Self, &OsTerminationParams),
         on_timeout: fn(&mut Self, &OsTerminationParams),
     ) {
@@ -64,6 +67,7 @@ impl TerminationHandlerData {
         self.state_ptr = Some(NonNull::from(state).cast());
         self.fuzzer_ptr = Some(NonNull::from(fuzzer).cast());
         self.observers_ptr = Some(NonNull::from(observers).cast());
+        self.rt_handle_ptr = Some(rt_handle_ptr.cast());
         self.crash_handler = Some(on_crash);
         self.timeout_handler = Some(on_timeout);
     }
@@ -87,6 +91,13 @@ impl TerminationHandlerData {
     /// O must be the same as the one used during init
     pub unsafe fn observers<O>(&self) -> &mut O {
         unsafe { self.observers_ptr.unwrap().cast().as_mut() }
+    }
+
+    /// # Safety
+    ///
+    /// S and W must be the same as the one used during init
+    pub unsafe fn rt_handle<S, W>(&self) -> &mut RuntimeHandle<S, W> {
+        unsafe { self.rt_handle_ptr.unwrap().cast().as_mut() }
     }
 
     /// # Safety

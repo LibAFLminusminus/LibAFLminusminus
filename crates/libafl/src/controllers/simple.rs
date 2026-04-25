@@ -4,6 +4,7 @@ use nix::unistd::{dup2_stderr, dup2_stdout};
 use serde::{Deserialize, Serialize};
 use std::{
     fs::{self, File},
+    io::{PipeReader, PipeWriter, pipe},
     path::{Path, PathBuf},
     vec::Vec,
 };
@@ -14,22 +15,32 @@ pub struct SimpleControllerBuilder {
     overwrite: bool,
     worker_stdout: Option<WorkdirFile>,
     worker_stderr: Option<WorkdirFile>,
+    worker_stats: Option<WorkdirFile>,
 }
 
 #[derive(Debug)]
 pub struct SimpleController {
     root_dir: PathBuf,
     id_ctr: u32,
-    workers: Vec<SimpleDescriptor>,
+    workers: Vec<SimpleWorkerRepr>,
     worker_stdout: Option<WorkdirFile>,
     worker_stderr: Option<WorkdirFile>,
+    worker_stats: Option<WorkdirFile>,
 }
 
 /// this is just a wrapper around StdDescriptor
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct SimpleWorker {
     /// the descriptor describing this client
     descriptor: SimpleDescriptor,
+    /// The pipe to communicate with the controller
+    write_pipe: PipeWriter,
+}
+
+#[derive(Debug)]
+pub struct SimpleWorkerRepr {
+    descriptor: SimpleDescriptor,
+    read_pipe: PipeReader,
 }
 
 #[derive(Debug, Clone)]
@@ -47,9 +58,10 @@ impl SimpleDescriptor {
         root_dir: P,
         stdout: Option<WorkdirFile>,
         stderr: Option<WorkdirFile>,
+        stats: Option<WorkdirFile>,
         id: WorkerId,
     ) -> Result<Self> {
-        let workdir = Workdir::new(root_dir, stdout, stderr)?;
+        let workdir = Workdir::new(root_dir, stdout, stderr, stats)?;
 
         Ok(SimpleDescriptor { workdir, id })
     }
@@ -62,6 +74,7 @@ impl SimpleController {
         root_dir: PathBuf,
         worker_stdout: Option<WorkdirFile>,
         worker_stderr: Option<WorkdirFile>,
+        worker_stats: Option<WorkdirFile>,
         overwrite: bool,
     ) -> Result<Self> {
         if root_dir.exists() {
@@ -81,6 +94,7 @@ impl SimpleController {
             root_dir,
             worker_stdout,
             worker_stderr,
+            worker_stats,
             workers: Vec::new(),
             id_ctr: 0,
         })
@@ -114,16 +128,22 @@ impl Controller for SimpleController {
             worker_dir,
             self.worker_stdout.clone(),
             self.worker_stderr.clone(),
+            self.worker_stats.clone(),
             worker_id,
         )?;
 
-        let cl = SimpleWorker::new(descriptor.clone());
-        self.workers.push(descriptor);
+        let (read_pipe, write_pipe) = pipe()?;
+
+        let cl = SimpleWorker::new(descriptor.clone(), write_pipe);
+        self.workers.push(SimpleWorkerRepr {
+            descriptor,
+            read_pipe,
+        });
         Ok(cl)
     }
 
-    fn workers(&self) -> &[Self::Descriptor] {
-        &self.workers
+    fn workers(&self) -> impl IntoIterator<Item = &Self::Descriptor> {
+        self.workers.iter().map(|repr| &repr.descriptor).into_iter()
     }
 
     fn on_worker_start(&mut self, descriptor: &Self::Descriptor, id: InstanceId) -> Result<()> {
@@ -156,6 +176,10 @@ impl Worker for SimpleWorker {
         &self.descriptor.workdir
     }
 
+    fn workdir_mut(&mut self) -> &mut Workdir {
+        &mut self.descriptor.workdir
+    }
+
     fn reconcile(&self) -> Result<()> {
         // do nothing
         Ok(())
@@ -175,8 +199,11 @@ impl Worker for SimpleWorker {
 }
 
 impl SimpleWorker {
-    pub fn new(descriptor: SimpleDescriptor) -> Self {
-        Self { descriptor }
+    pub fn new(descriptor: SimpleDescriptor, write_pipe: PipeWriter) -> Self {
+        Self {
+            descriptor,
+            write_pipe,
+        }
     }
 }
 
@@ -187,6 +214,7 @@ impl Default for SimpleControllerBuilder {
             root_dir: PathBuf::from("./workdir"),
             worker_stdout: Some(WorkdirFile::Path(PathBuf::from("logs.out"))),
             worker_stderr: Some(WorkdirFile::Path(PathBuf::from("logs.err"))),
+            worker_stats: Some(WorkdirFile::Path(PathBuf::from("fuzzer_stats"))),
         }
     }
 }
@@ -212,11 +240,17 @@ impl SimpleControllerBuilder {
         self
     }
 
+    pub fn worker_stats(mut self, file_output: WorkdirFile) -> Self {
+        self.worker_stats = Some(file_output);
+        self
+    }
+
     pub fn build(self) -> Result<SimpleController> {
         SimpleController::new(
             self.root_dir,
             self.worker_stdout,
             self.worker_stderr,
+            self.worker_stats,
             self.overwrite,
         )
     }

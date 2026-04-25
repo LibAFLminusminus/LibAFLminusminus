@@ -21,8 +21,6 @@ pub struct InstanceRepr<D> {
     pid: Pid,
     // the descriptor
     descriptor: D,
-    // the read or the pipe to poll for
-    read_pipe: OwnedFd,
 }
 
 // for now, this is unix-specific.
