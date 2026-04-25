@@ -33,14 +33,11 @@ pub struct SimpleController {
 pub struct SimpleWorker {
     /// the descriptor describing this client
     descriptor: SimpleDescriptor,
-    /// The pipe to communicate with the controller
-    write_pipe: PipeWriter,
 }
 
 #[derive(Debug)]
 pub struct SimpleWorkerRepr {
     descriptor: SimpleDescriptor,
-    read_pipe: PipeReader,
 }
 
 #[derive(Debug, Clone)]
@@ -132,13 +129,8 @@ impl Controller for SimpleController {
             worker_id,
         )?;
 
-        let (read_pipe, write_pipe) = pipe()?;
-
-        let cl = SimpleWorker::new(descriptor.clone(), write_pipe);
-        self.workers.push(SimpleWorkerRepr {
-            descriptor,
-            read_pipe,
-        });
+        let cl = SimpleWorker::new(descriptor.clone());
+        self.workers.push(SimpleWorkerRepr { descriptor });
         Ok(cl)
     }
 
@@ -199,11 +191,8 @@ impl Worker for SimpleWorker {
 }
 
 impl SimpleWorker {
-    pub fn new(descriptor: SimpleDescriptor, write_pipe: PipeWriter) -> Self {
-        Self {
-            descriptor,
-            write_pipe,
-        }
+    pub fn new(descriptor: SimpleDescriptor) -> Self {
+        Self { descriptor }
     }
 }
 
