@@ -103,7 +103,7 @@ pub fn main() -> Result<()> {
     let controller = SimpleController::builder().overwrite(true).build()?;
 
     // The monitor tracks the fuzzing current status.
-    let monitor = SimpleMonitor::new()?;
+    let monitor = SimpleMonitor::new();
 
     // Launch the fuzzer
     StdLauncher::builder()?
