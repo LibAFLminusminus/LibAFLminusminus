@@ -3,9 +3,9 @@ use core::{borrow::Borrow, hash::Hash, time::Duration};
 use libafl_bolts::core_affinity::CoreId;
 use nix::{
     sys::wait::{WaitStatus, wait},
-    unistd::{ForkResult, Pid, dup2_stderr, dup2_stdout, fork},
+    unistd::{ForkResult, Pid, dup2_stderr, dup2_stdout, fork, pipe},
 };
-use std::{collections::HashSet, fs::File, vec::Vec};
+use std::{collections::HashSet, fs::File, os::fd::OwnedFd, vec::Vec};
 
 pub type InstanceId = u32;
 
@@ -17,8 +17,12 @@ pub struct Instance<RT, S, W> {
 }
 
 pub struct InstanceRepr<D> {
+    // the PID of the instance
     pid: Pid,
+    // the descriptor
     descriptor: D,
+    // the read or the pipe to poll for
+    read_pipe: OwnedFd,
 }
 
 // for now, this is unix-specific.

@@ -25,8 +25,8 @@ use crate::{
     state::NopState,
 };
 
-pub mod os;
-pub use os::{Instance, InstanceId, InstanceRepr, Instances};
+pub mod instances;
+pub use instances::{Instance, InstanceId, InstanceRepr, Instances};
 
 // TODO: use a proper heuristic to choose correct ram size
 pub const DEFAULT_MAX_STATE_SIZE_PER_CLIENT: NonZeroUsize = NonZeroUsize::new(1 << 30).unwrap();
