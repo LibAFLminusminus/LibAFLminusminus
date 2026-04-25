@@ -4,13 +4,16 @@ use core::{
     ffi::c_void,
     ptr::{self, NonNull},
 };
-use std::string::{String, ToString};
+use std::{
+    env,
+    string::{String, ToString},
+};
 
 use libafl_core::{Result, last_os_error};
 use libc::{IPC_CREAT, IPC_EXCL, IPC_PRIVATE, key_t, shmat, shmget};
 use num_traits::{Bounded, NumCast};
 use wide::bytemuck::NoUninit;
-use std::env;
+
 use crate::shm::SharedMemory;
 
 /// A simple abstraction over System V shared memory
@@ -49,7 +52,11 @@ where
 
         let shm = unsafe { SharedMemory::new(shm_ptr, shm_size)? };
 
-        Ok(Self { shm, shm_size_usize, shm_id })
+        Ok(Self {
+            shm,
+            shm_size_usize,
+            shm_id,
+        })
     }
 
     /// Get the string representation of the System V shared memory ID
