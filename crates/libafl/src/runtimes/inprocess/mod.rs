@@ -2,7 +2,7 @@ use core::{fmt::Debug, marker::PhantomData, pin::Pin, ptr::NonNull, time::Durati
 use std::{boxed::Box, fmt};
 
 use libafl_bolts::TimerStruct;
-use libafl_core::Error;
+use libafl_core::{Error, Result};
 
 use crate::{
     DependencyResolver,
@@ -69,9 +69,9 @@ where
 
 impl<CH, D, S, T, TH> InProcessRuntime<CH, D, S, T, TH>
 where
-    CH: FnMut(&mut D, &OsTerminationParams) -> Result<(), Error> + Send + Sync + Unpin + 'static,
+    CH: FnMut(&mut D, &OsTerminationParams) -> Result<()> + Send + Sync + Unpin + 'static,
     D: IntoTerminationHandlerData + Send + Sync + Unpin + 'static,
-    TH: FnMut(&mut D, &OsTerminationParams) -> Result<(), Error> + Send + Sync + Unpin + 'static,
+    TH: FnMut(&mut D, &OsTerminationParams) -> Result<()> + Send + Sync + Unpin + 'static,
 {
     pub fn new(task: T, crash_handler: CH, signal_data: D, timeout_handler: TH) -> Self {
         let signal_handler = TerminationHandler::new(crash_handler, signal_data, timeout_handler);
@@ -87,16 +87,12 @@ where
 
 impl<CH, D, S, T, TH, W> Runtime<S, W> for InProcessRuntime<CH, D, S, T, TH>
 where
-    CH: FnMut(&mut D, &OsTerminationParams) -> Result<(), Error> + Send + Sync + Unpin + 'static,
+    CH: FnMut(&mut D, &OsTerminationParams) -> Result<()> + Send + Sync + Unpin + 'static,
     D: IntoTerminationHandlerData + Send + Sync + Unpin + 'static,
-    T: FnMut(&mut RuntimeHandle<S, W>, &mut S) -> Result<(), Error>,
-    TH: FnMut(&mut D, &OsTerminationParams) -> Result<(), Error> + Send + Sync + Unpin + 'static,
+    T: FnMut(&mut RuntimeHandle<S, W>, &mut S) -> Result<()>,
+    TH: FnMut(&mut D, &OsTerminationParams) -> Result<()> + Send + Sync + Unpin + 'static,
 {
-    unsafe fn run_impl(
-        &mut self,
-        mut state: S,
-        rt_handle: &mut RuntimeHandle<S, W>,
-    ) -> Result<(), Error> {
+    unsafe fn run_impl(&mut self, mut state: S, rt_handle: &mut RuntimeHandle<S, W>) -> Result<()> {
         // os-specific termination handler init
         self.termination_handler.init()?;
 
@@ -106,14 +102,14 @@ where
         (self.task)(rt_handle, &mut state)
     }
 
-    fn set_timeout(&mut self, timeout: Duration) -> Result<(), Error> {
-        let timer = TimerStruct::new(timeout);
+    fn set_timeout(&mut self, timeout: Duration) -> Result<()> {
+        let timer = unsafe { TimerStruct::new(timeout) };
         self.timer = Some(timer);
 
         Ok(())
     }
 
-    fn arm_timeout(&mut self) -> Result<(), Error> {
+    fn arm_timeout(&mut self) -> Result<()> {
         if let Some(timer) = &mut self.timer {
             timer.set_timer();
         }
@@ -121,7 +117,7 @@ where
         Ok(())
     }
 
-    fn disarm_timeout(&mut self) -> Result<(), Error> {
+    fn disarm_timeout(&mut self) -> Result<()> {
         if let Some(timer) = &mut self.timer {
             timer.unset_timer();
         }
@@ -129,7 +125,7 @@ where
         Ok(())
     }
 
-    fn unset_timeout(&mut self) -> Result<(), Error> {
+    fn unset_timeout(&mut self) -> Result<()> {
         let mut timer = self.timer.take().expect("Could not get timer");
 
         timer.unset_timer();

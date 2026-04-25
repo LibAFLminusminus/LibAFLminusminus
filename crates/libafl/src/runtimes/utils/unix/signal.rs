@@ -10,7 +10,7 @@ use crate::{
 use alloc::{boxed::Box, vec::Vec};
 use core::pin::Pin;
 use libafl_bolts::os::{
-    SIGNAL_RECURSION_EXIT, exit,
+    exit,
     unix_signals::{Signal, SignalHandler, setup_signal_handler, ucontext_t},
 };
 use libafl_core::Error;
@@ -139,7 +139,7 @@ where
 
             if max_depth_reached {
                 log::error!(
-                    "The in process signal handler has been triggered {} times recursively, which is not expected. Exiting with error code {SIGNAL_RECURSION_EXIT}...",
+                    "The in process signal handler has been triggered {} times recursively (timeout handler), which is not expected. Exiting with error code {LIBAFL_EXIT_TERMINATION_INFINITE_RECURSION}...",
                     self.inner().max_depth()
                 );
 
@@ -280,11 +280,11 @@ where
 
             if max_depth_reached {
                 log::error!(
-                    "The in process signal handler has been triggered {} times recursively, which is not expected. Exiting with error code {SIGNAL_RECURSION_EXIT}...",
+                    "The in process signal handler has been triggered {} times recursively (panic handler), which is not expected. Exiting with error code {LIBAFL_EXIT_TERMINATION_INFINITE_RECURSION}...",
                     signal_handler.inner.max_depth()
                 );
 
-                libc::exit(SIGNAL_RECURSION_EXIT);
+                libc::exit(LIBAFL_EXIT_TERMINATION_INFINITE_RECURSION);
             }
 
             if !signal_handler
@@ -348,10 +348,10 @@ where
 
             if max_depth_reached {
                 log::error!(
-                    "The in process signal handler has been triggered {} times recursively, which is not expected. Exiting with error code {SIGNAL_RECURSION_EXIT}...",
+                    "The in process signal handler has been triggered {} times recursively (crash handler), which is not expected. Exiting with error code {LIBAFL_EXIT_TERMINATION_INFINITE_RECURSION}...",
                     self.inner.max_depth()
                 );
-                libc::exit(SIGNAL_RECURSION_EXIT);
+                libc::exit(LIBAFL_EXIT_TERMINATION_INFINITE_RECURSION);
             }
 
             match signal {

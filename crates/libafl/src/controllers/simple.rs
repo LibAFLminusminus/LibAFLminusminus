@@ -229,13 +229,13 @@ impl SimpleControllerBuilder {
         self
     }
 
-    pub fn worker_stdout(mut self, file_output: WorkdirFile) -> Self {
-        self.worker_stdout = Some(file_output);
+    pub fn worker_stdout(mut self, file_output: Option<WorkdirFile>) -> Self {
+        self.worker_stdout = file_output;
         self
     }
 
-    pub fn worker_stderr(mut self, file_output: WorkdirFile) -> Self {
-        self.worker_stderr = Some(file_output);
+    pub fn worker_stderr(mut self, file_output: Option<WorkdirFile>) -> Self {
+        self.worker_stderr = file_output;
         self
     }
 

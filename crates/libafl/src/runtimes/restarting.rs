@@ -87,7 +87,7 @@ where
 
                     state = match waitpid(child, None) {
                         Ok(WaitStatus::Exited(pid, status)) => {
-                            eprintln!("Child runtime {pid} exited with status: {status}");
+                            log::info!("Child runtime {pid} exited with status: {status}");
 
                             // the child exited with some status code, handle it here.
                             match status {
@@ -138,6 +138,8 @@ where
 
                     // set the state saver, which should be called by the child on erroneous exit.
                     rt_handle.set_saver(state_sender);
+
+                    self.inner.set_timeout(Duration::from_secs(1));
 
                     self.inner
                         .run_impl(state, rt_handle)

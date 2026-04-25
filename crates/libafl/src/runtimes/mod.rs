@@ -4,7 +4,7 @@ use std::process::exit;
 use libafl_bolts::Error;
 
 use crate::{
-    DependencyResolver,
+    DependencyResolver, Result,
     runtimes::{
         restarting::LIBAFL_EXIT_END,
         utils::{
@@ -39,13 +39,9 @@ pub trait Runtime<S, W>: DependencyResolver {
     /// The rt_handle MUST be linked to the current runtime.
     /// Using a `rt_handle` that is not instanciated with self as the runtime will lead to Undefined Behaviour.
     /// Use [`Self::run`], this function should not need to be called directly.
-    unsafe fn run_impl(
-        &mut self,
-        state: S,
-        rt_handle: &mut RuntimeHandle<S, W>,
-    ) -> Result<(), Error>;
+    unsafe fn run_impl(&mut self, state: S, rt_handle: &mut RuntimeHandle<S, W>) -> Result<()>;
 
-    fn run(&mut self, state: S, worker: W) -> Result<(), Error>
+    fn run(&mut self, state: S, worker: W) -> Result<()>
     where
         Self: Sized + 'static,
     {
@@ -60,27 +56,27 @@ pub trait Runtime<S, W>: DependencyResolver {
     /// Set a timeout value for the runtime.
     ///
     /// Once set, [`on_timeout`] will be executed after the input duration.
-    fn set_timeout(&mut self, _timeout: Duration) -> Result<(), Error> {
+    fn set_timeout(&mut self, _timeout: Duration) -> Result<()> {
         Ok(())
     }
 
     /// Arm the timer, with the value previously provided to `set_timeout`
     ///
     /// If no timeout has been set previously, it's a no-op.
-    fn arm_timeout(&mut self) -> Result<(), Error> {
+    fn arm_timeout(&mut self) -> Result<()> {
         Ok(())
     }
 
     /// Disarm the timer if it has been previously armed with `arm_timeout`.
     ///
     /// If not timer has been armed previously, it's a no-op.
-    fn disarm_timeout(&mut self) -> Result<(), Error> {
+    fn disarm_timeout(&mut self) -> Result<()> {
         Ok(())
     }
 
     /// Unset a previously set timeout.
     /// If no timeout has been set before, it's a no-op.
-    fn unset_timeout(&mut self) -> Result<(), Error> {
+    fn unset_timeout(&mut self) -> Result<()> {
         Ok(())
     }
 }
@@ -115,21 +111,21 @@ impl<S, W> RuntimeHandle<S, W> {
     }
 
     /// Set a timeout value for the runtime.
-    pub fn set_timeout(&mut self, timeout: Duration) -> Result<(), Error> {
+    pub fn set_timeout(&mut self, timeout: Duration) -> Result<()> {
         unsafe { self.runtime_mut().set_timeout(timeout.clone()) }
     }
 
-    pub fn arm_timeout(&mut self) -> Result<(), Error> {
+    pub fn arm_timeout(&mut self) -> Result<()> {
         unsafe { self.runtime_mut().arm_timeout() }
     }
 
-    pub fn disarm_timeout(&mut self) -> Result<(), Error> {
+    pub fn disarm_timeout(&mut self) -> Result<()> {
         unsafe { self.runtime_mut().disarm_timeout() }
     }
 
     /// Unset a previously set timeout.
     /// If no timeout has been set before, it's a no-op.
-    pub fn unset_timeout(&mut self) -> Result<(), Error> {
+    pub fn unset_timeout(&mut self) -> Result<()> {
         unsafe { self.runtime_mut().unset_timeout() }
     }
 
@@ -208,11 +204,11 @@ impl<S, W> RuntimeHandle<S, W> {
 }
 
 impl<S, W> DependencyResolver for RuntimeHandle<S, W> {
-    fn check(&self, checker: &crate::CompatibilityChecker) -> Result<(), Error> {
+    fn check(&self, checker: &crate::CompatibilityChecker) -> Result<()> {
         unsafe { self.runtime().check(checker) }
     }
 
-    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<(), Error> {
+    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<()> {
         unsafe { self.runtime_mut().register(registrator) }
     }
 }
