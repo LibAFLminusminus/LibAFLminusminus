@@ -12,7 +12,7 @@ use core::{
 use std::{
     collections::HashMap,
     fs::{self, File},
-    io::{Seek, SeekFrom},
+    io::{Read, Seek, SeekFrom},
     path::{Path, PathBuf},
     string::ToString,
 };
@@ -25,7 +25,10 @@ use libafl_bolts::{
 use libafl_core::non_zero;
 #[cfg(not(debug_assertions))]
 use libafl_core::nonzero_macros::non_zero_unchecked;
-use nix::unistd::Pid;
+use nix::{
+    fcntl::{Flock, FlockArg},
+    unistd::Pid,
+};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use typed_builder::TypedBuilder;
@@ -100,18 +103,21 @@ impl Stats {
     }
 }
 
-/// read from a file.
-pub fn read_stats_json(mut file: File) -> Result<Stats> {
-    file.seek(SeekFrom::Start(0));
-    serde_json::from_reader(file)
+pub fn read_stats_json(file: File) -> Result<Stats> {
+    let mut locked = Flock::lock(file, FlockArg::LockShared)
+        .map_err(|(_, e)| nix::Error::from(e))?;
+    locked.seek(SeekFrom::Start(0))?;
+    serde_json::from_reader(&mut *locked)
         .map_err(|_| Error::runtime("Failed to read the stats from a file"))
 }
 
-pub fn sync_stats(mut file: File, stats: &Stats) -> Result<()> {
-    file.seek(SeekFrom::Start(0));
-    serde_json::to_writer_pretty(file, stats)
-        .map_err(|_| Error::runtime("Failed to dump the stats to a file"));
-    Ok(())
+pub fn sync_stats(file: File, stats: &Stats) -> Result<()> {
+    let mut locked = Flock::lock(file, FlockArg::LockExclusive)
+        .map_err(|(_, e)| nix::Error::from(e))?;
+    locked.set_len(0)?;
+    locked.seek(SeekFrom::Start(0))?;
+    serde_json::to_writer_pretty(&mut *locked, stats)
+        .map_err(|_| Error::runtime("Failed to dump the stats to a file"))
 }
 
 pub trait FlatState {

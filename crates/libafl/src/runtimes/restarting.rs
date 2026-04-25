@@ -7,9 +7,11 @@ use libafl_core::Error;
 use nix::{
     sys::{
         mman::{MapFlags, ProtFlags, mmap_anonymous},
+        prctl::set_pdeathsig,
+        signal::Signal,
         wait::{WaitStatus, waitpid},
     },
-    unistd::{ForkResult, fork, pipe},
+    unistd::{ForkResult, fork, getpid, getppid, pipe},
 };
 use serde::{Deserialize, Serialize};
 use std::process::exit;
@@ -76,6 +78,8 @@ where
         let (mut state_sender, mut state_receiver) =
             OsShmBuilder::build_with_hdr::<usize, S>(self.state_ram_limit.get())?;
 
+        let parent_pid = getpid();
+
         loop {
             match unsafe { fork() } {
                 Ok(ForkResult::Parent { child }) => {
@@ -124,7 +128,13 @@ where
                     };
                 }
                 Ok(ForkResult::Child) => {
-                    // child code, setup the saver and start the runtime.
+                    // child stop on father death.
+                    set_pdeathsig(Signal::SIGKILL)?;
+
+                    if getppid() != parent_pid {
+                        // handle racey call to set_pdeathsig
+                        exit(LIBAFL_EXIT_END);
+                    }
 
                     // set the state saver, which should be called by the child on erroneous exit.
                     rt_handle.set_saver(state_sender);
