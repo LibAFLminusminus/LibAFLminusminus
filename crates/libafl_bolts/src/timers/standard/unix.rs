@@ -26,6 +26,25 @@ use windows::Win32::{
 #[cfg(windows)]
 use crate::executors::hooks::inprocess::GLOBAL_STATE;
 
+fn duration_to_itimerspec(duration: Duration) -> libc::itimerspec {
+    let milli_sec = duration.as_millis();
+
+    let it_value = libc::timespec {
+        tv_sec: (milli_sec / 1000) as _,
+        tv_nsec: ((milli_sec % 1000) * 1000 * 1000) as _,
+    };
+
+    let it_interval = libc::timespec {
+        tv_sec: 0,
+        tv_nsec: 0,
+    };
+
+    libc::itimerspec {
+        it_interval,
+        it_value,
+    }
+}
+
 #[repr(C)]
 #[cfg(all(unix, not(target_os = "linux")))]
 #[derive(Copy, Clone)]
@@ -208,27 +227,16 @@ impl TimerStruct {
     /// # Safety
     ///
     /// It must be created in the process in which the fuzzer will run.
-    pub unsafe fn new(exec_tmout: Duration) -> Self {
-        let milli_sec = exec_tmout.as_millis();
-        let it_value = libc::timespec {
-            tv_sec: (milli_sec / 1000) as _,
-            tv_nsec: ((milli_sec % 1000) * 1000 * 1000) as _,
-        };
-        let it_interval = libc::timespec {
-            tv_sec: 0,
-            tv_nsec: 0,
-        };
+    pub unsafe fn new() -> Self {
+        let timerid: libc::timer_t = null_mut();
         let itimerspec = libc::itimerspec {
-            it_interval,
-            it_value,
+            it_interval: libc::timespec {
+                ..Default::default()
+            },
+            it_value: libc::timespec {
+                ..Default::default()
+            },
         };
-        #[allow(unused_mut)] // miri doesn't mutate this
-        let mut timerid: libc::timer_t = null_mut();
-        #[cfg(not(miri))]
-        unsafe {
-            // creates a new per-process interval timer
-            libc::timer_create(libc::CLOCK_MONOTONIC, null_mut(), &raw mut timerid);
-        }
 
         Self {
             itimerspec,
@@ -239,6 +247,12 @@ impl TimerStruct {
     #[cfg(all(unix, not(target_os = "linux")))]
     /// Set up timer
     pub fn set_timer(&mut self) {
+        #[cfg(not(miri))]
+        unsafe {
+            // creates a new per-process interval timer
+            libc::timer_create(libc::CLOCK_MONOTONIC, null_mut(), &raw mut timerid);
+        }
+
         // # Safety
         // Safe because the variables are all alive at this time and don't contain pointers.
         unsafe {
@@ -279,7 +293,16 @@ impl TimerStruct {
 
     /// Set up timer
     #[cfg(target_os = "linux")]
-    pub fn set_timer(&mut self) {
+    pub fn set_timer(&mut self, timeout: Duration) {
+        let spec = duration_to_itimerspec(timeout);
+        self.itimerspec = spec;
+
+        #[cfg(not(miri))]
+        unsafe {
+            // creates a new per-process interval timer
+            libc::timer_create(libc::CLOCK_MONOTONIC, null_mut(), &raw mut self.timerid);
+        }
+
         #[cfg(not(miri))]
         unsafe {
             libc::timer_settime(self.timerid, 0, &raw mut self.itimerspec, null_mut());

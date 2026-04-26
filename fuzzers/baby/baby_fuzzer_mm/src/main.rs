@@ -5,7 +5,8 @@ use libafl::{
         schedulers::{NopScheduler, QueueScheduler},
     },
     executors::StdExecutor,
-    feedbacks::{CrashFeedback, MaxMapFeedback},
+    feedback_or_fast,
+    feedbacks::{CrashFeedback, MaxMapFeedback, TimeoutFeedback},
     fuzzers::{Fuzzer, StdFuzzer},
     generators::RandPrintablesGenerator,
     inputs::{BytesInput, bytes::BytesContext},
@@ -44,7 +45,8 @@ where
     let feedback = MaxMapFeedback::new(&observer);
 
     // A feedback to choose if an input is a solution or not
-    let objective_feedback = CrashFeedback::new();
+    // let objective_feedback = CrashFeedback::new();
+    let objective_feedback = feedback_or_fast!(CrashFeedback::new(), TimeoutFeedback::new());
 
     // Setup a mutational stage with a basic bytes mutator
     let mutator = HavocScheduledMutator::new(havoc_mutations());

@@ -22,7 +22,7 @@ pub mod nop;
 pub mod simple;
 pub mod utils;
 
-pub type StdRuntime<S, T> = RestartingRuntime<StdInProcessRuntime<S, T>>;
+pub type StdRuntime<S, T, TM> = RestartingRuntime<StdInProcessRuntime<S, T, TM>>;
 
 /// Environment used to run a task
 pub trait Runtime<S, W>: DependencyResolver {

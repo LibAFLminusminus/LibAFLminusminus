@@ -108,10 +108,8 @@ pub mod simd;
 pub mod time;
 pub use time::{current_milliseconds, current_nanos, current_time};
 
-#[cfg(feature = "std")]
-pub mod timer;
-#[cfg(feature = "std")]
-pub use timer::TimerStruct;
+pub mod timers;
+pub use timers::StdTimer;
 
 /// The purpose of this module is to alleviate imports of the bolts by adding a glob import.
 #[cfg(feature = "prelude")]

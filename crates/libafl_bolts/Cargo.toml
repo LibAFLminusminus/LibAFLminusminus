@@ -179,6 +179,7 @@ nix = { workspace = true, optional = true, default-features = false, features = 
   "signal",
   "socket",
   "poll",
+  "time",
 ] }
 pyo3 = { workspace = true, optional = true, features = ["serde", "macros"] }
 tuple_list = { workspace = true }
