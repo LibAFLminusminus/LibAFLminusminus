@@ -1,5 +1,6 @@
 use core::time::Duration;
 
+use libafl_bolts::timers::Timer;
 use libafl_core::Error;
 use serde::Serialize;
 
@@ -11,48 +12,51 @@ use crate::{
     },
 };
 
-type InnerRuntime<S, T> = InProcessRuntime<
+type InnerRuntime<S, T, TM> = InProcessRuntime<
     fn(&mut TerminationHandlerData, &OsTerminationParams) -> Result<(), Error>,
     TerminationHandlerData,
     S,
     T,
     fn(&mut TerminationHandlerData, &OsTerminationParams) -> Result<(), Error>,
+    TM,
 >;
 
 #[derive(Debug)]
-pub struct StdInProcessRuntime<S, T>(InnerRuntime<S, T>);
+pub struct StdInProcessRuntime<S, T, TM>(InnerRuntime<S, T, TM>);
 
-impl<S, T> Clone for StdInProcessRuntime<S, T>
+impl<S, T, TM> Clone for StdInProcessRuntime<S, T, TM>
 where
     T: Clone,
+    TM: Clone,
 {
     fn clone(&self) -> Self {
         Self(self.0.clone())
     }
 }
 
-impl<S, T> StdInProcessRuntime<S, T>
+impl<S, T, TM> StdInProcessRuntime<S, T, TM>
 where
     S: Serialize,
 {
-    pub fn new(task: T) -> Self {
+    pub fn new(task: T, timer: TM) -> Self {
         Self(InProcessRuntime::new(
             task,
             std_inprocess_crash::<S>,
             TerminationHandlerData::new(),
             std_inprocess_timeout::<S>,
+            timer,
         ))
     }
 }
 
-impl<S, T> DependencyResolver for StdInProcessRuntime<S, T> {
+impl<S, T, TM> DependencyResolver for StdInProcessRuntime<S, T, TM> {
     fn register(&mut self, registrator: &mut crate::Registrator) -> Result<(), Error> {
         self.0.register(registrator)
     }
 
     fn register_with_ty(&mut self, registrator: &mut crate::Registrator) -> Result<(), Error> {
         registrator.register_ty::<Self>();
-        registrator.register_ty::<InnerRuntime<S, T>>();
+        registrator.register_ty::<InnerRuntime<S, T, TM>>();
 
         self.register(registrator)
     }
@@ -62,9 +66,10 @@ impl<S, T> DependencyResolver for StdInProcessRuntime<S, T> {
     }
 }
 
-impl<S, W, T> Runtime<S, W> for StdInProcessRuntime<S, T>
+impl<S, W, T, TM> Runtime<S, W> for StdInProcessRuntime<S, T, TM>
 where
     T: FnMut(&mut RuntimeHandle<S, W>, &mut S) -> Result<(), Error>,
+    TM: Timer,
 {
     unsafe fn run_impl(
         &mut self,

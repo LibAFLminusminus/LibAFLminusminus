@@ -1,7 +1,7 @@
 use core::{fmt::Debug, marker::PhantomData, pin::Pin, ptr::NonNull, time::Duration};
 use std::{boxed::Box, fmt};
 
-use libafl_bolts::TimerStruct;
+use libafl_bolts::{StdTimer, timers::Timer};
 use libafl_core::{Error, Result};
 
 use crate::{
@@ -21,7 +21,7 @@ mod tests;
 pub mod standard;
 pub use standard::StdInProcessRuntime;
 
-impl<CH, D, S, T, TH> DependencyResolver for InProcessRuntime<CH, D, S, T, TH> {}
+impl<CH, D, S, T, TH, TM> DependencyResolver for InProcessRuntime<CH, D, S, T, TH, TM> {}
 
 /// Hooks the current process to set it up for in-process tasks.
 /// It will change signal handlers and "pollute" the current process.
@@ -32,14 +32,14 @@ impl<CH, D, S, T, TH> DependencyResolver for InProcessRuntime<CH, D, S, T, TH> {
 /// To exit, simply exit the process.
 /// There are special exit codes used to convey what caused the exit.
 /// TODO: document these exit code
-pub struct InProcessRuntime<CH, D, S, T, TH> {
+pub struct InProcessRuntime<CH, D, S, T, TH, TM> {
     task: T,
     termination_handler: Pin<Box<OsTerminationHandler<CH, D, TH>>>,
-    timer: Option<TimerStruct>,
+    timer: TM,
     phantom: PhantomData<S>,
 }
 
-impl<CH, D, S, T, TH> Debug for InProcessRuntime<CH, D, S, T, TH>
+impl<CH, D, S, T, TH, TM> Debug for InProcessRuntime<CH, D, S, T, TH, TM>
 where
     T: Debug,
 {
@@ -50,12 +50,13 @@ where
     }
 }
 
-impl<CH, D, S, T, TH> Clone for InProcessRuntime<CH, D, S, T, TH>
+impl<CH, D, S, T, TH, TM> Clone for InProcessRuntime<CH, D, S, T, TH, TM>
 where
     CH: Clone,
     D: Clone,
     T: Clone,
     TH: Clone,
+    TM: Clone,
 {
     fn clone(&self) -> Self {
         Self {
@@ -67,30 +68,31 @@ where
     }
 }
 
-impl<CH, D, S, T, TH> InProcessRuntime<CH, D, S, T, TH>
+impl<CH, D, S, T, TH, TM> InProcessRuntime<CH, D, S, T, TH, TM>
 where
     CH: FnMut(&mut D, &OsTerminationParams) -> Result<()> + Send + Sync + Unpin + 'static,
     D: IntoTerminationHandlerData + Send + Sync + Unpin + 'static,
     TH: FnMut(&mut D, &OsTerminationParams) -> Result<()> + Send + Sync + Unpin + 'static,
 {
-    pub fn new(task: T, crash_handler: CH, signal_data: D, timeout_handler: TH) -> Self {
+    pub fn new(task: T, crash_handler: CH, signal_data: D, timeout_handler: TH, timer: TM) -> Self {
         let signal_handler = TerminationHandler::new(crash_handler, signal_data, timeout_handler);
 
         InProcessRuntime {
             task,
             termination_handler: Box::pin(OsTerminationHandler::new(signal_handler)),
-            timer: None,
+            timer,
             phantom: PhantomData,
         }
     }
 }
 
-impl<CH, D, S, T, TH, W> Runtime<S, W> for InProcessRuntime<CH, D, S, T, TH>
+impl<CH, D, S, T, TH, TM, W> Runtime<S, W> for InProcessRuntime<CH, D, S, T, TH, TM>
 where
     CH: FnMut(&mut D, &OsTerminationParams) -> Result<()> + Send + Sync + Unpin + 'static,
     D: IntoTerminationHandlerData + Send + Sync + Unpin + 'static,
     T: FnMut(&mut RuntimeHandle<S, W>, &mut S) -> Result<()>,
     TH: FnMut(&mut D, &OsTerminationParams) -> Result<()> + Send + Sync + Unpin + 'static,
+    TM: Timer,
 {
     unsafe fn run_impl(&mut self, mut state: S, rt_handle: &mut RuntimeHandle<S, W>) -> Result<()> {
         // os-specific termination handler init
@@ -103,33 +105,18 @@ where
     }
 
     fn set_timeout(&mut self, timeout: Duration) -> Result<()> {
-        let timer = unsafe { TimerStruct::new(timeout) };
-        self.timer = Some(timer);
-
-        Ok(())
+        self.timer.create_timer(timeout)
     }
 
     fn arm_timeout(&mut self) -> Result<()> {
-        if let Some(timer) = &mut self.timer {
-            timer.set_timer();
-        }
-
-        Ok(())
+        unsafe { self.timer.arm_timer() }
     }
 
     fn disarm_timeout(&mut self) -> Result<()> {
-        if let Some(timer) = &mut self.timer {
-            timer.unset_timer();
-        }
-
-        Ok(())
+        unsafe { self.timer.disarm_timer() }
     }
 
     fn unset_timeout(&mut self) -> Result<()> {
-        let mut timer = self.timer.take().expect("Could not get timer");
-
-        timer.unset_timer();
-
-        Ok(())
+        self.timer.delete_timer()
     }
 }

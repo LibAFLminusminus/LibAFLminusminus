@@ -8,7 +8,10 @@ use std::{
     vec::Vec,
 };
 
-use libafl_bolts::core_affinity::{CoreId, Cores};
+use libafl_bolts::{
+    StdTimer,
+    core_affinity::{CoreId, Cores},
+};
 use nix::{
     sys::wait::{WaitStatus, wait},
     unistd::{ForkResult, Pid, dup2_stderr, dup2_stdout, fork},
@@ -33,7 +36,7 @@ pub const DEFAULT_MAX_STATE_SIZE_PER_CLIENT: NonZeroUsize = NonZeroUsize::new(1 
 pub const DEFAULT_MONITOR_REFRESH: Duration = Duration::from_secs(5);
 pub const DEFAULT_TIMEOUT: Duration = Duration::from_secs(5);
 
-pub struct StdLauncherBuilder<CT, MT, RT, S, SB> {
+pub struct StdLauncherBuilder<CT, MT, RT, S, SB, TM> {
     controller: Option<CT>,
     monitor: Option<MT>,
     runtime: RT,
@@ -41,6 +44,7 @@ pub struct StdLauncherBuilder<CT, MT, RT, S, SB> {
     state_builder: SB,
     max_state_size_per_client: Option<NonZeroUsize>,
     monitor_refresh: Duration,
+    timer: TM,
     timeout: Option<Duration>,
     phantom: PhantomData<S>,
 }
@@ -72,6 +76,7 @@ impl
             NopRuntime,
             NopState<NopInput>,
             fn() -> Result<NopState<NopInput>>,
+            StdTimer,
         >,
     > {
         let runtime = NopRuntime;
@@ -86,6 +91,7 @@ impl
             max_state_size_per_client: None,
             monitor_refresh: DEFAULT_MONITOR_REFRESH.clone(),
             timeout: Some(DEFAULT_TIMEOUT.clone()),
+            timer: StdTimer::new(),
             phantom: PhantomData,
         })
     }
@@ -127,8 +133,8 @@ where
     }
 }
 
-impl<CT, MT, RT, S, SB> StdLauncherBuilder<CT, MT, RT, S, SB> {
-    pub fn cores(self, cores: Cores) -> StdLauncherBuilder<CT, MT, RT, S, SB> {
+impl<CT, MT, RT, S, SB, TM> StdLauncherBuilder<CT, MT, RT, S, SB, TM> {
+    pub fn cores(self, cores: Cores) -> StdLauncherBuilder<CT, MT, RT, S, SB, TM> {
         StdLauncherBuilder {
             controller: self.controller,
             monitor: self.monitor,
@@ -138,6 +144,7 @@ impl<CT, MT, RT, S, SB> StdLauncherBuilder<CT, MT, RT, S, SB> {
             max_state_size_per_client: self.max_state_size_per_client,
             monitor_refresh: self.monitor_refresh,
             timeout: self.timeout,
+            timer: self.timer,
             phantom: self.phantom,
         }
     }
@@ -152,11 +159,12 @@ impl<CT, MT, RT, S, SB> StdLauncherBuilder<CT, MT, RT, S, SB> {
             max_state_size_per_client: self.max_state_size_per_client,
             monitor_refresh: self.monitor_refresh,
             timeout: timeout,
+            timer: self.timer,
             phantom: self.phantom,
         }
     }
 
-    pub fn monitor<MT2>(self, monitor: MT2) -> StdLauncherBuilder<CT, MT2, RT, S, SB> {
+    pub fn monitor<MT2>(self, monitor: MT2) -> StdLauncherBuilder<CT, MT2, RT, S, SB, TM> {
         StdLauncherBuilder {
             controller: self.controller,
             monitor: Some(monitor),
@@ -166,11 +174,12 @@ impl<CT, MT, RT, S, SB> StdLauncherBuilder<CT, MT, RT, S, SB> {
             max_state_size_per_client: self.max_state_size_per_client,
             monitor_refresh: self.monitor_refresh,
             timeout: self.timeout,
+            timer: self.timer,
             phantom: self.phantom,
         }
     }
 
-    pub fn controller<CT2>(self, controller: CT2) -> StdLauncherBuilder<CT2, MT, RT, S, SB> {
+    pub fn controller<CT2>(self, controller: CT2) -> StdLauncherBuilder<CT2, MT, RT, S, SB, TM> {
         StdLauncherBuilder {
             controller: Some(controller),
             monitor: self.monitor,
@@ -180,11 +189,12 @@ impl<CT, MT, RT, S, SB> StdLauncherBuilder<CT, MT, RT, S, SB> {
             max_state_size_per_client: self.max_state_size_per_client,
             monitor_refresh: self.monitor_refresh,
             timeout: self.timeout,
+            timer: self.timer,
             phantom: self.phantom,
         }
     }
 
-    pub fn runtime<RT2>(self, runtime: RT2) -> StdLauncherBuilder<CT, MT, RT2, S, SB> {
+    pub fn runtime<RT2>(self, runtime: RT2) -> StdLauncherBuilder<CT, MT, RT2, S, SB, TM> {
         StdLauncherBuilder {
             controller: self.controller,
             monitor: self.monitor,
@@ -194,6 +204,7 @@ impl<CT, MT, RT, S, SB> StdLauncherBuilder<CT, MT, RT, S, SB> {
             max_state_size_per_client: self.max_state_size_per_client,
             monitor_refresh: self.monitor_refresh,
             timeout: self.timeout,
+            timer: self.timer,
             phantom: self.phantom,
         }
     }
@@ -201,7 +212,7 @@ impl<CT, MT, RT, S, SB> StdLauncherBuilder<CT, MT, RT, S, SB> {
     pub fn state_builder<S2, SB2>(
         self,
         state_builder: SB2,
-    ) -> StdLauncherBuilder<CT, MT, RT, S2, SB2>
+    ) -> StdLauncherBuilder<CT, MT, RT, S2, SB2, TM>
     where
         CT: Controller,
         SB2: FnMut(&CT::Worker) -> Result<S2>,
@@ -215,6 +226,7 @@ impl<CT, MT, RT, S, SB> StdLauncherBuilder<CT, MT, RT, S, SB> {
             max_state_size_per_client: self.max_state_size_per_client,
             monitor_refresh: self.monitor_refresh,
             timeout: self.timeout,
+            timer: self.timer,
             phantom: PhantomData::<S2>,
         }
     }
@@ -228,7 +240,7 @@ impl<CT, MT, RT, S, SB> StdLauncherBuilder<CT, MT, RT, S, SB> {
     pub fn max_state_size_per_client(
         self,
         max_state_size_per_client: NonZeroUsize,
-    ) -> StdLauncherBuilder<CT, MT, RT, S, SB> {
+    ) -> StdLauncherBuilder<CT, MT, RT, S, SB, TM> {
         StdLauncherBuilder {
             controller: self.controller,
             monitor: self.monitor,
@@ -238,6 +250,7 @@ impl<CT, MT, RT, S, SB> StdLauncherBuilder<CT, MT, RT, S, SB> {
             max_state_size_per_client: Some(max_state_size_per_client),
             monitor_refresh: self.monitor_refresh,
             timeout: self.timeout,
+            timer: self.timer,
             phantom: self.phantom,
         }
     }
@@ -246,7 +259,7 @@ impl<CT, MT, RT, S, SB> StdLauncherBuilder<CT, MT, RT, S, SB> {
     pub fn monitor_refresh(
         self,
         monitor_refresh: Duration,
-    ) -> StdLauncherBuilder<CT, MT, RT, S, SB> {
+    ) -> StdLauncherBuilder<CT, MT, RT, S, SB, TM> {
         StdLauncherBuilder {
             controller: self.controller,
             monitor: self.monitor,
@@ -256,21 +269,23 @@ impl<CT, MT, RT, S, SB> StdLauncherBuilder<CT, MT, RT, S, SB> {
             max_state_size_per_client: self.max_state_size_per_client,
             monitor_refresh: monitor_refresh,
             timeout: self.timeout,
+            timer: self.timer,
             phantom: self.phantom,
         }
     }
 }
 
-impl<CT, MT, RT, S, SB> StdLauncherBuilder<CT, MT, RT, S, SB>
+impl<CT, MT, RT, S, SB, TM> StdLauncherBuilder<CT, MT, RT, S, SB, TM>
 where
     CT: Controller,
     S: Serialize,
     SB: FnMut(&CT::Worker) -> Result<S>,
+    TM: Clone,
 {
     pub fn build_with_task<T>(
         mut self,
         task: T,
-    ) -> Result<StdLauncher<CT::Descriptor, CT, MT, StdRuntime<S, T>, S, CT::Worker>>
+    ) -> Result<StdLauncher<CT::Descriptor, CT, MT, StdRuntime<S, T, TM>, S, CT::Worker>>
     where
         // this bound is needed to help rust link the state output by the state builder and
         // the one used by the task. otherwise, the compiler needs explicit typing.
@@ -288,11 +303,12 @@ where
             controller: self.controller,
             monitor: self.monitor,
             cores: self.cores,
-            runtime: StdRuntime::new(task, ram_limit, self.timeout.clone()),
+            runtime: StdRuntime::new(task, ram_limit, self.timer.clone(), self.timeout.clone()),
             state_builder: self.state_builder,
             max_state_size_per_client: self.max_state_size_per_client,
             monitor_refresh: self.monitor_refresh,
             timeout: self.timeout,
+            timer: self.timer,
             phantom: self.phantom,
         };
 
@@ -300,7 +316,7 @@ where
     }
 }
 
-impl<CT, MT, RT, S, SB> StdLauncherBuilder<CT, MT, RT, S, SB>
+impl<CT, MT, RT, S, SB, TM> StdLauncherBuilder<CT, MT, RT, S, SB, TM>
 where
     CT: Controller,
     RT: Clone,

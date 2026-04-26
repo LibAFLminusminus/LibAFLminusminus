@@ -49,12 +49,21 @@ where
     }
 }
 
-impl<S, T> RestartingRuntime<StdInProcessRuntime<S, T>>
+impl<S, T, TM> RestartingRuntime<StdInProcessRuntime<S, T, TM>>
 where
     S: Serialize,
 {
-    pub fn new(task: T, state_ram_limit: NonZeroUsize, timeout: Option<Duration>) -> Self {
-        Self::new_generic(StdInProcessRuntime::new(task), state_ram_limit, timeout)
+    pub fn new(
+        task: T,
+        state_ram_limit: NonZeroUsize,
+        timer: TM,
+        timeout: Option<Duration>,
+    ) -> Self {
+        Self::new_generic(
+            StdInProcessRuntime::new(task, timer),
+            state_ram_limit,
+            timeout,
+        )
     }
 }
 
