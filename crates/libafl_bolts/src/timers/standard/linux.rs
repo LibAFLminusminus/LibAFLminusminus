@@ -1,5 +1,6 @@
 //! The struct `TimerStruct` will absorb all the difference in timeout implementation in various system.
 use core::time::Duration;
+
 use nix::{
     sys::{
         signal::{SigEvent, SigevNotify, Signal},
