@@ -178,6 +178,13 @@ impl Cores {
         }
     }
 
+    /// Pick cores in 0..nb_cores
+    pub fn first(nb_cores: usize) -> Self {
+        Self {
+            ids: (0..nb_cores).into_iter().map(|idx| CoreId(idx)).collect(),
+        }
+    }
+
     /// Are there cores?
     pub fn is_empty(&self) -> bool {
         self.ids.is_empty()
