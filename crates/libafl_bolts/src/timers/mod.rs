@@ -5,9 +5,9 @@ use core::time::Duration;
 use libafl_core::Result;
 
 pub mod fast;
-#[cfg(feature = "std")]
+pub use fast::FastTimer;
+
 pub mod standard;
-#[cfg(feature = "std")]
 pub use standard::StdTimer;
 
 /// Timer interface

@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use libafl::{
     Result, Worker,
     corpus::{
@@ -10,17 +12,19 @@ use libafl::{
     fuzzers::{Fuzzer, StdFuzzer},
     generators::RandPrintablesGenerator,
     inputs::{BytesInput, bytes::BytesContext},
-    launchers::StdLauncher,
+    launchers::{DEFAULT_MAX_STATE_SIZE_PER_CLIENT, StdLauncher},
     monitors::SimpleMonitor,
     mutators::{HavocScheduledMutator, havoc_mutations},
     non_zero,
     observers::ConstMapObserver,
-    runtimes::RuntimeHandle,
+    runtimes::{RuntimeHandle, StdRuntime},
     simple::{SimpleController, SimpleWorker},
     stages::StdMutationalStage,
     states::StdState,
 };
-use libafl_bolts::{current_nanos, nonnull_raw_mut, rands::StdRand, tuples::tuple_list};
+use libafl_bolts::{
+    current_nanos, nonnull_raw_mut, rands::StdRand, timers::FastTimer, tuples::tuple_list,
+};
 
 use crate::target::SIGNALS;
 
@@ -111,11 +115,21 @@ pub fn main() -> Result<()> {
     // The monitor tracks the fuzzing current status.
     let monitor = SimpleMonitor::new();
 
+    let fast_timer = FastTimer::new();
+    let runtime = StdRuntime::new(
+        run_fuzzer,
+        DEFAULT_MAX_STATE_SIZE_PER_CLIENT,
+        fast_timer,
+        Some(Duration::from_secs(3)),
+    );
+
     // Launch the fuzzer
     StdLauncher::builder()?
         .controller(controller)
         .monitor(monitor)
         .state_builder(state_builder)
-        .build_with_task(run_fuzzer)?
+        .runtime(runtime)
+        // .build_with_task(run_fuzzer)?
+        .build()?
         .launch()
 }
