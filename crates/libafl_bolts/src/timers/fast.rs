@@ -1,4 +1,7 @@
 //! Cross-platform fast timer
+//!
+//! For now it's unix-specific.
+//! Little code needs to be ported to work on other platforms.
 
 use core::{sync::atomic::AtomicU64, time::Duration};
 use std::{
