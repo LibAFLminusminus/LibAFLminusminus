@@ -14,9 +14,7 @@ pub use single::SingleCorpus;
 // pub mod dynamic;
 // pub use dynamic::DynamicCorpus;
 
-#[cfg(not(feature = "remove_me"))]
 pub mod nop;
-#[cfg(not(feature = "remove_me"))]
 pub use nop::NopCorpus;
 
 pub mod store;

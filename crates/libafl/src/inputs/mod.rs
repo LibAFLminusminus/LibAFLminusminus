@@ -133,14 +133,14 @@ pub trait InputContext<I> {
     fn to_bytes<'a>(&mut self, input: &'a I) -> OwnedSlice<'a, u8>;
 }
 
-#[derive(Default, Clone, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct NopContext;
 
 /// An input for tests, mainly. There is no real use much else.
 #[derive(Clone, Serialize, Deserialize, Debug, Default, Hash)]
 pub struct NopInput;
 
-impl InputContext<NopInput> for NopContext {
+impl<I> InputContext<I> for NopContext {
     fn to_bytes<'a>(&mut self, _input: &'a NopInput) -> OwnedSlice<'a, u8> {
         OwnedSlice::from(vec![])
     }
