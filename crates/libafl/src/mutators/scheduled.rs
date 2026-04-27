@@ -19,7 +19,7 @@ use crate::{
     Error,
     corpus::{Corpus, TestcaseId, testcase},
     fuzzers::EvaluationResult,
-    mutators::{MutationResult, Mutator, MutatorsTuple},
+    mutators::{MutationResult, Mutator, MutatorsTuple, TokenInsert, TokenReplace},
     states::HasCorpus,
 };
 
@@ -275,7 +275,6 @@ where
     }
 }
 
-#[cfg(not(feature = "remove_me"))]
 /// Get the mutations that uses the Tokens metadata
 #[must_use]
 pub fn tokens_mutations() -> tuple_list_type!(TokenInsert, TokenReplace) {

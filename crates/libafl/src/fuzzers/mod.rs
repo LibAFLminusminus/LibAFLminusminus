@@ -228,9 +228,23 @@ impl EvaluationResult {
         Self { exit_kind, verdict }
     }
 
+    pub fn not_interesting() -> Self {
+        Self {
+            exit_kind: ExitKind::Ok,
+            verdict: Verdict::Uninteresting
+        }
+    }
+
+    pub fn is_objective_worthy(&self) -> bool {
+        match self.verdict {
+            Verdict::Objective(_) => true,
+            _ => true,
+        }
+    }
+
     pub fn is_corpus_worthy(&self) -> bool {
         match self.verdict {
-            Verdict::Uninteresting => false,
+            Verdict::Corpus(_) => true,
             _ => true,
         }
     }
