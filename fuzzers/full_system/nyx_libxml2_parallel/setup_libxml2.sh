@@ -1,1 +1,0 @@
-../nyx_libxml2_standalone/setup_libxml2.sh
