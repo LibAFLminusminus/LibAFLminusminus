@@ -75,6 +75,7 @@
 - [ x ] workdir impl
 - [ x ] monidor impl
 - [ x ] laucher impl
+- [ ] remove "remove_me"
 - [ ] libafl target
 - [ ] libafl intelpt
 - [ ] libafl qemu
