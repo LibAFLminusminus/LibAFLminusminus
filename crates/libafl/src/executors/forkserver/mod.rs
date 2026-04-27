@@ -8,6 +8,7 @@ use core::{
     time::Duration,
 };
 use std::{
+    alloc::System,
     env,
     ffi::OsString,
     io::{self, ErrorKind, Read, Write},
@@ -20,7 +21,8 @@ use std::{
 };
 
 use libafl_bolts::{
-    AsSlice, AsSliceMut, InputLocation, StdTargetArgs, StdTargetArgsInner, Truncate,
+    AsSlice, AsSliceMut, EmptyShmHeader, InputLocation, StdTargetArgs, StdTargetArgsInner, SysVShm,
+    Truncate,
     core_affinity::CoreId,
     fs::{InputFile, get_unique_std_input_file},
     os::{dup2, last_error_str, pipes::Pipe},
@@ -539,15 +541,14 @@ impl Forkserver {
 ///
 /// Shared memory feature is also available, but you have to set things up in your code.
 /// Please refer to AFL++'s docs. <https://github.com/AFLplusplus/AFLplusplus/blob/stable/instrumentation/README.persistent_mode.md>
-pub struct ForkserverExecutor<OT, SHM> {
-    inner: BuiltForkserver<SHM>,
+pub struct ForkserverExecutor<OT> {
+    inner: BuiltForkserver,
     observers: OT,
 }
 
-impl<OT, SHM> Debug for ForkserverExecutor<OT, SHM>
+impl<OT> Debug for ForkserverExecutor<OT>
 where
     OT: Debug,
-    SHM: Debug,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("ForkserverExecutor")
@@ -562,31 +563,28 @@ where
     }
 }
 
-impl<OT, SHM> Deref for ForkserverExecutor<OT, SHM> {
-    type Target = BuiltForkserver<SHM>;
+impl<OT> Deref for ForkserverExecutor<OT> {
+    type Target = BuiltForkserver;
     fn deref(&self) -> &Self::Target {
         &self.inner
     }
 }
 
-impl<OT, SHM> DerefMut for ForkserverExecutor<OT, SHM> {
+impl<OT> DerefMut for ForkserverExecutor<OT> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.inner
     }
 }
 
-impl ForkserverExecutor<(), ()> {
+impl ForkserverExecutor<()> {
     /// Builder for `ForkserverExecutor`
     #[must_use]
-    pub fn builder() -> ForkserverExecutorBuilder<'static, ()> {
+    pub fn builder() -> ForkserverExecutorBuilder<'static> {
         ForkserverExecutorBuilder::new()
     }
 }
 
-impl<OT, SHM> ForkserverExecutor<OT, SHM>
-where
-    SHM: ShMem,
-{
+impl<OT> ForkserverExecutor<OT> {
     fn map_input_to_shmem(&mut self, input: &[u8], input_size: usize) -> Result<(), Error> {
         let input_size_in_bytes = input_size.to_ne_bytes();
         if self.uses_shmem_testcase {
@@ -612,7 +610,6 @@ where
     #[inline]
     fn execute_input(&mut self, input: &[u8]) -> Result<ExitKind, Error> {
         let mut exit_kind = ExitKind::Ok;
-
         let last_run_timed_out = self.forkserver.last_run_timed_out_raw();
 
         let mut input_size = input.len();
@@ -684,11 +681,10 @@ where
     }
 }
 
-impl<I, OT, S, SHM> Executor<I, S> for ForkserverExecutor<OT, SHM>
+impl<I, OT, S> Executor<I, S> for ForkserverExecutor<OT>
 where
     OT: ObserversTuple<S>,
     S: FlatState + HasCorpus<I>,
-    SHM: ShMem,
 {
     type Observers = OT;
 
@@ -734,12 +730,12 @@ where
     }
 }
 
-impl<OT, SHM> DependencyResolver for ForkserverExecutor<OT, SHM> {}
+impl<OT> DependencyResolver for ForkserverExecutor<OT> {}
 
 /// The builder for `ForkserverExecutor`
 #[derive(Debug)]
 #[expect(clippy::struct_excessive_bools)]
-pub struct ForkserverExecutorBuilder<'a, SP> {
+pub struct ForkserverExecutorBuilder<'a> {
     target_inner: StdTargetArgsInner,
     child_env_inner: StdChildArgsInner,
     uses_shmem_testcase: bool,
@@ -747,7 +743,7 @@ pub struct ForkserverExecutorBuilder<'a, SP> {
     is_deferred_frksrv: bool,
     is_fsrv_only: bool,
     autotokens: Option<&'a mut Tokens>,
-    shmem_provider: Option<&'a mut SP>,
+    try_use_input_shmem: bool,
     max_input_size: usize,
     min_input_size: usize,
     map_size: Option<usize>,
@@ -755,7 +751,7 @@ pub struct ForkserverExecutorBuilder<'a, SP> {
     crash_exitcode: Option<i8>,
 }
 
-impl<SP> StdChildArgs for ForkserverExecutorBuilder<'_, SP> {
+impl<'a> StdChildArgs for ForkserverExecutorBuilder<'a> {
     fn inner(&self) -> &StdChildArgsInner {
         &self.child_env_inner
     }
@@ -765,7 +761,7 @@ impl<SP> StdChildArgs for ForkserverExecutorBuilder<'_, SP> {
     }
 }
 
-impl<SP> StdTargetArgs for ForkserverExecutorBuilder<'_, SP> {
+impl<'a> StdTargetArgs for ForkserverExecutorBuilder<'a> {
     fn inner(&self) -> &StdTargetArgsInner {
         &self.target_inner
     }
@@ -779,10 +775,10 @@ impl<SP> StdTargetArgs for ForkserverExecutorBuilder<'_, SP> {
     }
 }
 
-pub struct BuiltForkserver<SHM> {
+pub struct BuiltForkserver {
     forkserver: Forkserver,
     input_file: InputFile,
-    map: Option<SHM>,
+    map: Option<SysVShm<EmptyShmHeader>>,
     target: OsString,
     args: Vec<OsString>,
     uses_shmem_testcase: bool,
@@ -793,20 +789,16 @@ pub struct BuiltForkserver<SHM> {
     crash_exitcode: Option<i8>,
 }
 
-impl<'a, SHM, SP> ForkserverExecutorBuilder<'a, SP>
-where
-    SHM: ShMem,
-    SP: ShMemProvider<ShMem = SHM>,
-{
+impl<'a> ForkserverExecutorBuilder<'a> {
     /// Builds `ForkserverExecutor`.
     /// This Forkserver will attempt to provide inputs over shared mem when `shmem_provider` is given.
     /// Else this forkserver will pass the input to the target via `stdin`
     /// in case no input file is specified.
     /// If `debug_child` is set, the child will print to `stdout`/`stderr`.
     #[expect(clippy::pedantic)]
-    pub fn build<OT, S>(mut self, observers: OT) -> Result<ForkserverExecutor<OT, SHM>, Error>
-    where
-        OT: ObserversTuple<S>,
+    pub fn build<OT>(mut self, observers: OT) -> Result<ForkserverExecutor<OT>, Error>
+    where 
+        OT: MatchNameRef
     {
         let built = self.build_forkserver(&observers)?;
         Ok(ForkserverExecutor {
@@ -821,7 +813,7 @@ where
         mut self,
         mut map_observer: A,
         other_observers: OT,
-    ) -> Result<ForkserverExecutor<(A, OT), SHM>, Error>
+    ) -> Result<ForkserverExecutor<(A, OT)>, Error>
     where
         A: AsMut<MO>,
         MO: MapObserver + Truncate,
@@ -855,9 +847,9 @@ where
     }
 
     #[expect(clippy::pedantic)]
-    fn build_forkserver<OT, S>(&mut self, obs: &OT) -> Result<BuiltForkserver<SHM>, Error>
-    where
-        OT: ObserversTuple<S>,
+    fn build_forkserver<OT>(&mut self, obs: &OT) -> Result<BuiltForkserver, Error>
+    where 
+        OT: MatchNameRef,
     {
         let input_file = match &self.target_inner.input_location {
             InputLocation::StdIn {
@@ -874,22 +866,19 @@ where
             InputLocation::File { out_file } => out_file.clone(),
         };
 
-        let map = match &mut self.shmem_provider {
-            None => None,
-            Some(provider) => {
-                // setup shared memory
-                let mut shmem = provider.new_shmem(self.max_input_size + SHMEM_FUZZ_HDR_SIZE)?;
-                // # Safety
-                // This is likely single threaded here, we're likely fine if it's not.
-                unsafe {
-                    shmem.write_to_env(SHM_FUZZ_ENV_VAR)?;
-                    env::set_var(SHM_FUZZ_MAP_SIZE_ENV_VAR, format!("{}", shmem.len()));
-                }
-
-                let size_in_bytes = (self.max_input_size + SHMEM_FUZZ_HDR_SIZE).to_ne_bytes();
-                shmem.as_slice_mut()[..4].clone_from_slice(&size_in_bytes[..4]);
-                Some(shmem)
+        let map = if self.try_use_input_shmem {
+            let mut shmem = SysVShm::new(self.max_input_size + SHMEM_FUZZ_HDR_SIZE)?;
+            unsafe {
+                shmem.write_to_env(SHM_FUZZ_ENV_VAR)?;
+                env::set_var(SHM_FUZZ_MAP_SIZE_ENV_VAR, format!("{}", shmem.len()));
             }
+
+            let size_in_bytes = (self.max_input_size + SHMEM_FUZZ_HDR_SIZE).to_ne_bytes();
+            shmem.as_slice_mut()[..4].clone_from_slice(&size_in_bytes[..4]);
+            Some(shmem)
+        }
+        else {
+            None
         };
 
         let target = self.target_inner.program.take().ok_or_else(|| {
@@ -926,7 +915,7 @@ where
             cwd: self.child_env_inner.current_directory.clone(),
             core: self.child_env_inner.core,
         })?;
-
+        
         // Initial handshake, read 4-bytes hello message from the forkserver.
         let version_status = forkserver.read_st().map_err(|err| {
             Error::illegal_state(format!("{FAILED_TO_START_FORKSERVER_MSG}: {err:?}"))
@@ -936,7 +925,7 @@ where
             report_error_and_exit(version_status & 0x0000ffff)?;
         }
 
-        self.initialize_forkserver(version_status, map.as_ref(), &mut forkserver)?;
+        self.initialize_forkserver(version_status, map.is_some(), &mut forkserver)?;
 
         if self.uses_shmem_testcase && map.is_none() {
             return Err(Error::illegal_state(
@@ -978,7 +967,7 @@ where
     fn initialize_forkserver(
         &mut self,
         status: i32,
-        map: Option<&SHM>,
+        input_map_allocated: bool,
         forkserver: &mut Forkserver,
     ) -> Result<(), Error> {
         let initial_status = status;
@@ -1021,7 +1010,7 @@ where
         }
 
         if status & FS_NEW_OPT_SHDMEM_FUZZ != 0 {
-            if map.is_some() {
+            if input_map_allocated {
                 log::info!("Using SHARED MEMORY FUZZING feature.");
                 self.uses_shmem_testcase = true;
             } else {
@@ -1168,9 +1157,16 @@ where
         self.kill_signal = Some(kill_signal);
         self
     }
+
+    #[must_use]
+    pub fn try_use_input_shmem(mut self, try_use_input_shmem: bool) -> Self {
+        self.try_use_input_shmem = true;
+        self
+    }
+
 }
 
-impl<'a> ForkserverExecutorBuilder<'a, ()> {
+impl<'a> ForkserverExecutorBuilder<'a> {
     /// Creates a new `AFL`-style [`ForkserverExecutor`] with the given target, arguments and observers.
     /// This is the builder for `ForkserverExecutor`
     /// This Forkserver will attempt to provide inputs over shared mem when `shmem_provider` is given.
@@ -1178,7 +1174,7 @@ impl<'a> ForkserverExecutorBuilder<'a, ()> {
     /// in case no input file is specified.
     /// If `debug_child` is set, the child will print to `stdout`/`stderr`.
     #[must_use]
-    pub fn new() -> ForkserverExecutorBuilder<'a, ()> {
+    pub fn new() -> ForkserverExecutorBuilder<'a> {
         ForkserverExecutorBuilder {
             target_inner: StdTargetArgsInner::default(),
             child_env_inner: StdChildArgsInner::default(),
@@ -1187,38 +1183,12 @@ impl<'a> ForkserverExecutorBuilder<'a, ()> {
             is_deferred_frksrv: false,
             is_fsrv_only: false,
             autotokens: None,
-            shmem_provider: None,
+            try_use_input_shmem: false,
             map_size: None,
             max_input_size: MAX_INPUT_SIZE_DEFAULT,
             min_input_size: MIN_INPUT_SIZE_DEFAULT,
             kill_signal: None,
             crash_exitcode: None,
-        }
-    }
-}
-
-impl<'a> ForkserverExecutorBuilder<'a, ()> {
-    /// Shmem provider for forkserver's shared memory testcase feature.
-    pub fn shmem_provider<SP>(
-        self,
-        shmem_provider: &'a mut SP,
-    ) -> ForkserverExecutorBuilder<'a, SP> {
-        ForkserverExecutorBuilder {
-            // Set the new provider
-            shmem_provider: Some(shmem_provider),
-            // Copy all other values from the old Builder
-            target_inner: self.target_inner,
-            child_env_inner: self.child_env_inner,
-            uses_shmem_testcase: self.uses_shmem_testcase,
-            is_persistent: self.is_persistent,
-            is_deferred_frksrv: self.is_deferred_frksrv,
-            is_fsrv_only: self.is_fsrv_only,
-            autotokens: self.autotokens,
-            map_size: self.map_size,
-            max_input_size: self.max_input_size,
-            min_input_size: self.min_input_size,
-            kill_signal: self.kill_signal,
-            crash_exitcode: self.crash_exitcode,
         }
     }
 }
@@ -1278,7 +1248,7 @@ mod tests {
         let result = match executor {
             Ok(_) => true,
             Err(e) => {
-                println!("Error: {e:?}");
+                eprintln!("Error: {e:?}");
                 match e {
                     Error::IllegalState(s, _) => s.contains(FAILED_TO_START_FORKSERVER_MSG),
                     _ => false,

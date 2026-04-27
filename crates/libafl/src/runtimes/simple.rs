@@ -8,6 +8,7 @@ use crate::{
 };
 
 /// Simplest runtime, just runs the task.
+#[derive(Clone, Debug)]
 pub struct SimpleRuntime<T> {
     task: T,
 }
