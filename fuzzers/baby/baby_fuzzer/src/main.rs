@@ -1,137 +1,135 @@
-#[cfg(windows)]
-use std::ptr::write_volatile;
-use std::{path::PathBuf, ptr::write};
+use std::time::Duration;
 
-#[cfg(feature = "tui")]
-use libafl::monitors::tui::TuiMonitor;
-#[cfg(not(feature = "tui"))]
-use libafl::monitors::SimpleMonitor;
 use libafl::{
-    corpus::{InMemoryCorpus, OnDiskCorpus},
-    events::SimpleEventManager,
-    executors::{ExitKind, InProcessExecutor},
-    feedbacks::{CrashFeedback, MaxMapFeedback},
-    fuzzer::{Fuzzer, StdFuzzer},
+    Result, Worker,
+    corpus::{
+        Corpus, InMemoryCorpus, OnDiskCorpus, Scheduler,
+        schedulers::{NopScheduler, QueueScheduler},
+    },
+    executors::StdExecutor,
+    feedback_or_fast,
+    feedbacks::{CrashFeedback, MaxMapFeedback, TimeoutFeedback},
+    fuzzers::{Fuzzer, StdFuzzer},
     generators::RandPrintablesGenerator,
-    inputs::{BytesInput, HasTargetBytes},
-    mutators::{havoc_mutations::havoc_mutations, scheduled::HavocScheduledMutator},
+    inputs::{BytesInput, bytes::BytesContext},
+    launchers::{DEFAULT_MAX_STATE_SIZE_PER_CLIENT, StdLauncher},
+    monitors::SimpleMonitor,
+    mutators::{HavocScheduledMutator, havoc_mutations},
+    non_zero,
     observers::ConstMapObserver,
-    schedulers::QueueScheduler,
-    stages::mutational::StdMutationalStage,
-    state::StdState,
+    runtimes::{RuntimeHandle, StdRuntime},
+    simple::{SimpleController, SimpleWorker},
+    stages::StdMutationalStage,
+    states::StdState,
 };
 use libafl_bolts::{
-    current_nanos, nonnull_raw_mut, nonzero, rands::StdRand, tuples::tuple_list, AsSlice,
+    current_nanos, nonnull_raw_mut, rands::StdRand, timers::FastTimer, tuples::tuple_list,
 };
 
-/// Coverage map with explicit assignments due to the lack of instrumentation
-const SIGNALS_LEN: usize = 16;
-static mut SIGNALS: [u8; SIGNALS_LEN] = [0; SIGNALS_LEN];
-static mut SIGNALS_PTR: *mut u8 = &raw mut SIGNALS as _;
+use crate::target::SIGNALS;
 
-/// Assign a signal to the signals map
-fn signals_set(idx: usize) {
-    unsafe { write(SIGNALS_PTR.add(idx), 1) };
-}
+mod target;
 
-pub fn main() {
-    env_logger::init();
-    // The closure that we want to fuzz
-    let mut harness = |input: &BytesInput| {
-        let target = input.target_bytes();
-        let buf = target.as_slice();
-        signals_set(0);
-        if !buf.is_empty() && buf[0] == b'a' {
-            signals_set(1);
-            if buf.len() > 1 && buf[1] == b'b' {
-                signals_set(2);
-                if buf.len() > 2 && buf[2] == b'c' {
-                    #[cfg(unix)]
-                    panic!("Artificial bug triggered =)");
-
-                    // panic!() raises a STATUS_STACK_BUFFER_OVERRUN exception which cannot be caught by the exception handler.
-                    // Here we make it raise STATUS_ACCESS_VIOLATION instead.
-                    // Extending the windows exception handler is a TODO. Maybe we can refer to what winafl code does.
-                    // https://github.com/googleprojectzero/winafl/blob/ea5f6b85572980bb2cf636910f622f36906940aa/winafl.c#L728
-                    #[cfg(windows)]
-                    unsafe {
-                        // Replace zero-ptr with the below function, suggested by Clippy
-                        write_volatile(std::ptr::null_mut::<u32>(), 0);
-                    }
-                }
-            }
-        }
-        ExitKind::Ok
-    };
+fn run_fuzzer<C, OC, SC>(
+    rt_handle: &mut RuntimeHandle<StdState<C, BytesInput, OC, SC>, SimpleWorker>,
+    state: &mut StdState<C, BytesInput, OC, SC>,
+) -> Result<()>
+where
+    C: Corpus<BytesInput>,
+    OC: Corpus<BytesInput>,
+    SC: Scheduler,
+{
+    // The source of randomness
+    let mut rand = StdRand::with_seed(current_nanos());
 
     // Create an observation channel using the signals map
     let observer = unsafe { ConstMapObserver::from_mut_ptr("signals", nonnull_raw_mut!(SIGNALS)) };
 
     // Feedback to rate the interestingness of an input
-    let mut feedback = MaxMapFeedback::new(&observer);
+    let feedback = MaxMapFeedback::new(&observer);
 
     // A feedback to choose if an input is a solution or not
-    let mut objective = CrashFeedback::new();
-
-    // create a State from scratch
-    let mut state = StdState::new(
-        // RNG
-        StdRand::with_seed(current_nanos()),
-        // Corpus that will be evolved, we keep it in memory for performance
-        InMemoryCorpus::new(),
-        // Corpus in which we store solutions (crashes in this example),
-        // on disk so the user can get them after stopping the fuzzer
-        OnDiskCorpus::new(PathBuf::from("./crashes")).unwrap(),
-        // States of the feedbacks.
-        // The feedbacks can report the data that should persist in the State.
-        &mut feedback,
-        // Same for objective feedbacks
-        &mut objective,
-    )
-    .unwrap();
-
-    // The Monitor trait define how the fuzzer stats are displayed to the user
-    #[cfg(not(feature = "tui"))]
-    let mon = SimpleMonitor::new(|s| println!("{s}"));
-    #[cfg(feature = "tui")]
-    let mon = TuiMonitor::builder()
-        .title("Baby Fuzzer")
-        .enhanced_graphics(false)
-        .build();
-
-    // The event manager handle the various events generated during the fuzzing loop
-    // such as the notification of the addition of a new item to the corpus
-    let mut mgr = SimpleEventManager::new(mon);
-
-    // A queue policy to get testcasess from the corpus
-    let scheduler = QueueScheduler::new();
-
-    // A fuzzer with feedbacks and a corpus scheduler
-    let mut fuzzer = StdFuzzer::new(scheduler, feedback, objective);
-
-    // Create the executor for an in-process function with just one observer
-    let mut executor = InProcessExecutor::new(
-        &mut harness,
-        tuple_list!(observer),
-        &mut fuzzer,
-        &mut state,
-        &mut mgr,
-    )
-    .expect("Failed to create the Executor");
-
-    // Generator of printable bytearrays of max size 32
-    let mut generator = RandPrintablesGenerator::new(nonzero!(32));
-
-    // Generate 8 initial inputs
-    state
-        .generate_initial_inputs(&mut fuzzer, &mut executor, &mut generator, &mut mgr, 8)
-        .expect("Failed to generate the initial corpus");
+    // let objective_feedback = CrashFeedback::new();
+    let objective_feedback = feedback_or_fast!(CrashFeedback::new(), TimeoutFeedback::new());
 
     // Setup a mutational stage with a basic bytes mutator
     let mutator = HavocScheduledMutator::new(havoc_mutations());
     let mut stages = tuple_list!(StdMutationalStage::new(mutator));
 
-    fuzzer
-        .fuzz_loop(&mut stages, &mut executor, &mut state, &mut mgr)
-        .expect("Error in the fuzzing loop");
+    // Create the executor for an in-process function with just one observer
+    let mut executor = StdExecutor::new(target::target, tuple_list!(observer), None);
+
+    // Generator of printable bytearrays of max size 32
+    let mut generator = RandPrintablesGenerator::new(non_zero!(32));
+
+    // A fuzzer with feedbacks and a corpus scheduler
+    let mut fuzzer = StdFuzzer::new(
+        feedback,
+        objective_feedback,
+        &mut stages,
+        &mut executor,
+        state,
+        rt_handle,
+    )?;
+
+    // Generate 8 initial inputs
+    state.generate_initial_inputs(
+        &mut fuzzer,
+        &mut executor,
+        &mut generator,
+        &mut rand,
+        rt_handle,
+        8,
+    )?;
+
+    // Start the fuzzer
+    fuzzer.fuzz_loop(&mut stages, &mut executor, &mut rand, state, rt_handle)
+}
+
+pub fn main() -> Result<()> {
+    env_logger::init();
+
+    // The state creation closure.
+    let state_builder = |worker: &SimpleWorker| {
+        // A queue policy to get testcasess from the corpus
+        let scheduler = QueueScheduler::new();
+        let crash_dir = worker.workdir().create_dir("crashes")?;
+
+        // create a State from scratch
+        StdState::new(
+            // Corpus that will be evolved, we keep it in memory for performance
+            InMemoryCorpus::new(BytesContext, scheduler),
+            // Corpus in which we store solutions (crashes in this example),
+            // on disk so the user can get them after stopping the fuzzer
+            OnDiskCorpus::new(crash_dir, BytesContext, NopScheduler).unwrap(),
+        )
+    };
+
+    // The launcher supervises the fuzzer and communicates with the workers.
+    let controller = SimpleController::builder()
+        .worker_stdout(None)
+        .worker_stderr(None)
+        .overwrite(true)
+        .build()?;
+
+    // The monitor tracks the fuzzing current status.
+    let monitor = SimpleMonitor::new();
+
+    let fast_timer = FastTimer::new();
+    let runtime = StdRuntime::new(
+        run_fuzzer,
+        DEFAULT_MAX_STATE_SIZE_PER_CLIENT,
+        fast_timer,
+        Some(Duration::from_secs(3)),
+    );
+
+    // Launch the fuzzer
+    StdLauncher::builder()?
+        .controller(controller)
+        .monitor(monitor)
+        .state_builder(state_builder)
+        .runtime(runtime)
+        // .build_with_task(run_fuzzer)?
+        .build()?
+        .launch()
 }
