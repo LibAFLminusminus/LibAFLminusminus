@@ -1,6 +1,5 @@
 //! The fuzzer, and state are the core pieces of every good fuzzer
 
-#[cfg(feature = "std")]
 use alloc::vec::Vec;
 use alloc::{boxed::Box, string::String};
 use core::{
@@ -33,8 +32,7 @@ use num_traits::Zero;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use typed_builder::TypedBuilder;
 
-#[cfg(not(feature = "remove_me"))]
-use crate::fuzzers::ExecuteInputResult;
+use crate::fuzzers::EvaluationResult;
 use crate::{
     Error, Result,
     corpus::{
@@ -257,7 +255,6 @@ where
 pub const DEFAULT_MAX_SIZE: usize = 1_048_576;
 
 /// Struct that holds the options for input loading
-#[cfg(feature = "std")]
 pub struct LoadConfig<'a, I, S, Z> {
     /// Load Input even if it was deemed "uninteresting" by the fuzzer
     forced: bool,
@@ -267,7 +264,6 @@ pub struct LoadConfig<'a, I, S, Z> {
     exit_on_solution: bool,
 }
 
-#[cfg(feature = "std")]
 impl<I, S, Z> Debug for LoadConfig<'_, I, S, Z> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "LoadConfig {{}}")
@@ -292,10 +288,8 @@ pub struct StdState<C, I, OC, SC> {
     testcase_metadata: HashMap<TestcaseId, TestcaseMetadata>,
     /// `MaxSize` testcase size for mutators that appreciate it
     max_size: usize,
-    #[cfg(feature = "std")]
     /// Remaining initial inputs to load, if any
     remaining_initial_files: Option<Vec<PathBuf>>,
-    #[cfg(feature = "std")]
     /// symlinks we have already traversed when loading `remaining_initial_files`
     dont_reenter: Option<Vec<PathBuf>>,
     metadata_initialized: bool,
@@ -796,7 +790,6 @@ where
 {
 }
 
-#[cfg(feature = "std")]
 impl<C, I, OC, SC> StdState<C, I, OC, SC>
 where
     C: Corpus<I>,
@@ -884,16 +877,16 @@ where
     /// Loads initial inputs from the passed-in `in_dirs`.
     /// If `forced` is true, will add all testcases, no matter what.
     /// This method takes a list of files.
-    #[cfg(not(feature = "remove_me"))]
-    fn load_initial_inputs_custom_by_filenames<E, Z>(
+    fn load_initial_inputs_custom_by_filenames<E, W, Z>(
         &mut self,
         fuzzer: &mut Z,
         executor: &mut E,
+        rt_handle: &mut RuntimeHandle<Self, W>,
         file_list: &[PathBuf],
         load_config: LoadConfig<I, Self, Z>,
     ) -> Result<()>
     where
-        Z: Evaluator<E, I, Self>,
+        Z: Evaluator<E, I, Self, W>,
     {
         if let Some(remaining) = self.remaining_initial_files.as_ref() {
             // everything was loaded
@@ -904,19 +897,19 @@ where
             self.remaining_initial_files = Some(file_list.to_vec());
         }
 
-        self.continue_loading_initial_inputs_custom(fuzzer, executor, load_config)
+        self.continue_loading_initial_inputs_custom(fuzzer, executor, rt_handle, load_config)
     }
 
-    #[cfg(not(feature = "remove_me"))]
-    fn load_file<E, Z>(
+    fn load_file<E, W, Z>(
         &mut self,
         path: &Path,
         fuzzer: &mut Z,
         executor: &mut E,
+        rt_handle: &mut RuntimeHandle<Self, W>,
         config: &mut LoadConfig<I, Self, Z>,
-    ) -> Result<ExecuteInputResult>
+    ) -> Result<EvaluationResult>
     where
-        Z: Evaluator<E, I, Self>,
+        Z: Evaluator<E, I, Self, W>,
     {
         log::info!("Loading file {} ...", path.display());
         let input = match (config.loader)(fuzzer, self, path) {
@@ -926,44 +919,32 @@ where
                     "Skipping input that we could not load from {}: {err:?}",
                     path.display()
                 );
-                return Ok(ExecuteInputResult::None);
+                return Ok(EvaluationResult::not_interesting());
             }
         };
-        if config.forced {
-            let _ = fuzzer.add_input(self, executor, input)?;
-            Ok(ExecuteInputResult::Corpus)
-        } else {
-            let (res, _) = fuzzer.evaluate_input(self, executor, &input)?;
-            if res == ExecuteInputResult::None {
-                fuzzer.add_disabled_input(self, input)?;
-                log::warn!(
-                    "Input {} was not interesting, adding as disabled.",
-                    path.display()
-                );
-            }
-            Ok(res)
-        }
+        let res = fuzzer.evaluate_input(self, executor, rt_handle, &input)?;
+        Ok(res)
     }
     /// Loads initial inputs from the passed-in `in_dirs`.
     /// This method takes a list of files and a `LoadConfig`
     /// which specifies the special handling of initial inputs
-    #[cfg(not(feature = "remove_me"))]
-    fn continue_loading_initial_inputs_custom<E, Z>(
+    fn continue_loading_initial_inputs_custom<E, W, Z>(
         &mut self,
         fuzzer: &mut Z,
         executor: &mut E,
+        rt_handle: &mut RuntimeHandle<Self, W>,
         mut config: LoadConfig<I, Self, Z>,
     ) -> Result<()>
     where
-        Z: Evaluator<E, I, Self>,
+        Z: Evaluator<E, I, Self, W>,
     {
         loop {
             match self.next_file() {
                 Ok(path) => {
-                    let res = self.load_file(&path, fuzzer, executor, &mut config)?;
-                    if config.exit_on_solution && matches!(res, ExecuteInputResult::Solution) {
+                    let res = self.load_file(&path, fuzzer, executor, rt_handle, &mut config)?;
+                    if config.exit_on_solution && res.is_objective_worthy() {
                         return Err(Error::invalid_corpus(format!(
-                            "Input {} resulted in a solution.",
+                            "Input {} resulted in a objective.",
                             path.display()
                         )));
                     }
@@ -998,19 +979,20 @@ where
     /// This is rarely the right method, use `load_initial_inputs`,
     /// and potentially fix your `Feedback`, instead.
     /// This method takes a list of files, instead of folders.
-    #[cfg(not(feature = "remove_me"))]
-    pub fn load_initial_inputs_by_filenames<E, Z>(
+    pub fn load_initial_inputs_by_filenames<E, W, Z>(
         &mut self,
         fuzzer: &mut Z,
         executor: &mut E,
+        rt_handle: &mut RuntimeHandle<Self, W>,
         file_list: &[PathBuf],
     ) -> Result<()>
     where
-        Z: Evaluator<E, I, Self>,
+        Z: Evaluator<E, I, Self, W>,
     {
         self.load_initial_inputs_custom_by_filenames(
             fuzzer,
             executor,
+            rt_handle,
             file_list,
             LoadConfig {
                 loader: &mut |_, _, path| I::from_file(path),
@@ -1023,20 +1005,21 @@ where
     /// Loads all intial inputs, even if they are not considered `interesting`.
     /// This is rarely the right method, use `load_initial_inputs`,
     /// and potentially fix your `Feedback`, instead.
-    #[cfg(not(feature = "remove_me"))]
-    pub fn load_initial_inputs_forced<E, Z>(
+    pub fn load_initial_inputs_forced<E, W, Z>(
         &mut self,
         fuzzer: &mut Z,
         executor: &mut E,
+        rt_handle: &mut RuntimeHandle<Self, W>,
         in_dirs: &[PathBuf],
     ) -> Result<()>
     where
-        Z: Evaluator<E, I, Self>,
+        Z: Evaluator<E, I, Self, W>,
     {
         self.canonicalize_input_dirs(in_dirs)?;
         self.continue_loading_initial_inputs_custom(
             fuzzer,
             executor,
+            rt_handle,
             LoadConfig {
                 loader: &mut |_, _, path| I::from_file(path),
                 forced: true,
@@ -1047,19 +1030,20 @@ where
     /// Loads initial inputs from the passed-in `in_dirs`.
     /// If `forced` is true, will add all testcases, no matter what.
     /// This method takes a list of files, instead of folders.
-    #[cfg(not(feature = "remove_me"))]
-    pub fn load_initial_inputs_by_filenames_forced<E, Z>(
+    pub fn load_initial_inputs_by_filenames_forced<E, W, Z>(
         &mut self,
         fuzzer: &mut Z,
         executor: &mut E,
+        rt_handle: &mut RuntimeHandle<Self, W>,
         file_list: &[PathBuf],
     ) -> Result<()>
     where
-        Z: Evaluator<E, I, Self>,
+        Z: Evaluator<E, I, Self, W>,
     {
         self.load_initial_inputs_custom_by_filenames(
             fuzzer,
             executor,
+            rt_handle,
             file_list,
             LoadConfig {
                 loader: &mut |_, _, path| I::from_file(path),
@@ -1070,20 +1054,21 @@ where
     }
 
     /// Loads initial inputs from the passed-in `in_dirs`.
-    #[cfg(not(feature = "remove_me"))]
-    pub fn load_initial_inputs<E, Z>(
+    pub fn load_initial_inputs<E, W, Z>(
         &mut self,
         fuzzer: &mut Z,
         executor: &mut E,
+        rt_handle: &mut RuntimeHandle<Self, W>,
         in_dirs: &[PathBuf],
     ) -> Result<()>
     where
-        Z: Evaluator<E, I, Self>,
+        Z: Evaluator<E, I, Self, W>,
     {
         self.canonicalize_input_dirs(in_dirs)?;
         self.continue_loading_initial_inputs_custom(
             fuzzer,
             executor,
+            rt_handle,
             LoadConfig {
                 loader: &mut |_, _, path| I::from_file(path),
                 forced: false,
@@ -1094,20 +1079,21 @@ where
 
     /// Loads initial inputs from the passed-in `in_dirs`.
     /// Will return a `CorpusError` if a solution is found
-    #[cfg(not(feature = "remove_me"))]
-    pub fn load_initial_inputs_disallow_solution<E, Z>(
+    pub fn load_initial_inputs_disallow_solution<E, W, Z>(
         &mut self,
         fuzzer: &mut Z,
         executor: &mut E,
+        rt_handle: &mut RuntimeHandle<Self, W>,
         in_dirs: &[PathBuf],
     ) -> Result<()>
     where
-        Z: Evaluator<E, I, Self>,
+        Z: Evaluator<E, I, Self, W>,
     {
         self.canonicalize_input_dirs(in_dirs)?;
         self.continue_loading_initial_inputs_custom(
             fuzzer,
             executor,
+            rt_handle,
             LoadConfig {
                 loader: &mut |_, _, path| I::from_file(path),
                 forced: false,
@@ -1187,9 +1173,7 @@ where
             corpus,
             objective_corpus,
             max_size: DEFAULT_MAX_SIZE,
-            #[cfg(feature = "std")]
             remaining_initial_files: None,
-            #[cfg(feature = "std")]
             dont_reenter: None,
             phantom: PhantomData,
             testcase_metadata: HashMap::new(),
