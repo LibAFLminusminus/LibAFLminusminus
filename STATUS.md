@@ -78,6 +78,9 @@
 - [ ] libafl target
 - [ ] libafl intelpt
 - [ ] libafl qemu
+- [ ] write nyx fuzzer
+- [ ] check if libafl-fuzz is doable
+- [ ] every fuzzer MUST have proper documentation
 
 # Structural problems
 
