@@ -27,13 +27,6 @@ pub mod hooks;
 pub mod combined;
 pub use combined::CombinedExecutor;
 
-#[cfg(feature = "std")]
-#[cfg(not(feature = "remove_me"))]
-pub mod command;
-#[cfg(not(feature = "remove_me"))]
-#[cfg(feature = "std")]
-pub use command::CommandExecutor;
-
 pub mod nop;
 pub use nop::NopExecutor;
 

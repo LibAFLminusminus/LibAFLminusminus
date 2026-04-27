@@ -141,7 +141,7 @@ pub struct NopContext;
 pub struct NopInput;
 
 impl<I> InputContext<I> for NopContext {
-    fn to_bytes<'a>(&mut self, _input: &'a NopInput) -> OwnedSlice<'a, u8> {
+    fn to_bytes<'a>(&mut self, _input: &'a I) -> OwnedSlice<'a, u8> {
         OwnedSlice::from(vec![])
     }
 }
