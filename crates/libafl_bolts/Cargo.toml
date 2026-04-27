@@ -43,12 +43,10 @@ document-features = ["dep:document-features"]
 ## Enables features that need rust's `std` lib to work, like print, env, ... support
 std = [
   "alloc",
-  "backtrace",
   "build_id2",
   "core_affinity2",
   "exceptional/std",
   "fast_rands/std",
-  "hostname",
   "libafl_core/nix",
   "libafl_core/std",
   "minibsod",
@@ -63,9 +61,7 @@ std = [
 ## Enables all features that allocate in `no_std`
 alloc = [
   "ahash",
-  "erased-serde/alloc",
   "fast_rands/alloc",
-  "hashbrown",
   "libafl_core/alloc",
   "postcard",
   "serde_anymap",
@@ -129,7 +125,7 @@ rustversion = { workspace = true }
 
 [dev-dependencies]
 clap = { version = "4.5", features = ["derive", "env"] }
-rand = "0.9.0"
+rand = "0.10.1"
 chrono = "0.4.43"
 itertools = "0.14.0"
 
@@ -145,22 +141,13 @@ nonzero_macros = { workspace = true }
 ownedref = { workspace = true }
 serde_anymap = { workspace = true, optional = true }
 shmem_providers = { workspace = true }
-static_assertions = { workspace = true }
 tuple_list_ex = { workspace = true, features = ["serde"] }
-typeid = { workspace = true }
 
 ahash = { workspace = true, optional = true } # The hash function already used in hashbrown
-backtrace = { workspace = true, default-features = true, optional = true } # Used to get the stacktrace in StacktraceObserver
 clap = { workspace = true, features = [
   "derive",
   "wrap_help",
 ], optional = true } # CLI parsing, for libafl_bolts::cli / the `cli` feature
-erased-serde = { workspace = true, default-features = false, optional = true } # erased serde
-hashbrown = { workspace = true, features = [
-  "serde",
-  "default-hasher",
-  "raw-entry",
-], default-features = false, optional = true } # A faster hashmap, nostd compatible
 xxhash-rust = { version = "0.8.12", features = [
   "xxh3",
 ], optional = true } # xxh3 hashing for rust
@@ -168,11 +155,8 @@ serde = { workspace = true, default-features = false, features = [
   "derive",
 ] } # serialization lib
 postcard = { workspace = true, optional = true } # no_std compatible serde serialization format
-num_enum = { workspace = true, default-features = false }
 
-ctor = { optional = true, version = "0.6.3" }
 miniz_oxide = { version = "0.9.0", optional = true }
-hostname = { version = "0.4.2", optional = true } # Is there really no gethostname in the stdlib?
 log = { workspace = true }
 nix = { workspace = true, optional = true, default-features = false, features = [
   "fs",
@@ -180,16 +164,15 @@ nix = { workspace = true, optional = true, default-features = false, features = 
   "socket",
   "poll",
   "time",
+  "mman",
 ] }
 pyo3 = { workspace = true, optional = true, features = ["serde", "macros"] }
-tuple_list = { workspace = true }
 
 # optional-dev deps (change when target.'cfg(accessible(::std))'.test-dependencies will be stable)
 serial_test = { workspace = true, optional = true, default-features = false, features = [
   "logging",
 ] }
 
-rustversion = { workspace = true }
 # optional stable simd
 wide = { version = "1.1.1", optional = true }
 atomic = "0.6.1"
