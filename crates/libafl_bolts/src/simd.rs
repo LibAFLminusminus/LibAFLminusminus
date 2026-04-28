@@ -1,7 +1,7 @@
 //! Module for SIMD assisted methods.
 
 #[cfg(feature = "alloc")]
-use alloc::{vec, vec::Vec};
+use alloc::vec::Vec;
 use core::ops::{BitAnd, BitOr};
 
 #[cfg(feature = "wide")]
@@ -356,36 +356,31 @@ pub fn std_simplify_map(map: &mut [u8]) {
 /// performed by this function remain in-bounds.
 #[cfg(all(feature = "alloc", feature = "wide"))]
 #[must_use]
-pub unsafe fn covmap_is_interesting_simd<R, V>(
-    hist: &[u8],
-    map: &[u8],
-    collect_novelties: bool,
-) -> (bool, Vec<usize>)
+pub unsafe fn covmap_is_interesting_simd<R, V>(hist: &[u8], map: &[u8]) -> bool
 where
     V: VectorType + Eq + Copy,
     R: SimdReducer<V>,
 {
     debug_assert!(hist.len() >= map.len());
 
-    let mut novelties = vec![];
     let mut interesting = false;
     let size = map.len();
     let steps = size / V::N;
     let left = size % V::N;
 
-    if collect_novelties {
-        for step in 0..steps {
-            let i = step * V::N;
-            let history = V::from_slice(&hist[i..]);
-            let items = V::from_slice(&map[i..]);
+    for step in 0..steps {
+        let i = step * V::N;
+        let history = V::from_slice(&hist[i..]);
+        let items = V::from_slice(&map[i..]);
 
-            let out = R::reduce(history, items);
-            if out != history {
-                interesting = true;
-                V::novelties(hist, map, i, &mut novelties);
-            }
+        let out = R::reduce(history, items);
+        if out != history {
+            interesting = true;
+            break;
         }
+    }
 
+    if !interesting {
         for j in (size - left)..size {
             unsafe {
                 let item = *map.get_unchecked(j);
@@ -393,39 +388,13 @@ where
                 let out = R::PrimitiveReducer::reduce(item, history);
                 if out != history {
                     interesting = true;
-                    novelties.push(j);
-                }
-            }
-        }
-    } else {
-        for step in 0..steps {
-            let i = step * V::N;
-            let history = V::from_slice(&hist[i..]);
-            let items = V::from_slice(&map[i..]);
-
-            let out = R::reduce(history, items);
-            if out != history {
-                interesting = true;
-                break;
-            }
-        }
-
-        if !interesting {
-            for j in (size - left)..size {
-                unsafe {
-                    let item = *map.get_unchecked(j);
-                    let history = *hist.get_unchecked(j);
-                    let out = R::PrimitiveReducer::reduce(item, history);
-                    if out != history {
-                        interesting = true;
-                        break;
-                    }
+                    break;
                 }
             }
         }
     }
 
-    (interesting, novelties)
+    interesting
 }
 
 /// Coverage map insteresting naive implementation. Do not use it unless you have strong reasons to do.
@@ -436,38 +405,22 @@ where
 /// performed by this function remain in-bounds.
 #[cfg(feature = "alloc")]
 #[must_use]
-pub unsafe fn covmap_is_interesting_naive<R>(
-    hist: &[u8],
-    map: &[u8],
-    collect_novelties: bool,
-) -> (bool, Vec<usize>)
+pub unsafe fn covmap_is_interesting_naive<R>(hist: &[u8], map: &[u8]) -> bool
 where
     R: Reducer<u8>,
 {
     debug_assert!(hist.len() >= map.len());
 
-    let mut novelties = vec![];
     let mut interesting = false;
     let initial = 0;
-    if collect_novelties {
-        for (i, item) in map.iter().enumerate().filter(|(_, item)| **item != initial) {
-            let existing = unsafe { *hist.get_unchecked(i) };
-            let reduced = R::reduce(existing, *item);
-            if existing != reduced {
-                interesting = true;
-                novelties.push(i);
-            }
-        }
-    } else {
-        for (i, item) in map.iter().enumerate().filter(|(_, item)| **item != initial) {
-            let existing = unsafe { *hist.get_unchecked(i) };
-            let reduced = R::reduce(existing, *item);
-            if existing != reduced {
-                interesting = true;
-                break;
-            }
+    for (i, item) in map.iter().enumerate().filter(|(_, item)| **item != initial) {
+        let existing = unsafe { *hist.get_unchecked(i) };
+        let reduced = R::reduce(existing, *item);
+        if existing != reduced {
+            interesting = true;
+            break;
         }
     }
 
-    (interesting, novelties)
+    interesting
 }

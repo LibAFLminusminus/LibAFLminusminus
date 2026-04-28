@@ -31,7 +31,7 @@ use crate::{
     corpus::{Testcase, TestcaseId},
     executors::ExitKind,
     feedbacks::{Feedback, HasObserverHandle},
-    observers::{CanTrack, MapObserver},
+    observers::MapObserver,
     states::{FlatState, HasTestcase},
 };
 
@@ -303,8 +303,6 @@ where
 /// The most common AFL-like feedback type
 #[derive(Debug, Clone)]
 pub struct MapFeedback<C, N, O, R> {
-    /// New indexes observed in the last observation
-    pub(crate) novelties: Option<Vec<usize>>,
     /// Name identifier of this instance
     name: Cow<'static, str>,
     /// Name identifier of the observer
@@ -326,14 +324,13 @@ where
 {
     fn register(&mut self, registrator: &mut crate::Registrator) -> Result<(), Error> {
         registrator.register_md_default::<MapFeedbackMetadata<O::Entry>>(self.name().to_string());
-        registrator.register_md_default::<MapIndexesMetadata>(self.name().to_string());
         Ok(())
     }
 }
 
 impl<C, I, N, O, OT, R, S> Feedback<I, OT, S> for MapFeedback<C, N, O, R>
 where
-    C: CanTrack + AsRef<O>,
+    C: AsRef<O>,
     N: IsNovel<O::Entry>,
     O: MapObserver + for<'it> AsIter<'it, Item = O::Entry>,
     O::Entry: 'static + Default + Debug + DeserializeOwned + Serialize,
@@ -380,39 +377,18 @@ where
         }
 
         let history_map = &mut map_state.history_map;
-        let meta = if C::INDICES {
-            let mut indices = Vec::new();
-
-            for (i, value) in observer
-                .as_iter()
-                .map(|x| *x)
-                .enumerate()
-                .filter(|(_, value)| *value != initial)
-            {
-                let val = R::reduce(history_map[i], value);
-                if history_map[i] == initial && val != initial {
-                    map_state.num_covered_map_indexes += 1;
-                }
-                history_map[i] = val;
-                indices.push(i);
+        for (i, value) in observer
+            .as_iter()
+            .map(|x| *x)
+            .enumerate()
+            .filter(|(_, value)| *value != initial)
+        {
+            let val = R::reduce(history_map[i], value);
+            if history_map[i] == initial && val != initial {
+                map_state.num_covered_map_indexes += 1;
             }
-            let meta = MapIndexes::new(indices);
-            Some(meta)
-        } else {
-            for (i, value) in observer
-                .as_iter()
-                .map(|x| *x)
-                .enumerate()
-                .filter(|(_, value)| *value != initial)
-            {
-                let val = R::reduce(history_map[i], value);
-                if history_map[i] == initial && val != initial {
-                    map_state.num_covered_map_indexes += 1;
-                }
-                history_map[i] = val;
-            }
-            None
-        };
+            history_map[i] = val;
+        }
 
         debug_assert!(
             history_map
@@ -426,15 +402,6 @@ where
             map_state.num_covered_map_indexes,
         );
 
-        // at this point you are executing this code, the testcase is always interesting
-        if let Some(meta) = meta {
-            state
-                .named_metadata_map_mut()
-                .get_mut::<MapIndexesMetadata>(&self.name)
-                .unwrap()
-                .data
-                .insert(*testcase_id, meta);
-        }
         Ok(())
     }
 }
@@ -457,13 +424,12 @@ fn create_stats_name(name: &Cow<'static, str>) -> Cow<'static, str> {
 
 impl<C, N, O, R> MapFeedback<C, N, O, R>
 where
-    C: CanTrack + AsRef<O> + Named,
+    C: AsRef<O> + Named,
 {
     /// Create new `MapFeedback`
     #[must_use]
     pub fn new(map_observer: &C) -> Self {
         Self {
-            novelties: if C::NOVELTIES { Some(vec![]) } else { None },
             name: map_observer.name().clone(),
             map_ref: map_observer.handle(),
             stats_name: create_stats_name(map_observer.name()),
@@ -480,7 +446,6 @@ where
     pub fn with_name(name: &'static str, map_observer: &C) -> Self {
         let name = Cow::from(name);
         Self {
-            novelties: if C::NOVELTIES { Some(vec![]) } else { None },
             map_ref: map_observer.handle(),
             stats_name: create_stats_name(&name),
             name,
@@ -530,34 +495,17 @@ where
 
         let initial = observer.initial();
 
-        if let Some(novelties) = self.novelties.as_mut() {
-            novelties.clear();
-            for (i, item) in observer
-                .as_iter()
-                .map(|x| *x)
-                .enumerate()
-                .filter(|(_, item)| *item != initial)
-            {
-                let existing = unsafe { *history_map.get_unchecked(i) };
-                let reduced = R::reduce(existing, item);
-                if N::is_novel(existing, reduced) {
-                    interesting = true;
-                    novelties.push(i);
-                }
-            }
-        } else {
-            for (i, item) in observer
-                .as_iter()
-                .map(|x| *x)
-                .enumerate()
-                .filter(|(_, item)| *item != initial)
-            {
-                let existing = unsafe { *history_map.get_unchecked(i) };
-                let reduced = R::reduce(existing, item);
-                if N::is_novel(existing, reduced) {
-                    interesting = true;
-                    break;
-                }
+        for (i, item) in observer
+            .as_iter()
+            .map(|x| *x)
+            .enumerate()
+            .filter(|(_, item)| *item != initial)
+        {
+            let existing = unsafe { *history_map.get_unchecked(i) };
+            let reduced = R::reduce(existing, item);
+            if N::is_novel(existing, reduced) {
+                interesting = true;
+                break;
             }
         }
 
