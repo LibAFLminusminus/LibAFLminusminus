@@ -1223,13 +1223,13 @@ mod tests {
         let bin = OsString::from("echo");
         let args = vec![OsString::from("@@")];
 
-        let shmem = SysVShm::new(MAP_SIZE);
+        let mut shmem = SysVShm::new(MAP_SIZE).unwrap();
         // # Safety
         // There's a slight chance this is racey but very unlikely in the normal use case
         unsafe {
             shmem.write_to_env("__AFL_SHM_ID").unwrap();
         }
-        let shmem_buf: &mut [u8; MAP_SIZE] = shmem.as_slice_mut().try_into().unwrap();
+        let mut shmem_buf: &mut [u8; MAP_SIZE] = shmem.as_slice_mut().try_into().unwrap();
 
         let edges_observer = HitcountsMapObserver::new(ConstMapObserver::<_, MAP_SIZE>::new(
             "shared_mem",
@@ -1241,8 +1241,7 @@ mod tests {
             .args(args)
             .coverage_map_size(MAP_SIZE)
             .debug_child(false)
-            .shmem_provider(&mut shmem_provider)
-            .build::<BytesInput, _, NopCorpus<BytesInput>>(tuple_list!(edges_observer));
+            .build::<_>(tuple_list!(edges_observer));
 
         // Since /usr/bin/echo is not a instrumented binary file, the test will just check if the forkserver has failed at the initial handshake
         let result = match executor {

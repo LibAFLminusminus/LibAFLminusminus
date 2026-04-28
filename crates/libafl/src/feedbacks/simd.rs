@@ -23,7 +23,7 @@ use crate::{
     corpus::{Testcase, TestcaseId},
     executors::ExitKind,
     feedbacks::MapFeedbackMetadata,
-    observers::{CanTrack, MapObserver},
+    observers::MapObserver,
     states::{FlatState, HasTestcase},
 };
 
@@ -41,7 +41,7 @@ where
 impl<C, O, R, V> SimdMapFeedback<C, O, R, V>
 where
     O: MapObserver<Entry = u8> + for<'a> AsSlice<'a, Entry = u8> + for<'a> AsIter<'a, Item = u8>,
-    C: CanTrack + AsRef<O>,
+    C: AsRef<O>,
     R: SimdReducer<V>,
     V: VectorType + Copy + Eq,
 {
@@ -68,12 +68,9 @@ where
 
         let history_map = map_state.history_map.as_slice();
 
-        let (interesting, novelties) = unsafe {
-            covmap_is_interesting_simd::<R, V>(history_map, &map, self.map.novelties.is_some())
+        let interesting = unsafe {
+            covmap_is_interesting_simd::<R, V>(history_map, &map)
         };
-        if let Some(nov) = self.map.novelties.as_mut() {
-            *nov = novelties;
-        }
         #[cfg(feature = "track_hit_feedbacks")]
         {
             self.last_result = Some(interesting);
@@ -105,7 +102,7 @@ where
 impl<C, O, R, V> SimdMapFeedback<C, O, R, V>
 where
     R: SimdReducer<V>,
-    C: CanTrack + AsRef<O> + Named,
+    C: AsRef<O> + Named,
     O: MapObserver<Entry = u8> + for<'a> AsSlice<'a, Entry = u8> + for<'a> AsIter<'a, Item = u8>,
 {
     /// Mock [`MapFeedback::new`]. If you are getting bound errors, your entry is probably not
@@ -188,7 +185,7 @@ where
 // Delegate implementations to inner mapping except is_interesting
 impl<C, O, I, OT, S, R, V> Feedback<I, OT, S> for SimdMapFeedback<C, O, R, V>
 where
-    C: CanTrack + AsRef<O>,
+    C: AsRef<O>,
     O: MapObserver<Entry = u8> + for<'a> AsSlice<'a, Entry = u8> + for<'a> AsIter<'a, Item = u8>,
     OT: MatchName,
     R: SimdReducer<V>,

@@ -5,7 +5,6 @@ use libafl_bolts::tuples::{
 };
 
 use crate::mutators::{
-    mapping::{ToMappingMutator, ToOptionalMutator, ToStateAwareMappingMutator},
     mutations::{
         BitFlipMutator, ByteAddMutator, ByteDecMutator, ByteFlipMutator, ByteIncMutator,
         ByteInterestingMutator, ByteNegMutator, ByteRandMutator, BytesCopyMutator,
@@ -58,27 +57,6 @@ pub type MappedHavocCrossoverType<F, I, O> = tuple_list_type!(
 /// Tuple type of the mutations that compose the Havoc mutator
 pub type HavocMutationsType =
     merge_tuple_list_type!(HavocMutationsNoCrossoverType, HavocCrossoverType);
-
-/// Tuple type of the mutations that compose the Havoc mutator for mapped input types
-pub type MappedHavocMutationsType<F1, F2, I, O> = map_tuple_list_type!(
-    merge_tuple_list_type!(HavocMutationsNoCrossoverType, MappedHavocCrossoverType<F2,I, O>),
-    ToMappingMutator<F1>
-);
-
-/// Tuple type of the mutations that compose the Havoc mutator for state-aware-mapped input types
-pub type StateAwareMappedHavocMutationsType<F1, F2, I, O> = map_tuple_list_type!(
-    merge_tuple_list_type!(HavocMutationsNoCrossoverType, MappedHavocCrossoverType<F2,I, O>),
-    ToStateAwareMappingMutator<F1>
-);
-
-/// Tuple type of the mutations that compose the Havoc mutator for mapped input types, for optional byte array input parts
-pub type OptionMappedHavocMutationsType<F1, F2, I, O> = map_tuple_list_type!(
-    map_tuple_list_type!(
-        merge_tuple_list_type!(HavocMutationsNoCrossoverType, MappedHavocCrossoverType<F2,I, O>),
-        ToOptionalMutator
-    ),
-    ToMappingMutator<F1>
-);
 
 /// Get the mutations that compose the Havoc mutator (only applied to single inputs)
 #[must_use]
@@ -151,62 +129,4 @@ where
 #[must_use]
 pub fn havoc_mutations() -> HavocMutationsType {
     havoc_mutations_no_crossover().merge(havoc_crossover())
-}
-
-/// Get the mutations that compose the Havoc mutator for mapped input types
-///
-/// Check the example fuzzer for details on how to use this.
-#[must_use]
-pub fn mapped_havoc_mutations<F1, F2, IO1, IO2, II, O>(
-    current_input_mapper: F1,
-    input_from_corpus_mapper: F2,
-) -> MappedHavocMutationsType<F1, F2, IO1, O>
-where
-    F1: Clone + FnMut(&mut IO1) -> &mut II,
-    F2: Clone + Fn(&IO2) -> &O,
-{
-    havoc_mutations_no_crossover()
-        .merge(havoc_crossover_with_corpus_mapper(input_from_corpus_mapper))
-        .map(ToMappingMutator::new(current_input_mapper))
-}
-
-/// Get the mutations that compose the Havoc mutator for state-aware-mapped input types
-///
-/// Check the example fuzzer for details on how to use this.
-/// Check the docs of [`crate::mutators::mapping::StateAwareMappingMutator`] for how mapping works internally.
-#[must_use]
-pub fn state_aware_mapped_havoc_mutations<'a, F1, F2, IO1, IO2, II, O, S>(
-    current_input_mapper: F1,
-    input_from_corpus_mapper: F2,
-) -> StateAwareMappedHavocMutationsType<F1, F2, IO1, O>
-where
-    F1: Clone + FnMut(&'a mut IO1, &'a mut S) -> (Option<&'a mut II>, &'a mut S),
-    F2: Clone + Fn(&IO2) -> &O,
-    II: 'a,
-    IO1: 'a,
-    S: 'a,
-{
-    havoc_mutations_no_crossover()
-        .merge(havoc_crossover_with_corpus_mapper(input_from_corpus_mapper))
-        .map(ToStateAwareMappingMutator::new(current_input_mapper))
-}
-
-/// Get the mutations that compose the Havoc mutator for mapped input types, for optional input parts
-///
-/// Check the example fuzzer for details on how to use this.
-#[must_use]
-pub fn optional_mapped_havoc_mutations<F1, F2, IO1, IO2, II, O>(
-    current_input_mapper: F1,
-    input_from_corpus_mapper: F2,
-) -> OptionMappedHavocMutationsType<F1, F2, IO1, O>
-where
-    F1: Clone + FnMut(&mut IO1) -> &mut II,
-    F2: Clone + Fn(&IO2) -> &O,
-{
-    havoc_mutations_no_crossover()
-        .merge(havoc_crossover_with_corpus_mapper_optional(
-            input_from_corpus_mapper,
-        ))
-        .map(ToOptionalMutator)
-        .map(ToMappingMutator::new(current_input_mapper))
 }

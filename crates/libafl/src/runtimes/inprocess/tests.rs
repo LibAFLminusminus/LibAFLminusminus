@@ -14,6 +14,8 @@ use crate::{
     states::NopState,
 };
 
+use libafl_bolts::timers::FastTimer;
+
 rusty_fork_test! {
     #[test]
     fn test_runtime_create() {
@@ -28,7 +30,9 @@ rusty_fork_test! {
 
         let timeout_handler = |_data: &mut TerminationHandlerData, _params: &OsTerminationParams| Ok(());
 
-        let mut runtime = InProcessRuntime::new(task, crash_handler, TerminationHandlerData::new(), timeout_handler);
+        let fast_timer = FastTimer::new();
+
+        let mut runtime = InProcessRuntime::new(task, crash_handler, TerminationHandlerData::new(), timeout_handler, fast_timer);
 
         match runtime.run(state, worker).err() {
             Some(Error::ShuttingDown) => {}
@@ -62,12 +66,15 @@ where
 {
     let state = NopState::<NopInput>::new();
     let mut worker = NopWorker;
+    
+    let fast_timer = FastTimer::new();
 
     let mut runtime = InProcessRuntime::new(
         task,
         crash_handler,
         TerminationHandlerData::new(),
         timeout_handler,
+        fast_timer
     );
 
     if set_input {
