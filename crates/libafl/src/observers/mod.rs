@@ -197,7 +197,6 @@ impl Named for TimeObserver {
 
 #[cfg(feature = "std")]
 #[cfg(test)]
-#[cfg(not(feature = "remove_me"))]
 mod tests {
 
     use libafl_bolts::{
@@ -222,7 +221,7 @@ mod tests {
         });
         let vec = postcard::to_allocvec(&obv).unwrap();
         log::info!("{vec:?}");
-        let obv2: tuple_list_type!(TimeObserver, StdMapObserver<u32, false>) =
+        let obv2: tuple_list_type!(TimeObserver, StdMapObserver<u32>) =
             postcard::from_bytes(&vec).unwrap();
         assert_eq!(obv.0.name(), obv2.0.name());
     }
