@@ -295,28 +295,3 @@ pub trait StdChildArgs: Sized {
         self
     }
 }
-
-#[cfg(test)]
-#[cfg(not(feature = "remove_me"))]
-/// Tester for executor
-pub mod test {
-    use crate::{
-        executors::{Executor, ExitKind},
-        inputs::BytesInput,
-        states::NopState,
-    };
-
-    #[test]
-    fn nop_executor() {
-        let empty_input = BytesInput::new(vec![]);
-        let mut executor = NopExecutor::ok();
-        let mut state: NopState<BytesInput> = NopState::new();
-
-        assert_eq!(
-            executor
-                .run_target(&mut fuzzer, &mut state, &mut mgr, &empty_input)
-                .unwrap(),
-            ExitKind::Ok
-        );
-    }
-}

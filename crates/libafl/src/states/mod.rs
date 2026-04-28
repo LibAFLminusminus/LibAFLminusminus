@@ -1,7 +1,6 @@
 //! The fuzzer, and state are the core pieces of every good fuzzer
 
-use alloc::vec::Vec;
-use alloc::{boxed::Box, string::String};
+use alloc::{boxed::Box, string::String, vec::Vec};
 use core::{
     any::type_name,
     fmt::{self, Debug},
@@ -32,7 +31,6 @@ use num_traits::Zero;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use typed_builder::TypedBuilder;
 
-use crate::fuzzers::EvaluationResult;
 use crate::{
     Error, Result,
     corpus::{
@@ -40,11 +38,12 @@ use crate::{
         schedulers::NopScheduler, testcase::TestcaseId,
     },
     dependency::{DependencyResolver, Registrator},
-    fuzzers::Evaluator,
+    fuzzers::{EvaluationResult, Evaluator},
     generators::Generator,
     inputs::{Input, NopContext, NopInput},
     launchers::InstanceId,
     runtimes::RuntimeHandle,
+    stages::NopStage,
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
