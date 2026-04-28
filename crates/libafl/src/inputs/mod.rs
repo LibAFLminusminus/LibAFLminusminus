@@ -28,9 +28,6 @@ pub use bytes::BytesInput;
 pub mod value;
 pub use value::ValueInput;
 
-pub mod encoded;
-pub use encoded::*;
-
 pub mod bytessub;
 pub use bytessub::BytesSubInput;
 

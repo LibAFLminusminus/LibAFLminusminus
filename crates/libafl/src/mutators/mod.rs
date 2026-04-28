@@ -20,8 +20,6 @@ pub mod havoc_mutations;
 pub use havoc_mutations::*;
 pub mod numeric;
 pub use numeric::int_mutators;
-pub mod encoded_mutations;
-pub use encoded_mutations::*;
 
 #[cfg(feature = "std")]
 pub mod hash;

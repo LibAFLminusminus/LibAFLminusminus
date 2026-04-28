@@ -208,17 +208,14 @@ where
     }
 }
 
-#[cfg(not(feature = "remove_me"))]
 #[cfg(test)]
 mod tests {
     use alloc::vec::Vec;
 
-    use libafl_bolts::HasLen;
+    use libafl_bolts::{HasLen, rands::StdRand};
 
     use crate::{
-        inputs::{BytesInput, HasMutatorBytes, NopInput, ResizableMutator},
-        mutators::{MutatorsTuple, havoc_mutations_no_crossover},
-        states::NopState,
+        corpus::{InMemoryCorpus, schedulers::QueueScheduler}, inputs::{BytesInput, HasMutatorBytes, NopInput, ResizableMutator, bytes::BytesContext}, mutators::{MutatorsTuple, havoc_mutations_no_crossover}, states::{NopState, StdState}
     };
 
     fn init_bytes_input() -> (BytesInput, usize) {
@@ -335,9 +332,14 @@ mod tests {
         let mut sub_input = bytes_input.sub_input(..2);
 
         // Note that if you want to use NopState in production like this, you should see the rng! :)
-        let mut state: NopState<NopInput> = NopState::new();
+        let context = BytesContext::default();
+        let corpus_sch = QueueScheduler::new();
+        let corpus = InMemoryCorpus::new(context, corpus_sch.clone());
+        let objective_corpus = InMemoryCorpus::new(context, corpus_sch);
+        let mut state = StdState::new(corpus, objective_corpus).unwrap();
+        let mut rand = StdRand::new();
 
-        let result = havoc_mutations_no_crossover().mutate_all(&mut state, &mut sub_input);
+        let result = havoc_mutations_no_crossover().mutate_all(&mut sub_input, &mut rand, &mut state);
         assert!(result.is_ok());
         assert_ne!(bytes_input, bytes_input_cloned);
     }

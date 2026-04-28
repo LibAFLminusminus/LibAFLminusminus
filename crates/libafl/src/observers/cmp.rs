@@ -12,7 +12,7 @@ use hashbrown::HashMap;
 use libafl_bolts::{AsSlice, HasLen, Named, ownedref::OwnedRefMut};
 use serde::{Deserialize, Serialize};
 
-use crate::{DependencyResolver, Error, executors::ExitKind, observers::Observer};
+use crate::{DependencyResolver, Error, executors::ExitKind, observers::Observer, states::{FlatState, named_metadata_mut}};
 
 /// A bytes string for cmplog with up to 32 elements.
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, Eq, PartialEq)]
@@ -260,6 +260,7 @@ impl<CM> DependencyResolver for StdCmpObserver<'_, CM> {
 
 impl<CM, S> Observer<S> for StdCmpObserver<'_, CM>
 where
+    S: FlatState,
     CM: Serialize + CmpMap + HasLen,
 {
     fn pre_exec(&mut self, _state: &mut S) -> Result<(), Error> {
@@ -267,11 +268,9 @@ where
         Ok(())
     }
 
-    fn post_exec(&mut self, _state: &mut S, _exit_kind: &ExitKind) -> Result<(), Error> {
-        #[cfg(not(feature = "remove_me"))]
+    fn post_exec(&mut self, state: &mut S, _exit_kind: &ExitKind) -> Result<(), Error> {
         if self.add_meta {
-            // TOKA
-            let meta = state.metadata_or_insert_with(CmpValuesMetadata::new); // TODO: toka
+            let meta = named_metadata_mut::<CmpValuesMetadata>(state.named_metadata_map_mut(),"CmpValues")?;
 
             meta.add_from(self.usable_count(), self.cmp_map_mut());
         }
