@@ -99,7 +99,6 @@ pub use libafl_core::{
 pub use ownedref::{self, subrange};
 #[cfg(feature = "alloc")]
 pub use serde_anymap::impl_serdeany;
-pub use shmem_providers as shmem;
 #[cfg(feature = "std")]
 pub use target_args::*;
 

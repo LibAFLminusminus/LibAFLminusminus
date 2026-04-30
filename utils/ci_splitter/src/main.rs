@@ -80,10 +80,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         println!("Running {task}");
 
         // skip the libafl_jumper no-std case
-        if task.contains("utils/libafl_jumper/Cargo.toml")
-            && task.contains("--no-default-features")
-            && !task.contains("--features")
-        {
+        if task.contains("--no-default-features") && !task.contains("--features") {
             continue;
         }
 

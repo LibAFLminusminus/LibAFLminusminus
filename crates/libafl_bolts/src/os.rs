@@ -26,8 +26,6 @@ use libafl_core::format;
 // Allow a few extra features we need for the whole module
 #[cfg(unix)]
 use libc::pid_t;
-#[cfg(all(unix, feature = "std"))]
-pub use shmem_providers::pipes;
 #[cfg(all(windows, feature = "std"))]
 pub use windows_exceptions::CTRL_C_EXIT;
 

@@ -73,7 +73,7 @@ impl<'tcx> LateLintPass<'tcx> for ArgsReorder {
 
         for param in body.params {
             if let PatKind::Binding(_, _, ident, _) = param.pat.kind {
-                if ident.name.as_str().starts_with('_') { // ignore names starting with _
+                if ident.name.as_str().starts_with('_') || ident.name.as_str() == "self" { // ignore names starting with _
                     continue;
                 }
 

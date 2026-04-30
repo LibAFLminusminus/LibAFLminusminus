@@ -27,17 +27,19 @@ members = [
   "crates/nonzero_macros",
   "crates/ownedref",
   "crates/serde_anymap",
-  "crates/shmem_providers",
   "crates/tuple_list_ex",
   "utils/build_and_test_fuzzers",
   "utils/ci_runner",
   "utils/ci_splitter",
   "utils/deexit",
   "utils/drcov_utils",
-  "utils/gramatron/construct_automata",
   "utils/libafl_benches",
-  "utils/libafl_jumper",
   "utils/find_llvm_config",
+
+  # linters
+  "mmlint/generics_reorder",
+  "mmlint/args_reorder",
+  "mmlint/use_after_mod",
 ]
 
 default-members = [
@@ -88,16 +90,13 @@ minibsod = { path = "./crates/minibsod", version = "0.16.0", default-features = 
 nonzero_macros = { path = "./crates/nonzero_macros", version = "0.16.0", default-features = false }
 ownedref = { path = "./crates/ownedref", version = "0.16.0", default-features = false }
 serde_anymap = { path = "./crates/serde_anymap", version = "0.16.0", default-features = false }
-shmem_providers = { path = "./crates/shmem_providers", version = "0.16.0", default-features = false }
 tuple_list_ex = { path = "./crates/tuple_list_ex", version = "0.16.0", default-features = false }
 
 # Utils
 build_and_test_fuzzers = { path = "./utils/build_and_test_fuzzers", version = "0.16.0", default-features = false }
-construct_automata = { path = "./utils/gramatron/construct_automata", version = "0.16.0", default-features = false }
 deexit = { path = "./utils/deexit", version = "0.16.0", default-features = false }
 drcov_utils = { path = "./utils/drcov_utils", version = "0.16.0", default-features = false }
 libafl_benches = { path = "./utils/libafl_benches", version = "0.16.0", default-features = false }
-libafl_jumper = { path = "./utils/libafl_jumper", version = "0.16.0", default-features = false }
 
 # External deps
 ahash = { version = "0.8.12", default-features = false } # The hash function already used in hashbrown

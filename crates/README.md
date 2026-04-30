@@ -39,5 +39,4 @@ This directory contains the various crates that make up the LibAFL ecosystem. He
 - **[no_std_time](./no_std_time)**: Time measurments that works in `no_std` environments.
 - **[ownedref](./ownedref)**: References that will be owned types on deserialization.
 - **[serde_anymap](./serde_anymap)**: A map that can retrieve values by type - and is SerDe serializable.
-- **[shmem_providers](./shmem_providers)**: Platform independent shared memory providers for Windows, Linux, Android, iOS, ...
 - **[tuple_list_ex](./tuple_list_ex)**: Useful Haskel-like extensions for the tuple_list crate.
