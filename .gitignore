@@ -12,6 +12,7 @@ Cargo.lock
 .DS_Store
 .env
 .vscode
+.zed
 
 *.test
 *.tmp
@@ -48,13 +49,10 @@ test.dict
 
 # Ignore all built fuzzers
 AFLplusplus
-test_*
 !test_harness.cpp
-*_fuzzer
 
 # Ignore common dummy and logfiles
 *.log
-a
 
 forkserver_test
 __pycache__
@@ -69,21 +67,12 @@ __pycache__
 **/libafl_nyx/QEMU-Nyx
 **/libafl_nyx/packer
 
-.z3-trace
-
 # No gdb history
 .gdb_history
 # No llvm IR
 *.ll
 
 *.tar.gz
-
-# common harness names
-harness
-program
-fuzzer_libpng*
-
-*.patch
 
 # Sometimes this happens
 rustc-ice-*
@@ -94,9 +83,5 @@ rustc-ice-*
 # backup files
 *.bak
 
-# log
-log
-
 # Coredumps
 *.core
-.zed
