@@ -6,18 +6,18 @@ use std::{
     sync::OnceLock,
 };
 
-#[cfg(any(target_os = "linux", target_vendor = "apple"))]
-use libafl::executors::forkserver::FS_NEW_OPT_AUTODTCT;
-#[cfg(feature = "cmplog")]
-use libafl::executors::forkserver::SHM_CMPLOG_ENV_VAR;
-use libafl::executors::forkserver::{
-    AFL_MAP_SIZE_ENV_VAR, FORKSRV_FD, FS_ERROR_SHM_OPEN, FS_NEW_OPT_MAPSIZE,
-    FS_NEW_OPT_SHDMEM_FUZZ, FS_NEW_VERSION_MAX, FS_OPT_ERROR, MAX_INPUT_SIZE_DEFAULT, SHM_ENV_VAR,
-    SHM_FUZZ_ENV_VAR, SHM_FUZZ_MAP_SIZE_ENV_VAR, SHMEM_FUZZ_HDR_SIZE,
-};
 use libafl_bolts::{
     Error,
     os::{ChildHandle, ForkResult},
+};
+#[cfg(any(target_os = "linux", target_vendor = "apple"))]
+use libafl_core::forkserver::FS_NEW_OPT_AUTODTCT;
+#[cfg(feature = "cmplog")]
+use libafl_core::forkserver::SHM_CMPLOG_ENV_VAR;
+use libafl_core::forkserver::{
+    AFL_MAP_SIZE_ENV_VAR, FORKSRV_FD, FS_ERROR_SHM_OPEN, FS_NEW_OPT_MAPSIZE,
+    FS_NEW_OPT_SHDMEM_FUZZ, FS_NEW_VERSION_MAX, FS_OPT_ERROR, MAX_INPUT_SIZE_DEFAULT, SHM_ENV_VAR,
+    SHM_FUZZ_ENV_VAR, SHM_FUZZ_MAP_SIZE_ENV_VAR, SHMEM_FUZZ_HDR_SIZE,
 };
 use nix::{
     sys::signal::{SigHandler, Signal},
@@ -25,10 +25,9 @@ use nix::{
 };
 use shmem_providers::{ShMem, ShMemId, ShMemProvider};
 
-#[cfg(feature = "cmplog_extended_instrumentation")]
-use crate::cmps::EXTENDED_CMPLOG_MAP_PTR;
 #[cfg(feature = "cmplog")]
-use crate::cmps::{AflppCmpLogMap, CMPLOG_MAP_PTR};
+use crate::cmps::CMPLOG_MAP_PTR;
+
 use crate::coverage::{__afl_map_size, EDGES_MAP_PTR, INPUT_LENGTH_PTR, INPUT_PTR, SHM_FUZZING};
 #[cfg(any(target_os = "linux", target_vendor = "apple"))]
 use crate::{

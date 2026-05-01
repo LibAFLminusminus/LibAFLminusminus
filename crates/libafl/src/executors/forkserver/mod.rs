@@ -7,6 +7,10 @@ use core::{
     ops::{Deref, DerefMut},
     time::Duration,
 };
+use libafl_core::forkserver::{
+    FS_NEW_ERROR, FS_NEW_OPT_AUTODTCT, FS_NEW_OPT_MAPSIZE, FS_NEW_OPT_SHDMEM_FUZZ,
+    FS_NEW_VERSION_MAGIC_BASE, FS_NEW_VERSION_MAGIC_MAX, FS_NEW_VERSION_MAX, FS_NEW_VERSION_MIN,
+};
 use std::{
     alloc::System,
     env,
@@ -21,12 +25,11 @@ use std::{
 };
 
 use libafl_bolts::{
-    AsSlice, AsSliceMut, EmptyShmHeader, InputLocation, StdTargetArgs, StdTargetArgsInner, SysVShm,
-    Truncate,
+    AsSlice, AsSliceMut, EmptyShmHeader, InputLocation, Pipe, StdTargetArgs, StdTargetArgsInner,
+    SysVShm, Truncate,
     core_affinity::CoreId,
     fs::{InputFile, get_unique_std_input_file},
-    os::{dup2, last_error_str, pipes::Pipe},
-    shmem::{ShMem, ShMemProvider, UnixShMem, UnixShMemProvider},
+    os::{dup2, last_error_str},
     tuples::{MatchNameRef, Prepend, RefIndexable},
 };
 use nix::{
@@ -53,70 +56,6 @@ use crate::{
 
 pub mod config;
 pub use config::*;
-
-/// Pinned fd number for forkserver communication
-pub const FORKSRV_FD_NUM: i32 = 198;
-#[expect(clippy::cast_possible_wrap)]
-const FS_NEW_ERROR: i32 = 0xeffe0000_u32 as i32;
-
-/// Minimum number for new version
-pub const FS_NEW_VERSION_MIN: u32 = 1;
-/// Maximum number for new version
-pub const FS_NEW_VERSION_MAX: u32 = 1;
-/// Base magic value for new-protocol forkserver status ("AFL\0")
-pub const FS_NEW_VERSION_MAGIC_BASE: u32 = 0x41464c00;
-/// Upper bound (inclusive) for new-protocol forkserver status
-pub const FS_NEW_VERSION_MAGIC_MAX: u32 = 0x41464cff;
-
-/// Whether forkserver option customization for old forkserver is enabled
-#[expect(clippy::cast_possible_wrap)]
-pub const FS_OPT_ENABLED: i32 = 0x80000001_u32 as i32;
-
-/// Set map size option for new forkserver
-#[expect(clippy::cast_possible_wrap)]
-pub const FS_NEW_OPT_MAPSIZE: i32 = 1_u32 as i32;
-/// Set map size option for old forkserver
-#[expect(clippy::cast_possible_wrap)]
-pub const FS_OPT_MAPSIZE: i32 = 0x40000000_u32 as i32;
-
-/// Enable shared memory fuzzing option for old forkserver
-#[expect(clippy::cast_possible_wrap)]
-pub const FS_OPT_SHDMEM_FUZZ: i32 = 0x01000000_u32 as i32;
-/// Enable shared memory fuzzing option for new forkserver
-#[expect(clippy::cast_possible_wrap)]
-pub const FS_NEW_OPT_SHDMEM_FUZZ: i32 = 2_u32 as i32;
-
-/// Enable autodict option for new forkserver
-#[expect(clippy::cast_possible_wrap)]
-pub const FS_NEW_OPT_AUTODTCT: i32 = 0x00000800_u32 as i32;
-/// Enable autodict option for old forkserver
-#[expect(clippy::cast_possible_wrap)]
-pub const FS_OPT_AUTODTCT: i32 = 0x10000000_u32 as i32;
-
-/// Failed to set map size
-#[expect(clippy::cast_possible_wrap)]
-pub const FS_ERROR_MAP_SIZE: i32 = 1_u32 as i32;
-/// Failed to map address
-#[expect(clippy::cast_possible_wrap)]
-pub const FS_ERROR_MAP_ADDR: i32 = 2_u32 as i32;
-/// Failed to open shared memory
-#[expect(clippy::cast_possible_wrap)]
-pub const FS_ERROR_SHM_OPEN: i32 = 4_u32 as i32;
-/// Failed to do `shmat`
-#[expect(clippy::cast_possible_wrap)]
-pub const FS_ERROR_SHMAT: i32 = 8_u32 as i32;
-/// Failed to do `mmap`
-#[expect(clippy::cast_possible_wrap)]
-pub const FS_ERROR_MMAP: i32 = 16_u32 as i32;
-/// Old cmplog error
-#[expect(clippy::cast_possible_wrap)]
-pub const FS_ERROR_OLD_CMPLOG: i32 = 32_u32 as i32;
-/// Old QEMU cmplog error
-#[expect(clippy::cast_possible_wrap)]
-pub const FS_ERROR_OLD_CMPLOG_QEMU: i32 = 64_u32 as i32;
-/// Flag indicating this is an error
-#[expect(clippy::cast_possible_wrap)]
-pub const FS_OPT_ERROR: i32 = 0xf800008f_u32 as i32;
 
 /// Forkserver message. We'll reuse it in a testcase.
 const FAILED_TO_START_FORKSERVER_MSG: &str = "Failed to start forkserver";
@@ -797,8 +736,8 @@ impl<'a> ForkserverExecutorBuilder<'a> {
     /// If `debug_child` is set, the child will print to `stdout`/`stderr`.
     #[expect(clippy::pedantic)]
     pub fn build<OT>(mut self, observers: OT) -> Result<ForkserverExecutor<OT>, Error>
-    where 
-        OT: MatchNameRef
+    where
+        OT: MatchNameRef,
     {
         let built = self.build_forkserver(&observers)?;
         Ok(ForkserverExecutor {
@@ -848,7 +787,7 @@ impl<'a> ForkserverExecutorBuilder<'a> {
 
     #[expect(clippy::pedantic)]
     fn build_forkserver<OT>(&mut self, obs: &OT) -> Result<BuiltForkserver, Error>
-    where 
+    where
         OT: MatchNameRef,
     {
         let input_file = match &self.target_inner.input_location {
@@ -876,8 +815,7 @@ impl<'a> ForkserverExecutorBuilder<'a> {
             let size_in_bytes = (self.max_input_size + SHMEM_FUZZ_HDR_SIZE).to_ne_bytes();
             shmem.as_slice_mut()[..4].clone_from_slice(&size_in_bytes[..4]);
             Some(shmem)
-        }
-        else {
+        } else {
             None
         };
 
@@ -915,7 +853,7 @@ impl<'a> ForkserverExecutorBuilder<'a> {
             cwd: self.child_env_inner.current_directory.clone(),
             core: self.child_env_inner.core,
         })?;
-        
+
         // Initial handshake, read 4-bytes hello message from the forkserver.
         let version_status = forkserver.read_st().map_err(|err| {
             Error::illegal_state(format!("{FAILED_TO_START_FORKSERVER_MSG}: {err:?}"))
@@ -1163,7 +1101,6 @@ impl<'a> ForkserverExecutorBuilder<'a> {
         self.try_use_input_shmem = true;
         self
     }
-
 }
 
 impl<'a> ForkserverExecutorBuilder<'a> {

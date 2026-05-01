@@ -80,7 +80,6 @@ pub mod os;
 #[cfg(feature = "alloc")]
 pub use serde_anymap::serdeany;
 #[cfg(feature = "std")]
-pub mod staterestore;
 #[cfg(any(feature = "xxh3", feature = "alloc"))]
 pub use tuple_list_ex as tuples;
 
@@ -109,6 +108,9 @@ pub use time::{current_milliseconds, current_nanos, current_time};
 
 pub mod timers;
 pub use timers::StdTimer;
+
+pub mod pipes;
+pub use pipes::Pipe;
 
 /// The purpose of this module is to alleviate imports of the bolts by adding a glob import.
 #[cfg(feature = "prelude")]

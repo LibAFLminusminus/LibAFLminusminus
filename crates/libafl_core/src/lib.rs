@@ -46,6 +46,8 @@
     )
 )]
 
+pub mod forkserver;
+
 /// We need some sort of "[`String`]" for errors in `no_alloc`...
 /// We can only support `'static` without allocator, so let's do that.
 #[cfg(not(feature = "alloc"))]

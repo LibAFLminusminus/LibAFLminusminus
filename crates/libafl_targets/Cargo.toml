@@ -38,7 +38,7 @@ default = [
 #! ### General Features
 
 ## Enables features that need rust's `std` lib to work, like print, env, ... support
-std = ["libafl/std"]
+std = []
 
 ## Support for the `sancov` 8-bit counters.
 ## This feature enables the `8-bit-counters` runtime for `LibAFL`, which uses a global `COUNTERS_MAPS` to store coverage maps.
@@ -109,7 +109,7 @@ cmplog = ["common"]
 ## Compile C code for forkserver support.
 ## This feature compiles `forkserver.rs` and enables the forkserver protocol for communicating with the fuzzer.
 ## It allows the target to be spawned and controlled by a parent fuzzer process.
-forkserver = ["common", "nix", "libafl/std"]
+forkserver = ["common", "nix"]
 
 ## Compile C code for ASan on Windows.
 ## This feature compiles `windows_asan.c` and `windows_asan.rs` to provide AddressSanitizer support on Windows.
@@ -124,10 +124,6 @@ whole_archive = []
 ## This feature enables the `call` module, which provides hooks for function calls.
 ## It allows tracing function entries and exits.
 function-logging = ["common", "std"]
-
-## Tracks the Feedbacks and the Objectives that were interesting for a Testcase.
-## This feature enables tracking of hit feedbacks in the `libfuzzer` OOM observer.
-track_hit_feedbacks = ["libafl/track_hit_feedbacks"]
 
 #! ### Libfuzzer-compatibility Features
 
@@ -193,7 +189,6 @@ rustversion = "1.0.22"
 
 [dependencies]
 document-features = { workspace = true, optional = true }
-libafl = { workspace = true, features = [], default-features = false }
 libafl_bolts = { workspace = true, features = [] }
 libafl_core = { workspace = true, features = [] }
 fast_rands = { workspace = true }

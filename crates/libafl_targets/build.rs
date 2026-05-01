@@ -22,6 +22,7 @@ fn main() {
     //let out_dir_path = Path::new(&out_dir);
     #[allow(unused_variables)] // feature dependent
     let src_dir = Path::new("src");
+    let static_dir = src_dir.join("static");
 
     let dest_path = Path::new(&out_dir).join("constants.rs");
     let mut constants_file = File::create(dest_path).expect("Could not create file");
@@ -86,8 +87,8 @@ fn main() {
 
     #[cfg(feature = "common")]
     {
-        println!("cargo:rerun-if-changed=src/common.h");
-        println!("cargo:rerun-if-changed=src/common.c");
+        println!("cargo:rerun-if-changed=src/static/common.h");
+        println!("cargo:rerun-if-changed=src/static/common.c");
 
         let mut common = cc::Build::new();
 
@@ -101,12 +102,12 @@ fn main() {
             common.link_lib_modifier("+whole-archive");
         }
 
-        common.file(src_dir.join("common.c")).compile("common");
+        common.file(static_dir.join("common.c")).compile("common");
     }
 
     #[cfg(any(feature = "sancov_value_profile", feature = "sancov_cmplog"))]
     {
-        println!("cargo:rerun-if-changed=src/sancov_cmp.c");
+        println!("cargo:rerun-if-changed=src/static/sancov_cmp.c");
 
         let mut sancov_cmp = cc::Build::new();
 
@@ -116,7 +117,7 @@ fn main() {
         #[cfg(feature = "sancov_value_profile")]
         {
             sancov_cmp.define("SANCOV_VALUE_PROFILE", "1");
-            println!("cargo:rerun-if-changed=src/value_profile.h");
+            println!("cargo:rerun-if-changed=src/static/value_profile.h");
         }
 
         #[cfg(feature = "sancov_cmplog")]
@@ -139,7 +140,7 @@ fn main() {
             .define("CMP_MAP_SIZE", Some(&*format!("{cmp_map_size}")))
             .define("CMPLOG_MAP_W", Some(&*format!("{cmplog_map_w}")))
             .define("CMPLOG_MAP_H", Some(&*format!("{cmplog_map_h}")))
-            .file(src_dir.join("sancov_cmp.c"))
+            .file(static_dir.join("sancov_cmp.c"))
             .compile("sancov_cmp");
 
         println!("cargo:rustc-link-arg=-Wl,--undefined=__sanitizer_cov_trace_cmp1");
@@ -157,10 +158,10 @@ fn main() {
 
     #[cfg(feature = "libfuzzer")]
     {
-        println!("cargo:rerun-if-changed=src/libfuzzer.c");
+        println!("cargo:rerun-if-changed=src/static/libfuzzer.c");
 
         let mut libfuzzer = cc::Build::new();
-        libfuzzer.file(src_dir.join("libfuzzer.c"));
+        libfuzzer.file(static_dir.join("libfuzzer.c"));
 
         #[cfg(feature = "libfuzzer_no_link_main")]
         libfuzzer.define("FUZZER_NO_LINK_MAIN", "1");
@@ -177,7 +178,7 @@ fn main() {
 
     #[cfg(feature = "coverage")]
     {
-        println!("cargo:rerun-if-changed=src/coverage.c");
+        println!("cargo:rerun-if-changed=src/static/coverage.c");
 
         let mut coverage = cc::Build::new();
 
@@ -187,7 +188,7 @@ fn main() {
         }
 
         coverage
-            .file(src_dir.join("coverage.c"))
+            .file(static_dir.join("coverage.c"))
             .define(
                 "EDGES_MAP_ALLOCATED_SIZE",
                 Some(&*format!("{edges_map_allocated_size}")),
@@ -198,28 +199,25 @@ fn main() {
 
     #[cfg(feature = "sancov_pcguard_dump_cov")]
     {
-        println!("cargo:rerun-if-changed=src/sancov_pcguard.c");
+        println!("cargo:rerun-if-changed=src/static/sancov_pcguard.c");
         let mut sancov_pcguard = cc::Build::new();
         #[cfg(feature = "whole_archive")]
         {
             sancov_pcguard.link_lib_modifier("+whole-archive");
         }
         sancov_pcguard
-            .file(src_dir.join("sancov_pcguard.c"))
+            .file(static_dir.join("sancov_pcguard.c"))
             .compile("sancov_pcguard");
     }
 
     #[cfg(feature = "cmplog")]
     {
-        println!("cargo:rerun-if-changed=src/cmplog.h");
-        println!("cargo:rerun-if-changed=src/cmplog.c");
+        println!("cargo:rerun-if-changed=src/static/cmplog.h");
+        println!("cargo:rerun-if-changed=src/static/cmplog.c");
 
         #[cfg(unix)]
         {
             let mut cmplog = cc::Build::new();
-
-            #[cfg(feature = "cmplog_extended_instrumentation")]
-            cmplog.define("CMPLOG_EXTENDED", Some("1"));
 
             #[cfg(feature = "whole_archive")]
             {
@@ -232,7 +230,7 @@ fn main() {
                 .define("CMP_MAP_SIZE", Some(&*format!("{cmp_map_size}")))
                 .define("CMPLOG_MAP_W", Some(&*format!("{cmplog_map_w}")))
                 .define("CMPLOG_MAP_H", Some(&*format!("{cmplog_map_h}")))
-                .file(src_dir.join("cmplog.c"))
+                .file(static_dir.join("cmplog.c"))
                 .compile("cmplog");
         }
 
@@ -249,7 +247,7 @@ fn main() {
                 .define("CMP_MAP_SIZE", Some(&*format!("{cmp_map_size}")))
                 .define("CMPLOG_MAP_W", Some(&*format!("{cmplog_map_w}")))
                 .define("CMPLOG_MAP_H", Some(&*format!("{cmplog_map_h}")))
-                .file(src_dir.join("cmplog.c"))
+                .file(static_dir.join("cmplog.c"))
                 .compile("cmplog");
         }
     }
@@ -258,7 +256,7 @@ fn main() {
     {
         let target_family = std::env::var("CARGO_CFG_TARGET_FAMILY").unwrap();
         if target_family == "windows" {
-            println!("cargo:rerun-if-changed=src/windows_asan.c");
+            println!("cargo:rerun-if-changed=src/static/windows_asan.c");
 
             let mut windows_asan = cc::Build::new();
 
@@ -268,7 +266,7 @@ fn main() {
             }
 
             windows_asan
-                .file(src_dir.join("windows_asan.c"))
+                .file(static_dir.join("windows_asan.c"))
                 .compile("windows_asan");
         }
     }
@@ -276,10 +274,10 @@ fn main() {
     // NOTE: Sanitizer interfaces doesn't require common
     #[cfg(feature = "sanitizer_interfaces")]
     if env::var("CARGO_CFG_TARGET_POINTER_WIDTH").unwrap() == "64" {
-        println!("cargo:rerun-if-changed=src/sanitizer_interfaces.h");
+        println!("cargo:rerun-if-changed=src/static/sanitizer_interfaces.h");
 
         let build = bindgen::builder()
-            .header("src/sanitizer_interfaces.h")
+            .header("src/static/sanitizer_interfaces.h")
             .use_core()
             .generate_comments(true)
             .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
@@ -295,20 +293,20 @@ fn main() {
         write!(file, "").unwrap();
     }
 
-    #[cfg(feature = "libfuzzer_interceptors")]
-    {
-        println!("cargo:rerun-if-changed=src/libfuzzer/FuzzerInterceptors.cpp");
+    // #[cfg(feature = "libfuzzer_interceptors")]
+    // {
+    //     println!("cargo:rerun-if-changed=src/libfuzzer/FuzzerInterceptors.cpp");
 
-        let mut libfuzzer_interceptors = cc::Build::new();
-        libfuzzer_interceptors.file(src_dir.join("libfuzzer/FuzzerInterceptors.cpp"));
+    //     let mut libfuzzer_interceptors = cc::Build::new();
+    //     libfuzzer_interceptors.file(src_dir.join("libfuzzer/FuzzerInterceptors.cpp"));
 
-        #[cfg(feature = "whole_archive")]
-        {
-            libfuzzer_interceptors.link_lib_modifier("+whole-archive");
-        }
+    //     #[cfg(feature = "whole_archive")]
+    //     {
+    //         libfuzzer_interceptors.link_lib_modifier("+whole-archive");
+    //     }
 
-        libfuzzer_interceptors.cpp(true).compile("interceptors");
-    }
+    //     libfuzzer_interceptors.cpp(true).compile("interceptors");
+    // }
 
     println!("cargo:rustc-link-search=native={}", &out_dir);
 

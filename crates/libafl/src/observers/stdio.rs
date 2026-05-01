@@ -43,7 +43,7 @@ fn new_file<'de, D, T>(_d: D) -> Result<Option<File>, D::Error>
 where
     D: Deserializer<'de>,
 {
-    OutputObserver::<T>::file().map_err(|e| serde::de::Error::custom(e.to_string()))
+    Ok(None)
 }
 
 /// Marker traits to mark stdout for the `OutputObserver`
@@ -69,27 +69,13 @@ impl<T> OutputObserver<T> {
         Ok(Some(fp))
     }
 
-    /// Cool, we can have [`MemfdShMemProvider`] to create a memfd.
-    #[cfg(target_os = "linux")]
-    fn file() -> Result<Option<File>, Error> {
-        Ok(Some(
-            libafl_bolts::shmem::unix_shmem::memfd::MemfdShMemProvider::new_file()?,
-        ))
-    }
-
-    /// This will use standard but portable pipe mechanism to capture outputs
-    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
-    pub fn file() -> Result<Option<File>, Error> {
-        Ok(None)
-    }
-
     /// Create a new [`OutputObserver`] with the given name. This will use the memory fd backend
     /// on Linux and macOS, which is compatible with forkserver.
     pub fn new(name: Cow<'static, str>) -> Result<Self, Error> {
         Ok(Self {
             name,
             output: None,
-            file: Self::file()?,
+            file: None,
             phantom: PhantomData,
         })
     }

@@ -18,10 +18,6 @@ pub const CMPLOG_RTN_LEN: usize = 32;
 pub const CMPLOG_MAP_RTN_H: usize =
     (CMPLOG_MAP_H * size_of::<CmpLogInstruction>()) / size_of::<CmpLogRoutine>();
 
-/// The height of extended rountine map
-pub const CMPLOG_MAP_RTN_EXTENDED_H: usize =
-    CMPLOG_MAP_H * size_of::<AflppCmpLogOperands>() / size_of::<AflppCmpLogFnOperands>();
-
 /// `CmpLog` instruction kind
 pub const CMPLOG_KIND_INS: u8 = 0;
 /// `CmpLog` routine kind

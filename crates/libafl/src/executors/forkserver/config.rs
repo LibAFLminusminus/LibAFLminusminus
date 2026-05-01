@@ -6,12 +6,12 @@ use std::os::{
 use std::{io, os::fd::RawFd, process::Command};
 
 use libafl_bolts::{core_affinity::CoreId, os::last_error_str};
+use libafl_core::forkserver::FORKSRV_FD_NUM;
 use nix::{
     libc::RLIM_INFINITY,
     unistd::{close, dup2},
 };
 
-use crate::executors::FORKSRV_FD_NUM;
 pub(crate) trait Config {
     /// Sets the sid
     fn setsid(&mut self) -> &mut Self;
@@ -71,7 +71,7 @@ impl Config for Command {
                 // i need this else drop() will be called on these guys
                 std::mem::forget(channel1);
                 std::mem::forget(channel2);
-                
+
                 close(ctl_read).map_err(io::Error::from)?;
                 close(st_write).map_err(io::Error::from)?;
                 Ok(())
