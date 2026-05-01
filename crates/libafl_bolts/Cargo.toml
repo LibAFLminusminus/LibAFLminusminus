@@ -128,6 +128,7 @@ chrono = "0.4.43"
 itertools = "0.14.0"
 
 [dependencies]
+rangemap = { workspace = true }
 build_id2 = { workspace = true, optional = true }
 core_affinity2 = { workspace = true, optional = true }
 exceptional = { workspace = true }

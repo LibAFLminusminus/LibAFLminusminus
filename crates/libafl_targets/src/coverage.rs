@@ -9,12 +9,9 @@
 ))]
 use alloc::borrow::Cow;
 
-#[cfg(any(target_os = "linux", target_vendor = "apple"))]
-use libafl::mutators::Tokens;
-#[cfg(any(target_os = "linux", target_vendor = "apple"))]
-use libafl_bolts::Error;
-
-use crate::{ACCOUNTING_MAP_SIZE, EDGES_MAP_ALLOCATED_SIZE, EDGES_MAP_DEFAULT_SIZE};
+use crate::{
+    ACCOUNTING_MAP_SIZE, EDGES_MAP_ALLOCATED_SIZE, EDGES_MAP_DEFAULT_SIZE, exports::EDGES_MAP_PTR,
+};
 
 /// The map for edges.
 #[unsafe(no_mangle)]
@@ -62,21 +59,21 @@ pub(crate) fn has_autotokens() -> bool {
     }
 }
 
-/// Return Tokens from the compile-time token section
-#[cfg(any(target_os = "linux", target_vendor = "apple"))]
-pub fn autotokens() -> Result<Tokens, Error> {
-    // # Safety
-    // All values are checked before dereferencing.
-
-    unsafe {
-        if has_autotokens() {
-            // we can safely unwrap
-            Tokens::from_mut_ptrs(__token_start, __token_stop)
-        } else {
-            Ok(Tokens::default())
-        }
-    }
-}
+// /// Return Tokens from the compile-time token section
+// #[cfg(any(target_os = "linux", target_vendor = "apple"))]
+// pub fn autotokens() -> Result<Tokens, Error> {
+//     // # Safety
+//     // All values are checked before dereferencing.
+//
+//     unsafe {
+//         if has_autotokens() {
+//             // we can safely unwrap
+//             Tokens::from_mut_ptrs(__token_start, __token_stop)
+//         } else {
+//             Ok(Tokens::default())
+//         }
+//     }
+// }
 
 /// The actual size we use for the map of edges.
 /// This is used for forkserver backend

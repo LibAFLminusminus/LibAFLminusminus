@@ -199,7 +199,6 @@ hashbrown = { workspace = true, default-features = true }
 log = { workspace = true }
 rustversion = { workspace = true }
 
-rangemap = { workspace = true }
 serde = { workspace = true, default-features = false, features = [
   "alloc",
 ] } # serialization lib

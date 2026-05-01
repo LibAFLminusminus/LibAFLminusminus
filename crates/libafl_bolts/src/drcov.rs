@@ -5,15 +5,14 @@
 
 use alloc::{string::String, vec::Vec};
 use core::{fmt::Debug, num::ParseIntError, ptr};
+use libafl_core::{Result, illegal_argument, illegal_state};
+use rangemap::RangeMap;
 use std::{
+    collections::HashSet,
     fs::File,
     io::{BufRead, BufReader, BufWriter, Read, Write},
     path::{Path, PathBuf},
 };
-
-use hashbrown::HashSet;
-use libafl_bolts::Error;
-use rangemap::RangeMap;
 
 /// A basic block struct
 /// This can be used to keep track of new addresses.
@@ -111,7 +110,7 @@ impl<'a> DrCovWriter<'a> {
     }
 
     /// Write the list of basic blocks to a `DrCov` file.
-    pub fn write<P>(&mut self, path: P, basic_blocks: &[DrCovBasicBlock]) -> Result<(), Error>
+    pub fn write<P>(&mut self, path: P, basic_blocks: &[DrCovBasicBlock]) -> Result<()>
     where
         P: AsRef<Path>,
     {
@@ -247,12 +246,12 @@ impl Debug for DrCovReader {
     }
 }
 
-fn parse_hex_to_usize(str: &str) -> Result<usize, ParseIntError> {
+fn parse_hex_to_usize(str: &str) -> std::result::Result<usize, ParseIntError> {
     // Cut off the first 0x
     usize::from_str_radix(&str[2..], 16)
 }
 
-fn parse_hex_to_u64(str: &str) -> Result<u64, ParseIntError> {
+fn parse_hex_to_u64(str: &str) -> std::result::Result<u64, ParseIntError> {
     // Cut off the first 0x
     u64::from_str_radix(&str[2..], 16)
 }
@@ -272,7 +271,7 @@ fn parse_path(s: &str) -> PathBuf {
 
 impl DrCovReader {
     /// Parse a `drcov` file to memory.
-    pub fn read<P: AsRef<Path> + ?Sized>(path: &P) -> Result<Self, Error> {
+    pub fn read<P: AsRef<Path> + ?Sized>(path: &P) -> Result<Self> {
         let f = File::open(path.as_ref())?;
         let mut reader = BufReader::new(f);
 
@@ -281,9 +280,9 @@ impl DrCovReader {
 
         let drcov_version = "DRCOV VERSION: 2";
         if header.to_uppercase().trim() != drcov_version {
-            return Err(Error::illegal_state(format!(
+            return Err(illegal_state!(
                 "No valid header. Expected {drcov_version} but got {header}"
-            )));
+            ));
         }
 
         header.clear();
@@ -303,18 +302,16 @@ impl DrCovReader {
             .nth(1)
             .map(|x| x.trim().parse::<usize>())
         else {
-            return Err(Error::illegal_state(format!(
-                "Expected module table but got: {header}"
-            )));
+            return Err(illegal_state!("Expected module table but got: {header}"));
         };
 
         header.clear();
         reader.read_line(&mut header)?;
 
         if !header.starts_with("Columns: id, base, end, entry, checksum, timestamp, path") {
-            return Err(Error::illegal_state(format!(
+            return Err(illegal_state!(
                 "Module table has unknown or illegal columns: {header}"
-            )));
+            ));
         }
 
         let mut modules = Vec::with_capacity(module_count);
@@ -324,9 +321,7 @@ impl DrCovReader {
             reader.read_line(&mut header)?;
 
             let err = |x| {
-                Error::illegal_argument(format!(
-                    "Unexpected module entry while parsing {x} in header: {header}"
-                ))
+                illegal_argument!("Unexpected module entry while parsing {x} in header: {header}")
             };
 
             let mut split = header.split(", ");
@@ -375,15 +370,15 @@ impl DrCovReader {
 
         //"BB Table: {} bbs\n"
         if !header.starts_with("BB Table: ") {
-            return Err(Error::illegal_state(format!(
+            return Err(illegal_state!(
                 "Error reading BB Table header. Got: {header}"
-            )));
+            ));
         }
         let mut bb = header.split(' ');
         let Some(Ok(bb_count)) = bb.nth(2).map(str::parse) else {
-            return Err(Error::illegal_state(format!(
+            return Err(illegal_state!(
                 "Error parsing BB Table header count. Got: {header}"
-            )));
+            ));
         };
 
         let mut basic_blocks = Vec::with_capacity(bb_count);
@@ -448,7 +443,7 @@ impl DrCovReader {
     }
 
     /// Writes this data out to disk (again).
-    pub fn write<P: AsRef<Path>>(&self, path: P) -> Result<(), Error> {
+    pub fn write<P: AsRef<Path>>(&self, path: P) -> Result<()> {
         let ranges = self.module_map();
         let mut writer = DrCovWriter::new(&ranges);
         writer.write(path, &self.basic_blocks())
@@ -463,7 +458,7 @@ impl DrCovReader {
 
     /// Gets a list of all basic blocks, as absolute addresses, for u32 targets.
     /// Will return an [`Error`] if addresses are larger than 32 bit.
-    pub fn basic_block_addresses_u32(&self) -> Result<Vec<u32>, Error> {
+    pub fn basic_block_addresses_u32(&self) -> Result<Vec<u32>> {
         let blocks = self.basic_blocks();
         let mut ret = Vec::with_capacity(blocks.len());
         for block in self.basic_blocks() {
@@ -480,15 +475,16 @@ impl DrCovReader {
     ///
     /// Will return an `Error` if the individual modules are not mergable.
     /// In this case, the module list may already have been changed.
-    pub fn merge(&mut self, other: &DrCovReader, unique: bool) -> Result<(), Error> {
+    pub fn merge(&mut self, other: &DrCovReader, unique: bool) -> Result<()> {
         for module in &other.module_entries {
             if let Some(own_module) = self.module_by_id(module.id) {
                 // Module exists, make sure it's the same.
                 if own_module.base != module.base || own_module.end != module.end {
-                    return Err(Error::illegal_argument(format!(
+                    return Err(illegal_argument!(
                         "Module id of file to merge doesn't fit! Own modules: {:#x?}, other modules: {:#x?}",
-                        self.module_entries, other.module_entries
-                    )));
+                        self.module_entries,
+                        other.module_entries
+                    ));
                 }
             } else {
                 // We don't know the module. Insert as new module.

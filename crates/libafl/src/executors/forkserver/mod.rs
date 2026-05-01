@@ -8,8 +8,11 @@ use core::{
     time::Duration,
 };
 use libafl_core::forkserver::{
-    FS_NEW_ERROR, FS_NEW_OPT_AUTODTCT, FS_NEW_OPT_MAPSIZE, FS_NEW_OPT_SHDMEM_FUZZ,
-    FS_NEW_VERSION_MAGIC_BASE, FS_NEW_VERSION_MAGIC_MAX, FS_NEW_VERSION_MAX, FS_NEW_VERSION_MIN,
+    AFL_GCC_ONLY_FSRV_VAR, AFL_LLVM_ONLY_FSRV_VAR, AFL_MAP_SIZE_ENV_VAR, FS_NEW_ERROR,
+    FS_NEW_OPT_AUTODTCT, FS_NEW_OPT_MAPSIZE, FS_NEW_OPT_SHDMEM_FUZZ, FS_NEW_VERSION_MAGIC_BASE,
+    FS_NEW_VERSION_MAGIC_MAX, FS_NEW_VERSION_MAX, FS_NEW_VERSION_MIN, MAX_INPUT_SIZE_DEFAULT,
+    MIN_INPUT_SIZE_DEFAULT, SHM_ENV_VAR, SHM_FUZZ_ENV_VAR, SHM_FUZZ_MAP_SIZE_ENV_VAR,
+    SHMEM_FUZZ_HDR_SIZE,
 };
 use std::{
     alloc::System,
@@ -89,31 +92,6 @@ fn report_error_and_exit(status: i32) -> Result<(), Error> {
         ))),
     }
 }
-
-/// The length of header bytes which tells shmem size
-pub const SHMEM_FUZZ_HDR_SIZE: usize = 4;
-/// Maximum default length for input
-pub const MAX_INPUT_SIZE_DEFAULT: usize = 1024 * 1024;
-/// Minimum default length for input
-pub const MIN_INPUT_SIZE_DEFAULT: usize = 1;
-/// Environment variable key for shared memory id for input and its len
-pub const SHM_FUZZ_ENV_VAR: &str = "__AFL_SHM_FUZZ_ID";
-/// Environment variable key for the page size (at least/usually `testcase_size_max + sizeof::<u32>()`)
-pub const SHM_FUZZ_MAP_SIZE_ENV_VAR: &str = "__AFL_SHM_FUZZ_MAP_SIZE";
-
-/// Environment variable key for shared memory id for edge map
-pub const SHM_ENV_VAR: &str = "__AFL_SHM_ID";
-/// Environment variable key for shared memory id for cmplog map
-pub const SHM_CMPLOG_ENV_VAR: &str = "__AFL_CMPLOG_SHM_ID";
-
-/// Environment variable key for a custom AFL coverage map size
-pub const AFL_MAP_SIZE_ENV_VAR: &str = "AFL_MAP_SIZE";
-
-/// Environment variable keys to skip instrumentation (LLVM variant).
-pub const AFL_LLVM_ONLY_FSRV_VAR: &str = "AFL_LLVM_ONLY_FSRV";
-
-/// Environment variable keys to skip instrumentation (GCC variant).
-pub const AFL_GCC_ONLY_FSRV_VAR: &str = "AFL_GCC_ONLY_FSRV";
 
 /// The default signal to use to kill child processes
 const KILL_SIGNAL_DEFAULT: Signal = Signal::SIGTERM;

@@ -101,6 +101,7 @@ pub use serde_anymap::impl_serdeany;
 #[cfg(feature = "std")]
 pub use target_args::*;
 
+pub mod drcov;
 pub mod simd;
 
 pub mod time;

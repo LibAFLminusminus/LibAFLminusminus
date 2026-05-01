@@ -12,23 +12,15 @@ use libafl_bolts::{
 };
 #[cfg(any(target_os = "linux", target_vendor = "apple"))]
 use libafl_core::forkserver::FS_NEW_OPT_AUTODTCT;
-#[cfg(feature = "cmplog")]
-use libafl_core::forkserver::SHM_CMPLOG_ENV_VAR;
 use libafl_core::forkserver::{
-    AFL_MAP_SIZE_ENV_VAR, FORKSRV_FD, FS_ERROR_SHM_OPEN, FS_NEW_OPT_MAPSIZE,
-    FS_NEW_OPT_SHDMEM_FUZZ, FS_NEW_VERSION_MAX, FS_OPT_ERROR, MAX_INPUT_SIZE_DEFAULT, SHM_ENV_VAR,
-    SHM_FUZZ_ENV_VAR, SHM_FUZZ_MAP_SIZE_ENV_VAR, SHMEM_FUZZ_HDR_SIZE,
+    FORKSRV_FD_NUM, FS_NEW_OPT_MAPSIZE, FS_NEW_VERSION_MAX, FS_OPT_ERROR,
 };
 use nix::{
     sys::signal::{SigHandler, Signal},
     unistd::Pid,
 };
-use shmem_providers::{ShMem, ShMemId, ShMemProvider};
 
-#[cfg(feature = "cmplog")]
-use crate::cmps::CMPLOG_MAP_PTR;
-
-use crate::coverage::{__afl_map_size, EDGES_MAP_PTR, INPUT_LENGTH_PTR, INPUT_PTR, SHM_FUZZING};
+use crate::__afl_map_size;
 #[cfg(any(target_os = "linux", target_vendor = "apple"))]
 use crate::{
     coverage::{__token_start, __token_stop},
@@ -39,12 +31,12 @@ use crate::{
 ///
 /// This fd will be closed after being forked as a child. Thus this fd shall never be
 /// used after that.
-const FORKSRV_R_FD: BorrowedFd<'static> = unsafe { BorrowedFd::borrow_raw(FORKSRV_FD) };
+const FORKSRV_R_FD: BorrowedFd<'static> = unsafe { BorrowedFd::borrow_raw(FORKSRV_FD_NUM) };
 /// SAFETY:
 ///
 /// This fd will be closed after being forked as a child. Thus this fd shall never be
 /// used after that.
-const FORKSRV_W_FD: BorrowedFd<'static> = unsafe { BorrowedFd::borrow_raw(FORKSRV_FD + 1) };
+const FORKSRV_W_FD: BorrowedFd<'static> = unsafe { BorrowedFd::borrow_raw(FORKSRV_FD_NUM + 1) };
 
 fn fs_opt_set_error(error: i32) -> i32 {
     (error & 0xFFFF) << 8
@@ -94,137 +86,6 @@ fn read_u32_from_forkserver() -> Result<u32, Error> {
     let mut buf = [0u8; 4];
     read_from_forkserver(&mut buf)?;
     Ok(u32::from_ne_bytes(buf))
-}
-
-/// Consume current shared memory structure, and get the raw pointer to
-/// this shared memory.
-///
-/// Note that calling this method will result in a memory leak.
-fn shmem_into_raw<T: Sized>(shmem: impl ShMem) -> *mut T {
-    let mut manually_dropped = core::mem::ManuallyDrop::new(shmem);
-    manually_dropped.as_mut_ptr().cast()
-}
-
-fn map_shared_memory_common<SHM: ShMemProvider>(
-    shmem_provider: &mut SHM,
-    map_env_var: &str,
-    map_size_env_var: &str,
-    map_size_default_fallback: usize,
-) -> Result<*mut u8, Error> {
-    let Ok(id_str) = std::env::var(map_env_var) else {
-        write_error_to_forkserver(FS_ERROR_SHM_OPEN)?;
-        return Err(Error::illegal_argument(format!(
-            "Error: shared memory variable {map_env_var} is not set"
-        )));
-    };
-    let map_size = if let Ok(map_size_str) = std::env::var(map_size_env_var) {
-        map_size_str.parse().map_err(|err| {
-            Error::illegal_argument(format!("Invalid {map_size_env_var} value: {err:?}"))
-        })?
-    } else {
-        map_size_default_fallback
-    };
-
-    let shmem = shmem_provider.shmem_from_id_and_size(ShMemId::from_string(&id_str), map_size)?;
-
-    Ok(shmem_into_raw(shmem))
-}
-
-/// Guard [`map_shared_memory`] is invoked only once
-static SHM_MAP_GUARD: OnceLock<()> = OnceLock::new();
-
-/// Map a shared memory region for the edge coverage map.
-/// The [`EDGES_MAP_PTR`] will be updated.
-///
-/// If anything failed, the forkserver will be notified with
-/// [`FS_ERROR_SHM_OPEN`].
-pub fn map_shared_memory<SHM: ShMemProvider>(shmem_provider: &mut SHM) -> Result<(), Error> {
-    if SHM_MAP_GUARD.set(()).is_err() {
-        return Err(Error::illegal_state("shared memory has been mapped before"));
-    }
-    map_shared_memory_internal(shmem_provider)
-}
-
-fn map_shared_memory_internal<SHM: ShMemProvider>(shmem_provider: &mut SHM) -> Result<(), Error> {
-    let target_ptr =
-        map_shared_memory_common(shmem_provider, SHM_ENV_VAR, AFL_MAP_SIZE_ENV_VAR, 65536)?;
-    unsafe {
-        EDGES_MAP_PTR = target_ptr;
-    }
-    Ok(())
-}
-
-/// Guard [`map_input_shared_memory`] is invoked only once
-static INPUT_SHM_MAP_GUARD: OnceLock<()> = OnceLock::new();
-
-/// Map the input shared memory region.
-/// The [`INPUT_LENGTH_PTR`] and [`INPUT_PTR`] will be updated.
-///
-/// If anything failed, the forkserver will be notified with
-/// [`FS_ERROR_SHM_OPEN`].
-pub fn map_input_shared_memory<SHM: ShMemProvider>(shmem_provider: &mut SHM) -> Result<(), Error> {
-    if INPUT_SHM_MAP_GUARD.set(()).is_err() {
-        return Err(Error::illegal_state("shared memory has been mapped before"));
-    }
-    map_input_shared_memory_internal(shmem_provider)
-}
-
-fn map_input_shared_memory_internal<SHM: ShMemProvider>(
-    shmem_provider: &mut SHM,
-) -> Result<(), Error> {
-    let target_ptr = map_shared_memory_common(
-        shmem_provider,
-        SHM_FUZZ_ENV_VAR,
-        SHM_FUZZ_MAP_SIZE_ENV_VAR,
-        MAX_INPUT_SIZE_DEFAULT + SHMEM_FUZZ_HDR_SIZE,
-    )?;
-    let map: *mut u32 = target_ptr.cast();
-    unsafe {
-        INPUT_LENGTH_PTR = map;
-        INPUT_PTR = map.add(1).cast();
-    }
-    Ok(())
-}
-
-/// Guard [`map_cmplog_shared_memory`] is invoked only once
-#[cfg(feature = "cmplog")]
-static CMPLOG_SHM_MAP_GUARD: OnceLock<()> = OnceLock::new();
-
-/// Map the cmplog shared memory region.
-/// The [`CMPLOG_MAP_PTR`] will be updated.
-///
-/// If anything failed, the forkserver will be notified with
-/// [`FS_ERROR_SHM_OPEN`].
-#[cfg(feature = "cmplog")]
-pub fn map_cmplog_shared_memory<SHM: ShMemProvider>(shmem_provider: &mut SHM) -> Result<(), Error> {
-    if CMPLOG_SHM_MAP_GUARD.set(()).is_err() {
-        return Err(Error::illegal_state("shared memory has been mapped before"));
-    }
-    map_cmplog_shared_memory_internal(shmem_provider)
-}
-
-#[cfg(feature = "cmplog")]
-fn map_cmplog_shared_memory_internal<SHM: ShMemProvider>(
-    shmem_provider: &mut SHM,
-) -> Result<(), Error> {
-    let Ok(id_str) = std::env::var(SHM_CMPLOG_ENV_VAR) else {
-        write_error_to_forkserver(FS_ERROR_SHM_OPEN)?;
-        return Err(Error::illegal_argument(format!(
-            "Error: shared memory variable {SHM_CMPLOG_ENV_VAR} is not set"
-        )));
-    };
-    let map_size = size_of::<AflppCmpLogMap>();
-    let shmem = shmem_provider.shmem_from_id_and_size(ShMemId::from_string(&id_str), map_size)?;
-
-    let target_ptr = shmem_into_raw(shmem);
-    unsafe {
-        CMPLOG_MAP_PTR = target_ptr;
-    }
-    #[cfg(feature = "cmplog_extended_instrumentation")]
-    unsafe {
-        EXTENDED_CMPLOG_MAP_PTR = target_ptr;
-    }
-    Ok(())
 }
 
 /// Parent to handle all logics with forkserver children
@@ -415,7 +276,8 @@ fn start_forkserver_internal<P: ForkserverParent>(
 ) -> Result<ForkserverState, Error> {
     #[cfg(any(target_os = "linux", target_vendor = "apple"))]
     let autotokens_on = has_autotokens();
-    let sharedmem_fuzzing = unsafe { SHM_FUZZING == 1 };
+    todo!("adapt SHM to new shared memory stuff");
+    // let sharedmem_fuzzing = unsafe { SHM_FUZZING == 1 };
 
     // Parent supports testcases via shared map - and the user wants to use it. Tell AFL.
     // Phone home and tell the parent that we're OK. If parent isn't there, assume we're
@@ -432,9 +294,10 @@ fn start_forkserver_internal<P: ForkserverParent>(
     }
 
     let mut status = FS_NEW_OPT_MAPSIZE;
-    if sharedmem_fuzzing {
-        status |= FS_NEW_OPT_SHDMEM_FUZZ;
-    }
+    todo!("adapt SHM to new shared memory stuff");
+    // if sharedmem_fuzzing {
+    //     status |= FS_NEW_OPT_SHDMEM_FUZZ;
+    // }
     #[cfg(any(target_os = "linux", target_vendor = "apple"))]
     if autotokens_on {
         status |= FS_NEW_OPT_AUTODTCT;
@@ -477,7 +340,7 @@ fn start_forkserver_internal<P: ForkserverParent>(
 
         match fork_result {
             ForkResult::Child => {
-                // FORKSRV_FD is for communication with AFL, we don't need it in the child
+                // FORKSRV_FD_NUM is for communication with AFL, we don't need it in the child
                 let _ = nix::unistd::close(FORKSRV_R_FD.as_raw_fd());
                 let _ = nix::unistd::close(FORKSRV_W_FD.as_raw_fd());
                 return Ok(ForkserverState::Child);

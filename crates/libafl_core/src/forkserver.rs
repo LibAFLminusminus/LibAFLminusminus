@@ -63,3 +63,28 @@ pub const FS_ERROR_OLD_CMPLOG_QEMU: i32 = 64_u32 as i32;
 /// Flag indicating this is an error
 #[expect(clippy::cast_possible_wrap)]
 pub const FS_OPT_ERROR: i32 = 0xf800008f_u32 as i32;
+
+/// The length of header bytes which tells shmem size
+pub const SHMEM_FUZZ_HDR_SIZE: usize = 4;
+/// Maximum default length for input
+pub const MAX_INPUT_SIZE_DEFAULT: usize = 1024 * 1024;
+/// Minimum default length for input
+pub const MIN_INPUT_SIZE_DEFAULT: usize = 1;
+/// Environment variable key for shared memory id for input and its len
+pub const SHM_FUZZ_ENV_VAR: &str = "__AFL_SHM_FUZZ_ID";
+/// Environment variable key for the page size (at least/usually `testcase_size_max + sizeof::<u32>()`)
+pub const SHM_FUZZ_MAP_SIZE_ENV_VAR: &str = "__AFL_SHM_FUZZ_MAP_SIZE";
+
+/// Environment variable key for shared memory id for edge map
+pub const SHM_ENV_VAR: &str = "__AFL_SHM_ID";
+/// Environment variable key for shared memory id for cmplog map
+pub const SHM_CMPLOG_ENV_VAR: &str = "__AFL_CMPLOG_SHM_ID";
+
+/// Environment variable key for a custom AFL coverage map size
+pub const AFL_MAP_SIZE_ENV_VAR: &str = "AFL_MAP_SIZE";
+
+/// Environment variable keys to skip instrumentation (LLVM variant).
+pub const AFL_LLVM_ONLY_FSRV_VAR: &str = "AFL_LLVM_ONLY_FSRV";
+
+/// Environment variable keys to skip instrumentation (GCC variant).
+pub const AFL_GCC_ONLY_FSRV_VAR: &str = "AFL_GCC_ONLY_FSRV";
