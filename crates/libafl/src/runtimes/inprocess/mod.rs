@@ -19,7 +19,7 @@ use crate::{
 mod tests;
 
 pub mod standard;
-pub use standard::StdInProcessRuntime;
+pub use standard::SimpleInProcessRuntime;
 
 impl<CH, D, S, T, TH, TM> DependencyResolver for InProcessRuntime<CH, D, S, T, TH, TM> {}
 

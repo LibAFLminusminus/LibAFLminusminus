@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     DependencyResolver,
-    runtimes::{Runtime, RuntimeHandle, StdInProcessRuntime, utils::unix::OsShmBuilder},
+    runtimes::{Runtime, RuntimeHandle, SimpleInProcessRuntime, utils::unix::OsShmBuilder},
 };
 
 /// end the restarter. task job is over.
@@ -51,7 +51,7 @@ where
     }
 }
 
-impl<S, T, TM> RestartingRuntime<StdInProcessRuntime<S, T, TM>>
+impl<S, T, TM> RestartingRuntime<SimpleInProcessRuntime<S, T, TM>>
 where
     S: Serialize,
 {
@@ -62,7 +62,7 @@ where
         timeout: Option<Duration>,
     ) -> Self {
         Self::new_generic(
-            StdInProcessRuntime::new(task, timer),
+            SimpleInProcessRuntime::new(task, timer),
             state_ram_limit,
             timeout,
         )

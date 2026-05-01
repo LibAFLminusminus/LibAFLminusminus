@@ -23,7 +23,10 @@ use crate::{
     inputs::NopInput,
     monitors::{Monitor, SimpleMonitor},
     nop::{NopDescriptor, NopWorker},
-    runtimes::{Runtime, RuntimeHandle, StdRuntime, nop::NopRuntime},
+    runtimes::{
+        Runtime, RuntimeHandle, StdForkserverRuntime, StdInProcessRuntime, StdRuntime,
+        nop::NopRuntime,
+    },
     simple::SimpleController,
     states::NopState,
 };
@@ -282,10 +285,47 @@ where
     SB: FnMut(&CT::Worker) -> Result<S>,
     TM: Clone,
 {
-    pub fn build_with_task<T>(
+    pub fn build_forkserver<T>(
         mut self,
         task: T,
-    ) -> Result<StdLauncher<CT::Descriptor, CT, MT, StdRuntime<S, T, TM>, S, CT::Worker>>
+    ) -> Result<StdLauncher<CT::Descriptor, CT, MT, StdForkserverRuntime<T>, S, CT::Worker>>
+    where
+        // this bound is needed to help rust link the state output by the state builder and
+        // the one used by the task. otherwise, the compiler needs explicit typing.
+        T: FnMut(&mut RuntimeHandle<S, CT::Worker>, &mut S) -> Result<()> + Clone,
+    {
+        if self.cores.is_empty() {
+            return Err(Error::illegal_argument("No cores have been declared."));
+        }
+
+        let builder = StdLauncherBuilder {
+            controller: self.controller,
+            monitor: self.monitor,
+            cores: self.cores,
+            runtime: StdForkserverRuntime::new(task),
+            state_builder: self.state_builder,
+            max_state_size_per_client: self.max_state_size_per_client,
+            monitor_refresh: self.monitor_refresh,
+            timeout: self.timeout,
+            timer: self.timer,
+            phantom: self.phantom,
+        };
+
+        builder.build()
+    }
+}
+
+impl<CT, MT, RT, S, SB, TM> StdLauncherBuilder<CT, MT, RT, S, SB, TM>
+where
+    CT: Controller,
+    S: Serialize,
+    SB: FnMut(&CT::Worker) -> Result<S>,
+    TM: Clone,
+{
+    pub fn build_inprocess<T>(
+        mut self,
+        task: T,
+    ) -> Result<StdLauncher<CT::Descriptor, CT, MT, StdInProcessRuntime<S, T, TM>, S, CT::Worker>>
     where
         // this bound is needed to help rust link the state output by the state builder and
         // the one used by the task. otherwise, the compiler needs explicit typing.
@@ -303,7 +343,12 @@ where
             controller: self.controller,
             monitor: self.monitor,
             cores: self.cores,
-            runtime: StdRuntime::new(task, ram_limit, self.timer.clone(), self.timeout.clone()),
+            runtime: StdInProcessRuntime::new(
+                task,
+                ram_limit,
+                self.timer.clone(),
+                self.timeout.clone(),
+            ),
             state_builder: self.state_builder,
             max_state_size_per_client: self.max_state_size_per_client,
             monitor_refresh: self.monitor_refresh,

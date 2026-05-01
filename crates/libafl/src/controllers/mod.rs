@@ -184,6 +184,10 @@ impl Workdir {
         })
     }
 
+    pub fn root_dir(&self) -> &Path {
+        self.root_dir.as_path()
+    }
+
     pub fn stdout(&mut self) -> Result<Option<File>> {
         if let Some(wd_f) = &mut self.stdout {
             wd_f.get_file_wr(self.root_dir.as_path())

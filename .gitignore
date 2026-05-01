@@ -85,3 +85,6 @@ rustc-ice-*
 
 # Coredumps
 *.core
+
+# example fuzzers workdirs
+workdir

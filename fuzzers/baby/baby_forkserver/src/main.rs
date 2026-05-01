@@ -2,30 +2,28 @@ use std::{ops::DerefMut, path::PathBuf, time::Duration};
 
 use clap::Parser;
 use libafl::{
-    Result, Worker,
     corpus::{
-        Corpus, InMemoryCorpus, OnDiskCorpus, Scheduler,
         schedulers::{NopScheduler, QueueScheduler},
+        Corpus, InMemoryCorpus, OnDiskCorpus, Scheduler,
     },
     executors::{ForkserverExecutor, StdChildArgs},
     feedback_or_fast,
     feedbacks::{CrashFeedback, MaxMapFeedback, TimeoutFeedback},
     fuzzers::{Fuzzer, StdFuzzer},
     generators::RandPrintablesGenerator,
-    inputs::{BytesInput, bytes::BytesContext},
-    launchers::{DEFAULT_MAX_STATE_SIZE_PER_CLIENT, StdLauncher},
+    inputs::{bytes::BytesContext, BytesInput},
+    launchers::StdLauncher,
     monitors::SimpleMonitor,
-    mutators::{HavocScheduledMutator, Tokens, havoc_mutations},
+    mutators::{havoc_mutations, HavocScheduledMutator, Tokens},
     non_zero,
     observers::{HitcountsMapObserver, StdMapObserver},
-    runtimes::{RuntimeHandle, simple::SimpleRuntime},
+    runtimes::RuntimeHandle,
     simple::{SimpleController, SimpleWorker},
     stages::StdMutationalStage,
     states::StdState,
+    Result, Worker,
 };
-use libafl_bolts::{
-    StdTargetArgs, SysVShm, current_nanos, rands::StdRand, timers::FastTimer, tuples::tuple_list,
-};
+use libafl_bolts::{current_nanos, rands::StdRand, tuples::tuple_list, StdTargetArgs, SysVShm};
 
 /// The commandline args this fuzzer accepts
 #[derive(Debug, Parser)]
@@ -112,7 +110,7 @@ where
     let mut tokens = Tokens::new();
     // Create the executor for an in-process function with just one observer
     let mut executor = ForkserverExecutor::builder()
-        .program("./program")
+        .program(opt.executable)
         .debug_child(false)
         .autotokens(&mut tokens)
         .parse_afl_cmdline(args)
@@ -177,16 +175,11 @@ pub fn main() -> Result<()> {
     // The monitor tracks the fuzzing current status.
     let monitor = SimpleMonitor::new();
 
-    let fast_timer = FastTimer::new();
-    let runtime = SimpleRuntime::new(run_fuzzer);
-
     // Launch the fuzzer
     StdLauncher::builder()?
         .controller(controller)
         .monitor(monitor)
         .state_builder(state_builder)
-        .runtime(runtime)
-        // .build_with_task(run_fuzzer)?
-        .build()?
+        .build_forkserver(run_fuzzer)?
         .launch()
 }

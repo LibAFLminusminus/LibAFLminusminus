@@ -22,9 +22,9 @@ type InnerRuntime<S, T, TM> = InProcessRuntime<
 >;
 
 #[derive(Debug)]
-pub struct StdInProcessRuntime<S, T, TM>(InnerRuntime<S, T, TM>);
+pub struct SimpleInProcessRuntime<S, T, TM>(InnerRuntime<S, T, TM>);
 
-impl<S, T, TM> Clone for StdInProcessRuntime<S, T, TM>
+impl<S, T, TM> Clone for SimpleInProcessRuntime<S, T, TM>
 where
     T: Clone,
     TM: Clone,
@@ -34,7 +34,7 @@ where
     }
 }
 
-impl<S, T, TM> StdInProcessRuntime<S, T, TM>
+impl<S, T, TM> SimpleInProcessRuntime<S, T, TM>
 where
     S: Serialize,
 {
@@ -49,7 +49,7 @@ where
     }
 }
 
-impl<S, T, TM> DependencyResolver for StdInProcessRuntime<S, T, TM> {
+impl<S, T, TM> DependencyResolver for SimpleInProcessRuntime<S, T, TM> {
     fn register(&mut self, registrator: &mut crate::Registrator) -> Result<(), Error> {
         self.0.register(registrator)
     }
@@ -66,7 +66,7 @@ impl<S, T, TM> DependencyResolver for StdInProcessRuntime<S, T, TM> {
     }
 }
 
-impl<S, W, T, TM> Runtime<S, W> for StdInProcessRuntime<S, T, TM>
+impl<S, W, T, TM> Runtime<S, W> for SimpleInProcessRuntime<S, T, TM>
 where
     T: FnMut(&mut RuntimeHandle<S, W>, &mut S) -> Result<(), Error>,
     TM: Timer,

@@ -7,6 +7,7 @@ use crate::{
     DependencyResolver, Result,
     runtimes::{
         restarting::LIBAFL_EXIT_END,
+        simple::SimpleRuntime,
         utils::{
             IntoTerminationHandlerData, OsTerminationParams, TerminationHandlerData,
             unix::OsShmSender,
@@ -15,14 +16,17 @@ use crate::{
 };
 
 pub mod inprocess;
-pub use inprocess::{InProcessRuntime, StdInProcessRuntime};
+pub use inprocess::{InProcessRuntime, SimpleInProcessRuntime};
 pub mod restarting;
 pub use restarting::RestartingRuntime;
 pub mod nop;
 pub mod simple;
 pub mod utils;
 
-pub type StdRuntime<S, T, TM> = RestartingRuntime<StdInProcessRuntime<S, T, TM>>;
+pub type StdRuntime<T> = StdForkserverRuntime<T>;
+
+pub type StdForkserverRuntime<T> = SimpleRuntime<T>;
+pub type StdInProcessRuntime<S, T, TM> = RestartingRuntime<SimpleInProcessRuntime<S, T, TM>>;
 
 /// Environment used to run a task
 pub trait Runtime<S, W>: DependencyResolver {
