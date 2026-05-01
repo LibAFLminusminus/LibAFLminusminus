@@ -1,8 +1,6 @@
-use crate::{
-    DependencyResolver,
-    runtimes::{Runtime, RuntimeHandle, StdInProcessRuntime, utils::unix::OsShmBuilder},
-};
 use core::{marker::PhantomData, num::NonZeroUsize, time::Duration};
+use std::process::exit;
+
 use libafl_core::Error;
 use nix::{
     sys::{
@@ -14,7 +12,11 @@ use nix::{
     unistd::{ForkResult, fork, getpid, getppid, pipe},
 };
 use serde::{Deserialize, Serialize};
-use std::process::exit;
+
+use crate::{
+    DependencyResolver,
+    runtimes::{Runtime, RuntimeHandle, StdInProcessRuntime, utils::unix::OsShmBuilder},
+};
 
 /// end the restarter. task job is over.
 pub const LIBAFL_EXIT_END: i32 = 100;

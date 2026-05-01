@@ -1,18 +1,20 @@
-use crate::{
-    Result,
-    launchers::InstanceId,
-    states::{Stats, sync_stats},
-};
 use alloc::vec::Vec;
+use std::{
+    collections::HashSet,
+    fs::{self, File, OpenOptions},
+    path::{Path, PathBuf},
+};
+
 use hashbrown::HashMap;
 use libafl_bolts::core_affinity::CoreId;
 use libafl_core::{Error, WorkerId, internal_bug};
 use nix::sys::signal::Signal;
 use serde::{Deserialize, Serialize};
-use std::{
-    collections::HashSet,
-    fs::{self, File, OpenOptions},
-    path::{Path, PathBuf},
+
+use crate::{
+    Result,
+    launchers::InstanceId,
+    states::{Stats, sync_stats},
 };
 
 pub mod aflpp;

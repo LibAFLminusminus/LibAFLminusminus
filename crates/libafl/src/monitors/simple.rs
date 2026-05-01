@@ -1,11 +1,13 @@
+use core::time::Duration;
+use std::{string::String, vec::Vec};
+
+use libafl_bolts::current_time;
+
 use crate::{
     Controller, Descriptor, Result,
     monitors::Monitor,
     states::{Stats, read_stats_json},
 };
-use core::time::Duration;
-use libafl_bolts::current_time;
-use std::{string::String, vec::Vec};
 
 #[derive(Debug, Clone)]
 pub struct SimpleMonitor {}

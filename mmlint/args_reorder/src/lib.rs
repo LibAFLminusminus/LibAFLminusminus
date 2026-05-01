@@ -18,8 +18,8 @@ extern crate rustc_span;
 // extern crate rustc_target;
 // extern crate rustc_trait_selection;
 
+use rustc_hir::{Body, FnDecl, PatKind, def_id::LocalDefId, intravisit::FnKind};
 use rustc_lint::{LateContext, LateLintPass, LintContext};
-use rustc_hir::{intravisit::FnKind, FnDecl, Body, def_id::LocalDefId, PatKind,};
 use rustc_span::{Span, Symbol};
 
 dylint_linting::declare_late_lint! {
@@ -73,7 +73,8 @@ impl<'tcx> LateLintPass<'tcx> for ArgsReorder {
 
         for param in body.params {
             if let PatKind::Binding(_, _, ident, _) = param.pat.kind {
-                if ident.name.as_str().starts_with('_') || ident.name.as_str() == "self" { // ignore names starting with _
+                if ident.name.as_str().starts_with('_') || ident.name.as_str() == "self" {
+                    // ignore names starting with _
                     continue;
                 }
 
@@ -89,7 +90,10 @@ fn check_args(cx: &LateContext<'_>, params: &[(Symbol, Span)]) {
     let first = params.first();
     let last = params.last();
     if let (Some((_, first_span)), Some((_, last_span))) = (first, last) {
-        let names: Vec<String> = params.iter().map(|(s, _)| s.to_string()).collect::<Vec<String>>();
+        let names: Vec<String> = params
+            .iter()
+            .map(|(s, _)| s.to_string())
+            .collect::<Vec<String>>();
         if !names.is_sorted() {
             let merged_span = first_span.to(*last_span);
 
@@ -99,7 +103,6 @@ fn check_args(cx: &LateContext<'_>, params: &[(Symbol, Span)]) {
         }
     }
 }
-
 
 #[test]
 fn ui() {

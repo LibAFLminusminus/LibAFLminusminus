@@ -1,9 +1,10 @@
-use crate::executors::hooks::ExecutorHook;
 use core::fmt::Debug;
+
+pub use libafl_intelpt::{CoverageEntry, IntelPT, PAGE_SIZE, PtImage};
 use serde::Serialize;
 use typed_builder::TypedBuilder;
 
-pub use libafl_intelpt::{CoverageEntry, IntelPT, PAGE_SIZE, PtImage};
+use crate::executors::hooks::ExecutorHook;
 
 /// Hook to enable Intel Processor Trace (PT) tracing
 #[derive(Debug, TypedBuilder)]

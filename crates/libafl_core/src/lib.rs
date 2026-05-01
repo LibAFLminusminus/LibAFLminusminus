@@ -587,7 +587,7 @@ impl From<BorrowMutError> for Error {
 }
 
 /// Stringify the postcard serializer error
-#[cfg(all(feature = "alloc", feature = "postcard"))]
+#[cfg(feature = "alloc")]
 impl From<postcard::Error> for Error {
     fn from(err: postcard::Error) -> Self {
         crate::serialize!("{err:?}")

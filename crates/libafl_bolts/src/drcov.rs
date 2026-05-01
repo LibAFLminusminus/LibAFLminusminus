@@ -5,14 +5,15 @@
 
 use alloc::{string::String, vec::Vec};
 use core::{fmt::Debug, num::ParseIntError, ptr};
-use libafl_core::{Result, illegal_argument, illegal_state};
-use rangemap::RangeMap;
 use std::{
     collections::HashSet,
     fs::File,
     io::{BufRead, BufReader, BufWriter, Read, Write},
     path::{Path, PathBuf},
 };
+
+use libafl_core::{Result, illegal_argument, illegal_state};
+use rangemap::RangeMap;
 
 /// A basic block struct
 /// This can be used to keep track of new addresses.

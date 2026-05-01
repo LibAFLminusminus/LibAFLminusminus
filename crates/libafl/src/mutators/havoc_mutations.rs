@@ -4,16 +4,14 @@ use libafl_bolts::tuples::{
     Map, Merge, map_tuple_list_type, merge_tuple_list_type, tuple_list, tuple_list_type,
 };
 
-use crate::mutators::{
-    mutations::{
-        BitFlipMutator, ByteAddMutator, ByteDecMutator, ByteFlipMutator, ByteIncMutator,
-        ByteInterestingMutator, ByteNegMutator, ByteRandMutator, BytesCopyMutator,
-        BytesDeleteMutator, BytesExpandMutator, BytesInsertCopyMutator, BytesInsertMutator,
-        BytesRandInsertMutator, BytesRandSetMutator, BytesSetMutator, BytesSwapMutator,
-        CrossoverInsertMutator, CrossoverReplaceMutator, DwordAddMutator, DwordInterestingMutator,
-        MappedCrossoverInsertMutator, MappedCrossoverReplaceMutator, QwordAddMutator,
-        WordAddMutator, WordInterestingMutator,
-    },
+use crate::mutators::mutations::{
+    BitFlipMutator, ByteAddMutator, ByteDecMutator, ByteFlipMutator, ByteIncMutator,
+    ByteInterestingMutator, ByteNegMutator, ByteRandMutator, BytesCopyMutator, BytesDeleteMutator,
+    BytesExpandMutator, BytesInsertCopyMutator, BytesInsertMutator, BytesRandInsertMutator,
+    BytesRandSetMutator, BytesSetMutator, BytesSwapMutator, CrossoverInsertMutator,
+    CrossoverReplaceMutator, DwordAddMutator, DwordInterestingMutator,
+    MappedCrossoverInsertMutator, MappedCrossoverReplaceMutator, QwordAddMutator, WordAddMutator,
+    WordInterestingMutator,
 };
 
 /// Tuple type of the mutations that compose the Havoc mutator without crossover mutations

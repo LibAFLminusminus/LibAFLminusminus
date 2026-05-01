@@ -2,7 +2,6 @@
 
 use alloc::{rc::Rc, string::String};
 use core::{cell::RefCell, marker::PhantomData};
-use libafl_core::illegal_argument;
 use std::{
     fs, io,
     path::{Path, PathBuf},
@@ -10,6 +9,7 @@ use std::{
 };
 
 use libafl_bolts::Error;
+use libafl_core::illegal_argument;
 use serde::{Deserialize, Serialize};
 
 use super::{InMemoryCorpusMap, Store};

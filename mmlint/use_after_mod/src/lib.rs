@@ -17,8 +17,8 @@ extern crate rustc_hir;
 extern crate rustc_span;
 // extern crate rustc_target;
 // extern crate rustc_trait_selection;
-use rustc_lint::{LateLintPass, LateContext, LintContext};
 use rustc_hir::{Item, ItemKind};
+use rustc_lint::{LateContext, LateLintPass, LintContext};
 use rustc_span::Span;
 
 dylint_linting::impl_late_lint! {
@@ -41,7 +41,7 @@ dylint_linting::impl_late_lint! {
     /// ```rust
     /// pub mod a;
     /// pub use a::*
-    /// 
+    ///
     /// // whatever you want continues
     /// ```
     pub USE_AFTER_MOD,
@@ -67,20 +67,13 @@ impl<'tcx> LateLintPass<'tcx> for UseAfterMod {
     // https://doc.rust-lang.org/stable/nightly-rustc/rustc_lint/trait.LateLintPass.html
     fn check_item(&mut self, cx: &LateContext<'tcx>, item: &'tcx Item<'tcx>) {
         let item: ModUseItem = match item.kind {
-            ItemKind::Mod(_, _) => {
-                ModUseItem::Mod(item.span)
-            }
-            ItemKind::Use(_, _) => {
-                ModUseItem::Use
-            }
-            _ => {
-                ModUseItem::Others(item.span)
-            }
+            ItemKind::Mod(_, _) => ModUseItem::Mod(item.span),
+            ItemKind::Use(_, _) => ModUseItem::Use,
+            _ => ModUseItem::Others(item.span),
         };
-        
+
         check_mod_use(cx, self.item, item);
         self.item = Some(item);
-
     }
 }
 
@@ -96,9 +89,7 @@ fn check_mod_use(cx: &LateContext<'_>, prev: Option<ModUseItem>, cur: ModUseItem
             _ => (), // do nothing
         }
     }
-
 }
-
 
 #[test]
 fn ui() {

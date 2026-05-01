@@ -1,31 +1,30 @@
-use std::{ops::DerefMut, time::Duration, path::PathBuf};
-use clap::Parser;
+use std::{ops::DerefMut, path::PathBuf, time::Duration};
 
+use clap::Parser;
 use libafl::{
+    Result, Worker,
     corpus::{
-        schedulers::{NopScheduler, QueueScheduler},
         Corpus, InMemoryCorpus, OnDiskCorpus, Scheduler,
+        schedulers::{NopScheduler, QueueScheduler},
     },
     executors::{ForkserverExecutor, StdChildArgs},
     feedback_or_fast,
     feedbacks::{CrashFeedback, MaxMapFeedback, TimeoutFeedback},
     fuzzers::{Fuzzer, StdFuzzer},
     generators::RandPrintablesGenerator,
-    inputs::{bytes::BytesContext, BytesInput},
-    launchers::{StdLauncher, DEFAULT_MAX_STATE_SIZE_PER_CLIENT},
+    inputs::{BytesInput, bytes::BytesContext},
+    launchers::{DEFAULT_MAX_STATE_SIZE_PER_CLIENT, StdLauncher},
     monitors::SimpleMonitor,
-    mutators::{havoc_mutations, HavocScheduledMutator, Tokens},
+    mutators::{HavocScheduledMutator, Tokens, havoc_mutations},
     non_zero,
     observers::{HitcountsMapObserver, StdMapObserver},
     runtimes::{RuntimeHandle, simple::SimpleRuntime},
     simple::{SimpleController, SimpleWorker},
     stages::StdMutationalStage,
     states::StdState,
-    Result, Worker,
 };
 use libafl_bolts::{
-    current_nanos, rands::StdRand, timers::FastTimer, tuples::tuple_list,
-    StdTargetArgs, SysVShm,
+    StdTargetArgs, SysVShm, current_nanos, rands::StdRand, timers::FastTimer, tuples::tuple_list,
 };
 
 /// The commandline args this fuzzer accepts
@@ -179,9 +178,7 @@ pub fn main() -> Result<()> {
     let monitor = SimpleMonitor::new();
 
     let fast_timer = FastTimer::new();
-    let runtime = SimpleRuntime::new(
-        run_fuzzer,
-    );
+    let runtime = SimpleRuntime::new(run_fuzzer);
 
     // Launch the fuzzer
     StdLauncher::builder()?
