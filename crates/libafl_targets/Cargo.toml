@@ -189,8 +189,8 @@ rustversion = "1.0.22"
 
 [dependencies]
 document-features = { workspace = true, optional = true }
-libafl_bolts = { workspace = true, features = [] }
-libafl_core = { workspace = true, features = [] }
+libafl_bolts = { workspace = true, default-features = true }
+libafl_core = { workspace = true }
 fast_rands = { workspace = true }
 ownedref = { workspace = true }
 libc = { workspace = true }

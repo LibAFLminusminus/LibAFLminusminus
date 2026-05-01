@@ -1,3 +1,5 @@
+//! target exports
+
 pub use crate::cmps::libafl_cmplog_map as CMPLOG_MAP;
 
 pub use crate::coverage::__afl_acc_memop_ptr as ACCOUNTING_MEMOP_MAP_PTR;
