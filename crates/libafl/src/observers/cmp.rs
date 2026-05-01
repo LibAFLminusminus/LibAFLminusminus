@@ -12,7 +12,12 @@ use hashbrown::HashMap;
 use libafl_bolts::{AsSlice, HasLen, Named, ownedref::OwnedRefMut};
 use serde::{Deserialize, Serialize};
 
-use crate::{DependencyResolver, Error, executors::ExitKind, observers::Observer, states::{FlatState, named_metadata_mut}};
+use crate::{
+    DependencyResolver, Error,
+    executors::ExitKind,
+    observers::Observer,
+    states::{FlatState, named_metadata_mut},
+};
 
 /// A bytes string for cmplog with up to 32 elements.
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, Eq, PartialEq)]
@@ -270,7 +275,10 @@ where
 
     fn post_exec(&mut self, state: &mut S, _exit_kind: &ExitKind) -> Result<(), Error> {
         if self.add_meta {
-            let meta = named_metadata_mut::<CmpValuesMetadata>(state.named_metadata_map_mut(),"CmpValues")?;
+            let meta = named_metadata_mut::<CmpValuesMetadata>(
+                state.named_metadata_map_mut(),
+                "CmpValues",
+            )?;
 
             meta.add_from(self.usable_count(), self.cmp_map_mut());
         }

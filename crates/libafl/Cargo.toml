@@ -154,11 +154,6 @@ nautilus_py = ["nautilus", "dep:pyo3"]
 ## Use the best SIMD implementation by our benchmark
 simd = ["libafl_bolts/simd", "libafl_bolts/wide"]
 
-[[example]]
-name = "tui_mock"
-path = "./examples/tui_mock/main.rs"
-required-features = ["std", "tui_monitor"]
-
 [build-dependencies]
 rustversion = "1.0.22"
 
@@ -168,7 +163,6 @@ serde_json = { workspace = true, default-features = false, features = [
 ] }
 # clippy-suggested optimised byte counter
 bytecount = "0.6.8"
-static_assertions = { workspace = true }
 rusty-fork = "0.3.1"
 
 [dependencies]
@@ -211,6 +205,7 @@ serde = { workspace = true, features = ["alloc", "derive", "rc"] }
 serde_json = { workspace = true, default-features = false, features = [
   "alloc",
 ], optional = true }
+static_assertions = { workspace = true }
 humantime = "2.1"
 tokio = { version = "1.40.0", optional = true, features = [
   "sync",

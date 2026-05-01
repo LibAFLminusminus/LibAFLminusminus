@@ -1,13 +1,15 @@
-use crate::{Controller, Descriptor, Result, Workdir, WorkdirFile, Worker, launchers::InstanceId};
-use libafl_core::{Error, WorkerId, illegal_argument, internal_bug};
-use nix::unistd::{dup2_stderr, dup2_stdout};
-use serde::{Deserialize, Serialize};
 use std::{
     fs::{self, File},
     io::{PipeReader, PipeWriter, pipe},
     path::{Path, PathBuf},
     vec::Vec,
 };
+
+use libafl_core::{Error, WorkerId, illegal_argument, internal_bug};
+use nix::unistd::{dup2_stderr, dup2_stdout};
+use serde::{Deserialize, Serialize};
+
+use crate::{Controller, Descriptor, Result, Workdir, WorkdirFile, Worker, launchers::InstanceId};
 
 #[derive(Debug)]
 pub struct SimpleControllerBuilder {

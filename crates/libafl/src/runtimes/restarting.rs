@@ -1,8 +1,6 @@
-use crate::{
-    DependencyResolver,
-    runtimes::{Runtime, RuntimeHandle, StdInProcessRuntime, utils::unix::OsShmBuilder},
-};
 use core::{marker::PhantomData, num::NonZeroUsize, time::Duration};
+use std::process::exit;
+
 use libafl_core::Error;
 use nix::{
     sys::{
@@ -14,7 +12,11 @@ use nix::{
     unistd::{ForkResult, fork, getpid, getppid, pipe},
 };
 use serde::{Deserialize, Serialize};
-use std::process::exit;
+
+use crate::{
+    DependencyResolver,
+    runtimes::{Runtime, RuntimeHandle, SimpleInProcessRuntime, utils::unix::OsShmBuilder},
+};
 
 /// end the restarter. task job is over.
 pub const LIBAFL_EXIT_END: i32 = 100;
@@ -49,7 +51,7 @@ where
     }
 }
 
-impl<S, T, TM> RestartingRuntime<StdInProcessRuntime<S, T, TM>>
+impl<S, T, TM> RestartingRuntime<SimpleInProcessRuntime<S, T, TM>>
 where
     S: Serialize,
 {
@@ -60,7 +62,7 @@ where
         timeout: Option<Duration>,
     ) -> Self {
         Self::new_generic(
-            StdInProcessRuntime::new(task, timer),
+            SimpleInProcessRuntime::new(task, timer),
             state_ram_limit,
             timeout,
         )

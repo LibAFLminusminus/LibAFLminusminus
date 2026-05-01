@@ -18,9 +18,9 @@ extern crate rustc_span;
 // extern crate rustc_target;
 // extern crate rustc_trait_selection;
 
-use rustc_lint::{LateLintPass, LateContext, LintContext};
-use rustc_hir::{Generics, GenericParamKind, ParamName};
-use rustc_span::{Symbol, Span};
+use rustc_hir::{GenericParamKind, Generics, ParamName};
+use rustc_lint::{LateContext, LateLintPass, LintContext};
+use rustc_span::{Span, Symbol};
 
 dylint_linting::declare_late_lint! {
     /// ### What it does
@@ -29,19 +29,19 @@ dylint_linting::declare_late_lint! {
     /// Not bad, but sorted looks more beautiful no?
     /// ### Known problems
     /// No problem
-    /// 
+    ///
     ///
     /// ### Example
     ///
     /// ```rust
     /// // this will be warned cuz Z comes in A in latin alphabet.
-    /// pub trait LOL<Z, A> {} 
+    /// pub trait LOL<Z, A> {}
     /// ```
     ///
     /// Use instead:
     ///
     /// ```rust
-    /// pub trait LOL<A, Z> {} 
+    /// pub trait LOL<A, Z> {}
     /// ```
     pub GENERIC_REORDER,
     Warn,
@@ -58,13 +58,14 @@ impl<'tcx> LateLintPass<'tcx> for GenericReorder {
             match param.kind {
                 GenericParamKind::Lifetime { .. } | GenericParamKind::Const { .. } => {
                     continue;
-                }, // don't care abt lifetime or const
+                } // don't care abt lifetime or const
                 GenericParamKind::Type { .. } => {
-                    let ParamName::Plain(ident) = param.name else { // Plain is the user given name
+                    let ParamName::Plain(ident) = param.name else {
+                        // Plain is the user given name
                         continue;
                     };
                     names.push((ident.name, param.span)); // i need span cuz later it's used for span_lint
-                },
+                }
             }
         }
         check_generics(cx, &names);
@@ -77,7 +78,10 @@ fn check_generics(cx: &LateContext<'_>, params: &[(Symbol, Span)]) {
     let last = params.last();
 
     if let (Some((_, first_span)), Some((_, last_span))) = (first, last) {
-        let names: Vec<String> = params.iter().map(|(s, _)| s.to_string()).collect::<Vec<String>>();
+        let names: Vec<String> = params
+            .iter()
+            .map(|(s, _)| s.to_string())
+            .collect::<Vec<String>>();
         if !names.is_sorted() {
             let merged_span = first_span.to(*last_span);
 

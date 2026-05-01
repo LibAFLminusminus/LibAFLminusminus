@@ -33,13 +33,6 @@ pub mod shadow;
 #[cfg(not(feature = "remove_me"))]
 pub use shadow::*;
 
-#[cfg(feature = "std")]
-#[cfg(not(feature = "remove_me"))]
-pub mod afl_stats;
-#[cfg(feature = "std")]
-#[cfg(not(feature = "remove_me"))]
-pub use afl_stats::{AflStatsStage, CalibrationTime, FuzzTime, SyncTime};
-
 #[cfg(not(feature = "remove_me"))]
 pub mod calibrate;
 #[cfg(not(feature = "remove_me"))]

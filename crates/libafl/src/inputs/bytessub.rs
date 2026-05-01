@@ -215,7 +215,10 @@ mod tests {
     use libafl_bolts::{HasLen, rands::StdRand};
 
     use crate::{
-        corpus::{InMemoryCorpus, schedulers::QueueScheduler}, inputs::{BytesInput, HasMutatorBytes, NopInput, ResizableMutator, bytes::BytesContext}, mutators::{MutatorsTuple, havoc_mutations_no_crossover}, states::{NopState, StdState}
+        corpus::{InMemoryCorpus, schedulers::QueueScheduler},
+        inputs::{BytesInput, HasMutatorBytes, NopInput, ResizableMutator, bytes::BytesContext},
+        mutators::{MutatorsTuple, havoc_mutations_no_crossover},
+        states::{NopState, StdState},
     };
 
     fn init_bytes_input() -> (BytesInput, usize) {
@@ -339,7 +342,8 @@ mod tests {
         let mut state = StdState::new(corpus, objective_corpus).unwrap();
         let mut rand = StdRand::new();
 
-        let result = havoc_mutations_no_crossover().mutate_all(&mut sub_input, &mut rand, &mut state);
+        let result =
+            havoc_mutations_no_crossover().mutate_all(&mut sub_input, &mut rand, &mut state);
         assert!(result.is_ok());
         assert_ne!(bytes_input, bytes_input_cloned);
     }

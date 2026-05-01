@@ -1,3 +1,18 @@
+use alloc::{boxed::Box, vec::Vec};
+use core::pin::Pin;
+use std::{
+    backtrace::Backtrace,
+    io::Write,
+    panic::{self, PanicHookInfo},
+};
+
+use libafl_bolts::os::{
+    exit,
+    unix_signals::{Signal, SignalHandler, setup_signal_handler, ucontext_t},
+};
+use libafl_core::Error;
+use libc::{SIGABRT, siginfo_t};
+
 use crate::{
     executors::common_signals,
     runtimes::{
@@ -6,19 +21,6 @@ use crate::{
         },
         utils::{IntoTerminationHandlerData, TerminationHandler},
     },
-};
-use alloc::{boxed::Box, vec::Vec};
-use core::pin::Pin;
-use libafl_bolts::os::{
-    exit,
-    unix_signals::{Signal, SignalHandler, setup_signal_handler, ucontext_t},
-};
-use libafl_core::Error;
-use libc::{SIGABRT, siginfo_t};
-use std::{
-    backtrace::Backtrace,
-    io::Write,
-    panic::{self, PanicHookInfo},
 };
 
 pub type OsTerminationHandler<CH, D, TH> = UnixSignalHandler<CH, D, TH>;

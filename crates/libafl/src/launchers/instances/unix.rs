@@ -1,5 +1,14 @@
-use crate::{Controller, Error, Result, WorkdirFile, Worker, monitors::Monitor, runtimes::Runtime};
 use core::{borrow::Borrow, hash::Hash, time::Duration};
+use std::{
+    collections::HashSet,
+    fs::File,
+    os::fd::{AsFd, OwnedFd},
+    process::exit,
+    thread::sleep,
+    time::Instant,
+    vec::Vec,
+};
+
 use libafl_bolts::core_affinity::CoreId;
 use nix::{
     poll::{PollFd, PollFlags, PollTimeout, poll},
@@ -11,15 +20,8 @@ use nix::{
     },
     unistd::{ForkResult, Pid, dup2_stderr, dup2_stdout, fork, getpid, getppid, pipe},
 };
-use std::{
-    collections::HashSet,
-    fs::File,
-    os::fd::{AsFd, OwnedFd},
-    process::exit,
-    thread::sleep,
-    time::Instant,
-    vec::Vec,
-};
+
+use crate::{Controller, Error, Result, WorkdirFile, Worker, monitors::Monitor, runtimes::Runtime};
 
 pub type InstanceId = u32;
 

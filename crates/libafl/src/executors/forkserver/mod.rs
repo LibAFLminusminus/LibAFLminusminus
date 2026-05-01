@@ -7,13 +7,6 @@ use core::{
     ops::{Deref, DerefMut},
     time::Duration,
 };
-use libafl_core::forkserver::{
-    AFL_GCC_ONLY_FSRV_VAR, AFL_LLVM_ONLY_FSRV_VAR, AFL_MAP_SIZE_ENV_VAR, FS_NEW_ERROR,
-    FS_NEW_OPT_AUTODTCT, FS_NEW_OPT_MAPSIZE, FS_NEW_OPT_SHDMEM_FUZZ, FS_NEW_VERSION_MAGIC_BASE,
-    FS_NEW_VERSION_MAGIC_MAX, FS_NEW_VERSION_MAX, FS_NEW_VERSION_MIN, MAX_INPUT_SIZE_DEFAULT,
-    MIN_INPUT_SIZE_DEFAULT, SHM_ENV_VAR, SHM_FUZZ_ENV_VAR, SHM_FUZZ_MAP_SIZE_ENV_VAR,
-    SHMEM_FUZZ_HDR_SIZE,
-};
 use std::{
     alloc::System,
     env,
@@ -35,6 +28,13 @@ use libafl_bolts::{
     os::{dup2, last_error_str},
     tuples::{MatchNameRef, Prepend, RefIndexable},
 };
+use libafl_core::forkserver::{
+    AFL_GCC_ONLY_FSRV_VAR, AFL_LLVM_ONLY_FSRV_VAR, AFL_MAP_SIZE_ENV_VAR, FS_NEW_ERROR,
+    FS_NEW_OPT_AUTODTCT, FS_NEW_OPT_MAPSIZE, FS_NEW_OPT_SHDMEM_FUZZ, FS_NEW_VERSION_MAGIC_BASE,
+    FS_NEW_VERSION_MAGIC_MAX, FS_NEW_VERSION_MAX, FS_NEW_VERSION_MIN, MAX_INPUT_SIZE_DEFAULT,
+    MIN_INPUT_SIZE_DEFAULT, SHM_ENV_VAR, SHM_FUZZ_ENV_VAR, SHM_FUZZ_MAP_SIZE_ENV_VAR,
+    SHMEM_FUZZ_HDR_SIZE,
+};
 use nix::{
     sys::{
         select::{FdSet, pselect},
@@ -44,6 +44,7 @@ use nix::{
     },
     unistd::Pid,
 };
+use static_assertions::const_assert_eq;
 
 use super::{StdChildArgs, StdChildArgsInner};
 use crate::{
@@ -59,6 +60,11 @@ use crate::{
 
 pub mod config;
 pub use config::*;
+
+type ForkserverShmSize = u32;
+type ForkserverShm = SysVShm<ForkserverShmSize>;
+
+const_assert_eq!(size_of::<ForkserverShmSize>(), SHMEM_FUZZ_HDR_SIZE);
 
 /// Forkserver message. We'll reuse it in a testcase.
 const FAILED_TO_START_FORKSERVER_MSG: &str = "Failed to start forkserver";
@@ -509,14 +515,14 @@ impl<OT> ForkserverExecutor<OT> {
                 self.map.is_some(),
                 "The uses_shmem_testcase() bool can only exist when a map is set"
             );
-            // # Safety
-            // Struct can never be created when uses_shmem_testcase is true and map is none.
-            let map = unsafe { self.map.as_mut().unwrap_unchecked() };
-            // The first four bytes declares the size of the shmem.
-            map.as_slice_mut()[..SHMEM_FUZZ_HDR_SIZE]
-                .copy_from_slice(&input_size_in_bytes[..SHMEM_FUZZ_HDR_SIZE]);
-            map.as_slice_mut()[SHMEM_FUZZ_HDR_SIZE..(SHMEM_FUZZ_HDR_SIZE + input_size)]
-                .copy_from_slice(&input[..input_size]);
+
+            unsafe {
+                self.map
+                    .as_mut()
+                    .unwrap_unchecked()
+                    .shm_mut()
+                    .write(&input[..input_size]);
+            }
         } else {
             self.input_file.write_buf(&input[..input_size])?;
         }
@@ -695,7 +701,7 @@ impl<'a> StdTargetArgs for ForkserverExecutorBuilder<'a> {
 pub struct BuiltForkserver {
     forkserver: Forkserver,
     input_file: InputFile,
-    map: Option<SysVShm<EmptyShmHeader>>,
+    map: Option<ForkserverShm>,
     target: OsString,
     args: Vec<OsString>,
     uses_shmem_testcase: bool,
@@ -784,14 +790,19 @@ impl<'a> ForkserverExecutorBuilder<'a> {
         };
 
         let map = if self.try_use_input_shmem {
-            let mut shmem = SysVShm::new(self.max_input_size + SHMEM_FUZZ_HDR_SIZE)?;
+            let mut shmem: ForkserverShm = SysVShm::new_with_hdr(self.max_input_size)?;
+
             unsafe {
                 shmem.write_to_env(SHM_FUZZ_ENV_VAR)?;
-                env::set_var(SHM_FUZZ_MAP_SIZE_ENV_VAR, format!("{}", shmem.len()));
+                env::set_var(SHM_FUZZ_MAP_SIZE_ENV_VAR, format!("{}", shmem.total_len()));
             }
 
-            let size_in_bytes = (self.max_input_size + SHMEM_FUZZ_HDR_SIZE).to_ne_bytes();
-            shmem.as_slice_mut()[..4].clone_from_slice(&size_in_bytes[..4]);
+            unsafe {
+                shmem
+                    .shm_mut()
+                    .set_size(self.max_input_size + SHMEM_FUZZ_HDR_SIZE);
+            }
+
             Some(shmem)
         } else {
             None

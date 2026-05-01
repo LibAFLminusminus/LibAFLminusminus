@@ -1,5 +1,6 @@
 use std::{thread, time::Duration};
 
+use libafl_bolts::{StdTimer, timers::FastTimer};
 use libafl_core::Error;
 use libc::{SIGALRM, SIGSEGV};
 use rusty_fork::{rusty_fork_id, rusty_fork_test};
@@ -13,8 +14,6 @@ use crate::{
     },
     states::NopState,
 };
-
-use libafl_bolts::{StdTimer, timers::FastTimer};
 
 rusty_fork_test! {
     #[test]
@@ -66,7 +65,7 @@ where
 {
     let state = NopState::<NopInput>::new();
     let mut worker = NopWorker;
-    
+
     let std_timer = StdTimer::new();
 
     let mut runtime = InProcessRuntime::new(
@@ -74,7 +73,7 @@ where
         crash_handler,
         TerminationHandlerData::new(),
         timeout_handler,
-        std_timer
+        std_timer,
     );
 
     if set_input {

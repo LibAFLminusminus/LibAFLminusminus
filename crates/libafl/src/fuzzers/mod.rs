@@ -231,7 +231,7 @@ impl EvaluationResult {
     pub fn not_interesting() -> Self {
         Self {
             exit_kind: ExitKind::Ok,
-            verdict: Verdict::Uninteresting
+            verdict: Verdict::Uninteresting,
         }
     }
 

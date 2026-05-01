@@ -68,9 +68,7 @@ where
 
         let history_map = map_state.history_map.as_slice();
 
-        let interesting = unsafe {
-            covmap_is_interesting_simd::<R, V>(history_map, &map)
-        };
+        let interesting = unsafe { covmap_is_interesting_simd::<R, V>(history_map, &map) };
         #[cfg(feature = "track_hit_feedbacks")]
         {
             self.last_result = Some(interesting);

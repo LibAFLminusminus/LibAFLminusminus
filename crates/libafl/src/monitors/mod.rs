@@ -1,18 +1,20 @@
+use alloc::{string::String, vec::Vec};
+use core::{fmt, time::Duration};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+    thread::current,
+};
+
+use libafl_bolts::{Error, current_time};
+use nix::sys::ptrace::interrupt;
+use serde::{Deserialize, Serialize};
+
 use crate::{
     Controller, Worker,
     fuzzers::HasObjective,
     runtimes::RuntimeHandle,
     states::{FlatState, read_stats_json},
-};
-use alloc::{string::String, vec::Vec};
-use core::{fmt, time::Duration};
-use libafl_bolts::{Error, current_time};
-use nix::sys::ptrace::interrupt;
-use serde::{Deserialize, Serialize};
-use std::{
-    fs,
-    path::{Path, PathBuf},
-    thread::current,
 };
 
 pub mod simple;

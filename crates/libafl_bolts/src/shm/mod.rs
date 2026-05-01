@@ -40,7 +40,7 @@ pub trait ShmHeader {
     ///
     /// `ptr` must point to the start of a live shared memory region of at least
     /// `HEADER_SIZE + total_minus_header` bytes.
-    unsafe fn read_real_size(ptr: NonNull<u8>, total_minus_header: usize) -> Option<usize>;
+    unsafe fn read_real_size(ptr: NonNull<u8>, max_data_len: usize) -> Option<usize>;
 
     /// Stores `size` into the header.
     ///
@@ -48,7 +48,7 @@ pub trait ShmHeader {
     ///
     /// `ptr` must point to the start of a live shared memory region with at least
     /// `HEADER_SIZE` bytes.
-    unsafe fn write_real_sie(ptr: NonNull<u8>, size: usize);
+    unsafe fn write_real_size(ptr: NonNull<u8>, size: usize);
 
     /// Marks the region as invalid by writing the sentinel value into the header.
     ///
@@ -75,7 +75,7 @@ impl ShmHeader for EmptyShmHeader {
     }
 
     #[inline]
-    unsafe fn write_real_sie(_ptr: NonNull<u8>, _size: usize) {}
+    unsafe fn write_real_size(_ptr: NonNull<u8>, _size: usize) {}
 
     #[inline]
     unsafe fn invalidate(_ptr: NonNull<u8>) {}
@@ -98,7 +98,7 @@ where
         }
     }
 
-    unsafe fn write_real_sie(ptr: NonNull<u8>, size: usize) {
+    unsafe fn write_real_size(ptr: NonNull<u8>, size: usize) {
         let sz: SZ = NumCast::from(size).unwrap();
         let size_ptr = ptr.as_ptr() as *mut Atomic<SZ>;
 
@@ -195,8 +195,13 @@ impl<SZ: ShmHeader> SharedMemory<SZ> {
     }
 
     /// Total size of the allocation, including the header.
-    pub fn total_size(&self) -> usize {
+    pub fn total_len(&self) -> usize {
         self.total_size
+    }
+
+    /// Maximum size available for the data (without the header).
+    pub fn max_data_len(&self) -> usize {
+        self.total_size - SZ::HEADER_SIZE
     }
 
     /// Returns a slice of the effectively written data.
@@ -208,7 +213,7 @@ impl<SZ: ShmHeader> SharedMemory<SZ> {
     ///
     /// Calling this before [`data_mut`] has been called in general has an undefined behavior.
     pub unsafe fn data(&self) -> &[u8] {
-        let data_size = unsafe { SZ::read_real_size(self.ptr, self.total_size - SZ::HEADER_SIZE) }
+        let data_size = unsafe { SZ::read_real_size(self.ptr, self.max_data_len()) }
             .expect("Invalid data size stored.");
 
         unsafe { slice::from_raw_parts(self.ptr.as_ptr().add(SZ::HEADER_SIZE), data_size) }
@@ -239,7 +244,7 @@ impl<SZ: ShmHeader> SharedMemory<SZ> {
     ///
     /// Must be called after every write through [`data_mut`].
     pub unsafe fn set_size(&mut self, size: usize) {
-        unsafe { SZ::write_real_sie(self.ptr, size) }
+        unsafe { SZ::write_real_size(self.ptr, size) }
     }
 
     /// Returns the effective data size, or `None` if the region is marked invalid.
@@ -261,5 +266,25 @@ impl<SZ: ShmHeader> SharedMemory<SZ> {
     /// For [`EmptyShmHeader`], this does nothing.
     pub fn mark_invalid(&mut self) {
         unsafe { SZ::invalidate(self.ptr) }
+    }
+
+    /// Write bytes to shared memory
+    pub fn write(&mut self, data: &[u8]) -> Result<()> {
+        let shm_data = unsafe { self.data_mut() };
+
+        if data.len() > shm_data.len() {
+            return Err(runtime!(
+                "Shm has at most {} bytes, but data to write is {} bytes long.",
+                shm_data.len(),
+                data.len()
+            ));
+        }
+
+        unsafe {
+            shm_data[..data.len()].copy_from_slice(data);
+            self.set_size(data.len());
+        }
+
+        Ok(())
     }
 }
