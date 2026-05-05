@@ -1,15 +1,16 @@
-use core::{marker::PhantomData, ops::IndexMut};
+use core::{ops::IndexMut, time::Duration};
 use std::{
     io::{Read, Seek},
     os::fd::AsRawFd,
 };
 
 use libafl::{
-    Error,
-    executors::{Executor, ExitKind, HasObservers, HasTimeout, SetTimeout},
-    inputs::HasTargetBytes,
+    DependencyResolver, Error,
+    corpus::Corpus,
+    executors::{Executor, ExitKind},
+    inputs::InputContext,
     observers::{ObserversTuple, StdOutObserver},
-    states::HasExecutions,
+    states::{FlatState, HasCorpus},
 };
 use libafl_bolts::{
     AsSlice,
@@ -20,7 +21,7 @@ use libnyx::NyxReturnValue;
 use crate::{cmplog::CMPLOG_ENABLED, helper::NyxHelper};
 
 /// executor for nyx standalone mode
-pub struct NyxExecutor<S, OT> {
+pub struct NyxExecutor<OT> {
     /// implement nyx function
     pub helper: NyxHelper,
     /// stdout
@@ -29,11 +30,10 @@ pub struct NyxExecutor<S, OT> {
     // stderr: Option<StdErrObserver>,
     /// observers
     observers: OT,
-    /// phantom data to keep generic type <I,S>
-    phantom: PhantomData<S>,
+    timeout: Option<Duration>,
 }
 
-impl NyxExecutor<(), ()> {
+impl NyxExecutor<()> {
     /// Create a builder for [`NyxExecutor`]
     #[must_use]
     pub fn builder() -> NyxExecutorBuilder {
@@ -41,22 +41,52 @@ impl NyxExecutor<(), ()> {
     }
 }
 
-impl<EM, I, OT, S, Z> Executor<EM, I, S, Z> for NyxExecutor<S, OT>
-where
-    S: HasExecutions,
-    I: HasTargetBytes,
-    OT: ObserversTuple<I, S>,
-{
-    fn run_target(
-        &mut self,
-        _fuzzer: &mut Z,
-        state: &mut S,
-        _mgr: &mut EM,
-        input: &I,
-    ) -> Result<ExitKind, Error> {
-        *state.executions_mut() += 1;
+impl<OT> DependencyResolver for NyxExecutor<OT> {}
 
-        let bytes = input.target_bytes();
+impl<I, OT, S> Executor<I, S> for NyxExecutor<OT>
+where
+    S: FlatState + HasCorpus<I>,
+    OT: ObserversTuple<S>,
+{
+    type Observers = OT;
+
+    fn init<W: libafl::Worker>(
+        &mut self,
+        _state: &mut S,
+        _rt_handle: &mut libafl::runtimes::RuntimeHandle<S, W>,
+    ) -> Result<(), Error> {
+        if let Some(tm) = self.timeout {
+            self.set_timeout(tm);
+        }
+        Ok(())
+    }
+
+    fn observers(&self) -> RefIndexable<&Self::Observers, Self::Observers> {
+        RefIndexable::from(&self.observers)
+    }
+
+    fn observers_mut(&mut self) -> RefIndexable<&mut Self::Observers, Self::Observers> {
+        RefIndexable::from(&mut self.observers)
+    }
+
+    fn execute<W: libafl::Worker>(
+        &mut self,
+        state: &mut S,
+        _rt_handle: &mut libafl::runtimes::RuntimeHandle<S, W>,
+        input: &I,
+    ) -> Result<ExitKind, Error>
+    where
+        S: libafl::states::FlatState,
+    {
+        unsafe { self.execute_impl(state, input) }
+    }
+
+    unsafe fn execute_impl(&mut self, state: &mut S, input: &I) -> Result<ExitKind, Error> {
+        let context = state.corpus_mut().context_mut();
+        let bytes = context.to_bytes(input);
+
+        state.increment_execs();
+
         let buffer = bytes.as_slice();
 
         if buffer.len() > self.helper.nyx_process.input_buffer_size() {
@@ -149,13 +179,7 @@ where
     }
 }
 
-impl<S, OT> HasTimeout for NyxExecutor<S, OT> {
-    fn timeout(&self) -> core::time::Duration {
-        self.helper.timeout
-    }
-}
-
-impl<S, OT> SetTimeout for NyxExecutor<S, OT> {
+impl<OT> NyxExecutor<OT> {
     fn set_timeout(&mut self, timeout: core::time::Duration) {
         let micros = 1000000;
         let mut timeout_secs = timeout.as_secs();
@@ -173,7 +197,7 @@ impl<S, OT> SetTimeout for NyxExecutor<S, OT> {
     }
 }
 
-impl<S, OT> NyxExecutor<S, OT> {
+impl<OT> NyxExecutor<OT> {
     /// Convert `trace_bits` ptr into real trace map
     ///
     /// # Safety
@@ -187,7 +211,7 @@ impl<S, OT> NyxExecutor<S, OT> {
 
 pub struct NyxExecutorBuilder {
     stdout: Option<Handle<StdOutObserver>>,
-    // stderr: Option<StdErrObserver>,
+    timeout: Option<Duration>, // stderr: Option<StdErrObserver>,
 }
 
 impl Default for NyxExecutorBuilder {
@@ -201,6 +225,7 @@ impl NyxExecutorBuilder {
     pub fn new() -> Self {
         Self {
             stdout: None,
+            timeout: None,
             // stderr: None,
         }
     }
@@ -210,32 +235,17 @@ impl NyxExecutorBuilder {
         self
     }
 
-    /*
-    pub fn stderr(&mut self, stderr: StdErrObserver) -> &mut Self {
-        self.stderr = Some(stderr);
+    pub fn timeout(&mut self, timeout: Duration) -> &mut Self {
+        self.timeout = Some(timeout);
         self
     }
-    */
 
-    pub fn build<S, OT>(&self, helper: NyxHelper, observers: OT) -> NyxExecutor<S, OT> {
+    pub fn build<OT>(&self, helper: NyxHelper, observers: OT) -> NyxExecutor<OT> {
         NyxExecutor {
             helper,
             stdout: self.stdout.clone(),
-            // stderr: self.stderr.clone(),
+            timeout: self.timeout,
             observers,
-            phantom: PhantomData,
         }
-    }
-}
-
-impl<S, OT> HasObservers for NyxExecutor<S, OT> {
-    type Observers = OT;
-
-    fn observers(&self) -> RefIndexable<&Self::Observers, Self::Observers> {
-        RefIndexable::from(&self.observers)
-    }
-
-    fn observers_mut(&mut self) -> RefIndexable<&mut Self::Observers, Self::Observers> {
-        RefIndexable::from(&mut self.observers)
     }
 }

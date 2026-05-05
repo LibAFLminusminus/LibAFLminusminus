@@ -1123,11 +1123,7 @@ impl<'a> ForkserverExecutorBuilder<'a> {
 mod tests {
     use std::ffi::OsString;
 
-    use libafl_bolts::{
-        AsSliceMut, StdTargetArgs, SysVShm,
-        shmem::{ShMem, ShMemProvider, UnixShMemProvider},
-        tuples::tuple_list,
-    };
+    use libafl_bolts::{AsSliceMut, StdTargetArgs, SysVShm, tuples::tuple_list};
     use serial_test::serial;
 
     use crate::{

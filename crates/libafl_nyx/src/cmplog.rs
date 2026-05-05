@@ -5,17 +5,15 @@
 use alloc::borrow::Cow;
 
 use libafl::{
-    Error, HasMetadata,
+    DependencyResolver, Error,
     executors::ExitKind,
     observers::{CmpValues, CmpValuesMetadata, Observer},
-    states::HasExecutions,
+    states::{FlatState, named_metadata_mut},
 };
 use libafl_bolts::Named;
 pub use libafl_targets::{
-    CMPLOG_MAP_H, CMPLOG_MAP_PTR, CMPLOG_MAP_SIZE, CMPLOG_MAP_W, CmpLogMap, CmpLogObserver,
-    cmps::{
-        __libafl_targets_cmplog_instructions, __libafl_targets_cmplog_routines, CMPLOG_ENABLED,
-    },
+    CMPLOG_ENABLED, CMPLOG_MAP_H, CMPLOG_MAP_PTR, CMPLOG_MAP_SIZE, CMPLOG_MAP_W, CmpLogMap,
+    cmps::{__libafl_targets_cmplog_instructions, __libafl_targets_cmplog_routines},
 };
 use serde::{Deserialize, Serialize};
 
@@ -43,24 +41,33 @@ impl NyxCmpObserver {
     }
 }
 
-impl<I, S> Observer<I, S> for NyxCmpObserver
+impl DependencyResolver for NyxCmpObserver {
+    fn register(&mut self, registrator: &mut libafl::Registrator) -> Result<(), Error> {
+        registrator.register_md_default::<CmpValuesMetadata>(self.name().to_string());
+        Ok(())
+    }
+}
+
+impl<S> Observer<S> for NyxCmpObserver
 where
-    S: HasMetadata + HasExecutions,
-    I: core::fmt::Debug,
+    S: FlatState,
 {
-    fn pre_exec(&mut self, _state: &mut S, _input: &I) -> Result<(), Error> {
+    fn pre_exec(&mut self, _state: &mut S) -> Result<(), Error> {
         unsafe {
             CMPLOG_ENABLED = 1;
         }
         Ok(())
     }
 
-    fn post_exec(&mut self, state: &mut S, _input: &I, _exit_kind: &ExitKind) -> Result<(), Error> {
+    fn post_exec(&mut self, state: &mut S, _exit_kind: &ExitKind) -> Result<(), Error> {
         unsafe {
             CMPLOG_ENABLED = 0;
         }
         if self.add_meta {
-            let meta = state.metadata_or_insert_with(CmpValuesMetadata::new);
+            let meta = named_metadata_mut::<CmpValuesMetadata>(
+                state.named_metadata_map_mut(),
+                self.name(),
+            )?;
             let rq_data = parse_redqueen_data(&std::fs::read_to_string(self.path.as_ref())?);
             for event in rq_data.bps {
                 if let Ok(cmp_value) = event.try_into() {
