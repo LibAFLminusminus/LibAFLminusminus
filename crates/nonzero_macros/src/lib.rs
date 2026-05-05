@@ -11,8 +11,8 @@
 //!
 //! ## Macros
 //!
-//! - [`nonzero!`](crate::nonzero): A compile-time checked way to create `NonZero*` types. Panics if the value is zero.
-//! - [`try_nonzero!`](crate::try_nonzero): A compile-time checked way to create `Option<NonZero*>` types. Returns `None` if the value is zero.
+//! - [`non_zero!`](crate::non_zero): A compile-time checked way to create `NonZero*` types. Panics if the value is zero.
+//! - [`try_non_zero!`](crate::try_non_zero): A compile-time checked way to create `Option<NonZero*>` types. Returns `None` if the value is zero.
 //! - [`nonnull_raw_mut!`](crate::nonnull_raw_mut): A safe wrapper around `&raw mut` that returns a `NonNull` pointer.
 
 /// Zero-cost way to construct `NonZero*` types from [`core::num`] at compile-time.
@@ -25,15 +25,15 @@
 /// ```
 /// use core::num::NonZeroUsize;
 ///
-/// use nonzero_macros::nonzero;
+/// use nonzero_macros::non_zero;
 ///
-/// const VAL: NonZeroUsize = nonzero!(10);
+/// const VAL: NonZeroUsize = non_zero!(10);
 /// assert_eq!(VAL.get(), 10);
 /// ```
 ///
 /// ```compile_fail
-/// use nonzero_macros::nonzero;
-/// let _ = nonzero!(0); // Panics at compile-time
+/// use nonzero_macros::non_zero;
+/// let _ = non_zero!(0); // Panics at compile-time
 /// ```
 #[macro_export]
 macro_rules! non_zero {
@@ -52,15 +52,15 @@ macro_rules! non_zero {
 /// ```
 /// use core::num::NonZeroUsize;
 ///
-/// use nonzero_macros::nonzero;
+/// use nonzero_macros::non_zero;
 ///
-/// const VAL: NonZeroUsize = nonzero!(10);
+/// const VAL: NonZeroUsize = non_zero!(10);
 /// assert_eq!(VAL.get(), 10);
 /// ```
 ///
 /// ```compile_fail
-/// use nonzero_macros::nonzero;
-/// let _ = nonzero!(0); // Panics at compile-time
+/// use nonzero_macros::non_zero;
+/// let _ = non_zero!(0); // Panics at compile-time
 /// ```
 #[macro_export]
 macro_rules! non_zero_unchecked {
@@ -79,15 +79,15 @@ macro_rules! non_zero_unchecked {
 /// ```
 /// use core::num::NonZeroUsize;
 ///
-/// use nonzero_macros::nonzero;
+/// use nonzero_macros::non_zero;
 ///
-/// const VAL: NonZeroUsize = nonzero!(10);
+/// const VAL: NonZeroUsize = non_zero!(10);
 /// assert_eq!(VAL.get(), 10);
 /// ```
 ///
 /// ```compile_fail
-/// use nonzero_macros::nonzero;
-/// let _ = nonzero!(0); // Panics at compile-time
+/// use nonzero_macros::non_zero;
+/// let _ = non_zero!(0); // Panics at compile-time
 /// ```
 #[macro_export]
 macro_rules! non_zero_const {
@@ -106,18 +106,18 @@ macro_rules! non_zero_const {
 /// ```
 /// use core::num::NonZeroU8;
 ///
-/// use nonzero_macros::try_nonzero;
+/// use nonzero_macros::try_non_zero;
 ///
 /// // Compile-time
-/// const VAL: Option<NonZeroU8> = try_nonzero!(5);
+/// const VAL: Option<NonZeroU8> = try_non_zero!(5);
 /// assert!(VAL.is_some());
 ///
-/// const ZERO: Option<NonZeroU8> = try_nonzero!(0);
+/// const ZERO: Option<NonZeroU8> = try_non_zero!(0);
 /// assert!(ZERO.is_none());
 ///
 /// // Runtime
 /// let x = 5;
-/// let val = try_nonzero!(x);
+/// let val = try_non_zero!(x);
 /// assert!(val.is_some());
 /// ```
 #[macro_export]
@@ -169,15 +169,15 @@ mod tests {
 
     #[test]
     fn test_nonzero() {
-        const VAL: NonZeroUsize = nonzero!(10);
+        const VAL: NonZeroUsize = non_zero!(10);
         assert_eq!(VAL.get(), 10);
     }
 
     #[test]
     fn test_try_nonzero() {
         // Const context
-        const VAL: Option<NonZeroU8> = try_nonzero!(5);
-        const ZERO: Option<NonZeroU8> = try_nonzero!(0);
+        const VAL: Option<NonZeroU8> = try_non_zero!(5);
+        const ZERO: Option<NonZeroU8> = try_non_zero!(0);
 
         assert!(VAL.is_some());
         assert_eq!(VAL.unwrap().get(), 5);
@@ -185,7 +185,7 @@ mod tests {
 
         // Runtime context
         let x = 5;
-        let val: Option<NonZeroU8> = try_nonzero!(x);
+        let val: Option<NonZeroU8> = try_non_zero!(x);
         assert!(val.is_some());
         assert_eq!(val.unwrap().get(), 5);
     }
