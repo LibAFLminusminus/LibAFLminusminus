@@ -170,6 +170,7 @@ libafl_bolts = { workspace = true, features = ["alloc"] }
 libafl_core = { workspace = true }
 libafl_derive = { workspace = true, default-features = true, optional = true }
 libafl_intelpt = { workspace = true, default-features = true, optional = true }
+libafl_targets = { workspace = true, default-features = true }
 tuple_list_ex = { workspace = true }
 
 quanta = "0.12.6"

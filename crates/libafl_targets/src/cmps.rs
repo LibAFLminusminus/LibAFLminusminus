@@ -54,8 +54,6 @@ unsafe extern "C" {
     pub static mut libafl_cmplog_map_extended_ptr: *mut CmpLogMap;
 }
 
-
-
 /// Value indicating if cmplog is enabled.
 #[unsafe(no_mangle)]
 #[allow(non_upper_case_globals)] // expect breaks here for some reason
@@ -67,9 +65,12 @@ pub static mut libafl_cmplog_enabled: u8 = 0;
 #[repr(C)]
 #[derive(Default, Debug, Copy, Clone)]
 pub struct CmpLogHeader {
-    hits: u16,
-    shape: u8,
-    kind: u8,
+    /// number of times that this comparison was hit
+    pub hits: u16,
+    /// the size of the comparison (in u8)
+    pub shape: u8,
+    /// if it is insn or rtn
+    pub kind: u8,
 }
 
 // VALS
@@ -77,19 +78,21 @@ pub struct CmpLogHeader {
 /// The operands logged during `CmpLog`.
 #[repr(C)]
 #[derive(Default, Debug, Copy, Clone)]
-pub struct CmpLogInstruction(u64, u64, u8);
+pub struct CmpLogInstruction(pub u64, pub u64, pub u8);
 
 /// The routine arguments logged during `CmpLog`.
 #[repr(C)]
 #[derive(Default, Debug, Copy, Clone)]
-pub struct CmpLogRoutine([u8; CMPLOG_RTN_LEN], [u8; CMPLOG_RTN_LEN]);
+pub struct CmpLogRoutine(pub [u8; CMPLOG_RTN_LEN], pub [u8; CMPLOG_RTN_LEN]);
 
 /// Union of cmplog operands and routines
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub union CmpLogVals {
-    operands: [[CmpLogInstruction; CMPLOG_MAP_H]; CMPLOG_MAP_W],
-    routines: [[CmpLogRoutine; CMPLOG_MAP_RTN_H]; CMPLOG_MAP_W],
+    /// the value compared
+    pub operands: [[CmpLogInstruction; CMPLOG_MAP_H]; CMPLOG_MAP_W],
+    /// the function args compared
+    pub routines: [[CmpLogRoutine; CMPLOG_MAP_RTN_H]; CMPLOG_MAP_W],
 }
 
 impl Debug for CmpLogVals {
@@ -104,8 +107,10 @@ impl Debug for CmpLogVals {
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct CmpLogMap {
-    headers: [CmpLogHeader; CMPLOG_MAP_W],
-    vals: CmpLogVals,
+    /// the headers to say what the values compared are
+    pub headers: [CmpLogHeader; CMPLOG_MAP_W],
+    /// the acutual values
+    pub vals: CmpLogVals,
 }
 
 impl Default for CmpLogMap {

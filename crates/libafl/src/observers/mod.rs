@@ -9,6 +9,9 @@ pub mod stdio;
 #[cfg(feature = "std")]
 pub use stdio::{StdErrObserver, StdOutObserver};
 
+pub mod cmplog;
+pub use cmplog::*;
+
 #[cfg(feature = "regex")]
 pub mod stacktrace;
 #[cfg(feature = "regex")]

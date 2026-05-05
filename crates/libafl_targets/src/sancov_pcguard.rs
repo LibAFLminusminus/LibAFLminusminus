@@ -65,7 +65,6 @@ pub(crate) unsafe fn sanitizer_cov_pcguard_impl(guard: *mut u32) {
     }
 }
 
-
 /// Initialize the sancov `pc_guard` - usually called by `llvm`.
 ///
 /// # Safety

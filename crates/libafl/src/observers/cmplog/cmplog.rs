@@ -1,19 +1,25 @@
 //! `CmpLog` logs and reports back values touched during fuzzing.
 //! The values will then be used in subsequent mutations.
 
-use alloc::borrow::Cow;
+use alloc::{borrow::Cow, string::ToString};
 use core::fmt::Debug;
 
-use libafl::{
-    Error, HasMetadata,
+use crate::{
+    DependencyResolver, Error,
     executors::ExitKind,
-    observers::{CmpMap, CmpObserver, Observer, cmp::CmpValuesMetadata},
+    observers::{
+        CmpMap, CmpObserver, CmplogBytes, Observer,
+        cmp::{CmpValues, CmpValuesMetadata},
+    },
+    states::{FlatState, named_metadata, named_metadata_mut, named_metadata_or_insert_with},
 };
 use libafl_bolts::{Named, ownedref::OwnedMutPtr};
 
-#[cfg(feature = "cmplog")]
-use crate::cmps::libafl_cmplog_map_ptr;
-use crate::cmps::{CMPLOG_ENABLED, CmpLogMap};
+use libafl_targets::cmps::libafl_cmplog_map_ptr;
+use libafl_targets::{
+    CMPLOG_KIND_INS, CMPLOG_KIND_RTN, CMPLOG_MAP_H, CMPLOG_MAP_RTN_H, CMPLOG_MAP_W, CMPLOG_RTN_LEN,
+    CmpLogHeader, CmpLogMap, exports::CMPLOG_ENABLED,
+};
 /// A [`CmpObserver`] observer for `CmpLog`
 #[derive(Debug)]
 pub struct CmpLogObserver {
@@ -43,11 +49,18 @@ impl CmpObserver for CmpLogObserver {
     }
 }
 
-impl<I, S> Observer<I, S> for CmpLogObserver
+impl DependencyResolver for CmpLogObserver {
+    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<(), Error> {
+        registrator.register_md_default::<CmpValuesMetadata>(self.name().to_string());
+        Ok(())
+    }
+}
+
+impl<S> Observer<S> for CmpLogObserver
 where
-    S: HasMetadata,
+    S: FlatState,
 {
-    fn pre_exec(&mut self, _state: &mut S, _input: &I) -> Result<(), Error> {
+    fn pre_exec(&mut self, _state: &mut S) -> Result<(), Error> {
         self.map.as_mut().reset()?;
         unsafe {
             CMPLOG_ENABLED = 1;
@@ -55,13 +68,16 @@ where
         Ok(())
     }
 
-    fn post_exec(&mut self, state: &mut S, _input: &I, _exit_kind: &ExitKind) -> Result<(), Error> {
+    fn post_exec(&mut self, state: &mut S, _exit_kind: &ExitKind) -> Result<(), Error> {
         unsafe {
             CMPLOG_ENABLED = 0;
         }
 
         if self.add_meta {
-            let meta = state.metadata_or_insert_with(CmpValuesMetadata::new);
+            let meta = named_metadata_mut::<CmpValuesMetadata>(
+                state.named_metadata_map_mut(),
+                self.name(),
+            )?;
 
             let usable_count = self.usable_count();
 
@@ -93,7 +109,6 @@ impl CmpLogObserver {
         }
     }
 
-    #[cfg(feature = "cmplog")]
     /// Creates a new [`CmpLogObserver`] with the given name from the default cmplog map
     #[must_use]
     pub fn new(name: &'static str, add_meta: bool) -> Self {

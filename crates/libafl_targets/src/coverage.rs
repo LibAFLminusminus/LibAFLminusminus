@@ -1,26 +1,17 @@
 //! Coverage maps as static mut array
 
-#[cfg(any(
-    feature = "sancov_pcguard_edges",
-    feature = "sancov_pcguard_hitcounts",
-))]
+#[cfg(any(feature = "sancov_pcguard_edges", feature = "sancov_pcguard_hitcounts",))]
 use alloc::borrow::Cow;
 
 use crate::{
-    ACCOUNTING_MAP_SIZE, EDGES_MAP_ALLOCATED_SIZE, EDGES_MAP_DEFAULT_SIZE, exports::EDGES_MAP_PTR,
+    EDGES_MAP_ALLOCATED_SIZE, EDGES_MAP_DEFAULT_SIZE,
+    exports::{EDGES_MAP, EDGES_MAP_PTR},
 };
 
 /// The map for edges.
 #[unsafe(no_mangle)]
 #[allow(non_upper_case_globals)] // expect breaks here for some reason
 pub static mut __afl_area_ptr_local: [u8; EDGES_MAP_ALLOCATED_SIZE] = [0; EDGES_MAP_ALLOCATED_SIZE];
-pub use __afl_area_ptr_local as EDGES_MAP;
-
-/// The map for accounting mem writes.
-#[unsafe(no_mangle)]
-#[allow(non_upper_case_globals)] // expect breaks here for some reason
-pub static mut __afl_acc_memop_ptr_local: [u32; ACCOUNTING_MAP_SIZE] = [0; ACCOUNTING_MAP_SIZE];
-pub use __afl_acc_memop_ptr_local as ACCOUNTING_MEMOP_MAP;
 
 /// The max count of edges found.
 ///
@@ -87,15 +78,9 @@ static mut __afl_fuzz_len_local: u32 = 0;
 #[unsafe(no_mangle)]
 pub static mut __afl_fuzz_len: *mut u32 = &raw mut __afl_fuzz_len_local;
 
-#[cfg(any(
-    feature = "sancov_pcguard_edges",
-    feature = "sancov_pcguard_hitcounts",
-))]
+#[cfg(any(feature = "sancov_pcguard_edges", feature = "sancov_pcguard_hitcounts",))]
 use libafl::observers::StdMapObserver;
-#[cfg(any(
-    feature = "sancov_pcguard_edges",
-    feature = "sancov_pcguard_hitcounts",
-))]
+#[cfg(any(feature = "sancov_pcguard_edges", feature = "sancov_pcguard_hitcounts",))]
 use libafl_bolts::ownedref::OwnedMutSlice;
 
 /// Gets the edges map from the `EDGES_MAP_PTR` raw pointer.
@@ -106,10 +91,7 @@ use libafl_bolts::ownedref::OwnedMutSlice;
 /// This function will crash if `edges_map_mut_ptr` is not a valid pointer.
 /// The [`edges_max_num`] needs to be smaller than, or equal to the size of the map.
 #[must_use]
-#[cfg(any(
-    feature = "sancov_pcguard_edges",
-    feature = "sancov_pcguard_hitcounts",
-))]
+#[cfg(any(feature = "sancov_pcguard_edges", feature = "sancov_pcguard_hitcounts",))]
 pub unsafe fn edges_map_mut_slice<'a>() -> OwnedMutSlice<'a, u8> {
     unsafe { OwnedMutSlice::from_raw_parts_mut(edges_map_mut_ptr(), edges_max_num()) }
 }
@@ -141,10 +123,7 @@ pub unsafe fn edges_map_mut_slice<'a>() -> OwnedMutSlice<'a, u8> {
 ///
 /// # Safety
 /// This will dereference [`edges_map_mut_ptr`] and crash if it is not a valid address.
-#[cfg(any(
-    feature = "sancov_pcguard_edges",
-    feature = "sancov_pcguard_hitcounts",
-))]
+#[cfg(any(feature = "sancov_pcguard_edges", feature = "sancov_pcguard_hitcounts",))]
 pub unsafe fn std_edges_map_observer<'a, S>(name: S) -> StdMapObserver<'a, u8, false>
 where
     S: Into<Cow<'static, str>>,
@@ -168,10 +147,7 @@ pub fn edges_map_mut_ptr() -> *mut u8 {
 }
 
 /// Gets the current maximum number of edges tracked.
-#[cfg(any(
-    feature = "sancov_pcguard_edges",
-    feature = "sancov_pcguard_hitcounts",
-))]
+#[cfg(any(feature = "sancov_pcguard_edges", feature = "sancov_pcguard_hitcounts",))]
 #[must_use]
 pub fn edges_max_num() -> usize {
     unsafe {

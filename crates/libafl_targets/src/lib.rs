@@ -55,19 +55,9 @@ extern crate alloc;
 
 include!(concat!(env!("OUT_DIR"), "/constants.rs"));
 
-#[cfg(any(
-    feature = "sancov_pcguard_edges",
-    feature = "sancov_pcguard_hitcounts",
-    feature = "sancov_pcguard_dump_cov"
-))]
+#[cfg(any(feature = "sancov_pcguard_edges", feature = "sancov_pcguard_hitcounts",))]
 pub mod sancov_pcguard;
-#[cfg(feature = "sancov_pcguard_dump_cov")]
-pub mod sancov_pcguard_dump_cov;
-#[cfg(any(
-    feature = "sancov_pcguard_edges",
-    feature = "sancov_pcguard_hitcounts",
-    feature = "sancov_pcguard_dump_cov"
-))]
+#[cfg(any(feature = "sancov_pcguard_edges", feature = "sancov_pcguard_hitcounts",))]
 pub use sancov_pcguard::*;
 
 #[cfg(any(feature = "sancov_cmplog", feature = "sancov_value_profile"))]
@@ -94,11 +84,6 @@ pub mod sanitizer_ifaces {
     include!(concat!(env!("OUT_DIR"), "/sanitizer_interfaces.rs"));
 }
 
-#[cfg(feature = "libfuzzer")]
-pub mod libfuzzer;
-#[cfg(feature = "libfuzzer")]
-pub use libfuzzer::*;
-
 #[cfg(feature = "sancov_8bit")]
 pub mod sancov_8bit;
 #[cfg(feature = "sancov_8bit")]
@@ -111,12 +96,6 @@ pub use coverage::*;
 
 pub mod value_profile;
 pub use value_profile::*;
-
-/// The module to hook call instructions
-#[cfg(feature = "function-logging")]
-pub mod call;
-#[cfg(feature = "function-logging")]
-pub use call::*;
 
 /// runtime related to comparisons
 pub mod cmps;

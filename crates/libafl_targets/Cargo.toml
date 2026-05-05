@@ -28,7 +28,6 @@ default = [
   "std",
   "sanitizers_flags",
   "windows_asan",
-  "forkserver",
   "cmplog",
   "coverage",
   "common",
@@ -75,10 +74,6 @@ sancov_cmplog = ["common"]
 ## This is an alias for `sancov_pcguard_hitcounts`, enabling hitcounts coverage by default.
 sancov_pcguard = ["sancov_pcguard_hitcounts"]
 
-## Support for `sancov` pcguard dump cov.
-## This uses pcguard to be able to dump lcov-compatible .info files.
-sancov_pcguard_dump_cov = ["std", "backtrace"]
-
 ## Compile common C code defining sanitizer options and cross-platform intrinsics.
 ## This feature compiles `common.c` and `common.h`, which are used by many other features.
 common = []
@@ -90,11 +85,6 @@ coverage = ["common"]
 ## Compile C code defining cmp log maps.
 ## This feature compiles `cmplog.c` and `cmplog.h`, which define the comparison logging map and related structures.
 cmplog = ["common"]
-
-## Compile C code for forkserver support.
-## This feature compiles `forkserver.rs` and enables the forkserver protocol for communicating with the fuzzer.
-## It allows the target to be spawned and controlled by a parent fuzzer process.
-forkserver = ["common", "nix"]
 
 ## Compile C code for ASan on Windows.
 ## This feature compiles `windows_asan.c` and `windows_asan.rs` to provide AddressSanitizer support on Windows.
@@ -162,7 +152,7 @@ clippy = []
 ## Observers.
 ## This feature enables observer implementations in `sancov_8bit` and `cmps`.
 ## It allows using these observers to track coverage and comparison values.
-observers = ["meminterval"]
+observers = []
 
 ## Document all features of this crate (for `cargo doc`)
 document-features = ["dep:document-features"]
@@ -170,25 +160,12 @@ document-features = ["dep:document-features"]
 [build-dependencies]
 bindgen = "0.72.1"
 cc = { version = "1.2.53", features = ["parallel"] }
-rustversion = "1.0.22"
 
 [dependencies]
 document-features = { workspace = true, optional = true }
 libafl_bolts = { workspace = true, default-features = true }
 libafl_core = { workspace = true }
-fast_rands = { workspace = true }
 ownedref = { workspace = true }
-libc = { workspace = true }
-nix = { workspace = true, optional = true }
-hashbrown = { workspace = true, default-features = true }
-log = { workspace = true }
-rustversion = { workspace = true }
-
-serde = { workspace = true, default-features = false, features = [
-  "alloc",
-] } # serialization lib
-meminterval = { workspace = true, features = ["serde"], optional = true }
-backtrace = { workspace = true, optional = true }
 
 [lints]
 workspace = true

@@ -137,7 +137,6 @@ fn main() {
     println!("cargo:rerun-if-env-changed=LLVM_LDFLAGS");
     println!("cargo:rerun-if-env-changed=LLVM_VERSION");
     println!("cargo:rerun-if-env-changed=LIBAFL_EDGES_MAP_DEFAULT_SIZE");
-    println!("cargo:rerun-if-env-changed=LIBAFL_ACCOUNTING_MAP_SIZE");
     println!("cargo:rerun-if-changed=src/common-llvm.h");
     println!("cargo:rerun-if-changed=build.rs");
 
@@ -232,11 +231,6 @@ pub const LIBAFL_CC_LLVM_VERSION: Option<usize> = None;
         .expect("Could not parse LIBAFL_EDGES_MAP_DEFAULT_SIZE");
     cxxflags.push(format!("-DEDGES_MAP_DEFAULT_SIZE={edge_map_default_size}"));
 
-    let acc_map_size: usize = option_env!("LIBAFL_ACCOUNTING_MAP_SIZE")
-        .map_or(Ok(65_536), str::parse)
-        .expect("Could not parse LIBAFL_ACCOUNTING_MAP_SIZE");
-    cxxflags.push(format!("-DACCOUNTING_MAP_SIZE={acc_map_size}"));
-
     let llvm_version = libafl_build::find_llvm_version();
 
     // We want the paths quoted, and debug formatting does that - allow debug formatting.
@@ -257,9 +251,6 @@ pub const LIBAFL_CC_LLVM_VERSION: Option<usize> = None;
         pub const EDGES_MAP_DEFAULT_SIZE: usize = {edge_map_default_size};
         /// The real allocated size of the edges map
         pub const EDGES_MAP_ALLOCATED_SIZE: usize = {edge_map_allocated_size};
-
-        /// The size of the accounting maps
-        pub const ACCOUNTING_MAP_SIZE: usize = {acc_map_size};
 
         /// The llvm version used to build llvm passes
         pub const LIBAFL_CC_LLVM_VERSION: Option<usize> = {llvm_version:?};

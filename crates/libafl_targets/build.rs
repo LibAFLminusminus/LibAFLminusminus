@@ -5,18 +5,9 @@ use std::{env, fs::File, io::Write, path::Path};
 const TWO_MIB: usize = 2_097_152;
 const SIXTY_FOUR_KIB: usize = 65_536;
 
-#[rustversion::nightly]
-fn enable_nightly() {
-    println!("cargo:rustc-cfg=nightly");
-}
-
-#[rustversion::not(nightly)]
-fn enable_nightly() {}
-
 #[expect(clippy::too_many_lines)]
 fn main() {
     println!("cargo:rustc-check-cfg=cfg(nightly)");
-    enable_nightly();
     let out_dir = env::var_os("OUT_DIR").unwrap();
     let out_dir = out_dir.to_string_lossy().to_string();
     //let out_dir_path = Path::new(&out_dir);
@@ -49,10 +40,6 @@ fn main() {
         .map_or(Ok(32), str::parse)
         .expect("Could not parse LIBAFL_CMPLOG_MAP_H");
 
-    let acc_map_size: usize = option_env!("LIBAFL_ACCOUNTING_MAP_SIZE")
-        .map_or(Ok(SIXTY_FOUR_KIB), str::parse)
-        .expect("Could not parse LIBAFL_ACCOUNTING_MAP_SIZE");
-
     assert!(edges_map_default_size <= edges_map_allocated_size);
     assert!(edges_map_default_size.is_power_of_two());
 
@@ -70,20 +57,15 @@ fn main() {
         pub const CMPLOG_MAP_W: usize = {cmplog_map_w};
         /// The height of the `CmpLog` map
         pub const CMPLOG_MAP_H: usize = {cmplog_map_h};
-        /// The size of the accounting maps
-        pub const ACCOUNTING_MAP_SIZE: usize = {acc_map_size};
 "
     )
     .expect("Could not write file");
 
     println!("cargo:rerun-if-env-changed=LIBAFL_EDGES_MAP_DEFAULT_SIZE");
-    println!("cargo:rerun-if-env-changed=LIBAFL_EDGES_MAP_DEFAULT_SIZE");
-    println!("cargo:rerun-if-env-changed=LIBAFL_EDGES_MAP_ALLOCATED_SIZE");
     println!("cargo:rerun-if-env-changed=LIBAFL_EDGES_MAP_ALLOCATED_SIZE");
     println!("cargo:rerun-if-env-changed=LIBAFL_CMP_MAP_SIZE");
     println!("cargo:rerun-if-env-changed=LIBAFL_CMPLOG_MAP_W");
     println!("cargo:rerun-if-env-changed=LIBAFL_CMPLOG_MAP_H");
-    println!("cargo:rerun-if-env-changed=LIBAFL_ACCOUNTING_MAP_SIZE");
 
     #[cfg(feature = "common")]
     {
@@ -193,21 +175,7 @@ fn main() {
                 "EDGES_MAP_ALLOCATED_SIZE",
                 Some(&*format!("{edges_map_allocated_size}")),
             )
-            .define("ACCOUNTING_MAP_SIZE", Some(&*format!("{acc_map_size}")))
             .compile("coverage");
-    }
-
-    #[cfg(feature = "sancov_pcguard_dump_cov")]
-    {
-        println!("cargo:rerun-if-changed=src/static/sancov_pcguard.c");
-        let mut sancov_pcguard = cc::Build::new();
-        #[cfg(feature = "whole_archive")]
-        {
-            sancov_pcguard.link_lib_modifier("+whole-archive");
-        }
-        sancov_pcguard
-            .file(static_dir.join("sancov_pcguard.c"))
-            .compile("sancov_pcguard");
     }
 
     #[cfg(feature = "cmplog")]
