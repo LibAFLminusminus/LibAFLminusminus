@@ -54,15 +54,12 @@ unsafe extern "C" {
     pub static mut libafl_cmplog_map_extended_ptr: *mut CmpLogMap;
 }
 
-#[cfg(feature = "cmplog")]
-pub use libafl_cmplog_map_ptr as CMPLOG_MAP_PTR;
+
 
 /// Value indicating if cmplog is enabled.
 #[unsafe(no_mangle)]
 #[allow(non_upper_case_globals)] // expect breaks here for some reason
 pub static mut libafl_cmplog_enabled: u8 = 0;
-
-pub use libafl_cmplog_enabled as CMPLOG_ENABLED;
 
 // HEADERS
 
