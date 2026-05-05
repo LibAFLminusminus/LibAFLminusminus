@@ -165,6 +165,7 @@ void __cmplog_ins_hook8(uint64_t arg1, uint64_t arg2) {
   cmplog_instructions_checked(k, 8, arg1, arg2, 0);
 }
 
+#if !defined(_WIN32) && defined(__SIZEOF_INT128__)
 void __cmplog_ins_hook16(uint128_t arg1, uint128_t arg2) {
   uintptr_t k = RETADDR;
   k = (k >> 4) ^ (k << 8);

@@ -3,9 +3,6 @@
 #[cfg(any(
     feature = "sancov_pcguard_edges",
     feature = "sancov_pcguard_hitcounts",
-    feature = "sancov_ngram4",
-    feature = "sancov_ngram8",
-    feature = "sancov_ctx"
 ))]
 use alloc::borrow::Cow;
 
