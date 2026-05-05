@@ -55,17 +55,8 @@ extern crate alloc;
 
 include!(concat!(env!("OUT_DIR"), "/constants.rs"));
 
-#[cfg(any(feature = "sancov_pcguard_edges", feature = "sancov_pcguard_hitcounts",))]
-pub mod sancov_pcguard;
-#[cfg(any(feature = "sancov_pcguard_edges", feature = "sancov_pcguard_hitcounts",))]
-pub use sancov_pcguard::*;
-
-#[cfg(any(feature = "sancov_cmplog", feature = "sancov_value_profile"))]
-pub mod sancov_cmp;
-#[cfg(any(feature = "sancov_cmplog", feature = "sancov_value_profile"))]
-pub use sancov_cmp::*;
-
 pub mod exports;
+pub use exports::*;
 
 /// Module containing bindings to the various sanitizer interface headers
 #[cfg(feature = "sanitizer_interfaces")]
@@ -94,8 +85,8 @@ pub mod coverage;
 #[cfg(feature = "coverage")]
 pub use coverage::*;
 
-pub mod value_profile;
-pub use value_profile::*;
+pub mod sancov;
+pub use sancov::*;
 
 /// runtime related to comparisons
 pub mod cmps;
