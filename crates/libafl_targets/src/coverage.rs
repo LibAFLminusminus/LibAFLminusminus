@@ -59,21 +59,20 @@ pub(crate) fn has_autotokens() -> bool {
     }
 }
 
-// /// Return Tokens from the compile-time token section
-// #[cfg(any(target_os = "linux", target_vendor = "apple"))]
-// pub fn autotokens() -> Result<Tokens, Error> {
-//     // # Safety
-//     // All values are checked before dereferencing.
-//
-//     unsafe {
-//         if has_autotokens() {
-//             // we can safely unwrap
-//             Tokens::from_mut_ptrs(__token_start, __token_stop)
-//         } else {
-//             Ok(Tokens::default())
-//         }
-//     }
-// }
+/// Return Tokens from the compile-time token section
+#[cfg(any(target_os = "linux", target_vendor = "apple"))]
+pub fn autotokens() -> Option<(*const u8, *const u8)> {
+    // # Safety
+    // All values are checked before dereferencing.
+    unsafe {
+        if has_autotokens() {
+            // we can safely unwrap
+            Some((__token_start, __token_stop))
+        } else {
+            None
+        }
+    }
+}
 
 /// The actual size we use for the map of edges.
 /// This is used for forkserver backend
@@ -94,17 +93,11 @@ pub static mut __afl_fuzz_len: *mut u32 = &raw mut __afl_fuzz_len_local;
 #[cfg(any(
     feature = "sancov_pcguard_edges",
     feature = "sancov_pcguard_hitcounts",
-    feature = "sancov_ngram4",
-    feature = "sancov_ngram8",
-    feature = "sancov_ctx"
 ))]
 use libafl::observers::StdMapObserver;
 #[cfg(any(
     feature = "sancov_pcguard_edges",
     feature = "sancov_pcguard_hitcounts",
-    feature = "sancov_ngram4",
-    feature = "sancov_ngram8",
-    feature = "sancov_ctx"
 ))]
 use libafl_bolts::ownedref::OwnedMutSlice;
 
@@ -119,9 +112,6 @@ use libafl_bolts::ownedref::OwnedMutSlice;
 #[cfg(any(
     feature = "sancov_pcguard_edges",
     feature = "sancov_pcguard_hitcounts",
-    feature = "sancov_ngram4",
-    feature = "sancov_ngram8",
-    feature = "sancov_ctx"
 ))]
 pub unsafe fn edges_map_mut_slice<'a>() -> OwnedMutSlice<'a, u8> {
     unsafe { OwnedMutSlice::from_raw_parts_mut(edges_map_mut_ptr(), edges_max_num()) }
@@ -157,9 +147,6 @@ pub unsafe fn edges_map_mut_slice<'a>() -> OwnedMutSlice<'a, u8> {
 #[cfg(any(
     feature = "sancov_pcguard_edges",
     feature = "sancov_pcguard_hitcounts",
-    feature = "sancov_ngram4",
-    feature = "sancov_ngram8",
-    feature = "sancov_ctx"
 ))]
 pub unsafe fn std_edges_map_observer<'a, S>(name: S) -> StdMapObserver<'a, u8, false>
 where
@@ -187,9 +174,6 @@ pub fn edges_map_mut_ptr() -> *mut u8 {
 #[cfg(any(
     feature = "sancov_pcguard_edges",
     feature = "sancov_pcguard_hitcounts",
-    feature = "sancov_ngram4",
-    feature = "sancov_ngram8",
-    feature = "sancov_ctx"
 ))]
 #[must_use]
 pub fn edges_max_num() -> usize {
@@ -206,111 +190,6 @@ pub fn edges_max_num() -> usize {
                 let edges_map_ptr = &raw const EDGES_MAP;
                 (*edges_map_ptr).len()
             }
-        }
-    }
-}
-
-#[cfg(feature = "pointer_maps")]
-pub use swap::*;
-
-#[cfg(feature = "pointer_maps")]
-mod swap {
-    use alloc::borrow::Cow;
-    use core::fmt::Debug;
-
-    use libafl::{
-        Error,
-        observers::{DifferentialObserver, Observer, StdMapObserver},
-    };
-    use libafl_bolts::{AsSliceMut, Named, ownedref::OwnedMutSlice};
-    use serde::{Deserialize, Serialize};
-
-    use super::EDGES_MAP_PTR;
-
-    /// Observer to be used with `DiffExecutor`s when executing a differential target that shares
-    /// the AFL map in order to swap out the maps (and thus allow for map observing the two targets
-    /// separately).
-    #[expect(clippy::unsafe_derive_deserialize)]
-    #[derive(Debug, Serialize, Deserialize)]
-    pub struct DifferentialAFLMapSwapObserver<'a, 'b> {
-        first_map: OwnedMutSlice<'a, u8>,
-        second_map: OwnedMutSlice<'b, u8>,
-        first_name: Cow<'static, str>,
-        second_name: Cow<'static, str>,
-        name: Cow<'static, str>,
-    }
-
-    impl<'a, 'b> DifferentialAFLMapSwapObserver<'a, 'b> {
-        /// Create a new `DifferentialAFLMapSwapObserver`.
-        pub fn new<const D1: bool, const D2: bool>(
-            first: &mut StdMapObserver<'a, u8, D1>,
-            second: &mut StdMapObserver<'b, u8, D2>,
-        ) -> Self {
-            Self {
-                first_name: first.name().clone(),
-                second_name: second.name().clone(),
-                name: Cow::from(format!("differential_{}_{}", first.name(), second.name())),
-                first_map: unsafe {
-                    let slice = first.map_mut().as_slice_mut();
-                    OwnedMutSlice::from_raw_parts_mut(slice.as_mut_ptr(), slice.len())
-                },
-                second_map: unsafe {
-                    let slice = second.map_mut().as_slice_mut();
-                    OwnedMutSlice::from_raw_parts_mut(slice.as_mut_ptr(), slice.len())
-                },
-            }
-        }
-
-        /// Get the first map
-        #[must_use]
-        pub fn first_map(&self) -> &OwnedMutSlice<'a, u8> {
-            &self.first_map
-        }
-
-        /// Get the second map
-        #[must_use]
-        pub fn second_map(&self) -> &OwnedMutSlice<'b, u8> {
-            &self.second_map
-        }
-
-        /// Get the first name
-        #[must_use]
-        pub fn first_name(&self) -> &str {
-            &self.first_name
-        }
-
-        /// Get the second name
-        #[must_use]
-        pub fn second_name(&self) -> &str {
-            &self.second_name
-        }
-    }
-
-    impl Named for DifferentialAFLMapSwapObserver<'_, '_> {
-        fn name(&self) -> &Cow<'static, str> {
-            &self.name
-        }
-    }
-
-    impl<I, S> Observer<I, S> for DifferentialAFLMapSwapObserver<'_, '_> {}
-
-    impl<OTA, OTB, I, S> DifferentialObserver<OTA, OTB, I, S>
-        for DifferentialAFLMapSwapObserver<'_, '_>
-    {
-        fn pre_observe_first(&mut self, _: &mut OTA) -> Result<(), Error> {
-            let slice = self.first_map.as_slice_mut();
-            unsafe {
-                EDGES_MAP_PTR = slice.as_mut_ptr();
-            }
-            Ok(())
-        }
-
-        fn pre_observe_second(&mut self, _: &mut OTB) -> Result<(), Error> {
-            let slice = self.second_map.as_slice_mut();
-            unsafe {
-                EDGES_MAP_PTR = slice.as_mut_ptr();
-            }
-            Ok(())
         }
     }
 }

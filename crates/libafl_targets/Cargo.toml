@@ -64,21 +64,6 @@ sancov_pcguard_hitcounts = ["coverage"]
 ## It compiles `sancov_cmp.c` with `SANCOV_VALUE_PROFILE` defined, enabling tracing of comparisons.
 sancov_value_profile = ["common"]
 
-## Support for `sancov` ngram4 coverage.
-## This feature enables NGRAM-4 instrumentation in the `sancov` runtime.
-## It maintains a history of the last 4 locations to provide context-sensitive coverage.
-sancov_ngram4 = ["coverage"]
-
-## Support for `sancov` ngram8 coverage.
-## This feature enables NGRAM-8 instrumentation in the `sancov` runtime.
-## It maintains a history of the last 8 locations to provide context-sensitive coverage.
-sancov_ngram8 = ["coverage"]
-
-## Support for `sancov` context coverage.
-## This feature enables context-sensitive coverage in the `sancov` runtime.
-## It XORs the current position with the previous context ID to distinguish paths based on calling context.
-sancov_ctx = ["coverage"]
-
 ## Support for `sancov`-based cmplog.
 ## This feature enables comparison logging using the LLVM `sancov` runtime.
 ## It compiles `sancov_cmp.c` with `SANCOV_CMPLOG` defined and links against weak symbols for comparison hooks.

@@ -58,9 +58,6 @@ include!(concat!(env!("OUT_DIR"), "/constants.rs"));
 #[cfg(any(
     feature = "sancov_pcguard_edges",
     feature = "sancov_pcguard_hitcounts",
-    feature = "sancov_ngram4",
-    feature = "sancov_ngram8",
-    feature = "sancov_ctx",
     feature = "sancov_pcguard_dump_cov"
 ))]
 pub mod sancov_pcguard;
@@ -69,9 +66,6 @@ pub mod sancov_pcguard_dump_cov;
 #[cfg(any(
     feature = "sancov_pcguard_edges",
     feature = "sancov_pcguard_hitcounts",
-    feature = "sancov_ngram4",
-    feature = "sancov_ngram8",
-    feature = "sancov_ctx",
     feature = "sancov_pcguard_dump_cov"
 ))]
 pub use sancov_pcguard::*;
@@ -132,8 +126,3 @@ pub use cmps::*;
 pub mod windows_asan;
 #[cfg(all(windows, feature = "std", feature = "windows_asan"))]
 pub use windows_asan::*;
-
-#[cfg(all(unix, feature = "std", feature = "forkserver"))]
-pub mod forkserver;
-#[cfg(all(unix, feature = "std", feature = "forkserver"))]
-pub use forkserver::*;
