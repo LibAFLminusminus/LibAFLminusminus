@@ -1,3 +1,4 @@
+use alloc::rc::Rc;
 use core::time::Duration;
 use std::{fs::File, string::ToString, thread::current};
 
@@ -13,6 +14,7 @@ use crate::{
     executors::{Executor, ExitKind},
     feedbacks::{Feedback, MapFeedbackMetadata},
     fuzzers::{EvaluationResult, Evaluator, Fuzzer, HasFeedback, HasObjective, Verdict},
+    inputs::Input,
     observers::{Observer, ObserversTuple},
     runtimes::{
         Runtime, RuntimeHandle,
@@ -38,7 +40,7 @@ fn handle_objective_in_termination_handler<O, F, H, I, OF, S, W>(
     exit_kind: ExitKind,
 ) where
     F: Feedback<I, O, S>,
-    I: Clone,
+    I: Input,
     O: ObserversTuple<S>,
     OF: Feedback<I, O, S>,
     S: State<I>,
@@ -68,7 +70,7 @@ unsafe fn std_on_crash<E, F, H, I, OF, S, W>(
 ) where
     E: Executor<I, S>,
     F: Feedback<I, E::Observers, S>,
-    I: Clone,
+    I: Input,
     OF: Feedback<I, E::Observers, S>,
     S: State<I>,
     W: Worker,
@@ -104,7 +106,7 @@ unsafe fn std_on_timeout<E, F, H, I, OF, S, W>(
 ) where
     E: Executor<I, S>,
     F: Feedback<I, E::Observers, S>,
-    I: Clone,
+    I: Input,
     OF: Feedback<I, E::Observers, S>,
     S: State<I>,
     W: Worker,
@@ -190,7 +192,7 @@ impl<F, H, OF> StdFuzzer<F, H, OF> {
     ) -> Result<EvaluationResult, Error>
     where
         F: Feedback<I, OT, S>,
-        I: Clone,
+        I: Input,
         OF: Feedback<I, OT, S>,
         S: State<I>,
     {
@@ -203,7 +205,9 @@ impl<F, H, OF> StdFuzzer<F, H, OF> {
             let parent_id = state.scheduler().current();
 
             // The input is a solution, add it to the respective corpus
-            let testcase_id = state.objective_corpus_mut().add(input.clone())?;
+            let testcase = Testcase::new(Rc::new(input.clone()));
+
+            let testcase_id = state.objective_corpus_mut().add(testcase)?;
 
             let md = state.testcase_md_mut_from_id(&testcase_id);
 
@@ -236,7 +240,9 @@ impl<F, H, OF> StdFuzzer<F, H, OF> {
                 let executions = state.executions();
                 let parent_id = state.scheduler().current();
 
-                let testcase_id = state.corpus_mut().add(input.clone())?;
+                let testcase = Testcase::new(Rc::new(input.clone()));
+
+                let testcase_id = state.corpus_mut().add(testcase)?;
                 let md = state
                     .testcase_md_mut_from_id(&testcase_id)
                     .set_executions(executions);
@@ -266,7 +272,7 @@ where
     E: Executor<I, S>,
     F: Feedback<I, E::Observers, S>,
     OF: Feedback<I, E::Observers, S>,
-    I: Clone,
+    I: Input,
     S: State<I>,
     W: Worker,
 {
@@ -291,7 +297,7 @@ where
     E: Executor<I, S>,
     F: Feedback<I, E::Observers, S>,
     H: FuzzerHooksTuple,
-    I: Clone,
+    I: Input,
     OF: Feedback<I, E::Observers, S>,
     S: State<I>,
     ST: StagesTuple<E, R, S, W, Self>,
@@ -486,7 +492,7 @@ impl<F, OF> StdFuzzer<F, (), OF> {
     where
         E: Executor<I, S>,
         F: Feedback<I, E::Observers, S>,
-        I: Clone,
+        I: Input,
         OF: Feedback<I, E::Observers, S>,
         S: State<I>,
         ST: StagesTuple<E, R, S, W, Self>,
@@ -519,7 +525,7 @@ impl<F, H, OF> StdFuzzer<F, H, OF> {
         E: Executor<I, S>,
         F: Feedback<I, E::Observers, S>,
         H: FuzzerHooksTuple,
-        I: Clone,
+        I: Input,
         OF: Feedback<I, E::Observers, S>,
         S: State<I>,
         ST: StagesTuple<E, R, S, W, Self>,

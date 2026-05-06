@@ -50,8 +50,7 @@ where
         self.enabled_map.is_empty()
     }
 
-    fn add_shared<const ENABLED: bool>(&mut self, input: Rc<I>) -> Result<StorageResult, Error> {
-        let testcase = Testcase::new(input);
+    fn add_shared<const ENABLED: bool>(&mut self, testcase: Testcase<I>) -> Result<StorageResult, Error> {
         let testcase_id = *testcase.id();
 
         let already_stored = if ENABLED {

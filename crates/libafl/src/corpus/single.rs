@@ -91,8 +91,8 @@ where
         self.store.count_all()
     }
 
-    fn add_shared<const ENABLED: bool>(&mut self, input: Rc<I>) -> Result<TestcaseId, Error> {
-        let id = match self.store.add_shared::<ENABLED>(input)? {
+    fn add_shared<const ENABLED: bool>(&mut self, testcase: Testcase<I>) -> Result<TestcaseId, Error> {
+        let id = match self.store.add_shared::<ENABLED>(testcase)? {
             StorageResult::Stored(id) => {
                 self.scheduler.on_add(id)?;
                 id

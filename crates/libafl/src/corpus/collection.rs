@@ -122,8 +122,8 @@ where
         self.0.count_disabled()
     }
 
-    fn add_shared<const ENABLED: bool>(&mut self, input: Rc<I>) -> Result<StorageResult, Error> {
-        self.0.add_shared::<ENABLED>(input)
+    fn add_shared<const ENABLED: bool>(&mut self, testcase: Testcase<I>) -> Result<StorageResult, Error> {
+        self.0.add_shared::<ENABLED>(testcase)
     }
 
     fn get_from<const ENABLED: bool>(&self, id: &TestcaseId) -> Result<Testcase<I>, Error> {
@@ -147,8 +147,8 @@ where
         self.0.count_disabled()
     }
 
-    fn add_shared<const ENABLED: bool>(&mut self, input: Rc<I>) -> Result<StorageResult, Error> {
-        self.0.add_shared::<ENABLED>(input)
+    fn add_shared<const ENABLED: bool>(&mut self, testcase: Testcase<I>) -> Result<StorageResult, Error> {
+        self.0.add_shared::<ENABLED>(testcase)
     }
 
     fn get_from<const ENABLED: bool>(&self, id: &TestcaseId) -> Result<Testcase<I>, Error> {
@@ -208,8 +208,8 @@ where
         self.0.count_all()
     }
 
-    fn add_shared<const ENABLED: bool>(&mut self, input: Rc<I>) -> Result<TestcaseId, Error> {
-        self.0.add_shared::<ENABLED>(input)
+    fn add_shared<const ENABLED: bool>(&mut self, testcase: Testcase<I>) -> Result<TestcaseId, Error> {
+        self.0.add_shared::<ENABLED>(testcase)
     }
 
     fn get_from<const ENABLED: bool>(&self, id: &TestcaseId) -> Result<Testcase<I>, Error> {
@@ -338,8 +338,8 @@ where
         self.0.count_all()
     }
 
-    fn add_shared<const ENABLED: bool>(&mut self, input: Rc<I>) -> Result<TestcaseId, Error> {
-        self.0.add_shared::<ENABLED>(input)
+    fn add_shared<const ENABLED: bool>(&mut self, testcase: Testcase<I>) -> Result<TestcaseId, Error> {
+        self.0.add_shared::<ENABLED>(testcase)
     }
 
     fn get_from<const ENABLED: bool>(&self, id: &TestcaseId) -> Result<Testcase<I>, Error> {
