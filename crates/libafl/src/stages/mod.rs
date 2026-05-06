@@ -28,20 +28,13 @@ use crate::{
 pub mod mutational;
 pub use mutational::{MutationalStage, StdMutationalStage};
 
-#[cfg(not(feature = "remove_me"))]
-pub mod shadow;
-#[cfg(not(feature = "remove_me"))]
-pub use shadow::*;
+pub mod single;
+pub use single::*;
 
 #[cfg(not(feature = "remove_me"))]
 pub mod calibrate;
 #[cfg(not(feature = "remove_me"))]
 pub use calibrate::{CalibrationStage, run_target_with_timing};
-
-#[cfg(not(feature = "remove_me"))]
-pub mod colorization;
-#[cfg(not(feature = "remove_me"))]
-pub use colorization::*;
 
 pub mod logics;
 pub use logics::*;
@@ -50,11 +43,6 @@ pub use logics::*;
 pub mod power;
 #[cfg(not(feature = "remove_me"))]
 pub use power::{PowerMutationalStage, StdPowerMutationalStage};
-
-#[cfg(not(feature = "remove_me"))]
-pub mod tracing;
-#[cfg(not(feature = "remove_me"))]
-pub use tracing::TracingStage;
 
 pub mod nop;
 pub use nop::NopStage;

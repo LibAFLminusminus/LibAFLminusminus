@@ -30,9 +30,6 @@ pub use combined::CombinedExecutor;
 pub mod nop;
 pub use nop::NopExecutor;
 
-pub mod shadow;
-pub use shadow::ShadowExecutor;
-
 #[cfg(all(feature = "std", unix))]
 pub mod forkserver;
 #[cfg(all(feature = "std", unix))]

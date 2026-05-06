@@ -62,17 +62,10 @@ where
 {
     fn pre_exec(&mut self, _state: &mut S) -> Result<(), Error> {
         self.map.as_mut().reset()?;
-        unsafe {
-            CMPLOG_ENABLED = 1;
-        }
         Ok(())
     }
 
     fn post_exec(&mut self, state: &mut S, _exit_kind: &ExitKind) -> Result<(), Error> {
-        unsafe {
-            CMPLOG_ENABLED = 0;
-        }
-
         if self.add_meta {
             let meta = named_metadata_mut::<CmpValuesMetadata>(
                 state.named_metadata_map_mut(),
