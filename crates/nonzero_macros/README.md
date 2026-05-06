@@ -11,31 +11,31 @@ Lightweight, `no_std`, and dependency-free.
 
 ## Macros
 
-### `nonzero!`
+### `non_zero!`
 
 Constructs a `NonZero*` type at compile-time. Panics if the value is zero.
 
 ```rust
-use nonzero_macros::nonzero;
+use nonzero_macros::non_zero;
 use core::num::NonZeroUsize;
 
-const MY_VAL: NonZeroUsize = nonzero!(10);
+const MY_VAL: NonZeroUsize = non_zero!(10);
 ```
 
-### `try_nonzero!`
+### `try_non_zero!`
 
 Constructs an `Option<NonZero*>` type. Works at both compile-time and runtime.
 Returns `None` if the value is zero.
 
 ```rust
-use nonzero_macros::try_nonzero;
+use nonzero_macros::try_non_zero;
 use core::num::NonZeroUsize;
 
-const MY_VAL: Option<NonZeroUsize> = try_nonzero!(10);
-const MY_ZERO: Option<NonZeroUsize> = try_nonzero!(0); // None
+const MY_VAL: Option<NonZeroUsize> = try_non_zero!(10);
+const MY_ZERO: Option<NonZeroUsize> = try_non_zero!(0); // None
 
 let x = 10;
-let val = try_nonzero!(x);
+let val = try_non_zero!(x);
 ```
 
 ### `nonnull_raw_mut!`
