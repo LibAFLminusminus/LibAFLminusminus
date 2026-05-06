@@ -1,4 +1,4 @@
-//! The tracing stage can trace the target and enrich a testcase with metadata, for example for `CmpLog`.
+//! The single run stage can run the harness for once coupled with the configurable pre/post hooks. This can be used for example for `CmpLog`.
 
 use alloc::{
     borrow::{Cow, ToOwned},
@@ -18,8 +18,8 @@ use crate::{
     states::HasCorpus,
 };
 
-/// A stage that runs a tracer executor
-/// This should *NOT* be used with inprocess executor
+/// A stage that runs the unmutated input for only one time.
+/// also runs the pre and post hooks (configurable)
 #[derive(Debug, Clone)]
 pub struct SingleRunStage<I, Pre, Post> {
     name: Cow<'static, str>,

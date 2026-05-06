@@ -75,8 +75,8 @@
 - [ x ] workdir impl
 - [ x ] monidor impl
 - [ x ] laucher impl
-- [ ] remove "remove_me"
-- [ ] libafl target
+- [ x ] remove "remove_me"
+- [ x ] libafl target
 - [ ] libafl intelpt
 - [ ] libafl qemu
 - [ ] write nyx fuzzer
