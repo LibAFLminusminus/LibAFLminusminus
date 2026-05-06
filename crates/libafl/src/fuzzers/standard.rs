@@ -191,6 +191,7 @@ impl<F, H, OF> StdFuzzer<F, H, OF> {
         exit_kind: ExitKind,
     ) -> Result<EvaluationResult, Error>
     where
+        H: FuzzerHooksTuple<E, I, S, W>,
         F: Feedback<I, OT, S>,
         I: Input,
         OF: Feedback<I, OT, S>,
@@ -241,7 +242,7 @@ impl<F, H, OF> StdFuzzer<F, H, OF> {
                 let parent_id = state.scheduler().current();
 
                 let testcase = Testcase::new(Rc::new(input.clone()));
-
+                self.fuzzer_hooks.pre_add();
                 let testcase_id = state.corpus_mut().add(testcase)?;
                 let md = state
                     .testcase_md_mut_from_id(&testcase_id)
@@ -296,7 +297,7 @@ impl<E, F, H, I, OF, R, S, ST, W> Fuzzer<E, I, R, S, ST, W> for StdFuzzer<F, H, 
 where
     E: Executor<I, S>,
     F: Feedback<I, E::Observers, S>,
-    H: FuzzerHooksTuple,
+    H: FuzzerHooksTuple<E, I, S, W>,
     I: Input,
     OF: Feedback<I, E::Observers, S>,
     S: State<I>,
@@ -524,7 +525,7 @@ impl<F, H, OF> StdFuzzer<F, H, OF> {
     where
         E: Executor<I, S>,
         F: Feedback<I, E::Observers, S>,
-        H: FuzzerHooksTuple,
+        H: FuzzerHooksTuple<E, I, S, W>,
         I: Input,
         OF: Feedback<I, E::Observers, S>,
         S: State<I>,

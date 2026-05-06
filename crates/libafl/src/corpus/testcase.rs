@@ -85,6 +85,10 @@ impl<I> Testcase<I> {
     pub fn id(&self) -> &TestcaseId {
         &self.id
     }
+
+    pub fn set_filename_fmt(&mut self, fmt: TestcaseFilenameFormat) {
+        self.filename_fmt = fmt;
+    } 
 }
 
 impl<I> Testcase<I>
