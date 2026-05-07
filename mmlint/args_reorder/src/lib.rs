@@ -18,7 +18,7 @@ extern crate rustc_span;
 // extern crate rustc_target;
 // extern crate rustc_trait_selection;
 
-use rustc_hir::{Body, FnDecl, PatKind, def_id::LocalDefId, intravisit::FnKind};
+use rustc_hir::{Body, FnDecl, PatKind, def_id::LocalDefId, intravisit::FnKind, TraitItem, TraitItemKind, TraitFn};
 use rustc_lint::{LateContext, LateLintPass, LintContext};
 use rustc_span::{Span, Symbol};
 
@@ -53,32 +53,35 @@ dylint_linting::declare_late_lint! {
 impl<'tcx> LateLintPass<'tcx> for ArgsReorder {
     // A list of things you might check can be found here:
     // https://doc.rust-lang.org/stable/nightly-rustc/rustc_lint/trait.LateLintPass.html
-    fn check_fn(
-        &mut self,
-        cx: &LateContext<'tcx>,
-        kind: FnKind<'tcx>,
-        _: &'tcx FnDecl<'tcx>,
-        body: &'tcx Body<'tcx>,
-        _: Span,
-        _: LocalDefId,
-    ) {
-        match kind {
-            FnKind::Closure => {
-                return; // ignore closures
-            }
-            _ => (),
-        }
+    fn check_trait_item(&mut self, cx: &LateContext<'tcx>, item: &'tcx TraitItem<'tcx>) {
+        let TraitItemKind::Fn(_, trait_fn) = &item.kind else {
+            return;
+        };
 
-        let mut names = vec![];
+        let mut names: Vec<(Symbol, Span)> = vec![];
 
-        for param in body.params {
-            if let PatKind::Binding(_, _, ident, _) = param.pat.kind {
-                if ident.name.as_str().starts_with('_') || ident.name.as_str() == "self" {
-                    // ignore names starting with _
-                    continue;
+        match trait_fn {
+            TraitFn::Required(idents) => {
+                for ident in idents.iter() {
+                    let Some(ident) = ident else {
+                        continue; // anonymous parameter, e.g. `fn foo(u8)`
+                    };
+                    if ident.name.as_str().starts_with('_') || ident.name.as_str() == "self" {
+                        continue;
+                    }
+                    names.push((ident.name, ident.span));
                 }
-
-                names.push((ident.name, param.span));
+            }
+            TraitFn::Provided(body_id) => {
+                let body = cx.tcx.hir_body(*body_id);
+                for param in body.params {
+                    if let PatKind::Binding(_, _, ident, _) = param.pat.kind {
+                        if ident.name.as_str().starts_with('_') || ident.name.as_str() == "self" {
+                            continue;
+                        }
+                        names.push((ident.name, param.span));
+                    }
+                }
             }
         }
 
