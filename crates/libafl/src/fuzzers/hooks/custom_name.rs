@@ -1,0 +1,53 @@
+use crate::{
+    FuzzerHook, Result,
+    corpus::testcase::{Testcase, TestcaseFilenameFormat},
+};
+use alloc::string::String;
+use core::marker::PhantomData;
+use libafl_bolts::Named;
+pub struct CustomNameHook<I, G, S> {
+    name_generator: G,
+    phantom: PhantomData<(I, S)>,
+}
+
+impl<I, G, S> CustomNameHook<I, G, S> {
+    pub fn new(generator: G) -> Self {
+        Self {
+            name_generator: generator,
+            phantom: PhantomData,
+        }
+    }
+}
+
+/// Type which can generate a custom filename for a given input/state pair
+pub trait FilenameGenerator<I, S> {
+    /// Sets the name of the provided [`Testcase`] based on the state and input
+    fn set_name(&mut self, state: &mut S, testcase: &mut Testcase<I>) -> Result<String>;
+}
+
+// maintain compatibility with old impls
+impl<I, F, S> FilenameGenerator<I, S> for F
+where
+    F: FnMut(&mut S, &mut Testcase<I>) -> Result<String>,
+{
+    fn set_name(&mut self, state: &mut S, testcase: &mut Testcase<I>) -> Result<String> {
+        self(state, testcase)
+    }
+}
+
+impl<E, I, G, S, W> FuzzerHook<E, I, S, W> for CustomNameHook<I, G, S>
+where
+    G: FilenameGenerator<I, S>,
+{
+    fn pre_add(
+        &mut self,
+        executor: &mut E,
+        state: &mut S,
+        rt_handle: &mut crate::runtimes::RuntimeHandle<S, W>,
+        testcase: &mut crate::corpus::Testcase<I>,
+    ) -> Result<()> {
+        let fmt = TestcaseFilenameFormat::Custom(self.name_generator.set_name(state, testcase)?);
+        testcase.set_filename_fmt(fmt);
+        Ok(())
+    }
+}
