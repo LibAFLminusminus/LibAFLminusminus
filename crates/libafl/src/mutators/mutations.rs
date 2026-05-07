@@ -1702,13 +1702,14 @@ mod tests {
     use super::*;
     use crate::{
         corpus::{
-            InMemoryCorpus,
+            InMemoryCorpus, Testcase,
             schedulers::{NopScheduler, QueueScheduler},
         },
         inputs::{BytesInput, bytes::BytesContext},
         mutators::MutatorsTuple,
         states::StdState,
     };
+    use alloc::rc::Rc;
 
     type TestMutatorsTupleType = tuple_list_type!(
         BitFlipMutator,
@@ -1772,7 +1773,12 @@ mod tests {
             QueueScheduler::new(),
         );
 
-        corpus.add(BytesInput::new(vec![0x42; 0x1337])).unwrap();
+        corpus
+            .add(Testcase::new(Rc::new(BytesInput::new(vec![
+                0x42;
+                0x1337
+            ]))))
+            .unwrap();
 
         StdState::new(
             corpus,

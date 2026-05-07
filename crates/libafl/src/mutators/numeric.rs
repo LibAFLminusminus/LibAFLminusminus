@@ -335,6 +335,7 @@ mod tests {
         mutators::MutationResult,
         states::StdState,
     };
+    use alloc::rc::Rc;
 
     #[test]
     fn randomized() {
@@ -366,7 +367,7 @@ mod tests {
     #[test]
     fn all_mutate_owned() {
         let mut corpus = InMemoryCorpus::new(PrimitiveContext::default(), QueueScheduler::new());
-        corpus.add(I16Input::new(42_i16.into())).unwrap();
+        corpus.add(Testcase::new(Rc::new(I16Input::new(42_i16.into())))).unwrap();
         let mut state = StdState::new(
             corpus,
             InMemoryCorpus::new(PrimitiveContext::default(), QueueScheduler::new()),

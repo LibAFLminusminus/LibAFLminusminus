@@ -25,10 +25,7 @@ use crate::{
 
 /// The metadata placed in a [`crate::corpus::Testcase`] by a [`LoggerScheduledMutator`].
 #[derive(Debug, Serialize, Deserialize)]
-#[cfg_attr(
-    miri,
-    expect(clippy::unsafe_derive_deserialize)
-)] // for SerdeAny
+#[cfg_attr(miri, expect(clippy::unsafe_derive_deserialize))] // for SerdeAny
 pub struct LogMutationMetadata {
     /// A list of logs
     pub list: Vec<Cow<'static, str>>,
@@ -298,15 +295,21 @@ mod tests {
         states::StdState,
     };
 
+    use alloc::rc::Rc;
+
     #[test]
     fn test_mut_scheduled() {
         let mut rand = XkcdRand::with_seed(0);
         let mut corpus = InMemoryCorpus::new(BytesContext::default(), QueueScheduler::new());
         let id1 = corpus
-            .add(BytesInput::new(vec![b'a', b'b', b'c'].into()))
+            .add(Testcase::new(Rc::new(BytesInput::new(
+                vec![b'a', b'b', b'c'].into(),
+            ))))
             .unwrap();
         let id2 = corpus
-            .add(BytesInput::new(vec![b'd', b'e', b'f'].into()))
+            .add(Testcase::new(Rc::new(BytesInput::new(
+                vec![b'd', b'e', b'f'].into(),
+            ))))
             .unwrap();
 
         let mut input = corpus.get(&id1).unwrap().cloned_input();
@@ -330,8 +333,16 @@ mod tests {
     fn test_havoc() {
         let mut rand = StdRand::with_seed(0x1337);
         let mut corpus = InMemoryCorpus::new(BytesContext::default(), QueueScheduler::new());
-        let id1 = corpus.add(BytesInput::new(b"abc".to_vec().into())).unwrap();
-        let id2 = corpus.add(BytesInput::new(b"def".to_vec().into())).unwrap();
+        let id1 = corpus
+            .add(Testcase::new(Rc::new(BytesInput::new(
+                b"abc".to_vec().into(),
+            ))))
+            .unwrap();
+        let id2 = corpus
+            .add(Testcase::new(Rc::new(BytesInput::new(
+                b"def".to_vec().into(),
+            ))))
+            .unwrap();
 
         let mut input = corpus.get(&id1).unwrap().cloned_input();
         let input_prior = input.clone();
@@ -365,8 +376,16 @@ mod tests {
     fn test_single_choice() {
         let mut rand = StdRand::with_seed(0x1337);
         let mut corpus = InMemoryCorpus::new(BytesContext::default(), QueueScheduler::new());
-        let id1 = corpus.add(BytesInput::new(b"abc".to_vec().into())).unwrap();
-        let id2 = corpus.add(BytesInput::new(b"def".to_vec().into())).unwrap();
+        let id1 = corpus
+            .add(Testcase::new(Rc::new(BytesInput::new(
+                b"abc".to_vec().into(),
+            ))))
+            .unwrap();
+        let id2 = corpus
+            .add(Testcase::new(Rc::new(BytesInput::new(
+                b"def".to_vec().into(),
+            ))))
+            .unwrap();
 
         let mut input = corpus.get(&id1).unwrap().cloned_input();
         let input_prior = input.clone();

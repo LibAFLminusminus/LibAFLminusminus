@@ -81,21 +81,22 @@ mod tests {
 
     use crate::{
         corpus::{
-            Corpus, InMemoryCorpus, OnDiskCorpus,
+            Corpus, InMemoryCorpus, OnDiskCorpus, Testcase,
             schedulers::{NopScheduler, QueueScheduler, Scheduler},
         },
         inputs::bytes::{BytesContext, BytesInput},
         states::{HasCorpus, HasScheduler, StdState},
     };
+    use alloc::rc::Rc;
 
     #[test]
-    fn test_queuecorpus() {
+    fn test_queue_corpus() {
         let rand = StdRand::with_seed(4);
         let scheduler: QueueScheduler = QueueScheduler::new();
         let context = BytesContext::default();
 
         let corpus = OnDiskCorpus::<BytesContext, BytesInput, QueueScheduler>::new(
-            PathBuf::from("target/.test/fancy/path"),
+            PathBuf::from("/tmp"),
             context.clone(),
             scheduler,
         )
@@ -104,7 +105,7 @@ mod tests {
         // q.add(t).unwrap();
 
         let objective = OnDiskCorpus::<BytesContext, BytesInput, NopScheduler>::new(
-            PathBuf::from("target/.test/fancy/objective/path"),
+            PathBuf::from("/tmp"),
             context,
             NopScheduler,
         )
@@ -140,9 +141,9 @@ mod tests {
         let t2 = BytesInput::new(vec![1_u8; 4]);
         let t3 = BytesInput::new(vec![2_u8; 4]);
 
-        let id1 = q.add(t1).unwrap();
-        let id2 = q.add(t2).unwrap();
-        let id3 = q.add(t3).unwrap();
+        let id1 = q.add(Testcase::new(Rc::new(t1))).unwrap();
+        let id2 = q.add(Testcase::new(Rc::new(t2))).unwrap();
+        let id3 = q.add(Testcase::new(Rc::new(t3))).unwrap();
 
         let mut state = StdState::new(q, InMemoryCorpus::new(context, NopScheduler)).unwrap();
 
