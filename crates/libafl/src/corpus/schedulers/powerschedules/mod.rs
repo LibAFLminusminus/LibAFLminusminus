@@ -51,7 +51,7 @@ pub struct PowerScheduleData {
 
 /// The metadata for runs in the calibration stage.
 impl PowerScheduleData {
-    /// Creates a new [`struct@SchedulerMetadata`]
+    /// Creates a new [`struct@PowerScheduleData`]
     #[must_use]
     pub fn new(strat: Option<PowerSchedule>) -> Self {
         Self {
@@ -155,3 +155,116 @@ impl PowerScheduleData {
         &mut self.n_fuzz
     }
 }
+
+
+/// The Metadata for each testcase used in power schedules.
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[cfg_attr(
+    miri,
+    expect(clippy::unsafe_derive_deserialize)
+)] // for SerdeAny
+pub struct TestcasePowerScheduleData {
+    /// Number of bits set in bitmap, updated in `calibrate_case`
+    bitmap_size: u64,
+    /// Number of queue cycles behind
+    handicap: u64,
+    /// Path depth, initialized in `on_add`
+    depth: u64,
+    /// Offset in `n_fuzz`
+    n_fuzz_entry: usize,
+    /// Cycles used to calibrate this (not really needed if it were not for `on_replace` and `on_remove`)
+    cycle_and_time: (Duration, usize),
+}
+
+impl TestcasePowerScheduleData {
+    /// Create new [`struct@TestcasePowerScheduleData`]
+    #[must_use]
+    pub fn new(depth: u64) -> Self {
+        Self {
+            bitmap_size: 0,
+            handicap: 0,
+            depth,
+            n_fuzz_entry: 0,
+            cycle_and_time: (Duration::default(), 0),
+        }
+    }
+
+    /// Create new [`struct@TestcasePowerScheduleData`] given `n_fuzz_entry`
+    #[must_use]
+    pub fn with_n_fuzz_entry(depth: u64, n_fuzz_entry: usize) -> Self {
+        Self {
+            bitmap_size: 0,
+            handicap: 0,
+            depth,
+            n_fuzz_entry,
+            cycle_and_time: (Duration::default(), 0),
+        }
+    }
+
+    /// Get the bitmap size
+    #[inline]
+    #[must_use]
+    pub fn bitmap_size(&self) -> u64 {
+        self.bitmap_size
+    }
+
+    /// Set the bitmap size
+    #[inline]
+    pub fn set_bitmap_size(&mut self, val: u64) {
+        self.bitmap_size = val;
+    }
+
+    /// Get the handicap
+    #[inline]
+    #[must_use]
+    pub fn handicap(&self) -> u64 {
+        self.handicap
+    }
+
+    /// Set the handicap
+    #[inline]
+    pub fn set_handicap(&mut self, val: u64) {
+        self.handicap = val;
+    }
+
+    /// Get the depth
+    #[inline]
+    #[must_use]
+    pub fn depth(&self) -> u64 {
+        self.depth
+    }
+
+    /// Set the depth
+    #[inline]
+    pub fn set_depth(&mut self, val: u64) {
+        self.depth = val;
+    }
+
+    /// Get the `n_fuzz_entry`
+    #[inline]
+    #[must_use]
+    pub fn n_fuzz_entry(&self) -> usize {
+        self.n_fuzz_entry
+    }
+
+    /// Set the `n_fuzz_entry`
+    #[inline]
+    pub fn set_n_fuzz_entry(&mut self, val: usize) {
+        self.n_fuzz_entry = val;
+    }
+
+    /// Get the cycles
+    #[inline]
+    #[must_use]
+    pub fn cycle_and_time(&self) -> (Duration, usize) {
+        self.cycle_and_time
+    }
+
+    #[inline]
+    /// Setter for cycles
+    pub fn set_cycle_and_time(&mut self, cycle_and_time: (Duration, usize)) {
+        self.cycle_and_time = cycle_and_time;
+    }
+}
+
+libafl_bolts::impl_serdeany!(TestcasePowerScheduleData);

@@ -129,31 +129,6 @@ impl<C, O> CalibrationHook<C, O> {
     }
 }
 
-impl<C, O> CalibrationHook<C, O>
-where
-    C: AsRef<O>,
-    O: MapObserver,
-{
-    pub fn prepare_ps_metadata<E, I, S>(&self, executor: &mut E, state: &mut S) -> Result<()>
-    where
-        E: Executor<I, S>,
-        S: FlatState,
-    {
-        let psconfig = unnamed_metadata_mut::<PowerScheduleData>(state.named_metadata_map_mut())?;
-
-        let observers = executor.observers();
-        let map = observers[&self.map_observer_handle].as_ref();
-        let bitmap_size = map.count_bytes();
-
-        if bitmap_size < 1 {
-            return Err(Error::invalid_corpus(
-                "This testcase does not trigger any edges. Check your instrumentation!".to_string(),
-            ));
-        }
-
-        Ok(())
-    }
-}
 /// Default name prefix for `CalibrationHook`; derived from AFL++
 pub const CALIBRATION_HOOK_NAME: &str = "calibration";
 
@@ -288,8 +263,28 @@ where
             .user_map
             .insert("stability", StabilityValue(stability));
 
-        if has_unnamed_metadata::<PowerScheduleConfig>(state.named_metadata_map()) {
-            self.prepare_ps_metadata(executor, state);
+        if has_unnamed_metadata::<PowerScheduleData>(state.named_metadata_map()) {
+            let psdata = unnamed_metadata_mut::<PowerScheduleData>(state.named_metadata_map_mut())?;
+
+            let observers = executor.observers();
+            let map = observers[&self.map_observer_handle].as_ref();
+            let bitmap_size = map.count_bytes();
+
+            if bitmap_size < 1 {
+                return Err(Error::invalid_corpus(
+                    "This testcase does not trigger any edges. Check your instrumentation!"
+                        .to_string(),
+                ));
+            }
+
+            let handicap = psdata.queue_cycles();
+
+            // setting global power schedule data
+            psdata.set_exec_time(psdata.exec_time() + total_time);
+            psdata.set_cycles(psdata.cycles() + (iter as u64));
+            psdata.set_bitmap_size(psdata.bitmap_size() + bitmap_size);
+            psdata.set_bitmap_size_log(psdata.bitmap_size_log() + libm::log2(bitmap_size as f64));
+            psdata.set_bitmap_entries(psdata.bitmap_entries() + 1);
         }
 
         Ok(())
