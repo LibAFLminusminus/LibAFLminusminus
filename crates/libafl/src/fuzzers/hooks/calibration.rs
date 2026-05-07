@@ -1,14 +1,17 @@
 use crate::{
     DependencyResolver, Error, Result, Worker,
-    corpus::{Corpus, Testcase, schedulers::PowerScheduleData},
+    corpus::{
+        Corpus, Testcase,
+        schedulers::{PowerScheduleData, Scheduler},
+    },
     executors::Executor,
     feedbacks::{HasObserverHandle, MapFeedbackMetadata},
     fuzzers::{ExitKind, FuzzerHook},
     inputs::Input,
     observers::{MapObserver, ObserversTuple},
     states::{
-        FlatState, HasCorpus, has_named_metadata, has_unnamed_metadata, named_metadata_mut,
-        unnamed_metadata_mut,
+        FlatState, HasCorpus, HasScheduler, has_named_metadata, has_unnamed_metadata,
+        named_metadata_mut, unnamed_metadata_mut,
     },
 };
 use alloc::{
@@ -19,6 +22,7 @@ use alloc::{
 use core::{marker::PhantomData, time::Duration};
 use hashbrown::HashSet;
 use libafl_bolts::{Named, current_time, impl_serdeany, tuples::Handle};
+use libafl_core::illegal_state;
 use num_traits::Bounded;
 use serde::{Deserialize, Serialize};
 
@@ -264,6 +268,7 @@ where
             .insert("stability", StabilityValue(stability));
 
         if has_unnamed_metadata::<PowerScheduleData>(state.named_metadata_map()) {
+            let current = state.corpus().scheduler().current();
             let psdata = unnamed_metadata_mut::<PowerScheduleData>(state.named_metadata_map_mut())?;
 
             let observers = executor.observers();
@@ -285,6 +290,31 @@ where
             psdata.set_bitmap_size(psdata.bitmap_size() + bitmap_size);
             psdata.set_bitmap_size_log(psdata.bitmap_size_log() + libm::log2(bitmap_size as f64));
             psdata.set_bitmap_entries(psdata.bitmap_entries() + 1);
+
+            let testcase_meta = psdata.per_testcase_data(testcase_id).ok_or(illegal_state!(
+                "Testcase not registered before calibration?"
+            ))?;
+
+            let depth = match current {
+                Some(parent) => {
+                    let other_meta = psdata.per_testcase_data(parent).ok_or(illegal_state!(
+                        "Child testcase referring to a non-existent testcase?"
+                    ))?;
+                    other_meta.depth() + 1
+                }
+                None => 0, // this is the seed
+            };
+
+            // now that we have the data, take the mutable borrow now
+            let testcase_meta = psdata
+                .per_testcase_data_mut(testcase_id)
+                .ok_or(illegal_state!(
+                    "Testcase not registered before calibration?"
+                ))?;
+            testcase_meta.set_exec_time(total_time / (iter as u32));
+            testcase_meta.set_cycle_and_time((total_time, iter));
+            testcase_meta.set_bitmap_size(bitmap_size);
+            testcase_meta.set_handicap(handicap);
         }
 
         Ok(())

@@ -1,9 +1,12 @@
 //! Powerschedule-related modules
 
 libafl_bolts::impl_serdeany!(PowerScheduleData);
-use serde::{Serialize, Deserialize};
+use crate::corpus::testcase::TestcaseId;
+use serde::{Deserialize, Serialize};
+
 use alloc::vec::Vec;
 use core::time::Duration;
+use hashbrown::HashMap;
 
 const N_FUZZ_SIZE: usize = 1 << 21;
 
@@ -25,10 +28,7 @@ pub enum PowerSchedule {
 
 /// The metadata used for power schedules
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(
-    miri,
-    expect(clippy::unsafe_derive_deserialize)
-)] // for SerdeAny
+#[cfg_attr(miri, expect(clippy::unsafe_derive_deserialize))] // for SerdeAny
 pub struct PowerScheduleData {
     /// Powerschedule strategy
     strat: Option<PowerSchedule>,
@@ -46,8 +46,9 @@ pub struct PowerScheduleData {
     queue_cycles: u64,
     /// The vector to contain the frequency of each execution path.
     n_fuzz: Vec<u32>,
+    /// per testcase metadata
+    per_testcase: HashMap<TestcaseId, TestcasePowerScheduleData>,
 }
-
 
 /// The metadata for runs in the calibration stage.
 impl PowerScheduleData {
@@ -63,6 +64,7 @@ impl PowerScheduleData {
             bitmap_entries: 0,
             queue_cycles: 0,
             n_fuzz: vec![0; N_FUZZ_SIZE],
+            per_testcase: HashMap::new(),
         }
     }
 
@@ -154,16 +156,24 @@ impl PowerScheduleData {
     pub fn n_fuzz_mut(&mut self) -> &mut [u32] {
         &mut self.n_fuzz
     }
-}
 
+    pub fn per_testcase_data(&self, testcase_id: TestcaseId) -> Option<&TestcasePowerScheduleData>{
+        self.per_testcase.get(&testcase_id)
+    }
+
+    pub fn per_testcase_data_mut(&mut self, testcase_id: TestcaseId) -> Option<&mut TestcasePowerScheduleData>{
+        self.per_testcase.get_mut(&testcase_id)
+    }
+}
 
 /// The Metadata for each testcase used in power schedules.
 #[derive(Serialize, Deserialize, Clone, Debug)]
-#[cfg_attr(
-    miri,
-    expect(clippy::unsafe_derive_deserialize)
-)] // for SerdeAny
+#[cfg_attr(miri, expect(clippy::unsafe_derive_deserialize))] // for SerdeAny
 pub struct TestcasePowerScheduleData {
+    /// parent id, none if it was from the seed corpus
+    parent: Option<TestcaseId>,
+    /// Average execution time measured in calibration
+    exec_time: Duration,
     /// Number of bits set in bitmap, updated in `calibrate_case`
     bitmap_size: u64,
     /// Number of queue cycles behind
@@ -181,6 +191,8 @@ impl TestcasePowerScheduleData {
     #[must_use]
     pub fn new(depth: u64) -> Self {
         Self {
+            parent: None,
+            exec_time: Duration::ZERO,
             bitmap_size: 0,
             handicap: 0,
             depth,
@@ -189,16 +201,28 @@ impl TestcasePowerScheduleData {
         }
     }
 
-    /// Create new [`struct@TestcasePowerScheduleData`] given `n_fuzz_entry`
+    #[inline]
     #[must_use]
-    pub fn with_n_fuzz_entry(depth: u64, n_fuzz_entry: usize) -> Self {
-        Self {
-            bitmap_size: 0,
-            handicap: 0,
-            depth,
-            n_fuzz_entry,
-            cycle_and_time: (Duration::default(), 0),
-        }
+    pub fn parent(&self) -> Option<&TestcaseId> {
+        self.parent.as_ref()
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn set_parent(&mut self, parent: TestcaseId) {
+        self.parent = Some(parent);
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn exec_time(&self) -> &Duration {
+        &self.exec_time
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn set_exec_time(&mut self, exec_time: Duration) {
+        self.exec_time = exec_time;
     }
 
     /// Get the bitmap size
