@@ -24,7 +24,7 @@ pub type TypeRepr = u128;
 pub type TypeRepr = Cow<'static, str>;
 
 /// Error string when no types at all have been registered yet.
-pub(crate) const ERR_EMPTY_TYPES_REGISTER: &str = "Empty types registry. Please enable the `serdeany_autoreg` feature for serde_anymap or register all required types manually using RegistryBuilder::register().";
+pub(crate) const ERR_EMPTY_TYPES_REGISTER: &str = "Empty types registry. Please register all required types manually using RegistryBuilder::register().";
 
 #[cfg(not(feature = "stable_anymap"))]
 fn type_repr<T>() -> TypeRepr
@@ -390,7 +390,7 @@ pub mod serdeany_registry {
                         .get(type_repr)
                         .is_some()
                 },
-                "Type {} was inserted without registration! Call RegistryBuilder::register::<{}>() or use serdeany_autoreg.",
+                "Type {} was inserted without registration! Call RegistryBuilder::register::<{}>().",
                 core::any::type_name::<T>(),
                 core::any::type_name::<T>()
             );
@@ -677,7 +677,7 @@ pub mod serdeany_registry {
                         .get(type_repr)
                         .is_some()
                 },
-                "Type {} was inserted without registration! Call RegistryBuilder::register::<{}>() or use serdeany_autoreg.",
+                "Type {} was inserted without registration! Call RegistryBuilder::register::<{}>().",
                 core::any::type_name::<T>(),
                 core::any::type_name::<T>()
             );
@@ -845,7 +845,6 @@ impl<'de> Deserialize<'de> for Box<dyn crate::serdeany::SerdeAny> {
 ///
 /// Do nothing for without the `serdeany_autoreg` feature, you'll have to register it manually
 /// in `main()` with [`RegistryBuilder::register`] or using `<T>::register()`.
-#[cfg(all(feature = "serdeany_autoreg", not(miri)))]
 #[macro_export]
 macro_rules! create_register {
     ($struct_type:ty) => {
@@ -863,37 +862,6 @@ macro_rules! create_register {
     };
 }
 
-/// Register a `SerdeAny` type in the [`RegistryBuilder`]
-///
-/// Do nothing for without the `serdeany_autoreg` feature, you'll have to register it manually
-/// in `main()` with [`RegistryBuilder::register`] or using `<T>::register()`.
-#[cfg(not(all(feature = "serdeany_autoreg", not(miri))))]
-#[macro_export]
-macro_rules! create_register {
-    ($struct_type:ty) => {};
-}
-
-/// Manually register a `SerdeAny` type in the [`RegistryBuilder`]
-///
-/// Do nothing with the `serdeany_autoreg` feature, as this will be previously registered by ctor.
-#[cfg(all(feature = "serdeany_autoreg", not(miri)))]
-#[macro_export]
-macro_rules! create_manual_register {
-    ($struct_type:ty) => {};
-}
-
-/// Manually register a `SerdeAny` type in the [`RegistryBuilder`]
-///
-/// Do nothing with the `serdeany_autoreg` feature, as this will be previously registered by ctor.
-#[cfg(not(all(feature = "serdeany_autoreg", not(miri))))]
-#[macro_export]
-macro_rules! create_manual_register {
-    ($struct_type:ty) => {
-        unsafe {
-            $crate::serdeany::RegistryBuilder::register::<$struct_type>();
-        }
-    };
-}
 
 /// Implement a [`SerdeAny`], registering it in the [`RegistryBuilder`] when on std
 #[macro_export]
@@ -923,19 +891,6 @@ macro_rules! impl_serdeany {
             }
         }
 
-        impl< $( $lt $( : $clt $(+ $dlt )* )? ),+ > $struct_name < $( $lt ),+ > {
-
-            /// Manually register this type at a later point in time
-            ///
-            /// # Safety
-            /// This may never be called concurrently as it dereferences the `RegistryBuilder` without acquiring a lock.
-            pub unsafe fn register() {
-                $(
-                    $crate::create_manual_register!($struct_name < $( $opt ),+ >);
-                )*
-            }
-        }
-
         $(
             $crate::create_register!($struct_name < $( $opt ),+ >);
         )*
@@ -962,17 +917,6 @@ macro_rules! impl_serdeany {
 
             fn type_name(&self) -> &'static str {
                 core::any::type_name::<Self>()
-            }
-        }
-
-        impl $struct_name {
-            /// Manually register this type at a later point in time
-            ///
-            /// # Safety
-            /// This may never be called concurrently as it dereferences the `RegistryBuilder` without acquiring a lock.
-            #[expect(unused)]
-            pub unsafe fn register() {
-                $crate::create_manual_register!($struct_name);
             }
         }
 

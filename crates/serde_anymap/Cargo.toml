@@ -31,7 +31,6 @@ std = ["libafl_core/std", "erased-serde/std", "serde/std"]
 
 ## Create keys that are more stable between compilations
 stable_anymap = []
-serdeany_autoreg = ["ctor"]
 
 [build-dependencies]
 rustversion = { workspace = true }
@@ -42,7 +41,7 @@ rustversion = { workspace = true }
 # Document all features of this crate (for `cargo doc`)
 document-features = { workspace = true, optional = true }
 
-ctor = { workspace = true, optional = true }
+ctor = { workspace = true }
 erased-serde = { workspace = true, default-features = false, features = [
   "alloc",
 ] }

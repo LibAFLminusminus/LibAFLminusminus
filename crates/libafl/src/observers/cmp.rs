@@ -93,7 +93,7 @@ impl CmpValues {
 /// A state metadata holding a list of values logged from comparisons
 #[derive(Debug, Default, Serialize, Deserialize)]
 #[cfg_attr(
-    any(not(feature = "serdeany_autoreg"), miri),
+    miri,
     expect(clippy::unsafe_derive_deserialize)
 )] // for SerdeAny
 pub struct CmpValuesMetadata {
@@ -373,7 +373,7 @@ struct cmp_map {
 /// A state metadata holding a list of values logged from comparisons. AFL++ RQ version.
 #[derive(Debug, Default, Serialize, Deserialize)]
 #[cfg_attr(
-    any(not(feature = "serdeany_autoreg"), miri),
+    miri,
     expect(clippy::unsafe_derive_deserialize)
 )] // for SerdeAny
 pub struct AflppCmpValuesMetadata {

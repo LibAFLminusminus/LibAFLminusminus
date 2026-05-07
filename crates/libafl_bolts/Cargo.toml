@@ -31,7 +31,6 @@ default = [
   "derive",
   "gzip",
   "rand_trait",
-  "serdeany_autoreg",
   "std",
   "xxh3",
 ]
@@ -111,7 +110,6 @@ xxh3 = ["xxhash-rust"]
 stable_anymap = ["serde_anymap/stable_anymap"]
 
 ## Automatically register all `#[derive(SerdeAny)]` types at startup.
-serdeany_autoreg = ["serde_anymap/serdeany_autoreg"]
 
 #! ### Stable SIMD features
 

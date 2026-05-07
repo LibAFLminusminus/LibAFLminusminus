@@ -40,7 +40,6 @@ default = [
   "libafl_bolts/xxh3",
   "rand_trait",
   "regex",
-  "serdeany_autoreg",
   "simd",
   "std",
   "remove_me",
@@ -141,9 +140,6 @@ frida_cli = ["cli", "libafl_bolts/frida_cli"]
 rand_trait = ["libafl_bolts/rand_trait"]
 
 #! ### SerdeAny features
-
-## Automatically register all `#[derive(SerdeAny)]` types at startup.
-serdeany_autoreg = ["libafl_bolts/serdeany_autoreg"]
 
 ## Grammar mutator.
 nautilus = ["std", "serde_json/std", "rand_trait", "regex-syntax", "regex"]

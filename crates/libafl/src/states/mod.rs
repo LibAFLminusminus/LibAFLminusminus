@@ -604,7 +604,7 @@ impl TestcaseMetadata {
 /// The Metadata for each testcase used in power schedules.
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[cfg_attr(
-    any(not(feature = "serdeany_autoreg"), miri),
+    miri,
     expect(clippy::unsafe_derive_deserialize)
 )] // for SerdeAny
 pub struct PSMetadata {

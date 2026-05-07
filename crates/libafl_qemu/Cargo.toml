@@ -30,7 +30,6 @@ default = [
   "asan_host",
   "usermode",
   "fork",
-  "serdeany_autoreg",
   "injections",
 ]
 ## Build asan for address sanitization
@@ -91,9 +90,6 @@ usermode = ["libafl_qemu_sys/usermode"]
 systemmode = ["libafl_qemu_sys/systemmode"]
 
 #! ## SerdeAny features
-
-## Automatically register all `#[derive(SerdeAny)]` types at startup.
-serdeany_autoreg = ["libafl_bolts/serdeany_autoreg"]
 
 slirp = [
   "systemmode",

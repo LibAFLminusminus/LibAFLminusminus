@@ -16,8 +16,6 @@ There are two main types provided by this crate:
 ```toml
 [dependencies]
 serde_anymap = "0.1.0"
-# For automatic type registration (recommended)
-serde_anymap = { version = "0.1.0", features = ["serdeany_autoreg"] }
 ```
 
 ### 2. Define Your Types and Implement `SerdeAny`
@@ -88,13 +86,6 @@ The real power of `serde_anymap` is its ability to serialize and deserialize the
 # let mut map = SerdeAnyMap::new();
 # map.insert(MyConfig { is_enabled: true, port: 8080 });
 # map.insert(UserData("John Doe".to_string()));
-// This is only needed if you don't use the `serdeany_autoreg` feature
-#[cfg(not(feature = "serdeany_autoreg"))]
-unsafe {
-    RegistryBuilder::register::<MyConfig>();
-    RegistryBuilder::register::<UserData>();
-}
-
 // Serialize the map to a JSON string
 let serialized = serde_json::to_string_pretty(&map).unwrap();
 println!("{}", serialized);
@@ -111,34 +102,6 @@ assert_eq!(deserialized.get::<UserData>().unwrap(), map.get::<UserData>().unwrap
 
 For `serde_anymap` to deserialize a generic `dyn SerdeAny` trait object, it needs a way to map a serialized type identifier back to a concrete type. This is done via a global type registry.
 
-### Automatic Registration (Recommended)
-
-The easiest way to handle registration is to enable the `serdeany_autoreg` feature. This uses the [`ctor`](https://crates.io/crates/ctor) crate to automatically run registration code for each type when your program starts. The `impl_serdeany!` macro handles this for you.
-
-```toml
-# In your Cargo.toml
-serde_anymap = { version = "0.1.0", features = ["serdeany_autoreg"] }
-```
-
-With this feature, you don't need to do anything else. Just use `impl_serdeany!` and it works.
-
-### Manual Registration
-
-If you cannot use `serdeany_autoreg`, you must register your types manually at the start of your program.
-
-```rust
-use serde_anymap::serdeany::RegistryBuilder;
-
-// This must be done before any deserialization happens.
-// It is safe to call multiple times.
-unsafe {
-    RegistryBuilder::register::<MyConfig>();
-    RegistryBuilder::register::<UserData>();
-}
-
-// Your application logic...
-```
-
 ## `NamedSerdeAnyMap`
 
 If you need to store multiple objects of the same type, you can use `NamedSerdeAnyMap`, which adds a string name as a key.
@@ -149,8 +112,6 @@ If you need to store multiple objects of the same type, you can use `NamedSerdeA
 # #[derive(Debug, Serialize, Deserialize, PartialEq)]
 # struct UserData(String);
 # impl_serdeany!(UserData);
-# #[cfg(not(feature = "serdeany_autoreg"))]
-# unsafe { RegistryBuilder::register::<UserData>(); }
 let mut named_map = NamedSerdeAnyMap::new();
 
 named_map.insert("user1", UserData("Alice".to_string()));
@@ -167,7 +128,6 @@ assert_eq!(deserialized.get::<UserData>("user1").unwrap().0, "Alice");
 
 ## Features
 
-- `serdeany_autoreg`: Enables automatic type registration at program startup. Highly recommended.
 - `stable_anymap`: Uses the type name (`&'static str`) as the key instead of `TypeId`. This makes the serialized output more stable across different compilations, but it can be slightly slower and may cause issues if you have types with the same name in different modules.
 
 ## The `LibAFL` Project

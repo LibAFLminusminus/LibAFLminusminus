@@ -34,7 +34,6 @@ libafl = { path = "../../../crates/libafl", default-features = false, features =
   "prelude",
   "gzip",
   "regex",
-  "serdeany_autoreg",
   "tui_monitor",
   "std",
   "derive",

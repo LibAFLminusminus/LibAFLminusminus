@@ -41,7 +41,7 @@ pub use std::StdExecutor;
 /// How an execution finished.
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[cfg_attr(
-    any(not(feature = "serdeany_autoreg"), miri),
+    miri,
     expect(clippy::unsafe_derive_deserialize)
 )] // for SerdeAny
 pub enum ExitKind {
@@ -68,7 +68,7 @@ libafl_bolts::impl_serdeany!(ExitKind);
 /// How one of the diffing executions finished.
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[cfg_attr(
-    any(not(feature = "serdeany_autoreg"), miri),
+    miri,
     expect(clippy::unsafe_derive_deserialize)
 )] // for SerdeAny
 pub enum DiffExitKind {

@@ -26,7 +26,7 @@ use crate::{
 /// The metadata placed in a [`crate::corpus::Testcase`] by a [`LoggerScheduledMutator`].
 #[derive(Debug, Serialize, Deserialize)]
 #[cfg_attr(
-    any(not(feature = "serdeany_autoreg"), miri),
+    miri,
     expect(clippy::unsafe_derive_deserialize)
 )] // for SerdeAny
 pub struct LogMutationMetadata {

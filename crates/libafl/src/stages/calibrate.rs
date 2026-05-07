@@ -40,7 +40,7 @@ pub const CALIBRATION_STAGE_NAME: &str = "calibration";
 /// The metadata to keep unstable entries
 /// Formula is same as AFL++: number of unstable entries divided by the number of filled entries.
 #[cfg_attr(
-    any(not(feature = "serdeany_autoreg"), miri),
+    miri,
     expect(clippy::unsafe_derive_deserialize)
 )] // for SerdeAny
 #[derive(Serialize, Deserialize, Debug, Clone)]
