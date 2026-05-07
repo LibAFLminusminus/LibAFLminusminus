@@ -99,6 +99,9 @@ handle_sigpipe = []
 ## Enables `TcpEventManager`, a simple EventManager proxying everything via TCP. This uses `tokio`.
 tcp_manager = ["tokio", "std"]
 
+## Enables `WebMonitor`, an axum-based HTTP server exposing fuzzing stats and historical data
+web_monitor = ["dep:axum", "tokio", "std", "serde_json"]
+
 ## Enables compression for the TCP manager
 tcp_compression = ["tcp_manager", "libafl_bolts/gzip"]
 
@@ -213,6 +216,7 @@ tokio = { version = "1.40.0", optional = true, features = [
   "rt-multi-thread",
   "time",
 ] } # used for TCP Event Manager and multi-machine
+axum = { version = "0.8", optional = true }
 tuple_list = { workspace = true }
 typed-builder = { workspace = true, optional = true } # Implement the builder pattern at compiletime
 wait-timeout = { version = "0.2.0", optional = true } # used by CommandExecutor to wait for child process

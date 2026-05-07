@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>LibAFL Monitor</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: monospace; background: #111; color: #ccc; padding: 1.5rem; }
+    h1 { font-size: 1.2rem; margin-bottom: 1rem; color: #fff; }
+    .summary { display: flex; gap: 1.5rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+    .stat { background: #1e1e1e; border: 1px solid #333; padding: 0.75rem 1.25rem; border-radius: 4px; }
+    .stat-label { font-size: 0.7rem; color: #888; text-transform: uppercase; margin-bottom: 0.3rem; }
+    .stat-value { font-size: 1.4rem; color: #4fc3f7; }
+    .chart-wrap { background: #1e1e1e; border: 1px solid #333; border-radius: 4px; padding: 1rem; max-width: 900px; }
+  </style>
+</head>
+<body>
+  <h1>LibAFL Monitor</h1>
+  <div class="summary">
+    <div class="stat"><div class="stat-label">Workers</div><div class="stat-value" id="workers">—</div></div>
+    <div class="stat"><div class="stat-label">Corpus</div><div class="stat-value" id="corpus">—</div></div>
+    <div class="stat"><div class="stat-label">Objectives</div><div class="stat-value" id="objectives">—</div></div>
+    <div class="stat"><div class="stat-label">Execs/s</div><div class="stat-value" id="execs_per_sec">—</div></div>
+    <div class="stat"><div class="stat-label">Elapsed</div><div class="stat-value" id="elapsed">—</div></div>
+  </div>
+  <div class="chart-wrap">
+    <canvas id="corpusChart"></canvas>
+  </div>
+  <script>
+    const chart = new Chart(document.getElementById('corpusChart'), {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [{
+          label: 'Corpus',
+          data: [],
+          borderColor: '#4fc3f7',
+          backgroundColor: 'rgba(79,195,247,0.08)',
+          fill: true,
+          tension: 0.3,
+          pointRadius: 2,
+        }]
+      },
+      options: {
+        animation: false,
+        plugins: { legend: { labels: { color: '#ccc' } } },
+        scales: {
+          x: {
+            ticks: { color: '#888', maxTicksLimit: 10 },
+            grid: { color: '#222' },
+            title: { display: true, text: 'Elapsed', color: '#888' }
+          },
+          y: {
+            beginAtZero: true,
+            ticks: { color: '#888' },
+            grid: { color: '#222' },
+            title: { display: true, text: 'Corpus size', color: '#888' }
+          }
+        }
+      }
+    });
+
+    function hhmmss(secs) {
+      const h = Math.floor(secs / 3600);
+      const m = Math.floor((secs % 3600) / 60);
+      const s = secs % 60;
+      return [h, m, s].map(v => String(v).padStart(2, '0')).join(':');
+    }
+
+    function si(n) {
+      if (n >= 1e12) return (n / 1e12).toFixed(1) + 'T';
+      if (n >= 1e9)  return (n / 1e9).toFixed(1) + 'G';
+      if (n >= 1e6)  return (n / 1e6).toFixed(1) + 'M';
+      if (n >= 1e3)  return (n / 1e3).toFixed(1) + 'k';
+      return String(n);
+    }
+
+    async function refresh() {
+      let history;
+      try {
+        const resp = await fetch('/api/history');
+        history = await resp.json();
+      } catch (_) { return; }
+      if (!history.length) return;
+
+      const startTs = history[0].timestamp_secs;
+      const latest = history[history.length - 1];
+
+      const corpus = Math.max(...latest.stats.map(w => w.corpus));
+      const objectives = latest.stats.reduce((s, w) => s + w.objective, 0);
+      const elapsed = latest.timestamp_secs - startTs;
+
+      let execsPerSec = '—';
+      if (history.length >= 2) {
+        const prev = history[history.length - 2];
+        const dt = latest.timestamp_secs - prev.timestamp_secs;
+        if (dt > 0) {
+          const dExecs = latest.stats.reduce((s, w) => s + w.executions, 0)
+                       - prev.stats.reduce((s, w) => s + w.executions, 0);
+          execsPerSec = si(Math.round(dExecs / dt)) + '/s';
+        }
+      }
+
+      document.getElementById('workers').textContent = latest.stats.length;
+      document.getElementById('corpus').textContent = corpus;
+      document.getElementById('objectives').textContent = objectives;
+      document.getElementById('execs_per_sec').textContent = execsPerSec;
+      document.getElementById('elapsed').textContent = hhmmss(elapsed);
+
+      chart.data.labels = history.map(s => hhmmss(s.timestamp_secs - startTs));
+      chart.data.datasets[0].data = history.map(s => Math.max(...s.stats.map(w => w.corpus)));
+      chart.update();
+    }
+
+    refresh();
+    setInterval(refresh, 5000);
+  </script>
+</body>
+</html>

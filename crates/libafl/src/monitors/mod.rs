@@ -20,6 +20,11 @@ use crate::{
 pub mod simple;
 pub use simple::SimpleMonitor;
 
+#[cfg(feature = "web_monitor")]
+pub mod web;
+#[cfg(feature = "web_monitor")]
+pub use web::WebMonitor;
+
 pub trait Monitor {
     /// Display tick.
     ///
