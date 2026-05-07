@@ -50,11 +50,6 @@ pub struct UnstableEntriesMetadata {
 }
 impl_serdeany!(UnstableEntriesMetadata);
 
-/// Metadata to mark a testcase as disabled in the calibration stage due to crash or timeout.
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct DisabledInCalibrationStageMetadata;
-impl_serdeany!(DisabledInCalibrationStageMetadata);
-
 impl UnstableEntriesMetadata {
     #[must_use]
     /// Create a new [`struct@UnstableEntriesMetadata`]
@@ -384,39 +379,6 @@ where
     }
 }
 
-impl<C, I, O, OT, S> Restartable<S> for CalibrationStage<C, I, O, OT, S>
-where
-    S: HasMetadata + HasNamedMetadata + HasCurrentCorpusId + HasCorpus<I> + HasCurrentTestcase<I>,
-    S::Corpus: EnableDisableCorpus,
-{
-    fn should_restart(&mut self, state: &mut S) -> Result<bool, Error> {
-        // Calibration stage disallow restarts
-        // If a testcase that causes crash/timeout in the queue, we need to remove it from the queue immediately.
-        let retry = RetryCountRestartHelper::no_retry(state, &self.name)?;
-        if !retry {
-            let id = state
-                .current_corpus_id()?
-                .ok_or_else(|| Error::illegal_state("No current corpus id"))?;
-            log::info!("Disabling crashing/timeouting testcase {id} during calibration");
-            let insert_result = state
-                .current_testcase_mut()?
-                .try_add_metadata(DisabledInCalibrationStageMetadata);
-            if let Err(err) = insert_result {
-                log::warn!("Calibration stage called on already disabled testcase {id}: {err:?}.");
-            } else {
-                state.corpus_mut().disable(id)?;
-                state.clear_corpus_id()?;
-                self.clear_progress(state)?;
-                return Err(Error::skip_remaining_stages());
-            }
-        }
-        Ok(retry)
-    }
-
-    fn clear_progress(&mut self, state: &mut S) -> Result<(), Error> {
-        RetryCountRestartHelper::clear_progress(state, &self.name)
-    }
-}
 
 impl<C, I, O, OT, S> CalibrationStage<C, I, O, OT, S>
 where
@@ -461,63 +423,3 @@ impl<C, I, O, OT, S> Named for CalibrationStage<C, I, O, OT, S> {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    #[cfg(not(feature = "serdeany_autoreg"))]
-    use libafl_bolts::serdeany::RegistryBuilder;
-    use libafl_bolts::{Error, rands::StdRand};
-
-    #[cfg(not(feature = "serdeany_autoreg"))]
-    use super::DisabledInCalibrationStageMetadata;
-    use crate::{
-        corpus::{Corpus, HasCurrentCorpusId, InMemoryCorpus, Testcase},
-        feedbacks::{MaxMapFeedback, StateInitializer},
-        inputs::NopInput,
-        observers::StdMapObserver,
-        stages::{CalibrationStage, Restartable},
-        states::{HasCorpus, StdState},
-    };
-
-    #[test]
-    fn test_calibration_restart() -> Result<(), Error> {
-        #[cfg(not(feature = "serdeany_autoreg"))]
-        // # Safety
-        // This is called once at the start of the test
-        unsafe {
-            RegistryBuilder::register::<DisabledInCalibrationStageMetadata>();
-            RegistryBuilder::register::<crate::feedbacks::map::MapFeedbackMetadata<u8>>();
-            RegistryBuilder::register::<crate::stages::RetryCountRestartHelper>();
-        }
-
-        // Setup
-        let mut state = StdState::new(
-            StdRand::with_seed(0),
-            InMemoryCorpus::new(),
-            InMemoryCorpus::new(),
-            &mut (),
-            &mut (),
-        )?;
-
-        let input = NopInput {};
-        let testcase = Testcase::new(input);
-        let id = state.corpus_mut().add(testcase)?;
-        state.set_corpus_id(id)?;
-
-        let observer = StdMapObserver::owned("map", vec![0u8; 16]);
-        let mut feedback = MaxMapFeedback::new(&observer);
-        feedback.init_state(&mut state)?;
-        let mut stage: CalibrationStage<_, _, _, (), _> = CalibrationStage::new(&feedback);
-
-        assert!(stage.should_restart(&mut state)?);
-
-        match stage.should_restart(&mut state) {
-            Err(Error::SkipRemainingStages) => (),
-            res => panic!("Expected SkipRemainingStages, got {res:?}"),
-        }
-
-        assert!(state.corpus().get(id).is_err());
-        assert!(state.corpus().get_from_all(id).is_ok());
-
-        Ok(())
-    }
-}

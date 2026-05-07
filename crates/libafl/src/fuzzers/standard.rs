@@ -9,7 +9,7 @@ use tuple_list::tuple_list;
 
 use crate::{
     FuzzerHook, FuzzerHooksTuple, Worker,
-    corpus::{Corpus, Scheduler, Testcase},
+    corpus::{Corpus, Scheduler, Testcase, TestcaseId},
     dependency::Registrator,
     executors::{Executor, ExitKind},
     feedbacks::{Feedback, MapFeedbackMetadata},
@@ -190,7 +190,7 @@ impl<F, H, OF> StdFuzzer<F, H, OF> {
         exit_kind: ExitKind,
         testcase: Testcase<I>,
         res: EvaluationResult,
-    ) -> Result<(), Error>
+    ) -> Result<Option<TestcaseId>, Error>
     where
         F: Feedback<I, OT, S>,
         I: Input,
@@ -219,6 +219,8 @@ impl<F, H, OF> StdFuzzer<F, H, OF> {
             let stats = state.stats_mut();
             stats.last_found_time = current_time();
             stats.objective += 1;
+
+            return Ok(Some(testcase_id));
         } else if res.is_corpus_worthy() {
             // Not an objective
             // Add the input to the main corpus
@@ -235,9 +237,11 @@ impl<F, H, OF> StdFuzzer<F, H, OF> {
             let stats = state.stats_mut();
             stats.last_found_time = current_time();
             stats.corpus += 1;
+
+            return Ok(Some(testcase_id));
         }
 
-        Ok(())
+        Ok(None)
     }
 
     fn evaluate_execution<I, OT, S>(
@@ -305,7 +309,7 @@ where
 
         // just to circumvent borrow rules
         let observers = executor.observers();
-        self.commit_testcase(state, &*observers, exit_kind, testcase, result);
+        let commited = self.commit_testcase(state, &*observers, exit_kind, testcase, result);
         Ok(result)
     }
 }
@@ -338,6 +342,7 @@ where
 
             self.feedback.register_with_ty(&mut registrator)?;
             self.objective.register_with_ty(&mut registrator)?;
+            self.fuzzer_hooks.register_with_ty(&mut registrator)?;
             stages.register_with_ty(&mut registrator)?;
             state.register_with_ty(&mut registrator)?;
             executor.register_with_ty(&mut registrator)?;
@@ -345,6 +350,7 @@ where
             // 2 - check that types and mds for each object
             let mut checker = registrator.finish();
             self.feedback.check(&mut checker)?;
+            self.objective.check(&mut checker)?;
             self.objective.check(&mut checker)?;
             stages.check(&mut checker)?;
             state.check(&mut checker)?;

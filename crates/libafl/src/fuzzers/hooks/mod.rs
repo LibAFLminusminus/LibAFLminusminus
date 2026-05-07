@@ -5,13 +5,18 @@ use libafl_bolts::tuples::MatchName;
 use libafl_core::Named;
 
 use crate::{
-    Fuzzer, Result, corpus::TestcaseId, corpus::testcase::Testcase, runtimes::RuntimeHandle,
+    DependencyResolver, Fuzzer, Result,
+    corpus::{TestcaseId, testcase::Testcase},
+    runtimes::RuntimeHandle,
 };
 
 pub mod custom_name;
 pub use custom_name::*;
 
-pub trait FuzzerHook<E, I, S, W> {
+pub mod calibration;
+pub use calibration::*;
+
+pub trait FuzzerHook<E, I, S, W>: DependencyResolver {
     /// Run before one fuzzing loop starts
     fn pre_step(
         &mut self,
@@ -41,6 +46,16 @@ pub trait FuzzerHook<E, I, S, W> {
         Ok(())
     }
 
+    fn post_add(
+        &mut self,
+        executor: &mut E,
+        state: &mut S,
+        rt_handle: &mut RuntimeHandle<S, W>,
+        testcase_id: TestcaseId,
+    ) -> Result<()> {
+        Ok(())
+    }
+
     /// Run before fuzzer performs all the stages
     fn pre_perform(
         &self,
@@ -62,7 +77,7 @@ pub trait FuzzerHook<E, I, S, W> {
     }
 }
 
-pub trait FuzzerHooksTuple<E, I, S, W> {
+pub trait FuzzerHooksTuple<E, I, S, W>: DependencyResolver {
     fn pre_step_all(
         &mut self,
         executor: &mut E,
@@ -82,6 +97,14 @@ pub trait FuzzerHooksTuple<E, I, S, W> {
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
         testcase: &mut Testcase<I>,
+    ) -> Result<()>;
+
+    fn post_add_all(
+        &mut self,
+        executor: &mut E,
+        state: &mut S,
+        rt_handle: &mut RuntimeHandle<S, W>,
+        testcase_id: TestcaseId,
     ) -> Result<()>;
     fn pre_perform_all(
         &mut self,
@@ -124,6 +147,16 @@ impl<E, I, S, W> FuzzerHooksTuple<E, I, S, W> for () {
     ) -> Result<()> {
         Ok(())
     }
+    fn post_add_all(
+        &mut self,
+        executor: &mut E,
+        state: &mut S,
+        rt_handle: &mut RuntimeHandle<S, W>,
+        testcase_id: TestcaseId,
+    ) -> Result<()> {
+        Ok(())
+    }
+
     fn pre_perform_all(
         &mut self,
         executor: &mut E,
@@ -176,6 +209,17 @@ where
     ) -> Result<()> {
         self.0.pre_add(executor, state, rt_handle, testcase)?;
         self.1.pre_add_all(executor, state, rt_handle, testcase)
+    }
+
+    fn post_add_all(
+        &mut self,
+        executor: &mut E,
+        state: &mut S,
+        rt_handle: &mut RuntimeHandle<S, W>,
+        testcase_id: TestcaseId,
+    ) -> Result<()> {
+        self.0.post_add(executor, state, rt_handle, testcase_id);
+        self.1.post_add_all(executor, state, rt_handle, testcase_id)
     }
     fn pre_perform_all(
         &mut self,

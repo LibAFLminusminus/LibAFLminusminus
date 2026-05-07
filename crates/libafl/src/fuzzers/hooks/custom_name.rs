@@ -1,5 +1,5 @@
 use crate::{
-    FuzzerHook, Result,
+    DependencyResolver, FuzzerHook, Result,
     corpus::testcase::{Testcase, TestcaseFilenameFormat},
 };
 use alloc::string::String;
@@ -34,6 +34,8 @@ where
         self(state, testcase)
     }
 }
+
+impl<I, G, S> DependencyResolver for CustomNameHook<I, G, S> {}
 
 impl<E, I, G, S, W> FuzzerHook<E, I, S, W> for CustomNameHook<I, G, S>
 where
