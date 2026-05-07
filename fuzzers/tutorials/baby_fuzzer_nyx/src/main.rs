@@ -6,6 +6,7 @@ use libafl::{
     feedbacks::{CrashFeedback, MaxMapFeedback},
     inputs::{bytes::BytesContext, BytesInput},
     launchers::StdLauncher,
+    generators::RandPrintablesGenerator,
     monitors::SimpleMonitor,
     mutators::{havoc_mutations, HavocScheduledMutator},
     observers::StdMapObserver,
@@ -15,7 +16,7 @@ use libafl::{
     states::StdState, Result,
     Fuzzer, StdFuzzer, Worker,
 };
-use libafl_bolts::{rands::StdRand, tuples::tuple_list};
+use libafl_bolts::{rands::StdRand, tuples::tuple_list, non_zero};
 use libafl_nyx::{executor::NyxExecutor, helper::NyxHelper, settings::NyxSettings};
 
 fn run_fuzzer<C, OC, SC>(
@@ -33,7 +34,6 @@ where
     let observer =
         unsafe { StdMapObserver::from_mut_ptr("trace", helper.bitmap_buffer, helper.bitmap_size) };
 
-    let input = BytesInput::new(b"100".to_vec());
     let mut rand = StdRand::new();
 
     // libafl stuff
@@ -47,8 +47,16 @@ where
     let mutator = HavocScheduledMutator::new(havoc_mutations());
     let mut stages = tuple_list!(StdMutationalStage::new(mutator));
     let mut fuzzer = StdFuzzer::new(feedback, objective, &mut stages, &mut executor, state, rt_handle)?;
-
-
+    // Generator of printable bytearrays of max size 32
+    let mut generator = RandPrintablesGenerator::new(non_zero!(32));
+    state.generate_initial_inputs(
+        &mut fuzzer,
+        &mut executor,
+        &mut generator,
+        &mut rand,
+        rt_handle,
+        8,
+    )?;
     // start fuzz
     fuzzer
         .fuzz_loop(&mut stages, &mut executor, &mut rand, state, rt_handle)
