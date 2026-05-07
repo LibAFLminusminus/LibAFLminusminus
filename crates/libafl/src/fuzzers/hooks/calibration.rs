@@ -1,12 +1,15 @@
 use crate::{
     DependencyResolver, Error, Result, Worker,
-    corpus::{Corpus, Testcase},
+    corpus::{Corpus, Testcase, schedulers::PowerScheduleData},
     executors::Executor,
     feedbacks::{HasObserverHandle, MapFeedbackMetadata},
     fuzzers::{ExitKind, FuzzerHook},
     inputs::Input,
     observers::{MapObserver, ObserversTuple},
-    states::{FlatState, HasCorpus, named_metadata_mut},
+    states::{
+        FlatState, HasCorpus, has_named_metadata, has_unnamed_metadata, named_metadata_mut,
+        unnamed_metadata_mut,
+    },
 };
 use alloc::{
     borrow::{Cow, ToOwned},
@@ -123,6 +126,32 @@ impl<C, O> CalibrationHook<C, O> {
             name: Cow::Owned(format!("calibration_{}", map_name.clone())),
             phantom: PhantomData,
         }
+    }
+}
+
+impl<C, O> CalibrationHook<C, O>
+where
+    C: AsRef<O>,
+    O: MapObserver,
+{
+    pub fn prepare_ps_metadata<E, I, S>(&self, executor: &mut E, state: &mut S) -> Result<()>
+    where
+        E: Executor<I, S>,
+        S: FlatState,
+    {
+        let psconfig = unnamed_metadata_mut::<PowerScheduleData>(state.named_metadata_map_mut())?;
+
+        let observers = executor.observers();
+        let map = observers[&self.map_observer_handle].as_ref();
+        let bitmap_size = map.count_bytes();
+
+        if bitmap_size < 1 {
+            return Err(Error::invalid_corpus(
+                "This testcase does not trigger any edges. Check your instrumentation!".to_string(),
+            ));
+        }
+
+        Ok(())
     }
 }
 /// Default name prefix for `CalibrationHook`; derived from AFL++
@@ -258,6 +287,10 @@ where
             .stats_mut()
             .user_map
             .insert("stability", StabilityValue(stability));
+
+        if has_unnamed_metadata::<PowerScheduleConfig>(state.named_metadata_map()) {
+            self.prepare_ps_metadata(executor, state);
+        }
 
         Ok(())
     }
