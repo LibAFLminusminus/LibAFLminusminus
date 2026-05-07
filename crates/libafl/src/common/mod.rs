@@ -8,6 +8,9 @@ use libafl_bolts::{
     serdeany::{NamedSerdeAnyMap, SerdeAny},
 };
 
+pub mod ps;
+pub use ps::*;
+
 pub mod dependency;
 pub use dependency::{CompatibilityChecker, DependencyResolver, Registrator};
 

@@ -9,7 +9,8 @@ pub use power::*;
 
 use crate::{
     Result,
-    corpus::{TestcaseId, schedulers::PowerScheduleData},
+    common::PowerScheduleData,
+    corpus::TestcaseId,
     states::{FlatState, named_metadata, unnamed_metadata_mut},
 };
 

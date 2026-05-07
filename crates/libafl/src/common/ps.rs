@@ -8,30 +8,10 @@ use alloc::vec::Vec;
 use core::time::Duration;
 use hashbrown::HashMap;
 
-const N_FUZZ_SIZE: usize = 1 << 21;
-
-#[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq)]
-pub enum PowerSchedule {
-    /// The `explore` power schedule
-    EXPLORE,
-    /// The `exploit` power schedule
-    EXPLOIT,
-    /// The `fast` power schedule
-    FAST,
-    /// The `coe` power schedule
-    COE,
-    /// The `lin` power schedule
-    LIN,
-    /// The `quad` power schedule
-    QUAD,
-}
-
 /// The metadata used for power schedules
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(miri, expect(clippy::unsafe_derive_deserialize))] // for SerdeAny
 pub struct PowerScheduleData {
-    /// Powerschedule strategy
-    strat: Option<PowerSchedule>,
     /// Measured exec time during calibration
     exec_time: Duration,
     /// Calibration cycles
@@ -44,8 +24,6 @@ pub struct PowerScheduleData {
     bitmap_entries: u64,
     /// Queue cycles
     queue_cycles: u64,
-    /// The vector to contain the frequency of each execution path.
-    n_fuzz: Vec<u32>,
     /// per testcase metadata
     per_testcase: HashMap<TestcaseId, TestcasePowerScheduleData>,
 }
@@ -54,29 +32,16 @@ pub struct PowerScheduleData {
 impl PowerScheduleData {
     /// Creates a new [`struct@PowerScheduleData`]
     #[must_use]
-    pub fn new(strat: Option<PowerSchedule>) -> Self {
+    pub fn new() -> Self {
         Self {
-            strat,
             exec_time: Duration::from_millis(0),
             cycles: 0,
             bitmap_size: 0,
             bitmap_size_log: 0.0,
             bitmap_entries: 0,
             queue_cycles: 0,
-            n_fuzz: vec![0; N_FUZZ_SIZE],
             per_testcase: HashMap::new(),
         }
-    }
-
-    /// The `PowerSchedule`
-    #[must_use]
-    pub fn strat(&self) -> Option<PowerSchedule> {
-        self.strat
-    }
-
-    /// Set the `PowerSchedule`
-    pub fn set_strat(&mut self, strat: Option<PowerSchedule>) {
-        self.strat = strat;
     }
 
     /// The measured exec time during calibration
@@ -143,18 +108,6 @@ impl PowerScheduleData {
     /// Sets the amount of queue cycles
     pub fn set_queue_cycles(&mut self, val: u64) {
         self.queue_cycles = val;
-    }
-
-    /// Gets the `n_fuzz`.
-    #[must_use]
-    pub fn n_fuzz(&self) -> &[u32] {
-        &self.n_fuzz
-    }
-
-    /// Sets the `n_fuzz`.
-    #[must_use]
-    pub fn n_fuzz_mut(&mut self) -> &mut [u32] {
-        &mut self.n_fuzz
     }
 
     pub fn per_testcase_data(&self, testcase_id: TestcaseId) -> Option<&TestcasePowerScheduleData> {

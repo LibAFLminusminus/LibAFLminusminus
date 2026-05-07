@@ -2,8 +2,9 @@ use crate::{
     DependencyResolver, Error, Result, Worker,
     corpus::{
         Corpus, Testcase,
-        schedulers::{PowerScheduleData, Scheduler},
+        Scheduler,
     },
+    common::PowerScheduleData,
     executors::Executor,
     feedbacks::{HasObserverHandle, MapFeedbackMetadata},
     fuzzers::{ExitKind, FuzzerHook},

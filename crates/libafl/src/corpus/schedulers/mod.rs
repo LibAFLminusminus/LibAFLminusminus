@@ -16,14 +16,8 @@ use crate::{
     corpus::{Testcase, testcase::TestcaseId},
 };
 
-pub mod testcase_score;
-pub use testcase_score::{LenTimeMulTestcasePenalty, TestcasePenalty, TestcaseScore};
-
 pub mod queue;
 pub use queue::QueueScheduler;
-
-pub mod powerschedules;
-pub use powerschedules::*;
 
 /// The scheduler define how the fuzzer requests a testcase from the corpus.
 /// It has hooks to corpus add/replace/remove to allow complex scheduling algorithms to collect data.
