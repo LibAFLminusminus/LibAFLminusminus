@@ -26,9 +26,7 @@ use crate::mutators::str_decode;
 use crate::{
     Error, EvaluationResult,
     inputs::{HasMutatorBytes, ResizableMutator},
-    mutators::{
-        MultiMutator, MutationResult, Mutator, Named, buffer_self_copy, mutations::buffer_copy,
-    },
+    mutators::{MutationResult, Mutator, Named, buffer_self_copy, mutations::buffer_copy},
     observers::cmp::{AflppCmpValuesMetadata, CmpValues, CmpValuesMetadata},
     states::{FlatState, HasCorpus},
 };

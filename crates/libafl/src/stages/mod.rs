@@ -31,18 +31,11 @@ pub use mutational::{MutationalStage, StdMutationalStage};
 pub mod single;
 pub use single::*;
 
-#[cfg(not(feature = "remove_me"))]
-pub mod calibrate;
-#[cfg(not(feature = "remove_me"))]
-pub use calibrate::{CalibrationStage, run_target_with_timing};
-
 pub mod logics;
 pub use logics::*;
 
-#[cfg(not(feature = "remove_me"))]
 pub mod power;
-#[cfg(not(feature = "remove_me"))]
-pub use power::{PowerMutationalStage, StdPowerMutationalStage};
+pub use power::*;
 
 pub mod nop;
 pub use nop::NopStage;

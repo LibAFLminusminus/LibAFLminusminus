@@ -1,56 +1,52 @@
-//! The power schedules. This stage should be invoked after the calibration stage.
+//| The [`PowerScheduleStage`] is the default stage used during fuzzing.
+//! For the current input, it will perform a range of random mutations, and then run them in the executor.
 
 use alloc::{
     borrow::{Cow, ToOwned},
     string::ToString,
 };
-use core::{fmt::Debug, marker::PhantomData};
+use core::{marker::PhantomData, num::NonZeroUsize};
 
-use libafl_bolts::Named;
+use libafl_bolts::{Named, rands::Rand};
+use libafl_core::non_zero;
 
-#[cfg(feature = "introspection")]
-use crate::monitors::stats::PerfFeature;
 use crate::{
-    Error, HasMetadata, HasNamedMetadata,
-    corpus::HasCurrentCorpusId,
-    executors::{Executor, HasObservers},
+    DependencyResolver, Error,
+    corpus::{Corpus, Testcase, TestcaseId},
     fuzzers::Evaluator,
-    mark_feature_time,
+    inputs::Input,
     mutators::{MutationResult, Mutator},
-    schedulers::{TestcaseScore, testcase_score::CorpusPowerTestcaseScore},
-    stages::{
-        MutationalStage, Restartable, RetryCountRestartHelper, Stage,
-        mutational::{MutatedTransform, MutatedTransformPost},
-    },
-    start_timer,
-    states::{HasCurrentTestcase, HasExecutions, HasRand, MaybeHasClientPerfMonitor},
+    runtimes::RuntimeHandle,
+    stages::{MutationalStage, Stage},
+    states::{HasCorpus, HasScheduler, State},
 };
 
-/// The unique id for this stage
-static mut POWER_MUTATIONAL_STAGE_ID: usize = 0;
-/// Default name for `PowerMutationalStage`; derived from AFL++
-pub const POWER_MUTATIONAL_STAGE_NAME: &str = "power";
-/// The mutational stage using power schedules
+pub trait Power<S> {
+    fn score(state: &S) -> usize;
+}
+
+/// Default value, how many iterations each stage gets, as an upper bound.
+/// It may randomly continue earlier.
+pub const DEFAULT_MUTATIONAL_MAX_ITERATIONS: usize = 128;
+
+impl<E, F, I, M, R, S, W, Z> DependencyResolver for PowerScheduleStage<E, F, I, M, R, S, W, Z> {}
+
+/// The default mutational stage
 #[derive(Debug, Clone)]
-pub struct PowerMutationalStage<E, F, EM, I, M, S, Z> {
+pub struct PowerScheduleStage<E, F, I, M, R, S, W, Z> {
+    /// The name
     name: Cow<'static, str>,
-    /// The mutators we use
+    /// The mutator(s) to use
     mutator: M,
-    phantom: PhantomData<(E, F, EM, I, S, Z)>,
+    phantom: PhantomData<(E, F, I, R, S, W, Z)>,
 }
 
-impl<E, F, EM, I, M, S, Z> Named for PowerMutationalStage<E, F, EM, I, M, S, Z> {
-    fn name(&self) -> &Cow<'static, str> {
-        &self.name
-    }
-}
-
-impl<E, F, EM, I, M, S, Z> MutationalStage<S> for PowerMutationalStage<E, F, EM, I, M, S, Z>
+impl<E, F, I, M, R, S, W, Z> MutationalStage<R> for PowerScheduleStage<E, F, I, M, R, S, W, Z>
 where
-    S: HasCurrentTestcase<I>,
-    F: TestcaseScore<I, S>,
+    R: Rand,
 {
     type Mutator = M;
+
     /// The mutator, added to this stage
     #[inline]
     fn mutator(&self) -> &Self::Mutator {
@@ -62,137 +58,109 @@ where
     fn mutator_mut(&mut self) -> &mut Self::Mutator {
         &mut self.mutator
     }
+}
 
+impl<E, F, I, M, R, S, SC, W, Z> PowerScheduleStage<E, F, I, M, R, S, W, Z>
+where
+    F: Power<S>,
+    R: Rand,
+    S: HasScheduler<Scheduler = SC>,
+{
     /// Gets the number of iterations as a random number
-    #[expect(clippy::cast_sign_loss)]
-    fn iterations(&self, state: &mut S) -> Result<usize, Error> {
-        // Update handicap
-        let mut testcase = state.current_testcase_mut()?;
-        let score = F::compute(state, &mut testcase)? as usize;
-
-        Ok(score)
+    fn iterations(&self, state: &S) -> Result<usize, Error> {
+        Ok(F::score(state))
     }
 }
 
-impl<E, F, EM, I, M, S, Z> Stage<E, EM, S, Z> for PowerMutationalStage<E, F, EM, I, M, S, Z>
+/// The unique id for mutational stage
+static mut MUTATIONAL_STAGE_ID: usize = 0;
+/// The name for mutational stage
+pub static MUTATIONAL_STAGE_NAME: &str = "mutational";
+
+impl<E, F, I, M, R, S, W, Z> Named for PowerScheduleStage<E, F, I, M, R, S, W, Z> {
+    fn name(&self) -> &Cow<'static, str> {
+        &self.name
+    }
+}
+
+impl<E, F, I, M, R, S, W, Z> Stage<E, R, S, W, Z> for PowerScheduleStage<E, F, I, M, R, S, W, Z>
 where
-    E: Executor<EM, I, S, Z> + HasObservers,
-    F: TestcaseScore<I, S>,
-    M: Mutator<I, S>,
-    S: HasMetadata
-        + HasRand
-        + HasExecutions
-        + HasNamedMetadata
-        + HasCurrentTestcase<I>
-        + HasCurrentCorpusId
-        + MaybeHasClientPerfMonitor,
-    Z: Evaluator<E, EM, I, S>,
-    I: MutatedTransform<I, S> + Clone,
+    I: Input,
+    M: Mutator<I, R, S>,
+    R: Rand,
+    S: State<I>,
+    Z: Evaluator<E, I, S, W>,
 {
     #[inline]
-    #[expect(clippy::let_and_return)]
     fn perform(
         &mut self,
         fuzzer: &mut Z,
         executor: &mut E,
+        rand: &mut R,
         state: &mut S,
-        manager: &mut EM,
+        rt_handle: &mut RuntimeHandle<S, W>,
+        testcase_id: &TestcaseId,
     ) -> Result<(), Error> {
-        let ret = self.perform_mutational(fuzzer, executor, state, manager);
-        ret
+        self.perform_mutational(fuzzer, executor, rand, state, rt_handle, testcase_id)
     }
 }
 
-impl<E, F, EM, I, M, S, Z> Restartable<S> for PowerMutationalStage<E, F, EM, I, M, S, Z>
-where
-    S: HasMetadata + HasNamedMetadata + HasCurrentCorpusId,
-{
-    fn should_restart(&mut self, state: &mut S) -> Result<bool, Error> {
-        // Make sure we don't get stuck crashing on a single testcase
-        RetryCountRestartHelper::should_restart(state, &self.name, 3)
-    }
-
-    fn clear_progress(&mut self, state: &mut S) -> Result<(), Error> {
-        RetryCountRestartHelper::clear_progress(state, &self.name)
-    }
-}
-
-impl<E, F, EM, I, M, S, Z> PowerMutationalStage<E, F, EM, I, M, S, Z>
-where
-    E: Executor<EM, I, S, Z> + HasObservers,
-    F: TestcaseScore<I, S>,
-    M: Mutator<I, S>,
-    S: HasMetadata + HasRand + HasCurrentTestcase<I> + MaybeHasClientPerfMonitor,
-    I: MutatedTransform<I, S> + Clone,
-    Z: Evaluator<E, EM, I, S>,
-{
-    /// Creates a new [`PowerMutationalStage`]
+impl<E, F, I, M, R, S, W, Z> PowerScheduleStage<E, F, I, M, R, S, W, Z> {
+    /// Creates a new default mutational stage
+    #[inline]
     pub fn new(mutator: M) -> Self {
-        // unsafe but impossible that you create two threads both instantiating this instance
         let stage_id = unsafe {
-            let ret = POWER_MUTATIONAL_STAGE_ID;
-            POWER_MUTATIONAL_STAGE_ID += 1;
+            let ret = MUTATIONAL_STAGE_ID;
+            MUTATIONAL_STAGE_ID += 1;
             ret
         };
+        let name =
+            Cow::Owned(MUTATIONAL_STAGE_NAME.to_owned() + ":" + stage_id.to_string().as_str());
         Self {
-            name: Cow::Owned(
-                POWER_MUTATIONAL_STAGE_NAME.to_owned() + ":" + stage_id.to_string().as_str(),
-            ),
+            name,
             mutator,
             phantom: PhantomData,
         }
     }
+}
 
+impl<E, F, I, M, R, S, W, Z> PowerScheduleStage<E, F, I, M, R, S, W, Z>
+where
+    I: Clone,
+    F: Power<S>,
+    M: Mutator<I, R, S>,
+    R: Rand,
+    S: State<I>,
+    Z: Evaluator<E, I, S, W>,
+{
     /// Runs this (mutational) stage for the given testcase
     fn perform_mutational(
         &mut self,
         fuzzer: &mut Z,
         executor: &mut E,
+        rand: &mut R,
         state: &mut S,
-        manager: &mut EM,
+        rt_handle: &mut RuntimeHandle<S, W>,
+        testcase_id: &TestcaseId,
     ) -> Result<(), Error> {
-        start_timer!(state);
-
-        // Here saturating_sub is needed as self.iterations() might be actually smaller than the previous value before reset.
-        /*
-        let num = self
-            .iterations(state)?
-            .saturating_sub(self.execs_since_progress_start(state)?);
-        */
         let num = self.iterations(state)?;
-        let mut testcase = state.current_testcase_mut()?;
 
-        let Ok(input) = I::try_transform_from(&mut testcase, state) else {
-            return Ok(());
-        };
-        drop(testcase);
-        mark_feature_time!(state, PerfFeature::GetInputFromCorpus);
+        let tc = state.corpus().get(testcase_id)?;
 
         for _ in 0..num {
-            let mut input = input.clone();
+            let mut input = tc.cloned_input();
 
-            start_timer!(state);
-            let mutated = self.mutator_mut().mutate(state, &mut input)?;
-            mark_feature_time!(state, PerfFeature::Mutate);
+            let mutated = self.mutator_mut().mutate(&mut input, rand, state)?;
 
             if mutated == MutationResult::Skipped {
                 continue;
             }
 
-            let (untransformed, post) = input.try_transform_into(state)?;
-            let (_, corpus_id) =
-                fuzzer.evaluate_filtered(state, executor, manager, &untransformed)?;
+            let eval_res = fuzzer.evaluate_input(state, executor, rt_handle, &input)?;
 
-            start_timer!(state);
-            self.mutator_mut().post_exec(state, corpus_id)?;
-            post.post_exec(state, corpus_id)?;
-            mark_feature_time!(state, PerfFeature::MutatePostExec);
+            self.mutator_mut().post_exec(state, &eval_res)?;
         }
 
         Ok(())
     }
 }
-
-/// The standard powerscheduling stage
-pub type StdPowerMutationalStage<E, EM, I, M, S, Z> =
-    PowerMutationalStage<E, CorpusPowerTestcaseScore, EM, I, M, S, Z>;
