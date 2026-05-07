@@ -198,11 +198,9 @@ impl<F, H, OF> StdFuzzer<F, H, OF> {
         S: State<I>,
     {
         let executions = state.executions();
-
-        if res.is_corpus_worthy() {
+        if res.is_objective_worthy() {
             let executions = state.executions();
-
-            // The input is a solution, add it to the respective corpus
+            // The input is a objective, add it to the respective corpus
             let testcase_id = state.objective_corpus_mut().add(testcase)?;
 
             let md = state.testcase_md_mut_from_id(&testcase_id);
@@ -218,10 +216,12 @@ impl<F, H, OF> StdFuzzer<F, H, OF> {
                 .append_hit_feedbacks(testcase.hit_objectives_mut())?;
             self.objective_feedback_mut()
                 .append_metadata(state, observers, &testcase_id)?;
-        } else if res.is_objective_worthy() {
-            // Not a solution
+            let stats = state.stats_mut();
+            stats.last_found_time = current_time();
+            stats.objective += 1;
+        } else if res.is_corpus_worthy() {
+            // Not an objective
             // Add the input to the main corpus
-
             let testcase_id = state.corpus_mut().add(testcase)?;
             state
                 .testcase_md_mut_from_id(&testcase_id)
@@ -232,10 +232,11 @@ impl<F, H, OF> StdFuzzer<F, H, OF> {
                 .append_hit_feedbacks(testcase.hit_feedbacks_mut())?;
             self.feedback_mut()
                 .append_metadata(state, observers, &testcase_id)?;
+            let stats = state.stats_mut();
+            stats.last_found_time = current_time();
+            stats.corpus += 1;
         }
-        let stats = state.stats_mut();
-        stats.last_found_time = current_time();
-        stats.objective += 1;
+
         Ok(())
     }
 
@@ -278,7 +279,7 @@ impl<E, F, H, I, OF, S, W> Evaluator<E, I, S, W> for StdFuzzer<F, H, OF>
 where
     E: Executor<I, S>,
     F: Feedback<I, E::Observers, S>,
-    H: FuzzerHook<E, I, S, W>,
+    H: FuzzerHooksTuple<E, I, S, W>,
     OF: Feedback<I, E::Observers, S>,
     I: Input,
     S: State<I>,
@@ -300,7 +301,7 @@ where
             self.evaluate_execution::<I, E::Observers, S>(state, &*input, &*observers, exit_kind)?;
         let mut testcase = Testcase::new(Rc::new(input.clone()));
         self.fuzzer_hooks
-            .pre_add(executor, state, rt_handle, &mut testcase);
+            .pre_add_all(executor, state, rt_handle, &mut testcase);
 
         // just to circumvent borrow rules
         let observers = executor.observers();

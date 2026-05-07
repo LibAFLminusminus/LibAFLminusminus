@@ -23,8 +23,6 @@ pub mod nop;
 pub mod simple;
 pub mod utils;
 
-pub type StdRuntime<T> = StdForkserverRuntime<T>;
-
 pub type StdForkserverRuntime<T> = SimpleRuntime<T>;
 pub type StdInProcessRuntime<S, T, TM> = RestartingRuntime<SimpleInProcessRuntime<S, T, TM>>;
 

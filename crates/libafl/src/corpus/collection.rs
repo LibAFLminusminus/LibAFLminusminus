@@ -122,7 +122,10 @@ where
         self.0.count_disabled()
     }
 
-    fn add_shared<const ENABLED: bool>(&mut self, testcase: Testcase<I>) -> Result<StorageResult, Error> {
+    fn add_shared<const ENABLED: bool>(
+        &mut self,
+        testcase: Testcase<I>,
+    ) -> Result<StorageResult, Error> {
         self.0.add_shared::<ENABLED>(testcase)
     }
 
@@ -147,7 +150,10 @@ where
         self.0.count_disabled()
     }
 
-    fn add_shared<const ENABLED: bool>(&mut self, testcase: Testcase<I>) -> Result<StorageResult, Error> {
+    fn add_shared<const ENABLED: bool>(
+        &mut self,
+        testcase: Testcase<I>,
+    ) -> Result<StorageResult, Error> {
         self.0.add_shared::<ENABLED>(testcase)
     }
 
@@ -208,7 +214,10 @@ where
         self.0.count_all()
     }
 
-    fn add_shared<const ENABLED: bool>(&mut self, testcase: Testcase<I>) -> Result<TestcaseId, Error> {
+    fn add_shared<const ENABLED: bool>(
+        &mut self,
+        testcase: Testcase<I>,
+    ) -> Result<TestcaseId, Error> {
         self.0.add_shared::<ENABLED>(testcase)
     }
 
@@ -338,7 +347,10 @@ where
         self.0.count_all()
     }
 
-    fn add_shared<const ENABLED: bool>(&mut self, testcase: Testcase<I>) -> Result<TestcaseId, Error> {
+    fn add_shared<const ENABLED: bool>(
+        &mut self,
+        testcase: Testcase<I>,
+    ) -> Result<TestcaseId, Error> {
         self.0.add_shared::<ENABLED>(testcase)
     }
 

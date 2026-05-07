@@ -198,7 +198,10 @@ where
         self.disabled_map.count()
     }
 
-    fn add_shared<const ENABLED: bool>(&mut self, testcase: Testcase<I>) -> Result<StorageResult, Error> {
+    fn add_shared<const ENABLED: bool>(
+        &mut self,
+        testcase: Testcase<I>,
+    ) -> Result<StorageResult, Error> {
         let testcase_id = *testcase.id();
 
         let is_present = if ENABLED {

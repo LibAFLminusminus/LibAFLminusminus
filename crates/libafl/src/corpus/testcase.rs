@@ -88,7 +88,7 @@ impl<I> Testcase<I> {
 
     pub fn set_filename_fmt(&mut self, fmt: TestcaseFilenameFormat) {
         self.filename_fmt = fmt;
-    } 
+    }
 }
 
 impl<I> Testcase<I>

@@ -53,7 +53,10 @@ impl<I, S> Corpus<I> for NopCorpus<I, S> {
 
     /// Add an enabled testcase to the corpus and return its index
     #[inline]
-    fn add_shared<const ENABLED: bool>(&mut self, _testcase: Testcase<I>) -> Result<TestcaseId, Error> {
+    fn add_shared<const ENABLED: bool>(
+        &mut self,
+        _testcase: Testcase<I>,
+    ) -> Result<TestcaseId, Error> {
         Err(Error::unsupported("Unsupported by NopCorpus"))
     }
 

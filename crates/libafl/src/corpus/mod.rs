@@ -79,7 +79,10 @@ pub trait Corpus<I>: HasScheduler + Sized + DependencyResolver {
     /// The corpus is responsible to handle that case without erroring out.
     ///
     /// The input can be shared through [`Rc`].
-    fn add_shared<const ENABLED: bool>(&mut self, testcase: Testcase<I>) -> Result<TestcaseId, Error>;
+    fn add_shared<const ENABLED: bool>(
+        &mut self,
+        testcase: Testcase<I>,
+    ) -> Result<TestcaseId, Error>;
 
     /// Get testcase by id; considers only enabled testcases
     fn get(&self, id: &TestcaseId) -> Result<Testcase<I>, Error> {

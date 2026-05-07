@@ -17,7 +17,7 @@ use libafl::{
     mutators::{HavocScheduledMutator, havoc_mutations},
     non_zero,
     observers::ConstMapObserver,
-    runtimes::{RuntimeHandle, StdRuntime},
+    runtimes::{RuntimeHandle, StdInProcessRuntime},
     simple::{SimpleController, SimpleWorker},
     stages::StdMutationalStage,
     states::StdState,
@@ -116,7 +116,7 @@ pub fn main() -> Result<()> {
     let monitor = SimpleMonitor::new();
 
     let fast_timer = FastTimer::new();
-    let runtime = StdRuntime::new(
+    let runtime = StdInProcessRuntime::new(
         run_fuzzer,
         DEFAULT_MAX_STATE_SIZE_PER_CLIENT,
         fast_timer,

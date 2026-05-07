@@ -238,14 +238,14 @@ impl EvaluationResult {
     pub fn is_objective_worthy(&self) -> bool {
         match self.verdict {
             Verdict::Objective => true,
-            _ => true,
+            _ => false,
         }
     }
 
     pub fn is_corpus_worthy(&self) -> bool {
         match self.verdict {
             Verdict::Corpus => true,
-            _ => true,
+            _ => false,
         }
     }
 
