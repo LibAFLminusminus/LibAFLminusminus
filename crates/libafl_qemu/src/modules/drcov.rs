@@ -36,10 +36,7 @@ static DRCOV_MAP: Mutex<Option<HashMap<GuestAddr, u64>>> = Mutex::new(None);
 /// Map of `pc` -> `block_len`
 static DRCOV_LENGTHS: Mutex<Option<HashMap<GuestAddr, GuestUsize>>> = Mutex::new(None);
 
-#[cfg_attr(
-    miri,
-    allow(clippy::unsafe_derive_deserialize)
-)] // for SerdeAny
+#[cfg_attr(miri, allow(clippy::unsafe_derive_deserialize))] // for SerdeAny
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct DrCovMetadata {
     pub current_id: u64,

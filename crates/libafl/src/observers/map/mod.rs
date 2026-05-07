@@ -41,7 +41,7 @@ pub trait MapObserver:
 //     for<'it> &'it Self: IntoIterator<Item = &'it Self::Entry>
 {
     /// Type of each entry in this map
-    type Entry: PartialEq + Copy;
+    type Entry: PartialEq + Copy + Debug;
 
     /// Get the value at `idx`
     fn get(&self, idx: usize) -> Self::Entry;

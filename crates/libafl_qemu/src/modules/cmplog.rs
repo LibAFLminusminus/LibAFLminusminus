@@ -26,10 +26,7 @@ use crate::{
     qemu::Hook,
 };
 
-#[cfg_attr(
-    miri,
-    allow(clippy::unsafe_derive_deserialize)
-)] // for SerdeAny
+#[cfg_attr(miri, allow(clippy::unsafe_derive_deserialize))] // for SerdeAny
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct QemuCmpsMapMetadata {
     pub map: HashMap<u64, u64>,

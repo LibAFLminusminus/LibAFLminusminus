@@ -18,7 +18,10 @@ extern crate rustc_span;
 // extern crate rustc_target;
 // extern crate rustc_trait_selection;
 
-use rustc_hir::{Body, FnDecl, PatKind, def_id::LocalDefId, intravisit::FnKind, TraitItem, TraitItemKind, TraitFn};
+use rustc_hir::{
+    Body, FnDecl, PatKind, TraitFn, TraitItem, TraitItemKind, def_id::LocalDefId,
+    intravisit::FnKind,
+};
 use rustc_lint::{LateContext, LateLintPass, LintContext};
 use rustc_span::{Span, Symbol};
 

@@ -25,10 +25,7 @@ pub(super) static mut LIBAFL_QEMU_EDGES_MAP_ALLOCATED_SIZE: usize = 0;
 #[unsafe(no_mangle)]
 pub(super) static mut LIBAFL_QEMU_EDGES_MAP_MASK_MAX: usize = 0;
 
-#[cfg_attr(
-    miri,
-    allow(clippy::unsafe_derive_deserialize)
-)] // for SerdeAny
+#[cfg_attr(miri, allow(clippy::unsafe_derive_deserialize))] // for SerdeAny
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct QemuEdgesMapMetadata {
     pub map: HashMap<(GuestAddr, GuestAddr), u64>,

@@ -9,7 +9,7 @@ use libafl::{
     executors::StdExecutor,
     feedback_or_fast,
     feedbacks::{CrashFeedback, MaxMapFeedback, TimeoutFeedback},
-    fuzzers::{Fuzzer, StdFuzzer},
+    fuzzers::{Fuzzer, StdFuzzer, CalibrationHook},
     generators::RandPrintablesGenerator,
     inputs::{BytesInput, bytes::BytesContext},
     launchers::{DEFAULT_MAX_STATE_SIZE_PER_CLIENT, StdLauncher},
@@ -62,10 +62,13 @@ where
     // Generator of printable bytearrays of max size 32
     let mut generator = RandPrintablesGenerator::new(non_zero!(32));
 
+    let calibration_hk = CalibrationHook::new(&feedback);
+
     // A fuzzer with feedbacks and a corpus scheduler
-    let mut fuzzer = StdFuzzer::new(
+    let mut fuzzer = StdFuzzer::with_hooks(
         feedback,
         objective_feedback,
+        tuple_list!(calibration_hk),
         &mut stages,
         &mut executor,
         state,

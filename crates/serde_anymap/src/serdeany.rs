@@ -862,7 +862,6 @@ macro_rules! create_register {
     };
 }
 
-
 /// Implement a [`SerdeAny`], registering it in the [`RegistryBuilder`] when on std
 #[macro_export]
 macro_rules! impl_serdeany {
