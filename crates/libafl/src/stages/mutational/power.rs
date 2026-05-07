@@ -17,13 +17,9 @@ use crate::{
     inputs::Input,
     mutators::{MutationResult, Mutator},
     runtimes::RuntimeHandle,
-    stages::{MutationalStage, Stage},
+    stages::{MutationalStage, Power, Stage},
     states::{HasCorpus, HasScheduler, State},
 };
-
-pub trait Power<S> {
-    fn score(state: &S) -> usize;
-}
 
 /// Default value, how many iterations each stage gets, as an upper bound.
 /// It may randomly continue earlier.
@@ -67,8 +63,8 @@ where
     S: HasScheduler<Scheduler = SC>,
 {
     /// Gets the number of iterations as a random number
-    fn iterations(&self, state: &S) -> Result<usize, Error> {
-        Ok(F::score(state))
+    fn iterations(&self, state: &mut S, current: TestcaseId) -> Result<usize, Error> {
+        F::score(state, current)
     }
 }
 
@@ -85,6 +81,7 @@ impl<E, F, I, M, R, S, W, Z> Named for PowerScheduleStage<E, F, I, M, R, S, W, Z
 
 impl<E, F, I, M, R, S, W, Z> Stage<E, R, S, W, Z> for PowerScheduleStage<E, F, I, M, R, S, W, Z>
 where
+    F: Power<S>,
     I: Input,
     M: Mutator<I, R, S>,
     R: Rand,
@@ -101,7 +98,25 @@ where
         rt_handle: &mut RuntimeHandle<S, W>,
         testcase_id: &TestcaseId,
     ) -> Result<(), Error> {
-        self.perform_mutational(fuzzer, executor, rand, state, rt_handle, testcase_id)
+        let num = self.iterations(state, *testcase_id)?;
+
+        let tc = state.corpus().get(testcase_id)?;
+
+        for _ in 0..num {
+            let mut input = tc.cloned_input();
+
+            let mutated = self.mutator_mut().mutate(&mut input, rand, state)?;
+
+            if mutated == MutationResult::Skipped {
+                continue;
+            }
+
+            let eval_res = fuzzer.evaluate_input(state, executor, rt_handle, &input)?;
+
+            self.mutator_mut().post_exec(state, &eval_res)?;
+        }
+
+        Ok(())
     }
 }
 
@@ -121,46 +136,5 @@ impl<E, F, I, M, R, S, W, Z> PowerScheduleStage<E, F, I, M, R, S, W, Z> {
             mutator,
             phantom: PhantomData,
         }
-    }
-}
-
-impl<E, F, I, M, R, S, W, Z> PowerScheduleStage<E, F, I, M, R, S, W, Z>
-where
-    I: Clone,
-    F: Power<S>,
-    M: Mutator<I, R, S>,
-    R: Rand,
-    S: State<I>,
-    Z: Evaluator<E, I, S, W>,
-{
-    /// Runs this (mutational) stage for the given testcase
-    fn perform_mutational(
-        &mut self,
-        fuzzer: &mut Z,
-        executor: &mut E,
-        rand: &mut R,
-        state: &mut S,
-        rt_handle: &mut RuntimeHandle<S, W>,
-        testcase_id: &TestcaseId,
-    ) -> Result<(), Error> {
-        let num = self.iterations(state)?;
-
-        let tc = state.corpus().get(testcase_id)?;
-
-        for _ in 0..num {
-            let mut input = tc.cloned_input();
-
-            let mutated = self.mutator_mut().mutate(&mut input, rand, state)?;
-
-            if mutated == MutationResult::Skipped {
-                continue;
-            }
-
-            let eval_res = fuzzer.evaluate_input(state, executor, rt_handle, &input)?;
-
-            self.mutator_mut().post_exec(state, &eval_res)?;
-        }
-
-        Ok(())
     }
 }

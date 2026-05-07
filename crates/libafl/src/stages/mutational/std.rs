@@ -75,7 +75,7 @@ where
 impl<E, I, M, R, S, SC, W, Z> StdMutationalStage<E, I, M, R, S, W, Z>
 where
     R: Rand,
-    S: HasScheduler<Scheduler =  SC>,
+    S: HasScheduler<Scheduler = SC>,
 {
     /// Gets the number of iterations as a random number
     fn iterations(&self, rand: &mut R) -> Result<usize, Error> {

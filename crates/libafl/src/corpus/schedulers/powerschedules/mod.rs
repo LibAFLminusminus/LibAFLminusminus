@@ -157,11 +157,14 @@ impl PowerScheduleData {
         &mut self.n_fuzz
     }
 
-    pub fn per_testcase_data(&self, testcase_id: TestcaseId) -> Option<&TestcasePowerScheduleData>{
+    pub fn per_testcase_data(&self, testcase_id: TestcaseId) -> Option<&TestcasePowerScheduleData> {
         self.per_testcase.get(&testcase_id)
     }
 
-    pub fn per_testcase_data_mut(&mut self, testcase_id: TestcaseId) -> Option<&mut TestcasePowerScheduleData>{
+    pub fn per_testcase_data_mut(
+        &mut self,
+        testcase_id: TestcaseId,
+    ) -> Option<&mut TestcasePowerScheduleData> {
         self.per_testcase.get_mut(&testcase_id)
     }
 }

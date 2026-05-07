@@ -24,18 +24,14 @@ use crate::{
     DependencyResolver, Error, corpus::TestcaseId, runtimes::RuntimeHandle, states::FlatState,
 };
 
-/// Mutational stage is the normal fuzzing stage.
-pub mod mutational;
-pub use mutational::{MutationalStage, StdMutationalStage};
-
 pub mod single;
 pub use single::*;
 
 pub mod logics;
 pub use logics::*;
 
-pub mod power;
-pub use power::*;
+pub mod mutational;
+pub use mutational::*;
 
 pub mod nop;
 pub use nop::NopStage;
