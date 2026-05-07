@@ -1,8 +1,5 @@
 //! Coverage maps as static mut array
 
-#[cfg(any(feature = "sancov_pcguard_edges", feature = "sancov_pcguard_hitcounts",))]
-use alloc::borrow::Cow;
-
 use crate::{
     EDGES_MAP_ALLOCATED_SIZE, EDGES_MAP_DEFAULT_SIZE,
     exports::{EDGES_MAP, EDGES_MAP_PTR},
@@ -79,8 +76,6 @@ static mut __afl_fuzz_len_local: u32 = 0;
 pub static mut __afl_fuzz_len: *mut u32 = &raw mut __afl_fuzz_len_local;
 
 #[cfg(any(feature = "sancov_pcguard_edges", feature = "sancov_pcguard_hitcounts",))]
-use libafl::observers::StdMapObserver;
-#[cfg(any(feature = "sancov_pcguard_edges", feature = "sancov_pcguard_hitcounts",))]
 use libafl_bolts::ownedref::OwnedMutSlice;
 
 /// Gets the edges map from the `EDGES_MAP_PTR` raw pointer.
@@ -94,41 +89,6 @@ use libafl_bolts::ownedref::OwnedMutSlice;
 #[cfg(any(feature = "sancov_pcguard_edges", feature = "sancov_pcguard_hitcounts",))]
 pub unsafe fn edges_map_mut_slice<'a>() -> OwnedMutSlice<'a, u8> {
     unsafe { OwnedMutSlice::from_raw_parts_mut(edges_map_mut_ptr(), edges_max_num()) }
-}
-
-/// Gets a new [`StdMapObserver`] from the current [`edges_map_mut_slice`].
-/// This is roughly equivalent to running:
-///
-/// ```rust,ignore
-/// use libafl::observers::StdMapObserver;
-/// use libafl_targets::{EDGES_MAP, EDGES_MAP_DEFAULT_SIZE};
-///
-/// #[cfg(not(feature = "pointer_maps"))]
-/// let observer = unsafe {
-///     StdMapObserver::from_mut_ptr("edges", EDGES_MAP.as_mut_ptr(), EDGES_MAP_DEFAULT_SIZE)
-/// };
-/// ```
-///
-/// or, for the `pointer_maps` feature:
-///
-/// ```rust,ignore
-/// use libafl::observers::StdMapObserver;
-/// use libafl_targets::{EDGES_MAP_PTR, EDGES_MAP_PTR_NUM};
-///
-/// #[cfg(feature = "pointer_maps")]
-/// let observer = unsafe {
-///     StdMapObserver::from_mut_ptr("edges", EDGES_MAP_PTR, EDGES_MAP_PTR_NUM)
-/// };
-/// ```
-///
-/// # Safety
-/// This will dereference [`edges_map_mut_ptr`] and crash if it is not a valid address.
-#[cfg(any(feature = "sancov_pcguard_edges", feature = "sancov_pcguard_hitcounts",))]
-pub unsafe fn std_edges_map_observer<'a, S>(name: S) -> StdMapObserver<'a, u8, false>
-where
-    S: Into<Cow<'static, str>>,
-{
-    unsafe { StdMapObserver::from_mut_slice(name, edges_map_mut_slice()) }
 }
 
 /// Gets the current edges map pt

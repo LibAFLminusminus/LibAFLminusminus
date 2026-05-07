@@ -8,17 +8,14 @@ use std::{env, path::PathBuf};
 
 use libafl::{
     corpus::{Corpus, InMemoryCorpus, OnDiskCorpus},
-    events::{setup_restarting_mgr_std, EventConfig, EventRestarter},
-    executors::{inprocess::InProcessExecutor, ExitKind},
+    executors::{StdExecutor, ExitKind},
     feedback_or, feedback_or_fast,
     feedbacks::{CrashFeedback, MaxMapFeedback, TimeFeedback, TimeoutFeedback},
-    fuzzer::StdFuzzer,
-    inputs::HasTargetBytes,
-    monitors::MultiMonitor,
-    observers::{CanTrack, HitcountsMapObserver, TimeObserver},
-    schedulers::{powersched::PowerSchedule, PowerQueueScheduler},
-    stages::{calibrate::CalibrationStage, power::StdPowerMutationalStage},
-    state::{HasCorpus, StdState},
+    fuzzers::StdFuzzer,
+    monitors::SimpleMonitor,
+    observers::{HitcountsMapObserver, TimeObserver},
+    stages::MutationalStage,
+    states::{HasCorpus, StdState},
     Error, Fuzzer,
 };
 use libafl_bolts::{rands::StdRand, tuples::tuple_list, AsSlice};
