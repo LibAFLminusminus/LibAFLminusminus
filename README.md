@@ -98,14 +98,11 @@ You can run each example fuzzer with this following command, as long as the fuzz
 
 ## Contributors
 
-`LibAFL` is written and maintained by
+`LibAFL--` is forked from [LibAFL](https://github.com/AFLplusplus/LibAFL).
+It is written and maintained by 
 
-- [Andrea Fioraldi](https://twitter.com/andreafioraldi) <andrea@aflplus.plus>
-- [Dominik Maier](https://bsky.app/profile/dmnk.bsky.social) <dominik@aflplus.plus>
-- [s1341](https://twitter.com/srubenst1341) <github@shmarya.net>
-- [Dongjia Zhang](https://github.com/tokatoka) <toka@aflplus.plus>
-- [Addison Crump](https://github.com/addisoncrump) <me@addisoncrump.info>
 - [Romain Malmain](https://github.com/rmalmain) <rmalmain@pm.me>
+- [Dongjia Zhang](https://github.com/tokatoka) <tokazerkje@outlook.jp>
 
 ## Contributing
 
@@ -115,34 +112,12 @@ Please check out **[CONTRIBUTING.md](CONTRIBUTING.md)** for the contributing gui
 
 Your fuzzer doesn't work as expected? Try reading [DEBUGGING.md](./docs/src/DEBUGGING.md) to understand how to debug your problems.
 
-## Cite
-
-If you use `LibAFL` for your academic work, please cite the following paper:
-
-```bibtex
-@inproceedings{libafl,
- author       = {Andrea Fioraldi and Dominik Maier and Dongjia Zhang and Davide Balzarotti},
- title        = {{LibAFL: A Framework to Build Modular and Reusable Fuzzers}},
- booktitle    = {Proceedings of the 29th ACM conference on Computer and communications security (CCS)},
- series       = {CCS '22},
- year         = {2022},
- month        = {November},
- location     = {Los Angeles, U.S.A.},
- publisher    = {ACM},
-}
-```
-
 ## License
 
-<sup>
-Licensed under either of <a href="LICENSE-APACHE">Apache License, Version
-2.0</a> or <a href="LICENSE-MIT">MIT license</a> at your option.
-</sup>
+`LibAFL--` is licensed under the [GNU Affero General Public License v3.0](LICENSE).
 
-<br>
-
-<sub>
-Unless you explicitly state otherwise, any contribution intentionally submitted
-for inclusion in this crate by you, as defined in the Apache-2.0 license, shall
-be dual licensed as above, without any additional terms or conditions.
-</sub>
+This project is a fork of [LibAFL](https://github.com/AFLplusplus/LibAFL),
+which is dual-licensed under [Apache-2.0](LICENSE-APACHE) and [MIT](LICENSE-MIT).
+The original LibAFL code remains available under those terms from the upstream
+project. The combined work in this repository, including all modifications and
+additions, is distributed under AGPL-3.0.
