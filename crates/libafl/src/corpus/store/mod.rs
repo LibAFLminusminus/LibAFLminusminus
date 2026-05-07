@@ -41,7 +41,10 @@ pub trait Store<I> {
     }
 
     /// Store the input to the set.
-    fn add_shared<const ENABLED: bool>(&mut self, input: Rc<I>) -> Result<StorageResult, Error>;
+    fn add_shared<const ENABLED: bool>(
+        &mut self,
+        testcase: Testcase<I>,
+    ) -> Result<StorageResult, Error>;
 
     /// Get testcase by id; considers only enabled testcases
     fn get(&self, id: &TestcaseId) -> Result<Testcase<I>, Error> {

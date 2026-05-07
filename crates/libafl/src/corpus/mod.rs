@@ -60,8 +60,8 @@ pub trait Corpus<I>: HasScheduler + Sized + DependencyResolver {
     /// The corpus is responsible to handle that case without erroring out.
     ///
     /// The default [`TestcaseMetadata`] will be instantiated.
-    fn add(&mut self, input: I) -> Result<TestcaseId, Error> {
-        self.add_shared::<true>(Rc::new(input))
+    fn add(&mut self, testcase: Testcase<I>) -> Result<TestcaseId, Error> {
+        self.add_shared::<true>(testcase)
     }
 
     /// Add a disabled testcase to the corpus and return its index
@@ -69,8 +69,8 @@ pub trait Corpus<I>: HasScheduler + Sized + DependencyResolver {
     /// The corpus is responsible to handle that case without erroring out.
     ///
     /// The default [`TestcaseMetadata`] will be instantiated.
-    fn add_disabled(&mut self, input: I) -> Result<TestcaseId, Error> {
-        self.add_shared::<false>(Rc::new(input))
+    fn add_disabled(&mut self, testcase: Testcase<I>) -> Result<TestcaseId, Error> {
+        self.add_shared::<false>(testcase)
     }
 
     /// Add a testcase to the corpus, and returns its index.
@@ -79,7 +79,10 @@ pub trait Corpus<I>: HasScheduler + Sized + DependencyResolver {
     /// The corpus is responsible to handle that case without erroring out.
     ///
     /// The input can be shared through [`Rc`].
-    fn add_shared<const ENABLED: bool>(&mut self, input: Rc<I>) -> Result<TestcaseId, Error>;
+    fn add_shared<const ENABLED: bool>(
+        &mut self,
+        testcase: Testcase<I>,
+    ) -> Result<TestcaseId, Error>;
 
     /// Get testcase by id; considers only enabled testcases
     fn get(&self, id: &TestcaseId) -> Result<Testcase<I>, Error> {

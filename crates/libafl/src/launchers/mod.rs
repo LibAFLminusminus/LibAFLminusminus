@@ -24,8 +24,7 @@ use crate::{
     monitors::{Monitor, SimpleMonitor},
     nop::{NopDescriptor, NopWorker},
     runtimes::{
-        Runtime, RuntimeHandle, StdForkserverRuntime, StdInProcessRuntime, StdRuntime,
-        nop::NopRuntime,
+        Runtime, RuntimeHandle, StdForkserverRuntime, StdInProcessRuntime, nop::NopRuntime,
     },
     simple::SimpleController,
     states::NopState,

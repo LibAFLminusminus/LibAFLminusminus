@@ -202,21 +202,21 @@ pub trait Fuzzer<E, I, R, S, ST, W> {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
 pub struct EvaluationResult {
     exit_kind: ExitKind,
     verdict: Verdict,
 }
 
 /// The result of harness execution
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
 pub enum Verdict {
     /// No special input
     Uninteresting,
     /// This input should be stored in the corpus
-    Corpus(TestcaseId),
+    Corpus,
     /// This input leads to an objective
-    Objective(TestcaseId),
+    Objective,
 }
 
 /// A [`NopFuzzer`] that does nothing
@@ -237,15 +237,15 @@ impl EvaluationResult {
 
     pub fn is_objective_worthy(&self) -> bool {
         match self.verdict {
-            Verdict::Objective(_) => true,
-            _ => true,
+            Verdict::Objective => true,
+            _ => false,
         }
     }
 
     pub fn is_corpus_worthy(&self) -> bool {
         match self.verdict {
-            Verdict::Corpus(_) => true,
-            _ => true,
+            Verdict::Corpus => true,
+            _ => false,
         }
     }
 

@@ -119,11 +119,11 @@ where
     I: Input,
 {
     /// Save the input and the metadata on disk
-    pub fn save_testcase(&self, input: &I) -> Result<TestcaseId, Error> {
-        let testcase_id = Testcase::<I>::compute_id(input);
+    pub fn save_testcase(&self, testcase: Testcase<I>) -> Result<TestcaseId, Error> {
+        let testcase_id = *testcase.id();
         let testcase_path = self.testcase_path(&testcase_id);
 
-        input.to_file(testcase_path.as_path())?;
+        testcase.input().to_file(testcase_path.as_path())?;
 
         Ok(testcase_id)
     }
@@ -198,8 +198,11 @@ where
         self.disabled_map.count()
     }
 
-    fn add_shared<const ENABLED: bool>(&mut self, input: Rc<I>) -> Result<StorageResult, Error> {
-        let testcase_id = Testcase::<I>::compute_id(input.as_ref());
+    fn add_shared<const ENABLED: bool>(
+        &mut self,
+        testcase: Testcase<I>,
+    ) -> Result<StorageResult, Error> {
+        let testcase_id = *testcase.id();
 
         let is_present = if ENABLED {
             self.enabled_map.add(testcase_id, testcase_id)
@@ -210,7 +213,7 @@ where
         let res = if is_present {
             StorageResult::Duplicate(testcase_id)
         } else {
-            self.disk_mgr.save_testcase(input.as_ref())?;
+            self.disk_mgr.save_testcase(testcase)?;
             StorageResult::Stored(testcase_id)
         };
 
