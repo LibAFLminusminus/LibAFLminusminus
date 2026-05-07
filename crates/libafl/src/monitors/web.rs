@@ -45,6 +45,7 @@ impl WebMonitor {
     }
 
     pub fn with_port(history_path: PathBuf, frontend_path: PathBuf, port: u16) -> Self {
+        let _ = std::fs::remove_file(&history_path);
         let current = Value::Null;
         let shared = Arc::new(RwLock::new(SharedState {
             current,
