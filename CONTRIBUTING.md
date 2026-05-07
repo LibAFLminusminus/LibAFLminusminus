@@ -4,11 +4,7 @@ For bugs, feel free to open issues or contact us directly. Thank you for your su
 
 ## On AI Assistance
 
-We do not accept contributions with any form of AI assistance.
-The licensing of the information produced by these tools is not yet clear, and there are certain moral issues that make us uneasy.
-As a result, we cannot accept these contributions and will close PRs which seem to use AI assistance.
-
-We explicitly and universally do not consent to any research study which makes contributions utilizing AI assistance.
+We do NOT accept contributions with any form of AI assistance from first-time contributors.
 
 ## Pull Request Guideline
 
