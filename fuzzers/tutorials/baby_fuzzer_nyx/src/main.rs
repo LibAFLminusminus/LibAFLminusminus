@@ -4,24 +4,24 @@ use libafl::{
         Corpus, InMemoryCorpus, OnDiskCorpus, Scheduler,
     },
     feedbacks::{CrashFeedback, MaxMapFeedback},
+    generators::RandPrintablesGenerator,
     inputs::{bytes::BytesContext, BytesInput},
     launchers::StdLauncher,
-    generators::RandPrintablesGenerator,
     monitors::SimpleMonitor,
     mutators::{havoc_mutations, HavocScheduledMutator},
     observers::StdMapObserver,
     runtimes::RuntimeHandle,
     simple::{SimpleController, SimpleWorker},
     stages::StdMutationalStage,
-    states::StdState, Result,
-    Fuzzer, StdFuzzer, Worker,
+    states::StdState,
+    Fuzzer, Result, StdFuzzer, Worker,
 };
-use libafl_bolts::{rands::StdRand, tuples::tuple_list, non_zero};
+use libafl_bolts::{non_zero, rands::StdRand, tuples::tuple_list};
 use libafl_nyx::{executor::NyxExecutor, helper::NyxHelper, settings::NyxSettings};
 
 fn run_fuzzer<C, OC, SC>(
-    rt_handle: &mut RuntimeHandle<StdState<C, BytesInput, OC, SC>, SimpleWorker>,
-    state: &mut StdState<C, BytesInput, OC, SC>,
+    rt_handle: &mut RuntimeHandle<StdState<C, BytesContext, BytesInput, OC, SC>, SimpleWorker>,
+    state: &mut StdState<C, BytesContext, BytesInput, OC, SC>,
 ) -> Result<()>
 where
     C: Corpus<BytesInput>,
@@ -46,7 +46,14 @@ where
 
     let mutator = HavocScheduledMutator::new(havoc_mutations());
     let mut stages = tuple_list!(StdMutationalStage::new(mutator));
-    let mut fuzzer = StdFuzzer::new(feedback, objective, &mut stages, &mut executor, state, rt_handle)?;
+    let mut fuzzer = StdFuzzer::new(
+        feedback,
+        objective,
+        &mut stages,
+        &mut executor,
+        state,
+        rt_handle,
+    )?;
     // Generator of printable bytearrays of max size 32
     let mut generator = RandPrintablesGenerator::new(non_zero!(32));
     state.generate_initial_inputs(
@@ -58,8 +65,7 @@ where
         8,
     )?;
     // start fuzz
-    fuzzer
-        .fuzz_loop(&mut stages, &mut executor, &mut rand, state, rt_handle)
+    fuzzer.fuzz_loop(&mut stages, &mut executor, &mut rand, state, rt_handle)
 }
 
 pub fn main() -> Result<()> {
@@ -73,11 +79,12 @@ pub fn main() -> Result<()> {
 
         // create a State from scratch
         StdState::new(
+            BytesContext,
             // Corpus that will be evolved, we keep it in memory for performance
-            InMemoryCorpus::new(BytesContext, scheduler),
+            InMemoryCorpus::new(scheduler),
             // Corpus in which we store solutions (crashes in this example),
             // on disk so the user can get them after stopping the fuzzer
-            OnDiskCorpus::new(crash_dir, BytesContext, NopScheduler).unwrap(),
+            OnDiskCorpus::new(crash_dir, NopScheduler).unwrap(),
         )
     };
 

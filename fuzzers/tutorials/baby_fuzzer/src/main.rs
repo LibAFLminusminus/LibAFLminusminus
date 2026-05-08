@@ -31,8 +31,8 @@ use crate::target::SIGNALS;
 mod target;
 
 fn run_fuzzer<C, OC, SC>(
-    rt_handle: &mut RuntimeHandle<StdState<C, BytesInput, OC, SC>, SimpleWorker>,
-    state: &mut StdState<C, BytesInput, OC, SC>,
+    rt_handle: &mut RuntimeHandle<StdState<C, BytesContext, BytesInput, OC, SC>, SimpleWorker>,
+    state: &mut StdState<C, BytesContext, BytesInput, OC, SC>,
 ) -> Result<()>
 where
     C: Corpus<BytesInput>,
@@ -100,11 +100,12 @@ pub fn main() -> Result<()> {
 
         // create a State from scratch
         StdState::new(
+            BytesContext,
             // Corpus that will be evolved, we keep it in memory for performance
-            InMemoryCorpus::new(BytesContext, scheduler),
+            InMemoryCorpus::new(scheduler),
             // Corpus in which we store solutions (crashes in this example),
             // on disk so the user can get them after stopping the fuzzer
-            OnDiskCorpus::new(crash_dir, BytesContext, NopScheduler).unwrap(),
+            OnDiskCorpus::new(crash_dir, NopScheduler).unwrap(),
         )
     };
 

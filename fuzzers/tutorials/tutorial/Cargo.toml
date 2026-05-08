@@ -2,8 +2,7 @@
 name = "tutorial"
 version = "0.16.0"
 authors = [
-  "Andrea Fioraldi <andreafioraldi@gmail.com>",
-  "Dominik Maier <domenukk@gmail.com>",
+  "Dongjia Zhang <tokazerkje@outlook.jp>"
 ]
 edition = "2021"
 
