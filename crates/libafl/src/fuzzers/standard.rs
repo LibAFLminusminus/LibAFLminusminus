@@ -305,11 +305,17 @@ where
             self.evaluate_execution::<I, E::Observers, S>(state, &*input, &*observers, exit_kind)?;
         let mut testcase = Testcase::new(Rc::new(input.clone()));
         self.fuzzer_hooks
-            .pre_add_all(executor, state, rt_handle, &mut testcase);
+            .pre_add_all(executor, state, rt_handle, &mut testcase)?;
 
         // just to circumvent borrow rules
         let observers = executor.observers();
-        let commited = self.commit_testcase(state, &*observers, exit_kind, testcase, result);
+        let commited = self.commit_testcase(state, &*observers, exit_kind, testcase, result)?;
+        if let Some(testcase_id) = commited {
+            let res = self
+                .fuzzer_hooks
+                .post_add_all(executor, state, rt_handle, testcase_id)?;
+        }
+
         Ok(result)
     }
 }

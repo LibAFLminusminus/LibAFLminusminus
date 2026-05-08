@@ -40,10 +40,7 @@ pub use std::StdExecutor;
 
 /// How an execution finished.
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[cfg_attr(
-    miri,
-    expect(clippy::unsafe_derive_deserialize)
-)] // for SerdeAny
+#[cfg_attr(miri, expect(clippy::unsafe_derive_deserialize))] // for SerdeAny
 pub enum ExitKind {
     /// The run exited normally.
     Ok,
@@ -67,10 +64,7 @@ libafl_bolts::impl_serdeany!(ExitKind);
 
 /// How one of the diffing executions finished.
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[cfg_attr(
-    miri,
-    expect(clippy::unsafe_derive_deserialize)
-)] // for SerdeAny
+#[cfg_attr(miri, expect(clippy::unsafe_derive_deserialize))] // for SerdeAny
 pub enum DiffExitKind {
     /// The run exited normally.
     Ok,

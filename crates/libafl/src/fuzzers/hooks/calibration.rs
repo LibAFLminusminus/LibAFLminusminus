@@ -1,12 +1,16 @@
 use crate::{
-    DependencyResolver, Error, Result, Worker,
-    corpus::{Corpus, Testcase},
+    DependencyResolver, Error, Result, TestcasePowerScheduleData, Worker,
+    common::PowerScheduleData,
+    corpus::{Corpus, Scheduler, Testcase},
     executors::Executor,
     feedbacks::{HasObserverHandle, MapFeedbackMetadata},
     fuzzers::{ExitKind, FuzzerHook},
     inputs::Input,
     observers::{MapObserver, ObserversTuple},
-    states::{FlatState, HasCorpus, named_metadata_mut},
+    states::{
+        FlatState, HasCorpus, HasScheduler, has_named_metadata, has_unnamed_metadata,
+        named_metadata_mut, unnamed_metadata_mut,
+    },
 };
 use alloc::{
     borrow::{Cow, ToOwned},
@@ -16,6 +20,7 @@ use alloc::{
 use core::{marker::PhantomData, time::Duration};
 use hashbrown::HashSet;
 use libafl_bolts::{Named, current_time, impl_serdeany, tuples::Handle};
+use libafl_core::illegal_state;
 use num_traits::Bounded;
 use serde::{Deserialize, Serialize};
 
@@ -125,6 +130,7 @@ impl<C, O> CalibrationHook<C, O> {
         }
     }
 }
+
 /// Default name prefix for `CalibrationHook`; derived from AFL++
 pub const CALIBRATION_HOOK_NAME: &str = "calibration";
 
@@ -258,6 +264,50 @@ where
             .stats_mut()
             .user_map
             .insert("stability", StabilityValue(stability));
+
+        if has_unnamed_metadata::<PowerScheduleData>(state.named_metadata_map()) {
+            let current = state.corpus().scheduler().current();
+            let psdata = unnamed_metadata_mut::<PowerScheduleData>(state.named_metadata_map_mut())?;
+
+            let observers = executor.observers();
+            let map = observers[&self.map_observer_handle].as_ref();
+            let bitmap_size = map.count_bytes();
+
+            if bitmap_size < 1 {
+                return Err(Error::invalid_corpus(
+                    "This testcase does not trigger any edges. Check your instrumentation!"
+                        .to_string(),
+                ));
+            }
+
+            let handicap = psdata.queue_cycles();
+
+            // setting global power schedule data
+            psdata.set_exec_time(psdata.exec_time() + total_time);
+            psdata.set_cycles(psdata.cycles() + (iter as u64));
+            psdata.set_bitmap_size(psdata.bitmap_size() + bitmap_size);
+            psdata.set_bitmap_size_log(psdata.bitmap_size_log() + libm::log2(bitmap_size as f64));
+            psdata.set_bitmap_entries(psdata.bitmap_entries() + 1);
+
+            let depth = match current {
+                Some(parent) => {
+                    let other_meta = psdata.per_testcase_data(parent).ok_or(illegal_state!(
+                        "Child testcase referring to a non-existent testcase?"
+                    ))?;
+                    other_meta.depth() + 1
+                }
+                None => 0, // this is the seed
+            };
+
+            let mut new_data = TestcasePowerScheduleData::new(depth);
+
+            new_data.set_exec_time(total_time / (iter as u32));
+            new_data.set_cycle_and_time((total_time, iter));
+            new_data.set_bitmap_size(bitmap_size);
+            new_data.set_handicap(handicap);
+
+            psdata.insert_testcase_data(testcase_id, new_data);
+        }
 
         Ok(())
     }

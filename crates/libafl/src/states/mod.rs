@@ -242,7 +242,7 @@ pub trait HasContext<I> {
 }
 
 impl<C, CT, I, OC, SC> HasContext<I> for StdState<C, CT, I, OC, SC>
-where 
+where
     CT: InputContext<I>,
 {
     type Context = CT;

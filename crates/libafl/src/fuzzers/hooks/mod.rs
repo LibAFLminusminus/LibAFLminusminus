@@ -218,7 +218,7 @@ where
         rt_handle: &mut RuntimeHandle<S, W>,
         testcase_id: TestcaseId,
     ) -> Result<()> {
-        self.0.post_add(executor, state, rt_handle, testcase_id);
+        self.0.post_add(executor, state, rt_handle, testcase_id)?;
         self.1.post_add_all(executor, state, rt_handle, testcase_id)
     }
     fn pre_perform_all(

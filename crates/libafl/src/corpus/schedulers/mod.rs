@@ -16,9 +16,6 @@ use crate::{
     corpus::{Testcase, testcase::TestcaseId},
 };
 
-pub mod testcase_score;
-pub use testcase_score::{LenTimeMulTestcasePenalty, TestcasePenalty, TestcaseScore};
-
 pub mod queue;
 pub use queue::QueueScheduler;
 

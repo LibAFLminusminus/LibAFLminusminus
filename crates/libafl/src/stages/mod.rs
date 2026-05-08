@@ -24,25 +24,14 @@ use crate::{
     DependencyResolver, Error, corpus::TestcaseId, runtimes::RuntimeHandle, states::FlatState,
 };
 
-/// Mutational stage is the normal fuzzing stage.
-pub mod mutational;
-pub use mutational::{MutationalStage, StdMutationalStage};
-
 pub mod single;
 pub use single::*;
-
-#[cfg(not(feature = "remove_me"))]
-pub mod calibrate;
-#[cfg(not(feature = "remove_me"))]
-pub use calibrate::{CalibrationStage, run_target_with_timing};
 
 pub mod logics;
 pub use logics::*;
 
-#[cfg(not(feature = "remove_me"))]
-pub mod power;
-#[cfg(not(feature = "remove_me"))]
-pub use power::{PowerMutationalStage, StdPowerMutationalStage};
+pub mod mutational;
+pub use mutational::*;
 
 pub mod nop;
 pub use nop::NopStage;
