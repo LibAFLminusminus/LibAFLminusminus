@@ -11,13 +11,13 @@ use libafl_bolts::{Named, rands::Rand};
 use libafl_core::non_zero;
 
 use crate::{
-    DependencyResolver, Error,
+    DependencyResolver, Error, PowerScheduleData, Result,
     corpus::{Corpus, Testcase, TestcaseId},
     fuzzers::Evaluator,
     inputs::Input,
     mutators::{MutationResult, Mutator},
     runtimes::RuntimeHandle,
-    stages::{MutationalStage, Power, Stage},
+    stages::{AFLPower, MutationalStage, Power, Stage},
     states::{HasCorpus, HasScheduler, State},
 };
 
@@ -25,7 +25,12 @@ use crate::{
 /// It may randomly continue earlier.
 pub const DEFAULT_MUTATIONAL_MAX_ITERATIONS: usize = 128;
 
-impl<E, F, I, M, R, S, W, Z> DependencyResolver for PowerScheduleStage<E, F, I, M, R, S, W, Z> {}
+impl<E, F, I, M, R, S, W, Z> DependencyResolver for PowerScheduleStage<E, F, I, M, R, S, W, Z> {
+    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<()> {
+        registrator.register_md_default::<PowerScheduleData>("".to_string());
+        Ok(())
+    }
+}
 
 /// The default mutational stage
 #[derive(Debug, Clone)]
@@ -63,7 +68,7 @@ where
     S: HasScheduler<Scheduler = SC>,
 {
     /// Gets the number of iterations as a random number
-    fn iterations(&self, state: &mut S, current: TestcaseId) -> Result<usize, Error> {
+    fn iterations(&self, state: &mut S, current: TestcaseId) -> Result<usize> {
         F::score(state, current)
     }
 }
@@ -97,7 +102,7 @@ where
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
         testcase_id: &TestcaseId,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         let num = self.iterations(state, *testcase_id)?;
 
         let tc = state.corpus().get(testcase_id)?;
@@ -138,3 +143,6 @@ impl<E, F, I, M, R, S, W, Z> PowerScheduleStage<E, F, I, M, R, S, W, Z> {
         }
     }
 }
+
+pub type AFLPowerScheduleStage<E, I, M, R, S, W, Z> =
+    PowerScheduleStage<E, AFLPower, I, M, R, S, W, Z>;

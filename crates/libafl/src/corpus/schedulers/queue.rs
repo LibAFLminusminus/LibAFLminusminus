@@ -95,19 +95,15 @@ mod tests {
         let scheduler: QueueScheduler = QueueScheduler::new();
         let context = BytesContext::default();
 
-        let corpus = OnDiskCorpus::< BytesInput, QueueScheduler>::new(
-            PathBuf::from("/tmp"),
-            scheduler,
-        )
-        .unwrap();
+        let corpus =
+            OnDiskCorpus::<BytesInput, QueueScheduler>::new(PathBuf::from("/tmp"), scheduler)
+                .unwrap();
         // let t = Testcase::with_filename(BytesInput::new(vec![0_u8; 4]), "fancyfile".into());
         // q.add(t).unwrap();
 
-        let objective = OnDiskCorpus::<BytesInput, NopScheduler>::new(
-            PathBuf::from("/tmp"),
-            NopScheduler,
-        )
-        .unwrap();
+        let objective =
+            OnDiskCorpus::<BytesInput, NopScheduler>::new(PathBuf::from("/tmp"), NopScheduler)
+                .unwrap();
 
         let _state = StdState::new(context, corpus, objective).unwrap();
 
@@ -131,9 +127,7 @@ mod tests {
         let scheduler = QueueScheduler::new();
         let context = BytesContext::default();
 
-        let mut q = InMemoryCorpus::<BytesInput, QueueScheduler>::new(
-            scheduler,
-        );
+        let mut q = InMemoryCorpus::<BytesInput, QueueScheduler>::new(scheduler);
         let t1 = BytesInput::new(vec![0_u8; 4]);
         let t2 = BytesInput::new(vec![1_u8; 4]);
         let t3 = BytesInput::new(vec![2_u8; 4]);

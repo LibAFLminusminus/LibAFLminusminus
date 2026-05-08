@@ -1,10 +1,7 @@
 use crate::{
-    DependencyResolver, Error, Result, Worker,
-    corpus::{
-        Corpus, Testcase,
-        Scheduler,
-    },
+    DependencyResolver, Error, Result, TestcasePowerScheduleData, Worker,
     common::PowerScheduleData,
+    corpus::{Corpus, Scheduler, Testcase},
     executors::Executor,
     feedbacks::{HasObserverHandle, MapFeedbackMetadata},
     fuzzers::{ExitKind, FuzzerHook},
@@ -292,10 +289,6 @@ where
             psdata.set_bitmap_size_log(psdata.bitmap_size_log() + libm::log2(bitmap_size as f64));
             psdata.set_bitmap_entries(psdata.bitmap_entries() + 1);
 
-            let testcase_meta = psdata.per_testcase_data(testcase_id).ok_or(illegal_state!(
-                "Testcase not registered before calibration?"
-            ))?;
-
             let depth = match current {
                 Some(parent) => {
                     let other_meta = psdata.per_testcase_data(parent).ok_or(illegal_state!(
@@ -306,16 +299,14 @@ where
                 None => 0, // this is the seed
             };
 
-            // now that we have the data, take the mutable borrow now
-            let testcase_meta = psdata
-                .per_testcase_data_mut(testcase_id)
-                .ok_or(illegal_state!(
-                    "Testcase not registered before calibration?"
-                ))?;
-            testcase_meta.set_exec_time(total_time / (iter as u32));
-            testcase_meta.set_cycle_and_time((total_time, iter));
-            testcase_meta.set_bitmap_size(bitmap_size);
-            testcase_meta.set_handicap(handicap);
+            let mut new_data = TestcasePowerScheduleData::new(depth);
+
+            new_data.set_exec_time(total_time / (iter as u32));
+            new_data.set_cycle_and_time((total_time, iter));
+            new_data.set_bitmap_size(bitmap_size);
+            new_data.set_handicap(handicap);
+
+            psdata.insert_testcase_data(testcase_id, new_data);
         }
 
         Ok(())

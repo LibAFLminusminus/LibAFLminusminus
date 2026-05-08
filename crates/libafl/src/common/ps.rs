@@ -9,7 +9,7 @@ use core::time::Duration;
 use hashbrown::HashMap;
 
 /// The metadata used for power schedules
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Default, Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(miri, expect(clippy::unsafe_derive_deserialize))] // for SerdeAny
 pub struct PowerScheduleData {
     /// Measured exec time during calibration
@@ -119,6 +119,10 @@ impl PowerScheduleData {
         testcase_id: TestcaseId,
     ) -> Option<&mut TestcasePowerScheduleData> {
         self.per_testcase.get_mut(&testcase_id)
+    }
+
+    pub fn insert_testcase_data(&mut self, id: TestcaseId, data: TestcasePowerScheduleData) {
+        self.per_testcase.insert(id, data);
     }
 }
 

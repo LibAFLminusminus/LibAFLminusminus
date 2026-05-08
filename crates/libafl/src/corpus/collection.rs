@@ -254,14 +254,8 @@ impl OnDiskCorpusBuilder {
 
     /// Build an [`OnDiskStore`].
     /// The root directory must be set.
-    pub fn build<I, SC>(
-        &self,
-        scheduler: SC,
-    ) -> Result<OnDiskCorpus<I, SC>, Error> {
-        Ok(OnDiskCorpus(SingleCorpus::new(
-            self.0.build()?,
-            scheduler,
-        )))
+    pub fn build<I, SC>(&self, scheduler: SC) -> Result<OnDiskCorpus<I, SC>, Error> {
+        Ok(OnDiskCorpus(SingleCorpus::new(self.0.build()?, scheduler)))
     }
 }
 

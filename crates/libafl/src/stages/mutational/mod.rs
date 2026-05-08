@@ -22,9 +22,9 @@ pub trait Power<S> {
 const HAVOC_MAX_MULT: f64 = 16.0;
 
 /// Of course! the port of `calculate_score` from AFL
-pub struct StdPower {}
+pub struct AFLPower {}
 
-impl<S> Power<S> for StdPower
+impl<S> Power<S> for AFLPower
 where
     S: FlatState,
 {
@@ -42,7 +42,7 @@ where
         let meta = psmeta
             .per_testcase_data_mut(testcase_id)
             .ok_or(illegal_state!(
-                "Cannot find per testcase metadata. Something is wrong"
+                "Cannot find per testcase metadata. Something is wrong.."
             ))?;
         let q_exec_us = meta.exec_time().as_nanos() as f64;
         if q_exec_us * 0.1 > avg_exec_us {
@@ -97,7 +97,6 @@ where
         }
 
         // lastly commit back changes
-
         Ok(perf_score.floor() as usize)
     }
 }
