@@ -28,11 +28,11 @@ type StdInMemoryMap<T> = maps::BtreeCorpusMap<T>;
 
 type InnerStdInMemoryCorpusMap<I> = StdInMemoryMap<Testcase<I>>;
 type InnerStdInMemoryStore<I> = InMemoryStore<I, InnerStdInMemoryCorpusMap<I>>;
-type InnerInMemoryCorpus<CT, I, SC> = SingleCorpus<CT, I, InnerStdInMemoryStore<I>, SC>;
+type InnerInMemoryCorpus<I, SC> = SingleCorpus<I, InnerStdInMemoryStore<I>, SC>;
 
 type InnerStdOnDiskStore<I> = OnDiskStore<I, StdInMemoryMap<TestcaseId>>;
 #[cfg(feature = "std")]
-type InnerOnDiskCorpus<CT, I, SC> = SingleCorpus<CT, I, InnerStdOnDiskStore<I>, SC>;
+type InnerOnDiskCorpus<I, SC> = SingleCorpus<I, InnerStdOnDiskStore<I>, SC>;
 
 /// The standard fully in-memory corpus map.
 #[repr(transparent)]
@@ -52,13 +52,13 @@ pub struct StdOnDiskStore<I>(InnerStdOnDiskStore<I>);
 /// The standard in-memory corpus.
 #[repr(transparent)]
 #[derive(Debug, Serialize, Deserialize)]
-pub struct InMemoryCorpus<CT, I, SC>(InnerInMemoryCorpus<CT, I, SC>);
+pub struct InMemoryCorpus<I, SC>(InnerInMemoryCorpus<I, SC>);
 
 /// The standard fully on-disk corpus.
 #[cfg(feature = "std")]
 #[repr(transparent)]
 #[derive(Debug, Serialize, Deserialize)]
-pub struct OnDiskCorpus<CT, I, SC>(InnerOnDiskCorpus<CT, I, SC>);
+pub struct OnDiskCorpus<I, SC>(InnerOnDiskCorpus<I, SC>);
 
 /// The on-disk corpus builder
 #[cfg(feature = "std")]
@@ -166,21 +166,20 @@ where
     }
 }
 
-impl<CT, I, SC> InMemoryCorpus<CT, I, SC> {
+impl<I, SC> InMemoryCorpus<I, SC> {
     /// Create a new [`InMemoryCorpus`].
     #[must_use]
-    pub fn new(context: CT, scheduler: SC) -> Self {
+    pub fn new(scheduler: SC) -> Self {
         InMemoryCorpus(InnerInMemoryCorpus::new(
-            context,
             InnerStdInMemoryStore::default(),
             scheduler,
         ))
     }
 }
 
-impl<CT, I, SC> DependencyResolver for InMemoryCorpus<CT, I, SC> {}
+impl<I, SC> DependencyResolver for InMemoryCorpus<I, SC> {}
 
-impl<CT, I, SC> HasScheduler for InMemoryCorpus<CT, I, SC>
+impl<I, SC> HasScheduler for InMemoryCorpus<I, SC>
 where
     SC: Scheduler,
 {
@@ -195,13 +194,11 @@ where
     }
 }
 
-impl<CT, I, SC> Corpus<I> for InMemoryCorpus<CT, I, SC>
+impl<I, SC> Corpus<I> for InMemoryCorpus<I, SC>
 where
-    CT: InputContext<I>,
     I: Input,
     SC: Scheduler,
 {
-    type Context = CT;
     fn count(&self) -> usize {
         self.0.count()
     }
@@ -223,14 +220,6 @@ where
 
     fn get_from<const ENABLED: bool>(&self, id: &TestcaseId) -> Result<Testcase<I>, Error> {
         self.0.get_from::<ENABLED>(id)
-    }
-
-    fn context(&self) -> &Self::Context {
-        self.0.context()
-    }
-
-    fn context_mut(&mut self) -> &mut Self::Context {
-        self.0.context_mut()
     }
 }
 
@@ -265,13 +254,11 @@ impl OnDiskCorpusBuilder {
 
     /// Build an [`OnDiskStore`].
     /// The root directory must be set.
-    pub fn build<CT, I, SC>(
+    pub fn build<I, SC>(
         &self,
-        context: CT,
         scheduler: SC,
-    ) -> Result<OnDiskCorpus<CT, I, SC>, Error> {
+    ) -> Result<OnDiskCorpus<I, SC>, Error> {
         Ok(OnDiskCorpus(SingleCorpus::new(
-            context,
             self.0.build()?,
             scheduler,
         )))
@@ -279,24 +266,22 @@ impl OnDiskCorpusBuilder {
 }
 
 #[cfg(feature = "std")]
-impl<CT, I, SC> OnDiskCorpus<CT, I, SC>
+impl<I, SC> OnDiskCorpus<I, SC>
 where
     I: Input,
 {
     /// Create a new [`OnDiskCorpus`]
-    pub fn new<P: AsRef<Path>>(root: P, context: CT, scheduler: SC) -> Result<Self, Error> {
-        Self::new_with_format(root, TestcaseFilenameFormat::Id, context, scheduler)
+    pub fn new<P: AsRef<Path>>(root: P, scheduler: SC) -> Result<Self, Error> {
+        Self::new_with_format(root, TestcaseFilenameFormat::Id, scheduler)
     }
 
     /// Create a new [`OnDiskCorpus`]
     pub fn new_with_format<P: AsRef<Path>>(
         root: P,
         filename_format: TestcaseFilenameFormat,
-        context: CT,
         scheduler: SC,
     ) -> Result<Self, Error> {
         Ok(OnDiskCorpus(InnerOnDiskCorpus::new(
-            context,
             InnerStdOnDiskStore::new(root, filename_format)?,
             scheduler,
         )))
@@ -309,9 +294,9 @@ where
     }
 }
 
-impl<CT, I, SC> DependencyResolver for OnDiskCorpus<CT, I, SC> {}
+impl<I, SC> DependencyResolver for OnDiskCorpus<I, SC> {}
 
-impl<CT, I, SC> HasScheduler for OnDiskCorpus<CT, I, SC>
+impl<I, SC> HasScheduler for OnDiskCorpus<I, SC>
 where
     SC: Scheduler,
 {
@@ -327,14 +312,11 @@ where
 }
 
 #[cfg(feature = "std")]
-impl<CT, I, SC> Corpus<I> for OnDiskCorpus<CT, I, SC>
+impl<I, SC> Corpus<I> for OnDiskCorpus<I, SC>
 where
-    CT: InputContext<I>,
     I: Input,
     SC: Scheduler,
 {
-    type Context = CT;
-
     fn count(&self) -> usize {
         self.0.count()
     }
@@ -356,14 +338,6 @@ where
 
     fn get_from<const ENABLED: bool>(&self, id: &TestcaseId) -> Result<Testcase<I>, Error> {
         self.0.get_from::<ENABLED>(id)
-    }
-
-    fn context(&self) -> &Self::Context {
-        self.0.context()
-    }
-
-    fn context_mut(&mut self) -> &mut Self::Context {
-        self.0.context_mut()
     }
 }
 

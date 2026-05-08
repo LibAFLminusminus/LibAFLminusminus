@@ -55,7 +55,7 @@ use crate::{
     mutators::Tokens,
     observers::{MapObserver, Observer, ObserversTuple},
     runtimes::RuntimeHandle,
-    states::{FlatState, HasCorpus},
+    states::{FlatState, HasContext, HasCorpus},
 };
 
 pub mod config;
@@ -607,7 +607,7 @@ impl<OT> ForkserverExecutor<OT> {
 impl<I, OT, S> Executor<I, S> for ForkserverExecutor<OT>
 where
     OT: ObserversTuple<S>,
-    S: FlatState + HasCorpus<I>,
+    S: FlatState + HasCorpus<I> + HasContext<I>,
 {
     type Observers = OT;
 
@@ -638,7 +638,7 @@ where
 
     #[inline]
     unsafe fn execute_impl(&mut self, state: &mut S, input: &I) -> Result<ExitKind, Error> {
-        let context = state.corpus_mut().context_mut();
+        let context = state.context_mut();
         let bytes = context.to_bytes(input);
         let exit = self.execute_input(&bytes)?;
         Ok(exit)

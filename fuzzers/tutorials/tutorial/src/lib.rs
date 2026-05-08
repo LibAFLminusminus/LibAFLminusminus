@@ -8,18 +8,19 @@ use std::{env, path::PathBuf};
 
 use libafl::{
     corpus::{Corpus, InMemoryCorpus, OnDiskCorpus},
-    executors::{StdExecutor, ExitKind},
+    executors::{ExitKind, StdExecutor},
     feedback_or, feedback_or_fast,
     feedbacks::{CrashFeedback, MaxMapFeedback, TimeFeedback, TimeoutFeedback},
     fuzzers::StdFuzzer,
+    inputs::InputContext,
     monitors::SimpleMonitor,
     observers::{HitcountsMapObserver, TimeObserver},
     stages::MutationalStage,
-    states::{HasCorpus, StdState},
+    states::{HasContext, HasCorpus, StdState},
     Error, Fuzzer,
 };
 use libafl_bolts::{rands::StdRand, tuples::tuple_list, AsSlice};
-use libafl_targets::{libfuzzer_initialize, libfuzzer_test_one_input, std_edges_map_observer};
+use libafl_targets::{libfuzzer_initialize, libfuzzer_test_one_input};
 
 mod input;
 use input::PacketData;
@@ -28,7 +29,9 @@ mod mutator;
 use mutator::LainMutator;
 
 mod metadata;
-use metadata::{PacketLenFeedback, PacketLenMinimizerScheduler};
+use metadata::PacketLenFeedback;
+
+use crate::input::PacketDataContext;
 
 /// The main fn, `no_mangle` as it is a C main
 #[cfg(not(test))]
@@ -53,13 +56,14 @@ pub extern "C" fn libafl_main() {
 /// The actual fuzzer
 fn fuzz(corpus_dirs: &[PathBuf], objective_dir: PathBuf, broker_port: u16) -> Result<(), Error> {
     // The wrapped harness function, calling out to the LLVM-style harness
-    let mut harness = |input: &PacketData| {
-        let target = input.target_bytes();
-        let buf = target.as_slice();
+    let mut harness = |state: &mut StdState<PacketDataContext, _, PacketData, _, _>,
+                       input: &PacketData| {
+        let context: &mut PacketDataContext = state.context_mut();
+        let buf = context.to_bytes(input);
         // # Safety
         // We're looking for crashes in there!
         unsafe {
-            libfuzzer_test_one_input(buf);
+            libfuzzer_test_one_input(&buf);
         }
         ExitKind::Ok
     };
@@ -89,8 +93,6 @@ fn fuzz(corpus_dirs: &[PathBuf], objective_dir: PathBuf, broker_port: u16) -> Re
     let time_observer = TimeObserver::new("time");
 
     let map_feedback = MaxMapFeedback::new(&edges_observer);
-
-    let calibration = CalibrationStage::new(&map_feedback);
 
     // Feedback to rate the interestingness of an input
     // This one is composed by two Feedbacks in OR

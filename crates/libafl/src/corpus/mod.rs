@@ -39,8 +39,6 @@ pub struct TestcaseIdIterator<'a, C, I> {
 
 /// Corpus with all current [`Testcase`]s, or solutions
 pub trait Corpus<I>: HasScheduler + Sized + DependencyResolver {
-    type Context: InputContext<I>;
-
     /// Returns the number of all enabled entries
     fn count(&self) -> usize;
 
@@ -96,10 +94,6 @@ pub trait Corpus<I>: HasScheduler + Sized + DependencyResolver {
 
     /// Get testcase by id
     fn get_from<const ENABLED: bool>(&self, id: &TestcaseId) -> Result<Testcase<I>, Error>;
-
-    fn context(&self) -> &Self::Context;
-
-    fn context_mut(&mut self) -> &mut Self::Context;
 }
 
 /// Marker trait for corpus implementations that actually support enable/disable functionality

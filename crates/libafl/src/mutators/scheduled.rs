@@ -300,7 +300,7 @@ mod tests {
     #[test]
     fn test_mut_scheduled() {
         let mut rand = XkcdRand::with_seed(0);
-        let mut corpus = InMemoryCorpus::new(BytesContext::default(), QueueScheduler::new());
+        let mut corpus = InMemoryCorpus::new(QueueScheduler::new());
         let id1 = corpus
             .add(Testcase::new(Rc::new(BytesInput::new(
                 vec![b'a', b'b', b'c'].into(),
@@ -315,8 +315,9 @@ mod tests {
         let mut input = corpus.get(&id1).unwrap().cloned_input();
 
         let mut state = StdState::new(
+            BytesContext::default(),
             corpus,
-            InMemoryCorpus::new(BytesContext::default(), QueueScheduler::new()),
+            InMemoryCorpus::new(QueueScheduler::new()),
         )
         .unwrap();
 
@@ -332,7 +333,7 @@ mod tests {
     #[test]
     fn test_havoc() {
         let mut rand = StdRand::with_seed(0x1337);
-        let mut corpus = InMemoryCorpus::new(BytesContext::default(), QueueScheduler::new());
+        let mut corpus = InMemoryCorpus::new(QueueScheduler::new());
         let id1 = corpus
             .add(Testcase::new(Rc::new(BytesInput::new(
                 b"abc".to_vec().into(),
@@ -348,8 +349,9 @@ mod tests {
         let input_prior = input.clone();
 
         let mut state = StdState::new(
+            BytesContext::default(),
             corpus,
-            InMemoryCorpus::new(BytesContext::default(), QueueScheduler::new()),
+            InMemoryCorpus::new(QueueScheduler::new()),
         )
         .unwrap();
 
@@ -375,7 +377,7 @@ mod tests {
     #[test]
     fn test_single_choice() {
         let mut rand = StdRand::with_seed(0x1337);
-        let mut corpus = InMemoryCorpus::new(BytesContext::default(), QueueScheduler::new());
+        let mut corpus = InMemoryCorpus::new(QueueScheduler::new());
         let id1 = corpus
             .add(Testcase::new(Rc::new(BytesInput::new(
                 b"abc".to_vec().into(),
@@ -391,8 +393,9 @@ mod tests {
         let input_prior = input.clone();
 
         let mut state = StdState::new(
+            BytesContext::default(),
             corpus,
-            InMemoryCorpus::new(BytesContext::default(), QueueScheduler::new()),
+            InMemoryCorpus::new(QueueScheduler::new()),
         )
         .unwrap();
 

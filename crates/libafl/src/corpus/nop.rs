@@ -32,8 +32,6 @@ impl<I, S> HasScheduler for NopCorpus<I, S> {
 }
 
 impl<I, S> Corpus<I> for NopCorpus<I, S> {
-    type Context = NopContext;
-
     /// Returns the number of all enabled entries
     #[inline]
     fn count(&self) -> usize {
@@ -62,14 +60,6 @@ impl<I, S> Corpus<I> for NopCorpus<I, S> {
 
     fn get_from<const ENABLED: bool>(&self, _id: &TestcaseId) -> Result<Testcase<I>, Error> {
         Err(Error::unsupported("Unsupported by NopCorpus"))
-    }
-
-    fn context(&self) -> &Self::Context {
-        &self.context
-    }
-
-    fn context_mut(&mut self) -> &mut Self::Context {
-        &mut self.context
     }
 }
 

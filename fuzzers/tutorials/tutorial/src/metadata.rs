@@ -1,11 +1,10 @@
 use std::borrow::Cow;
 
 use libafl::{
-    corpus::Testcase,
+    corpus::TestcaseId,
     executors::ExitKind,
-    feedbacks::{Feedback, MapIndexesMetadata, StateInitializer},
-    schedulers::{MinimizerScheduler, TestcasePenalty},
-    Error, HasMetadata,
+    feedbacks::Feedback,
+    DependencyResolver, Error,
 };
 use libafl_bolts::{Named, SerdeAny};
 use serde::{Deserialize, Serialize};
@@ -24,29 +23,13 @@ pub struct PacketLenFeedback {
     len: u64,
 }
 
-pub type PacketLenMinimizerScheduler<CS, I, S> =
-    MinimizerScheduler<CS, PacketLenTestcasePenalty, I, MapIndexesMetadata, S>;
+impl DependencyResolver for PacketLenFeedback {}
 
-impl<I, S> TestcasePenalty<I, S> for PacketLenTestcasePenalty
-where
-    S: HasMetadata,
-{
-    fn compute(_state: &S, entry: &mut Testcase<I>) -> Result<f64, Error> {
-        Ok(entry
-            .metadata_map()
-            .get::<PacketLenMetadata>()
-            .map_or(1, |m| m.length) as f64)
-    }
-}
-
-impl<S> StateInitializer<S> for PacketLenFeedback {}
-
-impl<EM, OT, S> Feedback<EM, PacketData, OT, S> for PacketLenFeedback {
+impl<OT, S> Feedback<PacketData, OT, S> for PacketLenFeedback {
     #[inline]
     fn is_interesting(
         &mut self,
         _state: &mut S,
-        _manager: &mut EM,
         input: &PacketData,
         _observers: &OT,
         _exit_kind: &ExitKind,
@@ -59,9 +42,8 @@ impl<EM, OT, S> Feedback<EM, PacketData, OT, S> for PacketLenFeedback {
     fn append_metadata(
         &mut self,
         _state: &mut S,
-        _manager: &mut EM,
         _observers: &OT,
-        testcase: &mut Testcase<PacketData>,
+        testcase_id: &TestcaseId,
     ) -> Result<(), Error> {
         testcase
             .metadata_map_mut()

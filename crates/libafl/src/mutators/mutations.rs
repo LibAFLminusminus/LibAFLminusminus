@@ -1768,24 +1768,16 @@ mod tests {
     }
 
     fn test_state() -> impl HasCorpus<BytesInput> + FlatState {
-        let mut corpus = InMemoryCorpus::<BytesContext, BytesInput, QueueScheduler>::new(
-            BytesContext::default(),
-            QueueScheduler::new(),
-        );
+        let mut corpus = InMemoryCorpus::<BytesInput, QueueScheduler>::new(QueueScheduler::new());
 
         corpus
-            .add(Testcase::new(Rc::new(BytesInput::new(vec![
-                0x42;
-                0x1337
-            ]))))
+            .add(Testcase::new(Rc::new(BytesInput::new(vec![0x42; 0x1337]))))
             .unwrap();
 
         StdState::new(
+            BytesContext::default(),
             corpus,
-            InMemoryCorpus::<BytesContext, BytesInput, NopScheduler>::new(
-                BytesContext::default(),
-                NopScheduler,
-            ),
+            InMemoryCorpus::<BytesInput, NopScheduler>::new(NopScheduler),
         )
         .unwrap()
     }

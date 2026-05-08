@@ -2,10 +2,8 @@ use std::borrow::Cow;
 
 use lain::traits::Mutatable;
 use libafl::{
-    corpus::CorpusId,
     mutators::{MutationResult, Mutator},
-    state::HasRand,
-    Error,
+    Error, EvaluationResult,
 };
 use libafl_bolts::{
     rands::{Rand, StdRand},
@@ -18,19 +16,24 @@ pub struct LainMutator {
     inner: lain::mutator::Mutator<StdRand>,
 }
 
-impl<S> Mutator<PacketData, S> for LainMutator
+impl<R, S> Mutator<PacketData, R, S> for LainMutator
 where
-    S: HasRand,
+    R: Rand,
 {
-    fn mutate(&mut self, state: &mut S, input: &mut PacketData) -> Result<MutationResult, Error> {
+    fn mutate(
+        &mut self,
+        input: &mut PacketData,
+        rand: &mut R,
+        _state: &S,
+    ) -> Result<MutationResult, Error> {
         // Lain uses its own instance of StdRand, but we want to keep it in sync with LibAFL's state.
-        self.inner.rng_mut().set_seed(state.rand_mut().next());
+        self.inner.rng_mut().set_seed(rand.next());
         input.mutate(&mut self.inner, None);
         Ok(MutationResult::Mutated)
     }
 
     #[inline]
-    fn post_exec(&mut self, _state: &mut S, _new_corpus_id: Option<CorpusId>) -> Result<(), Error> {
+    fn post_exec(&mut self, _state: &mut S, _eval_res: &EvaluationResult) -> Result<(), Error> {
         Ok(())
     }
 }

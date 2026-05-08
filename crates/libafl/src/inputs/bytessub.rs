@@ -337,9 +337,9 @@ mod tests {
         // Note that if you want to use NopState in production like this, you should see the rng! :)
         let context = BytesContext::default();
         let corpus_sch = QueueScheduler::new();
-        let corpus = InMemoryCorpus::new(context, corpus_sch.clone());
-        let objective_corpus = InMemoryCorpus::new(context, corpus_sch);
-        let mut state = StdState::new(corpus, objective_corpus).unwrap();
+        let corpus: InMemoryCorpus<BytesInput, _> = InMemoryCorpus::new(corpus_sch.clone());
+        let objective_corpus = InMemoryCorpus::new(corpus_sch);
+        let mut state = StdState::new(context, corpus, objective_corpus).unwrap();
         let mut rand = StdRand::new();
 
         let result =
