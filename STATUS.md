@@ -77,9 +77,9 @@
 - [ x ] laucher impl
 - [ x ] remove "remove_me"
 - [ x ] libafl target
+- [ x ] write nyx fuzzer
 - [ ] libafl intelpt
 - [ ] libafl qemu
-- [ ] write nyx fuzzer
 - [ ] check if libafl-fuzz is doable
 - [ ] every fuzzer MUST have proper documentation
 
