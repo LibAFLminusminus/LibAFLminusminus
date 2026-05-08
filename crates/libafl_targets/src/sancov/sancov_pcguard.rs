@@ -1,9 +1,7 @@
 //! [`LLVM` `PcGuard`](https://clang.llvm.org/docs/SanitizerCoverage.html#tracing-pcs-with-guards) runtime for `LibAFL`.
 
-use core::slice;
-
 #[cfg(feature = "coverage")]
-use crate::coverage::EDGES_MAP;
+use crate::exports::EDGES_MAP;
 #[cfg(feature = "coverage")]
 use crate::coverage::MAX_EDGES_FOUND;
 #[cfg(feature = "pointer_maps")]
@@ -15,21 +13,18 @@ compile_error!(
     "the libafl_targets `sancov_pcguard_edges` and `sancov_pcguard_hitcounts` features are mutually exclusive."
 );
 
-static mut PC_TABLES: Vec<&'static [PcTableEntry]> = Vec::new();
-
 /// Type for the PC guard hook
 pub type PcGuardHook = unsafe extern "C" fn(*mut u32);
 
-use alloc::vec::Vec;
 unsafe extern "C" {
     /// The ctx variable
     pub static mut __afl_prev_ctx: u32;
 }
 
-#[allow(clippy::inline_always)]
-#[inline(always)]
+#[unsafe(no_mangle)]
 #[allow(unused_assignments)]
-pub(crate) unsafe fn sanitizer_cov_pcguard_impl(guard: *mut u32) {
+/// overwriting the sancov pcguard impl
+pub unsafe extern "C" fn __sanitizer_cov_trace_pc_guard(guard: *mut u32) {
     unsafe {
         #[allow(unused_variables, unused_mut)] // cfg dependent
         let mut pos = *guard as usize;

@@ -55,6 +55,9 @@ extern crate alloc;
 
 include!(concat!(env!("OUT_DIR"), "/constants.rs"));
 
+pub mod libfuzzer;
+pub use libfuzzer::*;
+
 pub mod exports;
 pub use exports::*;
 

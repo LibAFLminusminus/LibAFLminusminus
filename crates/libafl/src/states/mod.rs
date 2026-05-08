@@ -40,6 +40,7 @@ use crate::{
     dependency::{DependencyResolver, Registrator},
     fuzzers::{EvaluationResult, Evaluator},
     generators::Generator,
+    inputs::InputContext,
     inputs::{Input, NopContext, NopInput},
     launchers::InstanceId,
     runtimes::RuntimeHandle,
@@ -167,7 +168,7 @@ pub trait HasTestcase<I> {
     fn testcase(&self, id: &TestcaseId) -> Result<Testcase<I>>;
 }
 
-impl<C, I, OC, SC> HasTestcase<I> for StdState<C, I, OC, SC>
+impl<C, CT, I, OC, SC> HasTestcase<I> for StdState<C, CT, I, OC, SC>
 where
     C: Corpus<I>,
 {
@@ -198,7 +199,7 @@ pub trait HasCorpus<I> {
     fn corpus_mut(&mut self) -> &mut Self::Corpus;
 }
 
-impl<C, I, OC, SC> HasCorpus<I> for StdState<C, I, OC, SC>
+impl<C, CT, I, OC, SC> HasCorpus<I> for StdState<C, CT, I, OC, SC>
 where
     C: Corpus<I>,
 {
@@ -220,7 +221,7 @@ pub trait HasObjectiveCorpus<I> {
     fn objective_corpus_mut(&mut self) -> &mut Self::Corpus;
 }
 
-impl<C, I, OC, SC> HasObjectiveCorpus<I> for StdState<C, I, OC, SC>
+impl<C, CT, I, OC, SC> HasObjectiveCorpus<I> for StdState<C, CT, I, OC, SC>
 where
     OC: Corpus<I>,
 {
@@ -235,7 +236,23 @@ where
     }
 }
 
-impl<C, I, OC, SC> HasScheduler for StdState<C, I, OC, SC>
+pub trait HasContext<I> {
+    type Context: InputContext<I>;
+    fn context_mut(&mut self) -> &mut Self::Context;
+}
+
+impl<C, CT, I, OC, SC> HasContext<I> for StdState<C, CT, I, OC, SC>
+where 
+    CT: InputContext<I>,
+{
+    type Context = CT;
+
+    fn context_mut(&mut self) -> &mut Self::Context {
+        &mut self.context
+    }
+}
+
+impl<C, CT, I, OC, SC> HasScheduler for StdState<C, CT, I, OC, SC>
 where
     C: Corpus<I>,
 {
@@ -272,11 +289,14 @@ impl<I, S, Z> Debug for LoadConfig<'_, I, S, Z> {
 /// The state a fuzz run.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(bound = "
+        CT: serde::Serialize + for<'a> serde::Deserialize<'a>,
         C: serde::Serialize + for<'a> serde::Deserialize<'a>,
         OC: serde::Serialize + for<'a> serde::Deserialize<'a>,
         SC: serde::Serialize + for<'a> serde::Deserialize<'a>,
     ")]
-pub struct StdState<C, I, OC, SC> {
+pub struct StdState<C, CT, I, OC, SC> {
+    /// the input context. helper to transform input into a byte slice
+    context: CT,
     /// The corpus
     corpus: C,
     // Objectives corpus
@@ -603,10 +623,7 @@ impl TestcaseMetadata {
 
 /// The Metadata for each testcase used in power schedules.
 #[derive(Serialize, Deserialize, Clone, Debug)]
-#[cfg_attr(
-    miri,
-    expect(clippy::unsafe_derive_deserialize)
-)] // for SerdeAny
+#[cfg_attr(miri, expect(clippy::unsafe_derive_deserialize))] // for SerdeAny
 pub struct PSMetadata {
     /// Number of bits set in bitmap, updated in `calibrate_case`
     bitmap_size: u64,
@@ -713,7 +730,7 @@ impl PSMetadata {
 
 libafl_bolts::impl_serdeany!(PSMetadata);
 
-impl<C, I, OC, SC> FlatState for StdState<C, I, OC, SC> {
+impl<C, CT, I, OC, SC> FlatState for StdState<C, CT, I, OC, SC> {
     fn stats(&self) -> &Stats {
         &self.stats
     }
@@ -769,7 +786,7 @@ impl<C, I, OC, SC> FlatState for StdState<C, I, OC, SC> {
     }
 }
 
-impl<C, I, OC, SC> DependencyResolver for StdState<C, I, OC, SC>
+impl<C, CT, I, OC, SC> DependencyResolver for StdState<C, CT, I, OC, SC>
 where
     C: DependencyResolver + Corpus<I>,
     OC: DependencyResolver + Corpus<I>,
@@ -782,14 +799,14 @@ where
     }
 }
 
-impl<C, I, OC, SC> State<I> for StdState<C, I, OC, SC>
+impl<C, CT, I, OC, SC> State<I> for StdState<C, CT, I, OC, SC>
 where
     C: Corpus<I>,
     OC: Corpus<I>,
 {
 }
 
-impl<C, I, OC, SC> StdState<C, I, OC, SC>
+impl<C, CT, I, OC, SC> StdState<C, CT, I, OC, SC>
 where
     C: Corpus<I>,
     I: Input,
@@ -1116,7 +1133,7 @@ where
     }
 }
 
-impl<C, I, OC, SC> StdState<C, I, OC, SC> {
+impl<C, CT, I, OC, SC> StdState<C, CT, I, OC, SC> {
     /// Generate `num` initial inputs, using the passed-in generator.
     pub fn generate_initial_inputs<G, E, R, W, Z>(
         &mut self,
@@ -1146,19 +1163,20 @@ impl<C, I, OC, SC> StdState<C, I, OC, SC> {
     }
 }
 
-impl<C, I, OC, SC> StdState<C, I, OC, SC>
+impl<C, CT, I, OC, SC> StdState<C, CT, I, OC, SC>
 where
     C: Corpus<I, Scheduler = SC>,
     I: Input,
     OC: Corpus<I>,
 {
     /// Creates a new `State`, taking ownership of all of the individual components during fuzzing.
-    pub fn new(corpus: C, objective_corpus: OC) -> Result<Self>
+    pub fn new(context: CT, corpus: C, objective_corpus: OC) -> Result<Self>
     where
         OC: Serialize + DeserializeOwned + DependencyResolver,
         C: Serialize + DeserializeOwned + DependencyResolver,
     {
         let state = Self {
+            context,
             stats: Stats {
                 pid: std::process::id(),
                 executions: 0,
@@ -1184,9 +1202,10 @@ where
 
 impl
     StdState<
-        InMemoryCorpus<NopContext, NopInput, NopScheduler>,
+        InMemoryCorpus<NopInput, NopScheduler>,
+        NopContext,
         NopInput,
-        InMemoryCorpus<NopContext, NopInput, NopScheduler>,
+        InMemoryCorpus<NopInput, NopScheduler>,
         NopScheduler,
     >
 {
@@ -1194,8 +1213,9 @@ impl
     /// Potentially good for testing.
     pub fn nop() -> Result<Self> {
         StdState::new(
-            InMemoryCorpus::<NopContext, NopInput, NopScheduler>::new(NopContext, NopScheduler),
-            InMemoryCorpus::new(NopContext, NopScheduler),
+            NopContext,
+            InMemoryCorpus::<NopInput, NopScheduler>::new(NopScheduler),
+            InMemoryCorpus::new(NopScheduler),
         )
     }
 }

@@ -95,23 +95,21 @@ mod tests {
         let scheduler: QueueScheduler = QueueScheduler::new();
         let context = BytesContext::default();
 
-        let corpus = OnDiskCorpus::<BytesContext, BytesInput, QueueScheduler>::new(
+        let corpus = OnDiskCorpus::< BytesInput, QueueScheduler>::new(
             PathBuf::from("/tmp"),
-            context.clone(),
             scheduler,
         )
         .unwrap();
         // let t = Testcase::with_filename(BytesInput::new(vec![0_u8; 4]), "fancyfile".into());
         // q.add(t).unwrap();
 
-        let objective = OnDiskCorpus::<BytesContext, BytesInput, NopScheduler>::new(
+        let objective = OnDiskCorpus::<BytesInput, NopScheduler>::new(
             PathBuf::from("/tmp"),
-            context,
             NopScheduler,
         )
         .unwrap();
 
-        let _state = StdState::new(corpus, objective).unwrap();
+        let _state = StdState::new(context, corpus, objective).unwrap();
 
         // let filename = state
         //     .corpus()
@@ -133,8 +131,7 @@ mod tests {
         let scheduler = QueueScheduler::new();
         let context = BytesContext::default();
 
-        let mut q = InMemoryCorpus::<BytesContext, BytesInput, QueueScheduler>::new(
-            context.clone(),
+        let mut q = InMemoryCorpus::<BytesInput, QueueScheduler>::new(
             scheduler,
         );
         let t1 = BytesInput::new(vec![0_u8; 4]);
@@ -145,7 +142,7 @@ mod tests {
         let id2 = q.add(Testcase::new(Rc::new(t2))).unwrap();
         let id3 = q.add(Testcase::new(Rc::new(t3))).unwrap();
 
-        let mut state = StdState::new(q, InMemoryCorpus::new(context, NopScheduler)).unwrap();
+        let mut state = StdState::new(context, q, InMemoryCorpus::new(NopScheduler)).unwrap();
 
         let next_id = state.corpus_mut().scheduler_mut().next().unwrap();
         assert_eq!(next_id, id1);
