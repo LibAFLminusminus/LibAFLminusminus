@@ -47,6 +47,7 @@ impl Fixup for PacketData {
 
 impl Input for PacketData {}
 
+#[derive(Serialize, Deserialize, Default, Debug)]
 pub struct PacketDataContext {}
 
 impl InputContext<PacketData> for PacketDataContext {

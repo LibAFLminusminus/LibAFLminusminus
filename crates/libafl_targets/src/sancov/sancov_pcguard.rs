@@ -21,10 +21,10 @@ unsafe extern "C" {
     pub static mut __afl_prev_ctx: u32;
 }
 
-#[allow(clippy::inline_always)]
-#[inline(always)]
+#[unsafe(no_mangle)]
 #[allow(unused_assignments)]
-pub(crate) unsafe fn __sanitizer_cov_trace_pc_guard(guard: *mut u32) {
+/// overwriting the sancov pcguard impl
+pub unsafe extern "C" fn __sanitizer_cov_trace_pc_guard(guard: *mut u32) {
     unsafe {
         #[allow(unused_variables, unused_mut)] // cfg dependent
         let mut pos = *guard as usize;
