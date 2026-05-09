@@ -7,10 +7,7 @@ use core::fmt::Debug;
 use crate::{
     DependencyResolver, Error,
     executors::ExitKind,
-    observers::{
-        CmpMap, CmpObserver, CmplogBytes, Observer,
-        cmp::{CmpValues, CmpValuesMetadata},
-    },
+    observers::{CmpLogMetadata, CmpObserver, Observer},
     states::{FlatState, named_metadata, named_metadata_mut, named_metadata_or_insert_with},
 };
 use libafl_bolts::{Named, ownedref::OwnedMutPtr};
@@ -51,7 +48,7 @@ impl CmpObserver for CmpLogObserver {
 
 impl DependencyResolver for CmpLogObserver {
     fn register(&mut self, registrator: &mut crate::Registrator) -> Result<(), Error> {
-        registrator.register_md_default::<CmpValuesMetadata>(self.name().to_string());
+        registrator.register_md_default::<CmpLogMetadata>(self.name().to_string());
         Ok(())
     }
 }
@@ -67,10 +64,8 @@ where
 
     fn post_exec(&mut self, state: &mut S, _exit_kind: &ExitKind) -> Result<(), Error> {
         if self.add_meta {
-            let meta = named_metadata_mut::<CmpValuesMetadata>(
-                state.named_metadata_map_mut(),
-                self.name(),
-            )?;
+            let meta =
+                named_metadata_mut::<CmpLogMetadata>(state.named_metadata_map_mut(), self.name())?;
 
             let usable_count = self.usable_count();
 
@@ -109,85 +104,4 @@ impl CmpLogObserver {
     }
 
     // TODO with_size
-}
-
-impl CmpMap for CmpLogMap {
-    fn len(&self) -> usize {
-        CMPLOG_MAP_W
-    }
-
-    fn executions_for(&self, idx: usize) -> usize {
-        self.headers[idx].hits as usize
-    }
-
-    fn usable_executions_for(&self, idx: usize) -> usize {
-        if self.headers[idx].kind == CMPLOG_KIND_INS {
-            if self.executions_for(idx) < CMPLOG_MAP_H {
-                self.executions_for(idx)
-            } else {
-                CMPLOG_MAP_H
-            }
-        } else if self.executions_for(idx) < CMPLOG_MAP_RTN_H {
-            self.executions_for(idx)
-        } else {
-            CMPLOG_MAP_RTN_H
-        }
-    }
-
-    fn values_of(&self, idx: usize, execution: usize) -> Option<CmpValues> {
-        if self.headers[idx].kind == CMPLOG_KIND_INS {
-            let shape = self.headers[idx].shape;
-            unsafe {
-                match shape {
-                    0 => Some(CmpValues::U8((
-                        self.vals.operands[idx][execution].0 as u8,
-                        self.vals.operands[idx][execution].1 as u8,
-                        self.vals.operands[idx][execution].2 == 1,
-                    ))),
-                    1 => Some(CmpValues::U16((
-                        self.vals.operands[idx][execution].0 as u16,
-                        self.vals.operands[idx][execution].1 as u16,
-                        self.vals.operands[idx][execution].2 == 1,
-                    ))),
-                    3 => Some(CmpValues::U32((
-                        self.vals.operands[idx][execution].0 as u32,
-                        self.vals.operands[idx][execution].1 as u32,
-                        self.vals.operands[idx][execution].2 == 1,
-                    ))),
-                    7 => Some(CmpValues::U64((
-                        self.vals.operands[idx][execution].0,
-                        self.vals.operands[idx][execution].1,
-                        self.vals.operands[idx][execution].2 == 1,
-                    ))),
-                    // TODO handle 128 bits & 256 bits & 512 bits cmps
-                    15 | 31 | 63 => None,
-                    _ => panic!("Invalid CmpLog shape {shape}"),
-                }
-            }
-        } else {
-            unsafe {
-                Some(CmpValues::Bytes((
-                    CmplogBytes::from_buf_and_len(
-                        self.vals.routines[idx][execution].0,
-                        CMPLOG_RTN_LEN as u8,
-                    ),
-                    CmplogBytes::from_buf_and_len(
-                        self.vals.routines[idx][execution].1,
-                        CMPLOG_RTN_LEN as u8,
-                    ),
-                )))
-            }
-        }
-    }
-
-    fn reset(&mut self) -> Result<(), Error> {
-        // For performance, we reset just the headers
-        self.headers.fill(CmpLogHeader {
-            hits: 0,
-            shape: 0,
-            kind: 0,
-        });
-
-        Ok(())
-    }
 }

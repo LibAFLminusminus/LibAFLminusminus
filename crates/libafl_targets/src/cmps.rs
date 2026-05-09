@@ -3,6 +3,7 @@ use core::{
     fmt::{self, Debug, Formatter},
     mem::{size_of, zeroed},
 };
+use libafl_bolts::Error;
 
 // CONSTANTS
 
@@ -116,6 +117,45 @@ pub struct CmpLogMap {
 impl Default for CmpLogMap {
     fn default() -> Self {
         unsafe { zeroed() }
+    }
+}
+
+impl CmpLogMap {
+    /// length of this map
+    pub fn len(&self) -> usize {
+        CMPLOG_MAP_W
+    }
+
+    /// how many cmps were recorded for this
+    pub fn executions_for(&self, idx: usize) -> usize {
+        self.headers[idx].hits as usize
+    }
+
+    /// executions for but capped
+    pub fn usable_executions_for(&self, idx: usize) -> usize {
+        if self.headers[idx].kind == CMPLOG_KIND_INS {
+            if self.executions_for(idx) < CMPLOG_MAP_H {
+                self.executions_for(idx)
+            } else {
+                CMPLOG_MAP_H
+            }
+        } else if self.executions_for(idx) < CMPLOG_MAP_RTN_H {
+            self.executions_for(idx)
+        } else {
+            CMPLOG_MAP_RTN_H
+        }
+    }
+
+    /// reset the map
+    pub fn reset(&mut self) -> Result<(), Error> {
+        // For performance, we reset just the headers
+        self.headers.fill(CmpLogHeader {
+            hits: 0,
+            shape: 0,
+            kind: 0,
+        });
+
+        Ok(())
     }
 }
 
