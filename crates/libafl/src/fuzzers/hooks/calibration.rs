@@ -1,3 +1,16 @@
+use alloc::{
+    borrow::{Cow, ToOwned},
+    string::ToString,
+    vec::Vec,
+};
+use core::{marker::PhantomData, time::Duration};
+
+use hashbrown::HashSet;
+use libafl_bolts::{Named, current_time, impl_serdeany, tuples::Handle};
+use libafl_core::illegal_state;
+use num_traits::Bounded;
+use serde::{Deserialize, Serialize};
+
 use crate::{
     DependencyResolver, Error, Result, TestcasePowerScheduleData, Worker,
     common::PowerScheduleData,
@@ -12,17 +25,6 @@ use crate::{
         named_metadata_mut, unnamed_metadata_mut,
     },
 };
-use alloc::{
-    borrow::{Cow, ToOwned},
-    string::ToString,
-    vec::Vec,
-};
-use core::{marker::PhantomData, time::Duration};
-use hashbrown::HashSet;
-use libafl_bolts::{Named, current_time, impl_serdeany, tuples::Handle};
-use libafl_core::illegal_state;
-use num_traits::Bounded;
-use serde::{Deserialize, Serialize};
 
 /// AFL++'s `CAL_CYCLES_FAST` + 1
 const CAL_STAGE_START: usize = 4;

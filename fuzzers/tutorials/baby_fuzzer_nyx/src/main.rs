@@ -1,20 +1,20 @@
 use libafl::{
+    Fuzzer, Result, StdFuzzer, Worker,
     corpus::{
-        schedulers::{NopScheduler, QueueScheduler},
         Corpus, InMemoryCorpus, OnDiskCorpus, Scheduler,
+        schedulers::{NopScheduler, QueueScheduler},
     },
     feedbacks::{CrashFeedback, MaxMapFeedback},
     generators::RandPrintablesGenerator,
-    inputs::{bytes::BytesContext, BytesInput},
+    inputs::{BytesInput, bytes::BytesContext},
     launchers::StdLauncher,
     monitors::SimpleMonitor,
-    mutators::{havoc_mutations, HavocScheduledMutator},
+    mutators::{HavocScheduledMutator, havoc_mutations},
     observers::StdMapObserver,
     runtimes::RuntimeHandle,
     simple::{SimpleController, SimpleWorker},
     stages::StdMutationalStage,
     states::StdState,
-    Fuzzer, Result, StdFuzzer, Worker,
 };
 use libafl_bolts::{non_zero, rands::StdRand, tuples::tuple_list};
 use libafl_nyx::{executor::NyxExecutor, helper::NyxHelper, settings::NyxSettings};

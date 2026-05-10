@@ -22,7 +22,7 @@ use libafl::{
     runtimes::{RuntimeHandle, StdInProcessRuntime},
     simple::{SimpleController, SimpleWorker},
     stages::StdMutationalStage,
-    states::{HasContext, StdState, HasCorpus},
+    states::{HasContext, HasCorpus, StdState},
     Fuzzer, Result, Worker,
 };
 use libafl_bolts::{rands::StdRand, timers::FastTimer, tuples::tuple_list};
@@ -130,7 +130,6 @@ where
             .unwrap_or_else(|_| panic!("Failed to load initial corpus at {:?}", &in_dirs));
         println!("We imported {} inputs from disk.", state.corpus().count());
     }
-
 
     fuzzer.fuzz_loop_for(
         &mut stages,

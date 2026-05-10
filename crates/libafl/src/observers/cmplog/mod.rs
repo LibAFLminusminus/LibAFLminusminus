@@ -1,12 +1,13 @@
 pub mod cmplog;
-pub use cmplog::*;
-
-use crate::observers::Observer;
 use alloc::vec::Vec;
+use std::ops::{Deref, DerefMut};
+
+pub use cmplog::*;
 use libafl_core::{AsSlice, HasLen};
 use libafl_targets::{CMPLOG_KIND_INS, CMPLOG_KIND_RTN, CMPLOG_RTN_LEN, CmpLogMap};
 use serde::{Deserialize, Serialize};
-use std::ops::{Deref, DerefMut};
+
+use crate::observers::Observer;
 
 /// A bytes string for cmplog with up to 32 elements.
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, Eq, PartialEq)]

@@ -1,10 +1,12 @@
+use alloc::string::String;
+use core::marker::PhantomData;
+
+use libafl_bolts::Named;
+
 use crate::{
     DependencyResolver, FuzzerHook, Result,
     corpus::testcase::{Testcase, TestcaseFilenameFormat},
 };
-use alloc::string::String;
-use core::marker::PhantomData;
-use libafl_bolts::Named;
 pub struct CustomNameHook<I, G, S> {
     name_generator: G,
     phantom: PhantomData<(I, S)>,

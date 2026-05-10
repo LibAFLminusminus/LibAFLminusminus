@@ -319,6 +319,8 @@ impl<F, I> Named for MappedCrossoverMutator<F, I> {
 #[cfg(test)]
 mod tests {
 
+    use alloc::rc::Rc;
+
     use libafl_bolts::{
         rands::{Rand, XkcdRand},
         tuples::IntoVec as _,
@@ -335,7 +337,6 @@ mod tests {
         mutators::MutationResult,
         states::StdState,
     };
-    use alloc::rc::Rc;
 
     #[test]
     fn randomized() {

@@ -82,8 +82,7 @@ extern crate std;
 #[doc(hidden)]
 pub extern crate alloc;
 
-use alloc::vec::Vec;
-use alloc::{slice, vec};
+use alloc::{slice, vec, vec::Vec};
 
 use libafl_core::{Error, Result};
 use serde::{Deserialize, Serialize};

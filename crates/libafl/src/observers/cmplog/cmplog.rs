@@ -4,18 +4,17 @@
 use alloc::{borrow::Cow, string::ToString};
 use core::fmt::Debug;
 
+use libafl_bolts::{Named, ownedref::OwnedMutPtr};
+use libafl_targets::{
+    CMPLOG_KIND_INS, CMPLOG_KIND_RTN, CMPLOG_MAP_H, CMPLOG_MAP_RTN_H, CMPLOG_MAP_W, CMPLOG_RTN_LEN,
+    CmpLogHeader, CmpLogMap, cmps::libafl_cmplog_map_ptr, exports::CMPLOG_ENABLED,
+};
+
 use crate::{
     DependencyResolver, Error,
     executors::ExitKind,
     observers::{CmpLogMetadata, CmpObserver, Observer},
     states::{FlatState, named_metadata, named_metadata_mut, named_metadata_or_insert_with},
-};
-use libafl_bolts::{Named, ownedref::OwnedMutPtr};
-
-use libafl_targets::cmps::libafl_cmplog_map_ptr;
-use libafl_targets::{
-    CMPLOG_KIND_INS, CMPLOG_KIND_RTN, CMPLOG_MAP_H, CMPLOG_MAP_RTN_H, CMPLOG_MAP_W, CMPLOG_RTN_LEN,
-    CmpLogHeader, CmpLogMap, exports::CMPLOG_ENABLED,
 };
 /// A [`CmpObserver`] observer for `CmpLog`
 #[derive(Debug)]
