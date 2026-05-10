@@ -1,9 +1,7 @@
 [package]
 name = "tutorial"
 version = "0.16.0"
-authors = [
-  "Dongjia Zhang <tokazerkje@outlook.jp>"
-]
+authors = ["Dongjia Zhang <tokazerkje@outlook.jp>"]
 edition = "2021"
 
 [features]

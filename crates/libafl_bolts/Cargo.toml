@@ -26,14 +26,7 @@ features = ["document-features"]
 all-features = true
 
 [features]
-default = [
-  "alloc",
-  "derive",
-  "gzip",
-  "rand_trait",
-  "std",
-  "xxh3",
-]
+default = ["alloc", "derive", "gzip", "rand_trait", "std", "xxh3"]
 document-features = ["dep:document-features"]
 
 #! # Feature Flags

@@ -9,8 +9,9 @@ use serde::{Deserialize, Serialize};
 use crate::{
     DependencyResolver,
     corpus::{
-        Corpus, InMemoryStore, OnDiskStore, Scheduler, SingleCorpus, Testcase,
-        TestcaseFilenameFormat,
+        Corpus, FifoCache, IdentityCache, InMemoryStore, OnDiskStore, Scheduler, SingleCorpus,
+        Testcase, TestcaseFilenameFormat,
+        combined::CombinedCorpus,
         maps::{self, InMemoryCorpusMap},
         store::{StorageResult, Store, ondisk::OnDiskStoreBuilder},
         testcase::TestcaseId,
@@ -33,6 +34,17 @@ type InnerInMemoryCorpus<I, SC> = SingleCorpus<I, InnerStdInMemoryStore<I>, SC>;
 type InnerStdOnDiskStore<I> = OnDiskStore<I, StdInMemoryMap<TestcaseId>>;
 #[cfg(feature = "std")]
 type InnerOnDiskCorpus<I, SC> = SingleCorpus<I, InnerStdOnDiskStore<I>, SC>;
+
+type InnerInMemoryOnDiskCorpus<I, SC> =
+    CombinedCorpus<IdentityCache, InnerStdInMemoryStore<I>, InnerStdOnDiskStore<I>, I, SC>;
+
+type InnerCachedOnDiskCorpus<I, SC> = CombinedCorpus<
+    FifoCache<InnerStdInMemoryStore<I>, InnerStdOnDiskStore<I>, I>,
+    InnerStdInMemoryStore<I>,
+    InnerStdOnDiskStore<I>,
+    I,
+    SC,
+>;
 
 /// The standard fully in-memory corpus map.
 #[repr(transparent)]
@@ -64,6 +76,26 @@ pub struct OnDiskCorpus<I, SC>(InnerOnDiskCorpus<I, SC>);
 #[cfg(feature = "std")]
 #[derive(Debug, Clone, Default)]
 pub struct OnDiskCorpusBuilder(OnDiskStoreBuilder);
+
+/// The standard corpus for storing on disk and in-memory.
+#[repr(transparent)]
+#[derive(Debug, Serialize)]
+pub struct InMemoryOnDiskCorpus<I, SC>(InnerInMemoryOnDiskCorpus<I, SC>);
+
+/// The standard corpus for storing on disk and in-memory with a cache.
+/// Useful for very large corpuses.
+#[repr(transparent)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct CachedOnDiskCorpus<I, SC>(InnerCachedOnDiskCorpus<I, SC>);
+
+/// The cached on-disk corpus builder
+#[cfg(feature = "std")]
+#[derive(Debug, Clone)]
+pub struct CachedOnDiskCorpusBuilder<SC> {
+    store_builder: OnDiskStoreBuilder,
+    cache_max_len: usize,
+    scheduler: Option<SC>,
+}
 
 impl<I> InMemoryCorpusMap<Testcase<I>> for StdInMemoryCorpusMap<I>
 where
@@ -340,3 +372,161 @@ where
 //         self.0.disable(id)
 //     }
 // }
+
+impl<I, SC> HasScheduler for InMemoryOnDiskCorpus<I, SC>
+where
+    SC: Scheduler,
+{
+    type Scheduler = SC;
+
+    fn scheduler(&self) -> &Self::Scheduler {
+        self.0.scheduler()
+    }
+
+    fn scheduler_mut(&mut self) -> &mut Self::Scheduler {
+        self.0.scheduler_mut()
+    }
+}
+
+impl<I, SC> DependencyResolver for InMemoryOnDiskCorpus<I, SC> {}
+
+impl<I, SC> Corpus<I> for InMemoryOnDiskCorpus<I, SC>
+where
+    I: Input,
+    SC: Scheduler,
+{
+    fn count(&self) -> usize {
+        self.0.count()
+    }
+
+    fn count_disabled(&self) -> usize {
+        self.0.count_disabled()
+    }
+
+    fn count_all(&self) -> usize {
+        self.0.count_all()
+    }
+
+    fn add_shared<const ENABLED: bool>(
+        &mut self,
+        testcase: Testcase<I>,
+    ) -> Result<TestcaseId, Error> {
+        self.0.add_shared::<ENABLED>(testcase)
+    }
+
+    fn get_from<const ENABLED: bool>(&self, id: &TestcaseId) -> Result<Testcase<I>, Error> {
+        self.0.get_from::<ENABLED>(id)
+    }
+}
+
+impl<I, SC> HasScheduler for CachedOnDiskCorpus<I, SC>
+where
+    SC: Scheduler,
+{
+    type Scheduler = SC;
+
+    fn scheduler(&self) -> &Self::Scheduler {
+        self.0.scheduler()
+    }
+
+    fn scheduler_mut(&mut self) -> &mut Self::Scheduler {
+        self.0.scheduler_mut()
+    }
+}
+
+impl<I, SC> DependencyResolver for CachedOnDiskCorpus<I, SC> {}
+
+impl<I, SC> Corpus<I> for CachedOnDiskCorpus<I, SC>
+where
+    I: Input,
+    SC: Scheduler,
+{
+    fn count(&self) -> usize {
+        self.0.count()
+    }
+
+    fn count_disabled(&self) -> usize {
+        self.0.count_disabled()
+    }
+
+    fn count_all(&self) -> usize {
+        self.0.count_all()
+    }
+
+    fn add_shared<const ENABLED: bool>(
+        &mut self,
+        testcase: Testcase<I>,
+    ) -> Result<TestcaseId, Error> {
+        self.0.add_shared::<ENABLED>(testcase)
+    }
+
+    fn get_from<const ENABLED: bool>(&self, id: &TestcaseId) -> Result<Testcase<I>, Error> {
+        self.0.get_from::<ENABLED>(id)
+    }
+}
+
+impl<I, SC> CachedOnDiskCorpus<I, SC> {
+    /// Get a [`CachedOnDiskCorpus`] builder.
+    #[must_use]
+    pub fn builder() -> CachedOnDiskCorpusBuilder<SC> {
+        CachedOnDiskCorpusBuilder::new()
+    }
+
+    /// Get the fallback store
+    pub fn fallback_store(&self) -> &InnerStdOnDiskStore<I> {
+        self.0.fallback_store()
+    }
+}
+
+impl<SC> Default for CachedOnDiskCorpusBuilder<SC> {
+    fn default() -> Self {
+        Self {
+            store_builder: OnDiskStoreBuilder::new(),
+            cache_max_len: DEFAULT_CACHE_LEN,
+            scheduler: None,
+        }
+    }
+}
+
+#[cfg(feature = "std")]
+impl<SC> CachedOnDiskCorpusBuilder<SC> {
+    /// Create a new [`CachedOnDiskCorpusBuilder`].
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn scheduler(mut self, scheduler: SC) -> Self {
+        self.scheduler = Some(scheduler);
+        self
+    }
+
+    /// Set the cache max length.
+    pub fn cache_max_len(mut self, cache_max_len: usize) -> Self {
+        self.cache_max_len = cache_max_len;
+        self
+    }
+
+    /// Set the root directory, where the testcases will be stored.
+    pub fn root_dir(mut self, root: &Path) -> Self {
+        self.store_builder.root_dir(root);
+        self
+    }
+
+    /// Set the on-disk filename format
+    pub fn filename_format(mut self, filename_format: TestcaseFilenameFormat) -> Self {
+        self.store_builder.filename_format(filename_format);
+        self
+    }
+
+    /// Build an [`OnDiskStore`].
+    /// The root directory must be set.
+    pub fn build<I: Input>(self) -> Result<CachedOnDiskCorpus<I, SC>, Error> {
+        Ok(CachedOnDiskCorpus(CombinedCorpus::new(
+            self.scheduler.unwrap(),
+            FifoCache::new(self.cache_max_len),
+            InnerStdInMemoryStore::default(),
+            self.store_builder.build()?,
+        )))
+    }
+}
