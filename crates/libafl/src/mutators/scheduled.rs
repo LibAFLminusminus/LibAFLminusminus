@@ -280,6 +280,8 @@ pub fn tokens_mutations() -> tuple_list_type!(TokenInsert, TokenReplace) {
 
 #[cfg(test)]
 mod tests {
+    use alloc::rc::Rc;
+
     use libafl_bolts::rands::{StdRand, XkcdRand};
 
     use crate::{
@@ -294,8 +296,6 @@ mod tests {
         },
         states::StdState,
     };
-
-    use alloc::rc::Rc;
 
     #[test]
     fn test_mut_scheduled() {

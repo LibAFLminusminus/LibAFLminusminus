@@ -25,13 +25,7 @@ features = ["document-features", "default", "python", "x86_64", "usermode"]
 rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
-default = [
-  "asan_guest",
-  "asan_host",
-  "usermode",
-  "fork",
-  "injections",
-]
+default = ["asan_guest", "asan_host", "usermode", "fork", "injections"]
 ## Build asan for address sanitization
 asan_guest = []
 asan_host = []

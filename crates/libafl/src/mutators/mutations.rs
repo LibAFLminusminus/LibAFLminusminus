@@ -1694,6 +1694,8 @@ pub fn str_decode(item: &str) -> Result<Vec<u8>, Error> {
 
 #[cfg(test)]
 mod tests {
+    use alloc::rc::Rc;
+
     use libafl_bolts::{
         rands::StdRand,
         tuples::{HasConstLen, tuple_list, tuple_list_type},
@@ -1709,7 +1711,6 @@ mod tests {
         mutators::MutatorsTuple,
         states::StdState,
     };
-    use alloc::rc::Rc;
 
     type TestMutatorsTupleType = tuple_list_type!(
         BitFlipMutator,

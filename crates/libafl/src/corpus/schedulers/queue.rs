@@ -75,6 +75,7 @@ impl Default for QueueScheduler {
 #[cfg(feature = "std")]
 mod tests {
 
+    use alloc::rc::Rc;
     use std::path::PathBuf;
 
     use libafl_bolts::rands::StdRand;
@@ -87,7 +88,6 @@ mod tests {
         inputs::bytes::{BytesContext, BytesInput},
         states::{HasCorpus, HasScheduler, StdState},
     };
-    use alloc::rc::Rc;
 
     #[test]
     fn test_queue_corpus() {

@@ -28,6 +28,11 @@ pub use collection::{
     InMemoryCorpus, OnDiskCorpus, StdInMemoryCorpusMap, StdInMemoryStore, StdOnDiskStore,
 };
 
+pub mod combined;
+
+pub mod cache;
+pub use cache::{Cache, FifoCache, IdentityCache};
+
 /// [`Iterator`] over the ids of a [`Corpus`]
 #[derive(Debug)]
 pub struct TestcaseIdIterator<'a, C, I> {

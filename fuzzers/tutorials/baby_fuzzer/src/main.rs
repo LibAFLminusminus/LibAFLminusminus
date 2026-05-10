@@ -9,7 +9,7 @@ use libafl::{
     executors::StdExecutor,
     feedback_or_fast,
     feedbacks::{CrashFeedback, MaxMapFeedback, TimeoutFeedback},
-    fuzzers::{Fuzzer, StdFuzzer, CalibrationHook},
+    fuzzers::{CalibrationHook, Fuzzer, StdFuzzer},
     generators::RandPrintablesGenerator,
     inputs::{BytesInput, bytes::BytesContext},
     launchers::{DEFAULT_MAX_STATE_SIZE_PER_CLIENT, StdLauncher},

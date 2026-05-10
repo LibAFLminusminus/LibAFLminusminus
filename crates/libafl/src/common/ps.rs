@@ -1,12 +1,13 @@
 //! Powerschedule-related modules
 
 libafl_bolts::impl_serdeany!(PowerScheduleData);
-use crate::corpus::testcase::TestcaseId;
-use serde::{Deserialize, Serialize};
-
 use alloc::vec::Vec;
 use core::time::Duration;
+
 use hashbrown::HashMap;
+use serde::{Deserialize, Serialize};
+
+use crate::corpus::testcase::TestcaseId;
 
 /// The metadata used for power schedules
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
