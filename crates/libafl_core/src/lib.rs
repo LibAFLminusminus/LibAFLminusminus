@@ -139,7 +139,7 @@ fn display_error_backtrace(_f: &mut fmt::Formatter, _err: &ErrorBacktrace) -> fm
     fmt::Result::Ok(())
 }
 
-/// Shorthand for std::result::Result<T, libafl_core::Error>.
+/// Shorthand for `std::result::Result<T, libafl_core::Error>`.
 pub type Result<T> = core::result::Result<T, Error>;
 
 /// Main error struct for `LibAFL`
@@ -181,7 +181,7 @@ pub enum Error {
     Runtime(String, ErrorBacktrace),
     /// The `Input` was invalid.
     InvalidInput(String, ErrorBacktrace),
-    /// This is an error due to a LibAFLmm bug.
+    /// This is an error due to a `LibAFLmm` bug.
     /// Please report it.
     InternalBug(String, ErrorBacktrace),
 }
@@ -349,7 +349,7 @@ impl Error {
         Error::Runtime(arg.into(), ErrorBacktrace::capture())
     }
 
-    /// General LibAFLmm bug
+    /// General `LibAFLmm` bug
     #[must_use]
     pub fn internal_bug<S>(arg: S) -> Self
     where

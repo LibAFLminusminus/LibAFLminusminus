@@ -1,9 +1,9 @@
-//! Forkserver constants, shared between libafl and libafl_targets
+//! Forkserver constants, shared between libafl and `libafl_targets`
 
 /// Pinned fd number for forkserver communication
 pub const FORKSRV_FD_NUM: i32 = 198;
 /// New error
-pub const FS_NEW_ERROR: i32 = 0xeffe0000_u32 as i32;
+pub const FS_NEW_ERROR: i32 = 0xeffe0000_u32.cast_signed();
 
 /// Minimum number for new version
 pub const FS_NEW_VERSION_MIN: u32 = 1;
