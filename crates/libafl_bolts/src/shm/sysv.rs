@@ -1,14 +1,12 @@
 //! A simple system V shared memory model
 
+use alloc::string::{String, ToString};
 use core::{
     ffi::c_void,
     ops::{Deref, DerefMut},
     ptr::{self, NonNull},
 };
-use std::{
-    env,
-    string::{String, ToString},
-};
+use std::env;
 
 use libafl_core::{Result, last_os_error};
 use libc::{IPC_CREAT, IPC_EXCL, IPC_PRIVATE, key_t, shmat, shmget};
@@ -73,16 +71,19 @@ impl<SZ: ShmHeader> SysVShm<SZ> {
     }
 
     /// Get the string representation of the System V shared memory ID
+    #[must_use]
     pub fn shm_id(&self) -> String {
         self.shm_id.to_string()
     }
 
     /// Get a reference to the underlying shared memory
+    #[must_use]
     pub fn shm(&self) -> &SharedMemory<SZ> {
         &self.shm
     }
 
     /// Total size of the underlying allocation (header (if any) + data).
+    #[must_use]
     pub fn shm_size_usize(&self) -> usize {
         self.shm.total_len()
     }
@@ -93,11 +94,13 @@ impl<SZ: ShmHeader> SysVShm<SZ> {
     }
 
     /// Total len (including header size)
+    #[must_use]
     pub fn total_len(&self) -> usize {
         self.shm.total_len()
     }
 
     /// Maximum data len (excluding header size)
+    #[must_use]
     pub fn max_data_len(&self) -> usize {
         self.shm.max_data_len()
     }
@@ -111,7 +114,7 @@ impl<SZ: ShmHeader> SysVShm<SZ> {
         let map_size = self.shm.total_len();
         let map_size_env = format!("{env_name}_SIZE");
         // TODO: Audit that the environment access only happens in single-threaded code.
-        unsafe { env::set_var(env_name, self.shm_id().to_string()) };
+        unsafe { env::set_var(env_name, self.shm_id().clone()) };
         // TODO: Audit that the environment access only happens in single-threaded code.
         unsafe { env::set_var(map_size_env, format!("{map_size}")) };
         Ok(())

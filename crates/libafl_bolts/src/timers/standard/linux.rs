@@ -24,7 +24,18 @@ impl Clone for StdTimer {
     fn clone(&self) -> Self {
         Self {
             timer: None,
-            disable: self.disable.clone(),
+            disable: self.disable,
+        }
+    }
+}
+
+impl Default for StdTimer {
+    fn default() -> Self {
+        let disable = Expiration::OneShot(TimeSpec::zero());
+
+        Self {
+            timer: None,
+            disable,
         }
     }
 }
@@ -33,12 +44,7 @@ impl StdTimer {
     /// Create a `TimerStruct` with the specified timeout.
     #[must_use]
     pub fn new() -> Self {
-        let disable = Expiration::OneShot(TimeSpec::zero());
-
-        Self {
-            timer: None,
-            disable,
-        }
+        Self::default()
     }
 }
 
@@ -66,7 +72,7 @@ impl Timer for StdTimer {
         if let Some((timer, expiration)) = &mut self.timer {
             let flags = TimerSetTimeFlags::empty();
 
-            timer.set(expiration.clone(), flags)?;
+            timer.set(*expiration, flags)?;
         }
 
         Ok(())
@@ -76,7 +82,7 @@ impl Timer for StdTimer {
         if let Some((timer, _)) = &mut self.timer {
             let flags = TimerSetTimeFlags::empty();
 
-            timer.set(self.disable.clone(), flags)?;
+            timer.set(self.disable, flags)?;
         }
 
         Ok(())

@@ -3,12 +3,12 @@
 //! For now it's unix-specific.
 //! Little code needs to be ported to work on other platforms.
 
-use core::{sync::atomic::AtomicU64, time::Duration};
+use alloc::sync::Arc;
+use core::{
+    sync::atomic::{AtomicBool, AtomicU64, Ordering},
+    time::Duration,
+};
 use std::{
-    sync::{
-        Arc,
-        atomic::{AtomicBool, Ordering},
-    },
     thread::{self, JoinHandle},
     time::Instant,
 };
@@ -75,16 +75,19 @@ impl Clone for FastTimer {
 
 impl TimerResolution {
     /// Get a fixed timer resolution
+    #[must_use]
     pub fn fixed(resolution: Duration) -> Self {
         Self::Fixed(resolution)
     }
 
     /// Get a dynamic timer resolution
+    #[must_use]
     pub fn factor(factor: usize) -> Self {
         Self::Factor(factor as u128)
     }
 
     /// Get the real duration from the resolution.
+    #[must_use]
     pub fn to_duration(&self, timeout: &Duration) -> Duration {
         match self {
             TimerResolution::Fixed(fixed) => *fixed,
@@ -95,9 +98,8 @@ impl TimerResolution {
     }
 }
 
-impl FastTimer {
-    /// Create a fast timer.
-    pub fn new() -> Self {
+impl Default for FastTimer {
+    fn default() -> Self {
         Self {
             resolution: Duration::default(),
             timeout: Duration::default(),
@@ -105,6 +107,14 @@ impl FastTimer {
             shared: None,
             timer: None,
         }
+    }
+}
+
+impl FastTimer {
+    /// Create a fast timer.
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
     }
 }
 

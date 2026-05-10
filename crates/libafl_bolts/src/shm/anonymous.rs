@@ -128,7 +128,7 @@ where
 {
     /// # Safety
     ///
-    /// AnonShmSender::send must be called BEFORE calling this function
+    /// `AnonShmSender::send` must be called BEFORE calling this function
     ///
     /// There is no synchronization in place.
     /// You are responsible to synchronizing save and store correctly.
