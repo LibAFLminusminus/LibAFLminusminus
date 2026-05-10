@@ -37,7 +37,7 @@ struct SignalHandlerPtr<CH, D, TH> {
 
 pub enum SignalHandlerParams<'a> {
     Signal {
-        signal: &'a Signal,
+        signal: Signal,
         siginfo: &'a siginfo_t,
         context: Option<&'a ucontext_t>,
     },
@@ -126,7 +126,7 @@ where
     /// Well, signal handling is not safe
     pub fn timeout_handler(
         &mut self,
-        signal: &Signal,
+        signal: Signal,
         siginfo: &siginfo_t,
         context: Option<&ucontext_t>,
     ) {
@@ -162,7 +162,7 @@ where
                 log::error!("Timeout out of fuzzing target. This is a fuzzer bug.");
 
                 // offset by 128 to signal a fuzzer crash
-                exit(128 + (*signal as i32));
+                exit(128 + (signal as i32));
             }
         }
     }
@@ -175,7 +175,7 @@ where
     /// Well, signal handling is not safe
     pub fn crash_handler(
         &mut self,
-        signal: &Signal,
+        signal: Signal,
         siginfo: &siginfo_t,
         context: Option<&ucontext_t>,
     ) {
@@ -251,7 +251,7 @@ where
             }
 
             // offset by 128 to signal a fuzzer crash
-            exit(128 + (*signal as i32));
+            exit(128 + (signal as i32));
         }
     }
 
@@ -358,10 +358,10 @@ where
 
             match signal {
                 Signal::SigUser2 | Signal::SigAlarm => {
-                    self.timeout_handler(&signal, &*info, context.as_deref());
+                    self.timeout_handler(signal, &*info, context.as_deref());
                 }
                 _ => {
-                    self.crash_handler(&signal, &*info, context.as_deref());
+                    self.crash_handler(signal, &*info, context.as_deref());
                 }
             }
 
