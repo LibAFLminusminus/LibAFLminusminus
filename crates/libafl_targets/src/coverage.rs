@@ -46,6 +46,7 @@ pub(crate) fn has_autotokens() -> bool {
 
 /// Return Tokens from the compile-time token section
 #[cfg(any(target_os = "linux", target_vendor = "apple"))]
+#[must_use]
 pub fn autotokens() -> Option<(*const u8, *const u8)> {
     // # Safety
     // All values are checked before dereferencing.

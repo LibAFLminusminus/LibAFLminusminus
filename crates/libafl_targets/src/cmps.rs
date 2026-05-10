@@ -122,16 +122,25 @@ impl Default for CmpLogMap {
 
 impl CmpLogMap {
     /// length of this map
-    pub fn len(&self) -> usize {
+    #[must_use]
+    pub const fn len(&self) -> usize {
         CMPLOG_MAP_W
     }
 
+    /// Check if the `CmpLogMap` is empty
+    #[must_use]
+    pub const fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     /// how many cmps were recorded for this
+    #[must_use]
     pub fn executions_for(&self, idx: usize) -> usize {
         self.headers[idx].hits as usize
     }
 
     /// executions for but capped
+    #[must_use]
     pub fn usable_executions_for(&self, idx: usize) -> usize {
         if self.headers[idx].kind == CMPLOG_KIND_INS {
             if self.executions_for(idx) < CMPLOG_MAP_H {
