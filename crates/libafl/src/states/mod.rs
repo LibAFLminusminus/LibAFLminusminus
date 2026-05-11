@@ -10,7 +10,7 @@ use core::{
 use std::{
     collections::HashMap,
     fs::{self, File},
-    io::{Read, Seek, SeekFrom},
+    io::{Seek, SeekFrom},
     path::{Path, PathBuf},
     string::ToString,
 };
@@ -19,13 +19,10 @@ use libafl_bolts::{
     rands::{Rand, StdRand},
     serdeany::{NamedSerdeAnyMap, SerdeAny, SerdeAnyMap},
 };
-#[cfg(debug_assertions)]
-use libafl_core::non_zero;
 #[cfg(not(debug_assertions))]
 use libafl_core::nonzero_macros::non_zero_unchecked;
 use nix::{
     fcntl::{Flock, FlockArg},
-    unistd::Pid,
 };
 use num_traits::Zero;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
@@ -43,23 +40,23 @@ use crate::{
     inputs::{Input, InputContext, NopContext, NopInput},
     launchers::InstanceId,
     runtimes::RuntimeHandle,
-    stages::NopStage,
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+/// The stats the fuzzer produces at intervals.
 pub struct Stats {
     pub(crate) pid: InstanceId,
     /// How many times the executor ran the harness/target
     pub(crate) executions: u64,
     /// At what time the fuzzing started
     pub(crate) start_time: Duration,
-    /// number of corpus
+    /// number of items in [`Corpus`]
     pub(crate) corpus: usize,
-    /// number of objective
+    /// number of items in objective [`Corpus`]
     pub(crate) objective: usize,
     /// last time smth was found
     pub(crate) last_found_time: Duration,
-    /// usermap to hold additional info they want
+    /// [`NamedSerdeAnyMap`] to hold additional info that users want
     pub(crate) user_map: NamedSerdeAnyMap,
 }
 
@@ -81,14 +78,17 @@ impl fmt::Display for Stats {
 }
 
 impl Stats {
-    fn update_corpus(&mut self, corpus: usize) {
+    /// Update the counter of items in [`Corpus`].
+    pub fn update_corpus(&mut self, corpus: usize) {
         self.corpus = corpus;
     }
 
-    fn update_objective(&mut self, objective: usize) {
+    /// Update the counter of items in objective [`Corpus`].
+    pub fn update_objective(&mut self, objective: usize) {
         self.objective = objective;
     }
 
+    /// Get the exec/sec
     pub fn execs_per_sec(&self) -> u64 {
         let as_sec = (libafl_bolts::current_time() - self.start_time).as_secs();
 
@@ -100,6 +100,7 @@ impl Stats {
     }
 }
 
+/// Read the [`Stats`]
 pub fn read_stats_json(file: File) -> Result<Stats> {
     let mut locked =
         Flock::lock(file, FlockArg::LockShared).map_err(|(_, e)| nix::Error::from(e))?;
@@ -108,6 +109,7 @@ pub fn read_stats_json(file: File) -> Result<Stats> {
         .map_err(|_| Error::runtime("Failed to read the stats from a file"))
 }
 
+/// Put the [`Stats`] into the file
 pub fn sync_stats(file: File, stats: &Stats) -> Result<()> {
     let mut locked =
         Flock::lock(file, FlockArg::LockExclusive).map_err(|(_, e)| nix::Error::from(e))?;
@@ -117,11 +119,14 @@ pub fn sync_stats(file: File, stats: &Stats) -> Result<()> {
         .map_err(|_| Error::runtime("Failed to dump the stats to a file"))
 }
 
+/// the all-in-one trait for all the data that normal state should contain
 pub trait FlatState {
+    /// Get the [`Stats`]
     fn stats(&self) -> &Stats;
 
+    /// Get the [`Stats`] (mutable)
     fn stats_mut(&mut self) -> &mut Stats;
-    /// The maximum size of an input
+    /// The maximum size of an [`Input`]
     fn max_size(&self) -> usize;
 
     /// The executions counter
@@ -139,9 +144,11 @@ pub trait FlatState {
     /// A map, storing all metadata (mutable)
     fn named_metadata_map_mut(&mut self) -> &mut NamedSerdeAnyMap;
 
+    /// should initialize metadata or not?
     fn should_initialize_metadata(&mut self) -> bool;
 }
 
+/// The trait containing all the stuff that [`StdState`] implements. It's rather a shortcut for typing all the traits
 pub trait State<I>:
     FlatState
     + DependencyResolver
@@ -152,18 +159,28 @@ pub trait State<I>:
 {
 }
 
+/// This module has a [`Scheduler`]
 pub trait HasScheduler {
+    /// [`Scheduler`] type
     type Scheduler: Scheduler;
 
+    /// Ref to the [`Scheduler`]
     fn scheduler(&self) -> &Self::Scheduler;
+    /// Mutable ref to the `Scheduler`
     fn scheduler_mut(&mut self) -> &mut Self::Scheduler;
 }
 
+/// This module has a [`Testcase`]
 pub trait HasTestcase<I> {
+    /// Get reference to the [`Testcase`] attached to this [`Testcase`]
     fn testcase_md<'a>(&'a self, tc: &Testcase<I>) -> Option<&'a TestcaseMetadata>;
+    /// Get reference to the [`Testcase`] attached to this [`Testcase`] from [`TestcaseId`]
     fn testcase_md_from_id<'a>(&'a self, id: &TestcaseId) -> Option<&'a TestcaseMetadata>;
+    /// Get mutable reference to the [`Testcase`] attached to this [`Testcase`].
     fn testcase_md_mut<'a>(&'a mut self, tc: &Testcase<I>) -> &'a mut TestcaseMetadata;
+    /// Get mutable reference to the [`Testcase`] attached to this [`Testcase`] from [`TestcaseId`]
     fn testcase_md_mut_from_id<'a>(&'a mut self, id: &TestcaseId) -> &'a mut TestcaseMetadata;
+    /// Get the [`Testcase`] from [`TestcaseId`]
     fn testcase(&self, id: &TestcaseId) -> Result<Testcase<I>>;
 }
 
@@ -191,10 +208,15 @@ where
         self.testcase_metadata.entry(*id).or_default()
     }
 }
+
+/// This module has a [`Corpus`]
 pub trait HasCorpus<I> {
+    /// The associated [`Corpus`]
     type Corpus: Corpus<I>;
 
+    /// Get the reference to the [`Corpus`]
     fn corpus(&self) -> &Self::Corpus;
+    /// Get the mutable reference to the [`Corpus`]
     fn corpus_mut(&mut self) -> &mut Self::Corpus;
 }
 
@@ -213,10 +235,14 @@ where
     }
 }
 
+/// This module has a `Corpus` for objectives
 pub trait HasObjectiveCorpus<I> {
+    /// The associated objective [`Corpus`]
     type Corpus: Corpus<I>;
 
+    /// Get the reference to the objective [`Corpus`]
     fn objective_corpus(&self) -> &Self::Corpus;
+    /// Get the mutable reference to the objective [`Corpus`]
     fn objective_corpus_mut(&mut self) -> &mut Self::Corpus;
 }
 
@@ -235,8 +261,12 @@ where
     }
 }
 
+/// This module has a `InputContext`
 pub trait HasContext<I> {
+    /// The associated [`InputContext`]
     type Context: InputContext<I>;
+
+    /// Get the mutable reference to the [`InputContext`]
     fn context_mut(&mut self) -> &mut Self::Context;
 }
 
@@ -266,12 +296,11 @@ where
     }
 }
 
-/// The maximum size of a testcase
+/// The maximum size of a [`Testcase`]
 pub const DEFAULT_MAX_SIZE: usize = 1_048_576;
 
 /// Struct that holds the options for input loading
 pub struct LoadConfig<'a, I, S, Z> {
-    /// Load Input even if it was deemed "uninteresting" by the fuzzer
     forced: bool,
     /// Function to load input from a Path
     loader: &'a mut dyn FnMut(&mut Z, &mut S, &Path) -> Result<I>,
@@ -280,7 +309,7 @@ pub struct LoadConfig<'a, I, S, Z> {
 }
 
 impl<I, S, Z> Debug for LoadConfig<'_, I, S, Z> {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "LoadConfig {{}}")
     }
 }
@@ -294,31 +323,31 @@ impl<I, S, Z> Debug for LoadConfig<'_, I, S, Z> {
         SC: serde::Serialize + for<'a> serde::Deserialize<'a>,
     ")]
 pub struct StdState<C, CT, I, OC, SC> {
-    /// the input context. helper to transform input into a byte slice
+    /// the [`InputContext`]. helper to transform [`Input`] into a byte slice
     context: CT,
-    /// The corpus
+    /// The [`Corpus`]
     corpus: C,
-    // Objectives corpus
+    // Objectives [`Corpus`]
     objective_corpus: OC,
     /// Metadata stored with names
     named_metadata: NamedSerdeAnyMap,
     /// Metadata stored for each corpus entry
     testcase_metadata: HashMap<TestcaseId, TestcaseMetadata>,
-    /// `MaxSize` testcase size for mutators that appreciate it
+    /// `MaxSize` [`Testcase`] size for [`Mutator`] that appreciate it
     max_size: usize,
-    /// Remaining initial inputs to load, if any
+    /// Remaining initial [`Input`] to load, if any
     remaining_initial_files: Option<Vec<PathBuf>>,
-    /// symlinks we have already traversed when loading `remaining_initial_files`
+    /// symlinks we have already traversed when loading [`remaining_initial_files`]
     dont_reenter: Option<Vec<PathBuf>>,
     metadata_initialized: bool,
     stats: Stats,
     phantom: PhantomData<(I, SC)>,
 }
 
-/// The [`Testcase`] metadata.
+/// The [[`Testcase`]] metadata.
 #[derive(Serialize, Deserialize, Clone, Debug, Default, TypedBuilder)]
 pub struct TestcaseMetadata {
-    /// The filename format used to name the [`Testcase`] file on-disk.
+    /// The filename format used to name the [[`Testcase`]] file on-disk.
     #[builder(default)]
     filename_format: TestcaseFilenameFormat,
     /// Time needed to execute the input
@@ -335,14 +364,6 @@ pub struct TestcaseMetadata {
     /// has found crash (or timeout) or not
     #[builder(default = 0)]
     objectives_found: usize,
-    /// Vector of `Feedback` names that deemed this `Testcase` as corpus worthy
-    #[cfg(feature = "track_hit_feedbacks")]
-    #[builder(default)]
-    hit_feedbacks: Vec<Cow<'static, str>>,
-    /// Vector of `Feedback` names that deemed this `Testcase` as solution worthy
-    #[cfg(feature = "track_hit_feedbacks")]
-    #[builder(default)]
-    hit_objectives: Vec<Cow<'static, str>>,
 }
 
 /// Add a baned metadata to the metadata map
@@ -517,22 +538,6 @@ impl TestcaseMetadata {
         self.disabled
     }
 
-    /// Get the hit feedbacks
-    #[inline]
-    #[must_use]
-    #[cfg(feature = "track_hit_feedbacks")]
-    pub fn hit_feedbacks(&self) -> &Vec<Cow<'static, str>> {
-        &self.hit_feedbacks
-    }
-
-    /// Get the hit objectives
-    #[inline]
-    #[must_use]
-    #[cfg(feature = "track_hit_feedbacks")]
-    pub fn hit_objectives(&self) -> &Vec<Cow<'static, str>> {
-        &self.hit_objectives
-    }
-
     /// Gets how many objectives were found by mutating this testcase
     #[must_use]
     pub fn objectives_found(&self) -> usize {
@@ -580,22 +585,6 @@ impl TestcaseMetadata {
     #[inline]
     pub fn set_disabled(&mut self, disabled: bool) {
         self.disabled = disabled;
-    }
-
-    /// Get the hit feedbacks (mutable)
-    #[cfg(feature = "track_hit_feedbacks")]
-    #[inline]
-    #[must_use]
-    pub fn hit_feedbacks_mut(&mut self) -> &mut Vec<Cow<'static, str>> {
-        &mut self.hit_feedbacks
-    }
-
-    /// Get the hit objectives (mutable)
-    #[cfg(feature = "track_hit_feedbacks")]
-    #[inline]
-    #[must_use]
-    pub fn hit_objectives_mut(&mut self) -> &mut Vec<Cow<'static, str>> {
-        &mut self.hit_objectives
     }
 
     /// Adds one objective to the `objectives_found` counter. Mostly called from crash handler or executor.

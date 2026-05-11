@@ -163,11 +163,6 @@ where
         Ok(self.has_interesting_list_observer_feedback(state, observers))
     }
 
-    #[cfg(feature = "track_hit_feedbacks")]
-    fn last_result(&self) -> Result<bool, Error> {
-        Ok(!self.novelty.is_empty())
-    }
-
     fn append_metadata(
         &mut self,
         state: &mut S,

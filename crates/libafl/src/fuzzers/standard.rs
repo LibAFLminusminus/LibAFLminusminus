@@ -220,9 +220,6 @@ impl<F, H, OF> StdFuzzer<F, H, OF> {
             // TODO: keep parent id?
             // testcase.set_parent_id_optional(*state.corpus().current());
 
-            #[cfg(feature = "track_hit_feedbacks")]
-            self.objective_mut()
-                .append_hit_feedbacks(testcase.hit_objectives_mut())?;
             self.objective_feedback_mut()
                 .append_metadata(state, observers, &testcase_id)?;
             let stats = state.stats_mut();
@@ -238,9 +235,6 @@ impl<F, H, OF> StdFuzzer<F, H, OF> {
                 .testcase_md_mut_from_id(&testcase_id)
                 .set_executions(executions);
 
-            #[cfg(feature = "track_hit_feedbacks")]
-            self.feedback_mut()
-                .append_hit_feedbacks(testcase.hit_feedbacks_mut())?;
             self.feedback_mut()
                 .append_metadata(state, observers, &testcase_id)?;
             let stats = state.stats_mut();

@@ -2,8 +2,6 @@
 //! If a testcase is interesting, it may be added to a Corpus.
 
 use alloc::borrow::Cow;
-#[cfg(feature = "track_hit_feedbacks")]
-use alloc::vec::Vec;
 use core::{fmt::Debug, marker::PhantomData};
 
 use libafl_bolts::{
@@ -61,21 +59,6 @@ pub trait Feedback<I, OT, S>: Named + DependencyResolver {
         _exit_kind: &ExitKind,
     ) -> Result<bool, Error> {
         Ok(false)
-    }
-
-    /// CUT MY LIFE INTO PIECES; THIS IS MY LAST [`Feedback::is_interesting`] run
-    #[cfg(feature = "track_hit_feedbacks")]
-    fn last_result(&self) -> Result<bool, Error>;
-
-    /// Append this [`Feedback`]'s name if [`Feedback::last_result`] is true
-    /// If you have any nested Feedbacks, you must call this function on them if relevant.
-    /// See the implementations of [`CombinedFeedback`]
-    #[cfg(feature = "track_hit_feedbacks")]
-    fn append_hit_feedbacks(&self, list: &mut Vec<Cow<'static, str>>) -> Result<(), Error> {
-        if self.last_result()? {
-            list.push(self.name().clone());
-        }
-        Ok(())
     }
 
     /// Append to the testcase the generated metadata in case of a new corpus item
@@ -182,22 +165,6 @@ where
         )
     }
 
-    #[cfg(feature = "track_hit_feedbacks")]
-    fn last_result(&self) -> Result<bool, Error> {
-        FL::last_result(self.first.last_result(), self.second.last_result())
-    }
-
-    #[cfg(feature = "track_hit_feedbacks")]
-    fn append_hit_feedbacks(&self, list: &mut Vec<Cow<'static, str>>) -> Result<(), Error> {
-        FL::append_hit_feedbacks(
-            self.first.last_result(),
-            |list| self.first.append_hit_feedbacks(list),
-            self.second.last_result(),
-            |list| self.second.append_hit_feedbacks(list),
-            list,
-        )
-    }
-
     #[inline]
     fn append_metadata(
         &mut self,
@@ -245,25 +212,6 @@ pub trait FeedbackLogic {
     where
         F1: FnOnce(&mut S, &I, &OT, &ExitKind) -> Result<bool, Error>,
         F2: FnOnce(&mut S, &I, &OT, &ExitKind) -> Result<bool, Error>;
-
-    /// Get the result of the last `Self::is_interesting` run
-    #[cfg(feature = "track_hit_feedbacks")]
-    fn last_result(first: Result<bool, Error>, second: Result<bool, Error>) -> Result<bool, Error>;
-
-    /// Append each [`Feedback`]'s name according to the logic implemented by this
-    /// [`FeedbackLogic`]. `if_first` and `if_second` are closures which invoke the corresponding
-    /// [`Feedback::append_hit_feedbacks`] logics of the relevant closures.
-    #[cfg(feature = "track_hit_feedbacks")]
-    fn append_hit_feedbacks<F1, F2>(
-        first_result: Result<bool, Error>,
-        if_first: F1,
-        second_result: Result<bool, Error>,
-        if_second: F2,
-        list: &mut Vec<Cow<'static, str>>,
-    ) -> Result<(), Error>
-    where
-        F1: FnOnce(&mut Vec<Cow<'static, str>>) -> Result<(), Error>,
-        F2: FnOnce(&mut Vec<Cow<'static, str>>) -> Result<(), Error>;
 }
 
 /// Factory for feedbacks which should be sensitive to an existing context, e.g. observer(s) from a
@@ -282,11 +230,6 @@ where
     }
 }
 /// Eager `OR` combination of two feedbacks
-///
-/// When the `track_hit_feedbacks` feature is used, [`LogicEagerOr`]'s hit feedback preferences will
-/// behave like [`LogicFastOr`]'s because the second feedback will not have contributed to the
-/// result. When using [`crate::feedback_or`], ensure that you set the first parameter to the
-/// prioritized feedback.
 #[derive(Debug, Clone)]
 pub struct LogicEagerOr;
 /// Fast `OR` combination of two feedbacks
@@ -323,28 +266,6 @@ impl FeedbackLogic for LogicEagerOr {
                 | second(state, input, observers, exit_kind)?,
         )
     }
-    #[cfg(feature = "track_hit_feedbacks")]
-    fn last_result(first: Result<bool, Error>, second: Result<bool, Error>) -> Result<bool, Error> {
-        first.and_then(|first| second.map(|second| first | second))
-    }
-    /// Note: Eager OR's hit feedbacks will behave like Fast OR
-    /// because the second feedback will not have contributed to the result.
-    /// Set the second feedback as the first (A, B) vs (B, A)
-    /// to "prioritize" the result in case of Eager OR.
-    #[cfg(feature = "track_hit_feedbacks")]
-    fn append_hit_feedbacks<F1, F2>(
-        first_result: Result<bool, Error>,
-        if_first: F1,
-        second_result: Result<bool, Error>,
-        if_second: F2,
-        list: &mut Vec<Cow<'static, str>>,
-    ) -> Result<(), Error>
-    where
-        F1: FnOnce(&mut Vec<Cow<'static, str>>) -> Result<(), Error>,
-        F2: FnOnce(&mut Vec<Cow<'static, str>>) -> Result<(), Error>,
-    {
-        LogicFastOr::append_hit_feedbacks(first_result, if_first, second_result, if_second, list)
-    }
 }
 
 impl FeedbackLogic for LogicFastOr {
@@ -371,34 +292,6 @@ impl FeedbackLogic for LogicFastOr {
 
         second(state, input, observers, exit_kind)
     }
-    #[cfg(feature = "track_hit_feedbacks")]
-    fn last_result(first: Result<bool, Error>, second: Result<bool, Error>) -> Result<bool, Error> {
-        first.and_then(|first| Ok(first || second?))
-    }
-    /// Note: Eager OR's hit feedbacks will behave like Fast OR
-    /// because the second feedback will not have contributed to the result.
-    /// Set the second feedback as the first (A, B) vs (B, A)
-    /// to "prioritize" the result in case of Eager OR.
-    #[cfg(feature = "track_hit_feedbacks")]
-    fn append_hit_feedbacks<F1, F2>(
-        first_result: Result<bool, Error>,
-        if_first: F1,
-        second_result: Result<bool, Error>,
-        if_second: F2,
-        list: &mut Vec<Cow<'static, str>>,
-    ) -> Result<(), Error>
-    where
-        F1: FnOnce(&mut Vec<Cow<'static, str>>) -> Result<(), Error>,
-        F2: FnOnce(&mut Vec<Cow<'static, str>>) -> Result<(), Error>,
-    {
-        if first_result? {
-            if_first(list)
-        } else if second_result? {
-            if_second(list)
-        } else {
-            Ok(())
-        }
-    }
 }
 
 impl FeedbackLogic for LogicEagerAnd {
@@ -423,30 +316,6 @@ impl FeedbackLogic for LogicEagerAnd {
                 & second(state, input, observers, exit_kind)?,
         )
     }
-
-    #[cfg(feature = "track_hit_feedbacks")]
-    fn last_result(first: Result<bool, Error>, second: Result<bool, Error>) -> Result<bool, Error> {
-        Ok(first? & second?)
-    }
-
-    #[cfg(feature = "track_hit_feedbacks")]
-    fn append_hit_feedbacks<F1, F2>(
-        first_result: Result<bool, Error>,
-        if_first: F1,
-        second_result: Result<bool, Error>,
-        if_second: F2,
-        list: &mut Vec<Cow<'static, str>>,
-    ) -> Result<(), Error>
-    where
-        F1: FnOnce(&mut Vec<Cow<'static, str>>) -> Result<(), Error>,
-        F2: FnOnce(&mut Vec<Cow<'static, str>>) -> Result<(), Error>,
-    {
-        if first_result? & second_result? {
-            if_first(list)?;
-            if_second(list)?;
-        }
-        Ok(())
-    }
 }
 
 impl FeedbackLogic for LogicFastAnd {
@@ -468,30 +337,6 @@ impl FeedbackLogic for LogicFastAnd {
     {
         Ok(first(state, input, observers, exit_kind)?
             && second(state, input, observers, exit_kind)?)
-    }
-
-    #[cfg(feature = "track_hit_feedbacks")]
-    fn last_result(first: Result<bool, Error>, second: Result<bool, Error>) -> Result<bool, Error> {
-        Ok(first? && second?)
-    }
-
-    #[cfg(feature = "track_hit_feedbacks")]
-    fn append_hit_feedbacks<F1, F2>(
-        first_result: Result<bool, Error>,
-        if_first: F1,
-        second_result: Result<bool, Error>,
-        if_second: F2,
-        list: &mut Vec<Cow<'static, str>>,
-    ) -> Result<(), Error>
-    where
-        F1: FnOnce(&mut Vec<Cow<'static, str>>) -> Result<(), Error>,
-        F2: FnOnce(&mut Vec<Cow<'static, str>>) -> Result<(), Error>,
-    {
-        if first_result? && second_result? {
-            if_first(list)?;
-            if_second(list)?;
-        }
-        Ok(())
     }
 }
 
@@ -546,11 +391,6 @@ where
         Ok(!self
             .inner
             .is_interesting(state, input, observers, exit_kind)?)
-    }
-
-    #[cfg(feature = "track_hit_feedbacks")]
-    fn last_result(&self) -> Result<bool, Error> {
-        Ok(!self.inner.last_result()?)
     }
 
     #[inline]
@@ -651,14 +491,6 @@ macro_rules! feedback_not {
     };
 }
 
-/// Hack to use () as empty Feedback
-impl<I, OT, S> Feedback<I, OT, S> for () {
-    #[cfg(feature = "track_hit_feedbacks")]
-    fn last_result(&self) -> Result<bool, Error> {
-        Ok(false)
-    }
-}
-
 /// Logic for measuring whether a given [`ExitKind`] is interesting as a [`Feedback`]. Use with
 /// [`ExitKindFeedback`].
 pub trait ExitKindLogic {
@@ -712,9 +544,6 @@ impl ExitKindLogic for GenericDiffLogic {
 /// [`DiffExitKindFeedback`] directly instead.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ExitKindFeedback<L> {
-    #[cfg(feature = "track_hit_feedbacks")]
-    /// The previous run's result of [`Self::is_interesting`]
-    last_result: Option<bool>,
     name: Cow<'static, str>,
     phantom: PhantomData<fn() -> L>,
 }
@@ -733,16 +562,7 @@ where
         exit_kind: &ExitKind,
     ) -> Result<bool, Error> {
         let res = L::check_exit_kind(exit_kind)?;
-        #[cfg(feature = "track_hit_feedbacks")]
-        {
-            self.last_result = Some(res);
-        }
         Ok(res)
-    }
-
-    #[cfg(feature = "track_hit_feedbacks")]
-    fn last_result(&self) -> Result<bool, Error> {
-        self.last_result.ok_or(premature_last_result_err())
     }
 }
 
@@ -761,8 +581,6 @@ where
     #[must_use]
     pub fn new() -> Self {
         Self {
-            #[cfg(feature = "track_hit_feedbacks")]
-            last_result: None,
             name: L::NAME,
             phantom: PhantomData,
         }
@@ -810,11 +628,6 @@ where
     OT: MatchName,
     S: HasTestcase<I>,
 {
-    #[cfg(feature = "track_hit_feedbacks")]
-    fn last_result(&self) -> Result<bool, Error> {
-        Ok(false)
-    }
-
     /// Append to the testcase the generated metadata in case of a new corpus item
     #[inline]
     fn append_metadata(
@@ -875,11 +688,6 @@ impl<I, OT, S> Feedback<I, OT, S> for ConstFeedback {
     ) -> Result<bool, Error> {
         Ok((*self).into())
     }
-
-    #[cfg(feature = "track_hit_feedbacks")]
-    fn last_result(&self) -> Result<bool, Error> {
-        Ok((*self).into())
-    }
 }
 
 impl Named for ConstFeedback {
@@ -917,10 +725,4 @@ impl<T> FeedbackFactory<ConstFeedback, T> for ConstFeedback {
     fn create_feedback(&self, _ctx: &T) -> ConstFeedback {
         *self
     }
-}
-
-#[cfg(feature = "track_hit_feedbacks")]
-/// Error if [`Feedback::last_result`] is called before the `Feedback` is actually run.
-pub(crate) fn premature_last_result_err() -> Error {
-    Error::illegal_state("last_result called before Feedback was run")
 }

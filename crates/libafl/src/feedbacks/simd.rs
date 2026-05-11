@@ -1,8 +1,6 @@
 //! SIMD accelerated map feedback with stable Rust.
 
 use alloc::borrow::Cow;
-#[cfg(feature = "track_hit_feedbacks")]
-use alloc::vec::Vec;
 use core::{
     fmt::Debug,
     marker::PhantomData,
@@ -69,10 +67,6 @@ where
         let history_map = map_state.history_map.as_slice();
 
         let interesting = unsafe { covmap_is_interesting_simd::<R, V>(history_map, &map) };
-        #[cfg(feature = "track_hit_feedbacks")]
-        {
-            self.last_result = Some(interesting);
-        }
         interesting
     }
 }
@@ -200,26 +194,6 @@ where
     ) -> Result<bool, Error> {
         let res = self.is_interesting_u8_simd_optimized(state, observers);
         Ok(res)
-    }
-
-    #[cfg(feature = "track_hit_feedbacks")]
-    fn last_result(&self) -> Result<bool, Error> {
-        // cargo +nightly doc asks so
-        <MapFeedback<C, DifferentIsNovel, O, <R as SimdReducer<V>>::PrimitiveReducer> as Feedback<
-            I,
-            OT,
-            S,
-        >>::last_result(&self.map)
-    }
-
-    #[cfg(feature = "track_hit_feedbacks")]
-    fn append_hit_feedbacks(&self, list: &mut Vec<Cow<'static, str>>) -> Result<(), Error> {
-        // cargo +nightly doc asks so
-        <MapFeedback<C, DifferentIsNovel, O, <R as SimdReducer<V>>::PrimitiveReducer> as Feedback<
-            I,
-            OT,
-            S,
-        >>::append_hit_feedbacks(&self.map, list)
     }
 
     #[inline]

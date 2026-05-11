@@ -24,8 +24,6 @@ use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 #[cfg(feature = "simd")]
 use super::simd::SimdMapFeedback;
-#[cfg(feature = "track_hit_feedbacks")]
-use crate::feedbacks::premature_last_result_err;
 use crate::{
     DependencyResolver, Error,
     corpus::{Testcase, TestcaseId},
@@ -309,9 +307,6 @@ pub struct MapFeedback<C, N, O, R> {
     map_ref: Handle<C>,
     /// Name of the feedback as shown in the `UserStats`
     stats_name: Cow<'static, str>,
-    // The previous run's result of [`Self::is_interesting`]
-    #[cfg(feature = "track_hit_feedbacks")]
-    pub(crate) last_result: Option<bool>,
     /// Phantom Data of Reducer
     #[expect(clippy::type_complexity)]
     phantom: PhantomData<fn() -> (N, O, R)>,
@@ -347,16 +342,7 @@ where
     ) -> Result<bool, Error> {
         let res = self.is_interesting_default(state, observers);
 
-        #[cfg(feature = "track_hit_feedbacks")]
-        {
-            self.last_result = Some(res);
-        }
         Ok(res)
-    }
-
-    #[cfg(feature = "track_hit_feedbacks")]
-    fn last_result(&self) -> Result<bool, Error> {
-        self.last_result.ok_or(premature_last_result_err())
     }
 
     fn append_metadata(
@@ -433,8 +419,6 @@ where
             name: map_observer.name().clone(),
             map_ref: map_observer.handle(),
             stats_name: create_stats_name(map_observer.name()),
-            #[cfg(feature = "track_hit_feedbacks")]
-            last_result: None,
             phantom: PhantomData,
         }
     }
@@ -449,8 +433,6 @@ where
             map_ref: map_observer.handle(),
             stats_name: create_stats_name(&name),
             name,
-            #[cfg(feature = "track_hit_feedbacks")]
-            last_result: None,
             phantom: PhantomData,
         }
     }

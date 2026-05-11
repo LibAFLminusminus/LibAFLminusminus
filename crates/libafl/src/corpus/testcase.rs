@@ -1,8 +1,6 @@
 //! The [`Testcase`] is a struct embedded in each [`Corpus`].
 //! It will contain a respective input, and metadata.
 
-#[cfg(feature = "track_hit_feedbacks")]
-use alloc::{borrow::Cow, vec::Vec};
 use alloc::{rc::Rc, string::String};
 use core::{borrow::Borrow, fmt::Debug, hash::Hasher};
 use std::string::ToString;

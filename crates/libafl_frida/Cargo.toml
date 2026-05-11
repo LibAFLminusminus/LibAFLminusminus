@@ -20,7 +20,7 @@ categories = [
 [package.metadata.docs.rs]
 no-default-features = true                                        # We can't use auto-download inside docs.rs (no internet)
 all-features = false
-features = ["cmplog", "track_hit_feedbacks", "document-features"]
+features = ["cmplog", "document-features"]
 
 [features]
 default = ["auto-download"]
@@ -33,7 +33,6 @@ document-features = ["dep:document-features"]
 cmplog = ["iced-x86"]
 ## Automatically register all types with LibAFL's serializer. There's hardly a reason not to use this.
 ## If hit feedbacks should be tracked as part of LibAFL's feedback.
-track_hit_feedbacks = ["libafl/track_hit_feedbacks"]
 ## If Frida should be automatically downloaded (else you'll have to provide a Frida version to use manually)
 auto-download = ["frida-gum-sys/auto-download", "frida-gum/auto-download"]
 

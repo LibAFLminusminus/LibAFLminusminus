@@ -10,8 +10,6 @@ use libafl_bolts::{
 };
 use serde::{Deserialize, Serialize};
 
-#[cfg(feature = "track_hit_feedbacks")]
-use crate::feedbacks::premature_last_result_err;
 use crate::{
     DependencyResolver, Error,
     executors::ExitKind,
@@ -95,9 +93,6 @@ pub struct NewHashFeedback<O> {
     o_ref: Handle<O>,
     /// Initial capacity of hash set
     capacity: usize,
-    #[cfg(feature = "track_hit_feedbacks")]
-    // The previous run's result of `Self::is_interesting`
-    last_result: Option<bool>,
 }
 
 impl<O> NewHashFeedback<O>
@@ -128,10 +123,6 @@ where
                 false
             }
         };
-        #[cfg(feature = "track_hit_feedbacks")]
-        {
-            self.last_result = Some(res);
-        }
         Ok(res)
     }
 }
@@ -157,11 +148,6 @@ where
         _exit_kind: &ExitKind,
     ) -> Result<bool, Error> {
         self.has_interesting_backtrace_hash_observation(state, observers)
-    }
-
-    #[cfg(feature = "track_hit_feedbacks")]
-    fn last_result(&self) -> Result<bool, Error> {
-        self.last_result.ok_or(premature_last_result_err())
     }
 }
 
@@ -205,8 +191,6 @@ where
             name: Cow::from(NEWHASHFEEDBACK_PREFIX.to_string() + observer.name()),
             o_ref: observer.handle(),
             capacity,
-            #[cfg(feature = "track_hit_feedbacks")]
-            last_result: None,
         }
     }
 }

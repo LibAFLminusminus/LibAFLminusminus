@@ -96,9 +96,4 @@ where
         meta.cks.add_tree(input.input().tree.clone(), self.ctx);
         Ok(())
     }
-
-    #[cfg(feature = "track_hit_feedbacks")]
-    fn last_result(&self) -> Result<bool, Error> {
-        Ok(false)
-    }
 }

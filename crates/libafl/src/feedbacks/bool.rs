@@ -19,8 +19,6 @@ use crate::{
 pub struct BoolValueFeedback<'a> {
     name: Cow<'static, str>,
     observer_hnd: Handle<ValueObserver<'a, bool>>,
-    #[cfg(feature = "track_hit_feedbacks")]
-    last_result: Option<bool>,
 }
 
 impl<'a> BoolValueFeedback<'a> {
@@ -39,8 +37,6 @@ impl<'a> BoolValueFeedback<'a> {
         Self {
             name,
             observer_hnd: observer_hnd.clone(),
-            #[cfg(feature = "track_hit_feedbacks")]
-            last_result: None,
         }
     }
 }
@@ -73,11 +69,6 @@ where
 
         let val = *observer.value.as_ref();
 
-        #[cfg(feature = "track_hit_feedbacks")]
-        {
-            self.last_result = Some(val);
-        }
-
         Ok(val)
     }
 
@@ -88,11 +79,6 @@ where
         _testcase_id: &TestcaseId,
     ) -> Result<(), Error> {
         Ok(())
-    }
-
-    #[cfg(feature = "track_hit_feedbacks")]
-    fn last_result(&self) -> Result<bool, Error> {
-        self.last_result.ok_or_else(|| Error::illegal_state("No last result set in `BoolValuefeedback`. Either `is_interesting` has never been called or the fuzzer restarted in the meantime."))
     }
 }
 

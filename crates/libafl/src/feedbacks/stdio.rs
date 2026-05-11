@@ -53,11 +53,6 @@ where
     OT: MatchName,
     S: HasTestcase<I> + FlatState,
 {
-    #[cfg(feature = "track_hit_feedbacks")]
-    fn last_result(&self) -> Result<bool, Error> {
-        Ok(false)
-    }
-
     /// Append to the testcase the generated metadata in case of a new corpus item.
     #[inline]
     fn append_metadata(
@@ -110,11 +105,6 @@ where
     OT: MatchName,
     S: HasTestcase<I> + FlatState,
 {
-    #[cfg(feature = "track_hit_feedbacks")]
-    fn last_result(&self) -> Result<bool, Error> {
-        Ok(false)
-    }
-
     /// Append to the testcase the generated metadata in case of a new corpus item.
     #[inline]
     fn append_metadata(
