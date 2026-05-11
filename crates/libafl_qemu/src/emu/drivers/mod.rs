@@ -15,7 +15,7 @@ use crate::PhysMemoryChunk;
 #[cfg(feature = "systemmode")]
 use crate::emu::systemmode::SystemInputLocation as InputLocation;
 use crate::{
-    Emulator, EmulatorExitError, EmulatorExitResult, IsSnapshotManager, Qemu, QemuError,
+    StdEmulator, EmulatorExitError, EmulatorExitResult, IsSnapshotManager, Qemu, QemuError,
     QemuShutdownCause, Regs, SnapshotId, SnapshotManagerCheckError, SnapshotManagerError,
     command::{CommandError, CommandManager, IsCommand},
     modules::EmulatorModuleTuple,
@@ -120,13 +120,13 @@ where
 {
     /// Just before calling user's harness for the first time.
     /// Called only once
-    fn first_harness_exec(emulator: &mut Emulator<C, CM, Self, ET, I, S, SM>, state: &mut S) {
+    fn first_harness_exec(emulator: &mut StdEmulator<C, CM, Self, ET, I, S, SM>, state: &mut S) {
         emulator.modules.first_exec_all(emulator.qemu, state);
     }
 
     /// Just before calling user's harness
     fn pre_harness_exec(
-        emulator: &mut Emulator<C, CM, Self, ET, I, S, SM>,
+        emulator: &mut StdEmulator<C, CM, Self, ET, I, S, SM>,
         state: &mut S,
         input: &I,
     ) {
@@ -135,7 +135,7 @@ where
 
     /// Just after returning from user's harness
     fn post_harness_exec<OT>(
-        emulator: &mut Emulator<C, CM, Self, ET, I, S, SM>,
+        emulator: &mut StdEmulator<C, CM, Self, ET, I, S, SM>,
         input: &I,
         observers: &mut OT,
         state: &mut S,
@@ -149,11 +149,11 @@ where
     }
 
     /// Just before entering QEMU
-    fn pre_qemu_exec(_emulator: &mut Emulator<C, CM, Self, ET, I, S, SM>, _input: &I) {}
+    fn pre_qemu_exec(_emulator: &mut StdEmulator<C, CM, Self, ET, I, S, SM>, _input: &I) {}
 
     /// Just after QEMU exits
     fn post_qemu_exec(
-        _emulator: &mut Emulator<C, CM, Self, ET, I, S, SM>,
+        _emulator: &mut StdEmulator<C, CM, Self, ET, I, S, SM>,
         exit_reason: &mut Result<EmulatorExitResult<C>, EmulatorExitError>,
     ) -> Result<Option<EmulatorDriverResult<C>>, EmulatorDriverError> {
         match exit_reason {
@@ -409,12 +409,12 @@ where
     S: Unpin,
     SM: IsSnapshotManager,
 {
-    fn first_harness_exec(emulator: &mut Emulator<C, CM, Self, ET, I, S, SM>, state: &mut S) {
+    fn first_harness_exec(emulator: &mut StdEmulator<C, CM, Self, ET, I, S, SM>, state: &mut S) {
         emulator.modules.first_exec_all(emulator.qemu, state);
     }
 
     fn pre_harness_exec(
-        emulator: &mut Emulator<C, CM, Self, ET, I, S, SM>,
+        emulator: &mut StdEmulator<C, CM, Self, ET, I, S, SM>,
         state: &mut S,
         input: &I,
     ) {
@@ -430,7 +430,7 @@ where
     }
 
     fn post_harness_exec<OT>(
-        emulator: &mut Emulator<C, CM, Self, ET, I, S, SM>,
+        emulator: &mut StdEmulator<C, CM, Self, ET, I, S, SM>,
         input: &I,
         observers: &mut OT,
         state: &mut S,
@@ -443,10 +443,10 @@ where
             .post_exec_all(emulator.qemu, state, input, observers, exit_kind);
     }
 
-    fn pre_qemu_exec(_emulator: &mut Emulator<C, CM, Self, ET, I, S, SM>, _input: &I) {}
+    fn pre_qemu_exec(_emulator: &mut StdEmulator<C, CM, Self, ET, I, S, SM>, _input: &I) {}
 
     fn post_qemu_exec(
-        emulator: &mut Emulator<C, CM, Self, ET, I, S, SM>,
+        emulator: &mut StdEmulator<C, CM, Self, ET, I, S, SM>,
         exit_reason: &mut Result<EmulatorExitResult<C>, EmulatorExitError>,
     ) -> Result<Option<EmulatorDriverResult<C>>, EmulatorDriverError> {
         let qemu = emulator.qemu();

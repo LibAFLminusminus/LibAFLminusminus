@@ -17,7 +17,11 @@ use crate::observers::{StdErrObserver, StdOutObserver};
 use crate::{
     DependencyResolver, Error, Worker,
     observers::ObserversTuple,
-    runtimes::{RuntimeHandle, utils::unix::signal::OsTerminationParams},
+    runtimes::{
+        RuntimeHandle,
+        inprocess::{CrashStatus, TimeoutStatus},
+        utils::unix::signal::OsTerminationParams,
+    },
     states::FlatState,
 };
 
@@ -150,24 +154,33 @@ pub trait Executor<I, S>: DependencyResolver {
     /// Get the linked observers (mutable)
     fn observers_mut(&mut self) -> RefIndexable<&mut Self::Observers, Self::Observers>;
 
-    /// Handle crash
+    /// Handle crash.
+    ///
+    /// Returns whether the crash is due to the fuzzer or the target.
+    /// By default, it returns [`CrashStatus::TargetCrash`].
     ///
     /// # Safety
     ///
     /// This will run in a signal handler, so it's very constrained.
     /// In particular, it should not allocate anything in the heap.
-    unsafe fn handle_crash(&mut self, _params: &OsTerminationParams) -> Result<(), Error> {
-        Ok(())
+    unsafe fn handle_crash(&mut self, _params: &OsTerminationParams) -> Result<CrashStatus, Error> {
+        Ok(CrashStatus::TargetCrash)
     }
 
     /// Handle timeout
     ///
+    /// Returns what the fuzzer should do on timeout.
+    /// By default, it returns [`TimeoutStatus::Exit`].
+    ///
     /// # Safety
     ///
     /// This will run in a signal handler, so it's very constrained.
     /// In particular, it should not allocate anything in the heap.
-    unsafe fn handle_timeout(&mut self, _params: &OsTerminationParams) -> Result<(), Error> {
-        Ok(())
+    unsafe fn handle_timeout(
+        &mut self,
+        _params: &OsTerminationParams,
+    ) -> Result<TimeoutStatus, Error> {
+        Ok(TimeoutStatus::Exit)
     }
 }
 

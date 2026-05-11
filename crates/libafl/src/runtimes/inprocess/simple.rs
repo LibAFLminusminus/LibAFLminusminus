@@ -3,7 +3,8 @@
 use crate::{
     DependencyResolver,
     runtimes::{
-        Runtime, RuntimeHandle, TerminationHandlerData, inprocess::InProcessRuntime,
+        Runtime, RuntimeHandle, TerminationHandlerData,
+        inprocess::{CrashStatus, InProcessRuntime, TimeoutStatus},
         utils::OsTerminationParams,
     },
 };
@@ -13,11 +14,11 @@ use libafl_core::Result;
 use serde::Serialize;
 
 type InnerRuntime<S, T, TM> = InProcessRuntime<
-    fn(&mut TerminationHandlerData, &OsTerminationParams) -> Result<()>,
+    fn(&mut TerminationHandlerData, &OsTerminationParams) -> Result<CrashStatus>,
     TerminationHandlerData,
     S,
     T,
-    fn(&mut TerminationHandlerData, &OsTerminationParams) -> Result<()>,
+    fn(&mut TerminationHandlerData, &OsTerminationParams) -> Result<TimeoutStatus>,
     TM,
 >;
 
@@ -97,29 +98,29 @@ where
 fn std_inprocess_crash<S: Serialize>(
     data: &mut TerminationHandlerData,
     signal_params: &OsTerminationParams,
-) -> Result<()> {
-    if data.handle_crash(signal_params)
-        && let Some(saver) = unsafe { data.saver::<S>() }
-    {
+) -> Result<CrashStatus> {
+    let res = data.handle_crash(signal_params)?;
+
+    if let Some(saver) = unsafe { data.saver::<S>() } {
         unsafe {
             saver.send(data.state())?;
         }
     }
 
-    Ok(())
+    Ok(res)
 }
 
 fn std_inprocess_timeout<S: Serialize>(
     data: &mut TerminationHandlerData,
     signal_params: &OsTerminationParams,
-) -> Result<()> {
-    if data.handle_timeout(signal_params)
-        && let Some(saver) = unsafe { data.saver::<S>() }
-    {
+) -> Result<TimeoutStatus> {
+    let res = data.handle_timeout(signal_params)?;
+
+    if let Some(saver) = unsafe { data.saver::<S>() } {
         unsafe {
             saver.send(data.state())?;
         }
     }
 
-    Ok(())
+    Ok(res)
 }

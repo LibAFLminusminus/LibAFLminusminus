@@ -3,7 +3,7 @@ use crate::FastSnapshotManager;
 #[cfg(doc)]
 use crate::config::QemuConfig;
 use crate::{
-    Emulator, NopEmulatorDriver, NopSnapshotManager, Qemu, QemuInitError, QemuParams,
+    NopEmulatorDriver, NopSnapshotManager, Qemu, QemuInitError, QemuParams, StdEmulator,
     StdEmulatorDriver,
     command::{NopCommandManager, StdCommandManager},
     config::QemuConfigBuilder,
@@ -23,7 +23,7 @@ use std::marker::PhantomData;
 /// - with a QEMU-compatible CLI. It will be given to QEMU as-is. The first argument should always be a path to the running binary, as expected by execve.
 /// - with an instance of [`QemuConfig`]. It is a more programmatic way to configure [`Qemu`]. It should be built using [`QemuConfigBuilder`].
 #[derive(Clone)]
-pub struct EmulatorBuilder<C, CM, ED, ET, QP, I, S, SM> {
+pub struct StdEmulatorBuilder<C, CM, ED, ET, QP, I, S, SM> {
     modules: ET,
     driver: ED,
     snapshot_manager: SM,
@@ -33,7 +33,7 @@ pub struct EmulatorBuilder<C, CM, ED, ET, QP, I, S, SM> {
 }
 
 impl<C, I, S>
-    EmulatorBuilder<
+    StdEmulatorBuilder<
         C,
         NopCommandManager,
         NopEmulatorDriver,
@@ -59,7 +59,7 @@ impl<C, I, S>
 
 #[cfg(all(feature = "usermode", not(feature = "systemmode")))]
 impl<C, I, S>
-    EmulatorBuilder<
+    StdEmulatorBuilder<
         C,
         StdCommandManager<S>,
         StdEmulatorDriver,
@@ -89,7 +89,7 @@ where
 
 #[cfg(feature = "systemmode")]
 impl<C, I, S>
-    EmulatorBuilder<
+    StdEmulatorBuilder<
         C,
         StdCommandManager<S>,
         StdEmulatorDriver,
@@ -117,7 +117,7 @@ where
     }
 }
 
-impl<C, CM, ED, ET, QP, I, S, SM> EmulatorBuilder<C, CM, ED, ET, QP, I, S, SM>
+impl<C, CM, ED, ET, QP, I, S, SM> StdEmulatorBuilder<C, CM, ED, ET, QP, I, S, SM>
 where
     I: Unpin,
     S: Unpin,
@@ -140,7 +140,7 @@ where
     }
 
     #[allow(clippy::type_complexity)]
-    pub fn build<E>(self) -> Result<Emulator<C, CM, ED, ET, I, S, SM>, QemuInitError>
+    pub fn build<E>(self) -> Result<StdEmulator<C, CM, ED, ET, I, S, SM>, QemuInitError>
     where
         ET: EmulatorModuleTuple<I, S>,
         QP: TryInto<QemuParams, Error = E>,
@@ -151,7 +151,7 @@ where
             .ok_or(QemuInitError::NoParametersProvided)?
             .try_into()?;
 
-        Emulator::new(
+        StdEmulator::new(
             qemu_params,
             self.modules,
             self.driver,
@@ -164,7 +164,7 @@ where
     pub fn build_with_qemu(
         self,
         qemu: Qemu,
-    ) -> Result<Emulator<C, CM, ED, ET, I, S, SM>, QemuInitError>
+    ) -> Result<StdEmulator<C, CM, ED, ET, I, S, SM>, QemuInitError>
     where
         ET: EmulatorModuleTuple<I, S>,
     {
@@ -175,7 +175,7 @@ where
         let emulator_modules = unsafe { super::EmulatorModules::new(emulator_hooks, self.modules) };
 
         unsafe {
-            Ok(Emulator::new_with_qemu(
+            Ok(StdEmulator::new_with_qemu(
                 qemu,
                 emulator_modules,
                 self.driver,
@@ -186,7 +186,7 @@ where
     }
 }
 
-impl<C, CM, ED, ET, QP, I, S, SM> EmulatorBuilder<C, CM, ED, ET, QP, I, S, SM>
+impl<C, CM, ED, ET, QP, I, S, SM> StdEmulatorBuilder<C, CM, ED, ET, QP, I, S, SM>
 where
     I: Unpin,
     S: Unpin,
@@ -195,11 +195,11 @@ where
     pub fn qemu_parameters<QP2>(
         self,
         qemu_parameters: QP2,
-    ) -> EmulatorBuilder<C, CM, ED, ET, QP2, I, S, SM>
+    ) -> StdEmulatorBuilder<C, CM, ED, ET, QP2, I, S, SM>
     where
         QP2: Into<QemuParams>,
     {
-        EmulatorBuilder::new(
+        StdEmulatorBuilder::new(
             self.modules,
             self.driver,
             self.command_manager,
@@ -211,12 +211,12 @@ where
     pub fn prepend_module<EM>(
         self,
         module: EM,
-    ) -> EmulatorBuilder<C, CM, ED, (EM, ET), QP, I, S, SM>
+    ) -> StdEmulatorBuilder<C, CM, ED, (EM, ET), QP, I, S, SM>
     where
         EM: EmulatorModule<I, S> + Unpin,
         ET: EmulatorModuleTuple<I, S>,
     {
-        EmulatorBuilder::new(
+        StdEmulatorBuilder::new(
             self.modules.prepend(module),
             self.driver,
             self.command_manager,
@@ -225,12 +225,15 @@ where
         )
     }
 
-    pub fn append_module<EM>(self, module: EM) -> EmulatorBuilder<C, CM, ED, (ET, EM), QP, I, S, SM>
+    pub fn append_module<EM>(
+        self,
+        module: EM,
+    ) -> StdEmulatorBuilder<C, CM, ED, (ET, EM), QP, I, S, SM>
     where
         EM: EmulatorModule<I, S> + Unpin,
         ET: EmulatorModuleTuple<I, S>,
     {
-        EmulatorBuilder::new(
+        StdEmulatorBuilder::new(
             self.modules.append(module),
             self.driver,
             self.command_manager,
@@ -239,8 +242,8 @@ where
         )
     }
 
-    pub fn driver<ED2>(self, driver: ED2) -> EmulatorBuilder<C, CM, ED2, ET, QP, I, S, SM> {
-        EmulatorBuilder::new(
+    pub fn driver<ED2>(self, driver: ED2) -> StdEmulatorBuilder<C, CM, ED2, ET, QP, I, S, SM> {
+        StdEmulatorBuilder::new(
             self.modules,
             driver,
             self.command_manager,
@@ -252,8 +255,8 @@ where
     pub fn command_manager<CM2>(
         self,
         command_manager: CM2,
-    ) -> EmulatorBuilder<C, CM2, ED, ET, QP, I, S, SM> {
-        EmulatorBuilder::new(
+    ) -> StdEmulatorBuilder<C, CM2, ED, ET, QP, I, S, SM> {
+        StdEmulatorBuilder::new(
             self.modules,
             self.driver,
             command_manager,
@@ -262,8 +265,8 @@ where
         )
     }
 
-    pub fn modules<ET2>(self, modules: ET2) -> EmulatorBuilder<C, CM, ED, ET2, QP, I, S, SM> {
-        EmulatorBuilder::new(
+    pub fn modules<ET2>(self, modules: ET2) -> StdEmulatorBuilder<C, CM, ED, ET2, QP, I, S, SM> {
+        StdEmulatorBuilder::new(
             modules,
             self.driver,
             self.command_manager,
@@ -275,8 +278,8 @@ where
     pub fn snapshot_manager<SM2>(
         self,
         snapshot_manager: SM2,
-    ) -> EmulatorBuilder<C, CM, ED, ET, QP, I, S, SM2> {
-        EmulatorBuilder::new(
+    ) -> StdEmulatorBuilder<C, CM, ED, ET, QP, I, S, SM2> {
+        StdEmulatorBuilder::new(
             self.modules,
             self.driver,
             self.command_manager,

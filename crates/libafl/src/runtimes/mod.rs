@@ -4,7 +4,11 @@ use crate::{
     DependencyResolver, Fuzzer, Result,
     executors::Executor,
     inputs::Input,
-    runtimes::{restarting::LIBAFL_EXIT_END, utils::unix::OsShmSender},
+    runtimes::{
+        inprocess::{CrashStatus, TimeoutStatus},
+        restarting::LIBAFL_EXIT_END,
+        utils::unix::OsShmSender,
+    },
     stages::StagesTuple,
 };
 use core::{ptr::NonNull, time::Duration};
@@ -177,8 +181,8 @@ impl<S, W> RuntimeHandle<S, W> {
         state: &mut S,
         fuzzer: &mut Z,
         executor: &mut E,
-        on_crash: fn(&mut TerminationHandlerData, &OsTerminationParams),
-        on_timeout: fn(&mut TerminationHandlerData, &OsTerminationParams),
+        on_crash: fn(&mut TerminationHandlerData, &OsTerminationParams) -> Result<CrashStatus>,
+        on_timeout: fn(&mut TerminationHandlerData, &OsTerminationParams) -> Result<TimeoutStatus>,
     ) where
         E: Executor<I, S>,
         I: Input,

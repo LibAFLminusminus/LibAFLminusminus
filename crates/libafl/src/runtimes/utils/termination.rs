@@ -1,5 +1,6 @@
 //! Termination is a generic term to talk about an abnormal program end, i.e. crash and timeout.
 
+use crate::runtimes::inprocess::{CrashStatus, TimeoutStatus};
 use crate::runtimes::utils::unix::OsShmSender;
 use crate::{
     Fuzzer,
@@ -34,8 +35,8 @@ pub struct TerminationHandlerData {
     fuzzer_ptr: Option<NonNull<c_void>>,
     rt_handle_ptr: Option<NonNull<c_void>>,
     state_sender_ptr: Option<NonNull<c_void>>,
-    crash_handler: Option<fn(&mut Self, &OsTerminationParams)>,
-    timeout_handler: Option<fn(&mut Self, &OsTerminationParams)>,
+    crash_handler: Option<fn(&mut Self, &OsTerminationParams) -> Result<CrashStatus>>,
+    timeout_handler: Option<fn(&mut Self, &OsTerminationParams) -> Result<TimeoutStatus>>,
 }
 
 unsafe impl Send for TerminationHandlerData {}
@@ -70,8 +71,8 @@ impl TerminationHandlerData {
         fuzzer: &mut Z,
         executor: &mut E,
         rt_handle_ptr: NonNull<RuntimeHandle<S, W>>,
-        on_crash: fn(&mut Self, &OsTerminationParams),
-        on_timeout: fn(&mut Self, &OsTerminationParams),
+        on_crash: fn(&mut Self, &OsTerminationParams) -> Result<CrashStatus>,
+        on_timeout: fn(&mut Self, &OsTerminationParams) -> Result<TimeoutStatus>,
     ) where
         E: Executor<I, S>,
         Z: Fuzzer<E, I, R, S, ST, W>,
@@ -180,23 +181,19 @@ impl TerminationHandlerData {
     }
 
     /// Handle a crash.
-    pub fn handle_crash(&mut self, termination_params: &OsTerminationParams) -> bool {
-        if let Some(handler) = self.crash_handler {
-            handler(self, termination_params);
-            true
-        } else {
-            false
-        }
+    pub fn handle_crash(
+        &mut self,
+        termination_params: &OsTerminationParams,
+    ) -> Result<CrashStatus> {
+        (self.crash_handler.expect("No crash handler found"))(self, termination_params)
     }
 
     /// Handle a timeout.
-    pub fn handle_timeout(&mut self, termination_params: &OsTerminationParams) -> bool {
-        if let Some(handler) = self.timeout_handler {
-            handler(self, termination_params);
-            true
-        } else {
-            false
-        }
+    pub fn handle_timeout(
+        &mut self,
+        termination_params: &OsTerminationParams,
+    ) -> Result<TimeoutStatus> {
+        (self.timeout_handler.expect("No timeout handler found"))(self, termination_params)
     }
 }
 
@@ -242,8 +239,8 @@ impl<CH, D, TH> TerminationHandler<CH, D, TH> {
 
 impl<CH, D, TH> TerminationHandler<CH, D, TH>
 where
-    CH: FnMut(&mut D, &OsTerminationParams) -> Result<()>,
-    TH: FnMut(&mut D, &OsTerminationParams) -> Result<()>,
+    CH: FnMut(&mut D, &OsTerminationParams) -> Result<CrashStatus>,
+    TH: FnMut(&mut D, &OsTerminationParams) -> Result<TimeoutStatus>,
 {
     /// Create a new [`TerminationHandler`].
     pub fn new(crash_handler: CH, termination_data: D, timeout_handler: TH) -> Self {

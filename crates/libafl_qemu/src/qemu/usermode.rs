@@ -1,7 +1,7 @@
 #[cfg(not(feature = "systemmode"))]
 use std::ptr::copy_nonoverlapping;
 use std::{
-    ffi::c_void, mem::MaybeUninit, ops::Range, slice::from_raw_parts_mut,
+    ffi::c_void, mem::MaybeUninit, ops::Range, ptr, slice::from_raw_parts_mut,
     str::from_utf8_unchecked_mut,
 };
 
@@ -14,7 +14,7 @@ use libafl_qemu_sys::{
     libafl_get_initial_brk, libafl_load_addr, libafl_maps_first, libafl_maps_next, libafl_set_brk,
     mmap_next_start, pageflags_get_root, read_self_maps,
 };
-use libc::{c_int, c_uchar, siginfo_t, strlen};
+use libc::{c_int, c_uchar, siginfo_t, strlen, ucontext_t};
 #[cfg(feature = "python")]
 use pyo3::{IntoPyObject, Py, PyRef, PyRefMut, Python, pyclass, pymethods};
 
@@ -452,11 +452,17 @@ impl Qemu {
     pub(crate) unsafe fn run_signal_handler(
         &self,
         host_sig: c_int,
-        info: *mut siginfo_t,
-        puc: *mut c_void,
+        info: &mut siginfo_t,
+        puc: Option<&mut ucontext_t>,
     ) {
+        let puc: *mut ucontext_t = if let Some(ctx) = puc {
+            ptr::from_mut(ctx)
+        } else {
+            ptr::null_mut()
+        };
+
         unsafe {
-            libafl_qemu_sys::libafl_qemu_native_signal_handler(host_sig, info, puc);
+            libafl_qemu_sys::libafl_qemu_native_signal_handler(host_sig, info, puc.cast());
         }
     }
 

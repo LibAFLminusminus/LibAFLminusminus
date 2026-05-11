@@ -1,11 +1,7 @@
 use core::{cell::UnsafeCell, fmt::Debug};
 
 use capstone::prelude::*;
-use libafl::{
-    executors::ExitKind,
-    inputs::Input,
-    observers::{ObserversTuple, stacktrace::BacktraceObserver},
-};
+use libafl::{executors::ExitKind, inputs::Input, observers::ObserversTuple};
 use libafl_bolts::tuples::{Handle, Handled, MatchFirstType, MatchNameRef};
 use libafl_qemu_sys::GuestAddr;
 use thread_local::ThreadLocal;
