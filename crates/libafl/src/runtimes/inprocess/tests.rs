@@ -10,7 +10,7 @@ use crate::{
     nop::NopWorker,
     runtimes::{
         Runtime, RuntimeHandle, TerminationHandlerData, inprocess::InProcessRuntime,
-        restarting::LIBAFL_EXIT_CONTINUE, utils::OsTerminationParams,
+        restarting::LIBAFL_EXIT_RESTART, utils::OsTerminationParams,
     },
     states::NopState,
 };

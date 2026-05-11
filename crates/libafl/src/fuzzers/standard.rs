@@ -11,6 +11,7 @@ use crate::{
     observers::ObserversTuple,
     runtimes::{
         Runtime, RuntimeHandle,
+        inprocess::{CrashStatus, TimeoutStatus},
         utils::{OsTerminationParams, TerminationHandlerData},
     },
     stages::StagesTuple,
@@ -37,7 +38,8 @@ fn handle_objective_in_termination_handler<E, F, H, I, OF, S, W>(
     fuzzer: &mut StdFuzzer<F, H, OF>,
     rt_handle: &mut RuntimeHandle<S, W>,
     exit_kind: ExitKind,
-) where
+) -> Result<()>
+where
     E: Executor<I, S>,
     F: Feedback<I, E::Observers, S>,
     I: Input,
@@ -45,21 +47,15 @@ fn handle_objective_in_termination_handler<E, F, H, I, OF, S, W>(
     S: State<I>,
     W: Worker,
 {
-    executor
-        .observers_mut()
-        .post_exec_all(state, &exit_kind)
-        .expect("Post exec observers failed");
+    executor.observers_mut().post_exec_all(state, &exit_kind)?;
 
-    fuzzer
-        .evaluate_execution(state, input, &*executor.observers_mut(), exit_kind)
-        .unwrap();
+    fuzzer.evaluate_execution(state, input, &*executor.observers_mut(), exit_kind)?;
 
     // update stats before exit
     rt_handle
         .worker_mut()
         .workdir_mut()
         .report_stats(state.stats())
-        .unwrap();
 }
 
 /// Crash signals will end up there, if it happens during a fuzzing run.
@@ -67,7 +63,8 @@ fn handle_objective_in_termination_handler<E, F, H, I, OF, S, W>(
 unsafe fn std_on_crash<E, F, H, I, OF, S, W>(
     data: &mut TerminationHandlerData,
     signal_params: &OsTerminationParams,
-) where
+) -> Result<CrashStatus>
+where
     E: Executor<I, S>,
     F: Feedback<I, E::Observers, S>,
     I: Input,
@@ -76,28 +73,34 @@ unsafe fn std_on_crash<E, F, H, I, OF, S, W>(
     W: Worker,
 {
     // double check, not mandatory
-    assert!(data.in_fuzzing(), "A crash occured out of the fuzzing loop. This is a fuzzer bug.");
+    assert!(
+        data.in_fuzzing(),
+        "A crash occured out of the fuzzing loop. This is a fuzzer bug."
+    );
 
     // note: take input to signify we are out of target code
-    // it is useful if subsequent code panicks / raises another signal.
+    // it is useful if subsequent code panics / raises another signal.
     let input = unsafe { data.take_input::<I>() };
     let state = unsafe { data.state::<S>() };
     let fuzzer = unsafe { data.fuzzer::<StdFuzzer<F, H, OF>>() };
     let executor = unsafe { data.executor::<E, I, S>() };
     let rt_handle = unsafe { data.rt_handle::<S, W>() };
 
-    unsafe {
-        executor.handle_crash(signal_params).unwrap();
+    let status = unsafe { executor.handle_crash(signal_params)? };
+
+    if let CrashStatus::TargetCrash = status {
+        // if it is a target crash, handle crash termination as target objective.
+        handle_objective_in_termination_handler(
+            executor,
+            state,
+            &input.unwrap(),
+            fuzzer,
+            rt_handle,
+            ExitKind::Crash,
+        )?;
     }
 
-    handle_objective_in_termination_handler(
-        executor,
-        state,
-        &input.unwrap(),
-        fuzzer,
-        rt_handle,
-        ExitKind::Crash,
-    );
+    Ok(status)
 }
 
 /// Timeout signals will end up there, if it happens during a fuzzing run.
@@ -105,7 +108,8 @@ unsafe fn std_on_crash<E, F, H, I, OF, S, W>(
 unsafe fn std_on_timeout<E, F, H, I, OF, S, W>(
     data: &mut TerminationHandlerData,
     signal_params: &OsTerminationParams,
-) where
+) -> Result<TimeoutStatus>
+where
     E: Executor<I, S>,
     F: Feedback<I, E::Observers, S>,
     I: Input,
@@ -114,19 +118,20 @@ unsafe fn std_on_timeout<E, F, H, I, OF, S, W>(
     W: Worker,
 {
     // double check, not mandatory
-    assert!(data.in_fuzzing(), "A timeout occured out of the fuzzing loop. This is a fuzzer bug.");
+    assert!(
+        data.in_fuzzing(),
+        "A timeout occured out of the fuzzing loop. This is a fuzzer bug."
+    );
 
     // note: take input to signify we are out of target code
-    // it is useful if subsequent code panicks / raises another signal.
+    // it is useful if subsequent code panics / raises another signal.
     let input = unsafe { data.take_input::<I>() };
     let state = unsafe { data.state::<S>() };
     let fuzzer = unsafe { data.fuzzer::<StdFuzzer<F, H, OF>>() };
     let executor = unsafe { data.executor::<E, I, S>() };
     let rt_handle = unsafe { data.rt_handle::<S, W>() };
 
-    unsafe {
-        executor.handle_timeout(signal_params).unwrap();
-    }
+    let status = unsafe { executor.handle_timeout(signal_params)? };
 
     handle_objective_in_termination_handler(
         executor,
@@ -135,7 +140,9 @@ unsafe fn std_on_timeout<E, F, H, I, OF, S, W>(
         fuzzer,
         rt_handle,
         ExitKind::Timeout,
-    );
+    )?;
+
+    Ok(status)
 }
 
 /// Your default fuzzer instance, for everyday use.
@@ -380,10 +387,10 @@ where
             self,
             executor,
             |data, signal_params| unsafe {
-                std_on_crash::<E, F, H, I, OF, S, W>(data, signal_params);
+                std_on_crash::<E, F, H, I, OF, S, W>(data, signal_params)
             },
             |data, signal_params| unsafe {
-                std_on_timeout::<E, F, H, I, OF, S, W>(data, signal_params);
+                std_on_timeout::<E, F, H, I, OF, S, W>(data, signal_params)
             },
         );
 

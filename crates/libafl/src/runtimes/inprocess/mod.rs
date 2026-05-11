@@ -22,6 +22,24 @@ mod tests;
 pub mod simple;
 pub use simple::SimpleInProcessRuntime;
 
+/// The status of a crash.
+#[derive(Debug)]
+pub enum CrashStatus {
+    /// The crash is caused by the fuzzer, it's a LibAFLmm bug
+    FuzzerCrash,
+    /// The crash is caused by the target, it's a target bug
+    TargetCrash,
+}
+
+/// The status of a timeout
+#[derive(Debug)]
+pub enum TimeoutStatus {
+    /// Resume on timeout
+    Resume,
+    /// Exit with timeout error code on timeout
+    Exit,
+}
+
 impl<CH, D, S, T, TH, TM> DependencyResolver for InProcessRuntime<CH, D, S, T, TH, TM> {}
 
 /// Hooks the current process to set it up for in-process tasks.
@@ -71,9 +89,13 @@ where
 
 impl<CH, D, S, T, TH, TM> InProcessRuntime<CH, D, S, T, TH, TM>
 where
-    CH: FnMut(&mut D, &OsTerminationParams) -> Result<()> + Send + Sync + Unpin + 'static,
+    CH: FnMut(&mut D, &OsTerminationParams) -> Result<CrashStatus> + Send + Sync + Unpin + 'static,
     D: IntoTerminationHandlerData + Send + Sync + Unpin + 'static,
-    TH: FnMut(&mut D, &OsTerminationParams) -> Result<()> + Send + Sync + Unpin + 'static,
+    TH: FnMut(&mut D, &OsTerminationParams) -> Result<TimeoutStatus>
+        + Send
+        + Sync
+        + Unpin
+        + 'static,
 {
     /// Create a new [`InProcessRuntime`].
     pub fn new(task: T, crash_handler: CH, signal_data: D, timeout_handler: TH, timer: TM) -> Self {
@@ -90,10 +112,14 @@ where
 
 impl<CH, D, S, T, TH, TM, W> Runtime<S, W> for InProcessRuntime<CH, D, S, T, TH, TM>
 where
-    CH: FnMut(&mut D, &OsTerminationParams) -> Result<()> + Send + Sync + Unpin + 'static,
+    CH: FnMut(&mut D, &OsTerminationParams) -> Result<CrashStatus> + Send + Sync + Unpin + 'static,
     D: IntoTerminationHandlerData + Send + Sync + Unpin + 'static,
     T: FnMut(&mut RuntimeHandle<S, W>, &mut S) -> Result<()>,
-    TH: FnMut(&mut D, &OsTerminationParams) -> Result<()> + Send + Sync + Unpin + 'static,
+    TH: FnMut(&mut D, &OsTerminationParams) -> Result<TimeoutStatus>
+        + Send
+        + Sync
+        + Unpin
+        + 'static,
     TM: Timer,
 {
     unsafe fn run_impl(&mut self, mut state: S, rt_handle: &mut RuntimeHandle<S, W>) -> Result<()> {

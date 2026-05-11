@@ -29,8 +29,8 @@ use crate::InputLocation;
 #[cfg(feature = "systemmode")]
 use crate::emu::systemmode::SystemInputLocation as InputLocation;
 use crate::{
-    Emulator, EmulatorDriverError, EmulatorDriverResult, EmulatorExitResult, GenericEmulatorDriver,
-    GuestReg, InputSetter, IsSnapshotManager, Regs, define_std_command_manager_bound,
+    EmulatorDriverError, EmulatorDriverResult, EmulatorExitResult, GenericEmulatorDriver, GuestReg,
+    InputSetter, IsSnapshotManager, Regs, StdEmulator, define_std_command_manager_bound,
     define_std_command_manager_inner,
     modules::{EmulatorModuleTuple, utils::filters::HasStdFiltersTuple},
 };
@@ -119,7 +119,7 @@ where
 
     fn run(
         &self,
-        emu: &mut Emulator<C, CM, GenericEmulatorDriver<IS>, ET, I, S, SM>,
+        emu: &mut StdEmulator<C, CM, GenericEmulatorDriver<IS>, ET, I, S, SM>,
         _ret_reg: Option<Regs>,
     ) -> Result<Option<EmulatorDriverResult<C>>, EmulatorDriverError> {
         let qemu = emu.qemu();
@@ -147,7 +147,7 @@ where
 
     fn run(
         &self,
-        emu: &mut Emulator<C, CM, GenericEmulatorDriver<IS>, ET, I, S, SM>,
+        emu: &mut StdEmulator<C, CM, GenericEmulatorDriver<IS>, ET, I, S, SM>,
         _ret_reg: Option<Regs>,
     ) -> Result<Option<EmulatorDriverResult<C>>, EmulatorDriverError> {
         let qemu = emu.qemu();
@@ -187,7 +187,7 @@ where
 
     fn run(
         &self,
-        emu: &mut Emulator<C, CM, GenericEmulatorDriver<IS>, ET, I, S, SM>,
+        emu: &mut StdEmulator<C, CM, GenericEmulatorDriver<IS>, ET, I, S, SM>,
         _ret_reg: Option<Regs>,
     ) -> Result<Option<EmulatorDriverResult<C>>, EmulatorDriverError> {
         let qemu = emu.qemu();
@@ -248,7 +248,7 @@ where
 
     fn run(
         &self,
-        emu: &mut Emulator<C, LqemuCommandManager<S>, GenericEmulatorDriver<IS>, ET, I, S, SM>,
+        emu: &mut StdEmulator<C, LqemuCommandManager<S>, GenericEmulatorDriver<IS>, ET, I, S, SM>,
         _ret_reg: Option<Regs>,
     ) -> Result<Option<EmulatorDriverResult<C>>, EmulatorDriverError> {
         let qemu = emu.qemu();
@@ -290,7 +290,7 @@ impl<C, CM, ED, ET, I, S, SM> IsCommand<C, CM, ED, ET, I, S, SM> for VersionComm
 
     fn run(
         &self,
-        _emu: &mut Emulator<C, CM, ED, ET, I, S, SM>,
+        _emu: &mut StdEmulator<C, CM, ED, ET, I, S, SM>,
         _ret_reg: Option<Regs>,
     ) -> Result<Option<EmulatorDriverResult<C>>, EmulatorDriverError> {
         let major = self.0;
@@ -325,7 +325,7 @@ where
 
     fn run(
         &self,
-        emu: &mut Emulator<C, CM, ED, ET, I, S, SM>,
+        emu: &mut StdEmulator<C, CM, ED, ET, I, S, SM>,
         _ret_reg: Option<Regs>,
     ) -> Result<Option<EmulatorDriverResult<C>>, EmulatorDriverError> {
         emu.modules_mut()
@@ -351,7 +351,7 @@ where
 
     fn run(
         &self,
-        emu: &mut Emulator<C, CM, ED, ET, I, S, SM>,
+        emu: &mut StdEmulator<C, CM, ED, ET, I, S, SM>,
         _ret_reg: Option<Regs>,
     ) -> Result<Option<EmulatorDriverResult<C>>, EmulatorDriverError> {
         emu.modules_mut()
@@ -377,7 +377,7 @@ where
 
     fn run(
         &self,
-        _emu: &mut Emulator<C, CM, ED, ET, I, S, SM>,
+        _emu: &mut StdEmulator<C, CM, ED, ET, I, S, SM>,
         _ret_reg: Option<Regs>,
     ) -> Result<Option<EmulatorDriverResult<C>>, EmulatorDriverError> {
         print!("LQPRINTF: {}", self.content);
@@ -402,7 +402,7 @@ where
 
     fn run(
         &self,
-        _emu: &mut Emulator<C, CM, ED, ET, I, S, SM>,
+        _emu: &mut StdEmulator<C, CM, ED, ET, I, S, SM>,
         _ret_reg: Option<Regs>,
     ) -> Result<Option<EmulatorDriverResult<C>>, EmulatorDriverError> {
         if self.expected_value == self.received_value {
@@ -436,7 +436,7 @@ where
 
     fn run(
         &self,
-        emu: &mut Emulator<C, CM, GenericEmulatorDriver<IS>, ET, I, S, SM>,
+        emu: &mut StdEmulator<C, CM, GenericEmulatorDriver<IS>, ET, I, S, SM>,
         _ret_reg: Option<Regs>,
     ) -> Result<Option<EmulatorDriverResult<C>>, EmulatorDriverError> {
         let phys_mem_chunk = self

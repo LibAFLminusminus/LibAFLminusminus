@@ -6,7 +6,7 @@ use std::{
 use enum_map::EnumMap;
 
 use crate::{
-    Emulator, EmulatorDriverError, EmulatorDriverResult, GuestReg, Qemu, QemuRWError, Regs,
+    EmulatorDriverError, EmulatorDriverResult, GuestReg, Qemu, QemuRWError, Regs, StdEmulator,
     sync_exit::ExitArgs,
 };
 
@@ -64,7 +64,7 @@ macro_rules! define_std_command_manager_inner {
                 };
                 use enum_map::EnumMap;
                 use $crate::{
-                    command::{IsStdCommandManager, CommandManager, CommandError, NativeCommandParser, IsCommand}, get_exit_arch_regs, modules::{utils::filters::HasStdFiltersTuple, EmulatorModuleTuple}, sync_exit::ExitArgs, Emulator, EmulatorDriverError, EmulatorDriverResult, IsSnapshotManager, Qemu, Regs, GenericEmulatorDriver, InputSetter,
+                    command::{IsStdCommandManager, CommandManager, CommandError, NativeCommandParser, IsCommand}, get_exit_arch_regs, modules::{utils::filters::HasStdFiltersTuple, EmulatorModuleTuple}, sync_exit::ExitArgs, StdEmulator, EmulatorDriverError, EmulatorDriverResult, IsSnapshotManager, Qemu, Regs, GenericEmulatorDriver, InputSetter,
                 };
                 use std::ffi::c_uint;
 
@@ -155,7 +155,7 @@ macro_rules! define_std_command_manager_inner {
                     }
 
                     fn run(&self,
-                        emu: &mut Emulator<C, $name<S>, GenericEmulatorDriver<IS>, ET, I, S, SM>,
+                        emu: &mut StdEmulator<C, $name<S>, GenericEmulatorDriver<IS>, ET, I, S, SM>,
                         ret_reg: Option<Regs>
                     ) -> Result<Option<EmulatorDriverResult<C>>, EmulatorDriverError> {
                         match self {
@@ -214,7 +214,7 @@ pub trait IsCommand<C, CM, ED, ET, I, S, SM>: Clone + Debug {
     ///     - `InnerHandlerResult`: How the high-level handler should behave
     fn run(
         &self,
-        emu: &mut Emulator<C, CM, ED, ET, I, S, SM>,
+        emu: &mut StdEmulator<C, CM, ED, ET, I, S, SM>,
         ret_reg: Option<Regs>,
     ) -> Result<Option<EmulatorDriverResult<C>>, EmulatorDriverError>;
 }
@@ -263,7 +263,7 @@ impl<C, CM, ED, ET, I, S, SM> IsCommand<C, CM, ED, ET, I, S, SM> for NopCommand 
 
     fn run(
         &self,
-        _emu: &mut Emulator<C, CM, ED, ET, I, S, SM>,
+        _emu: &mut StdEmulator<C, CM, ED, ET, I, S, SM>,
         _ret_reg: Option<Regs>,
     ) -> Result<Option<EmulatorDriverResult<C>>, EmulatorDriverError> {
         Ok(None)

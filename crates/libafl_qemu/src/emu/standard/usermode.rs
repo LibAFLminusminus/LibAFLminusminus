@@ -3,7 +3,9 @@ use libafl_qemu_sys::{GuestAddr, MmapPerms, VerifyAccess};
 
 #[cfg(doc)]
 use crate::Qemu;
-use crate::{CPU, Emulator, GuestMaps, NopSnapshotManager, Regs, TargetSignalHandling};
+use crate::{
+    CPU, Emulator, GuestMaps, NopSnapshotManager, Regs, StdEmulator, TargetSignalHandling,
+};
 
 pub type StdSnapshotManager = NopSnapshotManager;
 
@@ -52,7 +54,7 @@ impl InputLocation {
     }
 }
 
-impl<C, CM, ED, ET, I, S, SM> Emulator<C, CM, ED, ET, I, S, SM> {
+impl<C, CM, ED, ET, I, S, SM> StdEmulator<C, CM, ED, ET, I, S, SM> {
     /// This function gets the memory mappings from the emulator.
     #[must_use]
     pub fn mappings(&self) -> GuestMaps {

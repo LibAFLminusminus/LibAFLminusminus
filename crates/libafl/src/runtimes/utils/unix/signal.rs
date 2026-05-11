@@ -18,7 +18,8 @@ use libc::{SIGABRT, siginfo_t};
 use crate::{
     executors::common_signals,
     runtimes::{
-        restarting::{LIBAFL_EXIT_CONTINUE, LIBAFL_EXIT_TERMINATION_INFINITE_RECURSION},
+        inprocess::{CrashStatus, TimeoutStatus},
+        restarting::{LIBAFL_EXIT_RESTART, LIBAFL_EXIT_TERMINATION_INFINITE_RECURSION},
         utils::{IntoTerminationHandlerData, TerminationHandler},
     },
 };
@@ -91,11 +92,17 @@ pub struct UnixSignalHandler<CH, D, TH> {
 
 impl<CH, D, TH> UnixSignalHandler<CH, D, TH>
 where
-    for<'a> CH:
-        FnMut(&mut D, &OsTerminationParams<'a>) -> Result<()> + Send + Sync + Unpin + 'static,
+    for<'a> CH: FnMut(&mut D, &OsTerminationParams<'a>) -> Result<CrashStatus>
+        + Send
+        + Sync
+        + Unpin
+        + 'static,
     D: IntoTerminationHandlerData + Send + Sync + Unpin + 'static,
-    for<'a> TH:
-        FnMut(&mut D, &OsTerminationParams<'a>) -> Result<()> + Send + Sync + Unpin + 'static,
+    for<'a> TH: FnMut(&mut D, &OsTerminationParams<'a>) -> Result<TimeoutStatus>
+        + Send
+        + Sync
+        + Unpin
+        + 'static,
 {
     /// Create a new [`UnixSignalHandler`].
     pub fn new(signal_handler: TerminationHandler<CH, D, TH>) -> Self {
@@ -158,10 +165,20 @@ where
                 .as_termination_handler_data()
                 .is_some_and(|p| p.as_ref().in_fuzzing())
             {
-                (self.inner.timeout_handler)(&mut self.inner.termination_data, &signal_params)
-                    .expect("Error in timeout handler");
+                let status =
+                    (self.inner.timeout_handler)(&mut self.inner.termination_data, &signal_params)
+                        .expect("Error in timeout handler");
 
-                exit(LIBAFL_EXIT_CONTINUE);
+                match status {
+                    TimeoutStatus::Exit => {
+                        // timeout should exit
+                        exit(LIBAFL_EXIT_RESTART);
+                    }
+                    TimeoutStatus::Resume => {
+                        // resume the fuzzer on timeout
+                        return;
+                    }
+                }
             } else {
                 log::error!("Timeout out of fuzzing target. This is a fuzzer bug.");
 
@@ -223,7 +240,7 @@ where
                 (self.inner.crash_handler)(&mut self.inner.termination_data, &signal_params)
                     .expect("Error while handling crash handler");
 
-                exit(LIBAFL_EXIT_CONTINUE);
+                exit(LIBAFL_EXIT_RESTART);
             } else {
                 // not in fuzzing loop, this is a fuzzer bug.
                 let si_addr = { siginfo.si_addr() as usize };
@@ -318,18 +335,24 @@ where
             )
             .expect("Error in panic handler");
 
-            exit(LIBAFL_EXIT_CONTINUE);
+            exit(LIBAFL_EXIT_RESTART);
         }));
     }
 }
 
 impl<CH, D, TH> SignalHandler for UnixSignalHandler<CH, D, TH>
 where
-    for<'a> CH:
-        FnMut(&mut D, &OsTerminationParams<'a>) -> Result<()> + Send + Sync + Unpin + 'static,
+    for<'a> CH: FnMut(&mut D, &OsTerminationParams<'a>) -> Result<CrashStatus>
+        + Send
+        + Sync
+        + Unpin
+        + 'static,
     D: IntoTerminationHandlerData + Send + Sync + Unpin + 'static,
-    for<'a> TH:
-        FnMut(&mut D, &OsTerminationParams<'a>) -> Result<()> + Send + Sync + Unpin + 'static,
+    for<'a> TH: FnMut(&mut D, &OsTerminationParams<'a>) -> Result<TimeoutStatus>
+        + Send
+        + Sync
+        + Unpin
+        + 'static,
 {
     /// Signal handling entrypoint.
     ///

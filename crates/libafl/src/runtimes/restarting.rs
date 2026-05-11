@@ -19,11 +19,11 @@ use crate::{
     runtimes::{Runtime, RuntimeHandle, SimpleInProcessRuntime, utils::unix::OsShmBuilder},
 };
 
-/// End the restarter; the task job is over.
+/// End the restarter; the task is over.
 pub const LIBAFL_EXIT_END: i32 = 100;
 
 /// Restart the task
-pub const LIBAFL_EXIT_CONTINUE: i32 = 101;
+pub const LIBAFL_EXIT_RESTART: i32 = 101;
 
 /// Infinite recursion bug in termination handlers.
 pub const LIBAFL_EXIT_TERMINATION_INFINITE_RECURSION: i32 = 102;
@@ -32,7 +32,7 @@ pub const LIBAFL_EXIT_TERMINATION_INFINITE_RECURSION: i32 = 102;
 ///
 /// The inner runtime will restart when it exits with special exit codes:
 ///     - [`LIBAFL_EXIT_END`]: The runtime finished its task, exit successfully.
-///     - [`LIBAFL_EXIT_CONTINUE`]: The runtime must be restarted but no hard error happened.
+///     - [`LIBAFL_EXIT_RESTART`]: The runtime must be restarted but no hard error happened.
 ///     - [`LIBAFL_EXIT_TERMINATION_INFINITE_RECURSION`]: The runtime signal handler is in an infinite recursion. It's a bug.
 #[derive(Debug, Clone)]
 pub struct RestartingRuntime<RT> {
@@ -115,7 +115,7 @@ where
                             // the child exited with some status code, handle it here.
                             match status {
                                 LIBAFL_EXIT_END => return Ok(()),
-                                LIBAFL_EXIT_CONTINUE => {
+                                LIBAFL_EXIT_RESTART => {
                                     // at this point, the child finished and must be restarted with the new state. shm must be loaded with state.
                                     // this must be hit on crash / timeout in the child
                                     unsafe { state_receiver.receive()? }

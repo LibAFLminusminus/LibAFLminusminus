@@ -211,7 +211,7 @@ impl IsSnapshotManager for FastSnapshotManager {
     }
 }
 
-impl<C, CM, ED, ET, I, S, SM> Emulator<C, CM, ED, ET, I, S, SM> {
+impl<C, CM, ED, ET, I, S, SM> StdEmulator<C, CM, ED, ET, I, S, SM> {
     /// Write a value to a phsical guest address, including ROM areas.
     #[allow(clippy::missing_safety_doc)]
     pub unsafe fn write_phys_mem(&self, paddr: GuestPhysAddr, buf: &[u8]) {
