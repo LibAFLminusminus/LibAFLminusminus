@@ -8,6 +8,7 @@ use quanta::{Clock, Instant};
 use tuple_list::tuple_list;
 
 use crate::{
+    FuzzerHook, FuzzerHooksTuple, Worker,
     corpus::{Corpus, Scheduler, Testcase, TestcaseId},
     dependency::Registrator,
     executors::{Executor, ExitKind},
@@ -16,12 +17,11 @@ use crate::{
     inputs::Input,
     observers::{Observer, ObserversTuple},
     runtimes::{
-        utils::{OsTerminationParams, TerminationHandlerData},
         Runtime, RuntimeHandle,
+        utils::{OsTerminationParams, TerminationHandlerData},
     },
     stages::StagesTuple,
-    states::{sync_stats, FlatState, HasCorpus, HasObjectiveCorpus, HasTestcase, State},
-    FuzzerHook, FuzzerHooksTuple, Worker,
+    states::{FlatState, HasCorpus, HasObjectiveCorpus, HasTestcase, State, sync_stats},
 };
 
 const STATS_UPDATE_INTERVAL: Duration = Duration::from_secs(4);

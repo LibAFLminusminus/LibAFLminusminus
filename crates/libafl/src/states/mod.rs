@@ -21,9 +21,7 @@ use libafl_bolts::{
 };
 #[cfg(not(debug_assertions))]
 use libafl_core::nonzero_macros::non_zero_unchecked;
-use nix::{
-    fcntl::{Flock, FlockArg},
-};
+use nix::fcntl::{Flock, FlockArg};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use typed_builder::TypedBuilder;
@@ -358,7 +356,7 @@ pub struct TestcaseMetadata {
     scheduled_count: usize,
     /// Number of executions done at discovery time
     executions: u64,
-    /// If the testcase is "disabled"
+    /// If the testcase is "disabled" or not
     #[builder(default = false)]
     disabled: bool,
     /// has found crash (or timeout) or not
@@ -366,7 +364,7 @@ pub struct TestcaseMetadata {
     objectives_found: usize,
 }
 
-/// Add a baned metadata to the metadata map
+/// Add a named metadata to the metadata map
 #[inline]
 pub fn add_named_metadata<M>(map: &mut NamedSerdeAnyMap, name: &str, meta: M)
 where
@@ -375,7 +373,7 @@ where
     map.insert(name, meta);
 }
 
-/// Add a metadata to the metadata map
+/// Add an unnamed metadata (the name is just a empty string "" actually) to the metadata map
 #[inline]
 pub fn add_unnamed_metadata<M>(map: &mut NamedSerdeAnyMap, meta: M)
 where
@@ -394,7 +392,7 @@ where
     map.try_insert(name, meta)
 }
 
-/// Add a metadata to the metadata map
+/// Add an metadata to the metadata map
 /// Return an error if there already is the metadata with the same name
 #[inline]
 pub fn add_unnamed_metadata_checked<M>(map: &mut NamedSerdeAnyMap, meta: M) -> Result<()>
@@ -404,7 +402,7 @@ where
     map.try_insert("", meta)
 }
 
-/// Add a metadata to the metadata map
+/// Remove a named metadata to the metadata map
 #[inline]
 pub fn remove_named_metadata<M>(map: &mut NamedSerdeAnyMap, name: &str) -> Option<Box<M>>
 where
@@ -413,7 +411,7 @@ where
     map.remove::<M>(name)
 }
 
-/// Add a metadata to the metadata map
+/// Remove an unnamed metadata to the metadata map
 #[inline]
 pub fn remove_unnamed_metadata<M>(map: &mut NamedSerdeAnyMap) -> Option<Box<M>>
 where
@@ -422,10 +420,7 @@ where
     map.remove::<M>("")
 }
 
-/// Check for a metadata
-///
-/// # Note
-/// You likely want to use [`Self::named_metadata_or_insert_with`] for performance reasons.
+/// Check for if this named metadata exists
 #[inline]
 pub fn has_named_metadata<M>(map: &NamedSerdeAnyMap, name: &str) -> bool
 where
@@ -434,10 +429,7 @@ where
     map.contains::<M>(name)
 }
 
-/// Check for a metadata
-///
-/// # Note
-/// You likely want to use [`Self::named_metadata_or_insert_with`] for performance reasons.
+/// Check for if this unnamed metadata exists
 #[inline]
 pub fn has_unnamed_metadata<M>(map: &NamedSerdeAnyMap) -> bool
 where
@@ -446,7 +438,7 @@ where
     map.contains::<M>("")
 }
 
-/// Gets metadata, or inserts it using the given construction function `default`
+/// Gets a named metadata, or inserts it using the given construction function `default` from a [`NamedSerdeAnyMap`]
 pub fn named_metadata_or_insert_with<'a, M>(
     map: &'a mut NamedSerdeAnyMap,
     name: &str,
@@ -458,7 +450,7 @@ where
     map.get_or_insert_with::<M>(name, default)
 }
 
-/// Gets metadata, or inserts it using the given construction function `default`
+/// Gets an unnamed metadata, or inserts it using the given construction function `default` from a [`NamedSerdeAnyMap`]
 pub fn unnamed_metadata_or_insert_with<'a, M>(
     map: &'a mut NamedSerdeAnyMap,
     default: impl FnOnce() -> M,
@@ -469,7 +461,7 @@ where
     map.get_or_insert_with::<M>("", default)
 }
 
-/// To get named metadata
+/// To get named metadata from a [`NamedSerdeAnyMap`]
 #[inline]
 pub fn named_metadata<'a, M>(map: &'a NamedSerdeAnyMap, name: &str) -> Result<&'a M>
 where
@@ -479,7 +471,7 @@ where
         .ok_or_else(|| Error::key_not_found(format!("{} not found", type_name::<M>())))
 }
 
-/// To get named metadata
+/// To get an unnamed metadata from a [`NamedSerdeAnyMap`]
 #[inline]
 pub fn unnamed_metadata<'a, M>(map: &'a NamedSerdeAnyMap) -> Result<&'a M>
 where
@@ -489,7 +481,7 @@ where
         .ok_or_else(|| Error::key_not_found(format!("{} not found", type_name::<M>())))
 }
 
-/// To get mutable named metadata
+/// To get mutable named metadata from a [`NamedSerdeAnyMap`]
 #[inline]
 pub fn named_metadata_mut<'a, M>(map: &'a mut NamedSerdeAnyMap, name: &str) -> Result<&'a mut M>
 where
@@ -499,7 +491,7 @@ where
         .ok_or_else(|| Error::key_not_found(format!("{} not found", type_name::<M>())))
 }
 
-/// To get mutable named metadata
+/// To get mutable unnamed metadata from a [`NamedSerdeAnyMap`]
 #[inline]
 pub fn unnamed_metadata_mut<'a, M>(map: &'a mut NamedSerdeAnyMap) -> Result<&'a mut M>
 where
@@ -517,21 +509,21 @@ impl TestcaseMetadata {
         self.executions
     }
 
-    /// Get the execution time of the testcase
+    /// Get the execution time of the [`Testcase`]
     #[inline]
     #[must_use]
     pub fn exec_time(&self) -> &Option<Duration> {
         &self.exec_time
     }
 
-    /// Get the `scheduled_count`
+    /// Get the [`Self::scheduled_count`]
     #[inline]
     #[must_use]
     pub fn scheduled_count(&self) -> usize {
         self.scheduled_count
     }
 
-    /// Get `disabled`
+    /// Get [`Self::disabled`]
     #[inline]
     #[must_use]
     pub fn disabled(&mut self) -> bool {
@@ -544,14 +536,14 @@ impl TestcaseMetadata {
         self.objectives_found
     }
 
-    /// Get the executions (mutable)
+    /// Get the [`Self::executions`] (mutable)
     #[inline]
     #[must_use]
     pub fn executions_mut(&mut self) -> &mut u64 {
         &mut self.executions
     }
 
-    /// Set the executions
+    /// Set the [`Self::executions`]
     #[inline]
     pub fn set_executions(&mut self, executions: u64) {
         self.executions = executions;
@@ -569,13 +561,13 @@ impl TestcaseMetadata {
         self.exec_time = Some(time);
     }
 
-    /// Set the `scheduled_count`
+    /// Set the [`Self::scheduled_count`]
     #[inline]
     pub fn set_scheduled_count(&mut self, scheduled_count: usize) {
         self.scheduled_count = scheduled_count;
     }
 
-    /// Set the `scheduled_count`
+    /// Increase the [`Self::increase_scheduled_count`] by 1.
     #[inline]
     pub fn increase_scheduled_count(&mut self) {
         self.scheduled_count += 1;
@@ -587,7 +579,7 @@ impl TestcaseMetadata {
         self.disabled = disabled;
     }
 
-    /// Adds one objective to the `objectives_found` counter. Mostly called from crash handler or executor.
+    /// Adds one objective to the [`Self::objectives_found`] counter. Mostly called from crash handler or executor.
     pub fn found_objective(&mut self) {
         let count = self.objectives_found.saturating_add(1);
         self.objectives_found = count;
@@ -603,25 +595,23 @@ impl TestcaseMetadata {
         }
     }
 
-    /// Set the filename of the corpus input
+    /// Set the filename of this [`Testcase`]
     pub fn set_filename(&mut self, filename: TestcaseFilenameFormat) {
         self.filename_format = filename;
     }
 }
 
-/// The Metadata for each testcase used in power schedules.
+/// The metadata for each testcase used in power schedules.
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[cfg_attr(miri, expect(clippy::unsafe_derive_deserialize))] // for SerdeAny
 pub struct PSMetadata {
-    /// Number of bits set in bitmap, updated in `calibrate_case`
+    /// Number of bits set in bitmap.
     bitmap_size: u64,
     /// Number of queue cycles behind
     handicap: u64,
     /// Path depth, initialized in `on_add`
     depth: u64,
-    /// Offset in `n_fuzz`
-    n_fuzz_entry: usize,
-    /// Cycles used to calibrate this (not really needed if it were not for `on_replace` and `on_remove`)
+    /// Cycles used to calibrate this.
     cycle_and_time: (Duration, usize),
 }
 
@@ -633,76 +623,50 @@ impl PSMetadata {
             bitmap_size: 0,
             handicap: 0,
             depth,
-            n_fuzz_entry: 0,
             cycle_and_time: (Duration::default(), 0),
         }
     }
 
-    /// Create new [`struct@PSMetadata`] given `n_fuzz_entry`
-    #[must_use]
-    pub fn with_n_fuzz_entry(depth: u64, n_fuzz_entry: usize) -> Self {
-        Self {
-            bitmap_size: 0,
-            handicap: 0,
-            depth,
-            n_fuzz_entry,
-            cycle_and_time: (Duration::default(), 0),
-        }
-    }
-
-    /// Get the bitmap size
+    /// Get the [`Self::bitmap_size`]
     #[inline]
     #[must_use]
     pub fn bitmap_size(&self) -> u64 {
         self.bitmap_size
     }
 
-    /// Set the bitmap size
+    /// Set the [`Self::bitmap_size`]
     #[inline]
     pub fn set_bitmap_size(&mut self, val: u64) {
         self.bitmap_size = val;
     }
 
-    /// Get the handicap
+    /// Get the [`Self::handicap`]
     #[inline]
     #[must_use]
     pub fn handicap(&self) -> u64 {
         self.handicap
     }
 
-    /// Set the handicap
+    /// Set the [`Self::handicap`]
     #[inline]
     pub fn set_handicap(&mut self, val: u64) {
         self.handicap = val;
     }
 
-    /// Get the depth
+    /// Get the [`Self::depth`]
     #[inline]
     #[must_use]
     pub fn depth(&self) -> u64 {
         self.depth
     }
 
-    /// Set the depth
+    /// Set the [`Self::depth`]
     #[inline]
     pub fn set_depth(&mut self, val: u64) {
         self.depth = val;
     }
 
-    /// Get the `n_fuzz_entry`
-    #[inline]
-    #[must_use]
-    pub fn n_fuzz_entry(&self) -> usize {
-        self.n_fuzz_entry
-    }
-
-    /// Set the `n_fuzz_entry`
-    #[inline]
-    pub fn set_n_fuzz_entry(&mut self, val: usize) {
-        self.n_fuzz_entry = val;
-    }
-
-    /// Get the cycles
+    /// Get the [`Self::cycle_and_time`]
     #[inline]
     #[must_use]
     pub fn cycle_and_time(&self) -> (Duration, usize) {
@@ -710,7 +674,7 @@ impl PSMetadata {
     }
 
     #[inline]
-    /// Setter for cycles
+    /// Set the [`Self::cycle_and_time`]
     pub fn set_cycle_and_time(&mut self, cycle_and_time: (Duration, usize)) {
         self.cycle_and_time = cycle_and_time;
     }
@@ -727,7 +691,7 @@ impl<C, CT, I, OC, SC> FlatState for StdState<C, CT, I, OC, SC> {
         &mut self.stats
     }
 
-    /// The max size allowed for the input
+    /// The max size allowed for this [`Input`]
     fn max_size(&self) -> usize {
         self.max_size
     }
@@ -737,7 +701,7 @@ impl<C, CT, I, OC, SC> FlatState for StdState<C, CT, I, OC, SC> {
         self.stats.executions
     }
 
-    /// Increment the execution counter
+    /// Increment the execution counter by 1
     fn increment_execs(&mut self) {
         self.stats.executions += 1;
     }
@@ -752,13 +716,13 @@ impl<C, CT, I, OC, SC> FlatState for StdState<C, CT, I, OC, SC> {
         &mut self.stats.start_time
     }
 
-    /// Get all the metadata into an [`hashbrown::HashMap`]
+    /// Get the metadata map from [`NamedSerdeAnyMap`]
     #[inline]
     fn named_metadata_map(&self) -> &NamedSerdeAnyMap {
         &self.named_metadata
     }
 
-    /// Get all the metadata into an [`hashbrown::HashMap`] (mutable)
+    /// Get the mutable metadata map from [`NamedSerdeAnyMap`]
     #[inline]
     fn named_metadata_map_mut(&mut self) -> &mut NamedSerdeAnyMap {
         &mut self.named_metadata
@@ -780,8 +744,8 @@ where
     OC: DependencyResolver + Corpus<I>,
 {
     fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
-        self.corpus_mut().register(registrator);
-        self.objective_corpus_mut().register(registrator);
+        self.corpus_mut().register(registrator)?;
+        self.objective_corpus_mut().register(registrator)?;
 
         Ok(())
     }
@@ -929,6 +893,7 @@ where
         let res = fuzzer.evaluate_input(self, executor, rt_handle, &input)?;
         Ok(res)
     }
+
     /// Loads initial inputs from the passed-in `in_dirs`.
     /// This method takes a list of files and a `LoadConfig`
     /// which specifies the special handling of initial inputs
@@ -979,6 +944,7 @@ where
         self.reset_initial_files_state();
         Ok(())
     }
+
     /// Loads all intial inputs, even if they are not considered `interesting`.
     /// This is rarely the right method, use `load_initial_inputs`,
     /// and potentially fix your `Feedback`, instead.
@@ -1105,20 +1071,6 @@ where
             },
         )
     }
-
-    fn calculate_corpus_size(&mut self) -> Result<usize> {
-        let mut count: usize = 0;
-        loop {
-            match self.next_file() {
-                Ok(_) => {
-                    count = count.saturating_add(1);
-                }
-                Err(Error::IteratorEnd(_, _)) => break,
-                Err(e) => return Err(e),
-            }
-        }
-        Ok(count)
-    }
 }
 
 impl<C, CT, I, OC, SC> StdState<C, CT, I, OC, SC> {
@@ -1157,7 +1109,7 @@ where
     I: Input,
     OC: Corpus<I>,
 {
-    /// Creates a new `State`, taking ownership of all of the individual components during fuzzing.
+    /// Creates a new `StdState`, taking ownership of all of the individual components during fuzzing.
     pub fn new(context: CT, corpus: C, objective_corpus: OC) -> Result<Self>
     where
         OC: Serialize + DeserializeOwned + DependencyResolver,
@@ -1220,7 +1172,7 @@ pub struct NopState<I> {
 }
 
 impl<I> NopState<I> {
-    /// Create a new State that does nothing (for tests)
+    /// Create a new [`NopState`] that does nothing (for testing purposes usually)
     #[must_use]
     pub fn new() -> Self {
         NopState {
