@@ -259,9 +259,7 @@ impl<T> InMemoryCorpusMap<T> for BtreeCorpusMap<T> {
 
     fn next(&self, id: &TestcaseId) -> Option<TestcaseId> {
         // TODO see if using self.keys is faster
-        let mut range = self
-            .map
-            .range((core::ops::Bound::Included(id), core::ops::Bound::Unbounded));
+        let mut range = self.map.range((Bound::Included(id), Bound::Unbounded));
         if let Some((this_id, _)) = range.next() {
             if *id != *this_id {
                 return None;

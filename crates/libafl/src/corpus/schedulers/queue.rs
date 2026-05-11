@@ -1,14 +1,13 @@
 //! The queue corpus scheduler implements an AFL-like queue mechanism
 
-use alloc::borrow::ToOwned;
-use std::vec::Vec;
-
-use serde::{Deserialize, Serialize};
-
 use crate::{
     DependencyResolver, Error,
     corpus::{Scheduler, testcase::TestcaseId},
 };
+use alloc::borrow::ToOwned;
+use libafl_core::Result;
+use serde::{Deserialize, Serialize};
+use std::vec::Vec;
 
 /// Walk the corpus in a queue-like fashion
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -20,7 +19,7 @@ pub struct QueueScheduler {
 impl DependencyResolver for QueueScheduler {}
 
 impl Scheduler for QueueScheduler {
-    fn on_add(&mut self, id: TestcaseId) -> Result<(), Error> {
+    fn on_add(&mut self, id: TestcaseId) -> Result<()> {
         self.queue.push(id);
 
         Ok(())
@@ -31,7 +30,7 @@ impl Scheduler for QueueScheduler {
     }
 
     /// Gets the next entry in the queue
-    fn next(&mut self) -> Result<TestcaseId, Error> {
+    fn next(&mut self) -> Result<TestcaseId> {
         if self.queue.is_empty() {
             Err(Error::empty("Scheduler queue is empty.".to_owned()))
         } else {

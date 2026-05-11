@@ -1,16 +1,14 @@
 //! An in-memory store
 
-use alloc::rc::Rc;
-use core::marker::PhantomData;
-
-use libafl_bolts::Error;
-use serde::{Deserialize, Serialize};
-
 use super::{InMemoryCorpusMap, RemovableStore, Store};
 use crate::{
     corpus::{Testcase, store::StorageResult, testcase::TestcaseId},
     inputs::Input,
 };
+use core::marker::PhantomData;
+use libafl_bolts::Error;
+use libafl_core::Result;
+use serde::{Deserialize, Serialize};
 
 /// The map type in which testcases are stored (disable the feature `corpus_btreemap` to use a `HashMap` instead of `BTreeMap`)
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -50,10 +48,7 @@ where
         self.enabled_map.is_empty()
     }
 
-    fn add_shared<const ENABLED: bool>(
-        &mut self,
-        testcase: Testcase<I>,
-    ) -> Result<StorageResult, Error> {
+    fn add_shared<const ENABLED: bool>(&mut self, testcase: Testcase<I>) -> Result<StorageResult> {
         let testcase_id = *testcase.id();
 
         let already_stored = if ENABLED {
@@ -71,7 +66,7 @@ where
         Ok(res)
     }
 
-    fn get_from<const ENABLED: bool>(&self, id: &TestcaseId) -> Result<Testcase<I>, Error> {
+    fn get_from<const ENABLED: bool>(&self, id: &TestcaseId) -> Result<Testcase<I>> {
         if ENABLED {
             self.enabled_map
                 .get(id)
@@ -90,7 +85,7 @@ where
         }
     }
 
-    fn disable(&mut self, id: &TestcaseId) -> Result<(), Error> {
+    fn disable(&mut self, id: &TestcaseId) -> Result<()> {
         let tc = self
             .enabled_map
             .remove(id)
@@ -105,7 +100,7 @@ where
     M: InMemoryCorpusMap<Testcase<I>>,
     I: Input,
 {
-    fn remove(&mut self, id: &TestcaseId) -> Result<Testcase<I>, Error> {
+    fn remove(&mut self, id: &TestcaseId) -> Result<Testcase<I>> {
         if let Some(tc) = self.enabled_map.remove(id) {
             Ok(tc)
         } else if let Some(tc) = self.disabled_map.remove(id) {

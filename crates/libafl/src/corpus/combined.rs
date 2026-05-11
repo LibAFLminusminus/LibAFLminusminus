@@ -1,17 +1,15 @@
 //! A cached corpus, using a given [`Cache`] policy and two [`Store`]s.
 
-use alloc::{rc::Rc, vec::Vec};
-use core::{cell::RefCell, marker::PhantomData};
-
-use libafl_bolts::Error;
-use serde::{Deserialize, Serialize};
-
 use super::{Corpus, Testcase, store::Store};
 use crate::{
     DependencyResolver,
     corpus::{Cache, Scheduler, TestcaseId, store::StorageResult},
     states::HasScheduler,
 };
+use alloc::{rc::Rc, vec::Vec};
+use core::{cell::RefCell, marker::PhantomData};
+use libafl_core::Result;
+use serde::{Deserialize, Serialize};
 
 /// A [`CombinedCorpus`] tries first to use the main store according to some policy.
 /// If it fails, it falls back to the secondary store.
@@ -88,10 +86,7 @@ where
         self.fallback_store.count_all()
     }
 
-    fn add_shared<const ENABLED: bool>(
-        &mut self,
-        testcase: Testcase<I>,
-    ) -> Result<TestcaseId, Error> {
+    fn add_shared<const ENABLED: bool>(&mut self, testcase: Testcase<I>) -> Result<TestcaseId> {
         let id = match self.cache.borrow_mut().add_shared::<ENABLED>(
             testcase,
             &mut *self.cache_store.borrow_mut(),
@@ -107,7 +102,7 @@ where
         Ok(id)
     }
 
-    fn get_from<const ENABLED: bool>(&self, id: &TestcaseId) -> Result<Testcase<I>, Error> {
+    fn get_from<const ENABLED: bool>(&self, id: &TestcaseId) -> Result<Testcase<I>> {
         let mut cache = self.cache.borrow_mut();
         let cache_store = &mut *self.cache_store.borrow_mut();
 
