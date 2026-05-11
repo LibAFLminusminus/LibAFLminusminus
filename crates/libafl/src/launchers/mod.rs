@@ -1,25 +1,5 @@
-use alloc::string::String;
-use core::{borrow::Borrow, hash::Hash, marker::PhantomData, num::NonZeroUsize, time::Duration};
-use std::{
-    collections::HashSet,
-    fs::File,
-    path::{Path, PathBuf},
-    thread::sleep,
-    vec::Vec,
-};
-
-use libafl_bolts::{
-    StdTimer,
-    core_affinity::{CoreId, Cores},
-};
-use nix::{
-    sys::wait::{WaitStatus, wait},
-    unistd::{ForkResult, Pid, dup2_stderr, dup2_stdout, fork},
-};
-use serde::Serialize;
-
 use crate::{
-    Controller, Error, Result, WorkdirFile, Worker,
+    Controller, Error, Result, Worker,
     inputs::NopInput,
     monitors::{Monitor, SimpleMonitor},
     nop::{NopDescriptor, NopWorker},
@@ -29,15 +9,25 @@ use crate::{
     simple::SimpleController,
     states::NopState,
 };
+use core::{marker::PhantomData, num::NonZeroUsize, time::Duration};
+use libafl_bolts::{StdTimer, core_affinity::Cores};
+use serde::Serialize;
 
 pub mod instances;
 pub use instances::{Instance, InstanceId, InstanceRepr, Instances};
 
+/// The default maximum state size per worker.
 // TODO: use a proper heuristic to choose correct ram size
-pub const DEFAULT_MAX_STATE_SIZE_PER_CLIENT: NonZeroUsize = NonZeroUsize::new(1 << 30).unwrap();
+pub const DEFAULT_MAX_STATE_SIZE_PER_WORKER: NonZeroUsize = NonZeroUsize::new(1 << 30).unwrap();
+
+/// The default time between each monitor refresh.
 pub const DEFAULT_MONITOR_REFRESH: Duration = Duration::from_secs(5);
+
+/// The default timeout for a fuzzer execution.
 pub const DEFAULT_TIMEOUT: Duration = Duration::from_secs(5);
 
+/// The builder for [`StdLauncher`]
+#[derive(Debug)]
 pub struct StdLauncherBuilder<CT, MT, RT, S, SB, TM> {
     controller: Option<CT>,
     monitor: Option<MT>,
@@ -51,6 +41,8 @@ pub struct StdLauncherBuilder<CT, MT, RT, S, SB, TM> {
     phantom: PhantomData<S>,
 }
 
+/// A standard launcher.
+#[derive(Debug)]
 pub struct StdLauncher<D, CT, MT, RT, S, W> {
     controller: CT,
     monitor: MT,
@@ -100,6 +92,7 @@ impl
 }
 
 impl<D, CT, MT, RT, S, W> StdLauncher<D, CT, MT, RT, S, W> {
+    /// Create a new [`StdLauncher`].
     pub fn new(
         controller: CT,
         monitor: MT,
@@ -122,6 +115,7 @@ where
     MT: Monitor,
     RT: Runtime<S, W> + 'static,
 {
+    /// Launch the launcher [`Instance`]s.
     pub fn launch(mut self) -> Result<()> {
         self.instances.spawn_instances(&mut self.controller)?;
 
@@ -136,6 +130,7 @@ where
 }
 
 impl<CT, MT, RT, S, SB, TM> StdLauncherBuilder<CT, MT, RT, S, SB, TM> {
+    /// Set the cores assiciated to each [`Instance`].
     pub fn cores(self, cores: Cores) -> StdLauncherBuilder<CT, MT, RT, S, SB, TM> {
         StdLauncherBuilder {
             controller: self.controller,
@@ -151,6 +146,7 @@ impl<CT, MT, RT, S, SB, TM> StdLauncherBuilder<CT, MT, RT, S, SB, TM> {
         }
     }
 
+    /// Set the [`Runtime`] of each [`Instance`] timeout.
     pub fn timeout(self, timeout: Option<Duration>) -> Self {
         StdLauncherBuilder {
             controller: self.controller,
@@ -166,6 +162,7 @@ impl<CT, MT, RT, S, SB, TM> StdLauncherBuilder<CT, MT, RT, S, SB, TM> {
         }
     }
 
+    /// Set the [`Monitor`].
     pub fn monitor<MT2>(self, monitor: MT2) -> StdLauncherBuilder<CT, MT2, RT, S, SB, TM> {
         StdLauncherBuilder {
             controller: self.controller,
@@ -181,6 +178,7 @@ impl<CT, MT, RT, S, SB, TM> StdLauncherBuilder<CT, MT, RT, S, SB, TM> {
         }
     }
 
+    /// Set the [`Controller`].
     pub fn controller<CT2>(self, controller: CT2) -> StdLauncherBuilder<CT2, MT, RT, S, SB, TM> {
         StdLauncherBuilder {
             controller: Some(controller),
@@ -196,6 +194,7 @@ impl<CT, MT, RT, S, SB, TM> StdLauncherBuilder<CT, MT, RT, S, SB, TM> {
         }
     }
 
+    /// Set the [`Runtime`].
     pub fn runtime<RT2>(self, runtime: RT2) -> StdLauncherBuilder<CT, MT, RT2, S, SB, TM> {
         StdLauncherBuilder {
             controller: self.controller,
@@ -211,6 +210,7 @@ impl<CT, MT, RT, S, SB, TM> StdLauncherBuilder<CT, MT, RT, S, SB, TM> {
         }
     }
 
+    /// Set the [`State`] builder closure.
     pub fn state_builder<S2, SB2>(
         self,
         state_builder: SB2,
@@ -284,8 +284,9 @@ where
     SB: FnMut(&CT::Worker) -> Result<S>,
     TM: Clone,
 {
+    /// Build a [`StdLauncher`] for a forkserver-style fuzzer, using the [`StdForkserverRuntime`].
     pub fn build_forkserver<T>(
-        mut self,
+        self,
         task: T,
     ) -> Result<StdLauncher<CT::Descriptor, CT, MT, StdForkserverRuntime<T>, S, CT::Worker>>
     where
@@ -321,8 +322,9 @@ where
     SB: FnMut(&CT::Worker) -> Result<S>,
     TM: Clone,
 {
+    /// Build a [`StdLauncher`] for an in-process-style fuzzer, using the [`StdInProcessRuntime`].
     pub fn build_inprocess<T>(
-        mut self,
+        self,
         task: T,
     ) -> Result<StdLauncher<CT::Descriptor, CT, MT, StdInProcessRuntime<S, T, TM>, S, CT::Worker>>
     where
@@ -336,7 +338,7 @@ where
 
         let ram_limit = self
             .max_state_size_per_client
-            .unwrap_or(DEFAULT_MAX_STATE_SIZE_PER_CLIENT);
+            .unwrap_or(DEFAULT_MAX_STATE_SIZE_PER_WORKER);
 
         let builder = StdLauncherBuilder {
             controller: self.controller,
@@ -366,6 +368,7 @@ where
     RT: Clone,
     SB: FnMut(&CT::Worker) -> Result<S>,
 {
+    /// Build the [`StdLauncher`].
     pub fn build(mut self) -> Result<StdLauncher<CT::Descriptor, CT, MT, RT, S, CT::Worker>> {
         if self.cores.is_empty() {
             return Err(Error::illegal_argument(format!(
