@@ -18,7 +18,7 @@ use crate::{
     observers::{Observer, VarLenMapObserver, map::MapObserver},
 };
 
-/// Overlooking a variable bitmap
+/// A [`VariableMapObserver`] overlooking a variable bitmap
 #[derive(Serialize, Deserialize, Debug)]
 #[expect(clippy::unsafe_derive_deserialize)]
 pub struct VariableMapObserver<'a, T> {
@@ -185,7 +185,7 @@ impl<'a, T> VariableMapObserver<'a, T>
 where
     T: Default,
 {
-    /// Creates a new [`MapObserver`] from an [`OwnedMutSlice`]
+    /// Creates a new [`struct@VariableMapObserver`] from an [`OwnedMutSlice`]
     ///
     /// # Safety
     /// The observer will dereference the owned slice, as well as the `map_ptr`.
@@ -203,7 +203,7 @@ where
         }
     }
 
-    /// Creates a new [`MapObserver`] from a raw pointer
+    /// Creates a new [`struct@VariableMapObserver`] from a raw pointer
     ///
     /// # Safety
     /// The observer will dereference the `size` ptr, as well as the `map_ptr`.

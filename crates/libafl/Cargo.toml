@@ -103,9 +103,6 @@ multi_machine = ["tokio", "std", "enumflags2", "ahash/std"]
 ## Enables the `NaiveTokenizer` and `StacktraceObserver`
 regex = ["std", "dep:regex", "dep:backtrace"]
 
-## Enables deduplication based on `libcasr` for `StacktraceObserver`
-casr = ["libcasr", "std", "regex"]
-
 ## Intel Processor Trace
 intel_pt = ["std", "dep:libafl_intelpt", "dep:nix"]
 ## Save all the Intel PT raw traces to files, use only for debug
@@ -176,7 +173,6 @@ hashbrown = { workspace = true, features = [
   "default-hasher",
   "raw-entry",
 ], default-features = false } # A faster hashmap, nostd compatible
-libcasr = { version = "2.12.1", optional = true }
 libm = "0.2.8"
 log = { workspace = true }
 meminterval = { workspace = true, features = ["serde"] }

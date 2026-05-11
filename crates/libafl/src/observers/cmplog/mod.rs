@@ -1,8 +1,7 @@
+//! This modules are for all observers that observe the cmplog values
+
 pub mod cmplog;
 pub use cmplog::*;
-
-use alloc::vec::Vec;
-use std::ops::{Deref, DerefMut};
 
 use libafl_core::{AsSlice, HasLen};
 use serde::{Deserialize, Serialize};

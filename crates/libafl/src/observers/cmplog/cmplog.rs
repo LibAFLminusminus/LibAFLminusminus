@@ -4,10 +4,7 @@
 use core::fmt::Debug;
 use libafl_bolts::{EmptyShmHeader, Named, SysVShm, ownedref::OwnedMutPtr};
 use libafl_targets::{
-    CMPLOG_KIND_INS, CMPLOG_KIND_RTN, CMPLOG_MAP_H, CMPLOG_MAP_RTN_H, CMPLOG_MAP_W, CMPLOG_RTN_LEN,
-    CmpLogHeader, CmpLogMap, CmpLogVals, LibAFLCmpLogHeader, LibAFLCmpLogInstruction,
-    LibAFLCmpLogRoutine, LibAFLCmpLogVals, Operand, Routine, StdCmpLogMap,
-    cmps::libafl_cmplog_map_ptr, exports::CMPLOG_ENABLED,
+    CMPLOG_KIND_INS, CMPLOG_RTN_LEN, CmpLogHeader, CmpLogMap, CmpLogVals, Operand, Routine,
 };
 
 use alloc::{borrow::Cow, string::ToString, vec::Vec};
@@ -15,20 +12,18 @@ use serde::{Deserialize, Serialize};
 
 use core::ops::{Deref, DerefMut};
 
-use libafl_core::{AsSlice, HasLen};
-
 use crate::{
     DependencyResolver, Error,
     executors::ExitKind,
     observers::{CmpObserver, CmpValues, CmplogBytes, Observer},
-    states::{FlatState, named_metadata, named_metadata_mut, named_metadata_or_insert_with},
+    states::{FlatState, named_metadata_mut},
 };
-/// A [`CmpObserver`] observer for `CmpLog`
+/// A [`CmpObserver`] observer for cmplog
 #[derive(Debug)]
 pub struct CmpLogObserver<H, V> {
-    // Field order matters for drop: `map` (just a pointer) is dropped before `_shm`,
-    // which owns the backing shared memory.
+    /// the underlying that this observer observes from
     map: OwnedMutPtr<CmpLogMap<H, V>>,
+    /// the size of the underlying `[Self::map]`    
     size: Option<OwnedMutPtr<usize>>,
     add_meta: bool,
     name: Cow<'static, str>,
@@ -98,7 +93,7 @@ impl<H, V> CmpLogObserver<H, V>
 where
     H: CmpLogHeader,
 {
-    /// create a observer backed by the given System V shared memory region.
+    /// Create a [`struct@CmpLogObserver`] backed by the given [`SysVShm`] System V shared memory region.
     pub fn from_shm(
         name: &'static str,
         mut shm: SysVShm<EmptyShmHeader>,
@@ -115,11 +110,11 @@ where
     }
 }
 
-/// A state metadata holding a list of values logged from comparisons
+/// A metadata holding a list of values logged from comparisons
 #[derive(Debug, Default, Serialize, Deserialize)]
 #[cfg_attr(miri, expect(clippy::unsafe_derive_deserialize))] // for SerdeAny
 pub struct CmpLogMetadata {
-    /// A `list` of values.
+    /// A list of values.
     #[serde(skip)]
     pub list: Vec<CmpValues>,
 }
@@ -139,6 +134,7 @@ impl DerefMut for CmpLogMetadata {
     }
 }
 
+/// Parse from the [`CmpLogMap`] into [`CmpValues`].
 pub fn parse_cmplog_map<H, V>(
     map: &mut CmpLogMap<H, V>,
     idx: usize,
@@ -150,46 +146,42 @@ where
 {
     if map.headers[idx].kind() == CMPLOG_KIND_INS {
         let shape = map.headers[idx].shape();
-        unsafe {
-            match shape {
-                0 => Some(CmpValues::U8((
-                    map.vals.operands()[idx][execution].v0() as u8,
-                    map.vals.operands()[idx][execution].v1() as u8,
-                    map.vals.operands()[idx][execution].aux() == 1,
-                ))),
-                1 => Some(CmpValues::U16((
-                    map.vals.operands()[idx][execution].v0() as u16,
-                    map.vals.operands()[idx][execution].v1() as u16,
-                    map.vals.operands()[idx][execution].aux() == 1,
-                ))),
-                3 => Some(CmpValues::U32((
-                    map.vals.operands()[idx][execution].v0() as u32,
-                    map.vals.operands()[idx][execution].v1() as u32,
-                    map.vals.operands()[idx][execution].aux() == 1,
-                ))),
-                7 => Some(CmpValues::U64((
-                    map.vals.operands()[idx][execution].v0(),
-                    map.vals.operands()[idx][execution].v1(),
-                    map.vals.operands()[idx][execution].aux() == 1,
-                ))),
-                // TODO handle 128 bits & 256 bits & 512 bits cmps
-                15 | 31 | 63 => None,
-                _ => panic!("Invalid CmpLog shape {shape}"),
-            }
+        match shape {
+            0 => Some(CmpValues::U8((
+                map.vals.operands()[idx][execution].v0() as u8,
+                map.vals.operands()[idx][execution].v1() as u8,
+                map.vals.operands()[idx][execution].aux() == 1,
+            ))),
+            1 => Some(CmpValues::U16((
+                map.vals.operands()[idx][execution].v0() as u16,
+                map.vals.operands()[idx][execution].v1() as u16,
+                map.vals.operands()[idx][execution].aux() == 1,
+            ))),
+            3 => Some(CmpValues::U32((
+                map.vals.operands()[idx][execution].v0() as u32,
+                map.vals.operands()[idx][execution].v1() as u32,
+                map.vals.operands()[idx][execution].aux() == 1,
+            ))),
+            7 => Some(CmpValues::U64((
+                map.vals.operands()[idx][execution].v0(),
+                map.vals.operands()[idx][execution].v1(),
+                map.vals.operands()[idx][execution].aux() == 1,
+            ))),
+            // TODO handle 128 bits & 256 bits & 512 bits cmps
+            15 | 31 | 63 => None,
+            _ => panic!("Invalid CmpLog shape {shape}"),
         }
     } else {
-        unsafe {
-            Some(CmpValues::Bytes((
-                CmplogBytes::from_buf_and_len(
-                    *map.vals.routines()[idx][execution].v0(),
-                    CMPLOG_RTN_LEN as u8,
-                ),
-                CmplogBytes::from_buf_and_len(
-                    *map.vals.routines()[idx][execution].v1(),
-                    CMPLOG_RTN_LEN as u8,
-                ),
-            )))
-        }
+        Some(CmpValues::Bytes((
+            CmplogBytes::from_buf_and_len(
+                *map.vals.routines()[idx][execution].v0(),
+                CMPLOG_RTN_LEN as u8,
+            ),
+            CmplogBytes::from_buf_and_len(
+                *map.vals.routines()[idx][execution].v1(),
+                CMPLOG_RTN_LEN as u8,
+            ),
+        )))
     }
 }
 
@@ -200,9 +192,7 @@ impl CmpLogMetadata {
         Self { list: vec![] }
     }
 
-    /// Add comparisons to a metadata from a `CmpObserver`. `cmp_map` is mutable in case
-    /// it is needed for a custom map, but this is not utilized for `CmpObserver` or
-    /// `AflppCmpLogObserver`.
+    /// Add comparisons to a metadata from a `CmpObserver`. `cmp_map`.
     pub fn add_from<H, V>(&mut self, usable_count: usize, cmp_map: &mut CmpLogMap<H, V>)
     where
         H: CmpLogHeader,
