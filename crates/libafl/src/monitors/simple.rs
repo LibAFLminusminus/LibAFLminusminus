@@ -1,3 +1,5 @@
+//! The most simple [`Monitor`]. It gathers data from children instances and dumps the data to stdout
+
 use core::time::Duration;
 use std::{string::String, vec::Vec};
 
@@ -10,6 +12,7 @@ use crate::{
 };
 
 #[derive(Debug, Clone)]
+/// The most simple [`Monitor`] for dumping the stats to stdout.
 pub struct SimpleMonitor {}
 
 fn format_si(n: u64) -> String {
@@ -44,6 +47,7 @@ fn format_hhmmss(duration: Duration) -> String {
 }
 
 impl SimpleMonitor {
+    /// Construct a [`struct@SimpleMonitor`]
     pub fn new() -> Self {
         SimpleMonitor {}
     }
