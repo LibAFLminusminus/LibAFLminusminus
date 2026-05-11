@@ -1,13 +1,7 @@
+//! Unix instance
+
 use core::{borrow::Borrow, hash::Hash, time::Duration};
-use std::{
-    collections::HashSet,
-    fs::File,
-    os::fd::{AsFd, OwnedFd},
-    process::exit,
-    thread::sleep,
-    time::Instant,
-    vec::Vec,
-};
+use std::{collections::HashSet, os::fd::AsFd, process::exit, vec::Vec};
 
 use libafl_bolts::core_affinity::CoreId;
 use nix::{
@@ -18,13 +12,16 @@ use nix::{
         signalfd::{SfdFlags, SignalFd},
         wait::{WaitPidFlag, WaitStatus, waitpid},
     },
-    unistd::{ForkResult, Pid, dup2_stderr, dup2_stdout, fork, getpid, getppid, pipe},
+    unistd::{ForkResult, Pid, fork, getpid, getppid},
 };
 
-use crate::{Controller, Error, Result, WorkdirFile, Worker, monitors::Monitor, runtimes::Runtime};
+use crate::{Controller, Error, Result, Worker, monitors::Monitor, runtimes::Runtime};
 
+/// An Instance ID, unique for each [`Instance`].
 pub type InstanceId = u32;
 
+/// An instance, owning a running [`Runtime`].
+#[derive(Debug)]
 pub struct Instance<RT, S, W> {
     runtime: RT,
     state: Option<S>,
@@ -32,6 +29,8 @@ pub struct Instance<RT, S, W> {
     core: CoreId,
 }
 
+/// An [`Instance`] representation, used to identify an instance.
+#[derive(Debug)]
 pub struct InstanceRepr<D> {
     // the PID of the instance
     pid: Pid,
@@ -39,9 +38,10 @@ pub struct InstanceRepr<D> {
     descriptor: D,
 }
 
-// for now, this is unix-specific.
-// it should be per supported os.
-// keep os-specific things there as much as possible.
+/// A collection of [`Instance`]s.
+///
+/// It should contain all the instances being run.
+#[derive(Debug)]
 pub struct Instances<D, RT, S, W> {
     instances: Vec<Instance<RT, S, W>>,
     active_instances: HashSet<InstanceRepr<D>>,
@@ -107,6 +107,7 @@ where
 }
 
 impl<D, RT, S, W> Instances<D, RT, S, W> {
+    /// Create a new [`Instances`] collection.
     pub fn new() -> Self {
         Self {
             instances: Vec::new(),
@@ -114,6 +115,7 @@ impl<D, RT, S, W> Instances<D, RT, S, W> {
         }
     }
 
+    /// Add an [`Instance`] to the collection.
     pub fn add_instance(&mut self, instance: Instance<RT, S, W>) {
         self.instances.push(instance);
     }
@@ -124,6 +126,7 @@ where
     W: Worker,
     RT: Runtime<S, W> + 'static,
 {
+    /// Spawn all [`Instance`]s being owned by [`Self`].
     pub fn spawn_instances<CT>(&mut self, controller: &mut CT) -> Result<()>
     where
         CT: Controller<Worker = W, Descriptor = D>,
@@ -138,6 +141,9 @@ where
         Ok(())
     }
 
+    /// Wait that all [`Instance`]s being owned by [`Self`] end.
+    ///
+    /// It MUST be run after calling [`Self::spawn_instances`].
     pub fn wait_instances<CT, MT>(
         &mut self,
         controller: &mut CT,
@@ -174,7 +180,7 @@ where
                 Ok(0) => {
                     // poll timed out. loop over.
                 }
-                Ok(n) => {
+                Ok(_) => {
                     // consume the pending signals
                     while matches!(sfd.read_signal(), Ok(Some(_))) {}
 
@@ -228,6 +234,7 @@ where
 }
 
 impl<D> InstanceRepr<D> {
+    /// Create a new [`Instance`] representant.
     pub fn new(pid: Pid, descriptor: D) -> Self {
         Self { pid, descriptor }
     }
@@ -254,6 +261,7 @@ impl<D> Hash for InstanceRepr<D> {
 }
 
 impl<RT, S, W> Instance<RT, S, W> {
+    /// Create a new instance.
     pub fn new(runtime: RT, state: S, worker: W, core: CoreId) -> Self {
         Self {
             runtime,
