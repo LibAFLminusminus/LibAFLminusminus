@@ -1,7 +1,6 @@
 //! Powerschedule-related modules
 
 libafl_bolts::impl_serdeany!(PowerScheduleData);
-use alloc::vec::Vec;
 use core::time::Duration;
 
 use hashbrown::HashMap;
@@ -13,13 +12,13 @@ use crate::corpus::testcase::TestcaseId;
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(miri, expect(clippy::unsafe_derive_deserialize))] // for SerdeAny
 pub struct PowerScheduleData {
-    /// Measured exec time during calibration
+    /// Measured [`Self::exec_time`] during calibration
     exec_time: Duration,
     /// Calibration cycles
     cycles: u64,
-    /// Size of the observer map
+    /// Size of the recorded bitmap
     bitmap_size: u64,
-    /// Sum of `log(bitmap_size`)
+    /// Sum of log of the [`bitmap_size`]
     bitmap_size_log: f64,
     /// Number of filled map entries
     bitmap_entries: u64,
@@ -29,7 +28,6 @@ pub struct PowerScheduleData {
     per_testcase: HashMap<TestcaseId, TestcasePowerScheduleData>,
 }
 
-/// The metadata for runs in the calibration stage.
 impl PowerScheduleData {
     /// Creates a new [`struct@PowerScheduleData`]
     #[must_use]
@@ -45,46 +43,46 @@ impl PowerScheduleData {
         }
     }
 
-    /// The measured exec time during calibration
+    /// The measured [`exec_time`] during calibration
     #[must_use]
     pub fn exec_time(&self) -> Duration {
         self.exec_time
     }
 
-    /// Set the measured exec
+    /// Set the measured [`exec_time`]
     pub fn set_exec_time(&mut self, time: Duration) {
         self.exec_time = time;
     }
 
-    /// The cycles
+    /// Get the [`Self::cycles`]
     #[must_use]
     pub fn cycles(&self) -> u64 {
         self.cycles
     }
 
-    /// Sets the cycles
+    /// Sets the [`Self::cycles`]
     pub fn set_cycles(&mut self, val: u64) {
         self.cycles = val;
     }
 
-    /// The bitmap size
+    /// Get the [`Self::bitmap_size`]
     #[must_use]
     pub fn bitmap_size(&self) -> u64 {
         self.bitmap_size
     }
 
-    /// Sets the bitmap size
+    /// Set the [`Self::bitmap_size`]
     pub fn set_bitmap_size(&mut self, val: u64) {
         self.bitmap_size = val;
     }
 
     #[must_use]
-    /// The sum of log(`bitmap_size`)
+    /// The sum of log of [`Self::bitmap_size`]
     pub fn bitmap_size_log(&self) -> f64 {
         self.bitmap_size_log
     }
 
-    /// Setts the sum of log(`bitmap_size`)
+    /// Set the sum of of [`Self::bitmap_size`]
     pub fn set_bitmap_size_log(&mut self, val: f64) {
         self.bitmap_size_log = val;
     }
@@ -100,21 +98,23 @@ impl PowerScheduleData {
         self.bitmap_entries = val;
     }
 
-    /// The amount of queue cycles
+    /// The number of queue cycles
     #[must_use]
     pub fn queue_cycles(&self) -> u64 {
         self.queue_cycles
     }
 
-    /// Sets the amount of queue cycles
+    /// Sets the number of queue cycles
     pub fn set_queue_cycles(&mut self, val: u64) {
         self.queue_cycles = val;
     }
 
+    /// Get the per-testcase metadata map
     pub fn per_testcase_data(&self, testcase_id: TestcaseId) -> Option<&TestcasePowerScheduleData> {
         self.per_testcase.get(&testcase_id)
     }
 
+    /// Get the mutable reference to the per-testcase metadata map
     pub fn per_testcase_data_mut(
         &mut self,
         testcase_id: TestcaseId,
@@ -122,6 +122,7 @@ impl PowerScheduleData {
         self.per_testcase.get_mut(&testcase_id)
     }
 
+    /// Insert the `TestcasePowerScheduleData` to the map
     pub fn insert_testcase_data(&mut self, id: TestcaseId, data: TestcasePowerScheduleData) {
         self.per_testcase.insert(id, data);
     }
@@ -164,24 +165,28 @@ impl TestcasePowerScheduleData {
 
     #[inline]
     #[must_use]
+    /// Get the [`Self::parent`]
     pub fn parent(&self) -> Option<&TestcaseId> {
         self.parent.as_ref()
     }
 
     #[inline]
     #[must_use]
+    /// Set the [`Self::parent`]
     pub fn set_parent(&mut self, parent: TestcaseId) {
         self.parent = Some(parent);
     }
 
     #[inline]
     #[must_use]
+    /// Get the [`Self::exec_time`]
     pub fn exec_time(&self) -> &Duration {
         &self.exec_time
     }
 
     #[inline]
     #[must_use]
+    /// Set the [`Self::exec_time`]
     pub fn set_exec_time(&mut self, exec_time: Duration) {
         self.exec_time = exec_time;
     }
