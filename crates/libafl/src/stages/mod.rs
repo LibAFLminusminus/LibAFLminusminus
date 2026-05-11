@@ -9,9 +9,7 @@ use alloc::{boxed::Box, vec::Vec};
 use libafl_bolts::tuples::{HasConstLen, IntoVec};
 use tuple_list::NonEmptyTuple;
 
-use crate::{
-    DependencyResolver, Error, corpus::TestcaseId, runtimes::RuntimeHandle,
-};
+use crate::{DependencyResolver, Error, corpus::TestcaseId, runtimes::RuntimeHandle};
 
 pub mod tracer;
 pub use tracer::*;

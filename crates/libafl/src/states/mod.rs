@@ -299,7 +299,6 @@ pub const DEFAULT_MAX_SIZE: usize = 1_048_576;
 
 /// Struct that holds the options for input loading
 pub struct LoadConfig<'a, I, S, Z> {
-    forced: bool,
     /// Function to load input from a Path
     loader: &'a mut dyn FnMut(&mut Z, &mut S, &Path) -> Result<I>,
     /// Error if Input leads to a Solution.
@@ -966,7 +965,6 @@ where
             file_list,
             LoadConfig {
                 loader: &mut |_, _, path| I::from_file(path),
-                forced: false,
                 exit_on_solution: false,
             },
         )
@@ -992,7 +990,6 @@ where
             rt_handle,
             LoadConfig {
                 loader: &mut |_, _, path| I::from_file(path),
-                forced: true,
                 exit_on_solution: false,
             },
         )
@@ -1017,7 +1014,6 @@ where
             file_list,
             LoadConfig {
                 loader: &mut |_, _, path| I::from_file(path),
-                forced: true,
                 exit_on_solution: false,
             },
         )
@@ -1041,7 +1037,6 @@ where
             rt_handle,
             LoadConfig {
                 loader: &mut |_, _, path| I::from_file(path),
-                forced: false,
                 exit_on_solution: false,
             },
         )
@@ -1066,7 +1061,6 @@ where
             rt_handle,
             LoadConfig {
                 loader: &mut |_, _, path| I::from_file(path),
-                forced: false,
                 exit_on_solution: true,
             },
         )

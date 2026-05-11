@@ -129,8 +129,9 @@ impl<E, F, I, M, R, S, W, Z> PowerScheduleStage<E, F, I, M, R, S, W, Z> {
             POWER_MUTATIONAL_STAGE_ID += 1;
             ret
         };
-        let name =
-            Cow::Owned(POWER_MUTATIONAL_STAGE_NAME.to_owned() + ":" + stage_id.to_string().as_str());
+        let name = Cow::Owned(
+            POWER_MUTATIONAL_STAGE_NAME.to_owned() + ":" + stage_id.to_string().as_str(),
+        );
         Self {
             name,
             mutator,
