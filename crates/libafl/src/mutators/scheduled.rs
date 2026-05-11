@@ -1,10 +1,7 @@
 //! The [`ScheduledMutator`] schedules multiple mutations internally.
 
 use alloc::borrow::Cow;
-use core::{
-    fmt::Debug,
-    num::NonZero,
-};
+use core::{fmt::Debug, num::NonZero};
 
 use libafl_bolts::{
     Named,

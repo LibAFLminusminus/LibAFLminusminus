@@ -3,11 +3,7 @@
 use alloc::borrow::Cow;
 use core::marker::PhantomData;
 
-use libafl_bolts::{
-    Error, Named,
-    rands::Rand,
-    tuples::Merge,
-};
+use libafl_bolts::{Error, Named, rands::Rand, tuples::Merge};
 use tuple_list::{tuple_list, tuple_list_type};
 
 use super::{MutationResult, Mutator};
@@ -114,7 +110,12 @@ impl<I, R, S> Mutator<I, R, S> for NegateMutator
 where
     I: Numeric,
 {
-    fn mutate(&mut self, input: &mut I, _rand: &mut R, _state: &S) -> Result<MutationResult, Error> {
+    fn mutate(
+        &mut self,
+        input: &mut I,
+        _rand: &mut R,
+        _state: &S,
+    ) -> Result<MutationResult, Error> {
         input.flip_all_bits();
         Ok(MutationResult::Mutated)
     }
@@ -138,7 +139,12 @@ impl<I, R, S> Mutator<I, R, S> for IncMutator
 where
     I: Numeric,
 {
-    fn mutate(&mut self, input: &mut I, _rand: &mut R, _state: &S) -> Result<MutationResult, Error> {
+    fn mutate(
+        &mut self,
+        input: &mut I,
+        _rand: &mut R,
+        _state: &S,
+    ) -> Result<MutationResult, Error> {
         input.wrapping_inc();
         Ok(MutationResult::Mutated)
     }
@@ -162,7 +168,12 @@ impl<I, R, S> Mutator<I, R, S> for DecMutator
 where
     I: Numeric,
 {
-    fn mutate(&mut self, input: &mut I, _rand: &mut R, _state: &S) -> Result<MutationResult, Error> {
+    fn mutate(
+        &mut self,
+        input: &mut I,
+        _rand: &mut R,
+        _state: &S,
+    ) -> Result<MutationResult, Error> {
         input.wrapping_dec();
         Ok(MutationResult::Mutated)
     }
@@ -186,7 +197,12 @@ impl<I, R, S> Mutator<I, R, S> for TwosComplementMutator
 where
     I: Numeric,
 {
-    fn mutate(&mut self, input: &mut I, _rand: &mut R, _state: &S) -> Result<MutationResult, Error> {
+    fn mutate(
+        &mut self,
+        input: &mut I,
+        _rand: &mut R,
+        _state: &S,
+    ) -> Result<MutationResult, Error> {
         input.twos_complement();
         Ok(MutationResult::Mutated)
     }

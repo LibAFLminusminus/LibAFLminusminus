@@ -44,14 +44,13 @@ use static_assertions::const_assert_eq;
 
 use super::{StdChildArgs, StdChildArgsInner};
 use crate::{
-    DependencyResolver, Error,
+    DependencyResolver, Error, Result,
     executors::{Executor, ExitKind},
     inputs::InputContext,
     mutators::Tokens,
     observers::{MapObserver, ObserversTuple},
     runtimes::RuntimeHandle,
     states::{FlatState, HasContext, HasCorpus},
-    Result,
 };
 
 pub mod config;

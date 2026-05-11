@@ -185,7 +185,6 @@ impl TestcasePowerScheduleData {
     }
 
     #[inline]
-    #[must_use]
     /// Set the [`Self::exec_time`]
     pub fn set_exec_time(&mut self, exec_time: Duration) {
         self.exec_time = exec_time;

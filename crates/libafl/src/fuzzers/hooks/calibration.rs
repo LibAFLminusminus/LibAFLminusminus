@@ -1,3 +1,7 @@
+//! [`CalibrationHook`] calibrates a [`Testcase`] and appends the metadata related to the testcase to the state
+//!
+//! This is useful in a couple of scenarios, such as when you want to measure the target unstability or you want to use power schedules.
+
 use crate::{
     DependencyResolver, Error, Result, TestcasePowerScheduleData, Verdict, Worker,
     common::PowerScheduleData,
@@ -20,13 +24,8 @@ use libafl_core::illegal_state;
 use num_traits::Bounded;
 use serde::{Deserialize, Serialize};
 
-/// AFL++'s `CAL_CYCLES_FAST` + 1
-const CAL_STAGE_START: usize = 4;
 /// AFL++'s `CAL_CYCLES` + 1
 const CAL_STAGE_MAX: usize = 8;
-
-/// Default name for `CalibrationStage`; derived from AFL++
-pub const CALIBRATION_STAGE_NAME: &str = "calibration";
 
 /// The metadata to keep unstable entries
 /// Formula is same as AFL++: number of unstable entries divided by the number of filled entries.
@@ -95,6 +94,8 @@ where
     Ok((exit_kind, duration))
 }
 
+/// [`CalibrationHook`] will calibrate the testcase and attaches metadata for measuring the unstability and power schedule metadata.
+#[derive(Debug)]
 pub struct CalibrationHook<C, O> {
     /// the maximum number of times that we execute the harness for executions.
     stage_max: usize,
@@ -112,6 +113,7 @@ impl<C, O> DependencyResolver for CalibrationHook<C, O> {
 }
 
 impl<C, O> CalibrationHook<C, O> {
+    /// Construct a new [`struct@CalibrationHook`]
     pub fn new<F>(map_feedback: &F) -> Self
     where
         F: HasObserverHandle<Observer = C> + Named,
@@ -127,9 +129,7 @@ impl<C, O> CalibrationHook<C, O> {
     }
 }
 
-/// Default name prefix for `CalibrationHook`; derived from AFL++
-pub const CALIBRATION_HOOK_NAME: &str = "calibration";
-
+/// The float value representing the target's stability
 #[derive(Debug, Serialize, Deserialize)]
 pub struct StabilityValue(f64);
 

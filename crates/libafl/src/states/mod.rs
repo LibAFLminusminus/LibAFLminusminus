@@ -865,12 +865,8 @@ where
                 return Ok(());
             }
         } else {
-            self.remaining_initial_files = Some(
-                file_list
-                    .iter()
-                    .map(|p| p.as_ref().to_path_buf())
-                    .collect(),
-            );
+            self.remaining_initial_files =
+                Some(file_list.iter().map(|p| p.as_ref().to_path_buf()).collect());
         }
 
         self.continue_loading_initial_inputs_custom(fuzzer, executor, rt_handle, load_config)
