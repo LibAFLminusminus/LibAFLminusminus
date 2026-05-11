@@ -1,12 +1,10 @@
-//! This module defines trait shared across different `LibAFL` modules
+//! Dependency resolver for types and metadata.
 
 use core::any;
 use std::{collections::HashSet, string::String};
 
-use libafl_bolts::{
-    Error,
-    serdeany::{NamedSerdeAnyMap, SerdeAny},
-};
+use libafl_bolts::serdeany::{NamedSerdeAnyMap, SerdeAny};
+use libafl_core::Result;
 
 use crate::states::add_named_metadata_checked;
 
@@ -89,16 +87,16 @@ pub trait DependencyResolver {
     ///
     /// Only register here the metadata.
     /// If you need to propagate this call to inner structucts, ALWAYS do it in
-    /// the implementation of `register_with_ty` and NOT here. Otherwise, the subtypes
+    /// the implementation of [`Self::register_with_ty`] and NOT here. Otherwise, the subtypes
     /// will not be registered correctly.
-    fn register(&mut self, _registrator: &mut Registrator) -> Result<(), Error> {
+    fn register(&mut self, _registrator: &mut Registrator) -> Result<()> {
         Ok(())
     }
 
     /// Register in the resolver the types and metadata necessary during runtime.
     ///
     /// This should be overwritten when registering inner structures.
-    fn register_with_ty(&mut self, registrator: &mut Registrator) -> Result<(), Error> {
+    fn register_with_ty(&mut self, registrator: &mut Registrator) -> Result<()> {
         registrator.register_ty::<Self>();
 
         self.register(registrator)
@@ -107,7 +105,7 @@ pub trait DependencyResolver {
     /// Check that some types (not registered by the current type) are actually being used if necessary.
     /// Some objects are interdependent, so we can make sure one of the objects involved actually registered
     /// the metadata.
-    fn check(&self, _checker: &CompatibilityChecker) -> Result<(), Error> {
+    fn check(&self, _checker: &CompatibilityChecker) -> Result<()> {
         Ok(())
     }
 }
@@ -119,17 +117,17 @@ where
     Head: DependencyResolver,
     Tail: DependencyResolver,
 {
-    fn register(&mut self, registrator: &mut Registrator) -> Result<(), Error> {
+    fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
         self.0.register(registrator)?;
         self.1.register(registrator)
     }
 
-    fn register_with_ty(&mut self, registrator: &mut Registrator) -> Result<(), Error> {
+    fn register_with_ty(&mut self, registrator: &mut Registrator) -> Result<()> {
         self.0.register_with_ty(registrator)?;
         self.1.register_with_ty(registrator)
     }
 
-    fn check(&self, checker: &CompatibilityChecker) -> Result<(), Error> {
+    fn check(&self, checker: &CompatibilityChecker) -> Result<()> {
         self.0.check(checker)?;
         self.1.check(checker)
     }
