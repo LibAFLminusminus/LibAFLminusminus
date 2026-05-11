@@ -24,11 +24,12 @@ use libafl_bolts::{
     tuples::{MatchNameRef, RefIndexable},
 };
 use libafl_core::forkserver::{
-    AFL_GCC_ONLY_FSRV_VAR, AFL_LLVM_ONLY_FSRV_VAR, AFL_MAP_SIZE_ENV_VAR, FS_NEW_ERROR,
-    FS_NEW_OPT_AUTODTCT, FS_NEW_OPT_MAPSIZE, FS_NEW_OPT_SHDMEM_FUZZ, FS_NEW_VERSION_MAGIC_BASE,
-    FS_NEW_VERSION_MAGIC_MAX, FS_NEW_VERSION_MAX, FS_NEW_VERSION_MIN, MAX_INPUT_SIZE_DEFAULT,
-    MIN_INPUT_SIZE_DEFAULT, SHM_ENV_VAR, SHM_FUZZ_ENV_VAR, SHM_FUZZ_MAP_SIZE_ENV_VAR,
-    SHMEM_FUZZ_HDR_SIZE,
+    AFL_GCC_ONLY_FSRV_VAR, AFL_LLVM_ONLY_FSRV_VAR, AFL_MAP_SIZE_ENV_VAR, FS_ERROR_MAP_ADDR,
+    FS_ERROR_MAP_SIZE, FS_ERROR_MMAP, FS_ERROR_OLD_CMPLOG, FS_ERROR_OLD_CMPLOG_QEMU,
+    FS_ERROR_SHM_OPEN, FS_ERROR_SHMAT, FS_NEW_ERROR, FS_NEW_OPT_AUTODTCT, FS_NEW_OPT_MAPSIZE,
+    FS_NEW_OPT_SHDMEM_FUZZ, FS_NEW_VERSION_MAGIC_BASE, FS_NEW_VERSION_MAX, FS_NEW_VERSION_MIN,
+    MAX_INPUT_SIZE_DEFAULT, MIN_INPUT_SIZE_DEFAULT, SHM_ENV_VAR, SHM_FUZZ_ENV_VAR,
+    SHM_FUZZ_MAP_SIZE_ENV_VAR, SHMEM_FUZZ_HDR_SIZE,
 };
 use nix::{
     sys::{
@@ -50,10 +51,11 @@ use crate::{
     observers::{MapObserver, ObserversTuple},
     runtimes::RuntimeHandle,
     states::{FlatState, HasContext, HasCorpus},
+    Result,
 };
 
 pub mod config;
-pub use config::*;
+pub(crate) use config::Config;
 
 type ForkserverShmSize = u32;
 type ForkserverShm = SysVShm<ForkserverShmSize>;
@@ -63,7 +65,8 @@ const_assert_eq!(size_of::<ForkserverShmSize>(), SHMEM_FUZZ_HDR_SIZE);
 /// Forkserver message. We'll reuse it in a testcase.
 const FAILED_TO_START_FORKSERVER_MSG: &str = "Failed to start forkserver";
 
-fn report_error_and_exit(status: i32) -> Result<(), Error> {
+#[allow(non_snake_case)]
+fn report_error_and_exit(status: i32) -> Result<()> {
     /* Report on the error received via the forkserver controller and exit */
     match status {
         FS_ERROR_MAP_SIZE => Err(Error::unknown(format!(
@@ -152,10 +155,6 @@ impl Drop for Forkserver {
     }
 }
 
-const fn fs_opt_get_mapsize(x: i32) -> i32 {
-    ((x & 0x00fffffe) >> 1) + 1
-}
-
 struct ForkserverSpawnConfig {
     target: OsString,
     args: Vec<OsString>,
@@ -180,7 +179,7 @@ impl Forkserver {
     /// Create a new [`Forkserver`] that will kill child processes
     /// with the given `kill_signal`.
     /// Using `Forkserver::new(..)` will default to [`Signal::SIGTERM`].
-    fn new(cfg: ForkserverSpawnConfig) -> Result<Self, Error> {
+    fn new(cfg: ForkserverSpawnConfig) -> Result<Self> {
         let ForkserverSpawnConfig {
             target,
             args,
@@ -375,7 +374,7 @@ impl Forkserver {
     }
 
     /// Read from the st pipe
-    pub fn read_st(&mut self) -> Result<i32, Error> {
+    pub fn read_st(&mut self) -> Result<i32> {
         let mut buf: [u8; 4] = [0_u8; 4];
         let rlen = self.st_pipe.read(&mut buf)?;
         if rlen == size_of::<i32>() {
@@ -392,14 +391,14 @@ impl Forkserver {
     }
 
     /// Read bytes of any length from the st pipe
-    pub fn read_st_of_len(&mut self, size: usize) -> Result<Vec<u8>, Error> {
+    pub fn read_st_of_len(&mut self, size: usize) -> Result<Vec<u8>> {
         let mut buf = vec![0u8; size];
         self.st_pipe.read_exact(&mut buf)?;
         Ok(buf)
     }
 
     /// Write to the ctl pipe
-    pub fn write_ctl(&mut self, val: i32) -> Result<(), Error> {
+    pub fn write_ctl(&mut self, val: i32) -> Result<()> {
         let slen = self.ctl_pipe.write(&val.to_ne_bytes())?;
         if slen == size_of::<i32>() {
             Ok(())
@@ -415,7 +414,7 @@ impl Forkserver {
     }
 
     /// Read a message from the child process.
-    pub fn read_st_timed(&mut self, timeout: &TimeSpec) -> Result<Option<i32>, Error> {
+    pub fn read_st_timed(&mut self, timeout: &TimeSpec) -> Result<Option<i32>> {
         let mut buf: [u8; 4] = [0_u8; 4];
         let Some(st_read) = self.st_pipe.read_end() else {
             return Err(Error::os_error(
@@ -502,8 +501,7 @@ impl ForkserverExecutor<()> {
 }
 
 impl<OT> ForkserverExecutor<OT> {
-    fn map_input_to_shmem(&mut self, input: &[u8], input_size: usize) -> Result<(), Error> {
-        let input_size_in_bytes = input_size.to_ne_bytes();
+    fn map_input_to_shmem(&mut self, input: &[u8], input_size: usize) -> Result<()> {
         if self.uses_shmem_testcase {
             debug_assert!(
                 self.map.is_some(),
@@ -515,7 +513,7 @@ impl<OT> ForkserverExecutor<OT> {
                     .as_mut()
                     .unwrap_unchecked()
                     .shm_mut()
-                    .write(&input[..input_size]);
+                    .write(&input[..input_size])?;
             }
         } else {
             self.input_file.write_buf(&input[..input_size])?;
@@ -525,7 +523,7 @@ impl<OT> ForkserverExecutor<OT> {
 
     /// Execute input, but side-step the execution counter.
     #[inline]
-    fn execute_input(&mut self, input: &[u8]) -> Result<ExitKind, Error> {
+    fn execute_input(&mut self, input: &[u8]) -> Result<ExitKind> {
         let mut exit_kind = ExitKind::Ok;
         let last_run_timed_out = self.forkserver.last_run_timed_out_raw();
 
@@ -607,18 +605,18 @@ where
 
     fn init<W: crate::Worker>(
         &mut self,
-        state: &mut S,
-        rt_handle: &mut RuntimeHandle<S, W>,
-    ) -> Result<(), Error> {
+        _state: &mut S,
+        _rt_handle: &mut RuntimeHandle<S, W>,
+    ) -> Result<()> {
         Ok(())
     }
 
     fn execute<W: crate::Worker>(
         &mut self,
         state: &mut S,
-        rt_handle: &mut RuntimeHandle<S, W>,
+        _rt_handle: &mut RuntimeHandle<S, W>,
         input: &I,
-    ) -> Result<ExitKind, Error> {
+    ) -> Result<ExitKind> {
         state.increment_execs();
 
         self.observers_mut().pre_exec_all(state)?;
@@ -631,7 +629,7 @@ where
     }
 
     #[inline]
-    unsafe fn execute_impl(&mut self, state: &mut S, input: &I) -> Result<ExitKind, Error> {
+    unsafe fn execute_impl(&mut self, state: &mut S, input: &I) -> Result<ExitKind> {
         let context = state.context_mut();
         let bytes = context.to_bytes(input);
         let exit = self.execute_input(&bytes)?;
@@ -651,7 +649,7 @@ impl<OT> DependencyResolver for ForkserverExecutor<OT>
 where
     OT: DependencyResolver,
 {
-    fn register_with_ty(&mut self, registrator: &mut crate::Registrator) -> Result<(), Error> {
+    fn register_with_ty(&mut self, registrator: &mut crate::Registrator) -> Result<()> {
         registrator.register_ty::<Self>();
 
         self.register(registrator)?;
@@ -702,6 +700,8 @@ impl<'a> StdTargetArgs for ForkserverExecutorBuilder<'a> {
     }
 }
 
+/// The "built" [`Forkserver`] that has completed the initial handshake and is ready to run.
+#[derive(Debug)]
 pub struct BuiltForkserver {
     forkserver: Forkserver,
     input_file: InputFile,
@@ -717,13 +717,13 @@ pub struct BuiltForkserver {
 }
 
 impl<'a> ForkserverExecutorBuilder<'a> {
-    /// Builds `ForkserverExecutor`.
-    /// This Forkserver will attempt to provide inputs over shared mem when `shmem_provider` is given.
+    /// Builds [`ForkserverExecutor`].
+    /// This Forkserver will attempt to provide inputs over shared mem when [`Self::try_use_input_shmem`] is used.
     /// Else this forkserver will pass the input to the target via `stdin`
     /// in case no input file is specified.
     /// If `debug_child` is set, the child will print to `stdout`/`stderr`.
     #[expect(clippy::pedantic)]
-    pub fn build<OT>(mut self, observers: OT) -> Result<ForkserverExecutor<OT>, Error>
+    pub fn build<OT>(mut self, observers: OT) -> Result<ForkserverExecutor<OT>>
     where
         OT: MatchNameRef,
     {
@@ -734,13 +734,13 @@ impl<'a> ForkserverExecutorBuilder<'a> {
         })
     }
 
-    /// Builds `ForkserverExecutor` downsizing the coverage map to fit exactly the AFL++ map size.
+    /// Builds [`ForkserverExecutor`] downsizing the coverage map to fit exactly the AFL++ map size.
     #[expect(clippy::pedantic)]
     pub fn build_dynamic_map<A, MO, OT, S>(
         mut self,
         mut map_observer: A,
         other_observers: OT,
-    ) -> Result<ForkserverExecutor<(A, OT)>, Error>
+    ) -> Result<ForkserverExecutor<(A, OT)>>
     where
         A: AsMut<MO>,
         MO: MapObserver + Truncate,
@@ -774,7 +774,7 @@ impl<'a> ForkserverExecutorBuilder<'a> {
     }
 
     #[expect(clippy::pedantic)]
-    fn build_forkserver<OT>(&mut self, obs: &OT) -> Result<BuiltForkserver, Error>
+    fn build_forkserver<OT>(&mut self, obs: &OT) -> Result<BuiltForkserver>
     where
         OT: MatchNameRef,
     {
@@ -887,11 +887,6 @@ impl<'a> ForkserverExecutorBuilder<'a> {
         })
     }
 
-    fn is_old_forkserver(version_status: i32) -> bool {
-        let v = version_status as u32;
-        !(FS_NEW_VERSION_MAGIC_BASE..=FS_NEW_VERSION_MAGIC_MAX).contains(&v)
-    }
-
     /// Intialize forkserver > v4.20c
     #[expect(clippy::cast_possible_wrap)]
     #[expect(clippy::cast_sign_loss)]
@@ -900,7 +895,7 @@ impl<'a> ForkserverExecutorBuilder<'a> {
         status: i32,
         input_map_allocated: bool,
         forkserver: &mut Forkserver,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         let initial_status = status;
         let version: u32 = status as u32 - FS_NEW_VERSION_MAGIC_BASE;
         match version {
@@ -991,7 +986,7 @@ impl<'a> ForkserverExecutorBuilder<'a> {
     }
 
     #[expect(clippy::cast_sign_loss)]
-    fn set_map_size(&mut self, fsrv_map_size: i32) -> Result<usize, Error> {
+    fn set_map_size(&mut self, fsrv_map_size: i32) -> Result<usize> {
         // When 0, we assume that map_size was filled by the user or const
         /* TODO autofill map size from the observer
 
@@ -1075,7 +1070,7 @@ impl<'a> ForkserverExecutorBuilder<'a> {
         self
     }
 
-    /// Call this to set a defauult const coverage map size
+    /// Call this to set a default const coverage map size
     #[must_use]
     pub fn coverage_map_size(mut self, size: usize) -> Self {
         self.map_size = Some(size);
@@ -1090,7 +1085,8 @@ impl<'a> ForkserverExecutorBuilder<'a> {
     }
 
     #[must_use]
-    pub fn try_use_input_shmem(mut self, try_use_input_shmem: bool) -> Self {
+    /// Raise the flag to indicate that we use shmem for passing the input over
+    pub fn try_use_input_shmem(mut self) -> Self {
         self.try_use_input_shmem = true;
         self
     }

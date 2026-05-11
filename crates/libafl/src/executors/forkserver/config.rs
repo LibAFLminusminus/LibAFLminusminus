@@ -1,3 +1,5 @@
+//! The command wrapper for properly setting up the forkserver.
+
 use std::os::{
     fd::{BorrowedFd, FromRawFd, OwnedFd},
     unix::process::CommandExt,
