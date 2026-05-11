@@ -1,22 +1,16 @@
 //! An on-disk store
 
-use alloc::{rc::Rc, string::String};
-use core::{cell::RefCell, marker::PhantomData};
-use std::{
-    fs, io,
-    path::{Path, PathBuf},
-    string::ToString,
-};
-
-use libafl_bolts::Error;
-use libafl_core::illegal_argument;
-use serde::{Deserialize, Serialize};
-
 use super::{InMemoryCorpusMap, Store};
 use crate::{
     corpus::{Testcase, TestcaseFilenameFormat, store::StorageResult, testcase::TestcaseId},
     inputs::Input,
 };
+use alloc::rc::Rc;
+use core::marker::PhantomData;
+use libafl_bolts::Error;
+use libafl_core::{Result, illegal_argument};
+use serde::{Deserialize, Serialize};
+use std::path::{Path, PathBuf};
 
 /// An on-disk store
 ///
@@ -49,29 +43,9 @@ pub struct DiskMgr<I> {
     phantom: PhantomData<I>,
 }
 
-/// An on-disk [`Testcase`] cell.
-#[derive(Debug)]
-pub struct OnDiskTestcaseCell<I> {
-    mgr: Rc<DiskMgr<I>>,
-    id: String,
-    modified: RefCell<bool>,
-}
-
-impl<I> OnDiskTestcaseCell<I> {
-    /// Get a new [`OnDiskTestcaseCell`].
-    #[must_use]
-    pub fn new(mgr: Rc<DiskMgr<I>>, id: String) -> Self {
-        Self {
-            mgr,
-            id,
-            modified: RefCell::new(false),
-        }
-    }
-}
-
 impl<I> DiskMgr<I> {
     /// Create a new [`DiskMgr`]
-    pub fn new<P: AsRef<Path>>(root_dir: P) -> Result<Self, Error> {
+    pub fn new<P: AsRef<Path>>(root_dir: P) -> Result<Self> {
         Self::new_with_format(root_dir, TestcaseFilenameFormat::default())
     }
 
@@ -79,7 +53,7 @@ impl<I> DiskMgr<I> {
     pub fn new_with_format<P: AsRef<Path>>(
         root_dir: P,
         file_fmt: TestcaseFilenameFormat,
-    ) -> Result<Self, Error> {
+    ) -> Result<Self> {
         let dir = root_dir.as_ref();
 
         if !dir.is_dir() {
@@ -119,7 +93,7 @@ where
     I: Input,
 {
     /// Save the input and the metadata on disk
-    pub fn save_testcase(&self, testcase: Testcase<I>) -> Result<TestcaseId, Error> {
+    pub fn save_testcase(&self, testcase: Testcase<I>) -> Result<TestcaseId> {
         let testcase_id = *testcase.id();
         let testcase_path = self.testcase_path(&testcase_id);
 
@@ -132,7 +106,7 @@ where
     ///
     /// prerequisite: the testcase should not have been "removed" before.
     /// also, it should only happen if it has been saved before.
-    pub fn load_testcase(self: &Rc<Self>, testcase_id: &TestcaseId) -> Result<Testcase<I>, Error> {
+    pub fn load_testcase(self: &Rc<Self>, testcase_id: &TestcaseId) -> Result<Testcase<I>> {
         // let testcase_md_path = self.as_ref().testcase_md_path(testcase_id);
         // let ser_fmt = self.md_format.clone();
         // let md = ser_fmt.from_file(testcase_md_path.as_path())?;
@@ -162,10 +136,7 @@ where
     M: Default,
 {
     /// Create a new [`OnDiskStore`]
-    pub fn new<P: AsRef<Path>>(
-        root: P,
-        filename_format: TestcaseFilenameFormat,
-    ) -> Result<Self, Error> {
+    pub fn new<P: AsRef<Path>>(root: P, filename_format: TestcaseFilenameFormat) -> Result<Self> {
         let disk_mgr = Rc::new(DiskMgr::new(root)?);
 
         Ok(Self {
@@ -198,10 +169,7 @@ where
         self.disabled_map.count()
     }
 
-    fn add_shared<const ENABLED: bool>(
-        &mut self,
-        testcase: Testcase<I>,
-    ) -> Result<StorageResult, Error> {
+    fn add_shared<const ENABLED: bool>(&mut self, testcase: Testcase<I>) -> Result<StorageResult> {
         let testcase_id = *testcase.id();
 
         let is_present = if ENABLED {
@@ -220,7 +188,7 @@ where
         Ok(res)
     }
 
-    fn get_from<const ENABLED: bool>(&self, id: &TestcaseId) -> Result<Testcase<I>, Error> {
+    fn get_from<const ENABLED: bool>(&self, id: &TestcaseId) -> Result<Testcase<I>> {
         let tc_id = if ENABLED {
             self.enabled_map
                 .get(id)
@@ -235,7 +203,7 @@ where
         self.disk_mgr.load_testcase(tc_id)
     }
 
-    fn disable(&mut self, id: &TestcaseId) -> Result<(), Error> {
+    fn disable(&mut self, id: &TestcaseId) -> Result<()> {
         let tc = self
             .enabled_map
             .remove(id)
@@ -266,7 +234,7 @@ impl OnDiskStoreBuilder {
 
     /// Build an [`OnDiskStore`].
     /// The root directory must be set.
-    pub fn build<I, M>(&self) -> Result<OnDiskStore<I, M>, Error>
+    pub fn build<I, M>(&self) -> Result<OnDiskStore<I, M>>
     where
         M: Default,
     {

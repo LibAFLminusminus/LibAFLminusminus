@@ -1,15 +1,13 @@
 //! The null corpus does not store any [`Testcase`]s.
 
-use alloc::rc::Rc;
-use core::marker::PhantomData;
-
-use serde::{Deserialize, Serialize};
-
 use crate::{
     DependencyResolver, Error,
     corpus::{Corpus, HasScheduler, Testcase, TestcaseId, schedulers::NopScheduler},
     inputs::NopContext,
 };
+use core::marker::PhantomData;
+use libafl_core::Result;
+use serde::{Deserialize, Serialize};
 
 /// A corpus which does not store any [`Testcase`]s.
 #[derive(Serialize, Deserialize, Debug)]
@@ -51,14 +49,11 @@ impl<I, S> Corpus<I> for NopCorpus<I, S> {
 
     /// Add an enabled testcase to the corpus and return its index
     #[inline]
-    fn add_shared<const ENABLED: bool>(
-        &mut self,
-        _testcase: Testcase<I>,
-    ) -> Result<TestcaseId, Error> {
+    fn add_shared<const ENABLED: bool>(&mut self, _testcase: Testcase<I>) -> Result<TestcaseId> {
         Err(Error::unsupported("Unsupported by NopCorpus"))
     }
 
-    fn get_from<const ENABLED: bool>(&self, _id: &TestcaseId) -> Result<Testcase<I>, Error> {
+    fn get_from<const ENABLED: bool>(&self, _id: &TestcaseId) -> Result<Testcase<I>> {
         Err(Error::unsupported("Unsupported by NopCorpus"))
     }
 }

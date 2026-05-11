@@ -1,14 +1,11 @@
 //! The [`Testcase`] is a struct embedded in each [`Corpus`].
 //! It will contain a respective input, and metadata.
 
+use crate::inputs::Input;
 use alloc::{rc::Rc, string::String};
 use core::{borrow::Borrow, fmt::Debug, hash::Hasher};
-use std::string::ToString;
-
 use libafl_bolts::{HasLen, hasher_std};
 use serde::{Deserialize, Serialize};
-
-use crate::inputs::Input;
 
 /// Indicates how a [`Testcase`] should be named on-disk.
 #[derive(Default, Clone, Serialize, Deserialize, Debug)]
@@ -22,10 +19,15 @@ pub enum TestcaseFilenameFormat {
     Custom(String),
 }
 
+/// A [`Testcase`] identifier.
+///
+/// It falls back to a 64-bits integer, so its use is very lightweight.
+/// Prefer using this over storing a whole [`Testcase`].
 #[derive(Serialize, Deserialize, Hash, Clone, Copy, Debug, PartialEq, Eq, Ord, PartialOrd)]
 pub struct TestcaseId(pub u64);
 
 impl TestcaseId {
+    /// Default file name for a [`Testcase`].
     pub fn default_filename(&self) -> String {
         format!("{:016x}", self.0)
     }
@@ -51,6 +53,7 @@ pub struct Testcase<I> {
 }
 
 impl TestcaseFilenameFormat {
+    /// Get the actual file name as a [`String`].
     pub fn to_filename(&self, id: &TestcaseId) -> String {
         match self {
             TestcaseFilenameFormat::Id => id.default_filename(),
@@ -84,6 +87,7 @@ impl<I> Testcase<I> {
         &self.id
     }
 
+    /// Set the file name according to the `fmt`.
     pub fn set_filename_fmt(&mut self, fmt: TestcaseFilenameFormat) {
         self.filename_fmt = fmt;
     }
@@ -114,6 +118,7 @@ where
         }
     }
 
+    /// Create a new [`Testcase`] from an [`Input`] reference with the given file name.
     pub fn with_filename(input: Rc<I>, filename: String) -> Self {
         let mut tc = Self::new(input);
 

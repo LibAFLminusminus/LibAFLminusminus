@@ -2,21 +2,20 @@
 //!
 //! A [`SingleCorpus`] owns a single store, in which every testcase is added.
 
-use alloc::{rc::Rc, vec::Vec};
-use core::marker::PhantomData;
-
-use libafl_bolts::Error;
-use serde::{Deserialize, Serialize};
-
 use super::{Corpus, Testcase, store::Store};
 use crate::{
     DependencyResolver,
     corpus::{
-        Scheduler, schedulers::RemovableScheduler, store::StorageResult, testcase::TestcaseId,
+        DisableEntry, Scheduler, schedulers::RemovableScheduler, store::StorageResult,
+        testcase::TestcaseId,
     },
-    inputs::{Input, InputContext},
+    inputs::Input,
     states::HasScheduler,
 };
+use alloc::vec::Vec;
+use core::marker::PhantomData;
+use libafl_core::Result;
+use serde::{Deserialize, Serialize};
 
 /// You average corpus.
 /// It has one backing store, used to store / retrieve testcases.
@@ -44,11 +43,6 @@ impl<I, S, SC> SingleCorpus<I, S, SC> {
             phantom: PhantomData,
         }
     }
-}
-
-pub trait DisableEntry {
-    /// Disable a corpus entry
-    fn disable(&mut self, id: &TestcaseId) -> Result<(), Error>;
 }
 
 impl<I, S, SC> DependencyResolver for SingleCorpus<I, S, SC> {}
@@ -86,10 +80,7 @@ where
         self.store.count_all()
     }
 
-    fn add_shared<const ENABLED: bool>(
-        &mut self,
-        testcase: Testcase<I>,
-    ) -> Result<TestcaseId, Error> {
+    fn add_shared<const ENABLED: bool>(&mut self, testcase: Testcase<I>) -> Result<TestcaseId> {
         let id = match self.store.add_shared::<ENABLED>(testcase)? {
             StorageResult::Stored(id) => {
                 self.scheduler.on_add(id)?;
@@ -102,7 +93,7 @@ where
     }
 
     /// Get testcase by id
-    fn get_from<const ENABLED: bool>(&self, id: &TestcaseId) -> Result<Testcase<I>, Error> {
+    fn get_from<const ENABLED: bool>(&self, id: &TestcaseId) -> Result<Testcase<I>> {
         self.store.get_from::<ENABLED>(id)
     }
 }
@@ -112,7 +103,7 @@ where
     S: Store<I>,
     SC: RemovableScheduler<I, S>,
 {
-    fn disable(&mut self, id: &TestcaseId) -> Result<(), Error> {
+    fn disable(&mut self, id: &TestcaseId) -> Result<()> {
         self.store.disable(id)
     }
 }

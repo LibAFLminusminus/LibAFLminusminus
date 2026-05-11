@@ -5,20 +5,18 @@
 //!     - a **cache store** holding on the testcases with quick access.
 //!     - a **backing store** with more expensive access, used when the testcase cannot be found in the cache store.
 
-use alloc::{collections::VecDeque, rc::Rc, vec::Vec};
-use core::{cell::RefCell, marker::PhantomData};
-
-use libafl_bolts::Error;
-use serde::{Deserialize, Serialize};
-
 use crate::{
     corpus::{
         Testcase, TestcaseId,
-        maps::InMemoryCorpusMap,
         store::{RemovableStore, StorageResult, Store},
     },
     inputs::Input,
 };
+use alloc::collections::VecDeque;
+use core::marker::PhantomData;
+use libafl_bolts::Error;
+use libafl_core::Result;
+use serde::{Deserialize, Serialize};
 
 /// A cache, managing a cache store and a fallback store.
 pub trait Cache<CS, FS, I> {
@@ -28,7 +26,7 @@ pub trait Cache<CS, FS, I> {
         testcase: Testcase<I>,
         cache_store: &mut CS,
         fallback_store: &mut FS,
-    ) -> Result<StorageResult, Error>;
+    ) -> Result<StorageResult>;
 
     /// Get a testcase from the cache
     fn get_from<const ENABLED: bool>(
@@ -36,7 +34,7 @@ pub trait Cache<CS, FS, I> {
         id: &TestcaseId,
         cache_store: &mut CS,
         fallback_store: &FS,
-    ) -> Result<Testcase<I>, Error>;
+    ) -> Result<Testcase<I>>;
 
     /// Disable an entry
     fn disable(
@@ -44,7 +42,7 @@ pub trait Cache<CS, FS, I> {
         id: &TestcaseId,
         cache_store: &mut CS,
         fallback_store: &mut FS,
-    ) -> Result<(), Error>;
+    ) -> Result<()>;
 }
 
 /// An identity cache, storing everything both in the cache and the backing store.
@@ -82,7 +80,7 @@ where
         testcase: Testcase<I>,
         cache_store: &mut CS,
         fallback_store: &mut FS,
-    ) -> Result<StorageResult, Error> {
+    ) -> Result<StorageResult> {
         cache_store.add_shared::<ENABLED>(testcase.clone())?;
         fallback_store.add_shared::<ENABLED>(testcase)
     }
@@ -92,7 +90,7 @@ where
         id: &TestcaseId,
         cache_store: &mut CS,
         fallback_store: &FS,
-    ) -> Result<Testcase<I>, Error> {
+    ) -> Result<Testcase<I>> {
         match cache_store.get(id) {
             Ok(tc) => Ok(tc),
             Err(Error::KeyNotFound(_, _)) => {
@@ -109,7 +107,7 @@ where
         id: &TestcaseId,
         cache_store: &mut CS,
         fallback_store: &mut FS,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         cache_store.disable(id)?;
         fallback_store.disable(id)
     }
@@ -126,7 +124,7 @@ where
         testcase: Testcase<I>,
         _cache_store: &mut CS,
         fallback_store: &mut FS,
-    ) -> Result<StorageResult, Error> {
+    ) -> Result<StorageResult> {
         fallback_store.add_shared::<ENABLED>(testcase)
     }
 
@@ -135,7 +133,7 @@ where
         id: &TestcaseId,
         cache_store: &mut CS,
         fallback_store: &FS,
-    ) -> Result<Testcase<I>, Error> {
+    ) -> Result<Testcase<I>> {
         if self.cached_ids.contains(&id) {
             cache_store.get(id)
         } else {
@@ -163,7 +161,7 @@ where
         id: &TestcaseId,
         cache_store: &mut CS,
         fallback_store: &mut FS,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         cache_store.disable(id)?;
         fallback_store.disable(id)
     }

@@ -1,11 +1,10 @@
 //! Corpuses contain the testcases, either in memory, on disk, or somewhere else.
 
-use alloc::rc::Rc;
-use core::{fmt, marker::PhantomData, num::NonZero};
-
-use crate::{DependencyResolver, Error, inputs::InputContext, states::HasScheduler};
+use crate::{DependencyResolver, states::HasScheduler};
+use core::fmt;
 
 pub mod testcase;
+use libafl_core::Result;
 pub use testcase::{Testcase, TestcaseFilenameFormat, TestcaseId};
 
 pub mod single;
@@ -33,15 +32,6 @@ pub mod combined;
 pub mod cache;
 pub use cache::{Cache, FifoCache, IdentityCache};
 
-/// [`Iterator`] over the ids of a [`Corpus`]
-#[derive(Debug)]
-pub struct TestcaseIdIterator<'a, C, I> {
-    corpus: &'a C,
-    cur: Option<TestcaseId>,
-    cur_back: Option<TestcaseId>,
-    phantom: PhantomData<I>,
-}
-
 /// Corpus with all current [`Testcase`]s, or solutions
 pub trait Corpus<I>: HasScheduler + Sized + DependencyResolver {
     /// Returns the number of all enabled entries
@@ -63,7 +53,7 @@ pub trait Corpus<I>: HasScheduler + Sized + DependencyResolver {
     /// The corpus is responsible to handle that case without erroring out.
     ///
     /// The default [`TestcaseMetadata`] will be instantiated.
-    fn add(&mut self, testcase: Testcase<I>) -> Result<TestcaseId, Error> {
+    fn add(&mut self, testcase: Testcase<I>) -> Result<TestcaseId> {
         self.add_shared::<true>(testcase)
     }
 
@@ -72,7 +62,7 @@ pub trait Corpus<I>: HasScheduler + Sized + DependencyResolver {
     /// The corpus is responsible to handle that case without erroring out.
     ///
     /// The default [`TestcaseMetadata`] will be instantiated.
-    fn add_disabled(&mut self, testcase: Testcase<I>) -> Result<TestcaseId, Error> {
+    fn add_disabled(&mut self, testcase: Testcase<I>) -> Result<TestcaseId> {
         self.add_shared::<false>(testcase)
     }
 
@@ -82,32 +72,35 @@ pub trait Corpus<I>: HasScheduler + Sized + DependencyResolver {
     /// The corpus is responsible to handle that case without erroring out.
     ///
     /// The input can be shared through [`Rc`].
-    fn add_shared<const ENABLED: bool>(
-        &mut self,
-        testcase: Testcase<I>,
-    ) -> Result<TestcaseId, Error>;
+    fn add_shared<const ENABLED: bool>(&mut self, testcase: Testcase<I>) -> Result<TestcaseId>;
 
     /// Get testcase by id; considers only enabled testcases
-    fn get(&self, id: &TestcaseId) -> Result<Testcase<I>, Error> {
+    fn get(&self, id: &TestcaseId) -> Result<Testcase<I>> {
         Self::get_from::<true>(self, id)
     }
 
     /// Get testcase by id, looking at the enabled and disabled stores.
-    fn get_from_all(&self, id: &TestcaseId) -> Result<Testcase<I>, Error> {
+    fn get_from_all(&self, id: &TestcaseId) -> Result<Testcase<I>> {
         Self::get_from::<false>(self, id)
     }
 
     /// Get testcase by id
-    fn get_from<const ENABLED: bool>(&self, id: &TestcaseId) -> Result<Testcase<I>, Error>;
+    fn get_from<const ENABLED: bool>(&self, id: &TestcaseId) -> Result<Testcase<I>>;
+}
+
+/// Trait implemented by [`Corpus`]es able to disable an entry.
+pub trait DisableEntry {
+    /// Disable a corpus entry from its [`TestcaseId`].
+    fn disable(&mut self, id: &TestcaseId) -> Result<()>;
 }
 
 /// Marker trait for corpus implementations that actually support enable/disable functionality
 pub trait EnableDisableCorpus {
     /// Disables a testcase, moving it to the disabled map
-    fn disable(&mut self, id: TestcaseId) -> Result<(), Error>;
+    fn disable(&mut self, id: TestcaseId) -> Result<()>;
 
     /// Enables a testcase, moving it to the enabled map
-    fn enable(&mut self, id: TestcaseId) -> Result<(), Error>;
+    fn enable(&mut self, id: TestcaseId) -> Result<()>;
 }
 
 impl fmt::Display for TestcaseId {

@@ -4,11 +4,8 @@ use alloc::borrow::ToOwned;
 use core::fmt::Debug;
 use std::vec::Vec;
 
-use libafl_bolts::{
-    rands::{Rand, StdRand},
-    tuples::MatchName,
-};
-use libafl_core::non_zero;
+use libafl_bolts::rands::{Rand, StdRand};
+use libafl_core::{Result, non_zero};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -24,28 +21,15 @@ pub use queue::QueueScheduler;
 pub trait Scheduler: DependencyResolver {
     /// Called when a [`Testcase`] is added to the corpus
     /// You need to keep a vector of all the ids in your scheduler when you add a testcase to the corpus and schedulers
-    fn on_add(&mut self, _id: TestcaseId) -> Result<(), Error>;
-    // Add parent_id here if it has no inner
+    fn on_add(&mut self, _id: TestcaseId) -> Result<()>;
 
-    // TODO: is this useful?
-    // /// An input has been evaluated
-    // fn on_evaluation<OT>(
-    //     &mut self,
-    //     _observers: &OT,
-    // ) -> Result<(), Error>
-    // where
-    //     OT: MatchName,
-    // {
-    //     Ok(())
-    // }
-
-    // Get the current input
+    /// Get the [`TestcaseId`] of the input currently scheduled.
     fn current(&self) -> Option<TestcaseId>;
 
-    /// Gets the next entry
-    fn next(&mut self) -> Result<TestcaseId, Error>;
+    /// Gets the [`TestcaseId`] of the next input to schedule.
+    fn next(&mut self) -> Result<TestcaseId>;
 
-    /// Returns all [`TestcaseId`]s tracked by this scheduler
+    /// Returns all [`TestcaseId`]s tracked by this scheduler.
     fn ids(&self) -> &[TestcaseId];
 }
 
@@ -53,12 +37,12 @@ pub trait Scheduler: DependencyResolver {
 pub trait RemovableScheduler<I, S> {
     /// Removed the given entry from the corpus at the given index
     /// When you remove testcases, make sure that that testcase is not currently fuzzed one!
-    fn on_remove(&mut self, _id: TestcaseId, _testcase: &Option<Testcase<I>>) -> Result<(), Error> {
+    fn on_remove(&mut self, _id: TestcaseId, _testcase: &Option<Testcase<I>>) -> Result<()> {
         Ok(())
     }
 
     /// Replaced the given testcase at the given idx
-    fn on_replace(&mut self, _id: TestcaseId, _prev: &Testcase<I>) -> Result<(), Error> {
+    fn on_replace(&mut self, _id: TestcaseId, _prev: &Testcase<I>) -> Result<()> {
         Ok(())
     }
 }
@@ -77,7 +61,7 @@ impl<R> Scheduler for RandScheduler<R>
 where
     R: Rand,
 {
-    fn on_add(&mut self, id: TestcaseId) -> Result<(), Error> {
+    fn on_add(&mut self, id: TestcaseId) -> Result<()> {
         self.ids.push(id);
         Ok(())
     }
@@ -87,7 +71,7 @@ where
     }
 
     /// Gets the next entry at random
-    fn next(&mut self) -> Result<TestcaseId, Error> {
+    fn next(&mut self) -> Result<TestcaseId> {
         if self.ids.is_empty() {
             Err(Error::empty(
                 "No entries in corpus. This often implies the target is not properly instrumented."
@@ -128,13 +112,14 @@ impl<R> RandScheduler<R> {
 /// The current `Std` is a [`RandScheduler`], although this may change in the future, if another [`Scheduler`] delivers better results.
 pub type StdScheduler = RandScheduler<StdRand>;
 
+/// A nop [`Scheduler`], which does not schedule anything.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct NopScheduler;
 
 impl DependencyResolver for NopScheduler {}
 
 impl Scheduler for NopScheduler {
-    fn on_add(&mut self, _id: TestcaseId) -> Result<(), Error> {
+    fn on_add(&mut self, _id: TestcaseId) -> Result<()> {
         Ok(())
     }
 
@@ -142,7 +127,7 @@ impl Scheduler for NopScheduler {
         None
     }
 
-    fn next(&mut self) -> Result<TestcaseId, Error> {
+    fn next(&mut self) -> Result<TestcaseId> {
         panic!("NopScheduler does not schedule")
     }
 
