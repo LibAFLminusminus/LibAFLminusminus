@@ -1,28 +1,28 @@
 //! The feedbacks reduce observer state after each run to a single `is_interesting`-value.
 //! If a testcase is interesting, it may be added to a Corpus.
 
-use alloc::borrow::Cow;
-use core::{fmt::Debug, marker::PhantomData};
-
-use libafl_bolts::{
-    Named,
-    tuples::{Handle, Handled, MatchName, MatchNameRef},
-};
-use serde::{Deserialize, Serialize};
-
 use crate::{
     Error,
-    corpus::{Testcase, TestcaseId},
+    corpus::TestcaseId,
     dependency::{DependencyResolver, Registrator},
     executors::ExitKind,
     observers::TimeObserver,
     states::HasTestcase,
 };
+use alloc::borrow::Cow;
+use core::{fmt::Debug, marker::PhantomData};
+use libafl_bolts::{
+    Named,
+    tuples::{Handle, Handled, MatchName, MatchNameRef},
+};
+use libafl_core::Result;
+use serde::{Deserialize, Serialize};
 
 pub mod list;
 pub use list::*;
-pub use map::*;
+
 pub mod map;
+pub use map::*;
 
 /// The module for list feedback
 #[cfg(feature = "nautilus")]
@@ -57,7 +57,7 @@ pub trait Feedback<I, OT, S>: Named + DependencyResolver {
         _input: &I,
         _observers: &OT,
         _exit_kind: &ExitKind,
-    ) -> Result<bool, Error> {
+    ) -> Result<bool> {
         Ok(false)
     }
 
@@ -70,7 +70,7 @@ pub trait Feedback<I, OT, S>: Named + DependencyResolver {
         _state: &mut S,
         _observers: &OT,
         _testcase_id: &TestcaseId,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         Ok(())
     }
 }
@@ -129,7 +129,7 @@ where
     A: DependencyResolver,
     B: DependencyResolver,
 {
-    fn register(&mut self, registrator: &mut Registrator) -> Result<(), Error> {
+    fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
         self.first.register(registrator)?;
         self.second.register(registrator)?;
         Ok(())
@@ -148,7 +148,7 @@ where
         input: &I,
         observers: &OT,
         exit_kind: &ExitKind,
-    ) -> Result<bool, Error> {
+    ) -> Result<bool> {
         FL::is_pair_interesting(
             |state, input, observers, exit_kind| {
                 self.first
@@ -171,7 +171,7 @@ where
         state: &mut S,
         observers: &OT,
         testcase_id: &TestcaseId,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         self.first.append_metadata(state, observers, testcase_id)?;
         self.second.append_metadata(state, observers, testcase_id)
     }
@@ -208,10 +208,10 @@ pub trait FeedbackLogic {
         input: &I,
         observers: &OT,
         exit_kind: &ExitKind,
-    ) -> Result<bool, Error>
+    ) -> Result<bool>
     where
-        F1: FnOnce(&mut S, &I, &OT, &ExitKind) -> Result<bool, Error>,
-        F2: FnOnce(&mut S, &I, &OT, &ExitKind) -> Result<bool, Error>;
+        F1: FnOnce(&mut S, &I, &OT, &ExitKind) -> Result<bool>,
+        F2: FnOnce(&mut S, &I, &OT, &ExitKind) -> Result<bool>;
 }
 
 /// Factory for feedbacks which should be sensitive to an existing context, e.g. observer(s) from a
@@ -256,10 +256,10 @@ impl FeedbackLogic for LogicEagerOr {
         input: &I,
         observers: &OT,
         exit_kind: &ExitKind,
-    ) -> Result<bool, Error>
+    ) -> Result<bool>
     where
-        F1: FnOnce(&mut S, &I, &OT, &ExitKind) -> Result<bool, Error>,
-        F2: FnOnce(&mut S, &I, &OT, &ExitKind) -> Result<bool, Error>,
+        F1: FnOnce(&mut S, &I, &OT, &ExitKind) -> Result<bool>,
+        F2: FnOnce(&mut S, &I, &OT, &ExitKind) -> Result<bool>,
     {
         Ok(
             first(state, input, observers, exit_kind)?
@@ -280,10 +280,10 @@ impl FeedbackLogic for LogicFastOr {
         input: &I,
         observers: &OT,
         exit_kind: &ExitKind,
-    ) -> Result<bool, Error>
+    ) -> Result<bool>
     where
-        F1: FnOnce(&mut S, &I, &OT, &ExitKind) -> Result<bool, Error>,
-        F2: FnOnce(&mut S, &I, &OT, &ExitKind) -> Result<bool, Error>,
+        F1: FnOnce(&mut S, &I, &OT, &ExitKind) -> Result<bool>,
+        F2: FnOnce(&mut S, &I, &OT, &ExitKind) -> Result<bool>,
     {
         let a = first(state, input, observers, exit_kind)?;
         if a {
@@ -306,10 +306,10 @@ impl FeedbackLogic for LogicEagerAnd {
         input: &I,
         observers: &OT,
         exit_kind: &ExitKind,
-    ) -> Result<bool, Error>
+    ) -> Result<bool>
     where
-        F1: FnOnce(&mut S, &I, &OT, &ExitKind) -> Result<bool, Error>,
-        F2: FnOnce(&mut S, &I, &OT, &ExitKind) -> Result<bool, Error>,
+        F1: FnOnce(&mut S, &I, &OT, &ExitKind) -> Result<bool>,
+        F2: FnOnce(&mut S, &I, &OT, &ExitKind) -> Result<bool>,
     {
         Ok(
             first(state, input, observers, exit_kind)?
@@ -330,10 +330,10 @@ impl FeedbackLogic for LogicFastAnd {
         input: &I,
         observers: &OT,
         exit_kind: &ExitKind,
-    ) -> Result<bool, Error>
+    ) -> Result<bool>
     where
-        F1: FnOnce(&mut S, &I, &OT, &ExitKind) -> Result<bool, Error>,
-        F2: FnOnce(&mut S, &I, &OT, &ExitKind) -> Result<bool, Error>,
+        F1: FnOnce(&mut S, &I, &OT, &ExitKind) -> Result<bool>,
+        F2: FnOnce(&mut S, &I, &OT, &ExitKind) -> Result<bool>,
     {
         Ok(first(state, input, observers, exit_kind)?
             && second(state, input, observers, exit_kind)?)
@@ -372,7 +372,7 @@ impl<A> DependencyResolver for NotFeedback<A>
 where
     A: DependencyResolver,
 {
-    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<(), Error> {
+    fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
         self.inner.register(registrator)
     }
 }
@@ -387,7 +387,7 @@ where
         input: &I,
         observers: &OT,
         exit_kind: &ExitKind,
-    ) -> Result<bool, Error> {
+    ) -> Result<bool> {
         Ok(!self
             .inner
             .is_interesting(state, input, observers, exit_kind)?)
@@ -399,7 +399,7 @@ where
         state: &mut S,
         observers: &OT,
         testcase_id: &TestcaseId,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         self.inner.append_metadata(state, observers, testcase_id)
     }
 }
@@ -498,7 +498,7 @@ pub trait ExitKindLogic {
     const NAME: Cow<'static, str>;
 
     /// Check whether the provided [`ExitKind`] is actually interesting
-    fn check_exit_kind(kind: &ExitKind) -> Result<bool, Error>;
+    fn check_exit_kind(kind: &ExitKind) -> Result<bool>;
 }
 /// Name used by `CrashFeedback`
 pub const CRASH_FEEDBACK_NAME: &str = "CrashFeedback";
@@ -509,7 +509,7 @@ pub struct CrashLogic;
 impl ExitKindLogic for CrashLogic {
     const NAME: Cow<'static, str> = Cow::Borrowed(CRASH_FEEDBACK_NAME);
 
-    fn check_exit_kind(kind: &ExitKind) -> Result<bool, Error> {
+    fn check_exit_kind(kind: &ExitKind) -> Result<bool> {
         Ok(matches!(kind, ExitKind::Crash))
     }
 }
@@ -523,7 +523,7 @@ pub struct TimeoutLogic;
 impl ExitKindLogic for TimeoutLogic {
     const NAME: Cow<'static, str> = Cow::Borrowed(TIMEOUT_FEEDBACK_NAME);
 
-    fn check_exit_kind(kind: &ExitKind) -> Result<bool, Error> {
+    fn check_exit_kind(kind: &ExitKind) -> Result<bool> {
         Ok(matches!(kind, ExitKind::Timeout))
     }
 }
@@ -535,7 +535,7 @@ pub struct GenericDiffLogic;
 impl ExitKindLogic for GenericDiffLogic {
     const NAME: Cow<'static, str> = Cow::Borrowed("DiffExitKindFeedback");
 
-    fn check_exit_kind(kind: &ExitKind) -> Result<bool, Error> {
+    fn check_exit_kind(kind: &ExitKind) -> Result<bool> {
         Ok(matches!(kind, ExitKind::Diff { .. }))
     }
 }
@@ -560,7 +560,7 @@ where
         _input: &I,
         _observers: &OT,
         exit_kind: &ExitKind,
-    ) -> Result<bool, Error> {
+    ) -> Result<bool> {
         let res = L::check_exit_kind(exit_kind)?;
         Ok(res)
     }
@@ -635,7 +635,7 @@ where
         state: &mut S,
         observers: &OT,
         testcase_id: &TestcaseId,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         let Some(observer) = observers.get(&self.observer_handle) else {
             return Err(Error::illegal_state(
                 "Observer referenced by TimeFeedback is not found in observers given to the fuzzer",
@@ -685,7 +685,7 @@ impl<I, OT, S> Feedback<I, OT, S> for ConstFeedback {
         _input: &I,
         _observers: &OT,
         _exit_kind: &ExitKind,
-    ) -> Result<bool, Error> {
+    ) -> Result<bool> {
         Ok((*self).into())
     }
 }

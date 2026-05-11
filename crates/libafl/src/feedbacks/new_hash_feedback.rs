@@ -2,6 +2,7 @@
 
 use alloc::{borrow::Cow, string::ToString};
 use core::fmt::Debug;
+use libafl_core::Result;
 
 use hashbrown::HashSet;
 use libafl_bolts::{
@@ -11,7 +12,7 @@ use libafl_bolts::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    DependencyResolver, Error,
+    DependencyResolver,
     executors::ExitKind,
     feedbacks::{Feedback, HasObserverHandle},
     observers::ObserverWithHashField,
@@ -26,7 +27,7 @@ pub trait HashSetState<T> {
     /// creates a new instance with a specific hashset
     fn with_hash_set(hash_set: HashSet<T>) -> Self;
     /// updates the `hash_set` with the given value
-    fn update_hash_set(&mut self, value: T) -> Result<bool, Error>;
+    fn update_hash_set(&mut self, value: T) -> Result<bool>;
 }
 
 /// The state of [`NewHashFeedback`]
@@ -56,7 +57,7 @@ impl NewHashFeedbackMetadata {
     }
 
     /// Reset the internal state
-    pub fn reset(&mut self) -> Result<(), Error> {
+    pub fn reset(&mut self) -> Result<()> {
         self.hash_set.clear();
         Ok(())
     }
@@ -79,7 +80,7 @@ impl HashSetState<u64> for NewHashFeedbackMetadata {
         Self { hash_set }
     }
 
-    fn update_hash_set(&mut self, value: u64) -> Result<bool, Error> {
+    fn update_hash_set(&mut self, value: u64) -> Result<bool> {
         let r = self.hash_set.insert(value);
         // log::trace!("Got r={}, the hashset is {:?}", r, &self.hash_set);
         Ok(r)
@@ -103,7 +104,7 @@ where
         &mut self,
         state: &mut S,
         observers: &OT,
-    ) -> Result<bool, Error>
+    ) -> Result<bool>
     where
         OT: MatchName,
     {
@@ -128,7 +129,7 @@ where
 }
 
 impl<O> DependencyResolver for NewHashFeedback<O> {
-    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<(), Error> {
+    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<()> {
         registrator.register_md_default::<NewHashFeedbackMetadata>(self.name().to_string());
         Ok(())
     }
@@ -146,7 +147,7 @@ where
         _input: &I,
         observers: &OT,
         _exit_kind: &ExitKind,
-    ) -> Result<bool, Error> {
+    ) -> Result<bool> {
         self.has_interesting_backtrace_hash_observation(state, observers)
     }
 }

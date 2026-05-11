@@ -7,12 +7,13 @@ use libafl_bolts::{
     Named, impl_serdeany,
     tuples::{Handle, Handled, MatchName, MatchNameRef},
 };
+use libafl_core::Result;
 use serde::{Deserialize, Serialize};
 
 use crate::{
     Error,
     common::DependencyResolver,
-    corpus::{Testcase, TestcaseId},
+    corpus::TestcaseId,
     feedbacks::Feedback,
     observers::{StdErrObserver, StdOutObserver},
     states::{FlatState, HasTestcase},
@@ -60,7 +61,7 @@ where
         state: &mut S,
         observers: &OT,
         testcase_id: &TestcaseId,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         let observer = observers
             .get(&self.o_ref)
             .ok_or_else(|| Error::illegal_state("StdOutObserver is missing"))?;
@@ -112,7 +113,7 @@ where
         state: &mut S,
         observers: &OT,
         testcase_id: &TestcaseId,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         let observer = observers
             .get(&self.o_ref)
             .ok_or_else(|| Error::illegal_state("StdErrObserver is missing"))?;

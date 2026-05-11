@@ -1,23 +1,24 @@
-use alloc::borrow::Cow;
-use core::{
-    fmt::{Debug, LowerHex},
-    hash::Hash,
-};
-use std::string::ToString;
-#[cfg(feature = "std")]
-use std::{fs::File, io::Write, path::Path};
-
-use hashbrown::HashSet;
-use libafl_bolts::{
-    Error, HasRefCnt, Named,
-    tuples::{Handle, Handled, MatchName, MatchNameRef},
-};
-use serde::{Deserialize, Serialize, de::DeserializeOwned};
+//! A list of [`Feedback`]s.
 
 use crate::{
     common::DependencyResolver, corpus::TestcaseId, executors::ExitKind, feedbacks::Feedback,
     observers::ListObserver, states::FlatState,
 };
+use alloc::borrow::Cow;
+use core::{
+    fmt::{Debug, LowerHex},
+    hash::Hash,
+};
+use hashbrown::HashSet;
+use libafl_bolts::{
+    HasRefCnt, Named,
+    tuples::{Handle, Handled, MatchName, MatchNameRef},
+};
+use libafl_core::Result;
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use std::string::ToString;
+#[cfg(feature = "std")]
+use std::{fs::File, io::Write, path::Path};
 
 /// The metadata to remember past observed value
 #[derive(Debug, Serialize, Deserialize)]
@@ -40,7 +41,7 @@ impl<T> ListFeedbackMetadata<T> {
     }
 
     /// Reset the inner hashset
-    pub fn reset(&mut self) -> Result<(), Error> {
+    pub fn reset(&mut self) -> Result<()> {
         self.set.clear();
         Ok(())
     }
@@ -133,7 +134,7 @@ impl<T> DependencyResolver for ListFeedback<T>
 where
     T: Debug + Eq + Hash + for<'a> Deserialize<'a> + Serialize + Default + Copy + 'static,
 {
-    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<(), Error> {
+    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<()> {
         registrator.register_md_default::<ListFeedbackMetadata<T>>(self.name().to_string());
         Ok(())
     }
@@ -159,7 +160,7 @@ where
         _input: &I,
         observers: &OT,
         _exit_kind: &ExitKind,
-    ) -> Result<bool, Error> {
+    ) -> Result<bool> {
         Ok(self.has_interesting_list_observer_feedback(state, observers))
     }
 
@@ -168,7 +169,7 @@ where
         state: &mut S,
         _observers: &OT,
         _testcase_id: &TestcaseId,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         self.append_list_observer_metadata(state);
         Ok(())
     }

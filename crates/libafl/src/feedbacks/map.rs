@@ -1,12 +1,21 @@
 //! Map feedback, maximizing or minimizing maps, for example the afl-style map observer.
 
+#[cfg(feature = "simd")]
+use super::simd::SimdMapFeedback;
+use crate::{
+    DependencyResolver,
+    corpus::TestcaseId,
+    executors::ExitKind,
+    feedbacks::{Feedback, HasObserverHandle},
+    observers::MapObserver,
+    states::{FlatState, HasTestcase},
+};
 use alloc::{borrow::Cow, string::ToString, vec::Vec};
 use core::{
     fmt::Debug,
     marker::PhantomData,
     ops::{Deref, DerefMut},
 };
-
 use hashbrown::HashMap;
 #[cfg(all(feature = "simd", target_arch = "x86_64"))]
 use libafl_bolts::simd::vector::u8x16;
@@ -19,19 +28,9 @@ use libafl_bolts::{
     simd::{MaxReducer, NopReducer, Reducer},
     tuples::{Handle, Handled, MatchName, MatchNameRef},
 };
+use libafl_core::Result;
 use num_traits::PrimInt;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
-
-#[cfg(feature = "simd")]
-use super::simd::SimdMapFeedback;
-use crate::{
-    DependencyResolver, Error,
-    corpus::{Testcase, TestcaseId},
-    executors::ExitKind,
-    feedbacks::{Feedback, HasObserverHandle},
-    observers::MapObserver,
-    states::{FlatState, HasTestcase},
-};
 
 #[cfg(feature = "simd")]
 /// A [`SimdMapFeedback`] that implements the AFL algorithm using an [`SimdOrReducer`] combining the bits for the history map and the bit from (`HitcountsMapObserver`)[`crate::observers::HitcountsMapObserver`].
@@ -155,13 +154,16 @@ where
 #[derive(Debug, Serialize, Deserialize)]
 #[expect(clippy::unsafe_derive_deserialize)] // for SerdeAny
 pub struct MapIndexes {
+    /// The actual list.
     pub list: Vec<usize>,
     /// A refcount used to know when we can remove this metadata
     pub tcref: isize,
 }
 
+/// A metadata mapping [`Testcase`]s to their respective [`MapIndexes`].
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct MapIndexesMetadata {
+    /// The actual map.
     pub data: HashMap<TestcaseId, MapIndexes>,
 }
 
@@ -276,7 +278,7 @@ where
     }
 
     /// Reset the map
-    pub fn reset(&mut self) -> Result<(), Error> {
+    pub fn reset(&mut self) -> Result<()> {
         let cnt = self.history_map.len();
         for i in 0..cnt {
             self.history_map[i] = T::default();
@@ -286,7 +288,7 @@ where
     }
 
     /// Reset the map with any value
-    pub fn reset_with_value(&mut self, value: T) -> Result<(), Error> {
+    pub fn reset_with_value(&mut self, value: T) -> Result<()> {
         let cnt = self.history_map.len();
         for i in 0..cnt {
             self.history_map[i] = value;
@@ -305,8 +307,6 @@ pub struct MapFeedback<C, N, O, R> {
     name: Cow<'static, str>,
     /// Name identifier of the observer
     map_ref: Handle<C>,
-    /// Name of the feedback as shown in the `UserStats`
-    stats_name: Cow<'static, str>,
     /// Phantom Data of Reducer
     #[expect(clippy::type_complexity)]
     phantom: PhantomData<fn() -> (N, O, R)>,
@@ -317,7 +317,7 @@ where
     O: MapObserver,
     O::Entry: 'static + Default + Debug + DeserializeOwned + Serialize,
 {
-    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<(), Error> {
+    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<()> {
         registrator.register_md_default::<MapFeedbackMetadata<O::Entry>>(self.name().to_string());
         Ok(())
     }
@@ -339,7 +339,7 @@ where
         _input: &I,
         observers: &OT,
         _exit_kind: &ExitKind,
-    ) -> Result<bool, Error> {
+    ) -> Result<bool> {
         let res = self.is_interesting_default(state, observers);
 
         Ok(res)
@@ -349,8 +349,8 @@ where
         &mut self,
         state: &mut S,
         observers: &OT,
-        testcase_id: &TestcaseId,
-    ) -> Result<(), Error> {
+        _testcase_id: &TestcaseId,
+    ) -> Result<()> {
         let observer = observers.get(&self.map_ref).expect("MapObserver not found. This is likely because you entered the crash handler with the wrong executor/observer").as_ref();
         let initial = observer.initial();
         let map_state = state
@@ -399,15 +399,6 @@ impl<C, N, O, R> Named for MapFeedback<C, N, O, R> {
     }
 }
 
-#[expect(clippy::ptr_arg)]
-fn create_stats_name(name: &Cow<'static, str>) -> Cow<'static, str> {
-    if name.chars().all(char::is_lowercase) {
-        name.clone()
-    } else {
-        name.to_lowercase().into()
-    }
-}
-
 impl<C, N, O, R> MapFeedback<C, N, O, R>
 where
     C: AsRef<O> + Named,
@@ -418,7 +409,6 @@ where
         Self {
             name: map_observer.name().clone(),
             map_ref: map_observer.handle(),
-            stats_name: create_stats_name(map_observer.name()),
             phantom: PhantomData,
         }
     }
@@ -431,7 +421,6 @@ where
         let name = Cow::from(name);
         Self {
             map_ref: map_observer.handle(),
-            stats_name: create_stats_name(&name),
             name,
             phantom: PhantomData,
         }

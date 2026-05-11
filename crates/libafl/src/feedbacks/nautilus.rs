@@ -1,18 +1,20 @@
 //! Nautilus grammar mutator, see <https://github.com/nautilus-fuzz/nautilus>
+
 use alloc::{
     borrow::Cow,
     string::{String, ToString},
 };
 use core::fmt::Debug;
+use libafl_core::Result;
 use std::fs::create_dir_all;
 
 use libafl_bolts::Named;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    DependencyResolver, Error,
+    DependencyResolver,
     common::nautilus::grammartec::{chunkstore::ChunkStore, context::Context},
-    corpus::{Corpus, Testcase, TestcaseId, testcase},
+    corpus::{Corpus, TestcaseId},
     feedbacks::Feedback,
     generators::NautilusContext,
     inputs::NautilusInput,
@@ -72,7 +74,7 @@ impl Named for NautilusFeedback<'_> {
 }
 
 impl DependencyResolver for NautilusFeedback<'_> {
-    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<(), Error> {
+    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<()> {
         registrator.register_md_default::<NautilusChunksMetadata>(self.name().to_string());
         Ok(())
     }
@@ -87,7 +89,7 @@ where
         state: &mut S,
         _observers: &OT,
         testcase_id: &TestcaseId,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         let input = state.corpus().get(testcase_id)?;
         let meta = named_metadata_mut::<NautilusChunksMetadata>(
             state.named_metadata_map_mut(),

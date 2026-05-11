@@ -1,18 +1,17 @@
 //! The [`BoolValueFeedback`] is a [`Feedback`] returning `true` or `false` as the `is_interesting` value.
 
-use alloc::borrow::Cow;
-
-use libafl_bolts::{
-    Error, Named,
-    tuples::{Handle, MatchNameRef},
-};
-
 use crate::{
     common::DependencyResolver,
     corpus::TestcaseId,
     feedbacks::Feedback,
     observers::{ObserversTuple, ValueObserver},
 };
+use alloc::borrow::Cow;
+use libafl_bolts::{
+    Error, Named,
+    tuples::{Handle, MatchNameRef},
+};
+use libafl_core::Result;
 
 /// This feedback returns `true` or `false` as the `is_interesting` value.
 #[derive(Debug)]
@@ -59,7 +58,7 @@ where
         _input: &I,
         observers: &OT,
         _exit_kind: &crate::executors::ExitKind,
-    ) -> Result<bool, Error> {
+    ) -> Result<bool> {
         let Some(observer) = observers.get(&self.observer_hnd) else {
             return Err(Error::illegal_state(format!(
                 "Observer {:?} not found",
@@ -77,7 +76,7 @@ where
         _state: &mut S,
         _observers: &OT,
         _testcase_id: &TestcaseId,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         Ok(())
     }
 }

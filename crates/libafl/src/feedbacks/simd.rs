@@ -1,29 +1,28 @@
 //! SIMD accelerated map feedback with stable Rust.
 
+use super::{DifferentIsNovel, Feedback, HasObserverHandle, MapFeedback};
+use crate::{
+    common::DependencyResolver,
+    corpus::TestcaseId,
+    executors::ExitKind,
+    feedbacks::MapFeedbackMetadata,
+    observers::MapObserver,
+    states::{FlatState, HasTestcase},
+};
 use alloc::borrow::Cow;
 use core::{
     fmt::Debug,
     marker::PhantomData,
     ops::{Deref, DerefMut},
 };
-use std::string::ToString;
-
 use libafl_bolts::{
-    AsIter, AsSlice, Error, Named,
+    AsIter, AsSlice, Named,
     simd::{Reducer, SimdReducer, VectorType, covmap_is_interesting_simd},
     tuples::{Handle, MatchName, MatchNameRef},
 };
+use libafl_core::Result;
 use serde::{Serialize, de::DeserializeOwned};
-
-use super::{DifferentIsNovel, Feedback, HasObserverHandle, MapFeedback};
-use crate::{
-    common::DependencyResolver,
-    corpus::{Testcase, TestcaseId},
-    executors::ExitKind,
-    feedbacks::MapFeedbackMetadata,
-    observers::MapObserver,
-    states::{FlatState, HasTestcase},
-};
+use std::string::ToString;
 
 /// Stable Rust wrapper for SIMD accelerated map feedback. Unfortunately, we have to
 /// keep this until specialization is stablized (not yet since 2016).
@@ -145,7 +144,7 @@ where
     O::Entry: 'static + Default + Debug + DeserializeOwned + Serialize,
     R: SimdReducer<V>,
 {
-    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<(), Error> {
+    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<()> {
         registrator.register_md_default::<MapFeedbackMetadata<u8>>("MapFeedback".to_string());
 
         self.map.register(registrator)
@@ -191,7 +190,7 @@ where
         _input: &I,
         observers: &OT,
         _exit_kind: &ExitKind,
-    ) -> Result<bool, Error> {
+    ) -> Result<bool> {
         let res = self.is_interesting_u8_simd_optimized(state, observers);
         Ok(res)
     }
@@ -202,7 +201,7 @@ where
         state: &mut S,
         observers: &OT,
         testcase_id: &TestcaseId,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         self.map.append_metadata(state, observers, testcase_id)
     }
 }
