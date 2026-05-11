@@ -1,6 +1,7 @@
-use libafl_bolts::Result;
+//! Module defining [`Monitor`]s.
 
 use crate::Controller;
+use libafl_bolts::Result;
 
 pub mod simple;
 pub use simple::SimpleMonitor;

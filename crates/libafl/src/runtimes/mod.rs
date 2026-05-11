@@ -1,3 +1,5 @@
+//! Module defining [`Runtime`]s.
+
 use crate::{
     DependencyResolver, Fuzzer, Result,
     executors::Executor,

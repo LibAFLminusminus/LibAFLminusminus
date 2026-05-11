@@ -1,3 +1,6 @@
+//! Module defining launchers.
+//! Launchers start the fuzzing session, involving multiple instances.
+
 use crate::{
     Controller, Error, Result, Worker,
     inputs::NopInput,

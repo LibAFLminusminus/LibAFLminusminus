@@ -1,3 +1,5 @@
+//! Module defining [`Controller`]s.
+
 use crate::{
     Result,
     launchers::InstanceId,
