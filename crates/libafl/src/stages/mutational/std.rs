@@ -1,4 +1,4 @@
-//| The [`MutationalStage`] is the default stage used during fuzzing.
+//! The [`MutationalStage`] is the default stage used during fuzzing.
 //! For the current input, it will perform a range of random mutations, and then run them in the executor.
 
 use alloc::{
@@ -12,13 +12,13 @@ use libafl_core::non_zero;
 
 use crate::{
     DependencyResolver, Error,
-    corpus::{Corpus, Testcase, TestcaseId},
+    corpus::{Corpus, TestcaseId},
     fuzzers::Evaluator,
     inputs::Input,
     mutators::{MutationResult, Mutator},
     runtimes::RuntimeHandle,
     stages::Stage,
-    states::{HasCorpus, HasScheduler, State},
+    states::{HasScheduler, State},
 };
 
 /// A Mutational stage is the stage in a fuzzing run that mutates inputs.
@@ -59,13 +59,13 @@ where
 {
     type Mutator = M;
 
-    /// The mutator, added to this stage
+    /// The list of [`Mutator`], added to this stage
     #[inline]
     fn mutator(&self) -> &Self::Mutator {
         &self.mutator
     }
 
-    /// The list of mutators, added to this stage (as mutable ref)
+    /// The list of [`Mutator`], added to this stage (as mutable ref)
     #[inline]
     fn mutator_mut(&mut self) -> &mut Self::Mutator {
         &mut self.mutator
@@ -85,7 +85,7 @@ where
 
 /// The unique id for mutational stage
 static mut MUTATIONAL_STAGE_ID: usize = 0;
-/// The name for mutational stage
+/// The global prefix for mutational stage
 pub static MUTATIONAL_STAGE_NAME: &str = "mutational";
 
 impl<E, I, M, R, S, W, Z> Named for StdMutationalStage<E, I, M, R, S, W, Z> {
@@ -117,9 +117,8 @@ where
 }
 
 impl<E, I, M, R, S, W, Z> StdMutationalStage<E, I, M, R, S, W, Z> {
-    /// Creates a new default mutational stage
+    /// Creates a new default [`StdMutationalStage`]
     pub fn new(mutator: M) -> Self {
-        // Safe to unwrap: DEFAULT_MUTATIONAL_MAX_ITERATIONS is never 0.
         Self::with_max_iterations(mutator, non_zero!(DEFAULT_MUTATIONAL_MAX_ITERATIONS))
     }
 
@@ -150,7 +149,7 @@ where
     S: State<I>,
     Z: Evaluator<E, I, S, W>,
 {
-    /// Runs this (mutational) stage for the given testcase
+    /// Runs this [`StdMutationalStage`] stage for the given testcase
     fn perform_mutational(
         &mut self,
         fuzzer: &mut Z,
@@ -160,12 +159,6 @@ where
         rt_handle: &mut RuntimeHandle<S, W>,
         testcase_id: &TestcaseId,
     ) -> Result<(), Error> {
-        // Here saturating_sub is needed as self.iterations() might be actually smaller than the previous value before reset.
-        /*
-        let num = self
-            .iterations(state)?
-            .saturating_sub(self.execs_since_progress_start(state)?);
-        */
         let num = self.iterations(rand)?;
 
         let tc = state.corpus().get(testcase_id)?;

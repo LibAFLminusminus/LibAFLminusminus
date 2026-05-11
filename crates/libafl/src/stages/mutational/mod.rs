@@ -1,4 +1,4 @@
-//! Mutational stages and friends take one input from the input and apply mutations for a bunch of times then run against the targets
+//! Mutational stages and friends take one [`Input`] from the [`Corpus`] and apply mutations for a bunch of times then run against the targets
 
 pub mod std;
 pub use std::*;
@@ -11,16 +11,18 @@ use crate::{
     Result,
     common::PowerScheduleData,
     corpus::TestcaseId,
-    states::{FlatState, named_metadata, unnamed_metadata_mut},
+    states::{FlatState, unnamed_metadata_mut},
 };
 
-/// This is for power scheduling. It returns a "score" to decide how many times you want to mutate and test the input during one stage.
+/// This is for power scheduling. It returns a "score" to decide how many times you want to mutate and test the [`Input`](crate::inputs::Input)  during one [`Stage`](crate::stages::Stage) .
 pub trait Power<S> {
+    /// The score of this testcase. Usually the score quantifies the "Goodness" of a [`Testcase`](crate::corpus::testcase::Testcase)
     fn score(state: &mut S, testcase_id: TestcaseId) -> Result<usize>;
 }
 
 const HAVOC_MAX_MULT: f64 = 16.0;
 
+#[derive(Debug)]
 /// Of course! the port of `calculate_score` from AFL
 pub struct AFLPower {}
 
@@ -85,10 +87,10 @@ where
         }
 
         match meta.depth() {
-            0..3 => (),
-            4..7 => perf_score *= 2.0,
-            8..13 => perf_score *= 3.0,
-            14..25 => perf_score *= 4.0,
+            0_u64..=3_u64 => (),
+            4_u64..=7_u64 => perf_score *= 2.0,
+            8_u64..=13_u64 => perf_score *= 3.0,
+            14_u64..=25_u64 => perf_score *= 4.0,
             _ => perf_score *= 5.0,
         }
 

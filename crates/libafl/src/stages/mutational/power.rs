@@ -1,29 +1,24 @@
-//| The [`PowerScheduleStage`] is the default stage used during fuzzing.
+//! The [`PowerScheduleStage`] is the mutational stage that uses power schedules during fuzzing.
 //! For the current input, it will perform a range of random mutations, and then run them in the executor.
 
 use alloc::{
     borrow::{Cow, ToOwned},
     string::ToString,
 };
-use core::{marker::PhantomData, num::NonZeroUsize};
 
+use core::marker::PhantomData;
 use libafl_bolts::{Named, rands::Rand};
-use libafl_core::non_zero;
 
 use crate::{
-    DependencyResolver, Error, PowerScheduleData, Result,
-    corpus::{Corpus, Testcase, TestcaseId},
+    DependencyResolver, PowerScheduleData, Result,
+    corpus::{Corpus, TestcaseId},
     fuzzers::Evaluator,
     inputs::Input,
     mutators::{MutationResult, Mutator},
     runtimes::RuntimeHandle,
     stages::{AFLPower, MutationalStage, Power, Stage},
-    states::{HasCorpus, HasScheduler, State},
+    states::{HasScheduler, State},
 };
-
-/// Default value, how many iterations each stage gets, as an upper bound.
-/// It may randomly continue earlier.
-pub const DEFAULT_MUTATIONAL_MAX_ITERATIONS: usize = 128;
 
 impl<E, F, I, M, R, S, W, Z> DependencyResolver for PowerScheduleStage<E, F, I, M, R, S, W, Z> {
     fn register(&mut self, registrator: &mut crate::Registrator) -> Result<()> {
@@ -32,7 +27,7 @@ impl<E, F, I, M, R, S, W, Z> DependencyResolver for PowerScheduleStage<E, F, I, 
     }
 }
 
-/// The default mutational stage
+/// The [`PowerScheduleStage``]
 #[derive(Debug, Clone)]
 pub struct PowerScheduleStage<E, F, I, M, R, S, W, Z> {
     /// The name
@@ -48,7 +43,7 @@ where
 {
     type Mutator = M;
 
-    /// The mutator, added to this stage
+    /// The list of [`Mutator`], added to this stage
     #[inline]
     fn mutator(&self) -> &Self::Mutator {
         &self.mutator
@@ -67,16 +62,16 @@ where
     R: Rand,
     S: HasScheduler<Scheduler = SC>,
 {
-    /// Gets the number of iterations as a random number
+    /// Gets the number of iterations calculated through [`Power`]
     fn iterations(&self, state: &mut S, current: TestcaseId) -> Result<usize> {
         F::score(state, current)
     }
 }
 
 /// The unique id for mutational stage
-static mut MUTATIONAL_STAGE_ID: usize = 0;
-/// The name for mutational stage
-pub static MUTATIONAL_STAGE_NAME: &str = "mutational";
+static mut POWER_MUTATIONAL_STAGE_ID: usize = 0;
+/// The global prefix for [`PowerScheduleStage`]
+pub static POWER_MUTATIONAL_STAGE_NAME: &str = "power";
 
 impl<E, F, I, M, R, S, W, Z> Named for PowerScheduleStage<E, F, I, M, R, S, W, Z> {
     fn name(&self) -> &Cow<'static, str> {
@@ -126,16 +121,16 @@ where
 }
 
 impl<E, F, I, M, R, S, W, Z> PowerScheduleStage<E, F, I, M, R, S, W, Z> {
-    /// Creates a new default mutational stage
+    /// Creates a new default [`PowerScheduleStage`]
     #[inline]
     pub fn new(mutator: M) -> Self {
         let stage_id = unsafe {
-            let ret = MUTATIONAL_STAGE_ID;
-            MUTATIONAL_STAGE_ID += 1;
+            let ret = POWER_MUTATIONAL_STAGE_ID;
+            POWER_MUTATIONAL_STAGE_ID += 1;
             ret
         };
         let name =
-            Cow::Owned(MUTATIONAL_STAGE_NAME.to_owned() + ":" + stage_id.to_string().as_str());
+            Cow::Owned(POWER_MUTATIONAL_STAGE_NAME.to_owned() + ":" + stage_id.to_string().as_str());
         Self {
             name,
             mutator,
@@ -144,5 +139,6 @@ impl<E, F, I, M, R, S, W, Z> PowerScheduleStage<E, F, I, M, R, S, W, Z> {
     }
 }
 
+/// The default [`PowerScheduleStage`] using [`AFLPower`]
 pub type AFLPowerScheduleStage<E, I, M, R, S, W, Z> =
     PowerScheduleStage<E, AFLPower, I, M, R, S, W, Z>;

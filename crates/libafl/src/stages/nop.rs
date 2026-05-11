@@ -1,14 +1,14 @@
-//! A nop stage does nothing
+//! A [`NopStage`] does nothing
 
 use super::Stage;
 use crate::{DependencyResolver, corpus::TestcaseId, runtimes::RuntimeHandle};
 
-/// A stage that does nothing
+/// A [`Stage`] that does nothing
 #[derive(Debug, Copy, Clone, Default)]
 pub struct NopStage {}
 
 impl NopStage {
-    /// Create a [`NopStage`]
+    /// Create a [`struct@NopStage`]
     #[must_use]
     pub fn new() -> Self {
         Self {}

@@ -335,7 +335,7 @@ pub struct StdState<C, CT, I, OC, SC> {
     max_size: usize,
     /// Remaining initial [`Input`] to load, if any
     remaining_initial_files: Option<Vec<PathBuf>>,
-    /// symlinks we have already traversed when loading [`remaining_initial_files`]
+    /// symlinks we have already traversed when loading [`Self::remaining_initial_files`]
     dont_reenter: Option<Vec<PathBuf>>,
     metadata_initialized: bool,
     stats: Stats,
@@ -345,7 +345,7 @@ pub struct StdState<C, CT, I, OC, SC> {
 /// The [[`Testcase`]] metadata.
 #[derive(Serialize, Deserialize, Clone, Debug, Default, TypedBuilder)]
 pub struct TestcaseMetadata {
-    /// The filename format used to name the [[`Testcase`]] file on-disk.
+    /// The filename format used to name the [`Testcase`] file on-disk.
     #[builder(default)]
     filename_format: TestcaseFilenameFormat,
     /// Time needed to execute the input

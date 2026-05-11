@@ -1,4 +1,4 @@
-//! The tracing stage can trace the target and enrich a testcase with metadata, for example for `CmpLog`.
+//! The [`TracerStage`] can trace the target with an alternate [`Executor`] and enrich a testcase with metadata, for example for `CmpLog`.
 
 use alloc::{
     borrow::{Cow, ToOwned},
@@ -20,7 +20,7 @@ use crate::{
 };
 
 /// A stage that runs a tracer executor
-/// This should *NOT* be used with inprocess executor
+/// This should *NOT* be used with inprocess executor because usually you should never have more than one inprocess executors inside one process.
 #[derive(Debug, Clone)]
 pub struct TracerStage<I, TE> {
     name: Cow<'static, str>,
@@ -33,7 +33,7 @@ where
     TE: DependencyResolver,
 {
     fn register(&mut self, registrator: &mut crate::Registrator) -> Result<(), Error> {
-        self.tracer_executor.register_with_ty(registrator);
+        self.tracer_executor.register_with_ty(registrator)?;
 
         Ok(())
     }
@@ -49,9 +49,9 @@ where
     #[inline]
     fn perform(
         &mut self,
-        fuzzer: &mut Z,
-        executor: &mut E,
-        rand: &mut R,
+        _fuzzer: &mut Z,
+        _executor: &mut E,
+        _rand: &mut R,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
         testcase_id: &TestcaseId,
@@ -79,33 +79,33 @@ impl<I, TE> Named for TracerStage<I, TE> {
 }
 
 /// The counter for giving this stage unique id
-static mut TRACING_STAGE_ID: usize = 0;
-/// The name for tracing stage
-pub static TRACING_STAGE_NAME: &str = "tracing";
+static mut TRACER_STAGE_ID: usize = 0;
+/// The name prefix for tracing stage
+pub static TRACER_STAGE_NAME: &str = "tracing";
 
 impl<I, TE> TracerStage<I, TE> {
-    /// Creates a new default stage
+    /// Creates a new [`struct@TracerStage`] from `tracer_executor`
     pub fn new(tracer_executor: TE) -> Self {
         // unsafe but impossible that you create two threads both instantiating this instance
         let stage_id = unsafe {
-            let ret = TRACING_STAGE_ID;
-            TRACING_STAGE_ID += 1;
+            let ret = TRACER_STAGE_ID;
+            TRACER_STAGE_ID += 1;
             ret
         };
 
         Self {
-            name: Cow::Owned(TRACING_STAGE_NAME.to_owned() + ":" + stage_id.to_string().as_ref()),
+            name: Cow::Owned(TRACER_STAGE_NAME.to_owned() + ":" + stage_id.to_string().as_ref()),
             tracer_executor,
             phantom: PhantomData,
         }
     }
 
-    /// Gets the underlying tracer executor
+    /// Gets the underlying [`Self::tracer_executor`]
     pub fn executor(&self) -> &TE {
         &self.tracer_executor
     }
 
-    /// Gets the underlying tracer executor (mut)
+    /// Gets mutable reference to the underlying [`Self::tracer_executor`]
     pub fn executor_mut(&mut self) -> &mut TE {
         &mut self.tracer_executor
     }
