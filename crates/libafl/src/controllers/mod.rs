@@ -153,7 +153,7 @@ impl WorkdirFile {
 
         let file: &mut File = match self {
             WorkdirFile::File(file) => file,
-            _ => {
+            WorkdirFile::Path(_) => {
                 return Err(internal_bug!(
                     "The workdir file should be a file at this point"
                 ));
@@ -177,6 +177,7 @@ impl WorkdirFile {
             let file = OpenOptions::new()
                 .write(true)
                 .create(true)
+                .truncate(true)
                 .open(root_dir.as_ref().join(p.as_path()))?;
 
             *self = WorkdirFile::File(file);
@@ -184,7 +185,7 @@ impl WorkdirFile {
 
         let file: &mut File = match self {
             WorkdirFile::File(file) => file,
-            _ => {
+            WorkdirFile::Path(_) => {
                 return Err(internal_bug!(
                     "The workdir file should be a file at this point"
                 ));
@@ -218,6 +219,7 @@ impl Workdir {
     }
 
     /// Get the root directory of the [`Workdir`].
+    #[must_use]
     pub fn root_dir(&self) -> &Path {
         self.root_dir.as_path()
     }
@@ -226,7 +228,7 @@ impl Workdir {
     pub fn stdout(&mut self) -> Result<Option<File>> {
         if let Some(wd_f) = &mut self.stdout {
             wd_f.get_file_wr(self.root_dir.as_path())
-                .map(|file| Some(file))
+                .map(Some)
         } else {
             Ok(None)
         }
@@ -236,28 +238,10 @@ impl Workdir {
     pub fn stderr(&mut self) -> Result<Option<File>> {
         if let Some(wd_f) = &mut self.stderr {
             wd_f.get_file_wr(self.root_dir.as_path())
-                .map(|file| Some(file))
+                .map(Some)
         } else {
             Ok(None)
         }
-    }
-
-    /// Create a new file, relative to the workdir.
-    ///
-    /// If the file exists, it is opened without being truncated.
-    /// Cursor will be at the end of the file.
-    ///
-    /// Files are always opened in read / write.
-    pub fn create_file<P: AsRef<Path>>(&self, path: P) -> Result<File> {
-        let full_path = self.root_dir.join(path.as_ref());
-
-        let file = OpenOptions::new()
-            .create(true)
-            .read(true)
-            .write(true)
-            .open(full_path.as_path())?;
-
-        Ok(file)
     }
 
     /// Get the [`Stats`] file of the [`Workdir`].

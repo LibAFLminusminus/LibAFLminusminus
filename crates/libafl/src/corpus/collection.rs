@@ -476,24 +476,28 @@ impl<SC> CachedOnDiskCorpusBuilder<SC> {
     }
 
     /// Set the [`Scheduler`].
+    #[must_use]
     pub fn scheduler(mut self, scheduler: SC) -> Self {
         self.scheduler = Some(scheduler);
         self
     }
 
     /// Set the cache max length.
+    #[must_use]
     pub fn cache_max_len(mut self, cache_max_len: usize) -> Self {
         self.cache_max_len = cache_max_len;
         self
     }
 
     /// Set the root directory, where the testcases will be stored.
+    #[must_use]
     pub fn root_dir(mut self, root: &Path) -> Self {
         self.store_builder.root_dir(root);
         self
     }
 
     /// Set the on-disk filename format
+    #[must_use]
     pub fn filename_format(mut self, filename_format: TestcaseFilenameFormat) -> Self {
         self.store_builder.filename_format(filename_format);
         self

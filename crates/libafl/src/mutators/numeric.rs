@@ -256,7 +256,7 @@ where
 {
     fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
         let ids = state.scheduler().ids();
-        let Some(id) = rand.choose(ids.into_iter()) else {
+        let Some(id) = rand.choose(ids) else {
             return Ok(MutationResult::Skipped);
         };
 
@@ -305,7 +305,7 @@ where
 {
     fn mutate(&mut self, input: &mut O, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
         let ids = state.scheduler().ids();
-        let Some(id) = rand.choose(ids.into_iter()) else {
+        let Some(id) = rand.choose(ids) else {
             return Ok(MutationResult::Skipped);
         };
 

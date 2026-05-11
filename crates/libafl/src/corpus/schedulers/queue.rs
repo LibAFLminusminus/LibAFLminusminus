@@ -7,7 +7,7 @@ use crate::{
 use alloc::borrow::ToOwned;
 use libafl_core::Result;
 use serde::{Deserialize, Serialize};
-use std::vec::Vec;
+use alloc::vec::Vec;
 
 /// Walk the corpus in a queue-like fashion
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -26,7 +26,7 @@ impl Scheduler for QueueScheduler {
     }
 
     fn current(&self) -> Option<TestcaseId> {
-        self.current.map(|idx| self.queue[idx].clone())
+        self.current.map(|idx| self.queue[idx])
     }
 
     /// Gets the next entry in the queue

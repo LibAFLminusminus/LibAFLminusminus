@@ -6,7 +6,7 @@ use libafl_bolts::Result;
 pub mod simple;
 pub use simple::SimpleMonitor;
 
-/// This module can show the fuzzer stats to the user via vairous way. like through the terminal or WebUI (WIP!)
+/// This module can show the fuzzer stats to the user via vairous way. like through the terminal or `WebUI` (WIP!)
 pub trait Monitor {
     /// Display tick.
     ///

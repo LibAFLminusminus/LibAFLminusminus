@@ -72,7 +72,7 @@ where
         let stdout = String::from_utf8_lossy(buffer).into_owned();
         state
             .named_metadata_map_mut()
-            .get_mut::<StdOutMetadata>(&self.name())
+            .get_mut::<StdOutMetadata>(self.name())
             .unwrap()
             .stdout
             .insert(*testcase_id, stdout);
@@ -124,7 +124,7 @@ where
         let stderr = String::from_utf8_lossy(buffer).into_owned();
         state
             .named_metadata_map_mut()
-            .get_mut::<StdErrMetadata>(&self.name())
+            .get_mut::<StdErrMetadata>(self.name())
             .unwrap()
             .stderr
             .insert(*testcase_id, stderr);

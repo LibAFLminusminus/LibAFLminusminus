@@ -60,6 +60,12 @@ impl<I, S> Corpus<I> for NopCorpus<I, S> {
 
 impl<I, S> DependencyResolver for NopCorpus<I, S> {}
 
+impl<I, S> Default for NopCorpus<I, S> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<I, S> NopCorpus<I, S> {
     /// Creates a new [`NopCorpus`].
     #[must_use]

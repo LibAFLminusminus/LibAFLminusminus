@@ -27,13 +27,13 @@ impl Deref for SysVShm<EmptyShmHeader> {
     type Target = [u8];
 
     fn deref(&self) -> &Self::Target {
-        self.shm.deref()
+        &self.shm
     }
 }
 
 impl DerefMut for SysVShm<EmptyShmHeader> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        self.shm.deref_mut()
+        &mut self.shm
     }
 }
 

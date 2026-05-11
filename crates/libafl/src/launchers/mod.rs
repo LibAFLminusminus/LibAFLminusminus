@@ -66,6 +66,7 @@ impl
     /// Create a default Launcher.
     /// It is configured with a very minimal configuration.
     /// It will spawn one fuzzing core on core 0 and run the provided task or runtime.
+    #[expect(clippy::type_complexity)]
     pub fn builder() -> Result<
         StdLauncherBuilder<
             SimpleController,
@@ -86,8 +87,8 @@ impl
             cores,
             state_builder: || Ok(NopState::new()),
             max_state_size_per_client: None,
-            monitor_refresh: DEFAULT_MONITOR_REFRESH.clone(),
-            timeout: Some(DEFAULT_TIMEOUT.clone()),
+            monitor_refresh: DEFAULT_MONITOR_REFRESH,
+            timeout: Some(DEFAULT_TIMEOUT),
             timer: StdTimer::new(),
             phantom: PhantomData,
         })
@@ -125,7 +126,7 @@ where
         self.instances.wait_instances(
             &mut self.controller,
             &mut self.monitor,
-            self.monitor_refresh.clone(),
+            self.monitor_refresh,
         )?;
 
         Ok(())
@@ -134,6 +135,7 @@ where
 
 impl<CT, MT, RT, S, SB, TM> StdLauncherBuilder<CT, MT, RT, S, SB, TM> {
     /// Set the cores assiciated to each [`Instance`].
+    #[must_use]
     pub fn cores(self, cores: Cores) -> StdLauncherBuilder<CT, MT, RT, S, SB, TM> {
         StdLauncherBuilder {
             controller: self.controller,
@@ -150,6 +152,7 @@ impl<CT, MT, RT, S, SB, TM> StdLauncherBuilder<CT, MT, RT, S, SB, TM> {
     }
 
     /// Set the [`Runtime`] of each [`Instance`] timeout.
+    #[must_use]
     pub fn timeout(self, timeout: Option<Duration>) -> Self {
         StdLauncherBuilder {
             controller: self.controller,
@@ -242,6 +245,7 @@ impl<CT, MT, RT, S, SB, TM> StdLauncherBuilder<CT, MT, RT, S, SB, TM> {
     /// used to save / restore the state in the restarting runtime.
     ///
     /// The default value is set to [`DEFAULT_MAX_STATE_SIZE_PER_CLIENT`].
+    #[must_use]
     pub fn max_state_size_per_client(
         self,
         max_state_size_per_client: NonZeroUsize,
@@ -261,6 +265,7 @@ impl<CT, MT, RT, S, SB, TM> StdLauncherBuilder<CT, MT, RT, S, SB, TM> {
     }
 
     /// Set the monitor refresh rate.
+    #[must_use]
     pub fn monitor_refresh(
         self,
         monitor_refresh: Duration,
@@ -288,6 +293,7 @@ where
     TM: Clone,
 {
     /// Build a [`StdLauncher`] for a forkserver-style fuzzer, using the [`StdForkserverRuntime`].
+    #[expect(clippy::type_complexity)]
     pub fn build_forkserver<T>(
         self,
         task: T,
@@ -326,6 +332,7 @@ where
     TM: Clone,
 {
     /// Build a [`StdLauncher`] for an in-process-style fuzzer, using the [`StdInProcessRuntime`].
+    #[expect(clippy::type_complexity)]
     pub fn build_inprocess<T>(
         self,
         task: T,
@@ -351,7 +358,7 @@ where
                 task,
                 ram_limit,
                 self.timer.clone(),
-                self.timeout.clone(),
+                self.timeout,
             ),
             state_builder: self.state_builder,
             max_state_size_per_client: self.max_state_size_per_client,
@@ -372,11 +379,12 @@ where
     SB: FnMut(&CT::Worker) -> Result<S>,
 {
     /// Build the [`StdLauncher`].
+    #[expect(clippy::type_complexity)]
     pub fn build(mut self) -> Result<StdLauncher<CT::Descriptor, CT, MT, RT, S, CT::Worker>> {
         if self.cores.is_empty() {
-            return Err(Error::illegal_argument(format!(
-                "No CPU cores have been allocated."
-            )));
+            return Err(Error::illegal_argument(
+                "No CPU cores have been allocated.",
+            ));
         }
 
         let monitor = self

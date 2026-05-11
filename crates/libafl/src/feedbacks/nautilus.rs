@@ -2,7 +2,7 @@
 
 use alloc::{
     borrow::Cow,
-    string::{String, ToString},
+    string::String,
 };
 use core::fmt::Debug;
 use libafl_core::Result;
@@ -75,7 +75,7 @@ impl Named for NautilusFeedback<'_> {
 
 impl DependencyResolver for NautilusFeedback<'_> {
     fn register(&mut self, registrator: &mut crate::Registrator) -> Result<()> {
-        registrator.register_md_default::<NautilusChunksMetadata>(self.name().to_string());
+        registrator.register_md_default::<NautilusChunksMetadata>(self.name());
         Ok(())
     }
 }

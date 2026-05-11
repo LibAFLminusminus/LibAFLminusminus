@@ -83,8 +83,8 @@ impl<I> DiskMgr<I> {
         self.root_dir.as_path()
     }
 
-    fn testcase_path(&self, id: &TestcaseId) -> PathBuf {
-        self.root_dir.join(self.file_fmt.to_filename(id))
+    fn testcase_path(&self, id: TestcaseId) -> PathBuf {
+        self.root_dir.join(self.file_fmt.to_filename(&id))
     }
 }
 
@@ -93,9 +93,9 @@ where
     I: Input,
 {
     /// Save the input and the metadata on disk
-    pub fn save_testcase(&self, testcase: Testcase<I>) -> Result<TestcaseId> {
+    pub fn save_testcase(&self, testcase: &Testcase<I>) -> Result<TestcaseId> {
         let testcase_id = *testcase.id();
-        let testcase_path = self.testcase_path(&testcase_id);
+        let testcase_path = self.testcase_path(testcase_id);
 
         testcase.input().to_file(testcase_path.as_path())?;
 
@@ -111,7 +111,7 @@ where
         // let ser_fmt = self.md_format.clone();
         // let md = ser_fmt.from_file(testcase_md_path.as_path())?;
 
-        let testcase_path = self.as_ref().testcase_path(testcase_id);
+        let testcase_path = self.as_ref().testcase_path(*testcase_id);
         let input = I::from_file(testcase_path.as_path())?;
 
         Ok(Testcase::new(Rc::new(input)))
@@ -181,7 +181,7 @@ where
         let res = if is_present {
             StorageResult::Duplicate(testcase_id)
         } else {
-            self.disk_mgr.save_testcase(testcase)?;
+            self.disk_mgr.save_testcase(&testcase)?;
             StorageResult::Stored(testcase_id)
         };
 

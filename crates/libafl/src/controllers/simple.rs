@@ -1,9 +1,9 @@
 //! Simple controller and worker.
 
+use alloc::vec::Vec;
 use std::{
     fs,
     path::{Path, PathBuf},
-    vec::Vec,
 };
 
 use libafl_core::{WorkerId, illegal_argument, internal_bug};
@@ -75,7 +75,7 @@ impl SimpleDescriptor {
 
 impl SimpleController {
     /// Create a new [`SimpleGlobalController`] and will use `root_dir` as the root directory.
-    /// If overwrite is true, the root_dir will be removed before being created again.
+    /// If overwrite is true, the `root_dir` will be removed before being created again.
     pub fn new(
         root_dir: PathBuf,
         worker_stdout: Option<WorkdirFile>,
@@ -107,6 +107,7 @@ impl SimpleController {
     }
 
     /// Get a [`SimpleControllerBuilder`], to build a [`SimpleController`].
+    #[must_use]
     pub fn builder() -> SimpleControllerBuilder {
         SimpleControllerBuilder::default()
     }
@@ -145,14 +146,13 @@ impl Controller for SimpleController {
     }
 
     fn worker_descriptors(&self) -> impl IntoIterator<Item = &Self::Descriptor> {
-        self.workers.iter().map(|repr| &repr.descriptor).into_iter()
+        self.workers.iter().map(|repr| &repr.descriptor)
     }
 
     fn worker_descriptors_mut(&mut self) -> impl IntoIterator<Item = &mut Self::Descriptor> {
         self.workers
             .iter_mut()
             .map(|repr| &mut repr.descriptor)
-            .into_iter()
     }
 
     fn on_worker_start(&mut self, descriptor: &Self::Descriptor, _id: InstanceId) -> Result<()> {
@@ -209,6 +209,7 @@ impl Worker for SimpleWorker {
 
 impl SimpleWorker {
     /// Get a new [`SimpleWorker`].
+    #[must_use]
     pub fn new(descriptor: SimpleDescriptor) -> Self {
         Self { descriptor }
     }
@@ -230,30 +231,35 @@ impl SimpleControllerBuilder {
     /// Set to `true` if the [`Workdir`] should be overwritten.
     ///
     /// If set to `false` and the [`Workdir`] already exists, it will error out.
+    #[must_use]
     pub fn overwrite(mut self, overwrite: bool) -> Self {
         self.overwrite = overwrite;
         self
     }
 
     /// Set the root directory of the fuzzing session.
+    #[must_use]
     pub fn root_dir(mut self, root_dir: impl Into<PathBuf>) -> Self {
         self.root_dir = root_dir.into();
         self
     }
 
     /// Set [`SimpleWorker`]'s stdout.
+    #[must_use]
     pub fn worker_stdout(mut self, file_output: Option<WorkdirFile>) -> Self {
         self.worker_stdout = file_output;
         self
     }
 
     /// Set [`SimpleWorker`]'s stderr.
+    #[must_use]
     pub fn worker_stderr(mut self, file_output: Option<WorkdirFile>) -> Self {
         self.worker_stderr = file_output;
         self
     }
 
     /// Set [`SimpleWorker`]'s stats file.
+    #[must_use]
     pub fn worker_stats(mut self, file_output: WorkdirFile) -> Self {
         self.worker_stats = Some(file_output);
         self

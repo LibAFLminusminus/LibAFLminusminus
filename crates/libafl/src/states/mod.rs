@@ -1,6 +1,6 @@
 //! The fuzzer, and state are the core pieces of every good fuzzer
 
-use alloc::{boxed::Box, string::String, vec::Vec};
+use alloc::{boxed::Box, string::{String, ToString}, vec::Vec};
 use core::{
     any::type_name,
     fmt::{self, Debug},
@@ -12,7 +12,6 @@ use std::{
     fs::{self, File},
     io::{Seek, SeekFrom},
     path::{Path, PathBuf},
-    string::ToString,
 };
 
 use libafl_bolts::{
@@ -87,6 +86,7 @@ impl Stats {
     }
 
     /// Get the exec/sec
+    #[must_use]
     pub fn execs_per_sec(&self) -> u64 {
         let as_sec = (libafl_bolts::current_time() - self.start_time).as_secs();
 
@@ -421,6 +421,7 @@ where
 
 /// Check for if this named metadata exists
 #[inline]
+#[must_use]
 pub fn has_named_metadata<M>(map: &NamedSerdeAnyMap, name: &str) -> bool
 where
     M: SerdeAny,
@@ -430,6 +431,7 @@ where
 
 /// Check for if this unnamed metadata exists
 #[inline]
+#[must_use]
 pub fn has_unnamed_metadata<M>(map: &NamedSerdeAnyMap) -> bool
 where
     M: SerdeAny,
@@ -450,10 +452,10 @@ where
 }
 
 /// Gets an unnamed metadata, or inserts it using the given construction function `default` from a [`NamedSerdeAnyMap`]
-pub fn unnamed_metadata_or_insert_with<'a, M>(
-    map: &'a mut NamedSerdeAnyMap,
+pub fn unnamed_metadata_or_insert_with<M>(
+    map: &mut NamedSerdeAnyMap,
     default: impl FnOnce() -> M,
-) -> &'a mut M
+) -> &mut M
 where
     M: SerdeAny,
 {
@@ -472,7 +474,7 @@ where
 
 /// To get an unnamed metadata from a [`NamedSerdeAnyMap`]
 #[inline]
-pub fn unnamed_metadata<'a, M>(map: &'a NamedSerdeAnyMap) -> Result<&'a M>
+pub fn unnamed_metadata<M>(map: &NamedSerdeAnyMap) -> Result<&M>
 where
     M: SerdeAny,
 {
@@ -492,7 +494,7 @@ where
 
 /// To get mutable unnamed metadata from a [`NamedSerdeAnyMap`]
 #[inline]
-pub fn unnamed_metadata_mut<'a, M>(map: &'a mut NamedSerdeAnyMap) -> Result<&'a mut M>
+pub fn unnamed_metadata_mut<M>(map: &mut NamedSerdeAnyMap) -> Result<&mut M>
 where
     M: SerdeAny,
 {
@@ -728,11 +730,11 @@ impl<C, CT, I, OC, SC> FlatState for StdState<C, CT, I, OC, SC> {
     }
 
     fn should_initialize_metadata(&mut self) -> bool {
-        if !self.metadata_initialized {
+        if self.metadata_initialized {
+            false
+        } else {
             self.metadata_initialized = true;
             true
-        } else {
-            false
         }
     }
 }

@@ -46,8 +46,8 @@ pub trait Runtime<S, W>: DependencyResolver {
     ///
     /// # Safety
     ///
-    /// The rt_handle MUST be linked to the current runtime.
-    /// Using a `rt_handle` that is not instanciated with self as the runtime will lead to Undefined Behaviour.
+    /// The `rt_handle` MUST be linked to the current runtime.
+    /// Using a `rt_handle` that is not instantiated with self as the runtime will lead to Undefined Behaviour.
     /// Use [`Self::run`], this function should not need to be called directly.
     unsafe fn run_impl(&mut self, state: S, rt_handle: &mut RuntimeHandle<S, W>) -> Result<()>;
 
@@ -57,7 +57,7 @@ pub trait Runtime<S, W>: DependencyResolver {
         Self: Sized + 'static,
     {
         let mut rt_handle =
-            unsafe { RuntimeHandle::new(self as *mut Self as *mut dyn Runtime<S, W>, worker) };
+            unsafe { RuntimeHandle::new(core::ptr::from_mut::<Self>(self) as *mut dyn Runtime<S, W>, worker) };
 
         unsafe { self.run_impl(state, &mut rt_handle)? };
 
@@ -124,7 +124,7 @@ impl<S, W> RuntimeHandle<S, W> {
 
     /// Set a timeout value for the runtime.
     pub fn set_timeout(&mut self, timeout: Duration) -> Result<()> {
-        unsafe { self.runtime_mut().set_timeout(timeout.clone()) }
+        unsafe { self.runtime_mut().set_timeout(timeout) }
     }
 
     /// Arm the [`Runtime`]'s timeout.
@@ -145,24 +145,28 @@ impl<S, W> RuntimeHandle<S, W> {
     }
 
     /// Set the termination handler (used by the [`InProcessRuntime`]).
+    ///
+    /// # Safety
+    ///
+    /// `termination_data` must outlive this [`RuntimeHandle`].
     pub unsafe fn set_termination_handler<THD: IntoTerminationHandlerData>(
         &mut self,
         termination_data: &mut THD,
     ) {
-        if self.termination_data_ptr.is_some() {
-            panic!("Termination data pointer has already been set. This is a fuzzer bug.");
-        }
+        assert!(
+            self.termination_data_ptr.is_none(),
+            "Termination data pointer has already been set. This is a fuzzer bug."
+        );
 
         self.termination_data_ptr = termination_data.as_termination_handler_data();
     }
 
     /// Set the shared memory saver (used by the [`RestartingRuntime`]).
     pub fn set_saver(&mut self, state_shm_sender: OsShmSender<S>) {
-        if self.state_shm_sender.is_some() {
-            panic!(
-                "A state shm sender is already set in the runtime handle. This is a fuzzer bug."
-            );
-        }
+        assert!(
+            self.state_shm_sender.is_none(),
+            "A state shm sender is already set in the runtime handle. This is a fuzzer bug."
+        );
 
         self.state_shm_sender = Some(state_shm_sender);
     }

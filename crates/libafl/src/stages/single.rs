@@ -70,6 +70,7 @@ pub static SINGLE_RUN_STAGE_NAME: &str = "single";
 pub type RunHookFn<E, R, S, W, Z> =
     fn(&mut RuntimeHandle<S, W>, &mut E, &mut R, &mut S, &mut Z) -> Result<(), Error>;
 
+#[expect(clippy::unnecessary_wraps)]
 fn noop_hook<E, R, S, W, Z>(
     _: &mut RuntimeHandle<S, W>,
     _: &mut E,
@@ -124,7 +125,7 @@ impl<I, E, R, S, W, Z> SingleRunStage<I, RunHookFn<E, R, S, W, Z>, RunHookFn<E, 
 }
 
 impl<I, Pre, Post> SingleRunStage<I, Pre, Post> {
-    /// Constructor for this [`struct@SingleRunStage`]. You can add hooks to `pre` and `post`. Or... use default() instead if you have absolutely nothing to hook
+    /// Constructor for this [`struct@SingleRunStage`]. You can add hooks to `pre` and `post`. Or... use `default()` instead if you have absolutely nothing to hook
     pub fn new(pre: Pre, post: Post) -> Self {
         // unsafe but impossible that you create two threads both instantiating this instance
         let stage_id = unsafe {

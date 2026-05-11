@@ -245,10 +245,10 @@ impl<T> InMemoryCorpusMap<T> for BtreeCorpusMap<T> {
     fn prev(&self, id: &TestcaseId) -> Option<TestcaseId> {
         // TODO see if using self.keys is faster
         let mut range = self.map.range((Bound::Unbounded, Bound::Included(id)));
-        if let Some((this_id, _)) = range.next_back() {
-            if *id != *this_id {
-                return None;
-            }
+        if let Some((this_id, _)) = range.next_back()
+            && *id != *this_id
+        {
+            return None;
         }
         if let Some((prev_id, _)) = range.next_back() {
             Some(*prev_id)
@@ -260,10 +260,10 @@ impl<T> InMemoryCorpusMap<T> for BtreeCorpusMap<T> {
     fn next(&self, id: &TestcaseId) -> Option<TestcaseId> {
         // TODO see if using self.keys is faster
         let mut range = self.map.range((Bound::Included(id), Bound::Unbounded));
-        if let Some((this_id, _)) = range.next() {
-            if *id != *this_id {
-                return None;
-            }
+        if let Some((this_id, _)) = range.next()
+            && *id != *this_id
+        {
+            return None;
         }
         if let Some((next_id, _)) = range.next() {
             Some(*next_id)

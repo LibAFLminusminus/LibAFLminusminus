@@ -1,7 +1,7 @@
 //! This modules are for all observers that observe the cmplog values
 
-pub mod cmplog;
-pub use cmplog::*;
+pub mod cmplog_observer;
+pub use cmplog_observer::*;
 
 use libafl_core::{AsSlice, HasLen};
 use serde::{Deserialize, Serialize};

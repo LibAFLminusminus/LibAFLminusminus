@@ -1,9 +1,9 @@
 //! In-process [`Runtime`]s.
 
-use core::{fmt::Debug, marker::PhantomData, pin::Pin, time::Duration};
+use alloc::boxed::Box;
+use core::{fmt::{self, Debug}, marker::PhantomData, pin::Pin, time::Duration};
 use libafl_bolts::timers::Timer;
 use libafl_core::Result;
-use std::{boxed::Box, fmt};
 
 use crate::{
     DependencyResolver,
@@ -26,10 +26,10 @@ impl<CH, D, S, T, TH, TM> DependencyResolver for InProcessRuntime<CH, D, S, T, T
 
 /// Hooks the current process to set it up for in-process tasks.
 /// It will change signal handlers and "pollute" the current process.
-/// It is advised to combine it with the [`RestartingRuntime`], responsible
+/// It is advised to combine it with the [`crate::runtimes::RestartingRuntime`], responsible
 /// for forking and and state preservation.
 ///
-/// InProcessRuntime runs a task that does NOT return.
+/// [`InProcessRuntime`] runs a task that does NOT return.
 /// To exit, simply exit the process.
 /// There are special exit codes used to convey what caused the exit.
 /// TODO: document these exit code
@@ -47,7 +47,7 @@ where
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("InProcessRuntime")
             .field("task", &self.task)
-            .finish()
+            .finish_non_exhaustive()
     }
 }
 

@@ -118,6 +118,6 @@ impl From<u64> for TestcaseId {
 impl From<TestcaseId> for usize {
     /// Not that the `TestcaseId` is not necessarily stable in the corpus (if we remove [`Testcase`]s, for example).
     fn from(id: TestcaseId) -> Self {
-        id.into()
+        id.0 as usize
     }
 }

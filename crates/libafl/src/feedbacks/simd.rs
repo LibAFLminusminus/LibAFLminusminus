@@ -22,7 +22,6 @@ use libafl_bolts::{
 };
 use libafl_core::Result;
 use serde::{Serialize, de::DeserializeOwned};
-use std::string::ToString;
 
 /// Stable Rust wrapper for SIMD accelerated map feedback. Unfortunately, we have to
 /// keep this until specialization is stablized (not yet since 2016).
@@ -65,8 +64,7 @@ where
 
         let history_map = map_state.history_map.as_slice();
 
-        let interesting = unsafe { covmap_is_interesting_simd::<R, V>(history_map, &map) };
-        interesting
+        unsafe { covmap_is_interesting_simd::<R, V>(history_map, &map) }
     }
 }
 
@@ -145,7 +143,7 @@ where
     R: SimdReducer<V>,
 {
     fn register(&mut self, registrator: &mut crate::Registrator) -> Result<()> {
-        registrator.register_md_default::<MapFeedbackMetadata<u8>>("MapFeedback".to_string());
+        registrator.register_md_default::<MapFeedbackMetadata<u8>>("MapFeedback");
 
         self.map.register(registrator)
     }

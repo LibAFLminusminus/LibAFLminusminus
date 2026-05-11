@@ -22,12 +22,12 @@ use crate::{
 
 impl<E, F, I, M, R, S, W, Z> DependencyResolver for PowerScheduleStage<E, F, I, M, R, S, W, Z> {
     fn register(&mut self, registrator: &mut crate::Registrator) -> Result<()> {
-        registrator.register_md_default::<PowerScheduleData>("".to_string());
+        registrator.register_md_default::<PowerScheduleData>("");
         Ok(())
     }
 }
 
-/// The [`PowerScheduleStage``]
+/// The [`PowerScheduleStage`]
 #[derive(Debug, Clone)]
 pub struct PowerScheduleStage<E, F, I, M, R, S, W, Z> {
     /// The name
@@ -63,7 +63,7 @@ where
     S: HasScheduler<Scheduler = SC>,
 {
     /// Gets the number of iterations calculated through [`Power`]
-    fn iterations(&self, state: &mut S, current: TestcaseId) -> Result<usize> {
+    fn iterations(state: &mut S, current: TestcaseId) -> Result<usize> {
         F::score(state, current)
     }
 }
@@ -98,7 +98,7 @@ where
         rt_handle: &mut RuntimeHandle<S, W>,
         testcase_id: &TestcaseId,
     ) -> Result<()> {
-        let num = self.iterations(state, *testcase_id)?;
+        let num = Self::iterations(state, *testcase_id)?;
 
         let tc = state.corpus().get(testcase_id)?;
 

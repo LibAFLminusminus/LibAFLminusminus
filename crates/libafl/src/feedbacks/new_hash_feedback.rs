@@ -32,7 +32,6 @@ pub trait HashSetState<T> {
 
 /// The state of [`NewHashFeedback`]
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
-#[expect(clippy::unsafe_derive_deserialize)]
 pub struct NewHashFeedbackMetadata {
     /// Contains information about untouched entries
     hash_set: HashSet<u64>,
@@ -130,7 +129,7 @@ where
 
 impl<O> DependencyResolver for NewHashFeedback<O> {
     fn register(&mut self, registrator: &mut crate::Registrator) -> Result<()> {
-        registrator.register_md_default::<NewHashFeedbackMetadata>(self.name().to_string());
+        registrator.register_md_default::<NewHashFeedbackMetadata>(self.name());
         Ok(())
     }
 }

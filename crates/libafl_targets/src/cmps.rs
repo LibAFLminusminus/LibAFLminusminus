@@ -1,5 +1,4 @@
 use crate::{CMPLOG_MAP_H, CMPLOG_MAP_W};
-use alloc::format;
 use core::{
     fmt::{self, Debug, Formatter},
     mem::{size_of, zeroed},
@@ -255,7 +254,7 @@ impl Operand for LibAFLCmpLogInstruction {
     }
 
     fn aux(&self) -> u64 {
-        self.2 as u64
+        u64::from(self.2)
     }
 }
 
@@ -331,9 +330,9 @@ where
         let needed = size_of::<Self>();
         let available = shm.max_data_len();
         if available != needed {
-            return Err(Error::illegal_argument(format!(
+            return Err(Error::illegal_argument(
                 "Shmem size mismatch! You must provide a shm with an identical size!!",
-            )));
+            ));
         }
         let ptr = shm.shm_mut();
         let ptr = unsafe { ptr.data_mut().as_mut_ptr().cast::<Self>() };
@@ -344,6 +343,12 @@ where
     #[must_use]
     pub const fn len(&self) -> usize {
         CMPLOG_MAP_W
+    }
+
+    /// whether this map is empty
+    #[must_use]
+    pub const fn is_empty(&self) -> bool {
+        CMPLOG_MAP_W == 0
     }
 
     /// how many cmps were recorded for this

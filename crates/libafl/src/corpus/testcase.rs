@@ -28,6 +28,7 @@ pub struct TestcaseId(pub u64);
 
 impl TestcaseId {
     /// Default file name for a [`Testcase`].
+    #[must_use]
     pub fn default_filename(&self) -> String {
         format!("{:016x}", self.0)
     }
@@ -54,11 +55,12 @@ pub struct Testcase<I> {
 
 impl TestcaseFilenameFormat {
     /// Get the actual file name as a [`String`].
+    #[must_use]
     pub fn to_filename(&self, id: &TestcaseId) -> String {
         match self {
             TestcaseFilenameFormat::Id => id.default_filename(),
             TestcaseFilenameFormat::Prefix(prefix) => {
-                format!("{}-{}", prefix, id)
+                format!("{prefix}-{id}")
             }
             TestcaseFilenameFormat::Custom(custom_name) => custom_name.clone(),
         }
@@ -69,7 +71,7 @@ impl<I> Clone for Testcase<I> {
     fn clone(&self) -> Self {
         Self {
             input: self.input.clone(),
-            id: self.id.clone(),
+            id: self.id,
             filename_fmt: self.filename_fmt.clone(),
         }
     }
@@ -78,11 +80,13 @@ impl<I> Clone for Testcase<I> {
 impl<I> Testcase<I> {
     /// Get the input
     #[inline]
+    #[must_use]
     pub fn input(&self) -> Rc<I> {
         self.input.clone()
     }
 
     /// Get the associated unique ID.
+    #[must_use]
     pub fn id(&self) -> &TestcaseId {
         &self.id
     }
@@ -98,6 +102,7 @@ where
     I: HasLen,
 {
     /// Get the input length
+    #[must_use]
     pub fn input_len(&self) -> usize {
         self.input.len()
     }
@@ -141,6 +146,7 @@ where
     I: Clone,
 {
     /// Clone the input embedded in the [`Testcase`].
+    #[must_use]
     pub fn cloned_input(&self) -> I {
         self.input.as_ref().clone()
     }

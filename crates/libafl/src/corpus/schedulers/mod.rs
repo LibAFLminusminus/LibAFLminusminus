@@ -2,7 +2,7 @@
 
 use alloc::borrow::ToOwned;
 use core::fmt::Debug;
-use std::vec::Vec;
+use alloc::vec::Vec;
 
 use libafl_bolts::rands::{Rand, StdRand};
 use libafl_core::{Result, non_zero};
@@ -67,7 +67,7 @@ where
     }
 
     fn current(&self) -> Option<TestcaseId> {
-        self.current.clone()
+        self.current
     }
 
     /// Gets the next entry at random

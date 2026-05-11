@@ -154,6 +154,7 @@ impl Drop for Forkserver {
     }
 }
 
+#[expect(clippy::struct_excessive_bools)]
 struct ForkserverSpawnConfig {
     target: OsString,
     args: Vec<OsString>,
@@ -624,7 +625,7 @@ where
 
         self.observers_mut()
             .post_exec_all(state, &exit_kind)
-            .map(|_| exit_kind)
+            .map(|()| exit_kind)
     }
 
     #[inline]
@@ -675,7 +676,7 @@ pub struct ForkserverExecutorBuilder<'a> {
     crash_exitcode: Option<i8>,
 }
 
-impl<'a> StdChildArgs for ForkserverExecutorBuilder<'a> {
+impl StdChildArgs for ForkserverExecutorBuilder<'_> {
     fn inner(&self) -> &StdChildArgsInner {
         &self.child_env_inner
     }
@@ -685,7 +686,7 @@ impl<'a> StdChildArgs for ForkserverExecutorBuilder<'a> {
     }
 }
 
-impl<'a> StdTargetArgs for ForkserverExecutorBuilder<'a> {
+impl StdTargetArgs for ForkserverExecutorBuilder<'_> {
     fn inner(&self) -> &StdTargetArgsInner {
         &self.target_inner
     }
@@ -1088,6 +1089,12 @@ impl<'a> ForkserverExecutorBuilder<'a> {
     pub fn try_use_input_shmem(mut self) -> Self {
         self.try_use_input_shmem = true;
         self
+    }
+}
+
+impl Default for ForkserverExecutorBuilder<'_> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

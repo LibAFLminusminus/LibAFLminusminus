@@ -107,7 +107,7 @@ pub struct CalibrationHook<C, O> {
 
 impl<C, O> DependencyResolver for CalibrationHook<C, O> {
     fn register(&mut self, registrator: &mut crate::Registrator) -> Result<()> {
-        registrator.register_md_default::<UnstableEntriesMetadata>(self.name().to_string());
+        registrator.register_md_default::<UnstableEntriesMetadata>(self.name());
         Ok(())
     }
 }
@@ -152,6 +152,7 @@ where
     S: HasCorpus<I> + FlatState,
     W: Worker,
 {
+    #[expect(clippy::cast_precision_loss)]
     fn post_add(
         &mut self,
         executor: &mut E,

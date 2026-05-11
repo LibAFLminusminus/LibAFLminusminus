@@ -10,7 +10,7 @@ use crate::{
     observers::MapObserver,
     states::{FlatState, HasTestcase},
 };
-use alloc::{borrow::Cow, string::ToString, vec::Vec};
+use alloc::{borrow::Cow, vec::Vec};
 use core::{
     fmt::Debug,
     marker::PhantomData,
@@ -152,7 +152,6 @@ where
 
 /// A testcase metadata holding a list of indexes of a map
 #[derive(Debug, Serialize, Deserialize)]
-#[expect(clippy::unsafe_derive_deserialize)] // for SerdeAny
 pub struct MapIndexes {
     /// The actual list.
     pub list: Vec<usize>,
@@ -204,7 +203,6 @@ impl MapIndexes {
 
 /// A testcase metadata holding a list of indexes of a map
 #[derive(Debug, Serialize, Deserialize)]
-#[expect(clippy::unsafe_derive_deserialize)] // for SerdeAny
 pub struct MapNoveltiesMetadata {
     /// A `list` of novelties.
     pub list: Vec<usize>,
@@ -237,7 +235,6 @@ impl MapNoveltiesMetadata {
 
 /// The state of [`MapFeedback`]
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
-#[expect(clippy::unsafe_derive_deserialize)] // for SerdeAny
 pub struct MapFeedbackMetadata<T> {
     /// Contains information about untouched entries
     pub history_map: Vec<T>,
@@ -318,7 +315,7 @@ where
     O::Entry: 'static + Default + Debug + DeserializeOwned + Serialize,
 {
     fn register(&mut self, registrator: &mut crate::Registrator) -> Result<()> {
-        registrator.register_md_default::<MapFeedbackMetadata<O::Entry>>(self.name().to_string());
+        registrator.register_md_default::<MapFeedbackMetadata<O::Entry>>(self.name());
         Ok(())
     }
 }

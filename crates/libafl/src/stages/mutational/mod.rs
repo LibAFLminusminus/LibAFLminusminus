@@ -30,6 +30,7 @@ impl<S> Power<S> for AFLPower
 where
     S: FlatState,
 {
+    #[expect(clippy::cast_precision_loss, clippy::cast_sign_loss)]
     fn score(state: &mut S, testcase_id: TestcaseId) -> Result<usize> {
         let psmeta = unnamed_metadata_mut::<PowerScheduleData>(state.named_metadata_map_mut())?;
 

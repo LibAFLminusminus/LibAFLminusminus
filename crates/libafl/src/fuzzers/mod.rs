@@ -208,11 +208,13 @@ pub struct NopFuzzer;
 
 impl EvaluationResult {
     /// Get a new [`EvaluationResult`].
+    #[must_use]
     pub fn new(exit_kind: ExitKind, verdict: Verdict) -> Self {
         Self { exit_kind, verdict }
     }
 
     /// [`EvaluationResult`] when an entry is deemed not interesting.
+    #[must_use]
     pub fn not_interesting() -> Self {
         Self {
             exit_kind: ExitKind::Ok,
@@ -221,27 +223,25 @@ impl EvaluationResult {
     }
 
     /// Is the [`EvaluationResult`] objective worthy?
+    #[must_use]
     pub fn is_objective_worthy(&self) -> bool {
-        match self.verdict {
-            Verdict::Objective => true,
-            _ => false,
-        }
+        matches!(self.verdict, Verdict::Objective)
     }
 
     /// Is the [`EvaluationResult`] corpus worthy?
+    #[must_use]
     pub fn is_corpus_worthy(&self) -> bool {
-        match self.verdict {
-            Verdict::Corpus => true,
-            _ => false,
-        }
+        matches!(self.verdict, Verdict::Corpus)
     }
 
     /// Get the [`EvaluationResult`]'s [`Verdict`].
+    #[must_use]
     pub fn vertict(&self) -> &Verdict {
         &self.verdict
     }
 
     /// Get the [`EvaluationResult`]'s [`ExitKind`].
+    #[must_use]
     pub fn exit_kind(&self) -> ExitKind {
         self.exit_kind
     }

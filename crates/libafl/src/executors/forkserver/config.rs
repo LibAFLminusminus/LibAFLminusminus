@@ -69,8 +69,8 @@ impl Config for Command {
                 dup2(BorrowedFd::borrow_raw(st_write), &mut channel2).map_err(io::Error::from)?;
 
                 // i need this else drop() will be called on these guys
-                std::mem::forget(channel1);
-                std::mem::forget(channel2);
+                core::mem::forget(channel1);
+                core::mem::forget(channel2);
 
                 close(ctl_read).map_err(io::Error::from)?;
                 close(st_write).map_err(io::Error::from)?;

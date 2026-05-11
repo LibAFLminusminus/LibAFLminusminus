@@ -121,9 +121,9 @@ where
                                     unsafe { state_receiver.receive()? }
                                 }
                                 LIBAFL_EXIT_TERMINATION_INFINITE_RECURSION => {
-                                    return Err(Error::runtime(format!(
-                                        "An infinite termination recursion occured in the child process."
-                                    )));
+                                    return Err(Error::runtime(
+                                        "An infinite termination recursion occured in the child process.",
+                                    ));
                                 }
                                 0..128 => {
                                     return Err(Error::runtime(format!(
@@ -180,7 +180,7 @@ where
                         "Restarting runtime error while forking: {e}"
                     )));
                 }
-            };
+            }
         }
     }
 

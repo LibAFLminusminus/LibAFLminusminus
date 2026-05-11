@@ -1,7 +1,8 @@
 //! Unix instance
 
 use core::{borrow::Borrow, hash::Hash, time::Duration};
-use std::{collections::HashSet, os::fd::AsFd, process::exit, vec::Vec};
+use alloc::vec::Vec;
+use std::{collections::HashSet, os::fd::AsFd, process::exit};
 
 use libafl_bolts::core_affinity::CoreId;
 use nix::{
@@ -106,8 +107,15 @@ where
     }
 }
 
+impl<D, RT, S, W> Default for Instances<D, RT, S, W> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<D, RT, S, W> Instances<D, RT, S, W> {
     /// Create a new [`Instances`] collection.
+    #[must_use]
     pub fn new() -> Self {
         Self {
             instances: Vec::new(),
@@ -173,13 +181,10 @@ where
 
             let mut fds = [PollFd::new(sfd.as_fd(), PollFlags::POLLIN)];
             match poll(&mut fds, poll_timeout) {
-                Err(nix::errno::Errno::EINTR) => {
-                    // Interrupted by a signal unrelated to SIGCHLD; retry.
+                Err(nix::errno::Errno::EINTR) | Ok(0) => {
+                    // Interrupted by signal or timed out; retry.
                 }
                 Err(e) => return Err(Error::runtime(format!("poll failed: {e}"))),
-                Ok(0) => {
-                    // poll timed out. loop over.
-                }
                 Ok(_) => {
                     // consume the pending signals
                     while matches!(sfd.read_signal(), Ok(Some(_))) {}
@@ -203,7 +208,7 @@ where
     {
         loop {
             match waitpid(Pid::from_raw(-1), Some(WaitPidFlag::WNOHANG)) {
-                Ok(WaitStatus::StillAlive) => break,
+                Ok(WaitStatus::StillAlive) | Err(nix::errno::Errno::ECHILD) => break,
                 Ok(WaitStatus::Exited(pid, exit_code)) => {
                     log::info!("Worker with PID {pid} exited with exit code {exit_code}");
 
@@ -225,7 +230,6 @@ where
                     controller.on_worker_termination(&instance_repr.descriptor, signal)?;
                 }
                 Ok(_) => {}
-                Err(nix::errno::Errno::ECHILD) => break,
                 Err(e) => return Err(Error::runtime(format!("waitpid failed: {e}"))),
             }
         }

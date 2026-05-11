@@ -110,7 +110,7 @@ where
     pub fn init(self: &mut Pin<Box<Self>>) -> Result<()> {
         self.setup_panic_hook();
 
-        unsafe { setup_signal_handler(self.as_mut().get_mut() as *mut Self) }
+        unsafe { setup_signal_handler(core::ptr::from_mut::<Self>(self.as_mut().get_mut())) }
     }
 
     /// Called when entering a signal handler
@@ -120,7 +120,7 @@ where
 
     /// Called when exiting a signal handler
     pub fn exit(&mut self) {
-        self.inner.exit()
+        self.inner.exit();
     }
 
     /// Timeout-Handler for in-process fuzzing.
@@ -156,8 +156,7 @@ where
                 .inner
                 .data_mut()
                 .as_termination_handler_data()
-                .map(|p| p.as_ref().in_fuzzing())
-                .unwrap_or(false)
+                .is_some_and(|p| p.as_ref().in_fuzzing())
             {
                 (self.inner.timeout_handler)(&mut self.inner.termination_data, &signal_params)
                     .expect("Error in timeout handler");
@@ -195,8 +194,7 @@ where
                 .inner
                 .data_mut()
                 .as_termination_handler_data()
-                .map(|p| p.as_ref().in_fuzzing())
-                .unwrap_or(false)
+                .is_some_and(|p| p.as_ref().in_fuzzing())
             {
                 // fuzzing in progress, propagate crash
                 log::error!("Target crashed with signal {signal}");
@@ -209,7 +207,7 @@ where
                             &mut writer,
                             signal,
                             siginfo,
-                            context.as_deref(),
+                            context,
                         );
 
                         if bsod.is_err() {
@@ -242,7 +240,7 @@ where
                             &mut writer,
                             signal,
                             siginfo,
-                            context.as_deref(),
+                            context,
                         );
                         if bsod.is_err() {
                             log::error!("generate_minibsod failed");
@@ -275,7 +273,7 @@ where
         let old_hook = panic::take_hook();
 
         let signal_handler_ptr: SignalHandlerPtr<CH, D, TH> = unsafe {
-            SignalHandlerPtr::new(Pin::as_mut(self).get_mut() as *mut UnixSignalHandler<CH, D, TH>)
+            SignalHandlerPtr::new(core::ptr::from_mut::<UnixSignalHandler<CH, D, TH>>(Pin::as_mut(self).get_mut()))
         };
 
         // # Safety
@@ -301,8 +299,7 @@ where
                 .inner
                 .termination_data
                 .as_termination_handler_data()
-                .map(|p| p.as_ref().in_fuzzing())
-                .unwrap_or(false)
+                .is_some_and(|p| p.as_ref().in_fuzzing())
             {
                 // not in a fuzzing run: use the default hook (includes RUST_BACKTRACE output)
                 old_hook(panic_info);

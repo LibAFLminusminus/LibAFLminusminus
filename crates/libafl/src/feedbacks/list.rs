@@ -16,7 +16,6 @@ use libafl_bolts::{
 };
 use libafl_core::Result;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
-use std::string::ToString;
 #[cfg(feature = "std")]
 use std::{fs::File, io::Write, path::Path};
 
@@ -135,7 +134,7 @@ where
     T: Debug + Eq + Hash + for<'a> Deserialize<'a> + Serialize + Default + Copy + 'static,
 {
     fn register(&mut self, registrator: &mut crate::Registrator) -> Result<()> {
-        registrator.register_md_default::<ListFeedbackMetadata<T>>(self.name().to_string());
+        registrator.register_md_default::<ListFeedbackMetadata<T>>(self.name());
         Ok(())
     }
 }

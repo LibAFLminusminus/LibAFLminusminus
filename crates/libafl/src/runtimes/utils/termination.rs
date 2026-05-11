@@ -41,8 +41,15 @@ pub struct TerminationHandlerData {
 unsafe impl Send for TerminationHandlerData {}
 unsafe impl Sync for TerminationHandlerData {}
 
+impl Default for TerminationHandlerData {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl TerminationHandlerData {
     /// Get a new [`TerminationHandlerData`].
+    #[must_use]
     pub fn new() -> Self {
         Self {
             state_ptr: None,
@@ -69,11 +76,10 @@ impl TerminationHandlerData {
         E: Executor<I, S>,
         Z: Fuzzer<E, I, R, S, ST, W>,
     {
-        if self.state_ptr.is_some() {
-            panic!(
-                "Trying to initialize termination information multiple times. This is a fuzzer bug."
-            );
-        }
+        assert!(
+            self.state_ptr.is_none(),
+            "Trying to initialize termination information multiple times. This is a fuzzer bug."
+        );
 
         self.state_ptr = Some(NonNull::from(state).cast());
         self.fuzzer_ptr = Some(NonNull::from(fuzzer).cast());
@@ -86,6 +92,8 @@ impl TerminationHandlerData {
     /// # Safety
     ///
     /// S must be the same as the one used during init
+    #[must_use]
+    #[expect(clippy::mut_from_ref)]
     pub unsafe fn state<S>(&self) -> &mut S {
         unsafe { self.state_ptr.unwrap().cast().as_mut() }
     }
@@ -93,6 +101,8 @@ impl TerminationHandlerData {
     /// # Safety
     ///
     /// Z must be the same as the one used during init
+    #[must_use]
+    #[expect(clippy::mut_from_ref)]
     pub unsafe fn fuzzer<Z>(&self) -> &mut Z {
         unsafe { self.fuzzer_ptr.unwrap().cast().as_mut() }
     }
@@ -100,6 +110,8 @@ impl TerminationHandlerData {
     /// # Safety
     ///
     /// O must be the same as the one used during init
+    #[must_use]
+    #[expect(clippy::mut_from_ref)]
     pub unsafe fn executor<E, I, S>(&self) -> &mut E
     where
         E: Executor<I, S>,
@@ -110,20 +122,23 @@ impl TerminationHandlerData {
     /// # Safety
     ///
     /// S and W must be the same as the one used during init
+    #[must_use]
+    #[expect(clippy::mut_from_ref)]
     pub unsafe fn rt_handle<S, W>(&self) -> &mut RuntimeHandle<S, W> {
         unsafe { self.rt_handle_ptr.unwrap().cast().as_mut() }
     }
 
     /// # Safety
     ///
-    /// I must be the same as the one used during set_input
+    /// I must be the same as the one used during `set_input`
+    #[must_use]
     pub unsafe fn input<I>(&self) -> Option<&I> {
         unsafe { self.input_ptr.map(|input| input.cast().as_ref()) }
     }
 
     /// # Safety
     ///
-    /// I must be the same as the one used during set_input
+    /// I must be the same as the one used during `set_input`
     pub unsafe fn take_input<I: Clone>(&mut self) -> Option<I> {
         unsafe {
             self.input_ptr.take().map(|input| {
@@ -136,6 +151,8 @@ impl TerminationHandlerData {
     /// # Safety
     ///
     /// S must be the same type used when the saver was registered via `RuntimeHandle`.
+    #[must_use]
+    #[expect(clippy::mut_from_ref)]
     #[cfg(unix)]
     pub unsafe fn saver<S>(&self) -> Option<&mut OsShmSender<S>> {
         unsafe { self.state_sender_ptr.map(|p| p.cast().as_mut()) }
@@ -157,6 +174,7 @@ impl TerminationHandlerData {
     }
 
     /// Are we in target code?
+    #[must_use]
     pub fn in_fuzzing(&self) -> bool {
         self.input_ptr.is_some()
     }

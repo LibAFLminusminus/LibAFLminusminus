@@ -140,7 +140,7 @@ pub trait Executor<I, S>: DependencyResolver {
         // start_timer!(state);
         self.observers_mut()
             .post_exec_all(state, &exit_kind)
-            .map(|_| exit_kind)
+            .map(|()| exit_kind)
         // mark_feature_time!(state, PerfFeature::PostExecObservers);
     }
 

@@ -78,6 +78,7 @@ where
     S: HasScheduler<Scheduler = SC>,
 {
     /// Gets the number of iterations as a random number
+    #[expect(clippy::unnecessary_wraps)]
     fn iterations(&self, rand: &mut R) -> Result<usize, Error> {
         Ok(1 + rand.below(self.max_iterations))
     }
@@ -112,7 +113,7 @@ where
         rt_handle: &mut RuntimeHandle<S, W>,
         testcase_id: &TestcaseId,
     ) -> Result<(), Error> {
-        self.perform_mutational(fuzzer, executor, rand, state, rt_handle, testcase_id)
+        self.perform_mutational(fuzzer, executor, rand, state, rt_handle, *testcase_id)
     }
 }
 
@@ -157,11 +158,11 @@ where
         rand: &mut R,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
-        testcase_id: &TestcaseId,
+        testcase_id: TestcaseId,
     ) -> Result<(), Error> {
         let num = self.iterations(rand)?;
 
-        let tc = state.corpus().get(testcase_id)?;
+        let tc = state.corpus().get(&testcase_id)?;
 
         for _ in 0..num {
             let mut input = tc.cloned_input();

@@ -27,7 +27,7 @@ pub struct OutputObserver<T> {
     pub name: Cow<'static, str>,
     /// The captured stdout/stderr data during last execution.
     pub output: Option<Vec<u8>>,
-    #[serde(skip_serializing, deserialize_with = "new_file::<_, T>")]
+    #[serde(skip_serializing, deserialize_with = "new_file::<_>")]
     /// File backend of the memory to capture output, if [`None`] we use portable piped output
     pub file: Option<File>,
     #[serde(skip)]
@@ -38,7 +38,8 @@ pub struct OutputObserver<T> {
 /// Blanket implementation for a [`std::fs::File`]. Fortunately the contents of the file
 /// is transient and thus we can safely create a new one on deserialization (and skip it)
 /// when doing serialization
-fn new_file<'de, D, T>(_d: D) -> Result<Option<File>, D::Error>
+#[expect(clippy::unnecessary_wraps)]
+fn new_file<'de, D>(_d: D) -> Result<Option<File>, D::Error>
 where
     D: Deserializer<'de>,
 {

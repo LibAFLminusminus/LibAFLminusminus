@@ -33,7 +33,7 @@ const STATS_UPDATE_INTERVAL: Duration = Duration::from_secs(4);
 fn handle_objective_in_termination_handler<E, F, H, I, OF, S, W>(
     executor: &mut E,
     state: &mut S,
-    input: I,
+    input: &I,
     fuzzer: &mut StdFuzzer<F, H, OF>,
     rt_handle: &mut RuntimeHandle<S, W>,
     exit_kind: ExitKind,
@@ -51,7 +51,7 @@ fn handle_objective_in_termination_handler<E, F, H, I, OF, S, W>(
         .expect("Post exec observers failed");
 
     fuzzer
-        .evaluate_execution(state, &input, &mut *executor.observers_mut(), exit_kind)
+        .evaluate_execution(state, input, &*executor.observers_mut(), exit_kind)
         .unwrap();
 
     // update stats before exit
@@ -76,9 +76,7 @@ unsafe fn std_on_crash<E, F, H, I, OF, S, W>(
     W: Worker,
 {
     // double check, not mandatory
-    if !data.in_fuzzing() {
-        panic!("A crash occured out of the fuzzing loop. This is a fuzzer bug.");
-    }
+    assert!(data.in_fuzzing(), "A crash occured out of the fuzzing loop. This is a fuzzer bug.");
 
     // note: take input to signify we are out of target code
     // it is useful if subsequent code panicks / raises another signal.
@@ -95,7 +93,7 @@ unsafe fn std_on_crash<E, F, H, I, OF, S, W>(
     handle_objective_in_termination_handler(
         executor,
         state,
-        input.unwrap(),
+        &input.unwrap(),
         fuzzer,
         rt_handle,
         ExitKind::Crash,
@@ -116,9 +114,7 @@ unsafe fn std_on_timeout<E, F, H, I, OF, S, W>(
     W: Worker,
 {
     // double check, not mandatory
-    if !data.in_fuzzing() {
-        panic!("A timeout occured out of the fuzzing loop. This is a fuzzer bug.");
-    }
+    assert!(data.in_fuzzing(), "A timeout occured out of the fuzzing loop. This is a fuzzer bug.");
 
     // note: take input to signify we are out of target code
     // it is useful if subsequent code panicks / raises another signal.
@@ -135,7 +131,7 @@ unsafe fn std_on_timeout<E, F, H, I, OF, S, W>(
     handle_objective_in_termination_handler(
         executor,
         state,
-        input.unwrap(),
+        &input.unwrap(),
         fuzzer,
         rt_handle,
         ExitKind::Timeout,
@@ -249,7 +245,7 @@ where
 
         let observers = executor.observers();
         let result =
-            self.evaluate_execution::<I, E::Observers, S>(state, &*input, &*observers, exit_kind)?;
+            self.evaluate_execution::<I, E::Observers, S>(state, input, &*observers, exit_kind)?;
 
         if result.is_objective_worthy() {
             // The input is a objective, add it to the respective corpus
@@ -366,13 +362,13 @@ where
             executor.register_with_ty(&mut registrator)?;
 
             // 2 - check that types and mds for each object
-            let mut checker = registrator.finish();
-            self.feedback.check(&mut checker)?;
-            self.objective.check(&mut checker)?;
-            self.objective.check(&mut checker)?;
-            stages.check(&mut checker)?;
-            state.check(&mut checker)?;
-            executor.check(&mut checker)?;
+            let checker = registrator.finish();
+            self.feedback.check(&checker)?;
+            self.objective.check(&checker)?;
+            self.objective.check(&checker)?;
+            stages.check(&checker)?;
+            state.check(&checker)?;
+            executor.check(&checker)?;
 
             // 3 - now state metadata get replaced by
             *state.named_metadata_map_mut() = checker.finish();
@@ -384,10 +380,10 @@ where
             self,
             executor,
             |data, signal_params| unsafe {
-                std_on_crash::<E, F, H, I, OF, S, W>(data, signal_params)
+                std_on_crash::<E, F, H, I, OF, S, W>(data, signal_params);
             },
             |data, signal_params| unsafe {
-                std_on_timeout::<E, F, H, I, OF, S, W>(data, signal_params)
+                std_on_timeout::<E, F, H, I, OF, S, W>(data, signal_params);
             },
         );
 

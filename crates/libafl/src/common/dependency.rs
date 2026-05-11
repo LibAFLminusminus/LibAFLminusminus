@@ -1,7 +1,7 @@
 //! Dependency resolver for types and metadata.
 
 use core::any;
-use std::{collections::HashSet, string::String};
+use std::collections::HashSet;
 
 use libafl_bolts::serdeany::{NamedSerdeAnyMap, SerdeAny};
 use libafl_core::Result;
@@ -28,6 +28,7 @@ pub struct CompatibilityChecker {
 
 impl Registrator {
     /// Create a new [`Registrator`]
+    #[must_use]
     pub fn new(state_metadata: NamedSerdeAnyMap) -> Self {
         Self {
             map: state_metadata,
@@ -36,15 +37,15 @@ impl Registrator {
     }
 
     /// Register a new metadata.
-    pub fn register_md<T: SerdeAny>(&mut self, name: String, value: T) {
-        add_named_metadata_checked::<T>(&mut self.map, &name, value)
-            .expect(format!("Addind same metadata twice: {name}").as_str())
+    pub fn register_md<T: SerdeAny>(&mut self, name: &str, value: T) {
+        add_named_metadata_checked::<T>(&mut self.map, name, value)
+            .unwrap_or_else(|_| panic!("Addind same metadata twice: {name}"));
     }
 
     /// Register a new metadata, with its default value.
-    pub fn register_md_default<T: Default + SerdeAny>(&mut self, name: String) {
-        add_named_metadata_checked::<T>(&mut self.map, &name, T::default())
-            .expect(format!("Addind same metadata twice: {name}").as_str())
+    pub fn register_md_default<T: Default + SerdeAny>(&mut self, name: &str) {
+        add_named_metadata_checked::<T>(&mut self.map, name, T::default())
+            .unwrap_or_else(|_| panic!("Addind same metadata twice: {name}"));
     }
 
     /// Register a new type.
@@ -53,6 +54,7 @@ impl Registrator {
     }
 
     /// Finish the registration, and get the [`CompabilityChecker`].
+    #[must_use]
     pub fn finish(self) -> CompatibilityChecker {
         CompatibilityChecker {
             map: self.map,
@@ -63,11 +65,13 @@ impl Registrator {
 
 impl CompatibilityChecker {
     /// Does the checker contains the given type?
+    #[must_use]
     pub fn contains<T>(&self) -> bool {
         self.types.contains(any::type_name::<T>())
     }
 
     /// Get the final [`NamedSerdeAnyMap`], produced when all checks are done.
+    #[must_use]
     pub fn finish(self) -> NamedSerdeAnyMap {
         self.map
     }

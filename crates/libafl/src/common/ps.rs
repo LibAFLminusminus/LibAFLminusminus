@@ -110,6 +110,7 @@ impl PowerScheduleData {
     }
 
     /// Get the per-testcase metadata map
+    #[must_use]
     pub fn per_testcase_data(&self, testcase_id: TestcaseId) -> Option<&TestcasePowerScheduleData> {
         self.per_testcase.get(&testcase_id)
     }
@@ -171,7 +172,6 @@ impl TestcasePowerScheduleData {
     }
 
     #[inline]
-    #[must_use]
     /// Set the [`Self::parent`]
     pub fn set_parent(&mut self, parent: TestcaseId) {
         self.parent = Some(parent);

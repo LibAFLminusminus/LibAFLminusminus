@@ -74,7 +74,7 @@ where
     ) -> Result<()> {
         if !self.initialized {
             if let Some(tmout) = &self.timeout {
-                rt_handle.set_timeout(tmout.clone())?;
+                rt_handle.set_timeout(*tmout)?;
             }
 
             self.hooks.init_all(state);
