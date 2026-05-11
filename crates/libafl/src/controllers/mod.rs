@@ -10,9 +10,14 @@ use std::{
     path::{Path, PathBuf},
 };
 
-pub mod aflpp;
+// pub mod aflpp;
 pub mod nop;
+pub use nop::{NopController, NopDescriptor, NopWorker};
+
 pub mod simple;
+pub use simple::{
+    SimpleController, SimpleControllerBuilder, SimpleDescriptor, SimpleWorker, SimpleWorkerRepr,
+};
 
 /// A controller is the glue between multiple [`Worker`]s.
 ///
@@ -24,60 +29,76 @@ pub trait Controller {
     /// The associated [`Descriptor`].
     type Descriptor: Descriptor;
 
+    /// Create a new [`Self::Worker`].
+    /// The controller must keep track of the worker if necessary.
     fn create_worker(&mut self) -> Result<Self::Worker>;
 
+    /// Get an iterator over all [`Self::Worker`] descriptors.
     fn worker_descriptors(&self) -> impl IntoIterator<Item = &Self::Descriptor>;
 
+    /// Get a mutable iterator over all [`Self::Worker`] descriptors.
     fn worker_descriptors_mut(&mut self) -> impl IntoIterator<Item = &mut Self::Descriptor>;
 
-    fn on_worker_start(&mut self, descriptor: &Self::Descriptor, id: InstanceId) -> Result<()> {
+    /// Hook called when a [`Self::Worker`] actually starts, with its associated [`InstanceId`].
+    fn on_worker_start(&mut self, _descriptor: &Self::Descriptor, _id: InstanceId) -> Result<()> {
         Ok(())
     }
 
-    /// Called when a controller exits with some exit code
-    fn on_worker_exit(&mut self, descriptor: &Self::Descriptor, exit_code: i32) -> Result<()> {
+    /// Hook called when a controller exits with some exit code
+    fn on_worker_exit(&mut self, _descriptor: &Self::Descriptor, _exit_code: i32) -> Result<()> {
         Ok(())
     }
 
-    /// Called when a controller exits with a termination (e.g. signal / exception)
+    /// Hook called when a controller exits with a termination (e.g. signal / exception)
     fn on_worker_termination(
         &mut self,
-        descriptor: &Self::Descriptor,
-        termination_code: Signal, // TODO: make this os-agnostic
+        _descriptor: &Self::Descriptor,
+        _termination_code: Signal, // TODO: make this os-agnostic
     ) -> Result<()> {
         Ok(())
     }
 }
 
+/// A worker is a representant of a fuzzing instance.
+/// It is linked to a [`Controller`], which holds a reference to all workers.
 pub trait Worker {
+    /// The associated [`Controller`].
     type Controller: Controller<Worker = Self>;
 
-    /// the client id
+    /// The client id of the worker.
     fn id(&self) -> WorkerId;
 
-    /// returns the descriptor describing each fuzzer instances
+    /// Returns the descriptor of the worker.
     fn descriptor(&self) -> &<Self::Controller as Controller>::Descriptor;
 
-    /// returns the working directory of this instance
+    /// Returns the reference of the working directory of the worker.
     fn workdir(&self) -> &Workdir;
 
-    /// returns the working directory of this instance
+    /// Returns the mutable reference of the working directory of the worker.
     fn workdir_mut(&mut self) -> &mut Workdir;
 
-    /// do the work related to reconciling between instances; like sharing corpus.. etc.
+    /// Do the work related to reconciling between instances: sharing corpus, etc.
     fn reconcile(&self) -> Result<()>;
 
+    /// Hook called before the [`Runtime`] of the worker gets executed.
     fn pre_runtime_exec(&mut self) -> Result<()> {
         Ok(())
     }
 }
 
+/// A descriptor describes a [`Worker`].
 pub trait Descriptor: Clone {
+    /// Get the reference to the workdir of the [`Worker`].
     fn workdir(&self) -> &Workdir;
+
+    /// Get the mutable reference to the workdir of the [`Worker`].
     fn workdir_mut(&mut self) -> &mut Workdir;
+
+    /// Get the worker ID of the [`Worker`].
     fn worker_id(&self) -> WorkerId;
 }
 
+/// A workdir contains information relative to the working environement of a [`Worker`].
 #[derive(Debug, Clone)]
 pub struct Workdir {
     root_dir: PathBuf,
@@ -86,9 +107,13 @@ pub struct Workdir {
     stats: Option<WorkdirFile>,
 }
 
+/// A workdir file is an abstract representation of a file owned by a [`Workir`].
+/// It enables to get a file as a [`File`] or a [`PathBuf`] transparently.
 #[derive(Debug)]
 pub enum WorkdirFile {
+    /// File described as a [`PathBuf`].
     Path(PathBuf),
+    /// File described as a [`File`].
     File(File),
 }
 
@@ -102,7 +127,10 @@ impl Clone for WorkdirFile {
 }
 
 impl WorkdirFile {
-    pub fn get_file_rd<P: AsRef<Path>>(&mut self, root_dir: P) -> Result<Option<File>> {
+    /// Open a [`File`] in read-only mode from its path.
+    ///
+    /// Returns [`None`] if the path does not exist.
+    pub fn get_file_rd(&mut self, root_dir: impl AsRef<Path>) -> Result<Option<File>> {
         let path: Option<PathBuf> = if let WorkdirFile::Path(p) = self {
             Some(p.clone())
         } else {
@@ -133,7 +161,10 @@ impl WorkdirFile {
         Ok(Some(file.try_clone().unwrap()))
     }
 
-    pub fn get_file_wr<P: AsRef<Path>>(&mut self, root_dir: P) -> Result<File> {
+    /// Open a [`File`] in write-only mode from its path.
+    ///
+    /// Creates the file if the path does not exist.
+    pub fn get_file_wr(&mut self, root_dir: impl AsRef<Path>) -> Result<File> {
         let path: Option<PathBuf> = if let WorkdirFile::Path(p) = self {
             Some(p.clone())
         } else {
@@ -163,8 +194,9 @@ impl WorkdirFile {
 }
 
 impl Workdir {
-    pub fn new<P: AsRef<Path>>(
-        root_dir: P,
+    /// Create a new [`Workdir`].
+    pub fn new(
+        root_dir: impl AsRef<Path>,
         stdout: Option<WorkdirFile>,
         stderr: Option<WorkdirFile>,
         stats: Option<WorkdirFile>,
@@ -183,10 +215,12 @@ impl Workdir {
         })
     }
 
+    /// Get the root directory of the [`Workdir`].
     pub fn root_dir(&self) -> &Path {
         self.root_dir.as_path()
     }
 
+    /// Get the file associated with stdout for the [`Workdir`].
     pub fn stdout(&mut self) -> Result<Option<File>> {
         if let Some(wd_f) = &mut self.stdout {
             wd_f.get_file_wr(self.root_dir.as_path())
@@ -196,6 +230,7 @@ impl Workdir {
         }
     }
 
+    /// Get the file associated with stderr for the [`Workdir`].
     pub fn stderr(&mut self) -> Result<Option<File>> {
         if let Some(wd_f) = &mut self.stderr {
             wd_f.get_file_wr(self.root_dir.as_path())
@@ -223,6 +258,7 @@ impl Workdir {
         Ok(file)
     }
 
+    /// Get the [`Stats`] file of the [`Workdir`].
     pub fn get_stats(&mut self) -> Result<Option<File>> {
         if let Some(stats_f) = &mut self.stats {
             Ok(stats_f.get_file_rd(self.root_dir.as_path())?)
@@ -231,7 +267,7 @@ impl Workdir {
         }
     }
 
-    /// create a new directory, relative to the workdir.
+    /// Create a new directory, relative to the [`Workdir`].
     ///
     /// Errors out if the directory already exists.
     pub fn create_dir<P: AsRef<Path>>(&self, path: P) -> Result<PathBuf> {
@@ -241,6 +277,7 @@ impl Workdir {
         Ok(full_path)
     }
 
+    /// Update the [`Stats`] of the [`Workdir`].
     pub fn report_stats(&mut self, stats: &Stats) -> Result<()> {
         if let Some(stats_f) = &mut self.stats {
             let stats_ref = stats_f.get_file_wr(self.root_dir.as_path())?;

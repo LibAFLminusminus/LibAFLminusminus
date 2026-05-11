@@ -11,6 +11,7 @@ use nix::unistd::{dup2_stderr, dup2_stdout};
 
 use crate::{Controller, Descriptor, Result, Workdir, WorkdirFile, Worker, launchers::InstanceId};
 
+/// Builder for the [`SimpleController`].
 #[derive(Debug)]
 pub struct SimpleControllerBuilder {
     root_dir: PathBuf,
@@ -20,6 +21,7 @@ pub struct SimpleControllerBuilder {
     worker_stats: Option<WorkdirFile>,
 }
 
+/// A simple [`Controller`].
 #[derive(Debug)]
 pub struct SimpleController {
     root_dir: PathBuf,
@@ -30,18 +32,20 @@ pub struct SimpleController {
     worker_stats: Option<WorkdirFile>,
 }
 
-/// this is just a wrapper around StdDescriptor
+/// A simple [`Worker`].
 #[derive(Debug)]
 pub struct SimpleWorker {
     /// the descriptor describing this client
     descriptor: SimpleDescriptor,
 }
 
+/// A representation of a [`SimpleWorker`].
 #[derive(Debug)]
 pub struct SimpleWorkerRepr {
     descriptor: SimpleDescriptor,
 }
 
+/// A simple descriptor for a [`SimpleWorker`].
 #[derive(Debug, Clone)]
 pub struct SimpleDescriptor {
     /// workdir of the worker
@@ -102,6 +106,7 @@ impl SimpleController {
         })
     }
 
+    /// Get a [`SimpleControllerBuilder`], to build a [`SimpleController`].
     pub fn builder() -> SimpleControllerBuilder {
         SimpleControllerBuilder::default()
     }
@@ -150,7 +155,7 @@ impl Controller for SimpleController {
             .into_iter()
     }
 
-    fn on_worker_start(&mut self, descriptor: &Self::Descriptor, id: InstanceId) -> Result<()> {
+    fn on_worker_start(&mut self, descriptor: &Self::Descriptor, _id: InstanceId) -> Result<()> {
         log::info!("Started worker {:?}", descriptor.worker_id);
         Ok(())
     }
@@ -158,7 +163,7 @@ impl Controller for SimpleController {
     fn on_worker_termination(
         &mut self,
         descriptor: &Self::Descriptor,
-        termination_code: nix::sys::signal::Signal,
+        _termination_code: nix::sys::signal::Signal,
     ) -> Result<()> {
         log::info!("Started worker {:?}", descriptor.worker_id);
         Ok(())
@@ -203,6 +208,7 @@ impl Worker for SimpleWorker {
 }
 
 impl SimpleWorker {
+    /// Get a new [`SimpleWorker`].
     pub fn new(descriptor: SimpleDescriptor) -> Self {
         Self { descriptor }
     }
@@ -221,31 +227,39 @@ impl Default for SimpleControllerBuilder {
 }
 
 impl SimpleControllerBuilder {
+    /// Set to `true` if the [`Workdir`] should be overwritten.
+    ///
+    /// If set to `false` and the [`Workdir`] already exists, it will error out.
     pub fn overwrite(mut self, overwrite: bool) -> Self {
         self.overwrite = overwrite;
         self
     }
 
+    /// Set the root directory of the fuzzing session.
     pub fn root_dir(mut self, root_dir: impl Into<PathBuf>) -> Self {
         self.root_dir = root_dir.into();
         self
     }
 
+    /// Set [`SimpleWorker`]'s stdout.
     pub fn worker_stdout(mut self, file_output: Option<WorkdirFile>) -> Self {
         self.worker_stdout = file_output;
         self
     }
 
+    /// Set [`SimpleWorker`]'s stderr.
     pub fn worker_stderr(mut self, file_output: Option<WorkdirFile>) -> Self {
         self.worker_stderr = file_output;
         self
     }
 
+    /// Set [`SimpleWorker`]'s stats file.
     pub fn worker_stats(mut self, file_output: WorkdirFile) -> Self {
         self.worker_stats = Some(file_output);
         self
     }
 
+    /// Build a [`SimpleController`].
     pub fn build(self) -> Result<SimpleController> {
         SimpleController::new(
             self.root_dir,
