@@ -16,7 +16,7 @@ use tuple_list_ex::RefIndexable;
 use crate::observers::{StdErrObserver, StdOutObserver};
 use crate::{
     DependencyResolver, Error, Worker,
-    observers::{Observer, ObserversTuple},
+    observers::ObserversTuple,
     runtimes::{RuntimeHandle, utils::unix::signal::OsTerminationParams},
     states::FlatState,
 };
@@ -32,8 +32,8 @@ pub mod forkserver;
 #[cfg(all(feature = "std", unix))]
 pub use forkserver::*;
 
-mod std;
-pub use std::StdExecutor;
+pub mod standard;
+pub use standard::StdExecutor;
 
 /// How an execution finished.
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -80,6 +80,7 @@ libafl_bolts::impl_serdeany!(DiffExitKind);
 
 /// Runs the fuzzer harness.
 pub trait Executor<I, S>: DependencyResolver {
+    /// The [`Observer`]s owned by the Executor.
     type Observers: ObserversTuple<S>;
 
     /// The init function of the executor.

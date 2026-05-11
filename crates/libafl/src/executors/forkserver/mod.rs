@@ -3,30 +3,25 @@
 use alloc::{string::ToString, vec::Vec};
 use core::{
     fmt::{self, Debug, Formatter},
-    marker::PhantomData,
     ops::{Deref, DerefMut},
-    time::Duration,
 };
 use std::{
-    alloc::System,
     env,
     ffi::OsString,
     io::{self, ErrorKind, Read, Write},
     os::{
-        fd::{AsRawFd, BorrowedFd, FromRawFd, OwnedFd},
-        unix::{io::RawFd, process::CommandExt},
+        fd::{AsRawFd, BorrowedFd},
+        unix::io::RawFd,
     },
     path::PathBuf,
     process::{Child, Command, Stdio},
 };
 
 use libafl_bolts::{
-    AsSlice, AsSliceMut, EmptyShmHeader, InputLocation, Pipe, StdTargetArgs, StdTargetArgsInner,
-    SysVShm, Truncate,
+    InputLocation, Pipe, StdTargetArgs, StdTargetArgsInner, SysVShm, Truncate,
     core_affinity::CoreId,
     fs::{InputFile, get_unique_std_input_file},
-    os::{dup2, last_error_str},
-    tuples::{MatchNameRef, Prepend, RefIndexable},
+    tuples::{MatchNameRef, RefIndexable},
 };
 use libafl_core::forkserver::{
     AFL_GCC_ONLY_FSRV_VAR, AFL_LLVM_ONLY_FSRV_VAR, AFL_MAP_SIZE_ENV_VAR, FS_NEW_ERROR,
@@ -49,11 +44,10 @@ use static_assertions::const_assert_eq;
 use super::{StdChildArgs, StdChildArgsInner};
 use crate::{
     DependencyResolver, Error,
-    corpus::Corpus,
     executors::{Executor, ExitKind},
-    inputs::{Input, InputContext},
+    inputs::InputContext,
     mutators::Tokens,
-    observers::{MapObserver, Observer, ObserversTuple},
+    observers::{MapObserver, ObserversTuple},
     runtimes::RuntimeHandle,
     states::{FlatState, HasContext, HasCorpus},
 };

@@ -1,8 +1,4 @@
-use core::{marker::PhantomData, time::Duration};
-
-use libafl_core::Error;
-use tuple_list::tuple_list;
-use tuple_list_ex::RefIndexable;
+//! Standard [`Executor`].
 
 use crate::{
     CompatibilityChecker, DependencyResolver, Registrator, Worker,
@@ -10,7 +6,13 @@ use crate::{
     observers::ObserversTuple,
     runtimes::RuntimeHandle,
 };
+use core::{marker::PhantomData, time::Duration};
+use libafl_core::Result;
+use tuple_list::tuple_list;
+use tuple_list_ex::RefIndexable;
 
+/// A standard [`Executor`], used for casual fuzzing.
+#[derive(Debug)]
 pub struct StdExecutor<EH, H, I, O, S> {
     hooks: EH,
     harness: H,
@@ -19,7 +21,9 @@ pub struct StdExecutor<EH, H, I, O, S> {
     initialized: bool,
     phantom: PhantomData<(I, S)>,
 }
+
 impl<EH, H, I, O, S> StdExecutor<EH, H, I, O, S> {
+    /// Create a new [`StdExecutor`] with hooks.
     pub fn with_hooks(hooks: EH, harness: H, observers: O, timeout: Option<Duration>) -> Self {
         Self {
             hooks,
@@ -33,6 +37,7 @@ impl<EH, H, I, O, S> StdExecutor<EH, H, I, O, S> {
 }
 
 impl<H, I, O, S> StdExecutor<(), H, I, O, S> {
+    /// Create a new [`StdExecutor`].
     pub fn new(harness: H, observers: O, timeout: Option<Duration>) -> Self {
         Self::with_hooks(tuple_list!(), harness, observers, timeout)
     }
@@ -42,14 +47,14 @@ impl<EH, H, I, O, S> DependencyResolver for StdExecutor<EH, H, I, O, S>
 where
     O: ObserversTuple<S> + DependencyResolver,
 {
-    fn register_with_ty(&mut self, registrator: &mut Registrator) -> Result<(), Error> {
+    fn register_with_ty(&mut self, registrator: &mut Registrator) -> Result<()> {
         registrator.register_ty::<Self>();
 
         self.register(registrator)?;
         self.observers.register_with_ty(registrator)
     }
 
-    fn check(&self, _checker: &CompatibilityChecker) -> Result<(), Error> {
+    fn check(&self, _checker: &CompatibilityChecker) -> Result<()> {
         Ok(())
     }
 }
@@ -57,7 +62,7 @@ where
 impl<EH, H, I, O, S> Executor<I, S> for StdExecutor<EH, H, I, O, S>
 where
     EH: ExecutorHooksTuple<I, S>,
-    H: FnMut(&mut S, &I) -> Result<ExitKind, Error>,
+    H: FnMut(&mut S, &I) -> Result<ExitKind>,
     O: ObserversTuple<S> + DependencyResolver,
 {
     type Observers = O;
@@ -66,10 +71,10 @@ where
         &mut self,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         if !self.initialized {
             if let Some(tmout) = &self.timeout {
-                rt_handle.set_timeout(tmout.clone());
+                rt_handle.set_timeout(tmout.clone())?;
             }
 
             self.hooks.init_all(state);
@@ -80,7 +85,7 @@ where
         Ok(())
     }
 
-    unsafe fn execute_impl(&mut self, state: &mut S, input: &I) -> Result<ExitKind, Error> {
+    unsafe fn execute_impl(&mut self, state: &mut S, input: &I) -> Result<ExitKind> {
         debug_assert!(self.initialized);
 
         self.hooks.pre_exec_all(state, input);
@@ -92,13 +97,11 @@ where
         Ok(res)
     }
 
-    fn observers(&self) -> tuple_list_ex::RefIndexable<&Self::Observers, Self::Observers> {
+    fn observers(&self) -> RefIndexable<&Self::Observers, Self::Observers> {
         RefIndexable::from(&self.observers)
     }
 
-    fn observers_mut(
-        &mut self,
-    ) -> tuple_list_ex::RefIndexable<&mut Self::Observers, Self::Observers> {
+    fn observers_mut(&mut self) -> RefIndexable<&mut Self::Observers, Self::Observers> {
         RefIndexable::from(&mut self.observers)
     }
 }
