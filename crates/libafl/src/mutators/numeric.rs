@@ -6,14 +6,13 @@ use core::marker::PhantomData;
 use libafl_bolts::{
     Error, Named,
     rands::Rand,
-    tuples::{Map as _, Merge},
+    tuples::Merge,
 };
 use tuple_list::{tuple_list, tuple_list_type};
-use tuple_list_ex::{map_tuple_list_type, merge_tuple_list_type};
 
 use super::{MutationResult, Mutator};
 use crate::{
-    corpus::{Corpus, TestcaseId, schedulers::Scheduler},
+    corpus::{Corpus, schedulers::Scheduler},
     fuzzers::EvaluationResult,
     inputs::value::Numeric,
     states::{HasCorpus, HasScheduler},
@@ -90,7 +89,7 @@ where
     R: Rand,
     I: Numeric,
 {
-    fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
+    fn mutate(&mut self, input: &mut I, rand: &mut R, _state: &S) -> Result<MutationResult, Error> {
         let offset = rand.choose(0..size_of::<I>()).unwrap();
         input.flip_bit_at(offset);
         Ok(MutationResult::Mutated)
@@ -115,7 +114,7 @@ impl<I, R, S> Mutator<I, R, S> for NegateMutator
 where
     I: Numeric,
 {
-    fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
+    fn mutate(&mut self, input: &mut I, _rand: &mut R, _state: &S) -> Result<MutationResult, Error> {
         input.flip_all_bits();
         Ok(MutationResult::Mutated)
     }
@@ -139,7 +138,7 @@ impl<I, R, S> Mutator<I, R, S> for IncMutator
 where
     I: Numeric,
 {
-    fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
+    fn mutate(&mut self, input: &mut I, _rand: &mut R, _state: &S) -> Result<MutationResult, Error> {
         input.wrapping_inc();
         Ok(MutationResult::Mutated)
     }
@@ -163,7 +162,7 @@ impl<I, R, S> Mutator<I, R, S> for DecMutator
 where
     I: Numeric,
 {
-    fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
+    fn mutate(&mut self, input: &mut I, _rand: &mut R, _state: &S) -> Result<MutationResult, Error> {
         input.wrapping_dec();
         Ok(MutationResult::Mutated)
     }
@@ -187,7 +186,7 @@ impl<I, R, S> Mutator<I, R, S> for TwosComplementMutator
 where
     I: Numeric,
 {
-    fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
+    fn mutate(&mut self, input: &mut I, _rand: &mut R, _state: &S) -> Result<MutationResult, Error> {
         input.twos_complement();
         Ok(MutationResult::Mutated)
     }
@@ -212,7 +211,7 @@ where
     I: Numeric,
     R: Rand,
 {
-    fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
+    fn mutate(&mut self, input: &mut I, rand: &mut R, _state: &S) -> Result<MutationResult, Error> {
         // set to random data byte-wise since the RNGs don't work for all numeric types
         input.randomize(rand);
         Ok(MutationResult::Mutated)

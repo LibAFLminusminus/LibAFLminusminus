@@ -26,19 +26,12 @@ pub mod hash;
 #[cfg(feature = "std")]
 pub use hash::*;
 
-#[cfg(feature = "unicode")]
-pub mod unicode;
-#[cfg(feature = "unicode")]
-pub use unicode::*;
 #[cfg(feature = "nautilus")]
 pub mod nautilus;
 #[cfg(feature = "nautilus")]
 pub use nautilus::*;
 
-use crate::{corpus::TestcaseId, fuzzers::EvaluationResult};
-
-// TODO mutator stats method that produces something that can be sent with the NewTestcase event
-// We can use it to report which mutations generated the testcase in the broker logs
+use crate::fuzzers::EvaluationResult;
 
 /// The index of a mutation in the mutations tuple
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
@@ -366,7 +359,7 @@ impl<I, R: Rand, S> Mutator<I, R, S> for NopMutator {
         &mut self,
         _input: &mut I,
         _rand: &mut R,
-        state: &S,
+        _state: &S,
     ) -> Result<MutationResult, Error> {
         Ok(self.result)
     }
@@ -393,7 +386,7 @@ impl<R: Rand, S> Mutator<bool, R, S> for BoolInvertMutator {
         &mut self,
         input: &mut bool,
         _rand: &mut R,
-        state: &S,
+        _state: &S,
     ) -> Result<MutationResult, Error> {
         *input = !*input;
         Ok(MutationResult::Mutated)

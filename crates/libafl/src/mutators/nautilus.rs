@@ -15,7 +15,6 @@ use crate::{
         mutator::Mutator as BackingMutator,
         tree::{Tree, TreeMutation},
     },
-    corpus::{Testcase, TestcaseId},
     feedbacks::NautilusChunksMetadata,
     fuzzers::EvaluationResult,
     generators::nautilus::NautilusContext,

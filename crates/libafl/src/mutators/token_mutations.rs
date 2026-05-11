@@ -5,7 +5,6 @@ use alloc::{borrow::Cow, vec::Vec};
 use core::slice::from_raw_parts;
 use core::{
     fmt::Debug,
-    mem::size_of,
     num::NonZero,
     ops::{Add, AddAssign, Deref},
     slice::Iter,
@@ -18,7 +17,7 @@ use std::{
 };
 
 use hashbrown::HashSet;
-use libafl_bolts::{AsSlice, HasLen, rands::Rand};
+use libafl_bolts::{AsSlice, rands::Rand};
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "std")]
@@ -27,7 +26,7 @@ use crate::{
     Error, EvaluationResult,
     inputs::{HasMutatorBytes, ResizableMutator},
     mutators::{MutationResult, Mutator, Named, buffer_self_copy, mutations::buffer_copy},
-    states::{FlatState, HasCorpus},
+    states::FlatState,
 };
 
 /// A state metadata holding a list of tokens
@@ -41,17 +40,18 @@ pub struct Tokens {
 
 libafl_bolts::impl_serdeany!(Tokens);
 
+/// The default metadata name for holding the tokens map
 pub static DEFAULT_TOKEN_MAP: &str = "default_tokens";
 
 /// The metadata used for token mutators
 impl Tokens {
-    /// Creates a new tokens metadata (old-skool afl name: `dictornary`)
+    /// Creates a new [`Tokens`] metadata (old-skool afl name: `dictornary`)
     #[must_use]
     pub fn new() -> Self {
         Tokens::default()
     }
 
-    /// Add tokens from a slice of Vecs of bytes
+    /// Add [`Tokens`] from a slice of Vecs of bytes
     pub fn add_tokens<IT, V>(&mut self, tokens: IT) -> &mut Self
     where
         IT: IntoIterator<Item = V>,
@@ -63,7 +63,7 @@ impl Tokens {
         self
     }
 
-    /// Build tokens from files
+    /// Build [`Tokens`] from files
     #[cfg(feature = "std")]
     pub fn add_from_files<IT, P>(mut self, files: IT) -> Result<Self, Error>
     where
@@ -99,7 +99,7 @@ impl Tokens {
         }
     }
 
-    /// Create a token section from a start and an end pointer
+    /// Create a [`Tokens`] section from a start and an end pointer
     /// Reads from an autotokens section, returning the count of new entries read
     ///
     /// # Safety
@@ -131,7 +131,7 @@ impl Tokens {
         }
     }
 
-    /// Creates a new instance from a file
+    /// Creates a new [`Tokens`] from a file
     #[cfg(feature = "std")]
     pub fn from_file<P>(file: P) -> Result<Self, Error>
     where
@@ -142,7 +142,7 @@ impl Tokens {
         Ok(ret)
     }
 
-    /// Adds a token to a dictionary, checking it is not a duplicate
+    /// Adds a vector of [`Tokens`] to a dictionary, checking it is not a duplicate
     /// Returns `false` if the token was already present and did not get added.
     #[expect(clippy::ptr_arg)]
     pub fn add_token(&mut self, token: &Vec<u8>) -> bool {
@@ -153,7 +153,7 @@ impl Tokens {
         true
     }
 
-    /// Reads a tokens file, returning the count of new entries read
+    /// Reads a [`Tokens`] file, returning the count of new entries read
     #[cfg(feature = "std")]
     pub fn add_from_file<P>(&mut self, file: P) -> Result<&mut Self, Error>
     where
@@ -205,27 +205,27 @@ impl Tokens {
         Ok(self)
     }
 
-    /// Returns the amount of tokens in this Tokens instance
+    /// Returns the amount of tokens in this [`Tokens`] instance
     #[inline]
     #[must_use]
     pub fn len(&self) -> usize {
         self.tokens_vec.len()
     }
 
-    /// Returns if this tokens-instance is empty
+    /// Returns if this [`Tokens`] instance is empty
     #[inline]
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.tokens_vec.is_empty()
     }
 
-    /// Gets the tokens stored in this db
+    /// Gets the [`Tokens`] stored in this db
     #[must_use]
     pub fn tokens(&self) -> &[Vec<u8>] {
         &self.tokens_vec
     }
 
-    /// Returns an iterator over the tokens.
+    /// Returns an iterator over the [`Tokens`].
     pub fn iter(&self) -> Iter<'_, Vec<u8>> {
         <&Self as IntoIterator>::into_iter(self)
     }
@@ -298,7 +298,7 @@ impl<'it> IntoIterator for &'it Tokens {
     }
 }
 
-/// Inserts a random token at a random position in the `Input`.
+/// Inserts a random [`Tokens`] at a random position in the `Input`.
 #[derive(Debug, Default)]
 pub struct TokenInsert;
 
@@ -365,14 +365,14 @@ impl Named for TokenInsert {
 }
 
 impl TokenInsert {
-    /// Create a `TokenInsert` `Mutation`.
+    /// Create a [`TokenInsert`] mutation.
     #[must_use]
     pub fn new() -> Self {
         Self
     }
 }
 
-/// A `TokenReplace` [`Mutator`] replaces a random part of the input with one of a range of tokens.
+/// A [`TokenReplace`] [`Mutator`] replaces a random part of the input with one of a range of tokens.
 /// From AFL terms, this is called as `Dictionary` mutation (which doesn't really make sense ;) ).
 #[derive(Debug, Default)]
 pub struct TokenReplace;
@@ -433,7 +433,7 @@ impl Named for TokenReplace {
 }
 
 impl TokenReplace {
-    /// Creates a new `TokenReplace` struct.
+    /// Creates a new [`TokenReplace`] struct.
     #[must_use]
     pub fn new() -> Self {
         Self

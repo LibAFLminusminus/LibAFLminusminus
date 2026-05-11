@@ -1,8 +1,6 @@
 //! [`crate::mutators::Mutator`] collection equivalent to AFL++'s havoc mutations
 
-use libafl_bolts::tuples::{
-    Map, Merge, map_tuple_list_type, merge_tuple_list_type, tuple_list, tuple_list_type,
-};
+use libafl_bolts::tuples::{Merge, merge_tuple_list_type, tuple_list, tuple_list_type};
 
 use crate::mutators::mutations::{
     BitFlipMutator, ByteAddMutator, ByteDecMutator, ByteFlipMutator, ByteIncMutator,

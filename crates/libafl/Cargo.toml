@@ -108,9 +108,6 @@ intel_pt = ["std", "dep:libafl_intelpt", "dep:nix"]
 ## Save all the Intel PT raw traces to files, use only for debug
 intel_pt_export_raw = ["intel_pt", "libafl_intelpt/export_raw"]
 
-## Enables `UnicodeClassificationStage` and associated mutators, which allow for mutations which preserve the Unicode property data
-unicode = ["libafl_bolts/alloc", "ahash/std", "serde/rc"]
-
 #! ## LibAFL-Bolts Features
 
 ## Provide the `#[derive(SerdeAny)]` macro.
