@@ -11,7 +11,7 @@ use libafl_bolts::Named;
 use crate::{
     DependencyResolver, Error, Evaluator,
     corpus::{Corpus, testcase::TestcaseId},
-    executors::Executor,
+    executors::{Executor, ForkserverExecutor},
     inputs::Input,
     observers::ObserversTuple,
     stages::{RuntimeHandle, Stage},

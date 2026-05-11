@@ -5,6 +5,10 @@ pub const FORKSRV_FD_NUM: i32 = 198;
 /// New error
 pub const FS_NEW_ERROR: i32 = 0xeffe0000_u32.cast_signed();
 
+/// Ping @tokatoka if this changes
+/// (72 * 32 + 2) * 65536
+pub const AFLPP_CMPLOG_MAP: usize = 1_5112_6016;
+
 /// Minimum number for new version
 pub const FS_NEW_VERSION_MIN: u32 = 1;
 /// Maximum number for new version

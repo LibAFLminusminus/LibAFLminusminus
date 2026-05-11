@@ -24,6 +24,9 @@ use crate::{
     DependencyResolver, Error, corpus::TestcaseId, runtimes::RuntimeHandle, states::FlatState,
 };
 
+pub mod tracer;
+pub use tracer::*;
+
 pub mod single;
 pub use single::*;
 
