@@ -3,7 +3,7 @@ use std::slice;
 use std::{ffi::CStr, sync::OnceLock};
 
 use enum_map::{EnumMap, enum_map};
-use libafl::{executors::ExitKind, inputs::HasTargetBytes};
+use libafl::{executors::ExitKind, inputs::Input};
 #[cfg(feature = "systemmode")]
 use libafl_qemu_sys::GuestPhysAddr;
 use libafl_qemu_sys::{GuestAddr, GuestVirtAddr};
@@ -34,7 +34,7 @@ impl<C, ET, I, IS, S, SM>
     for StartPhysCommandParser
 where
     ET: EmulatorModuleTuple<I, S> + HasStdFiltersTuple,
-    I: HasTargetBytes + Unpin,
+    I: Input + Unpin,
     IS: InputSetter<I, S>,
     S: Unpin,
     SM: IsSnapshotManager,
@@ -68,7 +68,7 @@ impl<C, ET, I, IS, S, SM>
     for StartVirtCommandParser
 where
     ET: EmulatorModuleTuple<I, S> + HasStdFiltersTuple,
-    I: HasTargetBytes + Unpin,
+    I: Input + Unpin,
     IS: InputSetter<I, S>,
     S: Unpin,
     SM: IsSnapshotManager,
@@ -159,7 +159,7 @@ impl<C, ET, I, IS, S, SM>
     for EndCommandParser
 where
     ET: EmulatorModuleTuple<I, S>,
-    I: HasTargetBytes + Unpin,
+    I: Input + Unpin,
     S: Unpin,
     SM: IsSnapshotManager,
 {

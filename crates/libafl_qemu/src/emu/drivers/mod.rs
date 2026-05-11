@@ -5,7 +5,7 @@
 use std::collections::HashMap;
 use std::{cell::OnceCell, fmt::Debug};
 
-use libafl::{executors::ExitKind, inputs::HasTargetBytes, observers::ObserversTuple};
+use libafl::{executors::ExitKind, inputs::Input, observers::ObserversTuple};
 use libafl_bolts::os::{CTRL_C_EXIT, unix_signals::Signal};
 
 #[cfg(not(feature = "systemmode"))]
@@ -141,7 +141,7 @@ where
         state: &mut S,
         exit_kind: &mut ExitKind,
     ) where
-        OT: ObserversTuple<I, S>,
+        OT: ObserversTuple<S>,
     {
         emulator
             .modules
@@ -404,7 +404,7 @@ where
     C: IsCommand<CM::Commands, CM, Self, ET, I, S, SM>,
     CM: CommandManager<C, Self, ET, I, S, SM, Commands = C>,
     ET: EmulatorModuleTuple<I, S>,
-    I: HasTargetBytes + Unpin,
+    I: Input + Unpin,
     IS: InputSetter<I, S> + 'static,
     S: Unpin,
     SM: IsSnapshotManager,
@@ -436,7 +436,7 @@ where
         state: &mut S,
         exit_kind: &mut ExitKind,
     ) where
-        OT: ObserversTuple<I, S>,
+        OT: ObserversTuple<S>,
     {
         emulator
             .modules

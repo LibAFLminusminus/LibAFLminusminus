@@ -1148,7 +1148,7 @@ where
         exit_kind: &mut ExitKind,
     ) where
         ET: EmulatorModuleTuple<I, S>,
-        OT: ObserversTuple<I, S>,
+        OT: ObserversTuple<S>,
     {
         if let AsanTargetCrash::OnTargetStop = self.rt.target_crash {
             unsafe {

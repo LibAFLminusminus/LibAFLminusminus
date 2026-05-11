@@ -5,7 +5,9 @@ use std::{
 };
 
 use enum_map::Enum;
-use libafl::{executors::ExitKind, inputs::HasTargetBytes};
+use libafl::executors::ExitKind;
+#[cfg(feature = "usermode")]
+use libafl::inputs::Input;
 use libafl_qemu_sys::GuestAddr;
 #[cfg(feature = "systemmode")]
 use libafl_qemu_sys::GuestPhysAddr;
@@ -41,7 +43,7 @@ pub const VERSION_MINOR: u64 = libvharness_sys::LQEMU_VERSION_MINOR as u64;
 #[cfg(feature = "usermode")]
 define_std_command_manager_bound!(
     LqemuCommandManager,
-    HasTargetBytes,
+    Input,
     [
         StartCommand,
         SaveCommand,
@@ -67,7 +69,7 @@ define_std_command_manager_bound!(
 #[cfg(feature = "systemmode")]
 define_std_command_manager_bound!(
     LqemuCommandManager,
-    HasTargetBytes,
+    Input,
     [
         StartCommand,
         SaveCommand,
@@ -174,7 +176,7 @@ impl<C, CM, ET, I, IS, S, SM> IsCommand<C, CM, GenericEmulatorDriver<IS>, ET, I,
 where
     CM: IsStdCommandManager,
     ET: EmulatorModuleTuple<I, S> + HasStdFiltersTuple,
-    I: HasTargetBytes + Unpin,
+    I: Input + Unpin,
     IS: InputSetter<I, S>,
     S: Unpin,
     SM: IsSnapshotManager,
@@ -236,7 +238,7 @@ impl<C, ET, I, IS, S, SM>
     IsCommand<C, LqemuCommandManager<S>, GenericEmulatorDriver<IS>, ET, I, S, SM> for EndCommand
 where
     ET: EmulatorModuleTuple<I, S>,
-    I: HasTargetBytes + Unpin,
+    I: Input + Unpin,
     S: Unpin,
     SM: IsSnapshotManager,
 {

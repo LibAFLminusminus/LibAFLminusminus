@@ -1,8 +1,3 @@
-use std::marker::PhantomData;
-
-use libafl::{inputs::HasTargetBytes, states::HasExecutions};
-use libafl_bolts::tuples::{Append, Prepend, tuple_list};
-
 #[cfg(feature = "systemmode")]
 use crate::FastSnapshotManager;
 #[cfg(doc)]
@@ -14,6 +9,10 @@ use crate::{
     config::QemuConfigBuilder,
     modules::{EmulatorModule, EmulatorModuleTuple},
 };
+#[cfg(all(feature = "usermode", not(feature = "systemmode")))]
+use libafl::{inputs::Input, states::FlatState};
+use libafl_bolts::tuples::{Append, Prepend, tuple_list};
+use std::marker::PhantomData;
 
 /// An [`Emulator`] Builder.
 ///
@@ -71,8 +70,8 @@ impl<C, I, S>
         super::StdSnapshotManager,
     >
 where
-    S: HasExecutions + Unpin,
-    I: HasTargetBytes,
+    S: FlatState + Unpin,
+    I: Input,
 {
     #[must_use]
     #[expect(clippy::should_implement_trait)]

@@ -148,7 +148,7 @@ pub trait EmulatorModule<I, S>: 'static + Debug {
         _observers: &mut OT,
         _exit_kind: &mut ExitKind,
     ) where
-        OT: ObserversTuple<I, S>,
+        OT: ObserversTuple<S>,
         ET: EmulatorModuleTuple<I, S>,
     {
     }
@@ -209,7 +209,7 @@ pub trait EmulatorModuleTuple<I, S>:
         observers: &mut OT,
         exit_kind: &mut ExitKind,
     ) where
-        OT: ObserversTuple<I, S>,
+        OT: ObserversTuple<S>,
         ET: EmulatorModuleTuple<I, S>;
 
     /// # Safety
@@ -277,7 +277,7 @@ where
         _observers: &mut OT,
         _exit_kind: &mut ExitKind,
     ) where
-        OT: ObserversTuple<I, S>,
+        OT: ObserversTuple<S>,
         ET: EmulatorModuleTuple<I, S>,
     {
     }
@@ -351,7 +351,7 @@ where
         observers: &mut OT,
         exit_kind: &mut ExitKind,
     ) where
-        OT: ObserversTuple<I, S>,
+        OT: ObserversTuple<S>,
         ET: EmulatorModuleTuple<I, S>,
     {
         self.0
@@ -438,7 +438,7 @@ where
         observers: &mut OT,
         exit_kind: &mut ExitKind,
     ) where
-        OT: ObserversTuple<I, S>,
+        OT: ObserversTuple<S>,
         ET: EmulatorModuleTuple<I, S>,
     {
         if let Some(m) = self {

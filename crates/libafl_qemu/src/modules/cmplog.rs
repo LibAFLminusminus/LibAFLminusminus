@@ -1,14 +1,12 @@
 #[cfg(feature = "usermode")]
 use capstone::{Capstone, InsnDetail, arch::BuildsCapstone};
 use hashbrown::HashMap;
-use libafl::HasMetadata;
+use libafl::states::FlatState;
 use libafl_bolts::hash_64_fast;
 use libafl_qemu_sys::GuestAddr;
 pub use libafl_targets::{
-    CMPLOG_MAP_H, CMPLOG_MAP_PTR, CMPLOG_MAP_SIZE, CMPLOG_MAP_W, CmpLogMap, CmpLogObserver,
-    cmps::{
-        __libafl_targets_cmplog_instructions, __libafl_targets_cmplog_routines, CMPLOG_ENABLED,
-    },
+    CMPLOG_MAP_H, CMPLOG_MAP_PTR, CMPLOG_MAP_SIZE, CMPLOG_MAP_W, CmpLogMap,
+    cmps::{__libafl_targets_cmplog_instructions, __libafl_targets_cmplog_routines},
 };
 use serde::{Deserialize, Serialize};
 
@@ -71,7 +69,7 @@ impl Default for CmpLogModule {
 impl<I, S> EmulatorModule<I, S> for CmpLogModule
 where
     I: Unpin,
-    S: Unpin + HasMetadata,
+    S: Unpin + FlatState,
 {
     fn first_exec<ET>(
         &mut self,
@@ -142,7 +140,7 @@ impl Default for CmpLogChildModule {
 impl<I, S> EmulatorModule<I, S> for CmpLogChildModule
 where
     I: Unpin,
-    S: Unpin + HasMetadata,
+    S: Unpin + FlatState,
 {
     const HOOKS_DO_SIDE_EFFECTS: bool = false;
 
@@ -199,7 +197,7 @@ pub fn gen_unique_cmp_ids<ET, I, S>(
 where
     ET: EmulatorModuleTuple<I, S>,
     I: Unpin,
-    S: Unpin + HasMetadata,
+    S: Unpin + FlatState,
 {
     if let Some(h) = emulator_modules.get::<CmpLogModule>()
         && !h.must_instrument(pc)
@@ -234,7 +232,7 @@ pub fn gen_hashed_cmp_ids<ET, I, S>(
 where
     ET: EmulatorModuleTuple<I, S>,
     I: Unpin,
-    S: HasMetadata + Unpin,
+    S: FlatState + Unpin,
 {
     if let Some(h) = emulator_modules.get::<CmpLogChildModule>()
         && !h.must_instrument(pc)

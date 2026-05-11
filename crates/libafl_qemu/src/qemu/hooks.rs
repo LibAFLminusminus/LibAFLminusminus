@@ -4,17 +4,14 @@
 #![allow(clippy::missing_transmute_annotations)]
 #![allow(clippy::too_many_arguments)]
 
-use core::{ffi::c_void, fmt::Debug, mem::transmute, ptr};
-
-use libafl::executors::hooks::inprocess::inprocess_get_state;
-use libafl_qemu_sys::{CPUArchStatePtr, CPUStatePtr, FatPtr, GuestAddr, GuestUlong, GuestUsize};
-
 use crate::{
     HookData, HookId,
     emu::EmulatorModules,
     qemu::{MemAccessInfo, Qemu},
     sys::TCGTemp,
 };
+use core::{ffi::c_void, fmt::Debug, mem::transmute, ptr};
+use libafl_qemu_sys::{CPUArchStatePtr, CPUStatePtr, FatPtr, GuestAddr, GuestUlong, GuestUsize};
 
 pub const SKIP_EXEC_HOOK: u64 = u64::MAX;
 

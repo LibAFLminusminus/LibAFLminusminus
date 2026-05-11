@@ -1,6 +1,6 @@
 use std::{fmt::Debug, ptr};
 
-use libafl::{HasMetadata, observers::VarLenMapObserver};
+use libafl::{observers::VarLenMapObserver, states::FlatState};
 use libafl_bolts::Error;
 use libafl_qemu_sys::GuestAddr;
 #[cfg(feature = "systemmode")]
@@ -59,7 +59,7 @@ trait EdgeCoverageVariant<AF, PF, const IS_CONST_MAP: bool, const MAP_SIZE: usiz
         ET: EmulatorModuleTuple<I, S>,
         PF: PageFilter,
         I: Unpin,
-        S: HasMetadata + Unpin,
+        S: FlatState + Unpin,
     {
         panic!("JIT hitcount is not supported.")
     }
@@ -70,7 +70,7 @@ trait EdgeCoverageVariant<AF, PF, const IS_CONST_MAP: bool, const MAP_SIZE: usiz
         ET: EmulatorModuleTuple<I, S>,
         PF: PageFilter,
         I: Unpin,
-        S: HasMetadata + Unpin,
+        S: FlatState + Unpin,
     {
         panic!("JIT no hitcount is not supported.")
     }
@@ -81,7 +81,7 @@ trait EdgeCoverageVariant<AF, PF, const IS_CONST_MAP: bool, const MAP_SIZE: usiz
         ET: EmulatorModuleTuple<I, S>,
         PF: PageFilter,
         I: Unpin,
-        S: HasMetadata + Unpin,
+        S: FlatState + Unpin,
     {
         panic!("Func hitcount is not supported.")
     }
@@ -92,7 +92,7 @@ trait EdgeCoverageVariant<AF, PF, const IS_CONST_MAP: bool, const MAP_SIZE: usiz
         ET: EmulatorModuleTuple<I, S>,
         PF: PageFilter,
         I: Unpin,
-        S: HasMetadata + Unpin,
+        S: FlatState + Unpin,
     {
         panic!("Func no hitcount is not supported.")
     }
@@ -341,7 +341,7 @@ where
     AF: AddressFilter + 'static,
     PF: PageFilter + 'static,
     I: Unpin,
-    S: Unpin + HasMetadata,
+    S: Unpin + FlatState,
     V: EdgeCoverageVariant<AF, PF, IS_CONST_MAP, MAP_SIZE> + 'static,
 {
     const HOOKS_DO_SIDE_EFFECTS: bool = V::DO_SIDE_EFFECTS;
@@ -404,7 +404,7 @@ where
 #[cfg(any(test, doc))]
 mod tests {
 
-    use libafl::observers::{CanTrack, HitcountsMapObserver, VariableMapObserver};
+    use libafl::observers::{HitcountsMapObserver, VariableMapObserver};
     use libafl_bolts::ownedref::OwnedMutSlice;
     use libafl_targets::{EDGES_MAP_DEFAULT_SIZE, MAX_EDGES_FOUND, edges_map_mut_ptr};
 

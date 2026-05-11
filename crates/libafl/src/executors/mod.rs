@@ -152,15 +152,23 @@ pub trait Executor<I, S>: DependencyResolver {
     /// Get the linked observers (mutable)
     fn observers_mut(&mut self) -> RefIndexable<&mut Self::Observers, Self::Observers>;
 
-    // TODO: connect to executors.
-    // this will be useful for qemu at least
-    fn handle_crash(params: &OsTerminationParams) -> Result<(), Error> {
+    /// Handle crash
+    ///
+    /// # Safety
+    ///
+    /// This will run in a signal handler, so it's very constrained.
+    /// In particular, it should not allocate anything in the heap.
+    unsafe fn handle_crash(&mut self, _params: &OsTerminationParams) -> Result<(), Error> {
         Ok(())
     }
 
-    // TODO: connect to executors.
-    // this will be useful for qemu at least
-    fn handle_timeout(params: &OsTerminationParams) -> Result<(), Error> {
+    /// Handle timeout
+    ///
+    /// # Safety
+    ///
+    /// This will run in a signal handler, so it's very constrained.
+    /// In particular, it should not allocate anything in the heap.
+    unsafe fn handle_timeout(&mut self, _params: &OsTerminationParams) -> Result<(), Error> {
         Ok(())
     }
 }

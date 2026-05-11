@@ -1,4 +1,4 @@
-use libafl::HasMetadata;
+use libafl::states::FlatState;
 
 use super::{
     EdgeCoverageVariant,
@@ -40,7 +40,7 @@ impl<AF, PF, const IS_CONST_MAP: bool, const MAP_SIZE: usize>
         ET: EmulatorModuleTuple<I, S>,
         PF: PageFilter,
         I: Unpin,
-        S: HasMetadata + Unpin,
+        S: FlatState + Unpin,
     {
         let hook_id = emulator_modules.blocks(
             Hook::Function(gen_hashed_block_ids::<AF, ET, PF, I, S, Self, IS_CONST_MAP, MAP_SIZE>),
@@ -62,7 +62,7 @@ impl<AF, PF, const IS_CONST_MAP: bool, const MAP_SIZE: usize>
         ET: EmulatorModuleTuple<I, S>,
         PF: PageFilter,
         I: Unpin,
-        S: HasMetadata + Unpin,
+        S: FlatState + Unpin,
     {
         let hook_id = emulator_modules.blocks(
             Hook::Function(gen_hashed_block_ids::<AF, ET, PF, I, S, Self, IS_CONST_MAP, MAP_SIZE>),
@@ -84,7 +84,7 @@ impl<AF, PF, const IS_CONST_MAP: bool, const MAP_SIZE: usize>
         ET: EmulatorModuleTuple<I, S>,
         PF: PageFilter,
         I: Unpin,
-        S: HasMetadata + Unpin,
+        S: FlatState + Unpin,
     {
         emulator_modules.blocks(
             Hook::Function(gen_hashed_block_ids::<AF, ET, PF, I, S, Self, IS_CONST_MAP, MAP_SIZE>),
@@ -99,7 +99,7 @@ impl<AF, PF, const IS_CONST_MAP: bool, const MAP_SIZE: usize>
         ET: EmulatorModuleTuple<I, S>,
         PF: PageFilter,
         I: Unpin,
-        S: HasMetadata + Unpin,
+        S: FlatState + Unpin,
     {
         emulator_modules.blocks(
             Hook::Function(gen_hashed_block_ids::<AF, ET, PF, I, S, Self, IS_CONST_MAP, MAP_SIZE>),

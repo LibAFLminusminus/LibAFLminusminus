@@ -8,7 +8,6 @@ use quanta::{Clock, Instant};
 use tuple_list::tuple_list;
 
 use crate::{
-    FuzzerHook, FuzzerHooksTuple, Worker,
     corpus::{Corpus, Scheduler, Testcase, TestcaseId},
     dependency::Registrator,
     executors::{Executor, ExitKind},
@@ -17,11 +16,12 @@ use crate::{
     inputs::Input,
     observers::{Observer, ObserversTuple},
     runtimes::{
-        Runtime, RuntimeHandle,
         utils::{OsTerminationParams, TerminationHandlerData},
+        Runtime, RuntimeHandle,
     },
     stages::StagesTuple,
-    states::{FlatState, HasCorpus, HasObjectiveCorpus, HasTestcase, State, sync_stats},
+    states::{sync_stats, FlatState, HasCorpus, HasObjectiveCorpus, HasTestcase, State},
+    FuzzerHook, FuzzerHooksTuple, Worker,
 };
 
 const STATS_UPDATE_INTERVAL: Duration = Duration::from_secs(4);
@@ -31,27 +31,28 @@ const STATS_UPDATE_INTERVAL: Duration = Duration::from_secs(4);
 ///
 /// In practice, it's very hard to enforce, and most likely some allocations will happen there.
 /// If it is ever a real bug, investigate there.
-fn handle_objective_in_termination_handler<O, F, H, I, OF, S, W>(
-    observers: &mut O,
+fn handle_objective_in_termination_handler<E, F, H, I, OF, S, W>(
+    executor: &mut E,
     state: &mut S,
     input: I,
     fuzzer: &mut StdFuzzer<F, H, OF>,
     rt_handle: &mut RuntimeHandle<S, W>,
     exit_kind: ExitKind,
 ) where
-    F: Feedback<I, O, S>,
+    E: Executor<I, S>,
+    F: Feedback<I, E::Observers, S>,
     I: Input,
-    O: ObserversTuple<S>,
-    OF: Feedback<I, O, S>,
+    OF: Feedback<I, E::Observers, S>,
     S: State<I>,
     W: Worker,
 {
-    observers
+    executor
+        .observers_mut()
         .post_exec_all(state, &exit_kind)
         .expect("Post exec observers failed");
 
     fuzzer
-        .evaluate_execution(state, &input, observers, exit_kind)
+        .evaluate_execution(state, &input, &mut *executor.observers_mut(), exit_kind)
         .unwrap();
 
     // update stats before exit
@@ -66,7 +67,7 @@ fn handle_objective_in_termination_handler<O, F, H, I, OF, S, W>(
 /// Ending up here out of a fuzzing run is an error.
 unsafe fn std_on_crash<E, F, H, I, OF, S, W>(
     data: &mut TerminationHandlerData,
-    _signal_params: &OsTerminationParams,
+    signal_params: &OsTerminationParams,
 ) where
     E: Executor<I, S>,
     F: Feedback<I, E::Observers, S>,
@@ -85,11 +86,15 @@ unsafe fn std_on_crash<E, F, H, I, OF, S, W>(
     let input = unsafe { data.take_input::<I>() };
     let state = unsafe { data.state::<S>() };
     let fuzzer = unsafe { data.fuzzer::<StdFuzzer<F, H, OF>>() };
-    let observers = unsafe { data.observers::<E::Observers>() };
+    let executor = unsafe { data.executor::<E, I, S>() };
     let rt_handle = unsafe { data.rt_handle::<S, W>() };
 
+    unsafe {
+        executor.handle_crash(signal_params).unwrap();
+    }
+
     handle_objective_in_termination_handler(
-        observers,
+        executor,
         state,
         input.unwrap(),
         fuzzer,
@@ -102,7 +107,7 @@ unsafe fn std_on_crash<E, F, H, I, OF, S, W>(
 /// Ending up here out of a fuzzing run is an error.
 unsafe fn std_on_timeout<E, F, H, I, OF, S, W>(
     data: &mut TerminationHandlerData,
-    _signal_params: &OsTerminationParams,
+    signal_params: &OsTerminationParams,
 ) where
     E: Executor<I, S>,
     F: Feedback<I, E::Observers, S>,
@@ -121,11 +126,15 @@ unsafe fn std_on_timeout<E, F, H, I, OF, S, W>(
     let input = unsafe { data.take_input::<I>() };
     let state = unsafe { data.state::<S>() };
     let fuzzer = unsafe { data.fuzzer::<StdFuzzer<F, H, OF>>() };
-    let observers = unsafe { data.observers::<E::Observers>() };
+    let executor = unsafe { data.executor::<E, I, S>() };
     let rt_handle = unsafe { data.rt_handle::<S, W>() };
 
+    unsafe {
+        executor.handle_timeout(signal_params).unwrap();
+    }
+
     handle_objective_in_termination_handler(
-        observers,
+        executor,
         state,
         input.unwrap(),
         fuzzer,
@@ -327,6 +336,7 @@ where
     H: FuzzerHooksTuple<E, I, S, W>,
     I: Input,
     OF: Feedback<I, E::Observers, S>,
+    R: Runtime<S, W>,
     S: State<I>,
     ST: StagesTuple<E, R, S, W, Self>,
     W: Worker,
@@ -367,10 +377,10 @@ where
         }
 
         // 4 - populate signal handler data if the runtime needs it
-        rt_handle.init_termination_handlers(
+        rt_handle.init_termination_handlers::<E, I, R, ST, Self>(
             state,
             self,
-            &mut *executor.observers_mut(),
+            executor,
             |data, signal_params| unsafe {
                 std_on_crash::<E, F, H, I, OF, S, W>(data, signal_params)
             },
@@ -524,6 +534,7 @@ impl<F, OF> StdFuzzer<F, (), OF> {
         F: Feedback<I, E::Observers, S>,
         I: Input,
         OF: Feedback<I, E::Observers, S>,
+        R: Runtime<S, W>,
         S: State<I>,
         ST: StagesTuple<E, R, S, W, Self>,
         W: Worker,
@@ -557,6 +568,7 @@ impl<F, H, OF> StdFuzzer<F, H, OF> {
         H: FuzzerHooksTuple<E, I, S, W>,
         I: Input,
         OF: Feedback<I, E::Observers, S>,
+        R: Runtime<S, W>,
         S: State<I>,
         ST: StagesTuple<E, R, S, W, Self>,
         W: Worker,

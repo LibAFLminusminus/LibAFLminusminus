@@ -9,9 +9,9 @@ use std::{
 };
 
 use hashbrown::{HashMap, hash_map::Entry};
-use libafl::{HasMetadata, executors::ExitKind, observers::ObserversTuple};
+use libafl::{executors::ExitKind, observers::ObserversTuple, states::FlatState};
+use libafl_bolts::drcov::{DrCovBasicBlock, DrCovWriter};
 use libafl_qemu_sys::{GuestAddr, GuestUsize};
-use libafl_targets::drcov::{DrCovBasicBlock, DrCovWriter};
 use rangemap::RangeMap;
 use serde::{Deserialize, Serialize};
 
@@ -150,7 +150,7 @@ where
     ET: EmulatorModuleTuple<I, S>,
     F: AddressFilter,
     I: Unpin,
-    S: Unpin + HasMetadata,
+    S: Unpin + FlatState,
 {
     let drcov_module = emulator_modules.get::<DrCovModule<F>>().unwrap();
     if !drcov_module.must_instrument(pc) {
@@ -196,7 +196,7 @@ pub fn gen_block_lengths<ET, F, I, S>(
     ET: EmulatorModuleTuple<I, S>,
     F: AddressFilter,
     I: Unpin,
-    S: Unpin + HasMetadata,
+    S: Unpin + FlatState,
 {
     let drcov_module = emulator_modules.get::<DrCovModule<F>>().unwrap();
     if !drcov_module.must_instrument(pc) {
@@ -220,7 +220,7 @@ pub fn exec_trace_block<ET, F, I, S>(
     ET: EmulatorModuleTuple<I, S>,
     F: AddressFilter,
     I: Unpin,
-    S: Unpin + HasMetadata,
+    S: Unpin + FlatState,
 {
     DRCOV_IDS.lock().unwrap().as_mut().unwrap().push(id);
 }
@@ -229,7 +229,7 @@ impl<F, I, S> EmulatorModule<I, S> for DrCovModule<F>
 where
     F: AddressFilter,
     I: Unpin,
-    S: Unpin + HasMetadata,
+    S: Unpin + FlatState,
 {
     #[cfg(feature = "usermode")]
     fn first_exec<ET>(
@@ -367,7 +367,7 @@ where
         _observers: &mut OT,
         _exit_kind: &mut ExitKind,
     ) where
-        OT: ObserversTuple<I, S>,
+        OT: ObserversTuple<S>,
         ET: EmulatorModuleTuple<I, S>,
     {
         self.flush();

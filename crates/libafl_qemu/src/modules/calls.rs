@@ -60,7 +60,7 @@ pub trait CallTraceCollector: 'static {
         _exit_kind: &mut ExitKind,
     ) where
         I: Unpin,
-        OT: ObserversTuple<I, S>,
+        OT: ObserversTuple<S>,
         S: Unpin,
     {
     }
@@ -101,7 +101,7 @@ pub trait CallTraceCollectorTuple: 'static + MatchFirstType {
         _exit_kind: &mut ExitKind,
     ) where
         I: Unpin,
-        OT: ObserversTuple<I, S>,
+        OT: ObserversTuple<S>,
         S: Unpin;
 }
 
@@ -146,7 +146,7 @@ impl CallTraceCollectorTuple for () {
         _exit_kind: &mut ExitKind,
     ) where
         I: Unpin,
-        OT: ObserversTuple<I, S>,
+        OT: ObserversTuple<S>,
         S: Unpin,
     {
     }
@@ -219,7 +219,7 @@ where
         exit_kind: &mut ExitKind,
     ) where
         I: Unpin,
-        OT: ObserversTuple<I, S>,
+        OT: ObserversTuple<S>,
         S: Unpin,
     {
         self.0.post_exec(qemu, input, observers, exit_kind);
@@ -450,7 +450,7 @@ where
         observers: &mut OT,
         exit_kind: &mut ExitKind,
     ) where
-        OT: ObserversTuple<I, S>,
+        OT: ObserversTuple<S>,
         ET: EmulatorModuleTuple<I, S>,
     {
         self.collectors
@@ -566,7 +566,7 @@ where
         exit_kind: &mut ExitKind,
     ) where
         I: Unpin,
-        OT: ObserversTuple<I, S>,
+        OT: ObserversTuple<S>,
         S: Unpin,
     {
         let observer = observers

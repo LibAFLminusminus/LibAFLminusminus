@@ -7,7 +7,11 @@ use libafl_core::Error;
 
 #[cfg(unix)]
 use crate::runtimes::utils::unix::OsShmSender;
-use crate::runtimes::{RuntimeHandle, utils::OsTerminationParams};
+use crate::{
+    Fuzzer,
+    executors::Executor,
+    runtimes::{RuntimeHandle, utils::OsTerminationParams},
+};
 
 pub trait IntoTerminationHandlerData {
     fn as_termination_handler_data(&mut self) -> Option<NonNull<TerminationHandlerData>>;
@@ -26,7 +30,7 @@ pub struct TerminationHandler<CH, D, TH> {
 pub struct TerminationHandlerData {
     state_ptr: Option<NonNull<c_void>>,
     input_ptr: Option<NonNull<c_void>>,
-    observers_ptr: Option<NonNull<c_void>>,
+    executor_ptr: Option<NonNull<c_void>>,
     fuzzer_ptr: Option<NonNull<c_void>>,
     rt_handle_ptr: Option<NonNull<c_void>>,
     state_sender_ptr: Option<NonNull<c_void>>,
@@ -42,7 +46,7 @@ impl TerminationHandlerData {
         Self {
             state_ptr: None,
             input_ptr: None,
-            observers_ptr: None,
+            executor_ptr: None,
             fuzzer_ptr: None,
             rt_handle_ptr: None,
             state_sender_ptr: None,
@@ -51,15 +55,18 @@ impl TerminationHandlerData {
         }
     }
 
-    pub fn init<O, S, W, Z>(
+    pub fn init<E, I, R, S, ST, W, Z>(
         &mut self,
         state: &mut S,
         fuzzer: &mut Z,
-        observers: &mut O,
+        executor: &mut E,
         rt_handle_ptr: NonNull<RuntimeHandle<S, W>>,
         on_crash: fn(&mut Self, &OsTerminationParams),
         on_timeout: fn(&mut Self, &OsTerminationParams),
-    ) {
+    ) where
+        E: Executor<I, S>,
+        Z: Fuzzer<E, I, R, S, ST, W>,
+    {
         if self.state_ptr.is_some() {
             panic!(
                 "Trying to initialize termination information multiple times. This is a fuzzer bug."
@@ -68,7 +75,7 @@ impl TerminationHandlerData {
 
         self.state_ptr = Some(NonNull::from(state).cast());
         self.fuzzer_ptr = Some(NonNull::from(fuzzer).cast());
-        self.observers_ptr = Some(NonNull::from(observers).cast());
+        self.executor_ptr = Some(NonNull::from(executor).cast());
         self.rt_handle_ptr = Some(rt_handle_ptr.cast());
         self.crash_handler = Some(on_crash);
         self.timeout_handler = Some(on_timeout);
@@ -91,8 +98,11 @@ impl TerminationHandlerData {
     /// # Safety
     ///
     /// O must be the same as the one used during init
-    pub unsafe fn observers<O>(&self) -> &mut O {
-        unsafe { self.observers_ptr.unwrap().cast().as_mut() }
+    pub unsafe fn executor<E, I, S>(&self) -> &mut E
+    where
+        E: Executor<I, S>,
+    {
+        unsafe { self.executor_ptr.unwrap().cast().as_mut() }
     }
 
     /// # Safety

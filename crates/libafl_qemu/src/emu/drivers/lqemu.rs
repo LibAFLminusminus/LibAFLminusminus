@@ -1,13 +1,11 @@
-use std::cell::OnceCell;
-
-use libafl::inputs::HasTargetBytes;
-use libafl_bolts::AsSlice;
-
 #[cfg(not(feature = "systemmode"))]
 use crate::InputLocation;
 #[cfg(feature = "systemmode")]
 use crate::emu::systemmode::SystemInputLocation as InputLocation;
 use crate::{GuestReg, Qemu};
+use libafl::inputs::Input;
+use libafl_bolts::AsSlice;
+use std::cell::OnceCell;
 
 #[derive(Debug, Default, Clone)]
 pub struct LqemuInputSetter {
@@ -16,7 +14,7 @@ pub struct LqemuInputSetter {
 
 impl<I, S> crate::emu::drivers::InputSetter<I, S> for LqemuInputSetter
 where
-    I: HasTargetBytes,
+    I: Input,
 {
     fn write_input(
         &mut self,

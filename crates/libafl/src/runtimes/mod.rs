@@ -4,7 +4,9 @@ use std::process::exit;
 use libafl_bolts::Error;
 
 use crate::{
-    DependencyResolver, Result,
+    DependencyResolver, Fuzzer, Result,
+    executors::Executor,
+    inputs::Input,
     runtimes::{
         restarting::LIBAFL_EXIT_END,
         simple::SimpleRuntime,
@@ -13,6 +15,7 @@ use crate::{
             unix::OsShmSender,
         },
     },
+    stages::StagesTuple,
 };
 
 pub mod inprocess;
@@ -152,14 +155,20 @@ impl<S, W> RuntimeHandle<S, W> {
         self.state_shm_sender = Some(state_shm_sender);
     }
 
-    pub fn init_termination_handlers<O, Z>(
+    pub fn init_termination_handlers<E, I, R, ST, Z>(
         &mut self,
         state: &mut S,
         fuzzer: &mut Z,
-        observers: &mut O,
+        executor: &mut E,
         on_crash: fn(&mut TerminationHandlerData, &OsTerminationParams),
         on_timeout: fn(&mut TerminationHandlerData, &OsTerminationParams),
-    ) {
+    ) where
+        E: Executor<I, S>,
+        I: Input,
+        R: Runtime<S, W>,
+        ST: StagesTuple<E, R, S, W, Z>,
+        Z: Fuzzer<E, I, R, S, ST, W>,
+    {
         let rt_handle_ptr = NonNull::from_mut(self);
 
         if let Some(mut termination_data) = self.termination_data_ptr {
@@ -167,7 +176,7 @@ impl<S, W> RuntimeHandle<S, W> {
                 termination_data.as_mut().init(
                     state,
                     fuzzer,
-                    observers,
+                    executor,
                     rt_handle_ptr,
                     on_crash,
                     on_timeout,

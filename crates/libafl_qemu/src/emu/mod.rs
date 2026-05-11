@@ -6,9 +6,7 @@ use core::fmt::{self, Debug, Display, Formatter};
 use std::{cell::RefCell, ops::Add, pin::Pin};
 
 use hashbrown::HashMap;
-use libafl::{
-    executors::ExitKind, inputs::HasTargetBytes, observers::ObserversTuple, states::HasExecutions,
-};
+use libafl::{executors::ExitKind, inputs::Input, observers::ObserversTuple, states::FlatState};
 use libafl_qemu_sys::{GuestAddr, GuestPhysAddr, GuestVirtAddr};
 
 #[cfg(doc)]
@@ -243,8 +241,8 @@ impl<C, I, S> Emulator<C, NopCommandManager, NopEmulatorDriver, (), I, S, NopSna
 
 impl<C, I, S> Emulator<C, StdCommandManager<S>, StdEmulatorDriver, (), I, S, StdSnapshotManager>
 where
-    S: HasExecutions + Unpin,
-    I: HasTargetBytes,
+    S: FlatState + Unpin,
+    I: Input,
 {
     #[must_use]
     pub fn builder() -> EmulatorBuilder<
