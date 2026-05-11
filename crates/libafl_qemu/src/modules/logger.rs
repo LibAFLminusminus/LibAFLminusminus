@@ -5,6 +5,7 @@
 
 use std::fmt::Debug;
 
+use libafl::Result;
 use libafl_qemu_sys::TCGTemp;
 
 use crate::{
@@ -285,7 +286,8 @@ where
         _qemu: Qemu,
         emulator_modules: &mut EmulatorModules<ET, I, S>,
         _state: &mut S,
-    ) where
+    ) -> Result<()>
+    where
         ET: EmulatorModuleTuple<I, S>,
     {
         if self.reads {
@@ -341,5 +343,7 @@ where
         if self.instruction.is_some() {
             todo!()
         }
+
+        Ok(())
     }
 }

@@ -35,6 +35,8 @@ pub trait Emulator<I, S> {
     ) -> Result<()>
     where
         OT: ObserversTuple<S>;
+    fn on_crash(&mut self) -> Result<()>;
+    fn on_timeout(&mut self) -> Result<()>;
 }
 
 #[derive(Copy, Clone)]

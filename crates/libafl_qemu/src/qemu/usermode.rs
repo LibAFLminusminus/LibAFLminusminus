@@ -1,8 +1,7 @@
 #[cfg(not(feature = "systemmode"))]
 use std::ptr::copy_nonoverlapping;
 use std::{
-    ffi::c_void, mem::MaybeUninit, ops::Range, ptr, slice::from_raw_parts_mut,
-    str::from_utf8_unchecked_mut,
+    mem::MaybeUninit, ops::Range, ptr, slice::from_raw_parts_mut, str::from_utf8_unchecked_mut,
 };
 
 use libafl_bolts::{Error, os::unix_signals::Signal};

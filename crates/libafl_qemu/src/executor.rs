@@ -1,28 +1,26 @@
 //! A `QEMU`-based executor for binary-only instrumentation in `LibAFL`
 
-use crate::{Emulator, modules::EmulatorModuleTuple};
+use crate::Emulator;
 #[cfg(feature = "usermode")]
-use crate::{EmulatorModules, Qemu, QemuSignalContext, run_target_crash_hooks};
-use core::ffi::c_void;
+use crate::{Qemu, QemuSignalContext};
 use libafl::{
-    DependencyResolver, Error, Result,
+    DependencyResolver, Result,
     executors::{Executor, ExitKind},
     observers::ObserversTuple,
-    runtimes::{OsTerminationParams, inprocess::CrashStatus},
+    runtimes::{
+        OsTerminationParams,
+        inprocess::{CrashStatus, TimeoutStatus},
+    },
 };
 #[cfg(feature = "usermode")]
 use libafl_bolts::minibsod;
-use libafl_bolts::{
-    os::unix_signals::{Signal, ucontext_t},
-    tuples::RefIndexable,
-};
+use libafl_bolts::tuples::RefIndexable;
 #[cfg(feature = "systemmode")]
 use libafl_qemu_sys::libafl_exit_request_timeout;
-use libc::siginfo_t;
+#[cfg(feature = "usermode")]
+use std::str;
 #[cfg(feature = "systemmode")]
 use std::sync::atomic::{AtomicBool, Ordering};
-#[cfg(feature = "usermode")]
-use std::{ptr, str};
 
 pub struct QemuExecutor<EMU, OT, PRE, POST> {
     emulator: EMU,
@@ -34,35 +32,6 @@ pub struct QemuExecutor<EMU, OT, PRE, POST> {
 
 #[cfg(feature = "systemmode")]
 pub(crate) static BREAK_ON_TMOUT: AtomicBool = AtomicBool::new(false);
-
-/// `LibAFL` QEMU main crash handler.
-/// Be careful, it can come after QEMU's native crash handler if a signal is caught by QEMU but
-/// not by `LibAFL`.
-///
-/// Signals handlers can be nested.
-///
-/// # Safety
-///
-/// This should be used as a crash handler, and nothing else.
-#[cfg(feature = "usermode")]
-pub unsafe fn inproc_qemu_crash_handler<E, EM, ET, I, OF, S, Z>(
-    signal: Signal,
-    info: &mut siginfo_t,
-    mut context: Option<&mut ucontext_t>,
-    data: &mut InProcessExecutorHandlerData,
-) {
-}
-
-/// # Safety
-/// Can call through the `unix_signal_handler::inproc_timeout_handler`.
-/// Calling this method multiple times concurrently can lead to race conditions.
-pub unsafe fn inproc_qemu_timeout_handler<E, EM, ET, I, OF, S, Z>(
-    signal: Signal,
-    info: &mut siginfo_t,
-    context: Option<&mut ucontext_t>,
-    data: &mut InProcessExecutorHandlerData,
-) {
-}
 
 impl<EMU, OT, PRE, POST> QemuExecutor<EMU, OT, PRE, POST> {
     pub fn new<OF>(emulator: EMU, pre_exec: PRE, post_exec: POST, observers: OT) -> Result<Self> {
@@ -131,7 +100,7 @@ where
     }
 
     unsafe fn handle_crash(&mut self, params: &OsTerminationParams) -> Result<CrashStatus> {
-        let (signal, info, context) = match params {
+        let (signal, mut info, mut context) = match params {
             OsTerminationParams::Signal {
                 signal,
                 siginfo,
@@ -186,8 +155,7 @@ where
                             "QEMU Target signal received that should be handled by host. It is a target crash."
                         );
 
-                        log::debug!("Running crash hooks.");
-                        run_target_crash_hooks::<ET, I, S>(signal.into());
+                        self.emulator.on_crash()?;
 
                         if let Some(cpu) = qemu.current_cpu() {
                             eprint!("QEMU Context:\n{}", cpu.display_context());
@@ -203,7 +171,7 @@ where
                     "The fuzzer crashed at addr 0x{si_addr:x}... Bug in the fuzzer? Exiting."
                 );
 
-                let bsod = minibsod::generate_minibsod_to_vec(signal, info, context.as_deref());
+                let bsod = minibsod::generate_minibsod_to_vec(signal, &info, context.as_ref());
 
                 if let Ok(bsod) = bsod {
                     if let Ok(bsod_str) = str::from_utf8(&bsod) {
@@ -232,38 +200,18 @@ where
     unsafe fn handle_timeout(
         &mut self,
         _params: &libafl::runtimes::OsTerminationParams,
-    ) -> Result<()> {
+    ) -> Result<TimeoutStatus> {
+        // run modules' crash callback
+        self.emulator.on_timeout()?;
+
         #[cfg(feature = "systemmode")]
         unsafe {
             if BREAK_ON_TMOUT.load(Ordering::Acquire) {
                 libafl_exit_request_timeout();
-            } else {
-                libafl::executors::hooks::unix::unix_signal_handler::inproc_timeout_handler::<
-                    E,
-                    EM,
-                    I,
-                    OF,
-                    S,
-                    Z,
-                >(signal, info, context, data);
+                return Ok(TimeoutStatus::Resume);
             }
         }
 
-        #[cfg(feature = "usermode")]
-        unsafe {
-            // run modules' crash callback
-            if let Some(emulator_modules) = EmulatorModules::<ET, I, S>::emulator_modules_mut() {
-                emulator_modules.modules_mut().on_timeout_all();
-            }
-
-            libafl::executors::hooks::unix::unix_signal_handler::inproc_timeout_handler::<
-                E,
-                EM,
-                I,
-                OF,
-                S,
-                Z,
-            >(signal, info, context, data);
-        }
+        Ok(TimeoutStatus::Exit)
     }
 }

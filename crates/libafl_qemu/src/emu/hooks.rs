@@ -2,6 +2,7 @@
 
 use std::{fmt::Debug, marker::PhantomData, mem::transmute, pin::Pin, ptr};
 
+use libafl::Result;
 use libafl::{executors::ExitKind, observers::ObserversTuple};
 use libafl_qemu_sys::{CPUStatePtr, FatPtr, GuestAddr, TCGTemp};
 
@@ -71,35 +72,6 @@ macro_rules! hook_to_repr {
 }
 
 static mut EMULATOR_MODULES: *mut () = ptr::null_mut();
-
-#[cfg(feature = "usermode")]
-pub extern "C" fn run_target_crash_hooks<ET, I, S>(target_sig: i32)
-where
-    ET: EmulatorModuleTuple<I, S>,
-    S: Unpin,
-{
-    unsafe {
-        let emulator_modules = EmulatorModules::<ET, I, S>::emulator_modules_mut().unwrap();
-        let qemu = Qemu::get_unchecked();
-
-        let crash_hooks_ptr = &raw mut emulator_modules.hooks.hook_collection.crash_hooks;
-
-        for crash_hook in &mut (*crash_hooks_ptr) {
-            match crash_hook {
-                HookRepr::Function(ptr) => {
-                    let func: CrashHookFn<ET, I, S> = transmute(*ptr);
-                    func(qemu, emulator_modules, target_sig);
-                }
-                HookRepr::Closure(ptr) => {
-                    let func: &mut CrashHookClosure<ET, I, S> =
-                        &mut *(ptr::from_mut::<FatPtr>(ptr) as *mut CrashHookClosure<ET, I, S>);
-                    func(qemu, emulator_modules, target_sig);
-                }
-                HookRepr::Empty => (),
-            }
-        }
-    }
-}
 
 /// High-level `Emulator` modules, using `QemuHooks`.
 #[derive(Debug)]
@@ -1228,16 +1200,16 @@ where
         }
     }
 
-    pub fn first_exec_all(&mut self, qemu: Qemu, state: &mut S) {
+    pub fn first_exec_all(&mut self, qemu: Qemu, state: &mut S) -> Result<()> {
         // # Safety
         // We assume that the emulator was initialized correctly
         unsafe {
             self.modules_mut()
-                .first_exec_all(qemu, Self::emulator_modules_mut_unchecked(), state);
+                .first_exec_all(qemu, Self::emulator_modules_mut_unchecked(), state)
         }
     }
 
-    pub fn pre_exec_all(&mut self, qemu: Qemu, state: &mut S, input: &I) {
+    pub fn pre_exec_all(&mut self, qemu: Qemu, state: &mut S, input: &I) -> Result<()> {
         // # Safety
         // We assume that the emulator was initialized correctly
         unsafe {
@@ -1246,7 +1218,7 @@ where
                 Self::emulator_modules_mut_unchecked(),
                 state,
                 input,
-            );
+            )
         }
     }
 
@@ -1257,8 +1229,9 @@ where
         input: &I,
         observers: &mut OT,
         exit_kind: &mut ExitKind,
-    ) where
-        OT: ObserversTuple<I, S>,
+    ) -> Result<()>
+    where
+        OT: ObserversTuple<S>,
     {
         unsafe {
             self.modules_mut().post_exec_all(
@@ -1268,7 +1241,7 @@ where
                 input,
                 observers,
                 exit_kind,
-            );
+            )
         }
     }
 

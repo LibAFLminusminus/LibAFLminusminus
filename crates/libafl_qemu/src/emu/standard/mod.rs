@@ -1,5 +1,5 @@
 use crate::{
-    EmulatorDriver, EmulatorDriverError, EmulatorDriverResult, EmulatorExitError,
+    Emulator, EmulatorDriver, EmulatorDriverError, EmulatorDriverResult, EmulatorExitError,
     EmulatorExitResult, EmulatorHooks, EmulatorModules, NopEmulatorDriver, NopSnapshotManager,
     Qemu, QemuExitError, QemuExitReason, QemuHooks, QemuInitError, QemuParams, StdEmulatorDriver,
     breakpoint::{Breakpoint, BreakpointId},
@@ -8,9 +8,11 @@ use crate::{
     modules::EmulatorModuleTuple,
     sync_exit::CustomInsn,
 };
-use libafl::{executors::ExitKind, inputs::Input, observers::ObserversTuple, states::FlatState};
+use libafl::{
+    Result, executors::ExitKind, inputs::Input, observers::ObserversTuple, states::FlatState,
+};
 use libafl_qemu_sys::GuestAddr;
-use std::{cell::RefCell, collections::HashMap, pin::Pin};
+use std::{cell::RefCell, collections::HashMap, pin::Pin, result};
 
 pub mod builder;
 pub use builder::StdEmulatorBuilder;
@@ -44,14 +46,55 @@ pub use systemmode::*;
 /// Please check the documentation of [`StdEmulatorBuilder`] for more details.
 #[derive(Debug)]
 pub struct StdEmulator<C, CM, ED, ET, I, S, SM> {
-    snapshot_manager: SM,
-    modules: Pin<Box<EmulatorModules<ET, I, S>>>,
-    command_manager: CM,
-    driver: ED,
+    pub(crate) snapshot_manager: SM,
+    pub(crate) modules: Pin<Box<EmulatorModules<ET, I, S>>>,
+    pub(crate) command_manager: CM,
+    pub(crate) driver: ED,
     breakpoints_by_addr: RefCell<HashMap<GuestAddr, Breakpoint<C>>>, // TODO: change to RC here
     breakpoints_by_id: RefCell<HashMap<BreakpointId, Breakpoint<C>>>,
-    qemu: Qemu,
-    started: bool,
+    pub(crate) qemu: Qemu,
+    pub(crate) started: bool,
+}
+
+impl<C, CM, ED, ET, I, S, SM> Emulator<I, S> for StdEmulator<C, CM, ED, ET, I, S, SM>
+where
+    C: Clone,
+    ED: EmulatorDriver<C, CM, ED, I, S, SM>,
+    I: Unpin,
+    S: Unpin,
+{
+    fn first_exec(&mut self, state: &mut S) -> Result<()> {
+        ED::first_harness_exec(self, state)
+    }
+
+    fn pre_exec(&mut self, state: &mut S, input: &I) -> Result<()> {
+        ED::pre_harness_exec(self, state, input)
+    }
+
+    fn exec_input(&mut self, input: &I) -> Result<ExitKind> {
+        todo!()
+    }
+
+    fn post_exec<OT>(
+        &mut self,
+        input: &I,
+        observers: &mut OT,
+        state: &mut S,
+        exit_kind: &mut ExitKind,
+    ) -> libafl::Result<()>
+    where
+        OT: ObserversTuple<S>,
+    {
+        ED::post_harness_exec(self, input, observers, state, exit_kind)
+    }
+
+    fn on_crash(&mut self) -> libafl::Result<()> {
+        self.modules.modules_mut().on_crash_all()
+    }
+
+    fn on_timeout(&mut self) -> libafl::Result<()> {
+        self.modules.modules_mut().on_timeout_all()
+    }
 }
 
 impl<C, I, S> StdEmulator<C, NopCommandManager, NopEmulatorDriver, (), I, S, NopSnapshotManager> {
@@ -153,7 +196,7 @@ where
         driver: ED,
         snapshot_manager: SM,
         command_manager: CM,
-    ) -> Result<Self, QemuInitError>
+    ) -> result::Result<Self, QemuInitError>
     where
         T: Into<QemuParams>,
     {
@@ -246,7 +289,7 @@ where
     pub unsafe fn run(
         &mut self,
         input: &I,
-    ) -> Result<EmulatorDriverResult<C>, EmulatorDriverError> {
+    ) -> result::Result<EmulatorDriverResult<C>, EmulatorDriverError> {
         if !self.started {
             return Err(EmulatorDriverError::NotStartedYet);
         }
@@ -273,7 +316,7 @@ where
     ///
     /// This will make QEMU start. The calling thread will be running QEMU until an event stops it.
     /// This is (at least) as unsafe as running QEMU.
-    pub unsafe fn start(&mut self) -> Result<(), EmulatorDriverError> {
+    pub unsafe fn start(&mut self) -> result::Result<(), EmulatorDriverError> {
         loop {
             let mut exit_result = unsafe { self.run_qemu() };
 
@@ -314,7 +357,7 @@ where
     ///
     /// Should, in general, be safe to call.
     /// Of course, the emulated target is not contained securely and can corrupt state or interact with the operating system.
-    pub unsafe fn run_qemu(&self) -> Result<EmulatorExitResult<C>, EmulatorExitError> {
+    pub unsafe fn run_qemu(&self) -> result::Result<EmulatorExitResult<C>, EmulatorExitError> {
         match unsafe { self.qemu.run() } {
             Ok(qemu_exit_reason) => Ok(match qemu_exit_reason {
                 QemuExitReason::End(qemu_shutdown_cause) => {
@@ -340,29 +383,6 @@ where
                 QemuExitError::UnknownKind => EmulatorExitError::UnknownKind,
             }),
         }
-    }
-
-    /// First exec of Emulator, called before calling to user harness the first time
-    pub fn first_exec(&mut self, state: &mut S) {
-        ED::first_harness_exec(self, state);
-    }
-
-    /// Pre exec of Emulator, called before calling to user harness
-    pub fn pre_exec(&mut self, state: &mut S, input: &I) {
-        ED::pre_harness_exec(self, state, input);
-    }
-
-    /// Post exec of Emulator, called before calling to user harness
-    pub fn post_exec<OT>(
-        &mut self,
-        input: &I,
-        observers: &mut OT,
-        state: &mut S,
-        exit_kind: &mut ExitKind,
-    ) where
-        OT: ObserversTuple<I, S>,
-    {
-        ED::post_harness_exec(self, input, observers, state, exit_kind);
     }
 }
 

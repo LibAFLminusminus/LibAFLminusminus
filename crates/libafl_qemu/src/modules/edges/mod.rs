@@ -1,7 +1,6 @@
 use std::{fmt::Debug, ptr};
 
-use libafl::{observers::VarLenMapObserver, states::FlatState};
-use libafl_bolts::Error;
+use libafl::{Result, observers::VarLenMapObserver, states::FlatState};
 use libafl_qemu_sys::GuestAddr;
 #[cfg(feature = "systemmode")]
 use libafl_qemu_sys::GuestPhysAddr;
@@ -128,7 +127,7 @@ pub struct EdgeCoverageModule<AF, PF, V, const IS_CONST_MAP: bool, const MAP_SIZ
 impl<AF, PF, V, const IS_INITIALIZED: bool, const IS_CONST_MAP: bool, const MAP_SIZE: usize>
     EdgeCoverageModuleBuilder<AF, PF, V, IS_INITIALIZED, IS_CONST_MAP, MAP_SIZE>
 {
-    pub fn build(self) -> Result<EdgeCoverageModule<AF, PF, V, IS_CONST_MAP, MAP_SIZE>, Error> {
+    pub fn build(self) -> Result<EdgeCoverageModule<AF, PF, V, IS_CONST_MAP, MAP_SIZE>> {
         const {
             assert!(
                 IS_INITIALIZED,
@@ -351,7 +350,8 @@ where
         _qemu: Qemu,
         emulator_modules: &mut EmulatorModules<ET, I, S>,
         _state: &mut S,
-    ) where
+    ) -> Result<()>
+    where
         ET: EmulatorModuleTuple<I, S>,
     {
         if self.use_hitcounts {
@@ -365,6 +365,8 @@ where
         } else {
             self.variant.fn_no_hitcount(emulator_modules);
         }
+
+        Ok(())
     }
 }
 

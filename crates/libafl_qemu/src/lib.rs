@@ -35,8 +35,6 @@ pub mod modules;
 
 pub mod executor;
 pub use executor::QemuExecutor;
-#[cfg(feature = "fork")]
-pub use executor::QemuForkExecutor;
 
 pub mod qemu;
 pub use qemu::*;

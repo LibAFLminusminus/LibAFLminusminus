@@ -9,6 +9,8 @@ use std::{
 };
 
 use hashbrown::{HashMap, hash_map::Entry};
+#[cfg(feature = "usermode")]
+use libafl::Result;
 use libafl::{executors::ExitKind, observers::ObserversTuple, states::FlatState};
 use libafl_bolts::drcov::{DrCovBasicBlock, DrCovWriter};
 use libafl_qemu_sys::{GuestAddr, GuestUsize};
@@ -159,7 +161,7 @@ where
 
     let state = state.expect("The gen_unique_block_ids hook works only for in-process fuzzing. Is the Executor initialized?");
     if state
-        .metadata_map_mut()
+        .named_metadata_map_mut()
         .get_mut::<DrCovMetadata>()
         .is_none()
     {
@@ -237,7 +239,8 @@ where
         qemu: Qemu,
         emulator_modules: &mut EmulatorModules<ET, I, S>,
         _state: &mut S,
-    ) where
+    ) -> Result<()>
+    where
         ET: EmulatorModuleTuple<I, S>,
     {
         if self.full_trace {
@@ -327,6 +330,8 @@ where
         } else {
             log::info!("Using user-provided module mapping for DrCov module.");
         }
+
+        Ok(())
     }
 
     #[cfg(feature = "systemmode")]
@@ -366,11 +371,12 @@ where
         _input: &I,
         _observers: &mut OT,
         _exit_kind: &mut ExitKind,
-    ) where
+    ) -> Result<()>
+    where
         OT: ObserversTuple<S>,
         ET: EmulatorModuleTuple<I, S>,
     {
-        self.flush();
+        self.flush()
     }
 
     unsafe fn on_crash(&mut self) {
@@ -429,9 +435,10 @@ impl<F> DrCovModule<F> {
         self.path.as_path()
     }
 
-    pub fn flush(&mut self) {
+    pub fn flush(&mut self) -> Result<()> {
         let lengths_opt = DRCOV_LENGTHS.lock().unwrap();
         let lengths = lengths_opt.as_ref().unwrap();
+
         if self.full_trace {
             if DRCOV_IDS.lock().unwrap().as_ref().unwrap().len() > self.drcov_len {
                 let mut drcov_vec = Vec::<DrCovBasicBlock>::new();
@@ -475,8 +482,7 @@ impl<F> DrCovModule<F> {
                 // Module mapping is already set. It's checked or filled when the module is first run.
                 unsafe {
                     DrCovWriter::new(self.module_mapping.as_ref().unwrap_unchecked())
-                        .write(&self.path, &drcov_vec)
-                        .expect("Failed to write coverage file");
+                        .write(&self.path, &drcov_vec)?;
                 }
             }
             if self.clean_on_flush {
@@ -526,12 +532,13 @@ impl<F> DrCovModule<F> {
                 // Module mapping is already set. It's checked or filled when the module is first run.
                 unsafe {
                     DrCovWriter::new(self.module_mapping.as_ref().unwrap_unchecked())
-                        .write(&self.path, &drcov_vec)
-                        .expect("Failed to write coverage file");
+                        .write(&self.path, &drcov_vec)?;
                 }
             }
             self.drcov_len = DRCOV_MAP.lock().unwrap().as_ref().unwrap().len();
         }
+
+        Ok(())
     }
 }
 

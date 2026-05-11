@@ -1,7 +1,7 @@
 use core::{cell::UnsafeCell, fmt::Debug};
 
 use capstone::prelude::*;
-use libafl::{executors::ExitKind, inputs::Input, observers::ObserversTuple};
+use libafl::{Result, executors::ExitKind, inputs::Input, observers::ObserversTuple};
 use libafl_bolts::tuples::{Handle, Handled, MatchFirstType, MatchNameRef};
 use libafl_qemu_sys::GuestAddr;
 use thread_local::ThreadLocal;
@@ -431,10 +431,12 @@ where
         _emulator_modules: &mut EmulatorModules<ET, I, S>,
         _state: &mut S,
         input: &I,
-    ) where
+    ) -> Result<()>
+    where
         ET: EmulatorModuleTuple<I, S>,
     {
         self.collectors.as_mut().unwrap().pre_exec_all(qemu, input);
+        Ok(())
     }
 
     fn post_exec<OT, ET>(
@@ -445,7 +447,8 @@ where
         input: &I,
         observers: &mut OT,
         exit_kind: &mut ExitKind,
-    ) where
+    ) -> Result<()>
+    where
         OT: ObserversTuple<S>,
         ET: EmulatorModuleTuple<I, S>,
     {
@@ -453,6 +456,7 @@ where
             .as_mut()
             .unwrap()
             .post_exec_all(qemu, input, observers, exit_kind);
+        Ok(())
     }
 }
 

@@ -1,7 +1,7 @@
 #[cfg(feature = "usermode")]
 use capstone::{Capstone, InsnDetail, arch::BuildsCapstone};
 use hashbrown::HashMap;
-use libafl::states::FlatState;
+use libafl::{Result, states::FlatState};
 use libafl_bolts::hash_64_fast;
 use libafl_qemu_sys::GuestAddr;
 pub use libafl_targets::{
@@ -76,7 +76,8 @@ where
         _qemu: Qemu,
         emulator_modules: &mut EmulatorModules<ET, I, S>,
         _state: &mut S,
-    ) where
+    ) -> Result<()>
+    where
         ET: EmulatorModuleTuple<I, S>,
     {
         emulator_modules.cmps(
@@ -86,6 +87,8 @@ where
             Hook::Raw(trace_cmp4_cmplog),
             Hook::Raw(trace_cmp8_cmplog),
         );
+
+        Ok(())
     }
 }
 
@@ -149,7 +152,8 @@ where
         _qemu: Qemu,
         emulator_modules: &mut EmulatorModules<ET, I, S>,
         _state: &mut S,
-    ) where
+    ) -> Result<()>
+    where
         ET: EmulatorModuleTuple<I, S>,
     {
         emulator_modules.cmps(
@@ -159,6 +163,8 @@ where
             Hook::Raw(trace_cmp4_cmplog),
             Hook::Raw(trace_cmp8_cmplog),
         );
+
+        Ok(())
     }
 }
 
@@ -422,7 +428,8 @@ where
         _qemu: Qemu,
         emulator_modules: &mut EmulatorModules<ET, I, S>,
         _state: &mut S,
-    ) where
+    ) -> Result<()>
+    where
         ET: EmulatorModuleTuple<I, S>,
     {
         emulator_modules.blocks(
@@ -430,6 +437,8 @@ where
             Hook::Empty,
             Hook::Empty,
         );
+
+        Ok(())
     }
 }
 
