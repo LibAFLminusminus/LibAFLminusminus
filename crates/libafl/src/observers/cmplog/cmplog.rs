@@ -2,7 +2,7 @@
 //! The values will then be used in subsequent mutations.
 
 use core::fmt::Debug;
-use libafl_bolts::{Named, ownedref::OwnedMutPtr};
+use libafl_bolts::{EmptyShmHeader, Named, SysVShm, ownedref::OwnedMutPtr};
 use libafl_targets::{
     CMPLOG_KIND_INS, CMPLOG_KIND_RTN, CMPLOG_MAP_H, CMPLOG_MAP_RTN_H, CMPLOG_MAP_W, CMPLOG_RTN_LEN,
     CmpLogHeader, CmpLogMap, CmpLogVals, LibAFLCmpLogHeader, LibAFLCmpLogInstruction,
@@ -26,6 +26,8 @@ use crate::{
 /// A [`CmpObserver`] observer for `CmpLog`
 #[derive(Debug)]
 pub struct CmpLogObserver<H, V> {
+    // Field order matters for drop: `map` (just a pointer) is dropped before `_shm`,
+    // which owns the backing shared memory.
     map: OwnedMutPtr<CmpLogMap<H, V>>,
     size: Option<OwnedMutPtr<usize>>,
     add_meta: bool,
@@ -92,31 +94,24 @@ impl<H, V> Named for CmpLogObserver<H, V> {
     }
 }
 
-impl<H, V> CmpLogObserver<H, V> {
-    /// Creates a new [`CmpLogObserver`] with the given map and name.
-    ///
-    /// # Safety
-    /// Will keep a ptr to the map. The map may not move in memory!
-    #[must_use]
-    pub unsafe fn with_map_ptr(
+impl<H, V> CmpLogObserver<H, V>
+where
+    H: CmpLogHeader,
+{
+    /// create a observer backed by the given System V shared memory region.
+    pub fn from_shm(
         name: &'static str,
-        map: *mut CmpLogMap<H, V>,
+        mut shm: SysVShm<EmptyShmHeader>,
         add_meta: bool,
-    ) -> Self {
-        Self {
+    ) -> Result<Self, Error> {
+        let mut owned = CmpLogMap::<H, V>::from_shm(&mut shm)?;
+        let map_ptr = owned.as_mut() as *mut CmpLogMap<H, V>;
+        Ok(Self {
             name: Cow::from(name),
             size: None,
             add_meta,
-            map: OwnedMutPtr::Ptr(map),
-        }
-    }
-}
-
-impl CmpLogObserver<LibAFLCmpLogHeader, LibAFLCmpLogVals> {
-    /// Creates a new [`CmpLogObserver`] with the given name from the default cmplog map
-    #[must_use]
-    pub fn new(name: &'static str, add_meta: bool) -> Self {
-        unsafe { Self::with_map_ptr(name, libafl_cmplog_map_ptr, add_meta) }
+            map: unsafe { OwnedMutPtr::from_raw_mut(map_ptr) },
+        })
     }
 }
 
@@ -225,6 +220,7 @@ impl CmpLogMetadata {
                     let mut decreasing_v0 = 0;
                     let mut decreasing_v1 = 0;
 
+                    println!("MOM");
                     let mut last: Option<CmpValues> = None;
                     for j in 0..execs {
                         if let Some(val) = parse_cmplog_map(cmp_map, i, j) {

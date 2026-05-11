@@ -606,7 +606,7 @@ impl<OT> ForkserverExecutor<OT> {
 
 impl<I, OT, S> Executor<I, S> for ForkserverExecutor<OT>
 where
-    OT: ObserversTuple<S>,
+    OT: ObserversTuple<S> + DependencyResolver,
     S: FlatState + HasCorpus<I> + HasContext<I>,
 {
     type Observers = OT;
@@ -653,7 +653,17 @@ where
     }
 }
 
-impl<OT> DependencyResolver for ForkserverExecutor<OT> {}
+impl<OT> DependencyResolver for ForkserverExecutor<OT>
+where
+    OT: DependencyResolver,
+{
+    fn register_with_ty(&mut self, registrator: &mut crate::Registrator) -> Result<(), Error> {
+        registrator.register_ty::<Self>();
+
+        self.register(registrator)?;
+        self.observers.register_with_ty(registrator)
+    }
+}
 
 /// The builder for `ForkserverExecutor`
 #[derive(Debug)]

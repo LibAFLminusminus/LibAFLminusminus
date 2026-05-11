@@ -1,10 +1,15 @@
 use crate::{CMPLOG_MAP_H, CMPLOG_MAP_W};
+use alloc::format;
 use core::{
     fmt::{self, Debug, Formatter},
     mem::{size_of, zeroed},
     ops::Index,
 };
-use libafl_bolts::Error;
+use libafl_bolts::{
+    Error,
+    shm::{EmptyShmHeader, SysVShm},
+};
+use ownedref::OwnedRefMut;
 
 // CONSTANTS
 
@@ -311,7 +316,7 @@ pub struct CmpLogMap<H, V> {
     pub vals: V,
 }
 
-impl Default for CmpLogMap<LibAFLCmpLogHeader, LibAFLCmpLogVals> {
+impl<H, V> Default for CmpLogMap<H, V> {
     fn default() -> Self {
         unsafe { zeroed() }
     }
@@ -321,6 +326,20 @@ impl<H, V> CmpLogMap<H, V>
 where
     H: CmpLogHeader,
 {
+    /// turn a sysv shared memory region as a cmplog map
+    pub fn from_shm(shm: &mut SysVShm<EmptyShmHeader>) -> Result<OwnedRefMut<'_, Self>, Error> {
+        let needed = size_of::<Self>();
+        let available = shm.max_data_len();
+        if available != needed {
+            return Err(Error::illegal_argument(format!(
+                "Shmem size mismatch! You must provide a shm with an identical size!!",
+            )));
+        }
+        let ptr = shm.shm_mut();
+        let ptr = unsafe { ptr.data_mut().as_mut_ptr().cast::<Self>() };
+        Ok(unsafe { OwnedRefMut::from_mut_ptr(ptr) })
+    }
+
     /// length of this map
     #[must_use]
     pub const fn len(&self) -> usize {

@@ -24,9 +24,6 @@ use crate::{
 /// The module for all the executor hooks
 pub mod hooks;
 
-pub mod combined;
-pub use combined::CombinedExecutor;
-
 pub mod nop;
 pub use nop::NopExecutor;
 
