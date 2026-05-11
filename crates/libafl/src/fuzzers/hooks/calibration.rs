@@ -1,18 +1,5 @@
-use alloc::{
-    borrow::{Cow, ToOwned},
-    string::ToString,
-    vec::Vec,
-};
-use core::{marker::PhantomData, time::Duration};
-
-use hashbrown::HashSet;
-use libafl_bolts::{Named, current_time, impl_serdeany, tuples::Handle};
-use libafl_core::illegal_state;
-use num_traits::Bounded;
-use serde::{Deserialize, Serialize};
-
 use crate::{
-    DependencyResolver, Error, Result, TestcasePowerScheduleData, Worker,
+    DependencyResolver, Error, Result, TestcasePowerScheduleData, Verdict, Worker,
     common::PowerScheduleData,
     corpus::{Corpus, Scheduler, Testcase},
     executors::Executor,
@@ -21,10 +8,17 @@ use crate::{
     inputs::Input,
     observers::{MapObserver, ObserversTuple},
     states::{
-        FlatState, HasCorpus, HasScheduler, has_named_metadata, has_unnamed_metadata,
-        named_metadata_mut, unnamed_metadata_mut,
+        FlatState, HasCorpus, HasScheduler, has_unnamed_metadata, named_metadata_mut,
+        unnamed_metadata_mut,
     },
 };
+use alloc::{borrow::Cow, string::ToString, vec::Vec};
+use core::{marker::PhantomData, time::Duration};
+use hashbrown::HashSet;
+use libafl_bolts::{Named, current_time, impl_serdeany, tuples::Handle};
+use libafl_core::illegal_state;
+use num_traits::Bounded;
+use serde::{Deserialize, Serialize};
 
 /// AFL++'s `CAL_CYCLES_FAST` + 1
 const CAL_STAGE_START: usize = 4;
@@ -164,6 +158,7 @@ where
         state: &mut S,
         rt_handle: &mut crate::runtimes::RuntimeHandle<S, W>,
         testcase_id: crate::corpus::TestcaseId,
+        _verdict: Verdict,
     ) -> Result<()> {
         let testcase = state.corpus().get(&testcase_id)?;
 
