@@ -1,3 +1,5 @@
+//! Unix signal handling
+
 use alloc::{boxed::Box, vec::Vec};
 use core::pin::Pin;
 use std::{
@@ -10,20 +12,21 @@ use libafl_bolts::os::{
     exit,
     unix_signals::{Signal, SignalHandler, setup_signal_handler, ucontext_t},
 };
-use libafl_core::Error;
+use libafl_core::Result;
 use libc::{SIGABRT, siginfo_t};
 
 use crate::{
     executors::common_signals,
     runtimes::{
-        restarting::{
-            LIBAFL_EXIT_CONTINUE, LIBAFL_EXIT_END, LIBAFL_EXIT_TERMINATION_INFINITE_RECURSION,
-        },
+        restarting::{LIBAFL_EXIT_CONTINUE, LIBAFL_EXIT_TERMINATION_INFINITE_RECURSION},
         utils::{IntoTerminationHandlerData, TerminationHandler},
     },
 };
 
+/// Unix termination (signal) handler.
 pub type OsTerminationHandler<CH, D, TH> = UnixSignalHandler<CH, D, TH>;
+
+/// Unix termination (signal) parameters.
 pub type OsTerminationParams<'a> = SignalHandlerParams<'a>;
 
 /// Wrapper to assert `Send + Sync` for a raw pointer.
@@ -35,12 +38,22 @@ struct SignalHandlerPtr<CH, D, TH> {
     signal_handler: *mut UnixSignalHandler<CH, D, TH>,
 }
 
+/// Signal handler parameters
+#[derive(Debug)]
 pub enum SignalHandlerParams<'a> {
+    /// Signal handler parameters
     Signal {
+        /// The signal
         signal: Signal,
+
+        /// The signal infos
         siginfo: &'a siginfo_t,
+
+        /// The signal context
         context: Option<&'a ucontext_t>,
     },
+
+    /// Panic handler parameters
     Panic(&'a PanicHookInfo<'a>),
 }
 
@@ -70,32 +83,21 @@ impl<CH, D, TH> SignalHandlerPtr<CH, D, TH> {
     }
 }
 
+/// A Unix signal handler.
 #[derive(Debug, Clone)]
 pub struct UnixSignalHandler<CH, D, TH> {
     inner: TerminationHandler<CH, D, TH>,
 }
 
-pub(crate) type SignalHandlerFn<CH, D, TH> = unsafe fn(
-    Signal,
-    &mut siginfo_t,
-    Option<&mut ucontext_t>,
-    signal_handler: TerminationHandler<CH, D, TH>,
-);
-
 impl<CH, D, TH> UnixSignalHandler<CH, D, TH>
 where
-    for<'a> CH: FnMut(&mut D, &OsTerminationParams<'a>) -> Result<(), Error>
-        + Send
-        + Sync
-        + Unpin
-        + 'static,
+    for<'a> CH:
+        FnMut(&mut D, &OsTerminationParams<'a>) -> Result<()> + Send + Sync + Unpin + 'static,
     D: IntoTerminationHandlerData + Send + Sync + Unpin + 'static,
-    for<'a> TH: FnMut(&mut D, &OsTerminationParams<'a>) -> Result<(), Error>
-        + Send
-        + Sync
-        + Unpin
-        + 'static,
+    for<'a> TH:
+        FnMut(&mut D, &OsTerminationParams<'a>) -> Result<()> + Send + Sync + Unpin + 'static,
 {
+    /// Create a new [`UnixSignalHandler`].
     pub fn new(signal_handler: TerminationHandler<CH, D, TH>) -> Self {
         Self {
             inner: signal_handler,
@@ -105,16 +107,18 @@ where
     /// # Safety
     ///
     /// `signal_rt_handle` must contain `self`.
-    pub fn init(self: &mut Pin<Box<Self>>) -> Result<(), Error> {
+    pub fn init(self: &mut Pin<Box<Self>>) -> Result<()> {
         self.setup_panic_hook();
 
         unsafe { setup_signal_handler(self.as_mut().get_mut() as *mut Self) }
     }
 
+    /// Called when entering a signal handler
     pub fn enter(&mut self) -> bool {
         self.inner.enter()
     }
 
+    /// Called when exiting a signal handler
     pub fn exit(&mut self) {
         self.inner.exit()
     }
@@ -145,7 +149,7 @@ where
                     self.inner().max_depth()
                 );
 
-                libc::exit(LIBAFL_EXIT_TERMINATION_INFINITE_RECURSION);
+                exit(LIBAFL_EXIT_TERMINATION_INFINITE_RECURSION);
             }
 
             if self
@@ -155,7 +159,8 @@ where
                 .map(|p| p.as_ref().in_fuzzing())
                 .unwrap_or(false)
             {
-                (self.inner.timeout_handler)(&mut self.inner.termination_data, &signal_params);
+                (self.inner.timeout_handler)(&mut self.inner.termination_data, &signal_params)
+                    .expect("Error in timeout handler");
 
                 exit(LIBAFL_EXIT_CONTINUE);
             } else {
@@ -255,14 +260,17 @@ where
         }
     }
 
+    /// Reference to the inner [`TerminationHandler`].
     pub fn inner(&self) -> &TerminationHandler<CH, D, TH> {
         &self.inner
     }
 
+    /// Mutable reference to the inner [`TerminationHandler`].
     pub fn inner_mut(&mut self) -> &mut TerminationHandler<CH, D, TH> {
         &mut self.inner
     }
 
+    /// Setup the panic hook.
     pub fn setup_panic_hook(self: &mut Pin<Box<Self>>) {
         let old_hook = panic::take_hook();
 
@@ -286,7 +294,7 @@ where
                     signal_handler.inner.max_depth()
                 );
 
-                libc::exit(LIBAFL_EXIT_TERMINATION_INFINITE_RECURSION);
+                exit(LIBAFL_EXIT_TERMINATION_INFINITE_RECURSION);
             }
 
             if !signal_handler
@@ -299,8 +307,7 @@ where
                 // not in a fuzzing run: use the default hook (includes RUST_BACKTRACE output)
                 old_hook(panic_info);
                 log::error!("Fuzzer panicked out of the fuzzing loop. This is a Fuzzer bug.");
-                libafl_bolts::os::exit(128 + SIGABRT);
-                return;
+                exit(128 + SIGABRT);
             }
 
             // fuzzing in progress: print our own backtrace, skip the default hook
@@ -311,62 +318,54 @@ where
             (signal_handler.inner.crash_handler)(
                 &mut signal_handler.inner.termination_data,
                 &signal_params,
-            );
+            )
+            .expect("Error in panic handler");
 
-            libafl_bolts::os::exit(LIBAFL_EXIT_CONTINUE);
+            exit(LIBAFL_EXIT_CONTINUE);
         }));
     }
 }
 
 impl<CH, D, TH> SignalHandler for UnixSignalHandler<CH, D, TH>
 where
-    for<'a> CH: FnMut(&mut D, &OsTerminationParams<'a>) -> Result<(), Error>
-        + Send
-        + Sync
-        + Unpin
-        + 'static,
+    for<'a> CH:
+        FnMut(&mut D, &OsTerminationParams<'a>) -> Result<()> + Send + Sync + Unpin + 'static,
     D: IntoTerminationHandlerData + Send + Sync + Unpin + 'static,
-    for<'a> TH: FnMut(&mut D, &OsTerminationParams<'a>) -> Result<(), Error>
-        + Send
-        + Sync
-        + Unpin
-        + 'static,
+    for<'a> TH:
+        FnMut(&mut D, &OsTerminationParams<'a>) -> Result<()> + Send + Sync + Unpin + 'static,
 {
     /// Signal handling entrypoint.
     ///
     /// # Safety
     ///
     /// This will access global state.
+    /// No heap allocation should be performed there.
     unsafe fn handle(
         &mut self,
         signal: Signal,
         info: &mut siginfo_t,
         context: Option<&mut ucontext_t>,
     ) {
-        // # Safety
-        // This runs in a signal handler, no other threads access these variables/borrows anymore.
-        unsafe {
-            let max_depth_reached = self.enter();
+        let max_depth_reached = self.enter();
 
-            if max_depth_reached {
-                log::error!(
-                    "The in process signal handler has been triggered {} times recursively (crash handler), which is not expected. Exiting with error code {LIBAFL_EXIT_TERMINATION_INFINITE_RECURSION}...",
-                    self.inner.max_depth()
-                );
-                libc::exit(LIBAFL_EXIT_TERMINATION_INFINITE_RECURSION);
-            }
-
-            match signal {
-                Signal::SigUser2 | Signal::SigAlarm => {
-                    self.timeout_handler(signal, &*info, context.as_deref());
-                }
-                _ => {
-                    self.crash_handler(signal, &*info, context.as_deref());
-                }
-            }
-
-            self.exit();
+        if max_depth_reached {
+            log::error!(
+                "The in process signal handler has been triggered {} times recursively (crash handler), which is not expected. Exiting with error code {LIBAFL_EXIT_TERMINATION_INFINITE_RECURSION}...",
+                self.inner.max_depth()
+            );
+            exit(LIBAFL_EXIT_TERMINATION_INFINITE_RECURSION);
         }
+
+        match signal {
+            Signal::SigUser2 | Signal::SigAlarm => {
+                self.timeout_handler(signal, &*info, context.as_deref());
+            }
+            _ => {
+                self.crash_handler(signal, &*info, context.as_deref());
+            }
+        }
+
+        self.exit();
     }
 
     fn signals(&self) -> Vec<Signal> {

@@ -1,15 +1,16 @@
-use core::{marker::PhantomData, num::NonZeroUsize, time::Duration};
+//! The module for the [`RestartingRuntime`].
+
+use core::{num::NonZeroUsize, time::Duration};
 use std::process::exit;
 
-use libafl_core::Error;
+use libafl_core::{Error, Result};
 use nix::{
     sys::{
-        mman::{MapFlags, ProtFlags, mmap_anonymous},
         prctl::set_pdeathsig,
         signal::Signal,
         wait::{WaitStatus, waitpid},
     },
-    unistd::{ForkResult, fork, getpid, getppid, pipe},
+    unistd::{ForkResult, fork, getpid, getppid},
 };
 use serde::{Deserialize, Serialize};
 
@@ -18,15 +19,21 @@ use crate::{
     runtimes::{Runtime, RuntimeHandle, SimpleInProcessRuntime, utils::unix::OsShmBuilder},
 };
 
-/// end the restarter. task job is over.
+/// End the restarter; the task job is over.
 pub const LIBAFL_EXIT_END: i32 = 100;
 
-/// restart the task
+/// Restart the task
 pub const LIBAFL_EXIT_CONTINUE: i32 = 101;
 
-/// infinite recursion bug in termination handlers.
+/// Infinite recursion bug in termination handlers.
 pub const LIBAFL_EXIT_TERMINATION_INFINITE_RECURSION: i32 = 102;
 
+/// A restarting [`Runtime`].
+///
+/// The inner runtime will restart when it exits with special exit codes:
+///     - [`LIBAFL_EXIT_END`]: The runtime finished its task, exit successfully.
+///     - [`LIBAFL_EXIT_CONTINUE`]: The runtime must be restarted but no hard error happened.
+///     - [`LIBAFL_EXIT_TERMINATION_INFINITE_RECURSION`]: The runtime signal handler is in an infinite recursion. It's a bug.
 #[derive(Debug, Clone)]
 pub struct RestartingRuntime<RT> {
     inner: RT,
@@ -42,11 +49,11 @@ impl<RT> DependencyResolver for RestartingRuntime<RT>
 where
     RT: DependencyResolver,
 {
-    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<(), Error> {
+    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<()> {
         self.inner.register(registrator)
     }
 
-    fn check(&self, checker: &crate::CompatibilityChecker) -> Result<(), Error> {
+    fn check(&self, checker: &crate::CompatibilityChecker) -> Result<()> {
         self.inner.check(checker)
     }
 }
@@ -55,6 +62,7 @@ impl<S, T, TM> RestartingRuntime<SimpleInProcessRuntime<S, T, TM>>
 where
     S: Serialize,
 {
+    /// Create a new [`RestartingRuntime`] with the [`SimpleInProcessRuntime`].
     pub fn new(
         task: T,
         state_ram_limit: NonZeroUsize,
@@ -70,6 +78,7 @@ where
 }
 
 impl<RT> RestartingRuntime<RT> {
+    /// Create a new [`RestartingRuntime`] with the given [`Runtime`].
     pub fn new_generic(
         runtime: RT,
         state_ram_limit: NonZeroUsize,
@@ -88,12 +97,8 @@ where
     RT: Runtime<S, W>,
     for<'de> S: Serialize + Deserialize<'de>,
 {
-    unsafe fn run_impl(
-        &mut self,
-        mut state: S,
-        rt_handle: &mut RuntimeHandle<S, W>,
-    ) -> Result<(), Error> {
-        let (mut state_sender, mut state_receiver) =
+    unsafe fn run_impl(&mut self, mut state: S, rt_handle: &mut RuntimeHandle<S, W>) -> Result<()> {
+        let (state_sender, mut state_receiver) =
             OsShmBuilder::build_with_hdr::<usize, S>(self.state_ram_limit.get())?;
 
         let parent_pid = getpid();
@@ -127,14 +132,14 @@ where
                                 }
 
                                 signal_exit => {
-                                    /// the child returned with signal exit code
+                                    // the child returned with signal exit code
                                     return Err(Error::runtime(format!(
                                         "The child exited with code: {signal_exit}"
                                     )));
                                 }
                             }
                         }
-                        Ok(WaitStatus::Signaled(pid, signal, core_dumped)) => {
+                        Ok(WaitStatus::Signaled(pid, signal, _core_dumped)) => {
                             log::info!("Child runtime {pid} exited because of signal: {signal}");
 
                             panic!("Unexpected signal exit");
@@ -159,12 +164,14 @@ where
 
                     // we are in the final process, we can set the timeout now
                     if let Some(timeout) = self.timeout.take() {
-                        self.set_timeout(timeout);
+                        self.set_timeout(timeout)?;
                     }
 
-                    self.inner
-                        .run_impl(state, rt_handle)
-                        .expect("Error while running the child runtime");
+                    unsafe {
+                        self.inner
+                            .run_impl(state, rt_handle)
+                            .expect("Error while running the child runtime");
+                    }
 
                     exit(LIBAFL_EXIT_END);
                 }
@@ -177,19 +184,19 @@ where
         }
     }
 
-    fn set_timeout(&mut self, timeout: Duration) -> Result<(), Error> {
+    fn set_timeout(&mut self, timeout: Duration) -> Result<()> {
         self.inner.set_timeout(timeout)
     }
 
-    fn arm_timeout(&mut self) -> Result<(), Error> {
+    fn arm_timeout(&mut self) -> Result<()> {
         self.inner.arm_timeout()
     }
 
-    fn disarm_timeout(&mut self) -> Result<(), Error> {
+    fn disarm_timeout(&mut self) -> Result<()> {
         self.inner.disarm_timeout()
     }
 
-    fn unset_timeout(&mut self) -> Result<(), Error> {
+    fn unset_timeout(&mut self) -> Result<()> {
         self.inner.unset_timeout()
     }
 }

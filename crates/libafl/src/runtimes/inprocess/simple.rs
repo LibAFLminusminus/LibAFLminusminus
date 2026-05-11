@@ -1,8 +1,4 @@
-use core::time::Duration;
-
-use libafl_bolts::timers::Timer;
-use libafl_core::Error;
-use serde::Serialize;
+//! A simple in-process [`Runtime`].
 
 use crate::{
     DependencyResolver,
@@ -11,16 +7,21 @@ use crate::{
         utils::OsTerminationParams,
     },
 };
+use core::time::Duration;
+use libafl_bolts::timers::Timer;
+use libafl_core::Result;
+use serde::Serialize;
 
 type InnerRuntime<S, T, TM> = InProcessRuntime<
-    fn(&mut TerminationHandlerData, &OsTerminationParams) -> Result<(), Error>,
+    fn(&mut TerminationHandlerData, &OsTerminationParams) -> Result<()>,
     TerminationHandlerData,
     S,
     T,
-    fn(&mut TerminationHandlerData, &OsTerminationParams) -> Result<(), Error>,
+    fn(&mut TerminationHandlerData, &OsTerminationParams) -> Result<()>,
     TM,
 >;
 
+/// A simple in-process [`Runtime`].
 #[derive(Debug)]
 pub struct SimpleInProcessRuntime<S, T, TM>(InnerRuntime<S, T, TM>);
 
@@ -38,6 +39,7 @@ impl<S, T, TM> SimpleInProcessRuntime<S, T, TM>
 where
     S: Serialize,
 {
+    /// Create a new simple in-process [`Runtime`].
     pub fn new(task: T, timer: TM) -> Self {
         Self(InProcessRuntime::new(
             task,
@@ -50,48 +52,44 @@ where
 }
 
 impl<S, T, TM> DependencyResolver for SimpleInProcessRuntime<S, T, TM> {
-    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<(), Error> {
+    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<()> {
         self.0.register(registrator)
     }
 
-    fn register_with_ty(&mut self, registrator: &mut crate::Registrator) -> Result<(), Error> {
+    fn register_with_ty(&mut self, registrator: &mut crate::Registrator) -> Result<()> {
         registrator.register_ty::<Self>();
         registrator.register_ty::<InnerRuntime<S, T, TM>>();
 
         self.register(registrator)
     }
 
-    fn check(&self, checker: &crate::CompatibilityChecker) -> Result<(), Error> {
+    fn check(&self, checker: &crate::CompatibilityChecker) -> Result<()> {
         self.0.check(checker)
     }
 }
 
 impl<S, W, T, TM> Runtime<S, W> for SimpleInProcessRuntime<S, T, TM>
 where
-    T: FnMut(&mut RuntimeHandle<S, W>, &mut S) -> Result<(), Error>,
+    T: FnMut(&mut RuntimeHandle<S, W>, &mut S) -> Result<()>,
     TM: Timer,
 {
-    unsafe fn run_impl(
-        &mut self,
-        state: S,
-        rt_handle: &mut RuntimeHandle<S, W>,
-    ) -> Result<(), Error> {
-        self.0.run_impl(state, rt_handle)
+    unsafe fn run_impl(&mut self, state: S, rt_handle: &mut RuntimeHandle<S, W>) -> Result<()> {
+        unsafe { self.0.run_impl(state, rt_handle) }
     }
 
-    fn set_timeout(&mut self, timeout: Duration) -> Result<(), Error> {
+    fn set_timeout(&mut self, timeout: Duration) -> Result<()> {
         self.0.set_timeout(timeout)
     }
 
-    fn arm_timeout(&mut self) -> Result<(), Error> {
+    fn arm_timeout(&mut self) -> Result<()> {
         self.0.arm_timeout()
     }
 
-    fn disarm_timeout(&mut self) -> Result<(), Error> {
+    fn disarm_timeout(&mut self) -> Result<()> {
         self.0.disarm_timeout()
     }
 
-    fn unset_timeout(&mut self) -> Result<(), Error> {
+    fn unset_timeout(&mut self) -> Result<()> {
         self.0.unset_timeout()
     }
 }
@@ -99,12 +97,12 @@ where
 fn std_inprocess_crash<S: Serialize>(
     data: &mut TerminationHandlerData,
     signal_params: &OsTerminationParams,
-) -> Result<(), Error> {
+) -> Result<()> {
     if data.handle_crash(signal_params)
         && let Some(saver) = unsafe { data.saver::<S>() }
     {
         unsafe {
-            saver.send(data.state());
+            saver.send(data.state())?;
         }
     }
 
@@ -114,12 +112,12 @@ fn std_inprocess_crash<S: Serialize>(
 fn std_inprocess_timeout<S: Serialize>(
     data: &mut TerminationHandlerData,
     signal_params: &OsTerminationParams,
-) -> Result<(), Error> {
+) -> Result<()> {
     if data.handle_timeout(signal_params)
         && let Some(saver) = unsafe { data.saver::<S>() }
     {
         unsafe {
-            saver.send(data.state());
+            saver.send(data.state())?;
         }
     }
 

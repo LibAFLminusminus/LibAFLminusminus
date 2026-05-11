@@ -1,22 +1,21 @@
 //! Termination is a generic term to talk about an abnormal program end, i.e. crash and timeout.
 
-use core::{ffi::c_void, ptr::NonNull};
-
-#[cfg(unix)]
-use libafl_core::Error;
-
-#[cfg(unix)]
 use crate::runtimes::utils::unix::OsShmSender;
 use crate::{
     Fuzzer,
     executors::Executor,
     runtimes::{RuntimeHandle, utils::OsTerminationParams},
 };
+use core::{ffi::c_void, ptr::NonNull};
+use libafl_core::Result;
 
+/// Convertible into [`TerminationHandlerData`].
 pub trait IntoTerminationHandlerData {
+    /// Convert into [`TerminationHandlerData`]
     fn as_termination_handler_data(&mut self) -> Option<NonNull<TerminationHandlerData>>;
 }
 
+/// Termination handlers
 #[derive(Debug, Clone)]
 pub struct TerminationHandler<CH, D, TH> {
     termination_handler_depth: usize,
@@ -26,6 +25,7 @@ pub struct TerminationHandler<CH, D, TH> {
     pub(crate) termination_data: D,
 }
 
+/// Termination data for handlers in [`TerminationHandler`].
 #[derive(Debug, Clone)]
 pub struct TerminationHandlerData {
     state_ptr: Option<NonNull<c_void>>,
@@ -42,6 +42,7 @@ unsafe impl Send for TerminationHandlerData {}
 unsafe impl Sync for TerminationHandlerData {}
 
 impl TerminationHandlerData {
+    /// Get a new [`TerminationHandlerData`].
     pub fn new() -> Self {
         Self {
             state_ptr: None,
@@ -55,6 +56,7 @@ impl TerminationHandlerData {
         }
     }
 
+    /// Initialize the handler data.
     pub fn init<E, I, R, S, ST, W, Z>(
         &mut self,
         state: &mut S,
@@ -144,18 +146,22 @@ impl TerminationHandlerData {
         self.state_sender_ptr = Some(NonNull::from(shm_sender).cast());
     }
 
+    /// Set the data input.
     pub fn set_input<I>(&mut self, input: &I) {
         self.input_ptr = Some(NonNull::from(input).cast());
     }
 
+    /// Clear the data input.
     pub fn clear_input(&mut self) {
         self.input_ptr = None;
     }
 
+    /// Are we in target code?
     pub fn in_fuzzing(&self) -> bool {
         self.input_ptr.is_some()
     }
 
+    /// Handle a crash.
     pub fn handle_crash(&mut self, termination_params: &OsTerminationParams) -> bool {
         if let Some(handler) = self.crash_handler {
             handler(self, termination_params);
@@ -165,6 +171,7 @@ impl TerminationHandlerData {
         }
     }
 
+    /// Handle a timeout.
     pub fn handle_timeout(&mut self, termination_params: &OsTerminationParams) -> bool {
         if let Some(handler) = self.timeout_handler {
             handler(self, termination_params);
@@ -204,10 +211,12 @@ where
 }
 
 impl<CH, D, TH> TerminationHandler<CH, D, TH> {
+    /// Get the reference to the data of the termination handler.
     pub fn data(&self) -> &D {
         &self.termination_data
     }
 
+    /// Get the mutable reference to the data of the termination handler.
     pub fn data_mut(&mut self) -> &mut D {
         &mut self.termination_data
     }
@@ -215,9 +224,10 @@ impl<CH, D, TH> TerminationHandler<CH, D, TH> {
 
 impl<CH, D, TH> TerminationHandler<CH, D, TH>
 where
-    CH: FnMut(&mut D, &OsTerminationParams) -> Result<(), Error>,
-    TH: FnMut(&mut D, &OsTerminationParams) -> Result<(), Error>,
+    CH: FnMut(&mut D, &OsTerminationParams) -> Result<()>,
+    TH: FnMut(&mut D, &OsTerminationParams) -> Result<()>,
 {
+    /// Create a new [`TerminationHandler`].
     pub fn new(crash_handler: CH, termination_data: D, timeout_handler: TH) -> Self {
         Self {
             crash_handler,
@@ -242,6 +252,7 @@ where
         self.termination_handler_max_depth
     }
 
+    /// Get a mutable reference to the termination data.
     pub fn termination_data_mut(&mut self) -> &mut D {
         &mut self.termination_data
     }

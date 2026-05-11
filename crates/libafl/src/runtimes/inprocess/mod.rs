@@ -1,8 +1,9 @@
-use core::{fmt::Debug, marker::PhantomData, pin::Pin, ptr::NonNull, time::Duration};
-use std::{boxed::Box, fmt};
+//! In-process [`Runtime`]s.
 
-use libafl_bolts::{StdTimer, timers::Timer};
-use libafl_core::{Error, Result};
+use core::{fmt::Debug, marker::PhantomData, pin::Pin, time::Duration};
+use libafl_bolts::timers::Timer;
+use libafl_core::Result;
+use std::{boxed::Box, fmt};
 
 use crate::{
     DependencyResolver,
@@ -18,8 +19,8 @@ use crate::{
 #[cfg(test)]
 mod tests;
 
-pub mod standard;
-pub use standard::SimpleInProcessRuntime;
+pub mod simple;
+pub use simple::SimpleInProcessRuntime;
 
 impl<CH, D, S, T, TH, TM> DependencyResolver for InProcessRuntime<CH, D, S, T, TH, TM> {}
 
@@ -74,6 +75,7 @@ where
     D: IntoTerminationHandlerData + Send + Sync + Unpin + 'static,
     TH: FnMut(&mut D, &OsTerminationParams) -> Result<()> + Send + Sync + Unpin + 'static,
 {
+    /// Create a new [`InProcessRuntime`].
     pub fn new(task: T, crash_handler: CH, signal_data: D, timeout_handler: TH, timer: TM) -> Self {
         let signal_handler = TerminationHandler::new(crash_handler, signal_data, timeout_handler);
 
@@ -99,7 +101,9 @@ where
         self.termination_handler.init()?;
 
         // set the runtime handler pointer to the termination data
-        rt_handle.set_termination_handler(self.termination_handler.inner_mut().data_mut());
+        unsafe {
+            rt_handle.set_termination_handler(self.termination_handler.inner_mut().data_mut());
+        }
 
         (self.task)(rt_handle, &mut state)
     }

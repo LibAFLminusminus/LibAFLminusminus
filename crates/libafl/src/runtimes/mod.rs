@@ -1,32 +1,35 @@
-use core::{ffi::c_void, ptr::NonNull, time::Duration};
-use std::process::exit;
-
-use libafl_bolts::Error;
-
 use crate::{
     DependencyResolver, Fuzzer, Result,
     executors::Executor,
     inputs::Input,
-    runtimes::{
-        restarting::LIBAFL_EXIT_END,
-        simple::SimpleRuntime,
-        utils::{
-            IntoTerminationHandlerData, OsTerminationParams, TerminationHandlerData,
-            unix::OsShmSender,
-        },
-    },
+    runtimes::{restarting::LIBAFL_EXIT_END, utils::unix::OsShmSender},
     stages::StagesTuple,
 };
+use core::{ptr::NonNull, time::Duration};
+use std::process::exit;
 
 pub mod inprocess;
 pub use inprocess::{InProcessRuntime, SimpleInProcessRuntime};
+
 pub mod restarting;
 pub use restarting::RestartingRuntime;
-pub mod nop;
-pub mod simple;
-pub mod utils;
 
+pub mod nop;
+pub use nop::NopRuntime;
+
+pub mod simple;
+pub use simple::SimpleRuntime;
+
+pub mod utils;
+pub use utils::{
+    IntoTerminationHandlerData, OsTerminationHandler, OsTerminationParams, TerminationHandler,
+    TerminationHandlerData,
+};
+
+/// The standard forkserver [`Runtime`].
 pub type StdForkserverRuntime<T> = SimpleRuntime<T>;
+
+/// The standard in-process [`Runtime`].
 pub type StdInProcessRuntime<S, T, TM> = RestartingRuntime<SimpleInProcessRuntime<S, T, TM>>;
 
 /// Environment used to run a task
@@ -46,6 +49,7 @@ pub trait Runtime<S, W>: DependencyResolver {
     /// Use [`Self::run`], this function should not need to be called directly.
     unsafe fn run_impl(&mut self, state: S, rt_handle: &mut RuntimeHandle<S, W>) -> Result<()>;
 
+    /// Run the runtime.
     fn run(&mut self, state: S, worker: W) -> Result<()>
     where
         Self: Sized + 'static,
@@ -90,6 +94,7 @@ pub trait Runtime<S, W>: DependencyResolver {
 /// It can be used to perform runtime-level operations generically.
 ///
 /// It does not expose the runtime directly
+#[derive(Debug)]
 pub struct RuntimeHandle<S, W> {
     runtime: NonNull<dyn Runtime<S, W>>,
     worker: W,
@@ -120,20 +125,24 @@ impl<S, W> RuntimeHandle<S, W> {
         unsafe { self.runtime_mut().set_timeout(timeout.clone()) }
     }
 
+    /// Arm the [`Runtime`]'s timeout.
     pub fn arm_timeout(&mut self) -> Result<()> {
         unsafe { self.runtime_mut().arm_timeout() }
     }
 
+    /// Disarm the [`Runtime`]'s timeout.
     pub fn disarm_timeout(&mut self) -> Result<()> {
         unsafe { self.runtime_mut().disarm_timeout() }
     }
 
     /// Unset a previously set timeout.
+    ///
     /// If no timeout has been set before, it's a no-op.
     pub fn unset_timeout(&mut self) -> Result<()> {
         unsafe { self.runtime_mut().unset_timeout() }
     }
 
+    /// Set the termination handler (used by the [`InProcessRuntime`]).
     pub unsafe fn set_termination_handler<THD: IntoTerminationHandlerData>(
         &mut self,
         termination_data: &mut THD,
@@ -145,6 +154,7 @@ impl<S, W> RuntimeHandle<S, W> {
         self.termination_data_ptr = termination_data.as_termination_handler_data();
     }
 
+    /// Set the shared memory saver (used by the [`RestartingRuntime`]).
     pub fn set_saver(&mut self, state_shm_sender: OsShmSender<S>) {
         if self.state_shm_sender.is_some() {
             panic!(
@@ -155,6 +165,7 @@ impl<S, W> RuntimeHandle<S, W> {
         self.state_shm_sender = Some(state_shm_sender);
     }
 
+    /// Set the shared memory saver.
     pub fn init_termination_handlers<E, I, R, ST, Z>(
         &mut self,
         state: &mut S,
@@ -189,6 +200,7 @@ impl<S, W> RuntimeHandle<S, W> {
         }
     }
 
+    /// Set the input being run.
     pub fn set_input<I>(&mut self, input: &I) {
         if let Some(mut signal_data) = self.termination_data_ptr {
             unsafe {
@@ -197,6 +209,7 @@ impl<S, W> RuntimeHandle<S, W> {
         }
     }
 
+    /// Clear the input being run.
     pub fn clear_input(&mut self) {
         if let Some(mut signal_data) = self.termination_data_ptr {
             unsafe {
@@ -205,10 +218,12 @@ impl<S, W> RuntimeHandle<S, W> {
         }
     }
 
+    /// Get a reference to the [`Worker`].
     pub fn worker(&self) -> &W {
         &self.worker
     }
 
+    /// Get a mutable reference to the [`Worker`].
     pub fn worker_mut(&mut self) -> &mut W {
         &mut self.worker
     }

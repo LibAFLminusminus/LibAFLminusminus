@@ -1,3 +1,5 @@
+//! Os-specific utilities to manage some [`Runtime`]s.
+
 #[cfg(unix)]
 pub mod unix;
 #[cfg(unix)]
