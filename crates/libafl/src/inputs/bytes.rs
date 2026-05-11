@@ -1,4 +1,4 @@
-//! The `BytesInput` is the "normal" input, a map of bytes, that can be sent directly to the client
+//! The [`BytesInput`] is the "normal" input, a map of bytes, that can be sent directly to the client
 //! (As opposed to other, more abstract, inputs, like an Grammar-Based AST Input)
 
 use alloc::{
@@ -14,10 +14,11 @@ use serde::{Deserialize, Serialize};
 use super::ValueInput;
 use crate::inputs::{HasMutatorBytes, InputContext, ResizableMutator};
 
-/// A bytes input is the basic input
+/// A [`bytesInput`] is the basic input consisted of byte arrays
 pub type BytesInput = ValueInput<Vec<u8>>;
 
-#[derive(Default, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Copy, Serialize, Deserialize)]
+/// [`BytesContext`] just expose the inner byte slice as-is.
 pub struct BytesContext;
 
 impl InputContext<BytesInput> for BytesContext {
