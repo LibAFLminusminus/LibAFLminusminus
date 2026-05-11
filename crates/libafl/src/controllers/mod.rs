@@ -1,28 +1,27 @@
-use alloc::vec::Vec;
-use std::{
-    collections::HashSet,
-    fs::{self, File, OpenOptions},
-    path::{Path, PathBuf},
-};
-
-use hashbrown::HashMap;
-use libafl_bolts::core_affinity::CoreId;
-use libafl_core::{Error, WorkerId, internal_bug};
-use nix::sys::signal::Signal;
-use serde::{Deserialize, Serialize};
-
 use crate::{
     Result,
     launchers::InstanceId,
     states::{Stats, sync_stats},
+};
+use libafl_core::{Error, WorkerId, internal_bug};
+use nix::sys::signal::Signal;
+use std::{
+    fs::{self, File, OpenOptions},
+    path::{Path, PathBuf},
 };
 
 pub mod aflpp;
 pub mod nop;
 pub mod simple;
 
+/// A controller is the glue between multiple [`Worker`]s.
+///
+/// It is reponsible for creating and configurating workers.
+/// Note [`Self`] and [`Worker`]s are tightly linked: they are supposed to be defined together and are interdependent.
 pub trait Controller {
+    /// The associated [`Worker`].
     type Worker: Worker;
+    /// The associated [`Descriptor`].
     type Descriptor: Descriptor;
 
     fn create_worker(&mut self) -> Result<Self::Worker>;
