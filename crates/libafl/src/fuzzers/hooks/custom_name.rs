@@ -1,18 +1,22 @@
+//! Custom name hook.
+
+use crate::{
+    DependencyResolver, FuzzerHook, Result, Verdict,
+    corpus::testcase::{Testcase, TestcaseFilenameFormat},
+    runtimes::RuntimeHandle,
+};
 use alloc::string::String;
 use core::marker::PhantomData;
 
-use libafl_bolts::Named;
-
-use crate::{
-    DependencyResolver, FuzzerHook, Result,
-    corpus::testcase::{Testcase, TestcaseFilenameFormat},
-};
+/// Set a custom filename to the [`Testcase`].
+#[derive(Debug)]
 pub struct CustomNameHook<I, G, S> {
     name_generator: G,
     phantom: PhantomData<(I, S)>,
 }
 
 impl<I, G, S> CustomNameHook<I, G, S> {
+    /// Create a new [`CustomNameHook`].
     pub fn new(generator: G) -> Self {
         Self {
             name_generator: generator,
@@ -45,10 +49,11 @@ where
 {
     fn pre_add(
         &mut self,
-        executor: &mut E,
+        _executor: &mut E,
         state: &mut S,
-        rt_handle: &mut crate::runtimes::RuntimeHandle<S, W>,
-        testcase: &mut crate::corpus::Testcase<I>,
+        _rt_handle: &mut RuntimeHandle<S, W>,
+        testcase: &mut Testcase<I>,
+        _verdict: Verdict,
     ) -> Result<()> {
         let fmt = TestcaseFilenameFormat::Custom(self.name_generator.set_name(state, testcase)?);
         testcase.set_filename_fmt(fmt);
