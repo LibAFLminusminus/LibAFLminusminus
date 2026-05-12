@@ -16,7 +16,7 @@ use libafl::{
     feedbacks::{CrashFeedback, MaxMapFeedback, TimeFeedback, TimeoutFeedback},
     fuzzers::StdFuzzer,
     inputs::InputContext,
-    launchers::{StdLauncher, DEFAULT_MAX_STATE_SIZE_PER_CLIENT},
+    launchers::{StdLauncher, DEFAULT_MAX_STATE_SIZE_PER_WORKER},
     monitors::SimpleMonitor,
     observers::{HitcountsMapObserver, StdMapObserver, TimeObserver},
     runtimes::{RuntimeHandle, StdInProcessRuntime},
@@ -181,7 +181,7 @@ pub extern "C" fn libafl_main() {
     let fast_timer = FastTimer::new();
     let runtime = StdInProcessRuntime::new(
         run_fuzzer,
-        DEFAULT_MAX_STATE_SIZE_PER_CLIENT,
+        DEFAULT_MAX_STATE_SIZE_PER_WORKER,
         fast_timer,
         Some(Duration::from_secs(3)),
     );

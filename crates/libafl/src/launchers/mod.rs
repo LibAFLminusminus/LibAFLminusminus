@@ -246,7 +246,7 @@ impl<CT, MT, RT, S, SB, TM> StdLauncherBuilder<CT, MT, RT, S, SB, TM> {
     /// Note this is NOT a hard limit: we use it as the memory limit
     /// used to save / restore the state in the restarting runtime.
     ///
-    /// The default value is set to [`DEFAULT_MAX_STATE_SIZE_PER_CLIENT`].
+    /// The default value is set to [`DEFAULT_MAX_STATE_SIZE_PER_WORKER`].
     #[must_use]
     pub fn max_state_size_per_client(
         self,
