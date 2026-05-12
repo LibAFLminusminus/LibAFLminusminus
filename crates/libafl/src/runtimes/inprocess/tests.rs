@@ -1,8 +1,8 @@
 use std::{thread, time::Duration};
 
-use libafl_bolts::{StdTimer, timers::FastTimer};
+use libafl_bolts::StdTimer;
 use libafl_core::Error;
-use libc::{SIGALRM, SIGSEGV};
+use libc::SIGALRM;
 use rusty_fork::{rusty_fork_id, rusty_fork_test};
 
 use crate::{
@@ -10,7 +10,7 @@ use crate::{
     nop::NopWorker,
     runtimes::{
         Runtime, RuntimeHandle, TerminationHandlerData, inprocess::InProcessRuntime,
-        restarting::LIBAFL_EXIT_RESTART, utils::OsTerminationParams,
+        utils::OsTerminationParams,
     },
     states::NopState,
 };

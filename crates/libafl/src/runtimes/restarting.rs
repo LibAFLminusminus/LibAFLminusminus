@@ -97,7 +97,7 @@ where
     RT: Runtime<S, W>,
     for<'de> S: Serialize + Deserialize<'de>,
 {
-    unsafe fn run_impl(&mut self, mut state: S, rt_handle: &mut RuntimeHandle<S, W>) -> Result<()> {
+    unsafe fn run_impl(mut self, mut state: S, rt_handle: &mut RuntimeHandle<S, W>) -> Result<()> {
         let (state_sender, mut state_receiver) =
             OsShmBuilder::build_with_hdr::<usize, S>(self.state_ram_limit.get())?;
 

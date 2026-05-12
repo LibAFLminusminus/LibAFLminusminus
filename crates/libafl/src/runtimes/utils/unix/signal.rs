@@ -20,7 +20,7 @@ use crate::{
     runtimes::{
         inprocess::{CrashStatus, TimeoutStatus},
         restarting::{LIBAFL_EXIT_RESTART, LIBAFL_EXIT_TERMINATION_INFINITE_RECURSION},
-        utils::{IntoTerminationHandlerData, TerminationHandler},
+        utils::{IntoTerminationHandlerData, PinnedPtr, TerminationHandler},
     },
 };
 
@@ -29,15 +29,6 @@ pub type OsTerminationHandler<CH, D, TH> = UnixSignalHandler<CH, D, TH>;
 
 /// Unix termination (signal) parameters.
 pub type OsTerminationParams<'a> = SignalHandlerParams<'a>;
-
-/// Wrapper to assert `Send + Sync` for a raw pointer.
-///
-/// # Safety
-/// The caller must ensure the pointed-to data is only accessed
-/// in a thread-safe manner.
-struct SignalHandlerPtr<CH, D, TH> {
-    signal_handler: *mut UnixSignalHandler<CH, D, TH>,
-}
 
 /// Signal handler parameters
 #[derive(Debug)]
@@ -58,36 +49,10 @@ pub enum SignalHandlerParams<'a> {
     Panic(&'a PanicHookInfo<'a>),
 }
 
-unsafe impl<CH, D, TH> Send for SignalHandlerPtr<CH, D, TH>
-where
-    CH: Send,
-    D: Send,
-    TH: Send,
-{
-}
-
-unsafe impl<CH, D, TH> Sync for SignalHandlerPtr<CH, D, TH>
-where
-    CH: Send,
-    D: Send,
-    TH: Send,
-{
-}
-
-impl<CH, D, TH> SignalHandlerPtr<CH, D, TH> {
-    unsafe fn new(signal_handler: *mut UnixSignalHandler<CH, D, TH>) -> Self {
-        Self { signal_handler }
-    }
-
-    fn as_mut_ptr(&self) -> *mut UnixSignalHandler<CH, D, TH> {
-        self.signal_handler
-    }
-}
-
 /// A Unix signal handler.
 #[derive(Debug, Clone)]
 pub struct UnixSignalHandler<CH, D, TH> {
-    inner: TerminationHandler<CH, D, TH>,
+    pub(crate) inner: TerminationHandler<CH, D, TH>,
 }
 
 impl<CH, D, TH> UnixSignalHandler<CH, D, TH>
@@ -147,44 +112,39 @@ where
             context,
         };
 
-        unsafe {
-            let max_depth_reached = self.enter();
+        let max_depth_reached = self.enter();
 
-            if max_depth_reached {
-                log::error!(
-                    "The in process signal handler has been triggered {} times recursively (timeout handler), which is not expected. Exiting with error code {LIBAFL_EXIT_TERMINATION_INFINITE_RECURSION}...",
-                    self.inner().max_depth()
-                );
+        if max_depth_reached {
+            log::error!(
+                "The in process signal handler has been triggered {} times recursively (timeout handler), which is not expected. Exiting with error code {LIBAFL_EXIT_TERMINATION_INFINITE_RECURSION}...",
+                self.inner().max_depth()
+            );
 
-                exit(LIBAFL_EXIT_TERMINATION_INFINITE_RECURSION);
-            }
+            exit(LIBAFL_EXIT_TERMINATION_INFINITE_RECURSION);
+        }
 
-            if self
-                .inner
-                .data_mut()
-                .as_termination_handler_data()
-                .is_some_and(|p| p.as_ref().in_fuzzing())
-            {
-                let status =
-                    (self.inner.timeout_handler)(&mut self.inner.termination_data, &signal_params)
-                        .expect("Error in timeout handler");
+        if D::termination_handler_data(Pin::new(&mut self.inner.termination_data))
+            .is_some_and(|p| p.in_fuzzing())
+        {
+            let status =
+                (self.inner.timeout_handler)(&mut self.inner.termination_data, &signal_params)
+                    .expect("Error in timeout handler");
 
-                match status {
-                    TimeoutStatus::Exit => {
-                        // timeout should exit
-                        exit(LIBAFL_EXIT_RESTART);
-                    }
-                    TimeoutStatus::Resume => {
-                        // resume the fuzzer on timeout
-                        return;
-                    }
+            match status {
+                TimeoutStatus::Exit => {
+                    // timeout should exit
+                    exit(LIBAFL_EXIT_RESTART);
                 }
-            } else {
-                log::error!("Timeout out of fuzzing target. This is a fuzzer bug.");
-
-                // offset by 128 to signal a fuzzer crash
-                exit(128 + (signal as i32));
+                TimeoutStatus::Resume => {
+                    // resume the fuzzer on timeout
+                    return;
+                }
             }
+        } else {
+            log::error!("Timeout out of fuzzing target. This is a fuzzer bug.");
+
+            // offset by 128 to signal a fuzzer crash
+            exit(128 + (signal as i32));
         }
     }
 
@@ -207,11 +167,8 @@ where
         };
 
         unsafe {
-            if self
-                .inner
-                .data_mut()
-                .as_termination_handler_data()
-                .is_some_and(|p| p.as_ref().in_fuzzing())
+            if D::termination_handler_data(Pin::new(&mut self.inner.termination_data))
+                .is_some_and(|p| p.in_fuzzing())
             {
                 // fuzzing in progress, propagate crash
                 log::error!("Target crashed with signal {signal}");
@@ -289,9 +246,8 @@ where
     pub fn setup_panic_hook(self: &mut Pin<Box<Self>>) {
         let old_hook = panic::take_hook();
 
-        let signal_handler_ptr: SignalHandlerPtr<CH, D, TH> = unsafe {
-            SignalHandlerPtr::new(core::ptr::from_mut::<UnixSignalHandler<CH, D, TH>>(Pin::as_mut(self).get_mut()))
-        };
+        let signal_handler_ptr: PinnedPtr<UnixSignalHandler<CH, D, TH>> =
+            unsafe { PinnedPtr::from_pin(self.as_mut()) };
 
         // # Safety
         // The panic handler should only run when all other execution stopped.
@@ -299,7 +255,7 @@ where
         panic::set_hook(Box::new(move |panic_info| unsafe {
             let signal_params = OsTerminationParams::Panic(panic_info);
 
-            let signal_handler: &mut Self = &mut *signal_handler_ptr.as_mut_ptr();
+            let signal_handler: &mut Self = &mut *signal_handler_ptr.as_ptr();
 
             let max_depth_reached = signal_handler.enter();
 
@@ -312,11 +268,8 @@ where
                 exit(LIBAFL_EXIT_TERMINATION_INFINITE_RECURSION);
             }
 
-            if !signal_handler
-                .inner
-                .termination_data
-                .as_termination_handler_data()
-                .is_some_and(|p| p.as_ref().in_fuzzing())
+            if !D::termination_handler_data(Pin::new(&mut signal_handler.inner.termination_data))
+                .is_some_and(|p| p.in_fuzzing())
             {
                 // not in a fuzzing run: use the default hook (includes RUST_BACKTRACE output)
                 old_hook(panic_info);

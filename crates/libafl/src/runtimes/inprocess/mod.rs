@@ -1,7 +1,12 @@
 //! In-process [`Runtime`]s.
 
 use alloc::boxed::Box;
-use core::{fmt::{self, Debug}, marker::PhantomData, pin::Pin, time::Duration};
+use core::{
+    fmt::{self, Debug},
+    marker::PhantomData,
+    pin::Pin,
+    time::Duration,
+};
 use libafl_bolts::timers::Timer;
 use libafl_core::Result;
 
@@ -122,13 +127,22 @@ where
         + 'static,
     TM: Timer,
 {
-    unsafe fn run_impl(&mut self, mut state: S, rt_handle: &mut RuntimeHandle<S, W>) -> Result<()> {
-        // os-specific termination handler init
+    unsafe fn run_impl(mut self, mut state: S, rt_handle: &mut RuntimeHandle<S, W>) -> Result<()> {
+        // OS-specific termination handler init
         self.termination_handler.init()?;
 
+        let termination_data: Pin<&mut D> = {
+            let handler: Pin<&mut OsTerminationHandler<CH, D, TH>> =
+                self.termination_handler.as_mut();
+
+            unsafe { handler.map_unchecked_mut(|hdlr| &mut hdlr.inner.termination_data) }
+        };
+
         // set the runtime handler pointer to the termination data
-        unsafe {
-            rt_handle.set_termination_handler(self.termination_handler.inner_mut().data_mut());
+        if let Some(termination_handler_data) = D::termination_handler_data(termination_data) {
+            unsafe {
+                rt_handle.set_termination_handler(termination_handler_data);
+            }
         }
 
         (self.task)(rt_handle, &mut state)

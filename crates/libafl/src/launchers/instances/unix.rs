@@ -1,7 +1,7 @@
 //! Unix instance
 
-use core::{borrow::Borrow, hash::Hash, time::Duration};
 use alloc::vec::Vec;
+use core::{borrow::Borrow, hash::Hash, time::Duration};
 use std::{collections::HashSet, os::fd::AsFd, process::exit};
 
 use libafl_bolts::core_affinity::CoreId;
@@ -24,7 +24,7 @@ pub type InstanceId = u32;
 /// An instance, owning a running [`Runtime`].
 #[derive(Debug)]
 pub struct Instance<RT, S, W> {
-    runtime: RT,
+    runtime: Option<RT>,
     state: Option<S>,
     worker: Option<W>,
     core: CoreId,
@@ -97,7 +97,7 @@ where
                 worker.pre_runtime_exec()?;
 
                 // start the child runtime
-                self.runtime.run(state, worker)?;
+                self.runtime.take().expect("The instance runtime has already been consumed. A runtime can be run only once.").run(state, worker)?;
 
                 // TODO: what should we do there in case it happens?
                 // i'll panic for now, but it's not the right solution
@@ -268,7 +268,7 @@ impl<RT, S, W> Instance<RT, S, W> {
     /// Create a new instance.
     pub fn new(runtime: RT, state: S, worker: W, core: CoreId) -> Self {
         Self {
-            runtime,
+            runtime: Some(runtime),
             state: Some(state),
             worker: Some(worker),
             core,

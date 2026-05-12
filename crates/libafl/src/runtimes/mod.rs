@@ -7,11 +7,11 @@ use crate::{
     runtimes::{
         inprocess::{CrashStatus, TimeoutStatus},
         restarting::LIBAFL_EXIT_END,
-        utils::unix::OsShmSender,
+        utils::{PinnedPtr, unix::OsShmSender},
     },
     stages::StagesTuple,
 };
-use core::{ptr::NonNull, time::Duration};
+use core::{pin::Pin, ptr::NonNull, time::Duration};
 use std::process::exit;
 
 pub mod inprocess;
@@ -53,15 +53,19 @@ pub trait Runtime<S, W>: DependencyResolver {
     /// The `rt_handle` MUST be linked to the current runtime.
     /// Using a `rt_handle` that is not instantiated with self as the runtime will lead to Undefined Behaviour.
     /// Use [`Self::run`], this function should not need to be called directly.
-    unsafe fn run_impl(&mut self, state: S, rt_handle: &mut RuntimeHandle<S, W>) -> Result<()>;
+    unsafe fn run_impl(self, state: S, rt_handle: &mut RuntimeHandle<S, W>) -> Result<()>;
 
     /// Run the runtime.
-    fn run(&mut self, state: S, worker: W) -> Result<()>
+    fn run(mut self, state: S, worker: W) -> Result<()>
     where
         Self: Sized + 'static,
     {
-        let mut rt_handle =
-            unsafe { RuntimeHandle::new(core::ptr::from_mut::<Self>(self) as *mut dyn Runtime<S, W>, worker) };
+        let mut rt_handle = unsafe {
+            RuntimeHandle::new(
+                core::ptr::from_mut::<Self>(&mut self) as *mut dyn Runtime<S, W>,
+                worker,
+            )
+        };
 
         unsafe { self.run_impl(state, &mut rt_handle)? };
 
@@ -104,7 +108,7 @@ pub trait Runtime<S, W>: DependencyResolver {
 pub struct RuntimeHandle<S, W> {
     runtime: NonNull<dyn Runtime<S, W>>,
     worker: W,
-    termination_data_ptr: Option<NonNull<TerminationHandlerData>>,
+    termination_data_ptr: Option<PinnedPtr<TerminationHandlerData>>,
     state_shm_sender: Option<OsShmSender<S>>,
 }
 
@@ -153,16 +157,16 @@ impl<S, W> RuntimeHandle<S, W> {
     /// # Safety
     ///
     /// `termination_data` must outlive this [`RuntimeHandle`].
-    pub unsafe fn set_termination_handler<THD: IntoTerminationHandlerData>(
+    pub unsafe fn set_termination_handler(
         &mut self,
-        termination_data: &mut THD,
+        termination_data: Pin<&mut TerminationHandlerData>,
     ) {
         assert!(
             self.termination_data_ptr.is_none(),
             "Termination data pointer has already been set. This is a fuzzer bug."
         );
 
-        self.termination_data_ptr = termination_data.as_termination_handler_data();
+        self.termination_data_ptr = Some(unsafe { PinnedPtr::from_pin(termination_data) });
     }
 
     /// Set the shared memory saver (used by the [`RestartingRuntime`]).
@@ -175,7 +179,7 @@ impl<S, W> RuntimeHandle<S, W> {
         self.state_shm_sender = Some(state_shm_sender);
     }
 
-    /// Set the shared memory saver.
+    /// Initialize the termination global data and handlers.
     pub fn init_termination_handlers<E, I, R, ST, Z>(
         &mut self,
         state: &mut S,
@@ -192,39 +196,26 @@ impl<S, W> RuntimeHandle<S, W> {
     {
         let rt_handle_ptr = NonNull::from_mut(self);
 
-        if let Some(mut termination_data) = self.termination_data_ptr {
-            unsafe {
-                termination_data.as_mut().init(
-                    state,
-                    fuzzer,
-                    executor,
-                    rt_handle_ptr,
-                    on_crash,
-                    on_timeout,
-                );
+        if let Some(termination_data) = self.termination_data_ptr.as_mut() {
+            termination_data.init(state, fuzzer, executor, rt_handle_ptr, on_crash, on_timeout);
 
-                if let Some(ref mut saver) = self.state_shm_sender {
-                    termination_data.as_mut().set_saver_ptr(saver);
-                }
+            if let Some(ref mut saver) = self.state_shm_sender {
+                termination_data.set_saver_ptr(saver);
             }
         }
     }
 
     /// Set the input being run.
     pub fn set_input<I>(&mut self, input: &I) {
-        if let Some(mut signal_data) = self.termination_data_ptr {
-            unsafe {
-                signal_data.as_mut().set_input(input);
-            }
+        if let Some(signal_data) = self.termination_data_ptr.as_mut() {
+            signal_data.set_input(input);
         }
     }
 
     /// Clear the input being run.
     pub fn clear_input(&mut self) {
-        if let Some(mut signal_data) = self.termination_data_ptr {
-            unsafe {
-                signal_data.as_mut().clear_input();
-            }
+        if let Some(signal_data) = self.termination_data_ptr.as_mut() {
+            signal_data.clear_input();
         }
     }
 

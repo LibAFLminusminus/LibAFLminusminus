@@ -7,13 +7,14 @@ use crate::{
     executors::Executor,
     runtimes::{RuntimeHandle, utils::OsTerminationParams},
 };
+use core::pin::Pin;
 use core::{ffi::c_void, ptr::NonNull};
 use libafl_core::Result;
 
 /// Convertible into [`TerminationHandlerData`].
 pub trait IntoTerminationHandlerData {
-    /// Convert into [`TerminationHandlerData`]
-    fn as_termination_handler_data(&mut self) -> Option<NonNull<TerminationHandlerData>>;
+    /// Get the pinned [`TerminationHandlerData`] from the pinned wrapper
+    fn termination_handler_data(self: Pin<&mut Self>) -> Option<Pin<&mut TerminationHandlerData>>;
 }
 
 /// Termination handlers
@@ -29,12 +30,15 @@ pub struct TerminationHandler<CH, D, TH> {
 /// Termination data for handlers in [`TerminationHandler`].
 #[derive(Debug, Clone)]
 pub struct TerminationHandlerData {
+    // Data
     state_ptr: Option<NonNull<c_void>>,
     input_ptr: Option<NonNull<c_void>>,
     executor_ptr: Option<NonNull<c_void>>,
     fuzzer_ptr: Option<NonNull<c_void>>,
     rt_handle_ptr: Option<NonNull<c_void>>,
     state_sender_ptr: Option<NonNull<c_void>>,
+
+    // Handlers
     crash_handler: Option<fn(&mut Self, &OsTerminationParams) -> Result<CrashStatus>>,
     timeout_handler: Option<fn(&mut Self, &OsTerminationParams) -> Result<TimeoutStatus>>,
 }
@@ -198,14 +202,14 @@ impl TerminationHandlerData {
 }
 
 impl IntoTerminationHandlerData for () {
-    fn as_termination_handler_data(&mut self) -> Option<NonNull<TerminationHandlerData>> {
+    fn termination_handler_data(self: Pin<&mut Self>) -> Option<Pin<&mut TerminationHandlerData>> {
         None
     }
 }
 
 impl IntoTerminationHandlerData for TerminationHandlerData {
-    fn as_termination_handler_data(&mut self) -> Option<NonNull<TerminationHandlerData>> {
-        Some(NonNull::from(self))
+    fn termination_handler_data(self: Pin<&mut Self>) -> Option<Pin<&mut TerminationHandlerData>> {
+        Some(self)
     }
 }
 
