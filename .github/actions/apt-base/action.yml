@@ -1,0 +1,24 @@
+name: apt-base
+description: Base packages for Linux jobs
+
+runs:
+  using: composite
+  steps:
+    - name: Install base packages
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommands \
+          curl \
+          lsb-release \
+          wget \
+          software-properties-common \
+          gnupg shellcheck pax-utils \
+          libsqlite3-dev \
+          libpixman-1-dev \
+          libc6-dev \
+          gcc \
+          g++ \
+          build-essential \
+          libglib2.0-dev \
+          meson
