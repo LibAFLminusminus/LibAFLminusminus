@@ -268,15 +268,10 @@ mod tests {
                 vec![b'a', b'b', b'c'].into(),
             ))))
             .unwrap();
-        let id2 = corpus
-            .add(Testcase::new(Rc::new(BytesInput::new(
-                vec![b'd', b'e', b'f'].into(),
-            ))))
-            .unwrap();
 
         let mut input = corpus.get(&id1).unwrap().cloned_input();
 
-        let mut state = StdState::new(
+        let state = StdState::new(
             BytesContext::default(),
             corpus,
             InMemoryCorpus::new(QueueScheduler::new()),
@@ -301,16 +296,11 @@ mod tests {
                 b"abc".to_vec().into(),
             ))))
             .unwrap();
-        let id2 = corpus
-            .add(Testcase::new(Rc::new(BytesInput::new(
-                b"def".to_vec().into(),
-            ))))
-            .unwrap();
 
         let mut input = corpus.get(&id1).unwrap().cloned_input();
         let input_prior = input.clone();
 
-        let mut state = StdState::new(
+        let state = StdState::new(
             BytesContext::default(),
             corpus,
             InMemoryCorpus::new(QueueScheduler::new()),
@@ -345,16 +335,11 @@ mod tests {
                 b"abc".to_vec().into(),
             ))))
             .unwrap();
-        let id2 = corpus
-            .add(Testcase::new(Rc::new(BytesInput::new(
-                b"def".to_vec().into(),
-            ))))
-            .unwrap();
 
         let mut input = corpus.get(&id1).unwrap().cloned_input();
         let input_prior = input.clone();
 
-        let mut state = StdState::new(
+        let state = StdState::new(
             BytesContext::default(),
             corpus,
             InMemoryCorpus::new(QueueScheduler::new()),

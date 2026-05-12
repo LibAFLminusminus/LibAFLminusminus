@@ -43,3 +43,21 @@ jobs:
         run: ./scripts/doc_all.py
       - name: Run tests serially
         run: cargo test -- --test-threads 1
+
+  ubuntu-miri:
+    runs-on: ubuntu-24.04
+    if: contains( github.event.pull_request.labels.*.name, 'pre-release')
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: true
+      - uses: ./.github/actions/apt-base
+      - uses: ./.github/actions/setup-llvm
+        with:
+          version: ${{ env.MAIN_LLVM_VERSION }}
+      - uses: ./.github/actions/setup-rust
+        with:
+          toolchain: nightly
+          cache-key: ubuntu-miri
+      - name: Run miri tests
+        run: RUST_BACKTRACE=1 MIRIFLAGS="-Zmiri-disable-isolation" cargo miri test
