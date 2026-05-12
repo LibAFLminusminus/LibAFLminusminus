@@ -2,31 +2,28 @@ use std::{ops::DerefMut, path::PathBuf, time::Duration};
 
 use clap::Parser;
 use libafl::{
+    Result, Worker,
     corpus::{
-        schedulers::{NopScheduler, QueueScheduler},
         Corpus, InMemoryCorpus, OnDiskCorpus, Scheduler,
+        schedulers::{NopScheduler, QueueScheduler},
     },
     executors::{ForkserverExecutor, StdChildArgs},
     feedback_or_fast,
     feedbacks::{CrashFeedback, MaxMapFeedback, TimeoutFeedback},
     fuzzers::{Fuzzer, StdFuzzer},
     generators::RandPrintablesGenerator,
-    inputs::{bytes::BytesContext, BytesInput},
+    inputs::{BytesInput, bytes::BytesContext},
     launchers::StdLauncher,
     monitors::SimpleMonitor,
-    mutators::{havoc_mutations, HavocScheduledMutator, Tokens},
+    mutators::{HavocScheduledMutator, Tokens, havoc_mutations},
     non_zero,
-    observers::CmpLogObserver,
-    observers::{HitcountsMapObserver, StdMapObserver},
+    observers::{CmpLogObserver, HitcountsMapObserver, StdMapObserver},
     runtimes::RuntimeHandle,
     simple::{SimpleController, SimpleWorker},
-    stages::{
-        TracerStage, StdMutationalStage,
-    },
+    stages::{StdMutationalStage, TracerStage},
     states::StdState,
-    Result, Worker,
 };
-use libafl_bolts::{current_nanos, rands::StdRand, tuples::tuple_list, StdTargetArgs, SysVShm};
+use libafl_bolts::{StdTargetArgs, SysVShm, current_nanos, rands::StdRand, tuples::tuple_list};
 use libafl_core::forkserver::{AFLPP_CMPLOG_MAP, SHM_CMPLOG_ENV_VAR, SHM_ENV_VAR};
 use libafl_targets::{AFLppCmplogVals, AFLppLibAFLCmpLogHeader};
 

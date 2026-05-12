@@ -29,7 +29,6 @@ pub struct QemuExecutor<EMU, OT, PRE, POST> {
     pre_exec: PRE,
     post_exec: POST,
     observers: OT,
-    initialized: bool,
 }
 
 #[cfg(feature = "systemmode")]
@@ -42,7 +41,6 @@ impl<EMU, OT, PRE, POST> QemuExecutor<EMU, OT, PRE, POST> {
             pre_exec,
             post_exec,
             observers,
-            initialized: true,
         })
     }
 
@@ -81,12 +79,12 @@ where
     unsafe fn execute_impl(&mut self, state: &mut S, input: &I) -> Result<ExitKind> {
         (self.pre_exec)(&mut self.emulator)?;
 
-        self.emulator.pre_exec(state, input);
+        self.emulator.pre_exec(state, input)?;
 
         let mut exit_kind = self.emulator.exec_input(input)?;
 
         self.emulator
-            .post_exec(input, &mut self.observers, state, &mut exit_kind);
+            .post_exec(input, &mut self.observers, state, &mut exit_kind)?;
 
         (self.post_exec)(&mut self.emulator)?;
 
@@ -107,7 +105,7 @@ where
                 signal,
                 siginfo,
                 context,
-            } => (signal.clone(), *siginfo.clone(), context.cloned()),
+            } => (signal.clone(), *siginfo, context.cloned()),
             OsTerminationParams::Panic(panic) => panic!(
                 "Panic termination ended up in QEMU crash handler, this is not expected: {panic:?}"
             ),

@@ -2,7 +2,7 @@ use core::{cell::UnsafeCell, fmt::Debug};
 
 use capstone::prelude::*;
 use libafl::{Result, executors::ExitKind, inputs::Input, observers::ObserversTuple};
-use libafl_bolts::tuples::{Handle, Handled, MatchFirstType, MatchNameRef};
+use libafl_bolts::tuples::MatchFirstType;
 use libafl_qemu_sys::GuestAddr;
 use thread_local::ThreadLocal;
 
@@ -472,92 +472,6 @@ where
 
     fn page_filter_mut(&mut self) -> &mut Self::PageFilter {
         unsafe { (&raw mut NOP_PAGE_FILTER).as_mut().unwrap().get_mut() }
-    }
-}
-
-// TODO support multiple threads with thread local callstack
-#[derive(Debug)]
-pub struct OnCrashBacktraceCollector<'a> {
-    callstack_hash: u64,
-    observer_handle: Handle<BacktraceObserver<'a>>,
-}
-
-impl<'a> OnCrashBacktraceCollector<'a> {
-    #[must_use]
-    pub fn new(observer: &BacktraceObserver<'a>) -> Self {
-        Self {
-            callstack_hash: 0,
-            observer_handle: observer.handle(),
-        }
-    }
-
-    #[must_use]
-    pub fn callstack_hash(&self) -> u64 {
-        self.callstack_hash
-    }
-
-    pub fn reset(&mut self) {
-        self.callstack_hash = 0;
-    }
-}
-
-impl<'a> CallTraceCollector for OnCrashBacktraceCollector<'a>
-where
-    'a: 'static,
-{
-    #[allow(clippy::unnecessary_cast)]
-    fn on_call<ET, I, S>(
-        &mut self,
-        _emulator_modules: &mut EmulatorModules<ET, I, S>,
-        _state: &mut S,
-        pc: GuestAddr,
-        call_len: usize,
-    ) where
-        ET: EmulatorModuleTuple<I, S>,
-        I: Unpin,
-        S: Unpin,
-    {
-        self.callstack_hash ^= (pc as u64) + call_len as u64;
-    }
-
-    #[allow(clippy::unnecessary_cast)]
-    fn on_ret<ET, I, S>(
-        &mut self,
-        _emulator_modules: &mut EmulatorModules<ET, I, S>,
-        _state: &mut S,
-        _pc: GuestAddr,
-        ret_addr: GuestAddr,
-    ) where
-        ET: EmulatorModuleTuple<I, S>,
-        I: Unpin,
-        S: Unpin,
-    {
-        self.callstack_hash ^= ret_addr as u64;
-    }
-
-    fn pre_exec<I>(&mut self, _qemu: Qemu, _input: &I)
-    where
-        I: Input,
-    {
-        self.reset();
-    }
-
-    fn post_exec<OT, I, S>(
-        &mut self,
-        _qemu: Qemu,
-        _input: &I,
-        observers: &mut OT,
-        exit_kind: &mut ExitKind,
-    ) where
-        I: Unpin,
-        OT: ObserversTuple<S>,
-        S: Unpin,
-    {
-        let observer = observers
-            .get_mut(&self.observer_handle)
-            .expect("A OnCrashBacktraceCollector needs a BacktraceObserver");
-
-        observer.fill_external(self.callstack_hash, exit_kind);
     }
 }
 

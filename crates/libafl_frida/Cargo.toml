@@ -18,7 +18,7 @@ categories = [
 ]
 
 [package.metadata.docs.rs]
-no-default-features = true                                        # We can't use auto-download inside docs.rs (no internet)
+no-default-features = true                 # We can't use auto-download inside docs.rs (no internet)
 all-features = false
 features = ["cmplog", "document-features"]
 

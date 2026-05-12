@@ -168,6 +168,26 @@ use log::{Metadata, Record};
 #[cfg(feature = "xxh3")]
 use xxhash_rust::xxh3::xxh3_64;
 
+/// Unwrap a type (most likely an [`Option`]),
+/// and check the inner object is present only in `Debug` mode.
+pub trait DebugUnwrap {
+    /// The inner object type
+    type Output;
+
+    /// Unwrap the inner object, and check it is present only in `Debug` mode.
+    /// In `Release` mode, the inner object gets accessed without any check.
+    unsafe fn unwrap_debug(self) -> Self::Output;
+}
+
+impl<T> DebugUnwrap for Option<T> {
+    type Output = T;
+
+    unsafe fn unwrap_debug(self) -> Self::Output {
+        debug_assert!(self.is_some());
+        unsafe { self.unwrap_unchecked() }
+    }
+}
+
 /// Returns the standard input [`Hasher`]
 ///
 /// Returns the hasher for the input with a given hash, depending on features:
