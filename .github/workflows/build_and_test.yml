@@ -37,12 +37,21 @@ jobs:
         run: ./scripts/check_for_blobs.sh
       - name: Check for conflicting dependency versions
         run: cargo tree -d --workspace
-      - name: Build LibAFLmm (Debug)
-        run: cargo build
+      - name: Build workspace (Debug)
+        run: cargo build --workspace --all-targets --exclude libafl_asan_libc
+      - name: Check examples
+        run: |
+          cargo check --workspace --all-targets --exclude libafl_asan_libc --example
+          cargo build --workspace --all-targets --exclude libafl_asan_libc --example
+          cargo test --workspace --all-targets --exclude libafl_asan_libc --example
       - name: Build docs
         run: ./scripts/doc_all.py
       - name: Run tests serially
         run: cargo test -- --test-threads 1
+      - name: Check sancov pcguard edges
+        run: cargo check --features=sancov_pcguard_edges
+      - name: Shellcheck
+        run: shellcheck ./scripts/*.sh
 
   ubuntu-miri:
     runs-on: ubuntu-24.04
@@ -62,3 +71,91 @@ jobs:
           cache-key: ubuntu-miri
       - name: Run miri tests
         run: RUST_BACKTRACE=1 MIRIFLAGS="-Zmiri-disable-isolation" cargo miri test
+
+  ubuntu-clippy:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: true
+      - uses: ./.github/actions/apt-base
+      - uses: ./.github/actions/setup-llvm
+        with:
+          version: ${{ env.MAIN_LLVM_VERSION }}
+      - uses: ./.github/actions/setup-rust
+        with:
+          cache-key: ubuntu
+      - name: Run clippy
+        run: ./scripts/clippy.sh
+
+  ubuntu-check:
+    runs-on: ubuntu-24.04
+    needs: ubuntu
+    strategy:
+      matrix:
+        instance_idx:
+          [
+            "0",
+            "1",
+            "2",
+            "3",
+            "4",
+            "5",
+            "6",
+            "7",
+            "8",
+            "9",
+            "10",
+            "11",
+            "12",
+            "13",
+            "14",
+            "15",
+            "16",
+            "17",
+          ]
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: true
+      - uses: ./.github/actions/apt-base
+      - uses: ./.github/actions/setup-llvm
+        with:
+          version: ${{ env.MAIN_LLVM_VERSION }}
+      - uses: ./.github/actions/setup-rust
+        with:
+          components: clippy, rustfmt
+          cache-key: ubuntu-clippy
+      - name: Check each feature
+        run: cargo run --manifest-path utils/ci_splitter/Cargo.toml -- ${{ matrix.instance_idx }}
+
+  cargo-fmt:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: true
+      - uses: ./.github/actions/apt-base
+      - uses: ./.github/actions/setup-llvm
+        with:
+          version: ${{ env.MAIN_LLVM_VERSION }}
+      - uses: ./.github/actions/setup-rust
+        with:
+          cache-key: ubuntu
+      - name: Installing python3 black
+        uses: python3 -m pip install black
+      - name: Check formatting
+        run: ./scripts/fmt_all.sh check
+
+  check-md-links:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: true
+      - name: Run linkspector
+        uses: umbrelladocs/action-linkspector@v1
+        with:
+          fail_on_error: "true"
+          config_file: ".github/.linkspector.yml"
