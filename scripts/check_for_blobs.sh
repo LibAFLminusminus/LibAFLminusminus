@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -eu
+
 declare -a blobs
 
 KNOWN_GOOD_FILE_EXTENSIONS=("rs" "c" "h" "cc" "sh" "py" "toml" "yml" "json" "md" "gitignore" "png")

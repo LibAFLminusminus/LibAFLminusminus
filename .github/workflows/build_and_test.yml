@@ -58,6 +58,7 @@ jobs:
       - uses: ./.github/actions/setup-rust
         with:
           toolchain: nightly
+          components: miri
           cache-key: ubuntu-miri
       - name: Run miri tests
         run: RUST_BACKTRACE=1 MIRIFLAGS="-Zmiri-disable-isolation" cargo miri test
