@@ -28,7 +28,7 @@ runs:
         components: ${{ inputs.components }}
 
     - name: Install Just
-      uses: extraction/setup-just@v4
+      uses: extractions/setup-just@v4
 
     - name: Rust cache
       uses: Swatinem/rust-cache@v2
