@@ -6,7 +6,7 @@ use libafl_bolts::simd::{
     SimdMinReducer, SimdOrReducer, SimdReducer, VectorType, covmap_is_interesting_naive,
     covmap_is_interesting_simd, simplify_map_naive, simplify_map_simd,
 };
-use rand::rngs::ThreadRng;
+use rand::{Rng, rngs::ThreadRng};
 
 fn default_map_size() -> usize {
     if std::env::var("CI").is_ok() {
@@ -104,7 +104,7 @@ impl SimplifyMapInput {
     }
 }
 
-type CovFuncPtr = unsafe fn(&[u8], &[u8], bool) -> (bool, Vec<usize>);
+type CovFuncPtr = unsafe fn(&[u8], &[u8]) -> bool;
 
 struct CovInput {
     name: String,
@@ -154,7 +154,7 @@ impl CovInput {
         println!("warm up...");
         for _ in 0..16 {
             unsafe {
-                (self.func)(&self.hist, &self.map, true);
+                (self.func)(&self.hist, &self.map);
             }
         }
         clean_vectors(&mut self.hist);
@@ -162,14 +162,13 @@ impl CovInput {
         for _ in 0..self.rounds {
             random_bits(&mut self.map, &mut self.rng);
             let before = Utc::now();
-            let (interesting, novelties) = unsafe { (self.func)(&self.hist, &self.map, true) };
+            let interesting = unsafe { (self.func)(&self.hist, &self.map) };
             if self.validate {
-                let (canonical_interesting, canonical_novelties) =
-                    unsafe { (self.naive)(&self.hist, &self.map, true) };
+                let canonical_interesting = unsafe { (self.naive)(&self.hist, &self.map) };
 
                 assert!(
-                    canonical_interesting == interesting && novelties == canonical_novelties,
-                    "Incorrect {} impl. {canonical_interesting} vs {interesting}, {canonical_novelties:?} vs\n{novelties:?}",
+                    canonical_interesting == interesting,
+                    "Incorrect {} impl. {canonical_interesting} vs {interesting}",
                     self.name
                 );
             }
