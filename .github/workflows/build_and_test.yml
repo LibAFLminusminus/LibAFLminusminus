@@ -33,4 +33,13 @@ jobs:
       - uses: ./.github/actions/setup-rust
         with:
           cache-key: ubuntu
-      - run: cargo build
+      - name: Check for blobs
+        run: ./scripts/check_for_blobs.sh
+      - name: Check for conflicting dependency versions
+        run: cargo tree -d --workspace
+      - name: Build LibAFLmm (Debug)
+        run: cargo build
+      - name: Build docs
+        run: ./scripts/doc_all.py
+      - name: Run tests serially
+        run: cargo test -- --test-threads 1
