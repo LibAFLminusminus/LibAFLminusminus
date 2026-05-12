@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{path::PathBuf, time::Duration};
 
 use libafl::{
     Result, Worker,
@@ -13,7 +13,7 @@ use libafl::{
     generators::RandPrintablesGenerator,
     inputs::{BytesInput, bytes::BytesContext},
     launchers::{DEFAULT_MAX_STATE_SIZE_PER_CLIENT, StdLauncher},
-    monitors::SimpleMonitor,
+    monitors::{WebMonitor, SimpleMonitor},
     mutators::{HavocScheduledMutator, havoc_mutations},
     non_zero,
     observers::ConstMapObserver,
@@ -23,6 +23,7 @@ use libafl::{
     states::StdState,
 };
 use libafl_bolts::{
+    core_affinity::Cores,
     current_nanos, nonnull_raw_mut, rands::StdRand, timers::FastTimer, tuples::tuple_list,
 };
 
@@ -116,7 +117,8 @@ pub fn main() -> Result<()> {
         .build()?;
 
     // The monitor tracks the fuzzing current status.
-    let monitor = SimpleMonitor::new();
+    // let monitor = WebMonitor::new(PathBuf::from("history.ndjson"));
+	let monitor = SimpleMonitor::new();
 
     let fast_timer = FastTimer::new();
     let runtime = StdInProcessRuntime::new(
@@ -132,6 +134,7 @@ pub fn main() -> Result<()> {
         .monitor(monitor)
         .state_builder(state_builder)
         .runtime(runtime)
+        .cores(Cores::first(2))
         // .build_with_task(run_fuzzer)?
         .build()?
         .launch()

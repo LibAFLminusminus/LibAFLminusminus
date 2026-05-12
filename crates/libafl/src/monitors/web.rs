@@ -1,8 +1,8 @@
 use std::{
-    fs::{File, OpenOptions},
-    io::{BufRead, BufReader, Write},
+    fs::OpenOptions,
+    io::Write,
     net::SocketAddr,
-    path::{PathBuf, Path},
+    path::{Path, PathBuf},
     string::{String, ToString},
     sync::{Arc, RwLock},
     vec::Vec,
@@ -18,6 +18,7 @@ use crate::{
     states::{Stats, read_stats_json},
 };
 
+const FRONTEND_HTML: &str = include_str!("frontend/index.html");
 const HISTORY_LIMIT: usize = 100;
 
 // Only used for NDJSON serialization/deserialization — not stored in SharedState.
@@ -29,9 +30,7 @@ struct Snapshot {
 
 // serde_json::Value is Send + Sync, so SharedState is too.
 struct SharedState {
-    current: Value,
     history: Vec<Value>,
-    frontend_path: PathBuf,
 }
 
 pub struct WebMonitor {
@@ -40,17 +39,14 @@ pub struct WebMonitor {
 }
 
 impl WebMonitor {
-    pub fn new(history_path: PathBuf, frontend_path: PathBuf) -> Self {
-        Self::with_port(history_path, frontend_path, 13337)
+    pub fn new(history_path: PathBuf) -> Self {
+        Self::with_port(history_path, 13337)
     }
 
-    pub fn with_port(history_path: PathBuf, frontend_path: PathBuf, port: u16) -> Self {
+    pub fn with_port(history_path: PathBuf, port: u16) -> Self {
         let _ = std::fs::remove_file(&history_path);
-        let current = Value::Null;
         let shared = Arc::new(RwLock::new(SharedState {
-            current,
             history: Vec::new(),
-            frontend_path,
         }));
 
         let shared_clone = shared.clone();
@@ -73,18 +69,10 @@ impl WebMonitor {
 }
 
 async fn serve(shared: Arc<RwLock<SharedState>>, port: u16) {
-    use axum::{Json, Router, extract::State, http::StatusCode, response::{Html, IntoResponse}, routing::get};
+    use axum::{Json, Router, extract::State, response::Html, routing::get};
 
-    async fn root(State(s): State<Arc<RwLock<SharedState>>>) -> impl IntoResponse {
-        let path = s.read().unwrap().frontend_path.join("index.html");
-        match tokio::task::spawn_blocking(move || std::fs::read_to_string(&path)).await {
-            Ok(Ok(html)) => Html(html).into_response(),
-            _ => (StatusCode::NOT_FOUND, "index.html not found").into_response(),
-        }
-    }
-
-    async fn current_stats(State(s): State<Arc<RwLock<SharedState>>>) -> Json<Value> {
-        Json(s.read().unwrap().current.clone())
+    async fn root() -> Html<&'static str> {
+        Html(FRONTEND_HTML)
     }
 
     async fn history(State(s): State<Arc<RwLock<SharedState>>>) -> Json<Value> {
@@ -93,7 +81,6 @@ async fn serve(shared: Arc<RwLock<SharedState>>, port: u16) {
 
     let app = Router::new()
         .route("/", get(root))
-        .route("/api/stats", get(current_stats))
         .route("/api/history", get(history))
         .with_state(shared);
 
@@ -127,13 +114,7 @@ impl Monitor for WebMonitor {
         let snapshot_value = serde_json::to_value(&snapshot).unwrap_or(Value::Null);
         Self::append_to_file(&self.history_path, &snapshot_value.to_string());
 
-        let current = snapshot_value
-            .get("stats")
-            .cloned()
-            .unwrap_or(Value::Null);
-
         let mut state = self.shared.write().unwrap();
-        state.current = current;
         state.history.push(snapshot_value);
         if state.history.len() > HISTORY_LIMIT {
             state.history.remove(0);

@@ -18,5 +18,5 @@ debug = true
 
 [dependencies]
 env_logger = "0.11.7"
-libafl = { path = "../../../crates/libafl", features = ["remove_me"] }
+libafl = { path = "../../../crates/libafl", features = ["remove_me", "web_monitor"] }
 libafl_bolts = { path = "../../../crates/libafl_bolts" }
