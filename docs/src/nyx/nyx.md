@@ -73,8 +73,6 @@ Finally, use them normally and pass them into `fuzzer.fuzz_loop(&mut stages, &mu
 
 In the [example fuzzer](https://github.com/AFLplusplus/LibAFL/blob/main/fuzzers/full_system/nyx_libxml2_parallel/src/main.rs) you first need to run `./setup_libxml2.sh` as described before.
 
-Parallel fuzzing relies on [`Launcher`](../message_passing/spawn_instances.md), so spawn logic should be written in the scoop of anonymous function `run_client`:
-
 ```rust,ignore
 let mut run_client = |state: Option<_>, mut restarting_mgr, _core_id: usize| {}
 ```
