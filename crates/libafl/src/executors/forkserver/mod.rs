@@ -1156,7 +1156,7 @@ mod tests {
         unsafe {
             shmem.write_to_env("__AFL_SHM_ID").unwrap();
         }
-        let mut shmem_buf: &mut [u8; MAP_SIZE] = shmem.as_slice_mut().try_into().unwrap();
+        let shmem_buf: &mut [u8; MAP_SIZE] = shmem.as_slice_mut().try_into().unwrap();
 
         let edges_observer = HitcountsMapObserver::new(ConstMapObserver::<_, MAP_SIZE>::new(
             "shared_mem",

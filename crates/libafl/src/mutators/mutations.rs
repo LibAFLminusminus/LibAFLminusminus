@@ -1709,7 +1709,7 @@ mod tests {
         },
         inputs::{BytesInput, bytes::BytesContext},
         mutators::MutatorsTuple,
-        states::StdState,
+        states::{HasCorpus, StdState},
     };
 
     type TestMutatorsTupleType = tuple_list_type!(
@@ -1796,7 +1796,7 @@ mod tests {
             BytesInput::new(vec![1; 4]),
         ];
 
-        let mut state = test_state();
+        let state = test_state();
         let mut rand = StdRand::with_seed(1337);
 
         let mut mutations = test_mutations();
@@ -1825,7 +1825,7 @@ mod tests {
         let base = BytesInput::new((0..10).collect());
         let mut counts = [0usize; 10];
 
-        let mut state = test_state();
+        let state = test_state();
         let mut rand = StdRand::with_seed(1337);
         let mut mutator = BytesDeleteMutator::new();
 
@@ -1883,7 +1883,7 @@ mod tests {
         let base = BytesInput::new((0..10).collect());
         let mut counts = [0usize; 10];
 
-        let mut state = test_state();
+        let state = test_state();
         let mut rand = StdRand::with_seed(1337);
         let mut mutator = BytesExpandMutator::new();
 
@@ -1934,7 +1934,7 @@ mod tests {
         let mut counts = [0usize; 10];
         let mut insertions = [0usize; 16];
 
-        let mut state = test_state();
+        let state = test_state();
         let mut rand = StdRand::with_seed(1337);
         let mut mutator = BytesInsertMutator::new();
 
@@ -1987,7 +1987,7 @@ mod tests {
         let mut counts = [0usize; 256];
         let mut insertions = [0usize; 16];
 
-        let mut state = test_state();
+        let state = test_state();
         let mut rand = StdRand::with_seed(1337);
         let mut mutator = BytesRandInsertMutator::new();
 

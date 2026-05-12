@@ -5,9 +5,9 @@ use crate::{
     corpus::{Scheduler, testcase::TestcaseId},
 };
 use alloc::borrow::ToOwned;
+use alloc::vec::Vec;
 use libafl_core::Result;
 use serde::{Deserialize, Serialize};
-use alloc::vec::Vec;
 
 /// Walk the corpus in a queue-like fashion
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -77,8 +77,6 @@ mod tests {
     use alloc::rc::Rc;
     use std::path::PathBuf;
 
-    use libafl_bolts::rands::StdRand;
-
     use crate::{
         corpus::{
             Corpus, InMemoryCorpus, OnDiskCorpus, Testcase,
@@ -90,7 +88,6 @@ mod tests {
 
     #[test]
     fn test_queue_corpus() {
-        let rand = StdRand::with_seed(4);
         let scheduler: QueueScheduler = QueueScheduler::new();
         let context = BytesContext::default();
 
@@ -122,7 +119,6 @@ mod tests {
 
     #[test]
     fn test_queue_scheduler() {
-        let rand = StdRand::with_seed(42);
         let scheduler = QueueScheduler::new();
         let context = BytesContext::default();
 
