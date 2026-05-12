@@ -3,7 +3,7 @@ use std::{env, fmt::Write, ops::Range};
 use clap::{Parser, builder::Str};
 use libafl_bolts::{Error, tuples::tuple_list};
 use libafl_qemu::{
-    Emulator, GuestAddr, NopEmulatorDriver, NopSnapshotManager, QemuExitError, QemuInitError,
+    GuestAddr, NopEmulatorDriver, NopSnapshotManager, QemuExitError, QemuInitError, StdEmulator,
     command::NopCommandManager,
     elf::EasyElf,
     modules::{
@@ -159,7 +159,7 @@ fn run<M: EmulatorModuleTuple<(), ()>>(
     modules: M,
 ) -> Result<(), LauncherError> {
     info!("Building emulator");
-    let mut emulator: Emulator<
+    let mut emulator: StdEmulator<
         (),
         NopCommandManager,
         NopEmulatorDriver,
@@ -167,7 +167,7 @@ fn run<M: EmulatorModuleTuple<(), ()>>(
         (),
         (),
         NopSnapshotManager,
-    > = Emulator::empty()
+    > = StdEmulator::empty()
         .qemu_parameters(options.args)
         .modules(modules)
         .build()

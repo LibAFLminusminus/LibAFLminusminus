@@ -1,8 +1,6 @@
 //! Stores are collections managing testcases
 
-use alloc::rc::Rc;
-
-use libafl_bolts::Error;
+use libafl_core::Result;
 
 use super::{Testcase, testcase::TestcaseId};
 
@@ -15,6 +13,10 @@ pub use inmemory::InMemoryStore;
 pub mod ondisk;
 pub use ondisk::{DiskMgr, OnDiskStore};
 
+/// Result of an add request.
+///
+/// It can be either actually stored, or ignored as it is a duplicate item.
+#[derive(Debug)]
 pub enum StorageResult {
     /// The store received a new testcase.
     Stored(TestcaseId),
@@ -41,30 +43,27 @@ pub trait Store<I> {
     }
 
     /// Store the input to the set.
-    fn add_shared<const ENABLED: bool>(
-        &mut self,
-        testcase: Testcase<I>,
-    ) -> Result<StorageResult, Error>;
+    fn add_shared<const ENABLED: bool>(&mut self, testcase: Testcase<I>) -> Result<StorageResult>;
 
     /// Get testcase by id; considers only enabled testcases
-    fn get(&self, id: &TestcaseId) -> Result<Testcase<I>, Error> {
+    fn get(&self, id: &TestcaseId) -> Result<Testcase<I>> {
         Self::get_from::<true>(self, id)
     }
 
     /// Get testcase by id; considers both enabled and disabled testcases
-    fn get_from_all(&self, id: &TestcaseId) -> Result<Testcase<I>, Error> {
+    fn get_from_all(&self, id: &TestcaseId) -> Result<Testcase<I>> {
         Self::get_from::<false>(self, id)
     }
 
     /// Get testcase by id
-    fn get_from<const ENABLED: bool>(&self, id: &TestcaseId) -> Result<Testcase<I>, Error>;
+    fn get_from<const ENABLED: bool>(&self, id: &TestcaseId) -> Result<Testcase<I>>;
 
     /// Disable a testcase by id
-    fn disable(&mut self, id: &TestcaseId) -> Result<(), Error>;
+    fn disable(&mut self, id: &TestcaseId) -> Result<()>;
 }
 
 /// A Store with removable entries
 pub trait RemovableStore<I>: Store<I> {
     /// Removes an entry from the corpus, returning it; considers both enabled and disabled testcases
-    fn remove(&mut self, id: &TestcaseId) -> Result<Testcase<I>, Error>;
+    fn remove(&mut self, id: &TestcaseId) -> Result<Testcase<I>>;
 }

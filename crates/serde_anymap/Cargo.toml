@@ -36,6 +36,7 @@ stable_anymap = []
 rustversion = { workspace = true }
 
 [dev-dependencies]
+serde_json = { workspace = true, features = ["std"] }
 
 [dependencies]
 # Document all features of this crate (for `cargo doc`)

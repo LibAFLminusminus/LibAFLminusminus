@@ -39,14 +39,14 @@ where
     C1: Corpus<I>,
     C2: Corpus<I>,
 {
-    fn add(&mut self, input: Rc<I>, md: TestcaseMetadata) -> Result<CorpusId, Error> {
+    fn add(&mut self, input: Rc<I>, md: TestcaseMetadata) -> Result<CorpusId> {
         match self {
             Self::Corpus1(c1, _) => c1.add(input, md),
             Self::Corpus2(c2, _) => c2.add(input, md),
         }
     }
 
-    fn add_disabled(&mut self, input: Rc<I>, md: TestcaseMetadata) -> Result<CorpusId, Error> {
+    fn add_disabled(&mut self, input: Rc<I>, md: TestcaseMetadata) -> Result<CorpusId> {
         match self {
             Self::Corpus1(c1, _) => c1.add_disabled(input, md),
             Self::Corpus2(c2, _) => c2.add_disabled(input, md),
@@ -99,7 +99,7 @@ where
     fn get_from<const ENABLED: bool>(
         &self,
         id: CorpusId,
-    ) -> Result<Testcase<I, Self::TestcaseMetadataCell>, Error> {
+    ) -> Result<Testcase<I, Self::TestcaseMetadataCell>> {
         match self {
             Self::Corpus1(c1, _) => c1.get_from(id),
             Self::Corpus2(c2, _) => c2.get_from(id),
@@ -153,7 +153,7 @@ where
         id: CorpusId,
         input: Rc<I>,
         md: TestcaseMetadata,
-    ) -> Result<Testcase<I, Self::TestcaseMetadataCell>, Error> {
+    ) -> Result<Testcase<I, Self::TestcaseMetadataCell>> {
         match self {
             Self::Corpus1(c1, _) => c1.replace(id, input, md),
             Self::Corpus2(c2, _) => c2.replace(id, input, md),

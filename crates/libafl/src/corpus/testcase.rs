@@ -1,11 +1,8 @@
 //! The [`Testcase`] is a struct embedded in each [`Corpus`].
 //! It will contain a respective input, and metadata.
 
-#[cfg(feature = "track_hit_feedbacks")]
-use alloc::{borrow::Cow, vec::Vec};
 use alloc::{rc::Rc, string::String};
 use core::{borrow::Borrow, fmt::Debug, hash::Hasher};
-use std::string::ToString;
 
 use libafl_bolts::{HasLen, hasher_std};
 use serde::{Deserialize, Serialize};
@@ -24,10 +21,16 @@ pub enum TestcaseFilenameFormat {
     Custom(String),
 }
 
+/// A [`Testcase`] identifier.
+///
+/// It falls back to a 64-bits integer, so its use is very lightweight.
+/// Prefer using this over storing a whole [`Testcase`].
 #[derive(Serialize, Deserialize, Hash, Clone, Copy, Debug, PartialEq, Eq, Ord, PartialOrd)]
 pub struct TestcaseId(pub u64);
 
 impl TestcaseId {
+    /// Default file name for a [`Testcase`].
+    #[must_use]
     pub fn default_filename(&self) -> String {
         format!("{:016x}", self.0)
     }
@@ -53,11 +56,13 @@ pub struct Testcase<I> {
 }
 
 impl TestcaseFilenameFormat {
+    /// Get the actual file name as a [`String`].
+    #[must_use]
     pub fn to_filename(&self, id: &TestcaseId) -> String {
         match self {
             TestcaseFilenameFormat::Id => id.default_filename(),
             TestcaseFilenameFormat::Prefix(prefix) => {
-                format!("{}-{}", prefix, id)
+                format!("{prefix}-{id}")
             }
             TestcaseFilenameFormat::Custom(custom_name) => custom_name.clone(),
         }
@@ -68,7 +73,7 @@ impl<I> Clone for Testcase<I> {
     fn clone(&self) -> Self {
         Self {
             input: self.input.clone(),
-            id: self.id.clone(),
+            id: self.id,
             filename_fmt: self.filename_fmt.clone(),
         }
     }
@@ -77,15 +82,18 @@ impl<I> Clone for Testcase<I> {
 impl<I> Testcase<I> {
     /// Get the input
     #[inline]
+    #[must_use]
     pub fn input(&self) -> Rc<I> {
         self.input.clone()
     }
 
     /// Get the associated unique ID.
+    #[must_use]
     pub fn id(&self) -> &TestcaseId {
         &self.id
     }
 
+    /// Set the file name according to the `fmt`.
     pub fn set_filename_fmt(&mut self, fmt: TestcaseFilenameFormat) {
         self.filename_fmt = fmt;
     }
@@ -96,6 +104,7 @@ where
     I: HasLen,
 {
     /// Get the input length
+    #[must_use]
     pub fn input_len(&self) -> usize {
         self.input.len()
     }
@@ -116,6 +125,7 @@ where
         }
     }
 
+    /// Create a new [`Testcase`] from an [`Input`] reference with the given file name.
     pub fn with_filename(input: Rc<I>, filename: String) -> Self {
         let mut tc = Self::new(input);
 
@@ -138,6 +148,7 @@ where
     I: Clone,
 {
     /// Clone the input embedded in the [`Testcase`].
+    #[must_use]
     pub fn cloned_input(&self) -> I {
         self.input.as_ref().clone()
     }

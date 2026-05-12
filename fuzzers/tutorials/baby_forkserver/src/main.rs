@@ -2,28 +2,28 @@ use std::{ops::DerefMut, path::PathBuf, time::Duration};
 
 use clap::Parser;
 use libafl::{
+    Result, Worker,
     corpus::{
-        schedulers::{NopScheduler, QueueScheduler},
         Corpus, InMemoryCorpus, OnDiskCorpus, Scheduler,
+        schedulers::{NopScheduler, QueueScheduler},
     },
     executors::{ForkserverExecutor, StdChildArgs},
     feedback_or_fast,
     feedbacks::{CrashFeedback, MaxMapFeedback, TimeoutFeedback},
     fuzzers::{Fuzzer, StdFuzzer},
     generators::RandPrintablesGenerator,
-    inputs::{bytes::BytesContext, BytesInput},
+    inputs::{BytesInput, bytes::BytesContext},
     launchers::StdLauncher,
     monitors::SimpleMonitor,
-    mutators::{havoc_mutations, HavocScheduledMutator, Tokens},
+    mutators::{HavocScheduledMutator, Tokens, havoc_mutations},
     non_zero,
     observers::{HitcountsMapObserver, StdMapObserver},
     runtimes::RuntimeHandle,
     simple::{SimpleController, SimpleWorker},
     stages::StdMutationalStage,
     states::StdState,
-    Result, Worker,
 };
-use libafl_bolts::{current_nanos, rands::StdRand, tuples::tuple_list, StdTargetArgs, SysVShm};
+use libafl_bolts::{StdTargetArgs, SysVShm, current_nanos, rands::StdRand, tuples::tuple_list};
 
 /// The commandline args this fuzzer accepts
 #[derive(Debug, Parser)]
@@ -73,8 +73,8 @@ struct Opt {
 }
 
 fn run_fuzzer<C, OC, SC>(
-    rt_handle: &mut RuntimeHandle<StdState<C, BytesInput, OC, SC>, SimpleWorker>,
-    state: &mut StdState<C, BytesInput, OC, SC>,
+    rt_handle: &mut RuntimeHandle<StdState<C, BytesContext, BytesInput, OC, SC>, SimpleWorker>,
+    state: &mut StdState<C, BytesContext, BytesInput, OC, SC>,
 ) -> Result<()>
 where
     C: Corpus<BytesInput>,
@@ -157,11 +157,12 @@ pub fn main() -> Result<()> {
 
         // create a State from scratch
         StdState::new(
+            BytesContext,
             // Corpus that will be evolved, we keep it in memory for performance
-            InMemoryCorpus::new(BytesContext, scheduler),
+            InMemoryCorpus::new(scheduler),
             // Corpus in which we store solutions (crashes in this example),
             // on disk so the user can get them after stopping the fuzzer
-            OnDiskCorpus::new(crash_dir, BytesContext, NopScheduler).unwrap(),
+            OnDiskCorpus::new(crash_dir, NopScheduler).unwrap(),
         )
     };
 

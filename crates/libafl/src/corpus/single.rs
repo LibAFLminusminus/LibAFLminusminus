@@ -2,27 +2,27 @@
 //!
 //! A [`SingleCorpus`] owns a single store, in which every testcase is added.
 
-use alloc::{rc::Rc, vec::Vec};
+use alloc::vec::Vec;
 use core::marker::PhantomData;
 
-use libafl_bolts::Error;
+use libafl_core::Result;
 use serde::{Deserialize, Serialize};
 
 use super::{Corpus, Testcase, store::Store};
 use crate::{
     DependencyResolver,
     corpus::{
-        Scheduler, schedulers::RemovableScheduler, store::StorageResult, testcase::TestcaseId,
+        DisableEntry, Scheduler, schedulers::RemovableScheduler, store::StorageResult,
+        testcase::TestcaseId,
     },
-    inputs::{Input, InputContext},
+    inputs::Input,
     states::HasScheduler,
 };
 
 /// You average corpus.
 /// It has one backing store, used to store / retrieve testcases.
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct SingleCorpus<CT, I, S, SC> {
-    context: CT,
+pub struct SingleCorpus<I, S, SC> {
     /// The backing testcase store
     store: S,
     /// The scheduler
@@ -34,11 +34,10 @@ pub struct SingleCorpus<CT, I, S, SC> {
     phantom: PhantomData<I>,
 }
 
-impl<CT, I, S, SC> SingleCorpus<CT, I, S, SC> {
+impl<I, S, SC> SingleCorpus<I, S, SC> {
     /// Create a new [`SingleCorpus`]
-    pub fn new(context: CT, store: S, scheduler: SC) -> Self {
+    pub fn new(store: S, scheduler: SC) -> Self {
         Self {
-            context,
             store,
             scheduler,
             keys: Vec::default(),
@@ -48,14 +47,9 @@ impl<CT, I, S, SC> SingleCorpus<CT, I, S, SC> {
     }
 }
 
-pub trait DisableEntry {
-    /// Disable a corpus entry
-    fn disable(&mut self, id: &TestcaseId) -> Result<(), Error>;
-}
+impl<I, S, SC> DependencyResolver for SingleCorpus<I, S, SC> {}
 
-impl<CT, I, S, SC> DependencyResolver for SingleCorpus<CT, I, S, SC> {}
-
-impl<CT, I, S, SC> HasScheduler for SingleCorpus<CT, I, S, SC>
+impl<I, S, SC> HasScheduler for SingleCorpus<I, S, SC>
 where
     SC: Scheduler,
 {
@@ -70,15 +64,12 @@ where
     }
 }
 
-impl<CT, I, S, SC> Corpus<I> for SingleCorpus<CT, I, S, SC>
+impl<I, S, SC> Corpus<I> for SingleCorpus<I, S, SC>
 where
-    CT: InputContext<I>,
     I: Input,
     S: Store<I>,
     SC: Scheduler,
 {
-    type Context = CT;
-
     fn count(&self) -> usize {
         self.store.count()
     }
@@ -91,10 +82,7 @@ where
         self.store.count_all()
     }
 
-    fn add_shared<const ENABLED: bool>(
-        &mut self,
-        testcase: Testcase<I>,
-    ) -> Result<TestcaseId, Error> {
+    fn add_shared<const ENABLED: bool>(&mut self, testcase: Testcase<I>) -> Result<TestcaseId> {
         let id = match self.store.add_shared::<ENABLED>(testcase)? {
             StorageResult::Stored(id) => {
                 self.scheduler.on_add(id)?;
@@ -107,25 +95,17 @@ where
     }
 
     /// Get testcase by id
-    fn get_from<const ENABLED: bool>(&self, id: &TestcaseId) -> Result<Testcase<I>, Error> {
+    fn get_from<const ENABLED: bool>(&self, id: &TestcaseId) -> Result<Testcase<I>> {
         self.store.get_from::<ENABLED>(id)
-    }
-
-    fn context(&self) -> &CT {
-        &self.context
-    }
-
-    fn context_mut(&mut self) -> &mut CT {
-        &mut self.context
     }
 }
 
-impl<CT, I, S, SC> DisableEntry for SingleCorpus<CT, I, S, SC>
+impl<I, S, SC> DisableEntry for SingleCorpus<I, S, SC>
 where
     S: Store<I>,
     SC: RemovableScheduler<I, S>,
 {
-    fn disable(&mut self, id: &TestcaseId) -> Result<(), Error> {
+    fn disable(&mut self, id: &TestcaseId) -> Result<()> {
         self.store.disable(id)
     }
 }

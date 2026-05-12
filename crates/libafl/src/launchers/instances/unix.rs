@@ -1,13 +1,8 @@
+//! Unix instance
+
+use alloc::vec::Vec;
 use core::{borrow::Borrow, hash::Hash, time::Duration};
-use std::{
-    collections::HashSet,
-    fs::File,
-    os::fd::{AsFd, OwnedFd},
-    process::exit,
-    thread::sleep,
-    time::Instant,
-    vec::Vec,
-};
+use std::{collections::HashSet, os::fd::AsFd, process::exit};
 
 use libafl_bolts::core_affinity::CoreId;
 use nix::{
@@ -18,20 +13,25 @@ use nix::{
         signalfd::{SfdFlags, SignalFd},
         wait::{WaitPidFlag, WaitStatus, waitpid},
     },
-    unistd::{ForkResult, Pid, dup2_stderr, dup2_stdout, fork, getpid, getppid, pipe},
+    unistd::{ForkResult, Pid, fork, getpid, getppid},
 };
 
-use crate::{Controller, Error, Result, WorkdirFile, Worker, monitors::Monitor, runtimes::Runtime};
+use crate::{Controller, Error, Result, Worker, monitors::Monitor, runtimes::Runtime};
 
+/// An Instance ID, unique for each [`Instance`].
 pub type InstanceId = u32;
 
+/// An instance, owning a running [`Runtime`].
+#[derive(Debug)]
 pub struct Instance<RT, S, W> {
-    runtime: RT,
+    runtime: Option<RT>,
     state: Option<S>,
     worker: Option<W>,
     core: CoreId,
 }
 
+/// An [`Instance`] representation, used to identify an instance.
+#[derive(Debug)]
 pub struct InstanceRepr<D> {
     // the PID of the instance
     pid: Pid,
@@ -39,9 +39,10 @@ pub struct InstanceRepr<D> {
     descriptor: D,
 }
 
-// for now, this is unix-specific.
-// it should be per supported os.
-// keep os-specific things there as much as possible.
+/// A collection of [`Instance`]s.
+///
+/// It should contain all the instances being run.
+#[derive(Debug)]
 pub struct Instances<D, RT, S, W> {
     instances: Vec<Instance<RT, S, W>>,
     active_instances: HashSet<InstanceRepr<D>>,
@@ -96,7 +97,7 @@ where
                 worker.pre_runtime_exec()?;
 
                 // start the child runtime
-                self.runtime.run(state, worker)?;
+                self.runtime.take().expect("The instance runtime has already been consumed. A runtime can be run only once.").run(state, worker)?;
 
                 // TODO: what should we do there in case it happens?
                 // i'll panic for now, but it's not the right solution
@@ -106,7 +107,15 @@ where
     }
 }
 
+impl<D, RT, S, W> Default for Instances<D, RT, S, W> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<D, RT, S, W> Instances<D, RT, S, W> {
+    /// Create a new [`Instances`] collection.
+    #[must_use]
     pub fn new() -> Self {
         Self {
             instances: Vec::new(),
@@ -114,6 +123,7 @@ impl<D, RT, S, W> Instances<D, RT, S, W> {
         }
     }
 
+    /// Add an [`Instance`] to the collection.
     pub fn add_instance(&mut self, instance: Instance<RT, S, W>) {
         self.instances.push(instance);
     }
@@ -124,6 +134,7 @@ where
     W: Worker,
     RT: Runtime<S, W> + 'static,
 {
+    /// Spawn all [`Instance`]s being owned by [`Self`].
     pub fn spawn_instances<CT>(&mut self, controller: &mut CT) -> Result<()>
     where
         CT: Controller<Worker = W, Descriptor = D>,
@@ -138,6 +149,9 @@ where
         Ok(())
     }
 
+    /// Wait that all [`Instance`]s being owned by [`Self`] end.
+    ///
+    /// It MUST be run after calling [`Self::spawn_instances`].
     pub fn wait_instances<CT, MT>(
         &mut self,
         controller: &mut CT,
@@ -167,14 +181,11 @@ where
 
             let mut fds = [PollFd::new(sfd.as_fd(), PollFlags::POLLIN)];
             match poll(&mut fds, poll_timeout) {
-                Err(nix::errno::Errno::EINTR) => {
-                    // Interrupted by a signal unrelated to SIGCHLD; retry.
+                Err(nix::errno::Errno::EINTR) | Ok(0) => {
+                    // Interrupted by signal or timed out; retry.
                 }
                 Err(e) => return Err(Error::runtime(format!("poll failed: {e}"))),
-                Ok(0) => {
-                    // poll timed out. loop over.
-                }
-                Ok(n) => {
+                Ok(_) => {
                     // consume the pending signals
                     while matches!(sfd.read_signal(), Ok(Some(_))) {}
 
@@ -197,7 +208,7 @@ where
     {
         loop {
             match waitpid(Pid::from_raw(-1), Some(WaitPidFlag::WNOHANG)) {
-                Ok(WaitStatus::StillAlive) => break,
+                Ok(WaitStatus::StillAlive) | Err(nix::errno::Errno::ECHILD) => break,
                 Ok(WaitStatus::Exited(pid, exit_code)) => {
                     log::info!("Worker with PID {pid} exited with exit code {exit_code}");
 
@@ -219,7 +230,6 @@ where
                     controller.on_worker_termination(&instance_repr.descriptor, signal)?;
                 }
                 Ok(_) => {}
-                Err(nix::errno::Errno::ECHILD) => break,
                 Err(e) => return Err(Error::runtime(format!("waitpid failed: {e}"))),
             }
         }
@@ -228,6 +238,7 @@ where
 }
 
 impl<D> InstanceRepr<D> {
+    /// Create a new [`Instance`] representant.
     pub fn new(pid: Pid, descriptor: D) -> Self {
         Self { pid, descriptor }
     }
@@ -254,9 +265,10 @@ impl<D> Hash for InstanceRepr<D> {
 }
 
 impl<RT, S, W> Instance<RT, S, W> {
+    /// Create a new instance.
     pub fn new(runtime: RT, state: S, worker: W, core: CoreId) -> Self {
         Self {
-            runtime,
+            runtime: Some(runtime),
             state: Some(state),
             worker: Some(worker),
             core,

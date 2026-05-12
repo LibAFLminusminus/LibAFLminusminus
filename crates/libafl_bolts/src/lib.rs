@@ -168,6 +168,26 @@ use log::{Metadata, Record};
 #[cfg(feature = "xxh3")]
 use xxhash_rust::xxh3::xxh3_64;
 
+/// Unwrap a type (most likely an [`Option`]),
+/// and check the inner object is present only in `Debug` mode.
+pub trait DebugUnwrap {
+    /// The inner object type
+    type Output;
+
+    /// Unwrap the inner object, and check it is present only in `Debug` mode.
+    /// In `Release` mode, the inner object gets accessed without any check.
+    unsafe fn unwrap_debug(self) -> Self::Output;
+}
+
+impl<T> DebugUnwrap for Option<T> {
+    type Output = T;
+
+    unsafe fn unwrap_debug(self) -> Self::Output {
+        debug_assert!(self.is_some());
+        unsafe { self.unwrap_unchecked() }
+    }
+}
+
 /// Returns the standard input [`Hasher`]
 ///
 /// Returns the hasher for the input with a given hash, depending on features:
@@ -575,7 +595,7 @@ pub unsafe fn set_error_print_panic_hook(new_stderr: RawFd) {
     // Make sure potential errors get printed to the correct (non-closed) stderr
     panic::set_hook(Box::new(move |panic_info| {
         let mut f = unsafe { File::from_raw_fd(new_stderr) };
-        writeln!(f, "{panic_info}",)
+        writeln!(f, "{panic_info}")
             .unwrap_or_else(|err| println!("Failed to log to fd {new_stderr}: {err}"));
         mem::forget(f);
     }));
@@ -656,7 +676,7 @@ pub mod pybind {
             match &$wrapper {
                 $(
                     $wrapper_type::$wrapper_option(py_wrapper) => {
-                        Python::with_gil(|py| -> PyResult<_> {
+                        Python::attach(|py| -> PyResult<_> {
                             let borrowed = py_wrapper.borrow(py);
                             let $name = &borrowed.inner;
                             Ok($body)
@@ -670,7 +690,7 @@ pub mod pybind {
             match &$wrapper {
                 $(
                     $wrapper_type::$wrapper_option(py_wrapper) => {
-                        Python::with_gil(|py| -> PyResult<_> {
+                        Python::attach(|py| -> PyResult<_> {
                             let borrowed = py_wrapper.borrow(py);
                             let $name = &borrowed.inner;
                             Ok($body)
@@ -697,7 +717,7 @@ pub mod pybind {
                     where
                         S: Serializer,
                     {
-                        let buf = Python::with_gil(|py| -> PyResult<Vec<u8>> {
+                        let buf = Python::attach(|py| -> PyResult<Vec<u8>> {
                             let pickle = PyModule::import(py, "pickle")?;
                             let buf: Vec<u8> =
                                 pickle.getattr("dumps")?.call1((&self.$inner,))?.extract()?;
@@ -722,9 +742,9 @@ pub mod pybind {
                     where
                         E: serde::de::Error,
                     {
-                        let obj = Python::with_gil(|py| -> PyResult<PyObject> {
+                        let obj = Python::attach(|py| -> PyResult<PyObject> {
                             let pickle = PyModule::import(py, "pickle")?;
-                            let obj = pickle.getattr("loads")?.call1((v,))?.to_object(py);
+                            let obj = pickle.getattr("loads")?.call1((v,))?.unbind();
                             Ok(obj)
                         })
                         .unwrap();

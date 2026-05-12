@@ -1,6 +1,6 @@
 //! Map feedback, maximizing or minimizing maps, for example the afl-style map observer.
 
-use alloc::{borrow::Cow, string::ToString, vec::Vec};
+use alloc::{borrow::Cow, vec::Vec};
 use core::{
     fmt::Debug,
     marker::PhantomData,
@@ -19,16 +19,15 @@ use libafl_bolts::{
     simd::{MaxReducer, NopReducer, Reducer},
     tuples::{Handle, Handled, MatchName, MatchNameRef},
 };
+use libafl_core::Result;
 use num_traits::PrimInt;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 #[cfg(feature = "simd")]
 use super::simd::SimdMapFeedback;
-#[cfg(feature = "track_hit_feedbacks")]
-use crate::feedbacks::premature_last_result_err;
 use crate::{
-    DependencyResolver, Error,
-    corpus::{Testcase, TestcaseId},
+    DependencyResolver,
+    corpus::TestcaseId,
     executors::ExitKind,
     feedbacks::{Feedback, HasObserverHandle},
     observers::MapObserver,
@@ -155,15 +154,17 @@ where
 
 /// A testcase metadata holding a list of indexes of a map
 #[derive(Debug, Serialize, Deserialize)]
-#[expect(clippy::unsafe_derive_deserialize)] // for SerdeAny
 pub struct MapIndexes {
+    /// The actual list.
     pub list: Vec<usize>,
     /// A refcount used to know when we can remove this metadata
     pub tcref: isize,
 }
 
+/// A metadata mapping [`Testcase`]s to their respective [`MapIndexes`].
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct MapIndexesMetadata {
+    /// The actual map.
     pub data: HashMap<TestcaseId, MapIndexes>,
 }
 
@@ -204,7 +205,6 @@ impl MapIndexes {
 
 /// A testcase metadata holding a list of indexes of a map
 #[derive(Debug, Serialize, Deserialize)]
-#[expect(clippy::unsafe_derive_deserialize)] // for SerdeAny
 pub struct MapNoveltiesMetadata {
     /// A `list` of novelties.
     pub list: Vec<usize>,
@@ -237,7 +237,6 @@ impl MapNoveltiesMetadata {
 
 /// The state of [`MapFeedback`]
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
-#[expect(clippy::unsafe_derive_deserialize)] // for SerdeAny
 pub struct MapFeedbackMetadata<T> {
     /// Contains information about untouched entries
     pub history_map: Vec<T>,
@@ -278,7 +277,7 @@ where
     }
 
     /// Reset the map
-    pub fn reset(&mut self) -> Result<(), Error> {
+    pub fn reset(&mut self) -> Result<()> {
         let cnt = self.history_map.len();
         for i in 0..cnt {
             self.history_map[i] = T::default();
@@ -288,7 +287,7 @@ where
     }
 
     /// Reset the map with any value
-    pub fn reset_with_value(&mut self, value: T) -> Result<(), Error> {
+    pub fn reset_with_value(&mut self, value: T) -> Result<()> {
         let cnt = self.history_map.len();
         for i in 0..cnt {
             self.history_map[i] = value;
@@ -307,11 +306,6 @@ pub struct MapFeedback<C, N, O, R> {
     name: Cow<'static, str>,
     /// Name identifier of the observer
     map_ref: Handle<C>,
-    /// Name of the feedback as shown in the `UserStats`
-    stats_name: Cow<'static, str>,
-    // The previous run's result of [`Self::is_interesting`]
-    #[cfg(feature = "track_hit_feedbacks")]
-    pub(crate) last_result: Option<bool>,
     /// Phantom Data of Reducer
     #[expect(clippy::type_complexity)]
     phantom: PhantomData<fn() -> (N, O, R)>,
@@ -322,8 +316,8 @@ where
     O: MapObserver,
     O::Entry: 'static + Default + Debug + DeserializeOwned + Serialize,
 {
-    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<(), Error> {
-        registrator.register_md_default::<MapFeedbackMetadata<O::Entry>>(self.name().to_string());
+    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<()> {
+        registrator.register_md_default::<MapFeedbackMetadata<O::Entry>>(self.name());
         Ok(())
     }
 }
@@ -344,31 +338,22 @@ where
         _input: &I,
         observers: &OT,
         _exit_kind: &ExitKind,
-    ) -> Result<bool, Error> {
+    ) -> Result<bool> {
         let res = self.is_interesting_default(state, observers);
 
-        #[cfg(feature = "track_hit_feedbacks")]
-        {
-            self.last_result = Some(res);
-        }
         Ok(res)
-    }
-
-    #[cfg(feature = "track_hit_feedbacks")]
-    fn last_result(&self) -> Result<bool, Error> {
-        self.last_result.ok_or(premature_last_result_err())
     }
 
     fn append_metadata(
         &mut self,
         state: &mut S,
         observers: &OT,
-        testcase_id: &TestcaseId,
-    ) -> Result<(), Error> {
+        _testcase_id: &TestcaseId,
+    ) -> Result<()> {
         let observer = observers.get(&self.map_ref).expect("MapObserver not found. This is likely because you entered the crash handler with the wrong executor/observer").as_ref();
         let initial = observer.initial();
         let map_state = state
-            .named_metadata_map_mut()
+            .metadata_map_mut()
             .get_mut::<MapFeedbackMetadata<O::Entry>>(&self.name)
             .unwrap();
         let len = observer.len();
@@ -413,15 +398,6 @@ impl<C, N, O, R> Named for MapFeedback<C, N, O, R> {
     }
 }
 
-#[expect(clippy::ptr_arg)]
-fn create_stats_name(name: &Cow<'static, str>) -> Cow<'static, str> {
-    if name.chars().all(char::is_lowercase) {
-        name.clone()
-    } else {
-        name.to_lowercase().into()
-    }
-}
-
 impl<C, N, O, R> MapFeedback<C, N, O, R>
 where
     C: AsRef<O> + Named,
@@ -432,9 +408,6 @@ where
         Self {
             name: map_observer.name().clone(),
             map_ref: map_observer.handle(),
-            stats_name: create_stats_name(map_observer.name()),
-            #[cfg(feature = "track_hit_feedbacks")]
-            last_result: None,
             phantom: PhantomData,
         }
     }
@@ -447,10 +420,7 @@ where
         let name = Cow::from(name);
         Self {
             map_ref: map_observer.handle(),
-            stats_name: create_stats_name(&name),
             name,
-            #[cfg(feature = "track_hit_feedbacks")]
-            last_result: None,
             phantom: PhantomData,
         }
     }
@@ -483,7 +453,7 @@ where
         let observer = observers.get(&self.map_ref).unwrap().as_ref();
 
         let map_state = state
-            .named_metadata_map_mut()
+            .metadata_map_mut()
             .get_mut::<MapFeedbackMetadata<O::Entry>>(&self.name)
             .unwrap();
         let len = observer.len();

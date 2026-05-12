@@ -19,7 +19,7 @@ use crate::{
 ///
 /// This stage can be used to construct black-box (e.g., grammar-based) fuzzers.
 #[derive(Debug)]
-pub struct GenStage<G, I>(G, PhantomData<(I)>);
+pub struct GenStage<G, I>(G, PhantomData<I>);
 
 impl<G, I> GenStage<G, I> {
     /// Create a new [`GenStage`].
@@ -43,7 +43,7 @@ where
         rand: &mut R,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
-        testcase_id: &TestcaseId,
+        _testcase_id: &TestcaseId,
     ) -> Result<(), Error> {
         let input = self.0.generate(rand, state)?;
         fuzzer.evaluate_input(state, executor, rt_handle, &input)?;

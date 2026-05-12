@@ -1,26 +1,24 @@
 //! SIMD accelerated map feedback with stable Rust.
 
 use alloc::borrow::Cow;
-#[cfg(feature = "track_hit_feedbacks")]
-use alloc::vec::Vec;
 use core::{
     fmt::Debug,
     marker::PhantomData,
     ops::{Deref, DerefMut},
 };
-use std::string::ToString;
 
 use libafl_bolts::{
-    AsIter, AsSlice, Error, Named,
+    AsIter, AsSlice, Named,
     simd::{Reducer, SimdReducer, VectorType, covmap_is_interesting_simd},
     tuples::{Handle, MatchName, MatchNameRef},
 };
+use libafl_core::Result;
 use serde::{Serialize, de::DeserializeOwned};
 
 use super::{DifferentIsNovel, Feedback, HasObserverHandle, MapFeedback};
 use crate::{
     common::DependencyResolver,
-    corpus::{Testcase, TestcaseId},
+    corpus::TestcaseId,
     executors::ExitKind,
     feedbacks::MapFeedbackMetadata,
     observers::MapObserver,
@@ -54,7 +52,7 @@ where
         let observer = observers.get(self.map.observer_handle()).expect("MapObserver not found. This is likely because you entered the crash handler with the wrong executor/observer").as_ref();
 
         let map_state = state
-            .named_metadata_map_mut()
+            .metadata_map_mut()
             .get_mut::<MapFeedbackMetadata<u8>>(self.map.name())
             .unwrap();
         let size = observer.usable_count();
@@ -68,12 +66,7 @@ where
 
         let history_map = map_state.history_map.as_slice();
 
-        let interesting = unsafe { covmap_is_interesting_simd::<R, V>(history_map, &map) };
-        #[cfg(feature = "track_hit_feedbacks")]
-        {
-            self.last_result = Some(interesting);
-        }
-        interesting
+        unsafe { covmap_is_interesting_simd::<R, V>(history_map, &map) }
     }
 }
 
@@ -151,8 +144,8 @@ where
     O::Entry: 'static + Default + Debug + DeserializeOwned + Serialize,
     R: SimdReducer<V>,
 {
-    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<(), Error> {
-        registrator.register_md_default::<MapFeedbackMetadata<u8>>("MapFeedback".to_string());
+    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<()> {
+        registrator.register_md_default::<MapFeedbackMetadata<u8>>("MapFeedback");
 
         self.map.register(registrator)
     }
@@ -197,29 +190,9 @@ where
         _input: &I,
         observers: &OT,
         _exit_kind: &ExitKind,
-    ) -> Result<bool, Error> {
+    ) -> Result<bool> {
         let res = self.is_interesting_u8_simd_optimized(state, observers);
         Ok(res)
-    }
-
-    #[cfg(feature = "track_hit_feedbacks")]
-    fn last_result(&self) -> Result<bool, Error> {
-        // cargo +nightly doc asks so
-        <MapFeedback<C, DifferentIsNovel, O, <R as SimdReducer<V>>::PrimitiveReducer> as Feedback<
-            I,
-            OT,
-            S,
-        >>::last_result(&self.map)
-    }
-
-    #[cfg(feature = "track_hit_feedbacks")]
-    fn append_hit_feedbacks(&self, list: &mut Vec<Cow<'static, str>>) -> Result<(), Error> {
-        // cargo +nightly doc asks so
-        <MapFeedback<C, DifferentIsNovel, O, <R as SimdReducer<V>>::PrimitiveReducer> as Feedback<
-            I,
-            OT,
-            S,
-        >>::append_hit_feedbacks(&self.map, list)
     }
 
     #[inline]
@@ -228,7 +201,7 @@ where
         state: &mut S,
         observers: &OT,
         testcase_id: &TestcaseId,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         self.map.append_metadata(state, observers, testcase_id)
     }
 }

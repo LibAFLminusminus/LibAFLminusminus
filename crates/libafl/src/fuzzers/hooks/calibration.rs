@@ -1,31 +1,30 @@
+//! [`CalibrationHook`] calibrates a [`Testcase`] and appends the metadata related to the testcase to the state
+//!
+//! This is useful in a couple of scenarios, such as when you want to measure the target unstability or you want to use power schedules.
+
+use alloc::{borrow::Cow, string::ToString, vec::Vec};
+use core::{marker::PhantomData, time::Duration};
+
+use hashbrown::HashSet;
+use libafl_bolts::{Named, current_time, impl_serdeany, tuples::Handle};
+use libafl_core::illegal_state;
+use num_traits::Bounded;
+use serde::{Deserialize, Serialize};
+
 use crate::{
-    DependencyResolver, Error, Result, Worker,
-    corpus::{Corpus, Testcase},
+    DependencyResolver, Error, Result, TestcasePowerScheduleData, Verdict, Worker,
+    common::PowerScheduleData,
+    corpus::{Corpus, Scheduler, Testcase},
     executors::Executor,
     feedbacks::{HasObserverHandle, MapFeedbackMetadata},
     fuzzers::{ExitKind, FuzzerHook},
     inputs::Input,
     observers::{MapObserver, ObserversTuple},
-    states::{FlatState, HasCorpus, named_metadata_mut},
+    states::{FlatState, HasCorpus, HasScheduler, named_metadata_mut, unnamed_metadata_mut},
 };
-use alloc::{
-    borrow::{Cow, ToOwned},
-    string::ToString,
-    vec::Vec,
-};
-use core::{marker::PhantomData, time::Duration};
-use hashbrown::HashSet;
-use libafl_bolts::{Named, current_time, impl_serdeany, tuples::Handle};
-use num_traits::Bounded;
-use serde::{Deserialize, Serialize};
 
-/// AFL++'s `CAL_CYCLES_FAST` + 1
-const CAL_STAGE_START: usize = 4;
 /// AFL++'s `CAL_CYCLES` + 1
 const CAL_STAGE_MAX: usize = 8;
-
-/// Default name for `CalibrationStage`; derived from AFL++
-pub const CALIBRATION_STAGE_NAME: &str = "calibration";
 
 /// The metadata to keep unstable entries
 /// Formula is same as AFL++: number of unstable entries divided by the number of filled entries.
@@ -94,6 +93,8 @@ where
     Ok((exit_kind, duration))
 }
 
+/// [`CalibrationHook`] will calibrate the testcase and attaches metadata for measuring the unstability and power schedule metadata.
+#[derive(Debug)]
 pub struct CalibrationHook<C, O> {
     /// the maximum number of times that we execute the harness for executions.
     stage_max: usize,
@@ -105,12 +106,13 @@ pub struct CalibrationHook<C, O> {
 
 impl<C, O> DependencyResolver for CalibrationHook<C, O> {
     fn register(&mut self, registrator: &mut crate::Registrator) -> Result<()> {
-        registrator.register_md_default::<UnstableEntriesMetadata>(self.name().to_string());
+        registrator.register_md_default::<UnstableEntriesMetadata>(self.name());
         Ok(())
     }
 }
 
 impl<C, O> CalibrationHook<C, O> {
+    /// Construct a new [`struct@CalibrationHook`]
     pub fn new<F>(map_feedback: &F) -> Self
     where
         F: HasObserverHandle<Observer = C> + Named,
@@ -125,9 +127,8 @@ impl<C, O> CalibrationHook<C, O> {
         }
     }
 }
-/// Default name prefix for `CalibrationHook`; derived from AFL++
-pub const CALIBRATION_HOOK_NAME: &str = "calibration";
 
+/// The float value representing the target's stability
 #[derive(Debug, Serialize, Deserialize)]
 pub struct StabilityValue(f64);
 
@@ -150,12 +151,14 @@ where
     S: HasCorpus<I> + FlatState,
     W: Worker,
 {
+    #[expect(clippy::cast_precision_loss)]
     fn post_add(
         &mut self,
         executor: &mut E,
         state: &mut S,
         rt_handle: &mut crate::runtimes::RuntimeHandle<S, W>,
         testcase_id: crate::corpus::TestcaseId,
+        _verdict: Verdict,
     ) -> Result<()> {
         let testcase = state.corpus().get(&testcase_id)?;
 
@@ -165,7 +168,7 @@ where
         let observers = &executor.observers();
         let map_first = observers[&self.map_observer_handle].as_ref();
         let map_first_filled_count = match state
-            .named_metadata_map()
+            .metadata_map()
             .get::<MapFeedbackMetadata<O::Entry>>(&self.map_name)
         {
             Some(metadata) => metadata.num_covered_map_indexes,
@@ -201,7 +204,7 @@ where
                     .to_vec();
 
                 let map_state = state
-                    .named_metadata_map_mut()
+                    .metadata_map_mut()
                     .get_mut::<MapFeedbackMetadata<O::Entry>>(&self.map_name)
                     .unwrap();
                 let history_map = &mut map_state.history_map;
@@ -235,7 +238,7 @@ where
         let unstable_found = !unstable_entries.is_empty();
         let stability = if unstable_found {
             let metadata = named_metadata_mut::<UnstableEntriesMetadata>(
-                state.named_metadata_map_mut(),
+                state.metadata_map_mut(),
                 self.name(),
             )?;
 
@@ -258,6 +261,50 @@ where
             .stats_mut()
             .user_map
             .insert("stability", StabilityValue(stability));
+
+        if state.has_md::<PowerScheduleData>() {
+            let current = state.corpus().scheduler().current();
+            let psdata = unnamed_metadata_mut::<PowerScheduleData>(state.metadata_map_mut())?;
+
+            let observers = executor.observers();
+            let map = observers[&self.map_observer_handle].as_ref();
+            let bitmap_size = map.count_bytes();
+
+            if bitmap_size < 1 {
+                return Err(Error::invalid_corpus(
+                    "This testcase does not trigger any edges. Check your instrumentation!"
+                        .to_string(),
+                ));
+            }
+
+            let handicap = psdata.queue_cycles();
+
+            // setting global power schedule data
+            psdata.set_exec_time(psdata.exec_time() + total_time);
+            psdata.set_cycles(psdata.cycles() + (iter as u64));
+            psdata.set_bitmap_size(psdata.bitmap_size() + bitmap_size);
+            psdata.set_bitmap_size_log(psdata.bitmap_size_log() + libm::log2(bitmap_size as f64));
+            psdata.set_bitmap_entries(psdata.bitmap_entries() + 1);
+
+            let depth = match current {
+                Some(parent) => {
+                    let other_meta = psdata.per_testcase_data(parent).ok_or(illegal_state!(
+                        "Child testcase referring to a non-existent testcase?"
+                    ))?;
+                    other_meta.depth() + 1
+                }
+                None => 0, // this is the seed
+            };
+
+            let mut new_data = TestcasePowerScheduleData::new(depth);
+
+            new_data.set_exec_time(total_time / (iter as u32));
+            new_data.set_cycle_and_time((total_time, iter));
+            new_data.set_bitmap_size(bitmap_size);
+            new_data.set_handicap(handicap);
+
+            psdata.insert_testcase_data(testcase_id, new_data);
+        }
 
         Ok(())
     }

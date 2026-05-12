@@ -1,21 +1,8 @@
-use alloc::{string::String, vec::Vec};
-use core::{fmt, time::Duration};
-use std::{
-    fs,
-    path::{Path, PathBuf},
-    thread::current,
-};
+//! Module defining [`Monitor`]s.
 
-use libafl_bolts::{Error, current_time};
-use nix::sys::ptrace::interrupt;
-use serde::{Deserialize, Serialize};
+use libafl_bolts::Result;
 
-use crate::{
-    Controller, Worker,
-    fuzzers::HasObjective,
-    runtimes::RuntimeHandle,
-    states::{FlatState, read_stats_json},
-};
+use crate::Controller;
 
 pub mod simple;
 pub use simple::SimpleMonitor;
@@ -25,10 +12,11 @@ pub mod web;
 #[cfg(feature = "web_monitor")]
 pub use web::WebMonitor;
 
+/// This module can show the fuzzer stats to the user via vairous way. like through the terminal or `WebUI` (WIP!)
 pub trait Monitor {
     /// Display tick.
     ///
     /// This will be called regularly by the launcher to let the Monitor update its state
     /// and display updated information
-    fn display<CT: Controller>(&mut self, controller: &mut CT) -> Result<(), Error>;
+    fn display<CT: Controller>(&mut self, controller: &mut CT) -> Result<()>;
 }

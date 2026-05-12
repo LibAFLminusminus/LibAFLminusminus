@@ -1,6 +1,6 @@
-use core::time::Duration;
+//! The module for the [`SimpleRuntime`].
 
-use libafl_core::Error;
+use libafl_core::Result;
 
 use crate::{
     DependencyResolver,
@@ -14,6 +14,7 @@ pub struct SimpleRuntime<T> {
 }
 
 impl<T> SimpleRuntime<T> {
+    /// Create a new [`SimpleRuntime`]
     pub fn new(task: T) -> Self {
         Self { task }
     }
@@ -23,13 +24,9 @@ impl<T> DependencyResolver for SimpleRuntime<T> {}
 
 impl<S, T, W> Runtime<S, W> for SimpleRuntime<T>
 where
-    T: FnMut(&mut RuntimeHandle<S, W>, &mut S) -> Result<(), Error>,
+    T: FnMut(&mut RuntimeHandle<S, W>, &mut S) -> Result<()>,
 {
-    unsafe fn run_impl(
-        &mut self,
-        mut state: S,
-        rt_handle: &mut RuntimeHandle<S, W>,
-    ) -> Result<(), Error> {
+    unsafe fn run_impl(mut self, mut state: S, rt_handle: &mut RuntimeHandle<S, W>) -> Result<()> {
         (self.task)(rt_handle, &mut state)
     }
 }

@@ -7,12 +7,13 @@ use libafl_bolts::{
     Named, impl_serdeany,
     tuples::{Handle, Handled, MatchName, MatchNameRef},
 };
+use libafl_core::Result;
 use serde::{Deserialize, Serialize};
 
 use crate::{
     Error,
     common::DependencyResolver,
-    corpus::{Testcase, TestcaseId},
+    corpus::TestcaseId,
     feedbacks::Feedback,
     observers::{StdErrObserver, StdOutObserver},
     states::{FlatState, HasTestcase},
@@ -53,11 +54,6 @@ where
     OT: MatchName,
     S: HasTestcase<I> + FlatState,
 {
-    #[cfg(feature = "track_hit_feedbacks")]
-    fn last_result(&self) -> Result<bool, Error> {
-        Ok(false)
-    }
-
     /// Append to the testcase the generated metadata in case of a new corpus item.
     #[inline]
     fn append_metadata(
@@ -65,7 +61,7 @@ where
         state: &mut S,
         observers: &OT,
         testcase_id: &TestcaseId,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         let observer = observers
             .get(&self.o_ref)
             .ok_or_else(|| Error::illegal_state("StdOutObserver is missing"))?;
@@ -75,8 +71,8 @@ where
             .ok_or_else(|| Error::illegal_state("StdOutObserver has no stdout"))?;
         let stdout = String::from_utf8_lossy(buffer).into_owned();
         state
-            .named_metadata_map_mut()
-            .get_mut::<StdOutMetadata>(&self.name())
+            .metadata_map_mut()
+            .get_mut::<StdOutMetadata>(self.name())
             .unwrap()
             .stdout
             .insert(*testcase_id, stdout);
@@ -110,11 +106,6 @@ where
     OT: MatchName,
     S: HasTestcase<I> + FlatState,
 {
-    #[cfg(feature = "track_hit_feedbacks")]
-    fn last_result(&self) -> Result<bool, Error> {
-        Ok(false)
-    }
-
     /// Append to the testcase the generated metadata in case of a new corpus item.
     #[inline]
     fn append_metadata(
@@ -122,7 +113,7 @@ where
         state: &mut S,
         observers: &OT,
         testcase_id: &TestcaseId,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         let observer = observers
             .get(&self.o_ref)
             .ok_or_else(|| Error::illegal_state("StdErrObserver is missing"))?;
@@ -132,8 +123,8 @@ where
             .ok_or_else(|| Error::illegal_state("StdErrObserver has no stderr"))?;
         let stderr = String::from_utf8_lossy(buffer).into_owned();
         state
-            .named_metadata_map_mut()
-            .get_mut::<StdErrMetadata>(&self.name())
+            .metadata_map_mut()
+            .get_mut::<StdErrMetadata>(self.name())
             .unwrap()
             .stderr
             .insert(*testcase_id, stderr);

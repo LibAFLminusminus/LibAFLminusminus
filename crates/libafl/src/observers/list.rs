@@ -1,3 +1,4 @@
+//! The observer for observing the value in a [`Vec`]
 use alloc::{borrow::Cow, vec::Vec};
 use core::fmt::Debug;
 
@@ -16,7 +17,7 @@ pub struct ListObserver<T> {
 }
 
 impl<T> ListObserver<T> {
-    /// Creates a new [`ListObserver`] with the given name.
+    /// Creates a new [`struct@ListObserver`] with the given name.
     ///
     /// # Safety
     /// Will dereference the list.
@@ -29,13 +30,13 @@ impl<T> ListObserver<T> {
         }
     }
 
-    /// Get a list ref
+    /// Get ref to the inner [`Self::list`]
     #[must_use]
     pub fn list(&self) -> &Vec<T> {
         self.list.as_ref()
     }
 
-    /// Get a list mut
+    /// Get mut ref to the inner [`Self::list`]
     #[must_use]
     pub fn list_mut(&mut self) -> &mut Vec<T> {
         self.list.as_mut()

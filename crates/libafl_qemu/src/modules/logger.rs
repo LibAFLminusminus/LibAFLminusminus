@@ -5,6 +5,7 @@
 
 use std::fmt::Debug;
 
+use libafl::Result;
 use libafl_qemu_sys::TCGTemp;
 
 use crate::{
@@ -222,7 +223,7 @@ impl LoggerModule<NopAddressFilter, NopPageFilter> {
 fn gen_logger_rw<ET, I, S, const IS_WRITE: bool>(
     _qemu: Qemu,
     _emulator_modules: &mut EmulatorModules<ET, I, S>,
-    _state: Option<&mut S>,
+    _state: &mut S,
     pc: GuestAddr,
     _addr: *mut TCGTemp,
     info: MemAccessInfo,
@@ -243,7 +244,7 @@ where
 fn exec_logger_rw<ET, I, S, const IS_WRITE: bool, const N: usize>(
     qemu: Qemu,
     emulator_modules: &mut EmulatorModules<ET, I, S>,
-    state: Option<&mut S>,
+    state: &mut S,
     id: u64,
     pc: GuestAddr,
     addr: GuestAddr,
@@ -258,7 +259,7 @@ fn exec_logger_rw<ET, I, S, const IS_WRITE: bool, const N: usize>(
 fn exec_logger_rw_n<ET, I, S, const IS_WRITE: bool>(
     _qemu: Qemu,
     _emulator_modules: &mut EmulatorModules<ET, I, S>,
-    _state: Option<&mut S>,
+    _state: &mut S,
     _id: u64,
     pc: GuestAddr,
     addr: GuestAddr,
@@ -285,7 +286,8 @@ where
         _qemu: Qemu,
         emulator_modules: &mut EmulatorModules<ET, I, S>,
         _state: &mut S,
-    ) where
+    ) -> Result<()>
+    where
         ET: EmulatorModuleTuple<I, S>,
     {
         if self.reads {
@@ -341,5 +343,7 @@ where
         if self.instruction.is_some() {
             todo!()
         }
+
+        Ok(())
     }
 }

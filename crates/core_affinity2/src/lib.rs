@@ -82,8 +82,7 @@ extern crate std;
 #[doc(hidden)]
 pub extern crate alloc;
 
-use alloc::vec::Vec;
-use std::{slice, vec};
+use alloc::{slice, vec, vec::Vec};
 
 use libafl_core::{Error, Result};
 use serde::{Deserialize, Serialize};
@@ -149,6 +148,7 @@ pub struct Cores {
 
 impl Cores {
     /// Create a list of [`CoreId`]
+    #[must_use]
     pub fn new(ids: Vec<CoreId>) -> Self {
         Self { ids }
     }
@@ -167,25 +167,29 @@ impl Cores {
     }
 
     /// Pick no core
+    #[must_use]
     pub fn none() -> Self {
         Self { ids: vec![] }
     }
 
     /// Pick core 0
+    #[must_use]
     pub fn one() -> Self {
         Self {
             ids: vec![CoreId(0)],
         }
     }
 
-    /// Pick cores in 0..nb_cores
+    /// Pick cores in `0..nb_cores`
+    #[must_use]
     pub fn first(nb_cores: usize) -> Self {
         Self {
-            ids: (0..nb_cores).into_iter().map(|idx| CoreId(idx)).collect(),
+            ids: (0..nb_cores).map(CoreId).collect(),
         }
     }
 
     /// Are there cores?
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.ids.is_empty()
     }
@@ -249,6 +253,11 @@ impl Cores {
         self.ids
             .iter()
             .position(|&cur_core_id| cur_core_id == core_id)
+    }
+
+    /// Cores iterator
+    pub fn iter(&self) -> slice::Iter<'_, CoreId> {
+        self.into_iter()
     }
 }
 

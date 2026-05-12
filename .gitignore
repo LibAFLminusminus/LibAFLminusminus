@@ -48,7 +48,6 @@ test.dict
 .idea/
 
 # Ignore all built fuzzers
-AFLplusplus
 !test_harness.cpp
 
 # Ignore common dummy and logfiles

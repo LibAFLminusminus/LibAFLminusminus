@@ -1,6 +1,6 @@
 use core::fmt::Debug;
 
-use libafl::{executors::ExitKind, observers::ObserversTuple};
+use libafl::{Result, executors::ExitKind, observers::ObserversTuple};
 use libafl_bolts::tuples::{MatchFirstType, SplitBorrowExtractFirstType};
 
 use crate::{
@@ -120,9 +120,11 @@ pub trait EmulatorModule<I, S>: 'static + Debug {
         _qemu: Qemu,
         _emulator_modules: &mut EmulatorModules<ET, I, S>,
         _state: &mut S,
-    ) where
+    ) -> Result<()>
+    where
         ET: EmulatorModuleTuple<I, S>,
     {
+        Ok(())
     }
 
     /// Run before a new fuzzing run starts.
@@ -133,9 +135,11 @@ pub trait EmulatorModule<I, S>: 'static + Debug {
         _emulator_modules: &mut EmulatorModules<ET, I, S>,
         _state: &mut S,
         _input: &I,
-    ) where
+    ) -> Result<()>
+    where
         ET: EmulatorModuleTuple<I, S>,
     {
+        Ok(())
     }
 
     /// Run after a fuzzing run ends.
@@ -147,21 +151,27 @@ pub trait EmulatorModule<I, S>: 'static + Debug {
         _input: &I,
         _observers: &mut OT,
         _exit_kind: &mut ExitKind,
-    ) where
-        OT: ObserversTuple<I, S>,
+    ) -> Result<()>
+    where
+        OT: ObserversTuple<S>,
         ET: EmulatorModuleTuple<I, S>,
     {
+        Ok(())
     }
 
     /// # Safety
     ///
     /// This is getting executed in a signal handler.
-    unsafe fn on_crash(&mut self) {}
+    unsafe fn on_crash(&mut self) -> Result<()> {
+        Ok(())
+    }
 
     /// # Safety
     ///
     /// This is getting executed in a signal handler.
-    unsafe fn on_timeout(&mut self) {}
+    unsafe fn on_timeout(&mut self) -> Result<()> {
+        Ok(())
+    }
 }
 
 pub trait EmulatorModuleTuple<I, S>:
@@ -188,7 +198,8 @@ pub trait EmulatorModuleTuple<I, S>:
         qemu: Qemu,
         emulator_modules: &mut EmulatorModules<ET, I, S>,
         state: &mut S,
-    ) where
+    ) -> Result<()>
+    where
         ET: EmulatorModuleTuple<I, S>;
 
     fn pre_exec_all<ET>(
@@ -197,7 +208,8 @@ pub trait EmulatorModuleTuple<I, S>:
         emulator_modules: &mut EmulatorModules<ET, I, S>,
         state: &mut S,
         input: &I,
-    ) where
+    ) -> Result<()>
+    where
         ET: EmulatorModuleTuple<I, S>;
 
     fn post_exec_all<OT, ET>(
@@ -208,19 +220,20 @@ pub trait EmulatorModuleTuple<I, S>:
         input: &I,
         observers: &mut OT,
         exit_kind: &mut ExitKind,
-    ) where
-        OT: ObserversTuple<I, S>,
+    ) -> Result<()>
+    where
+        OT: ObserversTuple<S>,
         ET: EmulatorModuleTuple<I, S>;
 
     /// # Safety
     ///
     /// This is getting executed in a signal handler.
-    unsafe fn on_crash_all(&mut self);
+    unsafe fn on_crash_all(&mut self) -> Result<()>;
 
     /// # Safety
     ///
     /// This is getting executed in a signal handler.
-    unsafe fn on_timeout_all(&mut self);
+    unsafe fn on_timeout_all(&mut self) -> Result<()>;
 }
 
 impl<I, S> EmulatorModuleTuple<I, S> for ()
@@ -252,9 +265,11 @@ where
         _qemu: Qemu,
         _emulator_modules: &mut EmulatorModules<ET, I, S>,
         _state: &mut S,
-    ) where
+    ) -> Result<()>
+    where
         ET: EmulatorModuleTuple<I, S>,
     {
+        Ok(())
     }
 
     fn pre_exec_all<ET>(
@@ -263,9 +278,11 @@ where
         _emulator_modules: &mut EmulatorModules<ET, I, S>,
         _state: &mut S,
         _input: &I,
-    ) where
+    ) -> Result<()>
+    where
         ET: EmulatorModuleTuple<I, S>,
     {
+        Ok(())
     }
 
     fn post_exec_all<OT, ET>(
@@ -276,15 +293,21 @@ where
         _input: &I,
         _observers: &mut OT,
         _exit_kind: &mut ExitKind,
-    ) where
-        OT: ObserversTuple<I, S>,
+    ) -> Result<()>
+    where
+        OT: ObserversTuple<S>,
         ET: EmulatorModuleTuple<I, S>,
     {
+        Ok(())
     }
 
-    unsafe fn on_crash_all(&mut self) {}
+    unsafe fn on_crash_all(&mut self) -> Result<()> {
+        Ok(())
+    }
 
-    unsafe fn on_timeout_all(&mut self) {}
+    unsafe fn on_timeout_all(&mut self) -> Result<()> {
+        Ok(())
+    }
 }
 
 impl<Head, Tail, I, S> EmulatorModuleTuple<I, S> for (Head, Tail)
@@ -322,11 +345,12 @@ where
         qemu: Qemu,
         emulator_modules: &mut EmulatorModules<ET, I, S>,
         state: &mut S,
-    ) where
+    ) -> Result<()>
+    where
         ET: EmulatorModuleTuple<I, S>,
     {
-        self.0.first_exec(qemu, emulator_modules, state);
-        self.1.first_exec_all(qemu, emulator_modules, state);
+        self.0.first_exec(qemu, emulator_modules, state)?;
+        self.1.first_exec_all(qemu, emulator_modules, state)
     }
 
     fn pre_exec_all<ET>(
@@ -335,11 +359,12 @@ where
         emulator_modules: &mut EmulatorModules<ET, I, S>,
         state: &mut S,
         input: &I,
-    ) where
+    ) -> Result<()>
+    where
         ET: EmulatorModuleTuple<I, S>,
     {
-        self.0.pre_exec(qemu, emulator_modules, state, input);
-        self.1.pre_exec_all(qemu, emulator_modules, state, input);
+        self.0.pre_exec(qemu, emulator_modules, state, input)?;
+        self.1.pre_exec_all(qemu, emulator_modules, state, input)
     }
 
     fn post_exec_all<OT, ET>(
@@ -350,27 +375,28 @@ where
         input: &I,
         observers: &mut OT,
         exit_kind: &mut ExitKind,
-    ) where
-        OT: ObserversTuple<I, S>,
+    ) -> Result<()>
+    where
+        OT: ObserversTuple<S>,
         ET: EmulatorModuleTuple<I, S>,
     {
         self.0
-            .post_exec(qemu, emulator_modules, state, input, observers, exit_kind);
+            .post_exec(qemu, emulator_modules, state, input, observers, exit_kind)?;
         self.1
-            .post_exec_all(qemu, emulator_modules, state, input, observers, exit_kind);
+            .post_exec_all(qemu, emulator_modules, state, input, observers, exit_kind)
     }
 
-    unsafe fn on_crash_all(&mut self) {
+    unsafe fn on_crash_all(&mut self) -> Result<()> {
         unsafe {
-            self.0.on_crash();
-            self.1.on_crash_all();
+            self.0.on_crash()?;
+            self.1.on_crash_all()
         }
     }
 
-    unsafe fn on_timeout_all(&mut self) {
+    unsafe fn on_timeout_all(&mut self) -> Result<()> {
         unsafe {
-            self.0.on_timeout();
-            self.1.on_timeout_all();
+            self.0.on_timeout()?;
+            self.1.on_timeout_all()
         }
     }
 }
@@ -407,11 +433,14 @@ where
         qemu: Qemu,
         emulator_modules: &mut EmulatorModules<ET, I, S>,
         state: &mut S,
-    ) where
+    ) -> Result<()>
+    where
         ET: EmulatorModuleTuple<I, S>,
     {
         if let Some(m) = self {
-            m.first_exec(qemu, emulator_modules, state);
+            m.first_exec(qemu, emulator_modules, state)
+        } else {
+            Ok(())
         }
     }
 
@@ -421,11 +450,14 @@ where
         emulator_modules: &mut EmulatorModules<ET, I, S>,
         state: &mut S,
         input: &I,
-    ) where
+    ) -> Result<()>
+    where
         ET: EmulatorModuleTuple<I, S>,
     {
         if let Some(m) = self {
-            m.pre_exec(qemu, emulator_modules, state, input);
+            m.pre_exec(qemu, emulator_modules, state, input)
+        } else {
+            Ok(())
         }
     }
 
@@ -437,24 +469,35 @@ where
         input: &I,
         observers: &mut OT,
         exit_kind: &mut ExitKind,
-    ) where
-        OT: ObserversTuple<I, S>,
+    ) -> Result<()>
+    where
+        OT: ObserversTuple<S>,
         ET: EmulatorModuleTuple<I, S>,
     {
         if let Some(m) = self {
-            m.post_exec(qemu, emulator_modules, state, input, observers, exit_kind);
+            m.post_exec(qemu, emulator_modules, state, input, observers, exit_kind)
+        } else {
+            Ok(())
         }
     }
 
-    unsafe fn on_crash(&mut self) {
+    unsafe fn on_crash(&mut self) -> Result<()> {
         if let Some(m) = self {
-            unsafe { m.on_crash() };
+            unsafe {
+                m.on_crash()?;
+            }
         }
+
+        Ok(())
     }
 
-    unsafe fn on_timeout(&mut self) {
+    unsafe fn on_timeout(&mut self) -> Result<()> {
         if let Some(m) = self {
-            unsafe { m.on_timeout() };
+            unsafe {
+                m.on_timeout()?;
+            }
         }
+
+        Ok(())
     }
 }

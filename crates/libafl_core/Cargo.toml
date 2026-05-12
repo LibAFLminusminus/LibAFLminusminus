@@ -32,7 +32,7 @@ std = ["alloc"]
 alloc = []
 
 ## Stores the backtraces of all generated `Error`s. Good for debugging, but may come with a slight performance hit.
-errors_backtrace = ["std", "dep:backtrace"]
+errors_backtrace = ["std"]
 
 ## Enable python error conversion
 python = ["dep:pyo3"]
@@ -50,7 +50,6 @@ rustversion = { workspace = true }
 
 [dependencies]
 document-features = { workspace = true, optional = true }
-backtrace = { workspace = true, default-features = true, optional = true }
 postcard = { workspace = true }
 nix = { workspace = true, optional = true }
 pyo3 = { workspace = true, optional = true }

@@ -92,7 +92,7 @@ pub(crate) fn classify_counts(map: &mut [u8]) {
 
 /// Map observer with AFL-like hitcounts postprocessing
 ///
-/// [`MapObserver`]s that are not slice-backed, such as `MultiMapObserver`, can use
+/// [`MapObserver`]s that are not slice-backed, such as [`MultiMapObserver`](crate::observers::map::MultiMapObserver), can use
 /// [`HitcountsIterableMapObserver`] instead.
 #[derive(Serialize, Deserialize, Debug, Clone, Hash)]
 pub struct HitcountsMapObserver<M> {
@@ -142,7 +142,7 @@ where
 }
 
 impl<M> HitcountsMapObserver<M> {
-    /// Creates a new [`MapObserver`]
+    /// Creates a new [`struct@HitcountsMapObserver`]
     pub fn new(base: M) -> Self {
         Self { base }
     }
@@ -337,7 +337,7 @@ where
 }
 
 impl<M> HitcountsIterableMapObserver<M> {
-    /// Creates a new [`MapObserver`]
+    /// Creates a new [`struct@HitcountsIterableMapObserver`]
     pub fn new(base: M) -> Self {
         Self { base }
     }

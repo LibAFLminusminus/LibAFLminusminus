@@ -29,8 +29,8 @@ RUN rustup target add aarch64-unknown-linux-gnu
 RUN rustup target add i686-unknown-linux-gnu
 RUN rustup target add powerpc-unknown-linux-gnu
 
-# Install clang 18, common build tools
-ENV LLVM_VERSION=18
+# Install clang 22, common build tools
+ENV LLVM_VERSION=22
 ENV LLVM_CONFIG=llvm-config-${LLVM_VERSION}
 RUN dpkg --add-architecture i386
 RUN apt-get update && \
@@ -76,7 +76,7 @@ RUN apt-get update && \
 
 # Install a modern version of QEMU
 WORKDIR /root
-ENV QEMU_VER=10.0.0
+ENV QEMU_VER=10.2.0
 RUN wget https://download.qemu.org/qemu-${QEMU_VER}.tar.xz && \
     tar xvJf qemu-${QEMU_VER}.tar.xz && \
     cd /root/qemu-${QEMU_VER} && \

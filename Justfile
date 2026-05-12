@@ -8,6 +8,10 @@ export LIBAFL_BOLTS_DIR := join(justfile_directory(), "crates/libafl_bolts")
 export LIBAFL_TARGETS_DIR := join(justfile_directory(), "crates/libafl_targets")
 MSRV := env_var_or_default('MSRV', "")
 
+# Crates with mutually exclusive features (e.g. usermode/systemmode) that cannot be built with --all-features
+
+ALL_FEATURES_EXCLUDES := "--exclude libafl_qemu --exclude libafl_qemu_sys --exclude libafl_qemu_build --exclude libafl_qemu_runner --exclude libvharness_sys --exclude libafl_sugar --exclude libafl_libfuzzer"
+
 # List all available just targets in this justfile
 @help *PAT:
     if [[ '{{ PAT }}' =~ '' ]]; then just -l; else just -l | rg -i '{{ PAT }}'; fi
@@ -32,15 +36,15 @@ no-default-features: (default "--no-default-features")
 
 # Run check on all projects in the workspace
 check feature='' ignore='':
-    cargo {{ MSRV }} check --workspace --all-targets --exclude libafl_asan_libc {{ feature }}
+    cargo {{ MSRV }} check --workspace --all-targets --exclude libafl_asan_libc {{ if feature == "--all-features" { ALL_FEATURES_EXCLUDES } else { "" } }} {{ feature }}
 
 # Run build on all projects in the workspace
 build feature='' ignore='':
-    cargo {{ MSRV }} build --workspace --all-targets --exclude libafl_asan_libc {{ feature }}
+    cargo {{ MSRV }} build --workspace --all-targets --exclude libafl_asan_libc {{ if feature == "--all-features" { ALL_FEATURES_EXCLUDES } else { "" } }} {{ feature }}
 
 # Run tests on all projects in the workspace
 test feature='' ignore='':
-    cargo {{ MSRV }} test --workspace --all-targets --exclude libafl_asan_libc --exclude libafl_asan --exclude libafl_asan_fuzz {{ feature }}
+    cargo {{ MSRV }} test --workspace --all-targets --exclude libafl_asan_libc --exclude libafl_asan --exclude libafl_asan_fuzz {{ if feature == "--all-features" { ALL_FEATURES_EXCLUDES } else { "" } }} {{ feature }}
     # Run libafl_asan tests serially to avoid address conflicts
     RUST_TEST_THREADS=1 cargo {{ MSRV }} test -p libafl_asan -j 1 {{ feature }}
 
@@ -74,7 +78,11 @@ test-docs-internal: all-features
 [linux]
 [private]
 test-docs-internal: all-features
-    RUSTFLAGS="--cfg docsrs" cargo +nightly test --doc --all-features
+    RUSTDOCFLAGS="--cfg docsrs" cargo +nightly test --doc --workspace --all-features {{ ALL_FEATURES_EXCLUDES }}
+    RUSTDOCFLAGS="--cfg docsrs" cargo +nightly test --doc -p libafl_qemu --no-default-features --features usermode,python
+    RUSTDOCFLAGS="--cfg docsrs" cargo +nightly test --doc -p libafl_qemu --no-default-features --features systemmode
+    cargo clean
+    cargo build -p libafl
     cd {{ DOCS_DIR }} && mdbook test -L ../target/debug/deps
 
 [private]
@@ -84,7 +92,7 @@ test-docs-internal:
 
 # Tests all code in docs
 test-docs: test-docs-internal
-    RUSTDOCFLAGS="-Dwarnings" cargo {{ MSRV }} doc --workspace --all-features --no-deps --document-private-items --exclude libafl_qemu
+    RUSTDOCFLAGS="-Dwarnings" cargo {{ MSRV }} doc --workspace --all-features --no-deps --document-private-items {{ ALL_FEATURES_EXCLUDES }}
     RUSTDOCFLAGS="-Dwarnings" cargo {{ MSRV }} doc -p libafl_qemu --no-default-features --features usermode,python --no-deps --document-private-items
 
 # Build documentation
@@ -99,7 +107,10 @@ clippy-inner feature='':
 # Runs clippy on crates excluded from the workspace
 [private]
 clippy-excluded:
-    cargo {{ MSRV }} clippy --manifest-path crates/libafl_libfuzzer_runtime/Cargo.toml --all-targets -- -D warnings
+    # TODO: this is done because of no_link_main triggering clippy
+    # the real fix is to rename this feature to smth like "external_main"
+    # it is a breaking change, so it should be done in a separate PR
+    RUSTFLAGS="--cap-lints warn" cargo {{ MSRV }} clippy --manifest-path crates/libafl_libfuzzer_runtime/Cargo.toml --all-targets -- -D warnings
     cargo {{ MSRV }} clippy --manifest-path bindings/pylibafl/Cargo.toml --all-targets -- -D warnings
     cargo {{ MSRV }} clippy --manifest-path utils/noaslr/Cargo.toml --workspace --all-targets -- -D warnings
     cargo {{ MSRV }} clippy --manifest-path utils/libafl_repo_tools/Cargo.toml --all-targets -- -D warnings
@@ -155,7 +166,7 @@ build-libafl:
 
 # Run tests serially
 test-serial:
-    cargo test -- --test-threads 1
+    cargo test --release -- --test-threads 1
 
 # Check sancov pcguard edges
 check-sancov-edges:

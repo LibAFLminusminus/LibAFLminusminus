@@ -1,31 +1,11 @@
 //! The `Fuzzer` is the main struct for a fuzz campaign.
 
-#[cfg(feature = "std")]
-use alloc::borrow::Cow;
-use alloc::{string::ToString, vec::Vec};
-use core::{fmt::Debug, time::Duration};
-#[cfg(feature = "std")]
-use core::{hash::Hash, marker::PhantomData};
+use alloc::string::ToString;
+use core::fmt::Debug;
 
-#[cfg(feature = "std")]
-use fastbloom::BloomFilter;
-#[cfg(feature = "std")]
-use libafl_bolts::impl_serdeany;
-use libafl_bolts::{current_time, tuples::MatchName};
-#[cfg(feature = "std")]
-use serde::Deserialize;
-use serde::{Serialize, de::DeserializeOwned};
+use libafl_core::Result;
 
-use crate::{
-    Error,
-    corpus::{Corpus, Testcase, TestcaseId, schedulers::Scheduler},
-    executors::{Executor, ExitKind},
-    feedbacks::Feedback,
-    inputs::Input,
-    observers::ObserversTuple,
-    runtimes::RuntimeHandle,
-    stages::StagesTuple,
-};
+use crate::{Error, executors::ExitKind, runtimes::RuntimeHandle};
 
 pub mod standard;
 pub use standard::*;
@@ -66,7 +46,7 @@ pub trait ExecutionProcessor<I, OT, S> {
         input: &I,
         eval_res: &EvaluationResult,
         observers: &OT,
-    ) -> Result<Option<()>, Error>;
+    ) -> Result<Option<()>>;
 }
 
 /// Evaluate an input modifying the state of the fuzzer
@@ -79,7 +59,7 @@ pub trait Evaluator<E, I, S, W> {
         executor: &mut E,
         rt_handle: &mut RuntimeHandle<S, W>,
         input: &I,
-    ) -> Result<EvaluationResult, Error>;
+    ) -> Result<EvaluationResult>;
 }
 
 /// The main fuzzer trait.
@@ -99,8 +79,9 @@ pub trait Fuzzer<E, I, R, S, ST, W> {
         executor: &mut E,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
-    ) -> Result<(), Error>;
+    ) -> Result<()>;
 
+    /// Returns true if the [`Fuzzer`] is initialized and ready to run, false otherwise.
     fn is_initialized(&self) -> bool;
 
     /// Fuzz for a single iteration.
@@ -120,7 +101,7 @@ pub trait Fuzzer<E, I, R, S, ST, W> {
         rand: &mut R,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
-    ) -> Result<(), Error>;
+    ) -> Result<()>;
 
     /// Fuzz for a single iteration.
     ///
@@ -134,7 +115,7 @@ pub trait Fuzzer<E, I, R, S, ST, W> {
         rand: &mut R,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         if !self.is_initialized() {
             return Err(Error::runtime(
                 "Fuzzer not initialized. Run Fuzzer::init after creating the fuzzer.",
@@ -152,7 +133,7 @@ pub trait Fuzzer<E, I, R, S, ST, W> {
         rand: &mut R,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         if !self.is_initialized() {
             return Err(Error::runtime(
                 "Fuzzer not initialized. Run Fuzzer::init after creating the fuzzer.",
@@ -179,7 +160,7 @@ pub trait Fuzzer<E, I, R, S, ST, W> {
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
         iters: u64,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         if !self.is_initialized() {
             return Err(Error::runtime(
                 "Fuzzer not initialized. Run Fuzzer::init after creating the fuzzer.",
@@ -202,6 +183,10 @@ pub trait Fuzzer<E, I, R, S, ST, W> {
     }
 }
 
+/// The result of a fuzzer evaluation.
+///
+/// It tells with which [`ExitKind`] the [`Executor`] ended (normally, with a timeout, etc...)
+/// and what [`Verdict`] the feedback gave.
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
 pub struct EvaluationResult {
     exit_kind: ExitKind,
@@ -224,10 +209,14 @@ pub enum Verdict {
 pub struct NopFuzzer;
 
 impl EvaluationResult {
+    /// Get a new [`EvaluationResult`].
+    #[must_use]
     pub fn new(exit_kind: ExitKind, verdict: Verdict) -> Self {
         Self { exit_kind, verdict }
     }
 
+    /// [`EvaluationResult`] when an entry is deemed not interesting.
+    #[must_use]
     pub fn not_interesting() -> Self {
         Self {
             exit_kind: ExitKind::Ok,
@@ -235,24 +224,26 @@ impl EvaluationResult {
         }
     }
 
+    /// Is the [`EvaluationResult`] objective worthy?
+    #[must_use]
     pub fn is_objective_worthy(&self) -> bool {
-        match self.verdict {
-            Verdict::Objective => true,
-            _ => false,
-        }
+        matches!(self.verdict, Verdict::Objective)
     }
 
+    /// Is the [`EvaluationResult`] corpus worthy?
+    #[must_use]
     pub fn is_corpus_worthy(&self) -> bool {
-        match self.verdict {
-            Verdict::Corpus => true,
-            _ => false,
-        }
+        matches!(self.verdict, Verdict::Corpus)
     }
 
+    /// Get the [`EvaluationResult`]'s [`Verdict`].
+    #[must_use]
     pub fn vertict(&self) -> &Verdict {
         &self.verdict
     }
 
+    /// Get the [`EvaluationResult`]'s [`ExitKind`].
+    #[must_use]
     pub fn exit_kind(&self) -> ExitKind {
         self.exit_kind
     }
@@ -279,7 +270,7 @@ impl<E, I, R, S, ST, W> Fuzzer<E, I, R, S, ST, W> for NopFuzzer {
         _executor: &mut E,
         _state: &mut S,
         _rt_handle: &mut RuntimeHandle<S, W>,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         unimplemented!("NopFuzzer cannot fuzz");
     }
 
@@ -294,7 +285,7 @@ impl<E, I, R, S, ST, W> Fuzzer<E, I, R, S, ST, W> for NopFuzzer {
         _rand: &mut R,
         _state: &mut S,
         _rt_handle: &mut RuntimeHandle<S, W>,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         unimplemented!("NopFuzzer cannot fuzz");
     }
 }

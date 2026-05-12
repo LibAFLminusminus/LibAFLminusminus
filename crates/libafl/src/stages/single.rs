@@ -11,15 +11,12 @@ use libafl_bolts::Named;
 use crate::{
     DependencyResolver, Error, Evaluator,
     corpus::{Corpus, testcase::TestcaseId},
-    executors::Executor,
-    inputs::Input,
-    observers::ObserversTuple,
     stages::{RuntimeHandle, Stage},
     states::HasCorpus,
 };
 
-/// A stage that runs the unmutated input for only one time.
-/// also runs the pre and post hooks (configurable)
+/// A [`Stage`] that runs the unmutated input for only one time.
+/// also runs the pre and post hooks (this is configurable by user)
 #[derive(Debug, Clone)]
 pub struct SingleRunStage<I, Pre, Post> {
     name: Cow<'static, str>,
@@ -66,13 +63,14 @@ impl<I, Pre, Post> Named for SingleRunStage<I, Pre, Post> {
 
 /// The counter for giving this stage unique id
 static mut SINGLE_RUN_STAGE_ID: usize = 0;
-/// The name for tracing stage
+/// The name prefix for this stage
 pub static SINGLE_RUN_STAGE_NAME: &str = "single";
 
 /// short type for the hook type
 pub type RunHookFn<E, R, S, W, Z> =
     fn(&mut RuntimeHandle<S, W>, &mut E, &mut R, &mut S, &mut Z) -> Result<(), Error>;
 
+#[expect(clippy::unnecessary_wraps)]
 fn noop_hook<E, R, S, W, Z>(
     _: &mut RuntimeHandle<S, W>,
     _: &mut E,
@@ -91,7 +89,7 @@ impl<I, E, R, S, W, Z> Default
     }
 }
 
-/// hook for cmplog where you toggles CMPLOG_ENABLED for enabling it
+/// The hook for cmplog where you toggles [`CMPLOG_ENABLED`] for turning on the instrumentation.
 pub fn cmplog_pre_hook<E, R, S, W, Z>(
     _: &mut RuntimeHandle<S, W>,
     _: &mut E,
@@ -105,7 +103,7 @@ pub fn cmplog_pre_hook<E, R, S, W, Z>(
     Ok(())
 }
 
-/// hook for cmplog where you toggles CMPLOG_ENABLED for disabling it
+/// The hook for cmplog where you toggles [`CMPLOG_ENABLED`] for disabling the instrumentation
 pub fn cmplog_post_hook<E, R, S, W, Z>(
     _: &mut RuntimeHandle<S, W>,
     _: &mut E,
@@ -120,13 +118,14 @@ pub fn cmplog_post_hook<E, R, S, W, Z>(
 }
 
 impl<I, E, R, S, W, Z> SingleRunStage<I, RunHookFn<E, R, S, W, Z>, RunHookFn<E, R, S, W, Z>> {
+    /// Construct the [`struct@SingleRunStage`] with cmplog hooks
     pub fn cmplog() -> Self {
         Self::new(cmplog_pre_hook, cmplog_post_hook)
     }
 }
 
 impl<I, Pre, Post> SingleRunStage<I, Pre, Post> {
-    /// constructor for this single run stage. use default() instead if you have absolutely nothing to hook
+    /// Constructor for this [`struct@SingleRunStage`]. You can add hooks to `pre` and `post`. Or... use `default()` instead if you have absolutely nothing to hook
     pub fn new(pre: Pre, post: Post) -> Self {
         // unsafe but impossible that you create two threads both instantiating this instance
         let stage_id = unsafe {

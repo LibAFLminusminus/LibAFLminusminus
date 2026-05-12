@@ -8,12 +8,11 @@ use libafl_bolts::{
     Named,
     tuples::{Handle, Handled, MatchName, MatchNameRef},
 };
+use libafl_core::Result;
 use serde::{Deserialize, Serialize};
 
-#[cfg(feature = "track_hit_feedbacks")]
-use crate::feedbacks::premature_last_result_err;
 use crate::{
-    DependencyResolver, Error,
+    DependencyResolver,
     executors::ExitKind,
     feedbacks::{Feedback, HasObserverHandle},
     observers::ObserverWithHashField,
@@ -28,12 +27,11 @@ pub trait HashSetState<T> {
     /// creates a new instance with a specific hashset
     fn with_hash_set(hash_set: HashSet<T>) -> Self;
     /// updates the `hash_set` with the given value
-    fn update_hash_set(&mut self, value: T) -> Result<bool, Error>;
+    fn update_hash_set(&mut self, value: T) -> Result<bool>;
 }
 
 /// The state of [`NewHashFeedback`]
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
-#[expect(clippy::unsafe_derive_deserialize)]
 pub struct NewHashFeedbackMetadata {
     /// Contains information about untouched entries
     hash_set: HashSet<u64>,
@@ -58,7 +56,7 @@ impl NewHashFeedbackMetadata {
     }
 
     /// Reset the internal state
-    pub fn reset(&mut self) -> Result<(), Error> {
+    pub fn reset(&mut self) -> Result<()> {
         self.hash_set.clear();
         Ok(())
     }
@@ -81,7 +79,7 @@ impl HashSetState<u64> for NewHashFeedbackMetadata {
         Self { hash_set }
     }
 
-    fn update_hash_set(&mut self, value: u64) -> Result<bool, Error> {
+    fn update_hash_set(&mut self, value: u64) -> Result<bool> {
         let r = self.hash_set.insert(value);
         // log::trace!("Got r={}, the hashset is {:?}", r, &self.hash_set);
         Ok(r)
@@ -95,9 +93,6 @@ pub struct NewHashFeedback<O> {
     o_ref: Handle<O>,
     /// Initial capacity of hash set
     capacity: usize,
-    #[cfg(feature = "track_hit_feedbacks")]
-    // The previous run's result of `Self::is_interesting`
-    last_result: Option<bool>,
 }
 
 impl<O> NewHashFeedback<O>
@@ -108,7 +103,7 @@ where
         &mut self,
         state: &mut S,
         observers: &OT,
-    ) -> Result<bool, Error>
+    ) -> Result<bool>
     where
         OT: MatchName,
     {
@@ -117,7 +112,7 @@ where
             .expect("A NewHashFeedback needs a BacktraceObserver");
 
         let backtrace_state = state
-            .named_metadata_map_mut()
+            .metadata_map_mut()
             .get_mut::<NewHashFeedbackMetadata>(&self.name)
             .unwrap();
 
@@ -128,17 +123,13 @@ where
                 false
             }
         };
-        #[cfg(feature = "track_hit_feedbacks")]
-        {
-            self.last_result = Some(res);
-        }
         Ok(res)
     }
 }
 
 impl<O> DependencyResolver for NewHashFeedback<O> {
-    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<(), Error> {
-        registrator.register_md_default::<NewHashFeedbackMetadata>(self.name().to_string());
+    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<()> {
+        registrator.register_md_default::<NewHashFeedbackMetadata>(self.name());
         Ok(())
     }
 }
@@ -155,13 +146,8 @@ where
         _input: &I,
         observers: &OT,
         _exit_kind: &ExitKind,
-    ) -> Result<bool, Error> {
+    ) -> Result<bool> {
         self.has_interesting_backtrace_hash_observation(state, observers)
-    }
-
-    #[cfg(feature = "track_hit_feedbacks")]
-    fn last_result(&self) -> Result<bool, Error> {
-        self.last_result.ok_or(premature_last_result_err())
     }
 }
 
@@ -205,8 +191,6 @@ where
             name: Cow::from(NEWHASHFEEDBACK_PREFIX.to_string() + observer.name()),
             o_ref: observer.handle(),
             capacity,
-            #[cfg(feature = "track_hit_feedbacks")]
-            last_result: None,
         }
     }
 }

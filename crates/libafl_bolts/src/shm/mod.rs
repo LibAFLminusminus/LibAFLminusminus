@@ -25,6 +25,7 @@ pub use sysv::SysVShm;
 
 /// The invalid marker for a given memory region.
 #[inline]
+#[must_use]
 pub fn invalid_shm_size<SZ: NumCast + Bounded>() -> SZ {
     SZ::max_value()
 }
@@ -195,11 +196,13 @@ impl<SZ: ShmHeader> SharedMemory<SZ> {
     }
 
     /// Total size of the allocation, including the header.
+    #[must_use]
     pub fn total_len(&self) -> usize {
         self.total_size
     }
 
     /// Maximum size available for the data (without the header).
+    #[must_use]
     pub fn max_data_len(&self) -> usize {
         self.total_size - SZ::HEADER_SIZE
     }
@@ -212,6 +215,7 @@ impl<SZ: ShmHeader> SharedMemory<SZ> {
     /// the corresponding real data size.
     ///
     /// Calling this before [`data_mut`] has been called in general has an undefined behavior.
+    #[must_use]
     pub unsafe fn data(&self) -> &[u8] {
         let data_size = unsafe { SZ::read_real_size(self.ptr, self.max_data_len()) }
             .expect("Invalid data size stored.");
@@ -250,6 +254,7 @@ impl<SZ: ShmHeader> SharedMemory<SZ> {
     /// Returns the effective data size, or `None` if the region is marked invalid.
     ///
     /// For [`EmptyShmHeader`], always returns `Some(total_size)`.
+    #[must_use]
     pub fn get_size(&self) -> Option<usize> {
         unsafe { SZ::read_real_size(self.ptr, self.total_size - SZ::HEADER_SIZE) }
     }
@@ -257,6 +262,7 @@ impl<SZ: ShmHeader> SharedMemory<SZ> {
     /// Returns `true` if the region is marked invalid.
     ///
     /// For [`EmptyShmHeader`], always returns `Some(total_size)`.
+    #[must_use]
     pub fn is_invalid(&self) -> bool {
         self.get_size().is_none()
     }

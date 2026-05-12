@@ -1,14 +1,14 @@
 #[cfg(feature = "usermode")]
 use capstone::{Capstone, InsnDetail, arch::BuildsCapstone};
 use hashbrown::HashMap;
-use libafl::HasMetadata;
+use libafl::{Result, states::FlatState};
 use libafl_bolts::hash_64_fast;
 use libafl_qemu_sys::GuestAddr;
+#[cfg(feature = "usermode")]
+use libafl_targets::CMPLOG_ENABLED;
 pub use libafl_targets::{
-    CMPLOG_MAP_H, CMPLOG_MAP_PTR, CMPLOG_MAP_SIZE, CMPLOG_MAP_W, CmpLogMap, CmpLogObserver,
-    cmps::{
-        __libafl_targets_cmplog_instructions, __libafl_targets_cmplog_routines, CMPLOG_ENABLED,
-    },
+    CMPLOG_MAP_H, CMPLOG_MAP_PTR, CMPLOG_MAP_SIZE, CMPLOG_MAP_W, CmpLogMap,
+    cmps::{__libafl_targets_cmplog_instructions, __libafl_targets_cmplog_routines},
 };
 use serde::{Deserialize, Serialize};
 
@@ -71,14 +71,15 @@ impl Default for CmpLogModule {
 impl<I, S> EmulatorModule<I, S> for CmpLogModule
 where
     I: Unpin,
-    S: Unpin + HasMetadata,
+    S: Unpin + FlatState,
 {
     fn first_exec<ET>(
         &mut self,
         _qemu: Qemu,
         emulator_modules: &mut EmulatorModules<ET, I, S>,
         _state: &mut S,
-    ) where
+    ) -> Result<()>
+    where
         ET: EmulatorModuleTuple<I, S>,
     {
         emulator_modules.cmps(
@@ -88,6 +89,8 @@ where
             Hook::Raw(trace_cmp4_cmplog),
             Hook::Raw(trace_cmp8_cmplog),
         );
+
+        Ok(())
     }
 }
 
@@ -142,7 +145,7 @@ impl Default for CmpLogChildModule {
 impl<I, S> EmulatorModule<I, S> for CmpLogChildModule
 where
     I: Unpin,
-    S: Unpin + HasMetadata,
+    S: Unpin + FlatState,
 {
     const HOOKS_DO_SIDE_EFFECTS: bool = false;
 
@@ -151,7 +154,8 @@ where
         _qemu: Qemu,
         emulator_modules: &mut EmulatorModules<ET, I, S>,
         _state: &mut S,
-    ) where
+    ) -> Result<()>
+    where
         ET: EmulatorModuleTuple<I, S>,
     {
         emulator_modules.cmps(
@@ -161,6 +165,8 @@ where
             Hook::Raw(trace_cmp4_cmplog),
             Hook::Raw(trace_cmp8_cmplog),
         );
+
+        Ok(())
     }
 }
 
@@ -192,14 +198,14 @@ impl HasPageFilter for CmpLogChildModule {
 pub fn gen_unique_cmp_ids<ET, I, S>(
     _qemu: Qemu,
     emulator_modules: &mut EmulatorModules<ET, I, S>,
-    state: Option<&mut S>,
+    state: &mut S,
     pc: GuestAddr,
     _size: usize,
 ) -> Option<u64>
 where
     ET: EmulatorModuleTuple<I, S>,
     I: Unpin,
-    S: Unpin + HasMetadata,
+    S: Unpin + FlatState,
 {
     if let Some(h) = emulator_modules.get::<CmpLogModule>()
         && !h.must_instrument(pc)
@@ -207,17 +213,10 @@ where
         return None;
     }
 
-    let state = state.expect("The gen_unique_cmp_ids hook works only for in-process fuzzing. Is the Executor initialized?");
-    if state.metadata_map().get::<QemuCmpsMapMetadata>().is_none() {
-        state.add_metadata(QemuCmpsMapMetadata::new());
-    }
-    let meta = state
-        .metadata_map_mut()
-        .get_mut::<QemuCmpsMapMetadata>()
-        .unwrap();
+    let meta = state.get_md_or_insert_with::<QemuCmpsMapMetadata>(QemuCmpsMapMetadata::new);
     let id = meta.current_id as usize;
 
-    Some(*meta.map.entry(pc.into()).or_insert_with(|| {
+    Some(*meta.map.entry(pc as u64).or_insert_with(|| {
         meta.current_id = ((id + 1) & (CMPLOG_MAP_W - 1)) as u64;
         id as u64
     }))
@@ -227,14 +226,14 @@ where
 pub fn gen_hashed_cmp_ids<ET, I, S>(
     _qemu: Qemu,
     emulator_modules: &mut EmulatorModules<ET, I, S>,
-    _state: Option<&mut S>,
+    _state: &mut S,
     pc: GuestAddr,
     _size: usize,
 ) -> Option<u64>
 where
     ET: EmulatorModuleTuple<I, S>,
     I: Unpin,
-    S: HasMetadata + Unpin,
+    S: FlatState + Unpin,
 {
     if let Some(h) = emulator_modules.get::<CmpLogChildModule>()
         && !h.must_instrument(pc)
@@ -242,7 +241,7 @@ where
         return None;
     }
 
-    Some(hash_64_fast(pc.into()) & (CMPLOG_MAP_W as u64 - 1))
+    Some(hash_64_fast(pc as u64) & (CMPLOG_MAP_W as u64 - 1))
 }
 
 pub extern "C" fn trace_cmp1_cmplog(_: *const (), id: u64, v0: u8, v1: u8) {
@@ -302,8 +301,8 @@ impl CmpLogRoutinesModule {
 
         let qemu = Qemu::get().unwrap();
 
-        let a0: GuestAddr = qemu.read_function_argument(0).unwrap_or(0);
-        let a1: GuestAddr = qemu.read_function_argument(1).unwrap_or(0);
+        let a0: GuestAddr = qemu.read_function_argument(0).unwrap_or(0) as GuestAddr;
+        let a1: GuestAddr = qemu.read_function_argument(1).unwrap_or(0) as GuestAddr;
 
         if a0 == 0 || a1 == 0 {
             return;
@@ -321,7 +320,7 @@ impl CmpLogRoutinesModule {
     fn gen_blocks_calls<ET, I, S>(
         qemu: Qemu,
         emulator_modules: &mut EmulatorModules<ET, I, S>,
-        _state: Option<&mut S>,
+        _state: &mut S,
         pc: GuestAddr,
     ) -> Option<u64>
     where
@@ -362,7 +361,7 @@ impl CmpLogRoutinesModule {
 
             let mut iaddr = pc;
 
-            'disasm: while let Ok(insns) = h.cs.disasm_count(code, iaddr.into(), 1) {
+            'disasm: while let Ok(insns) = h.cs.disasm_count(code, iaddr as u64, 1) {
                 if insns.is_empty() {
                     break;
                 }
@@ -371,7 +370,7 @@ impl CmpLogRoutinesModule {
                 for detail in insn_detail.groups() {
                     match u32::from(detail.0) {
                         capstone::InsnGroupType::CS_GRP_CALL => {
-                            let k = (hash_64_fast(pc.into())) & (CMPLOG_MAP_W as u64 - 1);
+                            let k = (hash_64_fast(pc as u64)) & (CMPLOG_MAP_W as u64 - 1);
                             qemu.hooks().add_instruction_hooks(
                                 k,
                                 insn.address() as GuestAddr,
@@ -424,7 +423,8 @@ where
         _qemu: Qemu,
         emulator_modules: &mut EmulatorModules<ET, I, S>,
         _state: &mut S,
-    ) where
+    ) -> Result<()>
+    where
         ET: EmulatorModuleTuple<I, S>,
     {
         emulator_modules.blocks(
@@ -432,6 +432,8 @@ where
             Hook::Empty,
             Hook::Empty,
         );
+
+        Ok(())
     }
 }
 

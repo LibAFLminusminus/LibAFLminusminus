@@ -9,13 +9,14 @@ use std::{
     fs,
     path::PathBuf,
     pin::Pin,
+    result,
     sync::Mutex,
 };
 
 use hashbrown::{HashMap, HashSet};
-use libafl::{executors::ExitKind, observers::ObserversTuple};
+use libafl::{Result, executors::ExitKind, observers::ObserversTuple};
 use libafl_bolts::os::unix_signals::Signal;
-use libafl_qemu_sys::{GuestAddr, MapInfo};
+use libafl_qemu_sys::{GuestAddr, GuestUlong, MapInfo};
 use libc::{
     MAP_ANON, MAP_FAILED, MAP_FIXED, MAP_NORESERVE, MAP_PRIVATE, PROT_READ, PROT_WRITE, c_void,
 };
@@ -23,7 +24,7 @@ use meminterval::{Interval, IntervalTree};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 use crate::{
-    Qemu, QemuParams, Regs,
+    GuestReg, Qemu, QemuParams, Regs,
     emu::EmulatorModules,
     modules::{
         AddressFilter, EmulatorModule, EmulatorModuleTuple,
@@ -194,13 +195,13 @@ impl AsanErrorCallback {
 impl TryFrom<u32> for QasanAction {
     type Error = num_enum::TryFromPrimitiveError<QasanAction>;
 
-    fn try_from(value: u32) -> Result<Self, Self::Error> {
+    fn try_from(value: u32) -> result::Result<Self, Self::Error> {
         QasanAction::try_from(u64::from(value))
     }
 }
 
 impl Display for AsanError {
-    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> result::Result<(), fmt::Error> {
         match self {
             AsanError::Read(addr, len) => write!(fmt, "Invalid {len} bytes read at {addr:#x}"),
             AsanError::Write(addr, len) => {
@@ -542,14 +543,14 @@ impl AsanGiovese {
     extern "C" fn fake_syscall(
         mut self: Pin<&mut Self>,
         sys_num: i32,
-        a0: GuestAddr,
-        a1: GuestAddr,
-        a2: GuestAddr,
-        a3: GuestAddr,
-        _a4: GuestAddr,
-        _a5: GuestAddr,
-        _a6: GuestAddr,
-        _a7: GuestAddr,
+        a0: GuestUlong,
+        a1: GuestUlong,
+        a2: GuestUlong,
+        a3: GuestUlong,
+        _a4: GuestUlong,
+        _a5: GuestUlong,
+        _a6: GuestUlong,
+        _a7: GuestUlong,
     ) -> SyscallHookResult {
         if sys_num == QASAN_FAKESYS_NR {
             let mut r = 0;
@@ -558,29 +559,29 @@ impl AsanGiovese {
                 QasanAction::Poison => {
                     self.poison(
                         qemu,
-                        a1,
+                        a1 as GuestAddr,
                         a2 as usize,
                         PoisonKind::try_from(a3 as i8).unwrap().into(),
                     );
                 }
                 QasanAction::UserPoison => {
-                    self.poison(qemu, a1, a2 as usize, PoisonKind::User.into());
+                    self.poison(qemu, a1 as GuestAddr, a2 as usize, PoisonKind::User.into());
                 }
                 QasanAction::UnPoison => {
-                    Self::unpoison(qemu, a1, a2 as usize);
+                    Self::unpoison(qemu, a1 as GuestAddr, a2 as usize);
                 }
                 QasanAction::IsPoison => {
-                    if Self::is_invalid_access_n(qemu, a1, a2 as usize) {
+                    if Self::is_invalid_access_n(qemu, a1 as GuestAddr, a2 as usize) {
                         r = 1;
                     }
                 }
                 QasanAction::Alloc => {
-                    let pc: GuestAddr = qemu.read_reg(Regs::Pc).unwrap();
-                    self.allocation(pc, a1, a2);
+                    let pc: GuestAddr = qemu.read_reg(Regs::Pc).unwrap() as GuestAddr;
+                    self.allocation(pc, a1 as GuestAddr, a2 as GuestAddr);
                 }
                 QasanAction::Dealloc => {
-                    let pc: GuestAddr = qemu.read_reg(Regs::Pc).unwrap();
-                    self.deallocation(qemu, pc, a1);
+                    let pc: GuestAddr = qemu.read_reg(Regs::Pc).unwrap() as GuestAddr;
+                    self.deallocation(qemu, pc, a1 as GuestAddr);
                 }
                 _ => (),
             }
@@ -961,7 +962,7 @@ impl AsanGiovese {
         for interval in leaks {
             self.report(
                 qemu,
-                qemu.read_reg(Regs::Pc).unwrap(),
+                qemu.read_reg(Regs::Pc).unwrap() as GuestAddr,
                 AsanError::MemLeak(interval),
             );
         }
@@ -1076,7 +1077,8 @@ where
         qemu: Qemu,
         emulator_modules: &mut EmulatorModules<ET, I, S>,
         _state: &mut S,
-    ) where
+    ) -> Result<()>
+    where
         ET: EmulatorModuleTuple<I, S>,
     {
         if let Some(asan_lib) = &self.asan_lib {
@@ -1119,6 +1121,8 @@ where
                 Hook::Function(trace_write_n_asan_snapshot::<ET, I, S>),
             );
         }
+
+        Ok(())
     }
 
     fn pre_exec<ET>(
@@ -1127,7 +1131,8 @@ where
         _emulator_modules: &mut EmulatorModules<ET, I, S>,
         _state: &mut S,
         _input: &I,
-    ) where
+    ) -> Result<()>
+    where
         ET: EmulatorModuleTuple<I, S>,
     {
         self.rt.error_found = false;
@@ -1136,6 +1141,8 @@ where
             self.rt.snapshot(qemu);
             self.empty = false;
         }
+
+        Ok(())
     }
 
     fn post_exec<OT, ET>(
@@ -1146,9 +1153,10 @@ where
         _input: &I,
         _observers: &mut OT,
         exit_kind: &mut ExitKind,
-    ) where
+    ) -> Result<()>
+    where
         ET: EmulatorModuleTuple<I, S>,
-        OT: ObserversTuple<I, S>,
+        OT: ObserversTuple<S>,
     {
         if let AsanTargetCrash::OnTargetStop = self.rt.target_crash {
             unsafe {
@@ -1159,6 +1167,8 @@ where
         if self.reset(qemu) == AsanRollback::HasLeaks {
             *exit_kind = ExitKind::Crash;
         }
+
+        Ok(())
     }
 }
 
@@ -1183,14 +1193,14 @@ pub fn oncrash_asan<ET, I, S>(
     S: Unpin,
 {
     let h = emulator_modules.get_mut::<AsanHostModule>().unwrap();
-    let pc: GuestAddr = qemu.read_reg(Regs::Pc).unwrap();
+    let pc: GuestAddr = qemu.read_reg(Regs::Pc).unwrap() as GuestAddr;
     h.rt.report(qemu, pc, AsanError::Signal(target_sig));
 }
 
 pub fn gen_readwrite_asan<ET, I, S>(
     _qemu: Qemu,
     emulator_modules: &mut EmulatorModules<ET, I, S>,
-    _state: Option<&mut S>,
+    _state: &mut S,
     pc: GuestAddr,
     _addr: *mut TCGTemp,
     _info: MemAccessInfo,
@@ -1209,18 +1219,18 @@ where
     if let Some(asan_mappings) = &h.asan_mappings
         && asan_mappings
             .iter()
-            .any(|m| m.start() <= u64::from(pc) && u64::from(pc) < m.end())
+            .any(|m| m.start() <= pc as u64 && (pc as u64) < m.end())
     {
         return None;
     }
 
-    Some(pc.into())
+    Some(pc as u64)
 }
 
 pub fn trace_read_asan<ET, I, S, const N: usize>(
     qemu: Qemu,
     emulator_modules: &mut EmulatorModules<ET, I, S>,
-    _state: Option<&mut S>,
+    _state: &mut S,
     id: u64,
     _pc: GuestAddr,
     addr: GuestAddr,
@@ -1236,7 +1246,7 @@ pub fn trace_read_asan<ET, I, S, const N: usize>(
 pub fn trace_read_n_asan<ET, I, S>(
     qemu: Qemu,
     emulator_modules: &mut EmulatorModules<ET, I, S>,
-    _state: Option<&mut S>,
+    _state: &mut S,
     id: u64,
     _pc: GuestAddr,
     addr: GuestAddr,
@@ -1253,7 +1263,7 @@ pub fn trace_read_n_asan<ET, I, S>(
 pub fn trace_write_asan<ET, I, S, const N: usize>(
     qemu: Qemu,
     emulator_modules: &mut EmulatorModules<ET, I, S>,
-    _state: Option<&mut S>,
+    _state: &mut S,
     id: u64,
     _pc: GuestAddr,
     addr: GuestAddr,
@@ -1269,7 +1279,7 @@ pub fn trace_write_asan<ET, I, S, const N: usize>(
 pub fn trace_write_n_asan<ET, I, S>(
     qemu: Qemu,
     emulator_modules: &mut EmulatorModules<ET, I, S>,
-    _state: Option<&mut S>,
+    _state: &mut S,
     id: u64,
     _pc: GuestAddr,
     addr: GuestAddr,
@@ -1286,7 +1296,7 @@ pub fn trace_write_n_asan<ET, I, S>(
 pub fn gen_write_asan_snapshot<ET, I, S>(
     _qemu: Qemu,
     emulator_modules: &mut EmulatorModules<ET, I, S>,
-    _state: Option<&mut S>,
+    _state: &mut S,
     pc: GuestAddr,
     _addr: *mut TCGTemp,
     _info: MemAccessInfo,
@@ -1305,18 +1315,18 @@ where
     if let Some(asan_mappings) = &h.asan_mappings
         && asan_mappings
             .iter()
-            .any(|m| m.start() <= u64::from(pc) && u64::from(pc) < m.end())
+            .any(|m| m.start() <= pc as u64 && (pc as u64) < m.end())
     {
         return Some(0);
     }
 
-    Some(pc.into())
+    Some(pc as u64)
 }
 
 pub fn trace_write_asan_snapshot<ET, I, S, const N: usize>(
     qemu: Qemu,
     emulator_modules: &mut EmulatorModules<ET, I, S>,
-    _state: Option<&mut S>,
+    _state: &mut S,
     id: u64,
     _pc: GuestAddr,
     addr: GuestAddr,
@@ -1336,7 +1346,7 @@ pub fn trace_write_asan_snapshot<ET, I, S, const N: usize>(
 pub fn trace_write_n_asan_snapshot<ET, I, S>(
     qemu: Qemu,
     emulator_modules: &mut EmulatorModules<ET, I, S>,
-    _state: Option<&mut S>,
+    _state: &mut S,
     id: u64,
     _pc: GuestAddr,
     addr: GuestAddr,
@@ -1358,16 +1368,16 @@ pub fn trace_write_n_asan_snapshot<ET, I, S>(
 pub fn qasan_fake_syscall<ET, I, S>(
     qemu: Qemu,
     emulator_modules: &mut EmulatorModules<ET, I, S>,
-    _state: Option<&mut S>,
+    _state: &mut S,
     sys_num: i32,
-    a0: GuestAddr,
-    a1: GuestAddr,
-    a2: GuestAddr,
-    _a3: GuestAddr,
-    _a4: GuestAddr,
-    _a5: GuestAddr,
-    _a6: GuestAddr,
-    _a7: GuestAddr,
+    a0: GuestUlong,
+    a1: GuestUlong,
+    a2: GuestUlong,
+    _a3: GuestUlong,
+    _a4: GuestUlong,
+    _a5: GuestUlong,
+    _a6: GuestUlong,
+    _a7: GuestUlong,
 ) -> SyscallHookResult
 where
     ET: EmulatorModuleTuple<I, S>,
@@ -1378,12 +1388,12 @@ where
         let h = emulator_modules.get_mut::<AsanHostModule>().unwrap();
         match QasanAction::try_from(a0).expect("Invalid QASan action number") {
             QasanAction::CheckLoad => {
-                let pc: GuestAddr = qemu.read_reg(Regs::Pc).unwrap();
-                h.read_n(qemu, pc, a1, a2 as usize);
+                let pc: GuestAddr = qemu.read_reg(Regs::Pc).unwrap() as GuestAddr;
+                h.read_n(qemu, pc, a1 as GuestAddr, a2 as usize);
             }
             QasanAction::CheckStore => {
-                let pc: GuestAddr = qemu.read_reg(Regs::Pc).unwrap();
-                h.write_n(qemu, pc, a1, a2 as usize);
+                let pc: GuestAddr = qemu.read_reg(Regs::Pc).unwrap() as GuestAddr;
+                h.write_n(qemu, pc, a1 as GuestAddr, a2 as usize);
             }
             QasanAction::Enable => {
                 h.set_enabled(true);
@@ -1492,7 +1502,7 @@ pub unsafe fn asan_report(rt: &AsanGiovese, qemu: Qemu, pc: GuestAddr, err: &Asa
     }
 
     // fix pc in case it is not synced (in hooks)
-    qemu.write_reg(Regs::Pc, pc).unwrap();
+    qemu.write_reg(Regs::Pc, pc as GuestReg).unwrap();
     eprint!(
         "Context:\n{}",
         qemu.current_cpu().unwrap().display_context()

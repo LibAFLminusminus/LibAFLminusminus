@@ -494,6 +494,16 @@ pub mod serdeany_registry {
             }
         }
 
+        /// Get an unnamed element
+        #[must_use]
+        #[inline]
+        pub fn get_unnamed<T>(&self) -> Option<&T>
+        where
+            T: crate::serdeany::SerdeAny,
+        {
+            self.get::<T>("")
+        }
+
         /// Remove an element by type and name
         #[must_use]
         #[inline]
@@ -513,6 +523,16 @@ pub mod serdeany_registry {
             }
         }
 
+        /// Remove an element by type
+        #[must_use]
+        #[inline]
+        pub fn remove_unnamed<T>(&mut self) -> Option<Box<T>>
+        where
+            T: crate::serdeany::SerdeAny,
+        {
+            self.remove::<T>("")
+        }
+
         /// Get an element of a given type contained in this map by type `T`, as mut.
         #[must_use]
         #[inline]
@@ -530,6 +550,16 @@ pub mod serdeany_registry {
                     .get_mut(name)
                     .map(|x| x.as_any_mut().downcast_mut::<T>().unwrap()),
             }
+        }
+
+        /// Get an element of a given type contained in this map by type `T`, as mut.
+        #[must_use]
+        #[inline]
+        pub fn get_unnamed_mut<T>(&mut self) -> Option<&mut T>
+        where
+            T: crate::serdeany::SerdeAny,
+        {
+            self.get_mut::<T>("")
         }
 
         /// Get all elements of a type contained in this map.
@@ -633,6 +663,16 @@ pub mod serdeany_registry {
             self.entry::<T>(name.into()).insert(Box::new(val));
         }
 
+        /// Insert an element into this map.
+        #[inline]
+        #[expect(unused_qualifications)]
+        pub fn insert_unnamed<T>(&mut self, val: T)
+        where
+            T: crate::serdeany::SerdeAny,
+        {
+            self.insert("", val)
+        }
+
         /// Insert an element into the map if it doesn't exist, else return error.
         #[inline]
         #[expect(unused_qualifications)]
@@ -653,6 +693,16 @@ pub mod serdeany_registry {
                 }
             }
             Ok(())
+        }
+
+        /// Insert an element into the map if it doesn't exist, else return error.
+        #[inline]
+        #[expect(unused_qualifications)]
+        pub fn try_insert_unnamed<T>(&mut self, val: T) -> Result<(), Error>
+        where
+            T: crate::serdeany::SerdeAny,
+        {
+            self.try_insert("", val)
         }
 
         /// Get a reference to the type map.
@@ -731,6 +781,14 @@ pub mod serdeany_registry {
             ret.1.as_any_mut().downcast_mut::<T>().unwrap()
         }
 
+        /// Gets an unnamed value, or inserts it using the given construction function `default`
+        pub fn get_unnamed_or_insert_with<T>(&mut self, default: impl FnOnce() -> T) -> &mut T
+        where
+            T: SerdeAny,
+        {
+            self.get_or_insert_with("", default)
+        }
+
         /// Gets a value by name, or inserts it using the given construction function `default` (returning a boxed value)
         pub fn get_or_insert_with_boxed<T>(
             &mut self,
@@ -788,6 +846,16 @@ pub mod serdeany_registry {
                 None => false,
                 Some(h) => h.contains_key(name),
             }
+        }
+
+        /// Returns if the element with the given type is contained in this map.
+        #[must_use]
+        #[inline]
+        pub fn contains_unnamed<T>(&self) -> bool
+        where
+            T: crate::serdeany::SerdeAny,
+        {
+            self.contains::<T>("")
         }
 
         /// Create a new `SerdeAny` map.

@@ -1,7 +1,7 @@
 //! Generators may generate bytes or, in general, data, for inputs.
 
 use alloc::vec::Vec;
-use core::{cmp::max, marker::PhantomData, num::NonZeroUsize};
+use core::{cmp::max, num::NonZeroUsize};
 
 use libafl_bolts::rands::Rand;
 

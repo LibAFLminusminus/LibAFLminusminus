@@ -126,11 +126,14 @@ pub trait ResizableMutator<T> {
         R: RangeBounds<usize>;
 }
 
+/// [`InputContext`] helps the conversion of [`Input`] type to byte slice.
 pub trait InputContext<I> {
+    /// Turns this `input` to slice
     fn to_bytes<'a>(&mut self, input: &'a I) -> OwnedSlice<'a, u8>;
 }
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
+/// [`NopContext`] just returns an empty [`OwnedSlice`]
 pub struct NopContext;
 
 /// An input for tests, mainly. There is no real use much else.

@@ -431,7 +431,7 @@ impl Rule {
 }
 
 mod hir_serde {
-    use std::string::{String, ToString};
+    use alloc::string::{String, ToString};
 
     use regex_syntax::{Parser, hir::Hir};
     use serde::{Deserialize, Deserializer, Serializer, de};

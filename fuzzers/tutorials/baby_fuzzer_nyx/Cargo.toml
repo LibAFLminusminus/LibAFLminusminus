@@ -1,7 +1,7 @@
 [package]
 name = "nyx_libxml2_standalone"
 version = "0.16.0"
-edition = "2021"
+edition = "2024"
 default-run = "nyx_libxml2_standalone"
 
 [dependencies]

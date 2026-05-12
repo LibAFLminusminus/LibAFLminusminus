@@ -64,10 +64,8 @@ where
             CMPLOG_ENABLED = 0;
         }
         if self.add_meta {
-            let meta = named_metadata_mut::<CmpValuesMetadata>(
-                state.named_metadata_map_mut(),
-                self.name(),
-            )?;
+            let meta =
+                named_metadata_mut::<CmpValuesMetadata>(state.metadata_map_mut(), self.name())?;
             let rq_data = parse_redqueen_data(&std::fs::read_to_string(self.path.as_ref())?);
             for event in rq_data.bps {
                 if let Ok(cmp_value) = event.try_into() {

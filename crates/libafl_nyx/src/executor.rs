@@ -6,11 +6,10 @@ use std::{
 
 use libafl::{
     DependencyResolver, Error,
-    corpus::Corpus,
     executors::{Executor, ExitKind},
     inputs::InputContext,
     observers::{ObserversTuple, StdOutObserver},
-    states::{FlatState, HasCorpus},
+    states::{FlatState, HasContext},
 };
 use libafl_bolts::{
     AsSlice,
@@ -45,7 +44,7 @@ impl<OT> DependencyResolver for NyxExecutor<OT> {}
 
 impl<I, OT, S> Executor<I, S> for NyxExecutor<OT>
 where
-    S: FlatState + HasCorpus<I>,
+    S: FlatState + HasContext<I>,
     OT: ObserversTuple<S>,
 {
     type Observers = OT;
@@ -82,7 +81,7 @@ where
     }
 
     unsafe fn execute_impl(&mut self, state: &mut S, input: &I) -> Result<ExitKind, Error> {
-        let context = state.corpus_mut().context_mut();
+        let context = state.context_mut();
         let bytes = context.to_bytes(input);
 
         state.increment_execs();

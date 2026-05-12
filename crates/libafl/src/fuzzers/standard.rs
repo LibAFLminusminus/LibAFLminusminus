@@ -1,27 +1,29 @@
+//! The standard [`Fuzzer`], for everyday use.
+
 use alloc::rc::Rc;
 use core::time::Duration;
-use std::{fs::File, string::ToString, thread::current};
 
 use libafl_bolts::current_time;
-use libafl_core::Error;
+use libafl_core::Result;
 use quanta::{Clock, Instant};
 use tuple_list::tuple_list;
 
 use crate::{
-    FuzzerHook, FuzzerHooksTuple, Worker,
-    corpus::{Corpus, Scheduler, Testcase, TestcaseId},
+    FuzzerHooksTuple, Worker,
+    corpus::{Corpus, Scheduler, Testcase},
     dependency::Registrator,
     executors::{Executor, ExitKind},
-    feedbacks::{Feedback, MapFeedbackMetadata},
+    feedbacks::Feedback,
     fuzzers::{EvaluationResult, Evaluator, Fuzzer, HasFeedback, HasObjective, Verdict},
     inputs::Input,
-    observers::{Observer, ObserversTuple},
+    observers::ObserversTuple,
     runtimes::{
         Runtime, RuntimeHandle,
+        inprocess::{CrashStatus, TimeoutStatus},
         utils::{OsTerminationParams, TerminationHandlerData},
     },
     stages::StagesTuple,
-    states::{FlatState, HasCorpus, HasObjectiveCorpus, HasTestcase, State, sync_stats},
+    states::State,
 };
 
 const STATS_UPDATE_INTERVAL: Duration = Duration::from_secs(5);
@@ -31,43 +33,40 @@ const STATS_UPDATE_INTERVAL: Duration = Duration::from_secs(5);
 ///
 /// In practice, it's very hard to enforce, and most likely some allocations will happen there.
 /// If it is ever a real bug, investigate there.
-fn handle_objective_in_termination_handler<O, F, H, I, OF, S, W>(
-    observers: &mut O,
+fn handle_objective_in_termination_handler<E, F, H, I, OF, S, W>(
+    executor: &mut E,
     state: &mut S,
-    input: I,
+    input: &I,
     fuzzer: &mut StdFuzzer<F, H, OF>,
     rt_handle: &mut RuntimeHandle<S, W>,
     exit_kind: ExitKind,
-) where
-    F: Feedback<I, O, S>,
+) -> Result<()>
+where
+    E: Executor<I, S>,
+    F: Feedback<I, E::Observers, S>,
     I: Input,
-    O: ObserversTuple<S>,
-    OF: Feedback<I, O, S>,
+    OF: Feedback<I, E::Observers, S>,
     S: State<I>,
     W: Worker,
 {
-    observers
-        .post_exec_all(state, &exit_kind)
-        .expect("Post exec observers failed");
+    executor.observers_mut().post_exec_all(state, &exit_kind)?;
 
-    fuzzer
-        .evaluate_execution(state, &input, observers, exit_kind)
-        .unwrap();
+    fuzzer.evaluate_execution(state, input, &*executor.observers_mut(), exit_kind)?;
 
     // update stats before exit
     rt_handle
         .worker_mut()
         .workdir_mut()
         .report_stats(state.stats())
-        .unwrap();
 }
 
 /// Crash signals will end up there, if it happens during a fuzzing run.
 /// Ending up here out of a fuzzing run is an error.
 unsafe fn std_on_crash<E, F, H, I, OF, S, W>(
     data: &mut TerminationHandlerData,
-    _signal_params: &OsTerminationParams,
-) where
+    signal_params: &OsTerminationParams,
+) -> Result<CrashStatus>
+where
     E: Executor<I, S>,
     F: Feedback<I, E::Observers, S>,
     I: Input,
@@ -76,34 +75,43 @@ unsafe fn std_on_crash<E, F, H, I, OF, S, W>(
     W: Worker,
 {
     // double check, not mandatory
-    if !data.in_fuzzing() {
-        panic!("A crash occured out of the fuzzing loop. This is a fuzzer bug.");
-    }
+    assert!(
+        data.in_fuzzing(),
+        "A crash occured out of the fuzzing loop. This is a fuzzer bug."
+    );
 
     // note: take input to signify we are out of target code
-    // it is useful if subsequent code panicks / raises another signal.
+    // it is useful if subsequent code panics / raises another signal.
     let input = unsafe { data.take_input::<I>() };
     let state = unsafe { data.state::<S>() };
     let fuzzer = unsafe { data.fuzzer::<StdFuzzer<F, H, OF>>() };
-    let observers = unsafe { data.observers::<E::Observers>() };
+    let executor = unsafe { data.executor::<E, I, S>() };
     let rt_handle = unsafe { data.rt_handle::<S, W>() };
 
-    handle_objective_in_termination_handler(
-        observers,
-        state,
-        input.unwrap(),
-        fuzzer,
-        rt_handle,
-        ExitKind::Crash,
-    );
+    let status = unsafe { executor.handle_crash(signal_params)? };
+
+    if let CrashStatus::TargetCrash = status {
+        // if it is a target crash, handle crash termination as target objective.
+        handle_objective_in_termination_handler(
+            executor,
+            state,
+            &input.unwrap(),
+            fuzzer,
+            rt_handle,
+            ExitKind::Crash,
+        )?;
+    }
+
+    Ok(status)
 }
 
 /// Timeout signals will end up there, if it happens during a fuzzing run.
 /// Ending up here out of a fuzzing run is an error.
 unsafe fn std_on_timeout<E, F, H, I, OF, S, W>(
     data: &mut TerminationHandlerData,
-    _signal_params: &OsTerminationParams,
-) where
+    signal_params: &OsTerminationParams,
+) -> Result<TimeoutStatus>
+where
     E: Executor<I, S>,
     F: Feedback<I, E::Observers, S>,
     I: Input,
@@ -112,26 +120,31 @@ unsafe fn std_on_timeout<E, F, H, I, OF, S, W>(
     W: Worker,
 {
     // double check, not mandatory
-    if !data.in_fuzzing() {
-        panic!("A timeout occured out of the fuzzing loop. This is a fuzzer bug.");
-    }
+    assert!(
+        data.in_fuzzing(),
+        "A timeout occured out of the fuzzing loop. This is a fuzzer bug."
+    );
 
     // note: take input to signify we are out of target code
-    // it is useful if subsequent code panicks / raises another signal.
+    // it is useful if subsequent code panics / raises another signal.
     let input = unsafe { data.take_input::<I>() };
     let state = unsafe { data.state::<S>() };
     let fuzzer = unsafe { data.fuzzer::<StdFuzzer<F, H, OF>>() };
-    let observers = unsafe { data.observers::<E::Observers>() };
+    let executor = unsafe { data.executor::<E, I, S>() };
     let rt_handle = unsafe { data.rt_handle::<S, W>() };
 
+    let status = unsafe { executor.handle_timeout(signal_params)? };
+
     handle_objective_in_termination_handler(
-        observers,
+        executor,
         state,
-        input.unwrap(),
+        &input.unwrap(),
         fuzzer,
         rt_handle,
         ExitKind::Timeout,
-    );
+    )?;
+
+    Ok(status)
 }
 
 /// Your default fuzzer instance, for everyday use.
@@ -183,74 +196,13 @@ impl<F, H, OF> HasObjective for StdFuzzer<F, H, OF> {
 }
 
 impl<F, H, OF> StdFuzzer<F, H, OF> {
-    fn commit_testcase<I, OT, S>(
-        &mut self,
-        state: &mut S,
-        observers: &OT,
-        exit_kind: ExitKind,
-        testcase: Testcase<I>,
-        res: EvaluationResult,
-    ) -> Result<Option<TestcaseId>, Error>
-    where
-        F: Feedback<I, OT, S>,
-        I: Input,
-        OF: Feedback<I, OT, S>,
-        S: State<I>,
-    {
-        let executions = state.executions();
-        if res.is_objective_worthy() {
-            let executions = state.executions();
-            // The input is a objective, add it to the respective corpus
-            let testcase_id = state.objective_corpus_mut().add(testcase)?;
-
-            let md = state.testcase_md_mut_from_id(&testcase_id);
-
-            md.set_executions(executions);
-            md.found_objective();
-
-            // TODO: keep parent id?
-            // testcase.set_parent_id_optional(*state.corpus().current());
-
-            #[cfg(feature = "track_hit_feedbacks")]
-            self.objective_mut()
-                .append_hit_feedbacks(testcase.hit_objectives_mut())?;
-            self.objective_feedback_mut()
-                .append_metadata(state, observers, &testcase_id)?;
-            let stats = state.stats_mut();
-            stats.last_found_time = current_time();
-            stats.objective += 1;
-
-            return Ok(Some(testcase_id));
-        } else if res.is_corpus_worthy() {
-            // Not an objective
-            // Add the input to the main corpus
-            let testcase_id = state.corpus_mut().add(testcase)?;
-            state
-                .testcase_md_mut_from_id(&testcase_id)
-                .set_executions(executions);
-
-            #[cfg(feature = "track_hit_feedbacks")]
-            self.feedback_mut()
-                .append_hit_feedbacks(testcase.hit_feedbacks_mut())?;
-            self.feedback_mut()
-                .append_metadata(state, observers, &testcase_id)?;
-            let stats = state.stats_mut();
-            stats.last_found_time = current_time();
-            stats.corpus += 1;
-
-            return Ok(Some(testcase_id));
-        }
-
-        Ok(None)
-    }
-
     fn evaluate_execution<I, OT, S>(
         &mut self,
         state: &mut S,
         input: &I,
         observers: &OT,
         exit_kind: ExitKind,
-    ) -> Result<EvaluationResult, Error>
+    ) -> Result<EvaluationResult>
     where
         F: Feedback<I, OT, S>,
         I: Input,
@@ -297,19 +249,89 @@ where
         executor: &mut E,
         rt_handle: &mut RuntimeHandle<S, W>,
         input: &I,
-    ) -> Result<EvaluationResult, Error> {
+    ) -> Result<EvaluationResult> {
         let exit_kind = executor.execute(state, rt_handle, input)?;
 
         let observers = executor.observers();
         let result =
-            self.evaluate_execution::<I, E::Observers, S>(state, &*input, &*observers, exit_kind)?;
-        let mut testcase = Testcase::new(Rc::new(input.clone()));
-        self.fuzzer_hooks
-            .pre_add_all(executor, state, rt_handle, &mut testcase);
+            self.evaluate_execution::<I, E::Observers, S>(state, input, &*observers, exit_kind)?;
 
-        // just to circumvent borrow rules
-        let observers = executor.observers();
-        let commited = self.commit_testcase(state, &*observers, exit_kind, testcase, result);
+        if result.is_objective_worthy() {
+            // The input is a objective, add it to the respective corpus
+            let executions = state.executions();
+            let mut testcase = Testcase::new(Rc::new(input.clone()));
+
+            self.fuzzer_hooks.pre_add_all(
+                executor,
+                state,
+                rt_handle,
+                &mut testcase,
+                Verdict::Objective,
+            )?;
+
+            let testcase_id = state.objective_corpus_mut().add(testcase)?;
+
+            let md = state.testcase_md_mut_from_id(&testcase_id);
+
+            md.set_executions(executions);
+            md.found_objective();
+
+            // TODO: keep parent id?
+            // testcase.set_parent_id_optional(*state.corpus().current());
+
+            self.objective_feedback_mut().append_metadata(
+                state,
+                &*executor.observers(),
+                &testcase_id,
+            )?;
+
+            let stats = state.stats_mut();
+            stats.last_found_time = current_time();
+            stats.objective += 1;
+
+            self.fuzzer_hooks.post_add_all(
+                executor,
+                state,
+                rt_handle,
+                testcase_id,
+                Verdict::Objective,
+            )?;
+        } else if result.is_corpus_worthy() {
+            // Not an objective
+            // Add the input to the main corpus
+
+            let executions = state.executions();
+            let mut testcase = Testcase::new(Rc::new(input.clone()));
+
+            self.fuzzer_hooks.pre_add_all(
+                executor,
+                state,
+                rt_handle,
+                &mut testcase,
+                Verdict::Corpus,
+            )?;
+
+            let testcase_id = state.corpus_mut().add(testcase)?;
+            state
+                .testcase_md_mut_from_id(&testcase_id)
+                .set_executions(executions);
+
+            self.feedback_mut()
+                .append_metadata(state, &*executor.observers(), &testcase_id)?;
+
+            let stats = state.stats_mut();
+            stats.last_found_time = current_time();
+            stats.corpus += 1;
+
+            self.fuzzer_hooks.post_add_all(
+                executor,
+                state,
+                rt_handle,
+                testcase_id,
+                Verdict::Corpus,
+            )?;
+        }
+
         Ok(result)
     }
 }
@@ -321,6 +343,7 @@ where
     H: FuzzerHooksTuple<E, I, S, W>,
     I: Input,
     OF: Feedback<I, E::Observers, S>,
+    R: Runtime<S, W>,
     S: State<I>,
     ST: StagesTuple<E, R, S, W, Self>,
     W: Worker,
@@ -331,14 +354,14 @@ where
         executor: &mut E,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         if self.initialized {
             return Ok(());
         }
 
         if state.should_initialize_metadata() {
             // 1 - collect the required mds and involved types
-            let mut registrator = Registrator::new(state.named_metadata_map().clone());
+            let mut registrator = Registrator::new(state.metadata_map().clone());
 
             self.feedback.register_with_ty(&mut registrator)?;
             self.objective.register_with_ty(&mut registrator)?;
@@ -348,23 +371,23 @@ where
             executor.register_with_ty(&mut registrator)?;
 
             // 2 - check that types and mds for each object
-            let mut checker = registrator.finish();
-            self.feedback.check(&mut checker)?;
-            self.objective.check(&mut checker)?;
-            self.objective.check(&mut checker)?;
-            stages.check(&mut checker)?;
-            state.check(&mut checker)?;
-            executor.check(&mut checker)?;
+            let checker = registrator.finish();
+            self.feedback.check(&checker)?;
+            self.objective.check(&checker)?;
+            self.objective.check(&checker)?;
+            stages.check(&checker)?;
+            state.check(&checker)?;
+            executor.check(&checker)?;
 
             // 3 - now state metadata get replaced by
-            *state.named_metadata_map_mut() = checker.finish();
+            *state.metadata_map_mut() = checker.finish();
         }
 
         // 4 - populate signal handler data if the runtime needs it
-        rt_handle.init_termination_handlers(
+        rt_handle.init_termination_handlers::<E, I, R, ST, Self>(
             state,
             self,
-            &mut *executor.observers_mut(),
+            executor,
             |data, signal_params| unsafe {
                 std_on_crash::<E, F, H, I, OF, S, W>(data, signal_params)
             },
@@ -398,9 +421,7 @@ where
         rand: &mut R,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
-    ) -> Result<(), Error> {
-        self.fuzzer_hooks.pre_step_all(executor, state, rt_handle);
-
+    ) -> Result<()> {
         let now = self.clock.now();
         if now - self.last_synced > STATS_UPDATE_INTERVAL {
             rt_handle
@@ -410,14 +431,13 @@ where
             self.last_synced = now;
         }
 
-        self.fuzzer_hooks
-            .pre_schedule_all(executor, state, rt_handle);
+        self.fuzzer_hooks.pre_step_all(executor, state, rt_handle)?;
 
         // Get the next index from the scheduler
         let testcase_id = state.scheduler_mut().next()?;
 
         self.fuzzer_hooks
-            .pre_perform_all(executor, state, rt_handle, testcase_id);
+            .pre_perform_all(executor, state, rt_handle, testcase_id)?;
 
         // Execute all stages
         stages.perform_all(self, executor, rand, state, rt_handle, &testcase_id)?;
@@ -426,7 +446,8 @@ where
             .testcase_md_mut_from_id(&testcase_id)
             .increase_scheduled_count();
 
-        self.fuzzer_hooks.post_step_all(executor, state, rt_handle);
+        self.fuzzer_hooks
+            .post_step_all(executor, state, rt_handle)?;
 
         Ok(())
     }
@@ -512,12 +533,13 @@ impl<F, OF> StdFuzzer<F, (), OF> {
         executor: &mut E,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
-    ) -> Result<StdFuzzer<F, (), OF>, Error>
+    ) -> Result<StdFuzzer<F, (), OF>>
     where
         E: Executor<I, S>,
         F: Feedback<I, E::Observers, S>,
         I: Input,
         OF: Feedback<I, E::Observers, S>,
+        R: Runtime<S, W>,
         S: State<I>,
         ST: StagesTuple<E, R, S, W, Self>,
         W: Worker,
@@ -544,13 +566,14 @@ impl<F, H, OF> StdFuzzer<F, H, OF> {
         executor: &mut E,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
-    ) -> Result<StdFuzzer<F, H, OF>, Error>
+    ) -> Result<StdFuzzer<F, H, OF>>
     where
         E: Executor<I, S>,
         F: Feedback<I, E::Observers, S>,
         H: FuzzerHooksTuple<E, I, S, W>,
         I: Input,
         OF: Feedback<I, E::Observers, S>,
+        R: Runtime<S, W>,
         S: State<I>,
         ST: StagesTuple<E, R, S, W, Self>,
         W: Worker,

@@ -1,3 +1,5 @@
+//! The command wrapper for properly setting up the forkserver.
+
 use std::os::{
     fd::{BorrowedFd, FromRawFd, OwnedFd},
     unix::process::CommandExt,
@@ -63,14 +65,12 @@ impl Config for Command {
                 let mut channel1 = OwnedFd::from_raw_fd(FORKSRV_FD_NUM);
                 let mut channel2 = OwnedFd::from_raw_fd(FORKSRV_FD_NUM + 1);
                 // Safety: these raw fds are valid in the child at pre_exec time (because at this point we created the pipe already)
-                dup2(unsafe { BorrowedFd::borrow_raw(ctl_read) }, &mut channel1)
-                    .map_err(io::Error::from)?;
-                dup2(unsafe { BorrowedFd::borrow_raw(st_write) }, &mut channel2)
-                    .map_err(io::Error::from)?;
+                dup2(BorrowedFd::borrow_raw(ctl_read), &mut channel1).map_err(io::Error::from)?;
+                dup2(BorrowedFd::borrow_raw(st_write), &mut channel2).map_err(io::Error::from)?;
 
                 // i need this else drop() will be called on these guys
-                std::mem::forget(channel1);
-                std::mem::forget(channel2);
+                core::mem::forget(channel1);
+                core::mem::forget(channel2);
 
                 close(ctl_read).map_err(io::Error::from)?;
                 close(st_write).map_err(io::Error::from)?;

@@ -3,6 +3,7 @@
 
 use std::{env, fmt::Debug, fs, ops::Range, path::PathBuf};
 
+use libafl::Result;
 use libafl_qemu_sys::{GuestAddr, MapInfo};
 
 use super::IntervalSnapshotFilter;
@@ -65,12 +66,12 @@ impl AsanGuestModule<StdAddressFilter> {
     pub fn snapshot_filters() -> IntervalSnapshotFilters {
         IntervalSnapshotFilters::from(vec![IntervalSnapshotFilter::ZeroList(vec![
             Range {
-                start: u64::from(Self::LOW_SHADOW_START),
-                end: u64::from(Self::LOW_SHADOW_END) + 1,
+                start: Self::LOW_SHADOW_START as u64,
+                end: Self::LOW_SHADOW_END as u64 + 1,
             },
             Range {
-                start: u64::from(Self::HIGH_SHADOW_START),
-                end: u64::from(Self::HIGH_SHADOW_END) + 1,
+                start: Self::HIGH_SHADOW_START as u64,
+                end: Self::HIGH_SHADOW_END as u64 + 1,
             },
         ])])
     }
@@ -100,7 +101,7 @@ where
 fn gen_readwrite_guest_asan<ET, F, I, S>(
     _qemu: Qemu,
     emulator_modules: &mut EmulatorModules<ET, I, S>,
-    _state: Option<&mut S>,
+    _state: &mut S,
     pc: GuestAddr,
     addr: *mut TCGTemp,
     info: MemAccessInfo,
@@ -120,7 +121,7 @@ where
     if let Some(asan_mappings) = &h.asan_mappings
         && asan_mappings
             .iter()
-            .any(|m| m.start() <= u64::from(pc) && u64::from(pc) < m.end())
+            .any(|m| m.start() <= pc as u64 && (pc as u64) < m.end())
     {
         return None;
     }
@@ -143,7 +144,7 @@ unsafe fn libafl_tcg_gen_asan(addr: *mut TCGTemp, size: usize) {}
 fn guest_trace_error_asan<ET, I, S>(
     _qemu: Qemu,
     _emulator_modules: &mut EmulatorModules<ET, I, S>,
-    _state: Option<&mut S>,
+    _state: &mut S,
     _id: u64,
     _pc: GuestAddr,
     _addr: GuestAddr,
@@ -159,7 +160,7 @@ fn guest_trace_error_asan<ET, I, S>(
 fn guest_trace_error_n_asan<ET, I, S>(
     _qemu: Qemu,
     _emulator_modules: &mut EmulatorModules<ET, I, S>,
-    _state: Option<&mut S>,
+    _state: &mut S,
     _id: u64,
     _pc: GuestAddr,
     _addr: GuestAddr,
@@ -274,7 +275,8 @@ where
         qemu: Qemu,
         emulator_modules: &mut EmulatorModules<ET, I, S>,
         _state: &mut S,
-    ) where
+    ) -> Result<()>
+    where
         ET: EmulatorModuleTuple<I, S>,
         I: Unpin,
         S: Unpin,
@@ -287,8 +289,8 @@ where
         let high_shadow = mappings
             .iter()
             .find(|m| {
-                m.start() <= u64::from(Self::HIGH_SHADOW_START)
-                    && m.end() > u64::from(Self::HIGH_SHADOW_END)
+                m.start() <= Self::HIGH_SHADOW_START as u64
+                    && m.end() > Self::HIGH_SHADOW_END as u64
             })
             .expect("HighShadow not found, confirm ASAN DSO is loaded in the guest");
         log::info!("high_shadow: {high_shadow:}");
@@ -296,8 +298,7 @@ where
         let low_shadow = mappings
             .iter()
             .find(|m| {
-                m.start() <= u64::from(Self::LOW_SHADOW_START)
-                    && m.end() > u64::from(Self::LOW_SHADOW_END)
+                m.start() <= Self::LOW_SHADOW_START as u64 && m.end() > Self::LOW_SHADOW_END as u64
             })
             .expect("LowShadow not found, confirm ASAN DSO is loaded in the guest");
         log::info!("low_shadow: {low_shadow:}");
@@ -333,6 +334,8 @@ where
             Hook::Function(guest_trace_error_asan::<ET, I, S>),
             Hook::Function(guest_trace_error_n_asan::<ET, I, S>),
         );
+
+        Ok(())
     }
 }
 

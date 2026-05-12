@@ -247,12 +247,12 @@ impl Debug for DrCovReader {
     }
 }
 
-fn parse_hex_to_usize(str: &str) -> std::result::Result<usize, ParseIntError> {
+fn parse_hex_to_usize(str: &str) -> core::result::Result<usize, ParseIntError> {
     // Cut off the first 0x
     usize::from_str_radix(&str[2..], 16)
 }
 
-fn parse_hex_to_u64(str: &str) -> std::result::Result<u64, ParseIntError> {
+fn parse_hex_to_u64(str: &str) -> core::result::Result<u64, ParseIntError> {
     // Cut off the first 0x
     u64::from_str_radix(&str[2..], 16)
 }

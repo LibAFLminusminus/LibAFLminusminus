@@ -43,6 +43,7 @@ default = [
   "simd",
   "std",
   "remove_me",
+  "nautilus",
 ]
 document-features = ["dep:document-features"]
 
@@ -51,7 +52,6 @@ document-features = ["dep:document-features"]
 
 ## Enables features that need rust's `std` lib to work, like print, env, ... support
 std = [
-  "backtrace",
   "dep:nix",
   "fastbloom",
   "libafl_bolts/std",
@@ -60,15 +60,11 @@ std = [
   "serde/std",
   "serial_test",
   "typed-builder",
-  "wait-timeout",
 ]
 
 ## THIS IS A TEMPORARY DEV FEATURE FOR FAST COMPILATION
 ## REMOVE ME WHEN LIABFL-- REFACTORING IS DONE
 remove_me = []
-
-## Tracks the Feedbacks and the Objectives that were interesting for a Testcase
-track_hit_feedbacks = ["std"]
 
 ## `ValueBloomFeedback` checks if an observed value has already been observed, and returns `is_interesting=true` otherwise.
 value_bloom_feedback = ["fastbloom", "fastbloom/serde"]
@@ -96,31 +92,19 @@ handle_sigpipe = []
 
 #! ## Additional Components
 
-## Enables `TcpEventManager`, a simple EventManager proxying everything via TCP. This uses `tokio`.
-tcp_manager = ["tokio", "std"]
-
 ## Enables `WebMonitor`, an axum-based HTTP server exposing fuzzing stats and historical data
 web_monitor = ["dep:axum", "tokio", "std", "serde_json"]
-
-## Enables compression for the TCP manager
-tcp_compression = ["tcp_manager", "libafl_bolts/gzip"]
 
 ## Enable multi-machine support
 multi_machine = ["tokio", "std", "enumflags2", "ahash/std"]
 
 ## Enables the `NaiveTokenizer` and `StacktraceObserver`
-regex = ["std", "dep:regex"]
-
-## Enables deduplication based on `libcasr` for `StacktraceObserver`
-casr = ["libcasr", "std", "regex"]
+regex = ["std", "dep:regex", "dep:backtrace"]
 
 ## Intel Processor Trace
 intel_pt = ["std", "dep:libafl_intelpt", "dep:nix"]
 ## Save all the Intel PT raw traces to files, use only for debug
 intel_pt_export_raw = ["intel_pt", "libafl_intelpt/export_raw"]
-
-## Enables `UnicodeClassificationStage` and associated mutators, which allow for mutations which preserve the Unicode property data
-unicode = ["libafl_bolts/alloc", "ahash/std", "serde/rc"]
 
 #! ## LibAFL-Bolts Features
 
@@ -175,10 +159,10 @@ tuple_list_ex = { workspace = true }
 quanta = "0.12.6"
 ahash = { workspace = true } # The hash function already used in hashbrown
 arbitrary-int = { workspace = true }
-backtrace = { workspace = true, optional = true } # Used to get the stacktrace in StacktraceObserver
+backtrace = { workspace = true, optional = true, features = [
+  "std",
+] } # Used to get the stacktrace in StacktraceObserver
 bitbybit = { workspace = true }
-const_format = "0.2.33" # used for providing helpful compiler output
-const_panic = { version = "0.2.9", default-features = false } # similarly, for formatting const panic output
 enumflags2 = { version = "0.7.10", optional = true }
 fastbloom = { workspace = true, optional = true }
 hashbrown = { workspace = true, features = [
@@ -186,7 +170,6 @@ hashbrown = { workspace = true, features = [
   "default-hasher",
   "raw-entry",
 ], default-features = false } # A faster hashmap, nostd compatible
-libcasr = { version = "2.12.1", optional = true }
 libm = "0.2.8"
 log = { workspace = true }
 meminterval = { workspace = true, features = ["serde"] }
@@ -219,7 +202,6 @@ tokio = { version = "1.40.0", optional = true, features = [
 axum = { version = "0.8", optional = true }
 tuple_list = { workspace = true }
 typed-builder = { workspace = true, optional = true } # Implement the builder pattern at compiletime
-wait-timeout = { version = "0.2.0", optional = true } # used by CommandExecutor to wait for child process
 
 regex = { workspace = true, optional = true }
 regex-syntax = { version = "0.8.4", optional = true } # For nautilus

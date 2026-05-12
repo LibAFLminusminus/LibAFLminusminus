@@ -6,8 +6,8 @@
 
 use core::{ffi::c_void, fmt::Debug, mem::transmute, ptr};
 
-use libafl::executors::hooks::inprocess::inprocess_get_state;
-use libafl_qemu_sys::{CPUArchStatePtr, CPUStatePtr, FatPtr, GuestAddr, GuestUsize};
+use libafl::runtimes::TerminationHandlerData;
+use libafl_qemu_sys::{CPUArchStatePtr, CPUStatePtr, FatPtr, GuestAddr, GuestUlong, GuestUsize};
 
 use crate::{
     HookData, HookId,
@@ -96,7 +96,7 @@ pub enum SyscallHookResult {
     /// If you need to change the return value of the syscall, please use a post-syscall hook.
     Run,
     /// Skip the syscall, and make the syscall return the value provided in the field in the target.
-    Skip(GuestAddr),
+    Skip(GuestUlong),
 }
 
 impl<F, C, R: Clone> Hook<F, C, R> {
@@ -115,8 +115,8 @@ macro_rules! create_pre_init_wrapper {
             {
                 unsafe {
                     let modules = EmulatorModules::<ET, I, S>::emulator_modules_mut_unchecked();
-                    let func: fn(&mut EmulatorModules<ET, I, S>, Option<&mut S>, $($param_type),*) = transmute(ptr::from_mut::<()>(hook));
-                    func(modules, inprocess_get_state::<S>(), $($param),*);
+                    let func: fn(&mut EmulatorModules<ET, I, S>, &mut S, $($param_type),*) = transmute(ptr::from_mut::<()>(hook));
+                    func(modules, TerminationHandlerData::global_mut().state::<S>(), $($param),*);
                 }
             }
 
@@ -127,8 +127,8 @@ macro_rules! create_pre_init_wrapper {
             {
                 unsafe {
                     let modules = EmulatorModules::<ET, I, S>::emulator_modules_mut_unchecked();
-                    let func: &mut Box<dyn FnMut(&mut EmulatorModules<ET, I, S>, Option<&mut S>, $($param_type),*)> = &mut *(ptr::from_mut::<FatPtr>(hook) as *mut Box<dyn FnMut(&mut EmulatorModules<ET, I, S>, Option<&mut S>, $($param_type),*)>);
-                    func(modules, inprocess_get_state::<S>(), $($param),*);
+                    let func: &mut Box<dyn FnMut(&mut EmulatorModules<ET, I, S>, &mut S, $($param_type),*)> = &mut *(ptr::from_mut::<FatPtr>(hook) as *mut Box<dyn FnMut(&mut EmulatorModules<ET, I, S>, &mut S, $($param_type),*)>);
+                    func(modules, TerminationHandlerData::global_mut().state::<S>(), $($param),*);
                 }
             }
         }
@@ -142,8 +142,8 @@ macro_rules! create_pre_init_wrapper {
             {
                 unsafe {
                     let modules = EmulatorModules::<ET, I, S>::emulator_modules_mut_unchecked();
-                    let func: fn(&mut EmulatorModules<ET, I, S>, Option<&mut S>, $($param_type),*) -> $ret_type= transmute(ptr::from_mut::<()>(hook));
-                    func(modules, inprocess_get_state::<S>(), $($param),*)
+                    let func: fn(&mut EmulatorModules<ET, I, S>, &mut S, $($param_type),*) -> $ret_type= transmute(ptr::from_mut::<()>(hook));
+                    func(modules, TerminationHandlerData::global_mut().state::<S>(), $($param),*)
                 }
             }
 
@@ -154,8 +154,8 @@ macro_rules! create_pre_init_wrapper {
             {
                 unsafe {
                     let modules = EmulatorModules::<ET, I, S>::emulator_modules_mut_unchecked();
-                    let func: &mut Box<dyn FnMut(&mut EmulatorModules<ET, I, S>, Option<&mut S>, $($param_type),*) -> $ret_type> = &mut *(ptr::from_mut::<FatPtr>(hook) as *mut Box<dyn FnMut(&mut EmulatorModules<ET, I, S>, Option<&mut S>, $($param_type),*) -> $ret_type>);
-                    func(modules, inprocess_get_state::<S>(), $($param),*)
+                    let func: &mut Box<dyn FnMut(&mut EmulatorModules<ET, I, S>, &mut S, $($param_type),*) -> $ret_type> = &mut *(ptr::from_mut::<FatPtr>(hook) as *mut Box<dyn FnMut(&mut EmulatorModules<ET, I, S>, &mut S, $($param_type),*) -> $ret_type>);
+                    func(modules, TerminationHandlerData::global_mut().state::<S>(), $($param),*)
                 }
             }
         }
@@ -173,8 +173,8 @@ macro_rules! create_wrapper {
                 unsafe {
                     let qemu = Qemu::get_unchecked();
                     let modules = EmulatorModules::<ET, I, S>::emulator_modules_mut_unchecked();
-                    let func: fn(Qemu, &mut EmulatorModules<ET, I, S>, Option<&mut S>, $($param_type),*) = transmute(ptr::from_mut::<()>(hook));
-                    func(qemu, modules, inprocess_get_state::<S>(), $($param),*);
+                    let func: fn(Qemu, &mut EmulatorModules<ET, I, S>, &mut S, $($param_type),*) = transmute(ptr::from_mut::<()>(hook));
+                    func(qemu, modules, TerminationHandlerData::global_mut().state::<S>(), $($param),*);
                 }
             }
 
@@ -186,8 +186,8 @@ macro_rules! create_wrapper {
                 unsafe {
                     let qemu = Qemu::get_unchecked();
                     let modules = EmulatorModules::<ET, I, S>::emulator_modules_mut_unchecked();
-                    let func: &mut Box<dyn FnMut(Qemu, &mut EmulatorModules<ET, I, S>, Option<&mut S>, $($param_type),*)> = &mut *(ptr::from_mut::<FatPtr>(hook) as *mut Box<dyn FnMut(Qemu, &mut EmulatorModules<ET, I, S>, Option<&mut S>, $($param_type),*)>);
-                    func(qemu, modules, inprocess_get_state::<S>(), $($param),*);
+                    let func: &mut Box<dyn FnMut(Qemu, &mut EmulatorModules<ET, I, S>, &mut S, $($param_type),*)> = &mut *(ptr::from_mut::<FatPtr>(hook) as *mut Box<dyn FnMut(Qemu, &mut EmulatorModules<ET, I, S>, &mut S, $($param_type),*)>);
+                    func(qemu, modules, TerminationHandlerData::global_mut().state::<S>(), $($param),*);
                 }
             }
         }
@@ -202,8 +202,8 @@ macro_rules! create_wrapper {
                 unsafe {
                     let qemu = Qemu::get_unchecked();
                     let modules = EmulatorModules::<ET, I, S>::emulator_modules_mut_unchecked();
-                    let func: fn(Qemu, &mut EmulatorModules<ET, I, S>, Option<&mut S>, $($param_type),*) -> $ret_type= transmute(ptr::from_mut::<()>(hook));
-                    func(qemu, modules, inprocess_get_state::<S>(), $($param),*)
+                    let func: fn(Qemu, &mut EmulatorModules<ET, I, S>, &mut S, $($param_type),*) -> $ret_type= transmute(ptr::from_mut::<()>(hook));
+                    func(qemu, modules, TerminationHandlerData::global_mut().state::<S>(), $($param),*)
                 }
             }
 
@@ -215,8 +215,8 @@ macro_rules! create_wrapper {
                 unsafe {
                     let qemu = Qemu::get_unchecked();
                     let modules = EmulatorModules::<ET, I, S>::emulator_modules_mut_unchecked();
-                    let func: &mut Box<dyn FnMut(Qemu, &mut EmulatorModules<ET, I, S>, Option<&mut S>, $($param_type),*) -> $ret_type> = &mut *(ptr::from_mut::<FatPtr>(hook) as *mut Box<dyn FnMut(Qemu, &mut EmulatorModules<ET, I, S>, Option<&mut S>, $($param_type),*) -> $ret_type>);
-                    func(qemu, modules, inprocess_get_state::<S>(), $($param),*)
+                    let func: &mut Box<dyn FnMut(Qemu, &mut EmulatorModules<ET, I, S>, &mut S, $($param_type),*) -> $ret_type> = &mut *(ptr::from_mut::<FatPtr>(hook) as *mut Box<dyn FnMut(Qemu, &mut EmulatorModules<ET, I, S>, &mut S, $($param_type),*) -> $ret_type>);
+                    func(qemu, modules, TerminationHandlerData::global_mut().state::<S>(), $($param),*)
                 }
             }
         }
@@ -237,17 +237,17 @@ macro_rules! create_pre_exec_wrapper {
 
                     match &mut hook.pre_run {
                         HookRepr::Function(ptr) => {
-                            let func: fn(Qemu, &mut EmulatorModules<ET, I, S>, Option<&mut S>, $($param_type),*) =
+                            let func: fn(Qemu, &mut EmulatorModules<ET, I, S>, &mut S, $($param_type),*) =
                                 transmute(*ptr);
-                            func(qemu, modules, inprocess_get_state::<S>(), $($param),*)
+                            func(qemu, modules, TerminationHandlerData::global_mut().state::<S>(), $($param),*)
                         }
                         HookRepr::Closure(ptr) => {
                             let func: &mut Box<
-                                dyn FnMut(Qemu, &mut EmulatorModules<ET, I, S>, Option<&mut S>, $($param_type),*),
+                                dyn FnMut(Qemu, &mut EmulatorModules<ET, I, S>, &mut S, $($param_type),*),
                             > = &mut *(ptr::from_mut::<FatPtr>(ptr) as *mut Box<
-                                dyn FnMut(Qemu, &mut EmulatorModules<ET, I, S>, Option<&mut S>, $($param_type),*),
+                                dyn FnMut(Qemu, &mut EmulatorModules<ET, I, S>, &mut S, $($param_type),*),
                             >);
-                            func(qemu, modules, inprocess_get_state::<S>(), $($param),*)
+                            func(qemu, modules, TerminationHandlerData::global_mut().state::<S>(), $($param),*)
                         }
                         _ => (),
                     }
@@ -271,17 +271,17 @@ macro_rules! create_post_exec_wrapper {
 
                     match &mut hook.post_run {
                         HookRepr::Function(ptr) => {
-                            let func: fn(Qemu, &mut EmulatorModules<ET, I, S>, Option<&mut S>, $($param_type),*) =
+                            let func: fn(Qemu, &mut EmulatorModules<ET, I, S>, &mut S, $($param_type),*) =
                                 transmute(*ptr);
-                            func(qemu, modules, inprocess_get_state::<S>(), $($param),*);
+                            func(qemu, modules, TerminationHandlerData::global_mut().state::<S>(), $($param),*);
                         }
                         HookRepr::Closure(ptr) => {
                             let func: &mut Box<
-                                dyn FnMut(Qemu, &mut EmulatorModules<ET, I, S>, Option<&mut S>, $($param_type),*),
+                                dyn FnMut(Qemu, &mut EmulatorModules<ET, I, S>, &mut S, $($param_type),*),
                             > = &mut *(ptr::from_mut::<FatPtr>(ptr) as *mut Box<
-                                dyn FnMut(Qemu, &mut EmulatorModules<ET, I, S>, Option<&mut S>, $($param_type),*),
+                                dyn FnMut(Qemu, &mut EmulatorModules<ET, I, S>, &mut S, $($param_type),*),
                             >);
-                            func(qemu, modules, inprocess_get_state::<S>(), $($param),*);
+                            func(qemu, modules, TerminationHandlerData::global_mut().state::<S>(), $($param),*);
                         }
                         _ => (),
                     }
@@ -305,15 +305,15 @@ macro_rules! create_gen_wrapper {
 
                     match &mut hook.generator {
                         HookRepr::Function(ptr) => {
-                            let func: fn(Qemu, &mut EmulatorModules<ET, I, S>, Option<&mut S>, $($param_type),*) -> Option<$ret_type> =
+                            let func: fn(Qemu, &mut EmulatorModules<ET, I, S>, &mut S, $($param_type),*) -> Option<$ret_type> =
                                 transmute(*ptr);
-                            func(qemu, modules, inprocess_get_state::<S>(), $($param),*).map_or(SKIP_EXEC_HOOK, |id| id)
+                            func(qemu, modules, TerminationHandlerData::global_mut().state::<S>(), $($param),*).map_or(SKIP_EXEC_HOOK, |id| id)
                         }
                         HookRepr::Closure(ptr) => {
                             let func: &mut Box<
-                                dyn FnMut(Qemu, &mut EmulatorModules<ET, I, S>, Option<&mut S>, $($param_type),*) -> Option<$ret_type>,
-                            > = &mut *(ptr::from_mut::<FatPtr>(ptr) as *mut Box<dyn FnMut(Qemu, &mut EmulatorModules<ET, I, S>, Option<&mut S>, $($param_type),*) -> Option<$ret_type>>);
-                            func(qemu, modules, inprocess_get_state::<S>(), $($param),*).map_or(SKIP_EXEC_HOOK, |id| id)
+                                dyn FnMut(Qemu, &mut EmulatorModules<ET, I, S>, &mut S, $($param_type),*) -> Option<$ret_type>,
+                            > = &mut *(ptr::from_mut::<FatPtr>(ptr) as *mut Box<dyn FnMut(Qemu, &mut EmulatorModules<ET, I, S>, &mut S, $($param_type),*) -> Option<$ret_type>>);
+                            func(qemu, modules, TerminationHandlerData::global_mut().state::<S>(), $($param),*).map_or(SKIP_EXEC_HOOK, |id| id)
                         }
                         _ => 0,
                     }
@@ -337,15 +337,15 @@ macro_rules! create_post_gen_wrapper {
 
                     match &mut hook.post_gen {
                         HookRepr::Function(ptr) => {
-                            let func: fn(Qemu, &mut EmulatorModules<ET, I, S>, Option<&mut S>, $($param_type),*) =
+                            let func: fn(Qemu, &mut EmulatorModules<ET, I, S>, &mut S, $($param_type),*) =
                                 transmute(*ptr);
-                            func(qemu, modules, inprocess_get_state::<S>(), $($param),*);
+                            func(qemu, modules, TerminationHandlerData::global_mut().state::<S>(), $($param),*);
                         }
                         HookRepr::Closure(ptr) => {
                             let func: &mut Box<
-                                dyn FnMut(Qemu, &mut EmulatorModules<ET, I, S>, Option<&mut S>, $($param_type),*),
-                            > = &mut *(ptr::from_mut::<FatPtr>(ptr) as *mut Box<dyn FnMut(Qemu, &mut EmulatorModules<ET, I, S>, Option<&mut S>, $($param_type),*)>);
-                            func(qemu, modules, inprocess_get_state::<S>(), $($param),*);
+                                dyn FnMut(Qemu, &mut EmulatorModules<ET, I, S>, &mut S, $($param_type),*),
+                            > = &mut *(ptr::from_mut::<FatPtr>(ptr) as *mut Box<dyn FnMut(Qemu, &mut EmulatorModules<ET, I, S>, &mut S, $($param_type),*)>);
+                            func(qemu, modules, TerminationHandlerData::global_mut().state::<S>(), $($param),*);
                         }
                         _ => (),
                     }
@@ -369,13 +369,13 @@ macro_rules! create_exec_wrapper {
 
                     match &mut hook.execs[$execidx] {
                         HookRepr::Function(ptr) => {
-                            let func: fn(Qemu, &mut EmulatorModules<ET, I, S>, Option<&mut S>, $($param_type),*) = transmute(*ptr);
-                            func(qemu, modules, inprocess_get_state::<S>(), $($param),*);
+                            let func: fn(Qemu, &mut EmulatorModules<ET, I, S>, &mut S, $($param_type),*) = transmute(*ptr);
+                            func(qemu, modules, TerminationHandlerData::global_mut().state::<S>(), $($param),*);
                         }
                         HookRepr::Closure(ptr) => {
-                            let func: &mut Box<dyn FnMut(Qemu, &mut EmulatorModules<ET, I, S>, Option<&mut S>, $($param_type),*)> =
-                                &mut *(ptr::from_mut::<FatPtr>(ptr) as *mut Box<dyn FnMut(Qemu, &mut EmulatorModules<ET, I, S>, Option<&mut S>, $($param_type),*)>);
-                            func(qemu, modules, inprocess_get_state::<S>(), $($param),*);
+                            let func: &mut Box<dyn FnMut(Qemu, &mut EmulatorModules<ET, I, S>, &mut S, $($param_type),*)> =
+                                &mut *(ptr::from_mut::<FatPtr>(ptr) as *mut Box<dyn FnMut(Qemu, &mut EmulatorModules<ET, I, S>, &mut S, $($param_type),*)>);
+                            func(qemu, modules, TerminationHandlerData::global_mut().state::<S>(), $($param),*);
                         }
                         _ => (),
                     }
@@ -441,8 +441,8 @@ macro_rules! create_hook_types {
 // Instruction hook wrappers
 create_hook_types!(
     Instruction,
-    fn(Qemu, &mut EmulatorModules<ET, I, S>, Option<&mut S>, GuestAddr),
-    Box<dyn for<'a> FnMut(Qemu, &'a mut EmulatorModules<ET, I, S>, Option<&'a mut S>, GuestAddr)>,
+    fn(Qemu, &mut EmulatorModules<ET, I, S>, &mut S, GuestAddr),
+    Box<dyn for<'a> FnMut(Qemu, &'a mut EmulatorModules<ET, I, S>, &'a mut S, GuestAddr)>,
     extern "C" fn(*const (), pc: GuestAddr)
 );
 create_hook_id!(Instruction, libafl_qemu_remove_instruction_hook, true);
@@ -451,8 +451,8 @@ create_wrapper!(instruction, (pc: GuestAddr));
 // Backdoor hook wrappers
 create_hook_types!(
     Backdoor,
-    fn(Qemu, &mut EmulatorModules<ET, I, S>, Option<&mut S>, cpu: CPUArchStatePtr, GuestAddr),
-    Box<dyn for<'a> FnMut(Qemu, &'a mut EmulatorModules<ET, I, S>, Option<&'a mut S>, GuestAddr)>,
+    fn(Qemu, &mut EmulatorModules<ET, I, S>, &mut S, cpu: CPUArchStatePtr, GuestAddr),
+    Box<dyn for<'a> FnMut(Qemu, &'a mut EmulatorModules<ET, I, S>, &'a mut S, GuestAddr)>,
     extern "C" fn(libafl_qemu_opaque: *const (), cpu: CPUArchStatePtr, pc: GuestAddr)
 );
 create_hook_id!(Backdoor, libafl_qemu_remove_backdoor_hook, true);
@@ -465,44 +465,44 @@ create_hook_types!(
     fn(
         Qemu,
         &mut EmulatorModules<ET, I, S>,
-        Option<&mut S>,
+        &mut S,
         sys_num: i32,
-        a0: GuestAddr,
-        a1: GuestAddr,
-        a2: GuestAddr,
-        a3: GuestAddr,
-        a4: GuestAddr,
-        a5: GuestAddr,
-        a6: GuestAddr,
-        a7: GuestAddr,
+        a0: GuestUlong,
+        a1: GuestUlong,
+        a2: GuestUlong,
+        a3: GuestUlong,
+        a4: GuestUlong,
+        a5: GuestUlong,
+        a6: GuestUlong,
+        a7: GuestUlong,
     ) -> SyscallHookResult,
     Box<
         dyn for<'a> FnMut(
             Qemu,
             &'a mut EmulatorModules<ET, I, S>,
-            Option<&'a mut S>,
+            &'a mut S,
             i32,
-            GuestAddr,
-            GuestAddr,
-            GuestAddr,
-            GuestAddr,
-            GuestAddr,
-            GuestAddr,
-            GuestAddr,
-            GuestAddr,
+            GuestUlong,
+            GuestUlong,
+            GuestUlong,
+            GuestUlong,
+            GuestUlong,
+            GuestUlong,
+            GuestUlong,
+            GuestUlong,
         ) -> SyscallHookResult,
     >,
     extern "C" fn(
         *const (),
         i32,
-        GuestAddr,
-        GuestAddr,
-        GuestAddr,
-        GuestAddr,
-        GuestAddr,
-        GuestAddr,
-        GuestAddr,
-        GuestAddr,
+        GuestUlong,
+        GuestUlong,
+        GuestUlong,
+        GuestUlong,
+        GuestUlong,
+        GuestUlong,
+        GuestUlong,
+        GuestUlong,
     ) -> SyscallHookResult
 );
 #[cfg(feature = "usermode")]
@@ -512,14 +512,14 @@ create_wrapper!(
     pre_syscall,
     (
         sys_num: i32,
-        a0: GuestAddr,
-        a1: GuestAddr,
-        a2: GuestAddr,
-        a3: GuestAddr,
-        a4: GuestAddr,
-        a5: GuestAddr,
-        a6: GuestAddr,
-        a7: GuestAddr
+        a0: GuestUlong,
+        a1: GuestUlong,
+        a2: GuestUlong,
+        a3: GuestUlong,
+        a4: GuestUlong,
+        a5: GuestUlong,
+        a6: GuestUlong,
+        a7: GuestUlong
     ),
     SyscallHookResult
 );
@@ -531,48 +531,48 @@ create_hook_types!(
     fn(
         Qemu,
         &mut EmulatorModules<ET, I, S>,
-        Option<&mut S>,
-        res: GuestAddr,
+        &mut S,
+        res: GuestUlong,
         sys_num: i32,
-        a0: GuestAddr,
-        a1: GuestAddr,
-        a2: GuestAddr,
-        a3: GuestAddr,
-        a4: GuestAddr,
-        a5: GuestAddr,
-        a6: GuestAddr,
-        a7: GuestAddr,
-    ) -> GuestAddr,
+        a0: GuestUlong,
+        a1: GuestUlong,
+        a2: GuestUlong,
+        a3: GuestUlong,
+        a4: GuestUlong,
+        a5: GuestUlong,
+        a6: GuestUlong,
+        a7: GuestUlong,
+    ) -> GuestUlong,
     Box<
         dyn for<'a> FnMut(
             Qemu,
             &'a mut EmulatorModules<ET, I, S>,
-            Option<&mut S>,
-            GuestAddr,
+            &mut S,
+            GuestUlong,
             i32,
-            GuestAddr,
-            GuestAddr,
-            GuestAddr,
-            GuestAddr,
-            GuestAddr,
-            GuestAddr,
-            GuestAddr,
-            GuestAddr,
-        ) -> GuestAddr,
+            GuestUlong,
+            GuestUlong,
+            GuestUlong,
+            GuestUlong,
+            GuestUlong,
+            GuestUlong,
+            GuestUlong,
+            GuestUlong,
+        ) -> GuestUlong,
     >,
     extern "C" fn(
         *const (),
-        GuestAddr,
+        GuestUlong,
         i32,
-        GuestAddr,
-        GuestAddr,
-        GuestAddr,
-        GuestAddr,
-        GuestAddr,
-        GuestAddr,
-        GuestAddr,
-        GuestAddr,
-    ) -> GuestAddr
+        GuestUlong,
+        GuestUlong,
+        GuestUlong,
+        GuestUlong,
+        GuestUlong,
+        GuestUlong,
+        GuestUlong,
+        GuestUlong,
+    ) -> GuestUlong
 );
 #[cfg(feature = "usermode")]
 create_hook_id!(PostSyscall, libafl_qemu_remove_post_syscall_hook, false);
@@ -580,28 +580,28 @@ create_hook_id!(PostSyscall, libafl_qemu_remove_post_syscall_hook, false);
 create_wrapper!(
     post_syscall,
     (
-        res: GuestAddr,
+        res: GuestUlong,
         sys_num: i32,
-        a0: GuestAddr,
-        a1: GuestAddr,
-        a2: GuestAddr,
-        a3: GuestAddr,
-        a4: GuestAddr,
-        a5: GuestAddr,
-        a6: GuestAddr,
-        a7: GuestAddr
+        a0: GuestUlong,
+        a1: GuestUlong,
+        a2: GuestUlong,
+        a3: GuestUlong,
+        a4: GuestUlong,
+        a5: GuestUlong,
+        a6: GuestUlong,
+        a7: GuestUlong
     ),
-    GuestAddr
+    GuestUlong
 );
 
 // New thread hook wrappers
 create_hook_types!(
     NewThread,
-    fn(&mut EmulatorModules<ET, I, S>, Option<&mut S>, env: CPUArchStatePtr, tid: u32) -> bool,
+    fn(&mut EmulatorModules<ET, I, S>, &mut S, env: CPUArchStatePtr, tid: u32) -> bool,
     Box<
         dyn for<'a> FnMut(
             &'a mut EmulatorModules<ET, I, S>,
-            Option<&'a mut S>,
+            &'a mut S,
             CPUArchStatePtr,
             u32,
         ) -> bool,
@@ -614,14 +614,14 @@ create_pre_init_wrapper!(new_thread, (env: CPUArchStatePtr, tid: u32), bool);
 // CPU Run hook wrappers
 create_hook_types!(
     CpuPreRun,
-    fn(Qemu, &mut EmulatorModules<ET, I, S>, Option<&mut S>, cpu: CPUStatePtr),
-    Box<dyn for<'a> FnMut(Qemu, &'a mut EmulatorModules<ET, I, S>, Option<&'a mut S>, CPUStatePtr)>,
+    fn(Qemu, &mut EmulatorModules<ET, I, S>, &mut S, cpu: CPUStatePtr),
+    Box<dyn for<'a> FnMut(Qemu, &'a mut EmulatorModules<ET, I, S>, &'a mut S, CPUStatePtr)>,
     extern "C" fn(libafl_qemu_opaque: *const (), cpu: CPUStatePtr)
 );
 create_hook_types!(
     CpuPostRun,
-    fn(Qemu, &mut EmulatorModules<ET, I, S>, Option<&mut S>, cpu: CPUStatePtr),
-    Box<dyn for<'a> FnMut(Qemu, &'a mut EmulatorModules<ET, I, S>, Option<&'a mut S>, CPUStatePtr)>,
+    fn(Qemu, &mut EmulatorModules<ET, I, S>, &mut S, cpu: CPUStatePtr),
+    Box<dyn for<'a> FnMut(Qemu, &'a mut EmulatorModules<ET, I, S>, &'a mut S, CPUStatePtr)>,
     extern "C" fn(libafl_qemu_opaque: *const (), cpu: CPUStatePtr)
 );
 create_hook_id!(CpuRun, libafl_qemu_remove_cpu_run_hook, false);
@@ -635,7 +635,7 @@ create_hook_types!(
     fn(
         Qemu,
         &mut EmulatorModules<ET, I, S>,
-        Option<&mut S>,
+        &mut S,
         src: GuestAddr,
         dest: GuestAddr,
     ) -> Option<u64>,
@@ -643,7 +643,7 @@ create_hook_types!(
         dyn for<'a> FnMut(
             Qemu,
             &'a mut EmulatorModules<ET, I, S>,
-            Option<&'a mut S>,
+            &'a mut S,
             GuestAddr,
             GuestAddr,
         ) -> Option<u64>,
@@ -652,8 +652,8 @@ create_hook_types!(
 );
 create_hook_types!(
     EdgeExec,
-    fn(Qemu, &mut EmulatorModules<ET, I, S>, Option<&mut S>, id: u64),
-    Box<dyn for<'a> FnMut(Qemu, &'a mut EmulatorModules<ET, I, S>, Option<&'a mut S>, u64)>,
+    fn(Qemu, &mut EmulatorModules<ET, I, S>, &mut S, id: u64),
+    Box<dyn for<'a> FnMut(Qemu, &'a mut EmulatorModules<ET, I, S>, &'a mut S, u64)>,
     unsafe extern "C" fn(libafl_qemu_opaque: *const (), id: u64)
 );
 create_hook_id!(Edge, libafl_qemu_remove_edge_hook, true);
@@ -663,12 +663,12 @@ create_exec_wrapper!(edge, (id: u64), 0, 1, EdgeHookId);
 // Block hook wrappers
 create_hook_types!(
     BlockGen,
-    fn(Qemu, &mut EmulatorModules<ET, I, S>, Option<&mut S>, pc: GuestAddr) -> Option<u64>,
+    fn(Qemu, &mut EmulatorModules<ET, I, S>, &mut S, pc: GuestAddr) -> Option<u64>,
     Box<
         dyn for<'a> FnMut(
             Qemu,
             &'a mut EmulatorModules<ET, I, S>,
-            Option<&'a mut S>,
+            &'a mut S,
             GuestAddr,
         ) -> Option<u64>,
     >,
@@ -676,34 +676,20 @@ create_hook_types!(
 );
 create_hook_types!(
     BlockPostGen,
-    fn(
-        Qemu,
-        &mut EmulatorModules<ET, I, S>,
-        Option<&mut S>,
-        pc: GuestAddr,
-        block_length: GuestUsize,
-    ),
-    Box<
-        dyn for<'a> FnMut(
-            Qemu,
-            &'a mut EmulatorModules<ET, I, S>,
-            Option<&mut S>,
-            GuestAddr,
-            GuestUsize,
-        ),
-    >,
+    fn(Qemu, &mut EmulatorModules<ET, I, S>, &mut S, pc: GuestAddr, block_length: GuestUsize),
+    Box<dyn for<'a> FnMut(Qemu, &'a mut EmulatorModules<ET, I, S>, &mut S, GuestAddr, GuestUsize)>,
     unsafe extern "C" fn(libafl_qemu_opaque: *const (), pc: GuestAddr, block_length: GuestUsize)
 );
 create_hook_types!(
     BlockExec,
-    fn(Qemu, &mut EmulatorModules<ET, I, S>, Option<&mut S>, id: u64),
-    Box<dyn for<'a> FnMut(Qemu, &'a mut EmulatorModules<ET, I, S>, Option<&'a mut S>, u64)>,
+    fn(Qemu, &mut EmulatorModules<ET, I, S>, &mut S, id: u64),
+    Box<dyn for<'a> FnMut(Qemu, &'a mut EmulatorModules<ET, I, S>, &'a mut S, u64)>,
     unsafe extern "C" fn(libafl_qemu_opaque: *const (), id: u64)
 );
 
 create_hook_id!(Block, libafl_qemu_remove_block_hook, true);
 create_gen_wrapper!(block, (addr: GuestAddr), u64, 1, BlockHookId);
-create_post_gen_wrapper!(block, (addr: GuestAddr, len: GuestUsize), 1, BlockHookId);
+create_post_gen_wrapper!(block, (addr: GuestAddr, len: GuestAddr), 1, BlockHookId);
 create_exec_wrapper!(block, (id: u64), 0, 1, BlockHookId);
 
 // Read hook wrappers
@@ -712,7 +698,7 @@ create_hook_types!(
     fn(
         Qemu,
         emulator_modules: &mut EmulatorModules<ET, I, S>,
-        Option<&mut S>,
+        &mut S,
         pc: GuestAddr,
         addr: *mut TCGTemp,
         info: MemAccessInfo,
@@ -721,7 +707,7 @@ create_hook_types!(
         dyn for<'a> FnMut(
             Qemu,
             &'a mut EmulatorModules<ET, I, S>,
-            Option<&'a mut S>,
+            &'a mut S,
             GuestAddr,
             *mut TCGTemp,
             MemAccessInfo,
@@ -736,19 +722,12 @@ create_hook_types!(
 );
 create_hook_types!(
     ReadExec,
-    fn(
-        Qemu,
-        &mut EmulatorModules<ET, I, S>,
-        Option<&mut S>,
-        id: u64,
-        pc: GuestAddr,
-        addr: GuestAddr,
-    ),
+    fn(Qemu, &mut EmulatorModules<ET, I, S>, &mut S, id: u64, pc: GuestAddr, addr: GuestAddr),
     Box<
         dyn for<'a> FnMut(
             Qemu,
             &'a mut EmulatorModules<ET, I, S>,
-            Option<&'a mut S>,
+            &'a mut S,
             u64,
             GuestAddr,
             GuestAddr,
@@ -761,7 +740,7 @@ create_hook_types!(
     fn(
         Qemu,
         &mut EmulatorModules<ET, I, S>,
-        Option<&mut S>,
+        &mut S,
         id: u64,
         pc: GuestAddr,
         addr: GuestAddr,
@@ -771,7 +750,7 @@ create_hook_types!(
         dyn for<'a> FnMut(
             Qemu,
             &'a mut EmulatorModules<ET, I, S>,
-            Option<&'a mut S>,
+            &'a mut S,
             u64,
             GuestAddr,
             GuestAddr,
@@ -806,7 +785,7 @@ create_hook_types!(
     fn(
         Qemu,
         &mut EmulatorModules<ET, I, S>,
-        Option<&mut S>,
+        &mut S,
         pc: GuestAddr,
         addr: *mut TCGTemp,
         info: MemAccessInfo,
@@ -815,7 +794,7 @@ create_hook_types!(
         dyn for<'a> FnMut(
             Qemu,
             &'a mut EmulatorModules<ET, I, S>,
-            Option<&'a mut S>,
+            &'a mut S,
             GuestAddr,
             *mut TCGTemp,
             MemAccessInfo,
@@ -830,19 +809,12 @@ create_hook_types!(
 );
 create_hook_types!(
     WriteExec,
-    fn(
-        Qemu,
-        &mut EmulatorModules<ET, I, S>,
-        Option<&mut S>,
-        id: u64,
-        pc: GuestAddr,
-        addr: GuestAddr,
-    ),
+    fn(Qemu, &mut EmulatorModules<ET, I, S>, &mut S, id: u64, pc: GuestAddr, addr: GuestAddr),
     Box<
         dyn for<'a> FnMut(
             Qemu,
             &'a mut EmulatorModules<ET, I, S>,
-            Option<&'a mut S>,
+            &'a mut S,
             u64,
             GuestAddr,
             GuestAddr,
@@ -855,7 +827,7 @@ create_hook_types!(
     fn(
         Qemu,
         &mut EmulatorModules<ET, I, S>,
-        Option<&mut S>,
+        &mut S,
         id: u64,
         pc: GuestAddr,
         addr: GuestAddr,
@@ -865,7 +837,7 @@ create_hook_types!(
         dyn for<'a> FnMut(
             Qemu,
             &'a mut EmulatorModules<ET, I, S>,
-            Option<&'a mut S>,
+            &'a mut S,
             u64,
             GuestAddr,
             GuestAddr,
@@ -897,18 +869,12 @@ create_exec_wrapper!(
 // Cmp hook wrappers
 create_hook_types!(
     CmpGen,
-    fn(
-        Qemu,
-        &mut EmulatorModules<ET, I, S>,
-        Option<&mut S>,
-        pc: GuestAddr,
-        size: usize,
-    ) -> Option<u64>,
+    fn(Qemu, &mut EmulatorModules<ET, I, S>, &mut S, pc: GuestAddr, size: usize) -> Option<u64>,
     Box<
         dyn for<'a> FnMut(
             Qemu,
             &'a mut EmulatorModules<ET, I, S>,
-            Option<&'a mut S>,
+            &'a mut S,
             GuestAddr,
             usize,
         ) -> Option<u64>,
@@ -916,8 +882,8 @@ create_hook_types!(
     unsafe extern "C" fn(libafl_qemu_opaque: *const (), pc: GuestAddr, size: usize) -> u64
 );
 pub type CmpExecHook<ET, I, S, SZ> = Hook<
-    fn(&mut EmulatorModules<ET, I, S>, Option<&mut S>, id: u64, v0: SZ, v1: SZ),
-    Box<dyn for<'a> FnMut(&'a mut EmulatorModules<ET, I, S>, Option<&'a mut S>, u64, SZ, SZ)>,
+    fn(&mut EmulatorModules<ET, I, S>, &mut S, id: u64, v0: SZ, v1: SZ),
+    Box<dyn for<'a> FnMut(&'a mut EmulatorModules<ET, I, S>, &'a mut S, u64, SZ, SZ)>,
     unsafe extern "C" fn(*const (), id: u64, v0: SZ, v1: SZ),
 >;
 create_hook_id!(Cmp, libafl_qemu_remove_cmp_hook, true);
@@ -1074,14 +1040,14 @@ impl QemuHooks {
         &self,
         data: T,
         generator: Option<unsafe extern "C" fn(T, GuestAddr) -> u64>,
-        post_gen: Option<unsafe extern "C" fn(T, GuestAddr, GuestUsize)>,
+        post_gen: Option<unsafe extern "C" fn(T, GuestAddr, GuestAddr)>,
         exec: Option<unsafe extern "C" fn(T, u64)>,
     ) -> BlockHookId {
         unsafe {
             let data: u64 = data.into().0;
             let generator: Option<unsafe extern "C" fn(u64, GuestAddr) -> u64> =
                 transmute(generator);
-            let post_gen: Option<unsafe extern "C" fn(u64, GuestAddr, GuestUsize)> =
+            let post_gen: Option<unsafe extern "C" fn(u64, GuestAddr, GuestAddr)> =
                 transmute(post_gen);
             let exec: Option<unsafe extern "C" fn(u64, u64)> = transmute(exec);
             let num = libafl_qemu_sys::libafl_add_block_hook(generator, post_gen, exec, data);
@@ -1270,14 +1236,14 @@ impl QemuHooks {
         callback: extern "C" fn(
             T,
             i32,
-            GuestAddr,
-            GuestAddr,
-            GuestAddr,
-            GuestAddr,
-            GuestAddr,
-            GuestAddr,
-            GuestAddr,
-            GuestAddr,
+            GuestUlong,
+            GuestUlong,
+            GuestUlong,
+            GuestUlong,
+            GuestUlong,
+            GuestUlong,
+            GuestUlong,
+            GuestUlong,
         ) -> SyscallHookResult,
     ) -> PreSyscallHookId {
         unsafe {
@@ -1285,14 +1251,14 @@ impl QemuHooks {
             let callback: extern "C" fn(
                 u64,
                 i32,
-                GuestAddr,
-                GuestAddr,
-                GuestAddr,
-                GuestAddr,
-                GuestAddr,
-                GuestAddr,
-                GuestAddr,
-                GuestAddr,
+                GuestUlong,
+                GuestUlong,
+                GuestUlong,
+                GuestUlong,
+                GuestUlong,
+                GuestUlong,
+                GuestUlong,
+                GuestUlong,
             ) -> libafl_qemu_sys::libafl_syshook_ret = transmute(callback);
             let num = libafl_qemu_sys::libafl_add_pre_syscall_hook(Some(callback), data);
             PreSyscallHookId(num)
@@ -1304,33 +1270,33 @@ impl QemuHooks {
         data: T,
         callback: extern "C" fn(
             T,
-            GuestAddr,
+            GuestUlong,
             i32,
-            GuestAddr,
-            GuestAddr,
-            GuestAddr,
-            GuestAddr,
-            GuestAddr,
-            GuestAddr,
-            GuestAddr,
-            GuestAddr,
-        ) -> GuestAddr,
+            GuestUlong,
+            GuestUlong,
+            GuestUlong,
+            GuestUlong,
+            GuestUlong,
+            GuestUlong,
+            GuestUlong,
+            GuestUlong,
+        ) -> GuestUlong,
     ) -> PostSyscallHookId {
         unsafe {
             let data: u64 = data.into().0;
             let callback: extern "C" fn(
                 u64,
-                GuestAddr,
+                GuestUlong,
                 i32,
-                GuestAddr,
-                GuestAddr,
-                GuestAddr,
-                GuestAddr,
-                GuestAddr,
-                GuestAddr,
-                GuestAddr,
-                GuestAddr,
-            ) -> GuestAddr = transmute(callback);
+                GuestUlong,
+                GuestUlong,
+                GuestUlong,
+                GuestUlong,
+                GuestUlong,
+                GuestUlong,
+                GuestUlong,
+                GuestUlong,
+            ) -> GuestUlong = transmute(callback);
             let num = libafl_qemu_sys::libafl_add_post_syscall_hook(Some(callback), data);
             PostSyscallHookId(num)
         }

@@ -1,4 +1,4 @@
-# nonzero_macros
+# `nonzero_macros`
 
  <img align="right" src="https://raw.githubusercontent.com/AFLplusplus/Website/main/static/libafl_logo.svg" alt="LibAFL logo" width="250" heigh="250">
 

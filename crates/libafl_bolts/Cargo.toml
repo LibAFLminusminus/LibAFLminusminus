@@ -26,14 +26,7 @@ features = ["document-features"]
 all-features = true
 
 [features]
-default = [
-  "alloc",
-  "derive",
-  "gzip",
-  "rand_trait",
-  "std",
-  "xxh3",
-]
+default = ["alloc", "derive", "gzip", "rand_trait", "std", "xxh3"]
 document-features = ["dep:document-features"]
 
 #! # Feature Flags
@@ -51,7 +44,6 @@ std = [
   "minibsod",
   "nix",
   "serde/std",
-  "serial_test",
   "simd",
   "uds",
 ]
@@ -163,11 +155,6 @@ nix = { workspace = true, optional = true, default-features = false, features = 
   "mman",
 ] }
 pyo3 = { workspace = true, optional = true, features = ["serde", "macros"] }
-
-# optional-dev deps (change when target.'cfg(accessible(::std))'.test-dependencies will be stable)
-serial_test = { workspace = true, optional = true, default-features = false, features = [
-  "logging",
-] }
 
 # optional stable simd
 wide = { version = "1.1.1", optional = true }

@@ -19,7 +19,7 @@ use crate::{
     observers::{Observer, map::MapObserver},
 };
 
-/// The Multi Map Observer merge different maps into one observer
+/// The [`MultiMapObserver`] merge different maps into one observer
 #[derive(Serialize, Deserialize, Debug)]
 pub struct MultiMapObserver<'a, T> {
     maps: Vec<OwnedMutSlice<'a, T>>,
@@ -162,9 +162,9 @@ impl<'a, T> MultiMapObserver<'a, T>
 where
     T: Default,
 {
-    /// Creates a new [`MultiMapObserver`]
+    /// Creates a new [`struct@MultiMapObserver`]
     #[must_use]
-    fn new(name: &'static str, maps: Vec<OwnedMutSlice<'a, T>>) -> Self {
+    pub fn new(name: &'static str, maps: Vec<OwnedMutSlice<'a, T>>) -> Self {
         let mut idx = 0;
         let mut intervals = IntervalTree::new();
         for (v, x) in maps.iter().enumerate() {
@@ -182,7 +182,7 @@ where
         }
     }
 
-    /// Creates a new [`MultiMapObserver`] with an owned map
+    /// Creates a new [`struct@MultiMapObserver`] with an owned map
     #[must_use]
     pub fn owned(name: &'static str, maps: Vec<Vec<T>>) -> Self {
         let mut idx = 0;

@@ -1,11 +1,19 @@
-use libafl_core::WorkerId;
+//! Nop controller and workers.
+
+use libafl_core::{Result, WorkerId};
 
 use crate::{Controller, Descriptor, Workdir, Worker};
 
+/// Nop [`Controller`]
+#[derive(Clone, Debug)]
 pub struct NopController;
+
+/// Nop [`Worker`]
+#[derive(Clone, Debug)]
 pub struct NopWorker;
 
-#[derive(Clone)]
+/// Nop [`Descriptor`]
+#[derive(Clone, Debug)]
 pub struct NopDescriptor;
 
 impl Descriptor for NopDescriptor {
@@ -26,14 +34,16 @@ impl Controller for NopController {
     type Worker = NopWorker;
     type Descriptor = NopDescriptor;
 
-    fn create_worker(&mut self) -> Result<Self::Worker, libafl_core::Error> {
+    fn create_worker(&mut self) -> Result<Self::Worker> {
         Ok(NopWorker)
     }
 
+    #[expect(refining_impl_trait)]
     fn worker_descriptors(&self) -> &[Self::Descriptor] {
         unimplemented!("nop controller has no workers");
     }
 
+    #[expect(refining_impl_trait)]
     fn worker_descriptors_mut(&mut self) -> &mut [Self::Descriptor] {
         unimplemented!("nop controller has no workers");
     }
@@ -42,7 +52,7 @@ impl Controller for NopController {
 impl Worker for NopWorker {
     type Controller = NopController;
 
-    fn id(&self) -> libafl_core::WorkerId {
+    fn id(&self) -> WorkerId {
         unimplemented!("nop controller has no id");
     }
 
@@ -58,7 +68,7 @@ impl Worker for NopWorker {
         unimplemented!("nop controller has no workdir");
     }
 
-    fn reconcile(&self) -> Result<(), libafl_core::Error> {
+    fn reconcile(&self) -> Result<()> {
         Ok(())
     }
 }

@@ -25,13 +25,7 @@ features = ["document-features", "default", "python", "x86_64", "usermode"]
 rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
-default = [
-  "asan_guest",
-  "asan_host",
-  "usermode",
-  "fork",
-  "injections",
-]
+default = ["asan_guest", "asan_host", "usermode", "injections"]
 ## Build asan for address sanitization
 asan_guest = []
 asan_host = []
@@ -52,8 +46,6 @@ paranoid_debug = [
 injections = ["serde_yaml", "toml"]
 ## Python bindings support
 python = ["pyo3", "pyo3-build-config", "libafl_qemu_sys/python"]
-## Fork support
-fork = []
 
 #! ## The following architecture features are mutually exclusive.
 

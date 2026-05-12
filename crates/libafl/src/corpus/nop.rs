@@ -1,8 +1,8 @@
 //! The null corpus does not store any [`Testcase`]s.
 
-use alloc::rc::Rc;
 use core::marker::PhantomData;
 
+use libafl_core::Result;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -32,8 +32,6 @@ impl<I, S> HasScheduler for NopCorpus<I, S> {
 }
 
 impl<I, S> Corpus<I> for NopCorpus<I, S> {
-    type Context = NopContext;
-
     /// Returns the number of all enabled entries
     #[inline]
     fn count(&self) -> usize {
@@ -53,27 +51,22 @@ impl<I, S> Corpus<I> for NopCorpus<I, S> {
 
     /// Add an enabled testcase to the corpus and return its index
     #[inline]
-    fn add_shared<const ENABLED: bool>(
-        &mut self,
-        _testcase: Testcase<I>,
-    ) -> Result<TestcaseId, Error> {
+    fn add_shared<const ENABLED: bool>(&mut self, _testcase: Testcase<I>) -> Result<TestcaseId> {
         Err(Error::unsupported("Unsupported by NopCorpus"))
     }
 
-    fn get_from<const ENABLED: bool>(&self, _id: &TestcaseId) -> Result<Testcase<I>, Error> {
+    fn get_from<const ENABLED: bool>(&self, _id: &TestcaseId) -> Result<Testcase<I>> {
         Err(Error::unsupported("Unsupported by NopCorpus"))
-    }
-
-    fn context(&self) -> &Self::Context {
-        &self.context
-    }
-
-    fn context_mut(&mut self) -> &mut Self::Context {
-        &mut self.context
     }
 }
 
 impl<I, S> DependencyResolver for NopCorpus<I, S> {}
+
+impl<I, S> Default for NopCorpus<I, S> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl<I, S> NopCorpus<I, S> {
     /// Creates a new [`NopCorpus`].

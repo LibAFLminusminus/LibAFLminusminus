@@ -48,7 +48,7 @@ mod generators {
     use std::{cmp::max, ptr};
 
     use hashbrown::hash_map::Entry;
-    use libafl::HasMetadata;
+    use libafl::states::FlatState;
     use libafl_bolts::hash_64_fast;
     use libafl_qemu_sys::GuestAddr;
 
@@ -88,7 +88,7 @@ mod generators {
     >(
         qemu: Qemu,
         emulator_modules: &mut EmulatorModules<ET, I, S>,
-        state: Option<&mut S>,
+        state: &mut S,
         src: GuestAddr,
         dest: GuestAddr,
     ) -> Option<u64>
@@ -97,7 +97,7 @@ mod generators {
         ET: EmulatorModuleTuple<I, S>,
         PF: PageFilter,
         I: Unpin,
-        S: HasMetadata + Unpin,
+        S: FlatState + Unpin,
         V: EdgeCoverageVariant<AF, PF, IS_CONST_MAP, MAP_SIZE>,
     {
         if let Some(module) =
@@ -130,8 +130,7 @@ mod generators {
 
         let mask: usize = get_mask::<IS_CONST_MAP, MAP_SIZE>();
 
-        let state = state.expect("The gen_unique_edge_ids hook works only for in-process fuzzing. Is the Executor initialized?");
-        let meta = state.metadata_or_insert_with(QemuEdgesMapMetadata::new);
+        let meta = state.get_md_or_insert_with(QemuEdgesMapMetadata::new);
 
         match meta.map.entry((src, dest)) {
             Entry::Occupied(e) => {
@@ -176,7 +175,7 @@ mod generators {
     >(
         qemu: Qemu,
         emulator_modules: &mut EmulatorModules<ET, I, S>,
-        _state: Option<&mut S>,
+        _state: &mut S,
         src: GuestAddr,
         dest: GuestAddr,
     ) -> Option<u64>
@@ -185,7 +184,7 @@ mod generators {
         ET: EmulatorModuleTuple<I, S>,
         PF: PageFilter,
         I: Unpin,
-        S: HasMetadata + Unpin,
+        S: FlatState + Unpin,
         V: EdgeCoverageVariant<AF, PF, IS_CONST_MAP, MAP_SIZE>,
     {
         if let Some(module) =
@@ -210,7 +209,7 @@ mod generators {
             let mask = get_mask::<IS_CONST_MAP, MAP_SIZE>() as u64;
 
             #[allow(clippy::unnecessary_cast)]
-            let id = (hash_64_fast(u64::from(src)) ^ hash_64_fast(u64::from(dest))) & mask;
+            let id = (hash_64_fast(src as u64) ^ hash_64_fast(dest as u64)) & mask;
 
             if !IS_CONST_MAP {
                 unsafe {
@@ -240,7 +239,7 @@ mod generators {
     >(
         qemu: Qemu,
         emulator_modules: &mut EmulatorModules<ET, I, S>,
-        _state: Option<&mut S>,
+        _state: &mut S,
         pc: GuestAddr,
     ) -> Option<u64>
     where
@@ -248,7 +247,7 @@ mod generators {
         ET: EmulatorModuleTuple<I, S>,
         PF: PageFilter,
         I: Unpin,
-        S: HasMetadata + Unpin,
+        S: FlatState + Unpin,
         V: EdgeCoverageVariant<AF, PF, IS_CONST_MAP, MAP_SIZE>,
     {
         // first check if we should filter
@@ -273,7 +272,7 @@ mod generators {
 
         let mask = get_mask::<IS_CONST_MAP, MAP_SIZE>() as u64;
 
-        let id = hash_64_fast(u64::from(pc)) & mask;
+        let id = hash_64_fast(pc as u64) & mask;
 
         if !IS_CONST_MAP {
             unsafe {

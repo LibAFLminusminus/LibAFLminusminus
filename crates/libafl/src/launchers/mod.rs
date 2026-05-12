@@ -1,25 +1,13 @@
-use alloc::string::String;
-use core::{borrow::Borrow, hash::Hash, marker::PhantomData, num::NonZeroUsize, time::Duration};
-use std::{
-    collections::HashSet,
-    fs::File,
-    path::{Path, PathBuf},
-    thread::sleep,
-    vec::Vec,
-};
+//! Module defining launchers.
+//! Launchers start the fuzzing session, involving multiple instances.
 
-use libafl_bolts::{
-    StdTimer,
-    core_affinity::{CoreId, Cores},
-};
-use nix::{
-    sys::wait::{WaitStatus, wait},
-    unistd::{ForkResult, Pid, dup2_stderr, dup2_stdout, fork},
-};
+use core::{marker::PhantomData, num::NonZeroUsize, time::Duration};
+
+use libafl_bolts::{StdTimer, core_affinity::Cores};
 use serde::Serialize;
 
 use crate::{
-    Controller, Error, Result, WorkdirFile, Worker,
+    Controller, Error, Result, Worker,
     inputs::NopInput,
     monitors::{Monitor, SimpleMonitor},
     nop::{NopDescriptor, NopWorker},
@@ -33,11 +21,18 @@ use crate::{
 pub mod instances;
 pub use instances::{Instance, InstanceId, InstanceRepr, Instances};
 
+/// The default maximum state size per worker.
 // TODO: use a proper heuristic to choose correct ram size
-pub const DEFAULT_MAX_STATE_SIZE_PER_CLIENT: NonZeroUsize = NonZeroUsize::new(1 << 30).unwrap();
+pub const DEFAULT_MAX_STATE_SIZE_PER_WORKER: NonZeroUsize = NonZeroUsize::new(1 << 30).unwrap();
+
+/// The default time between each monitor refresh.
 pub const DEFAULT_MONITOR_REFRESH: Duration = Duration::from_secs(5);
+
+/// The default timeout for a fuzzer execution.
 pub const DEFAULT_TIMEOUT: Duration = Duration::from_secs(5);
 
+/// The builder for [`StdLauncher`]
+#[derive(Debug)]
 pub struct StdLauncherBuilder<CT, MT, RT, S, SB, TM> {
     controller: Option<CT>,
     monitor: Option<MT>,
@@ -51,6 +46,8 @@ pub struct StdLauncherBuilder<CT, MT, RT, S, SB, TM> {
     phantom: PhantomData<S>,
 }
 
+/// A standard launcher.
+#[derive(Debug)]
 pub struct StdLauncher<D, CT, MT, RT, S, W> {
     controller: CT,
     monitor: MT,
@@ -71,6 +68,7 @@ impl
     /// Create a default Launcher.
     /// It is configured with a very minimal configuration.
     /// It will spawn one fuzzing core on core 0 and run the provided task or runtime.
+    #[expect(clippy::type_complexity)]
     pub fn builder() -> Result<
         StdLauncherBuilder<
             SimpleController,
@@ -91,8 +89,8 @@ impl
             cores,
             state_builder: || Ok(NopState::new()),
             max_state_size_per_client: None,
-            monitor_refresh: DEFAULT_MONITOR_REFRESH.clone(),
-            timeout: Some(DEFAULT_TIMEOUT.clone()),
+            monitor_refresh: DEFAULT_MONITOR_REFRESH,
+            timeout: Some(DEFAULT_TIMEOUT),
             timer: StdTimer::new(),
             phantom: PhantomData,
         })
@@ -100,6 +98,7 @@ impl
 }
 
 impl<D, CT, MT, RT, S, W> StdLauncher<D, CT, MT, RT, S, W> {
+    /// Create a new [`StdLauncher`].
     pub fn new(
         controller: CT,
         monitor: MT,
@@ -122,13 +121,14 @@ where
     MT: Monitor,
     RT: Runtime<S, W> + 'static,
 {
+    /// Launch the launcher [`Instance`]s.
     pub fn launch(mut self) -> Result<()> {
         self.instances.spawn_instances(&mut self.controller)?;
 
         self.instances.wait_instances(
             &mut self.controller,
             &mut self.monitor,
-            self.monitor_refresh.clone(),
+            self.monitor_refresh,
         )?;
 
         Ok(())
@@ -136,11 +136,13 @@ where
 }
 
 impl<CT, MT, RT, S, SB, TM> StdLauncherBuilder<CT, MT, RT, S, SB, TM> {
+    /// Set the cores assiciated to each [`Instance`].
+    #[must_use]
     pub fn cores(self, cores: Cores) -> StdLauncherBuilder<CT, MT, RT, S, SB, TM> {
         StdLauncherBuilder {
             controller: self.controller,
             monitor: self.monitor,
-            cores: cores,
+            cores,
             runtime: self.runtime,
             state_builder: self.state_builder,
             max_state_size_per_client: self.max_state_size_per_client,
@@ -151,6 +153,8 @@ impl<CT, MT, RT, S, SB, TM> StdLauncherBuilder<CT, MT, RT, S, SB, TM> {
         }
     }
 
+    /// Set the [`Runtime`] of each [`Instance`] timeout.
+    #[must_use]
     pub fn timeout(self, timeout: Option<Duration>) -> Self {
         StdLauncherBuilder {
             controller: self.controller,
@@ -160,12 +164,13 @@ impl<CT, MT, RT, S, SB, TM> StdLauncherBuilder<CT, MT, RT, S, SB, TM> {
             state_builder: self.state_builder,
             max_state_size_per_client: self.max_state_size_per_client,
             monitor_refresh: self.monitor_refresh,
-            timeout: timeout,
+            timeout,
             timer: self.timer,
             phantom: self.phantom,
         }
     }
 
+    /// Set the [`Monitor`].
     pub fn monitor<MT2>(self, monitor: MT2) -> StdLauncherBuilder<CT, MT2, RT, S, SB, TM> {
         StdLauncherBuilder {
             controller: self.controller,
@@ -181,6 +186,7 @@ impl<CT, MT, RT, S, SB, TM> StdLauncherBuilder<CT, MT, RT, S, SB, TM> {
         }
     }
 
+    /// Set the [`Controller`].
     pub fn controller<CT2>(self, controller: CT2) -> StdLauncherBuilder<CT2, MT, RT, S, SB, TM> {
         StdLauncherBuilder {
             controller: Some(controller),
@@ -196,6 +202,7 @@ impl<CT, MT, RT, S, SB, TM> StdLauncherBuilder<CT, MT, RT, S, SB, TM> {
         }
     }
 
+    /// Set the [`Runtime`].
     pub fn runtime<RT2>(self, runtime: RT2) -> StdLauncherBuilder<CT, MT, RT2, S, SB, TM> {
         StdLauncherBuilder {
             controller: self.controller,
@@ -211,6 +218,7 @@ impl<CT, MT, RT, S, SB, TM> StdLauncherBuilder<CT, MT, RT, S, SB, TM> {
         }
     }
 
+    /// Set the [`State`] builder closure.
     pub fn state_builder<S2, SB2>(
         self,
         state_builder: SB2,
@@ -224,7 +232,7 @@ impl<CT, MT, RT, S, SB, TM> StdLauncherBuilder<CT, MT, RT, S, SB, TM> {
             monitor: self.monitor,
             cores: self.cores,
             runtime: self.runtime,
-            state_builder: state_builder,
+            state_builder,
             max_state_size_per_client: self.max_state_size_per_client,
             monitor_refresh: self.monitor_refresh,
             timeout: self.timeout,
@@ -239,6 +247,7 @@ impl<CT, MT, RT, S, SB, TM> StdLauncherBuilder<CT, MT, RT, S, SB, TM> {
     /// used to save / restore the state in the restarting runtime.
     ///
     /// The default value is set to [`DEFAULT_MAX_STATE_SIZE_PER_CLIENT`].
+    #[must_use]
     pub fn max_state_size_per_client(
         self,
         max_state_size_per_client: NonZeroUsize,
@@ -258,6 +267,7 @@ impl<CT, MT, RT, S, SB, TM> StdLauncherBuilder<CT, MT, RT, S, SB, TM> {
     }
 
     /// Set the monitor refresh rate.
+    #[must_use]
     pub fn monitor_refresh(
         self,
         monitor_refresh: Duration,
@@ -269,7 +279,7 @@ impl<CT, MT, RT, S, SB, TM> StdLauncherBuilder<CT, MT, RT, S, SB, TM> {
             runtime: self.runtime,
             state_builder: self.state_builder,
             max_state_size_per_client: self.max_state_size_per_client,
-            monitor_refresh: monitor_refresh,
+            monitor_refresh,
             timeout: self.timeout,
             timer: self.timer,
             phantom: self.phantom,
@@ -284,8 +294,10 @@ where
     SB: FnMut(&CT::Worker) -> Result<S>,
     TM: Clone,
 {
+    /// Build a [`StdLauncher`] for a forkserver-style fuzzer, using the [`StdForkserverRuntime`].
+    #[expect(clippy::type_complexity)]
     pub fn build_forkserver<T>(
-        mut self,
+        self,
         task: T,
     ) -> Result<StdLauncher<CT::Descriptor, CT, MT, StdForkserverRuntime<T>, S, CT::Worker>>
     where
@@ -321,8 +333,10 @@ where
     SB: FnMut(&CT::Worker) -> Result<S>,
     TM: Clone,
 {
+    /// Build a [`StdLauncher`] for an in-process-style fuzzer, using the [`StdInProcessRuntime`].
+    #[expect(clippy::type_complexity)]
     pub fn build_inprocess<T>(
-        mut self,
+        self,
         task: T,
     ) -> Result<StdLauncher<CT::Descriptor, CT, MT, StdInProcessRuntime<S, T, TM>, S, CT::Worker>>
     where
@@ -336,18 +350,13 @@ where
 
         let ram_limit = self
             .max_state_size_per_client
-            .unwrap_or(DEFAULT_MAX_STATE_SIZE_PER_CLIENT);
+            .unwrap_or(DEFAULT_MAX_STATE_SIZE_PER_WORKER);
 
         let builder = StdLauncherBuilder {
             controller: self.controller,
             monitor: self.monitor,
             cores: self.cores,
-            runtime: StdInProcessRuntime::new(
-                task,
-                ram_limit,
-                self.timer.clone(),
-                self.timeout.clone(),
-            ),
+            runtime: StdInProcessRuntime::new(task, ram_limit, self.timer.clone(), self.timeout),
             state_builder: self.state_builder,
             max_state_size_per_client: self.max_state_size_per_client,
             monitor_refresh: self.monitor_refresh,
@@ -366,11 +375,11 @@ where
     RT: Clone,
     SB: FnMut(&CT::Worker) -> Result<S>,
 {
+    /// Build the [`StdLauncher`].
+    #[expect(clippy::type_complexity)]
     pub fn build(mut self) -> Result<StdLauncher<CT::Descriptor, CT, MT, RT, S, CT::Worker>> {
         if self.cores.is_empty() {
-            return Err(Error::illegal_argument(format!(
-                "No CPU cores have been allocated."
-            )));
+            return Err(Error::illegal_argument("No CPU cores have been allocated."));
         }
 
         let monitor = self

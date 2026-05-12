@@ -1,5 +1,7 @@
+//! The most simple [`Monitor`]. It gathers data from children instances and dumps the data to stdout
+
+use alloc::{string::String, vec::Vec};
 use core::time::Duration;
-use std::{string::String, vec::Vec};
 
 use libafl_bolts::current_time;
 
@@ -10,8 +12,10 @@ use crate::{
 };
 
 #[derive(Debug, Clone)]
+/// The most simple [`Monitor`] for dumping the stats to stdout.
 pub struct SimpleMonitor {}
 
+#[expect(clippy::cast_precision_loss)]
 fn format_si(n: u64) -> String {
     const UNITS: &[(u64, &str)] = &[
         (1_000_000_000_000, "T"),
@@ -26,7 +30,7 @@ fn format_si(n: u64) -> String {
         }
     }
 
-    format!("{}", n)
+    format!("{n}")
 }
 
 fn format_rate(n: u64) -> String {
@@ -40,15 +44,23 @@ fn format_hhmmss(duration: Duration) -> String {
     let mins = (total_secs % (60 * 60)) / 60;
     let secs = total_secs % 60;
 
-    format!("{:02}:{:02}:{:02}", hours, mins, secs)
+    format!("{hours:02}:{mins:02}:{secs:02}")
+}
+
+impl Default for SimpleMonitor {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl SimpleMonitor {
+    /// Construct a [`struct@SimpleMonitor`]
+    #[must_use]
     pub fn new() -> Self {
         SimpleMonitor {}
     }
 
-    fn print_summary(&self, all_stats: &[Stats]) {
+    fn print_summary(all_stats: &[Stats]) {
         let now = current_time();
 
         let elapsed = all_stats
@@ -59,7 +71,7 @@ impl SimpleMonitor {
             .unwrap_or_default();
 
         let total_execs: u64 = all_stats.iter().map(|s| s.executions).sum();
-        let total_execs_per_sec: u64 = all_stats.iter().map(|s| s.execs_per_sec()).sum();
+        let total_execs_per_sec: u64 = all_stats.iter().map(Stats::execs_per_sec).sum();
         let max_corpus: usize = all_stats.iter().map(|s| s.corpus).max().unwrap_or(0);
         let total_objectives: usize = all_stats.iter().map(|s| s.objective).sum();
 
@@ -97,7 +109,7 @@ impl Monitor for SimpleMonitor {
         }
 
         if !all_stats.is_empty() {
-            self.print_summary(&all_stats);
+            Self::print_summary(&all_stats);
         }
 
         Ok(())

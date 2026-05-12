@@ -6,7 +6,7 @@ use core::hash::Hash;
 use libafl_bolts::{Error, Named, generic_hash_std, rands::Rand};
 
 use super::{MutationResult, Mutator};
-use crate::{corpus::testcase::TestcaseId, fuzzers::EvaluationResult};
+use crate::fuzzers::EvaluationResult;
 
 /// A wrapper around a [`Mutator`] that ensures an input really changed [`MutationResult::Mutated`]
 /// by hashing pre- and post-mutation and comparing the values
@@ -65,7 +65,7 @@ mod tests {
 
     #[test]
     fn not_mutated() {
-        let mut state: NopState<BytesInput> = NopState::new();
+        let state: NopState<BytesInput> = NopState::new();
         let mut rand = StdRand::with_seed(1337);
         let mut inner = BytesSetMutator::new();
 

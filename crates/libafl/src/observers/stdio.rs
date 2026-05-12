@@ -1,13 +1,12 @@
 //! Observers for `stdout` and `stderr`
 //!
 //! The [`StdOutObserver`] and [`StdErrObserver`] observers look at the stdout of a program
-//! The executor must explicitly support these observers.
 #![cfg_attr(
     unix,
-    doc = r"For example, they are supported on the [`crate::executors::CommandExecutor`] and [`crate::executors::ForkserverExecutor`]."
+    doc = r"For example, they are supported on the [`crate::executors::ForkserverExecutor`]."
 )]
 
-use alloc::{borrow::Cow, string::ToString, vec::Vec};
+use alloc::{borrow::Cow, vec::Vec};
 use core::marker::PhantomData;
 use std::{
     fs::File,
@@ -17,7 +16,7 @@ use std::{
 use libafl_bolts::Named;
 use serde::{Deserialize, Deserializer, Serialize};
 
-use crate::{DependencyResolver, Error, Registrator, observers::Observer};
+use crate::{DependencyResolver, Error, observers::Observer};
 
 /// An observer that captures stdout of a target.
 /// Only works for supported executors.
@@ -28,7 +27,7 @@ pub struct OutputObserver<T> {
     pub name: Cow<'static, str>,
     /// The captured stdout/stderr data during last execution.
     pub output: Option<Vec<u8>>,
-    #[serde(skip_serializing, deserialize_with = "new_file::<_, T>")]
+    #[serde(skip_serializing, deserialize_with = "new_file::<_>")]
     /// File backend of the memory to capture output, if [`None`] we use portable piped output
     pub file: Option<File>,
     #[serde(skip)]
@@ -39,36 +38,23 @@ pub struct OutputObserver<T> {
 /// Blanket implementation for a [`std::fs::File`]. Fortunately the contents of the file
 /// is transient and thus we can safely create a new one on deserialization (and skip it)
 /// when doing serialization
-fn new_file<'de, D, T>(_d: D) -> Result<Option<File>, D::Error>
+#[expect(clippy::unnecessary_wraps)]
+fn new_file<'de, D>(_d: D) -> Result<Option<File>, D::Error>
 where
     D: Deserializer<'de>,
 {
     Ok(None)
 }
 
-/// Marker traits to mark stdout for the `OutputObserver`
+/// Marker traits to mark stdout for the [`OutputObserver`]
 #[derive(Debug, Clone)]
 pub struct StdOutMarker;
 
-/// Marker traits to mark stderr for the `OutputObserver`
+/// Marker traits to mark stderr for the [`OutputObserver`]
 #[derive(Debug, Clone)]
 pub struct StdErrMarker;
 
 impl<T> OutputObserver<T> {
-    // This is the best we can do on macOS because
-    // - macos doesn't have memfd_create
-    // - fd returned from shm_open can't be written (https://stackoverflow.com/questions/73752631/cant-write-to-fd-from-shm-open-on-macos)
-    // - there is even no native tmpfs implementation!
-    // therefore we create a file and immediately remove it to get a writtable fd.
-    //
-    // In most cases, capturing stdout/stderr every loop is very slow and mostly for debugging purpose and thus this should be acceptable.
-    #[cfg(target_os = "macos")]
-    fn file() -> Result<Option<File>, Error> {
-        let fp = File::create_new("fsrvmemfd")?;
-        nix::unistd::unlink("fsrvmemfd")?;
-        Ok(Some(fp))
-    }
-
     /// Create a new [`OutputObserver`] with the given name. This will use the memory fd backend
     /// on Linux and macOS, which is compatible with forkserver.
     pub fn new(name: Cow<'static, str>) -> Result<Self, Error> {
@@ -80,7 +66,7 @@ impl<T> OutputObserver<T> {
         })
     }
 
-    /// Create a new `OutputObserver` with the given name. This use portable piped backend, which
+    /// Create a new [`OutputObserver`] with the given name. This use portable piped backend, which
     /// only works with [`std::process::Command`].
     pub fn new_piped(name: Cow<'static, str>) -> Result<Self, Error> {
         Ok(Self {
@@ -171,7 +157,7 @@ impl<T> AsMut<Self> for OutputObserver<T> {
     }
 }
 
-/// An observer that captures stdout of a target.
+/// An [`OutputObserver`] that captures stdout of a target.
 pub type StdOutObserver = OutputObserver<StdOutMarker>;
-/// An observer that captures stderr of a target.
+/// An [`OutputObserver`] that captures stderr of a target.
 pub type StdErrObserver = OutputObserver<StdErrMarker>;

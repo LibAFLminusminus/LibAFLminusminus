@@ -12,17 +12,11 @@ pub use stdio::{StdErrObserver, StdOutObserver};
 pub mod cmplog;
 pub use cmplog::*;
 
-#[cfg(feature = "regex")]
-pub mod stacktrace;
-#[cfg(feature = "regex")]
-pub use stacktrace::*;
-
 pub mod map;
 pub use map::*;
 
 pub mod value;
 
-/// List observer
 pub mod list;
 use core::{fmt::Debug, time::Duration};
 #[cfg(feature = "std")]
@@ -37,8 +31,8 @@ pub use value::*;
 
 use crate::{DependencyResolver, Error, executors::ExitKind};
 
-/// Observers observe different information about the target.
-/// They can then be used by various sorts of feedback.
+/// [`Observers`] observe different information about the target.
+/// They can then be used by various sorts of [`Feedback`](crate::feedbacks::Feedback).
 pub trait Observer<S>: DependencyResolver + Named {
     /// Called right before execution starts.
     #[inline]
@@ -136,7 +130,7 @@ mod instant_serializer {
 }
 
 impl TimeObserver {
-    /// Creates a new [`TimeObserver`] with the given name.
+    /// Creates a new [`struct@TimeObserver`] with the given name.
     #[must_use]
     pub fn new<S>(name: S) -> Self
     where

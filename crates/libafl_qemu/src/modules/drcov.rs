@@ -9,9 +9,11 @@ use std::{
 };
 
 use hashbrown::{HashMap, hash_map::Entry};
-use libafl::{HasMetadata, executors::ExitKind, observers::ObserversTuple};
+#[cfg(feature = "usermode")]
+use libafl::Result;
+use libafl::{executors::ExitKind, observers::ObserversTuple, states::FlatState};
+use libafl_bolts::drcov::{DrCovBasicBlock, DrCovWriter};
 use libafl_qemu_sys::{GuestAddr, GuestUsize};
-use libafl_targets::drcov::{DrCovBasicBlock, DrCovWriter};
 use rangemap::RangeMap;
 use serde::{Deserialize, Serialize};
 
@@ -143,30 +145,21 @@ pub struct DrCovModule<F> {
 pub fn gen_unique_block_ids<ET, F, I, S>(
     _qemu: Qemu,
     emulator_modules: &mut EmulatorModules<ET, I, S>,
-    state: Option<&mut S>,
+    state: &mut S,
     pc: GuestAddr,
 ) -> Option<u64>
 where
     ET: EmulatorModuleTuple<I, S>,
     F: AddressFilter,
     I: Unpin,
-    S: Unpin + HasMetadata,
+    S: Unpin + FlatState,
 {
     let drcov_module = emulator_modules.get::<DrCovModule<F>>().unwrap();
     if !drcov_module.must_instrument(pc) {
         return None;
     }
 
-    let state = state.expect("The gen_unique_block_ids hook works only for in-process fuzzing. Is the Executor initialized?");
-    if state
-        .metadata_map_mut()
-        .get_mut::<DrCovMetadata>()
-        .is_none()
-    {
-        state.add_metadata(DrCovMetadata::new());
-    }
-
-    let meta = state.metadata_map_mut().get_mut::<DrCovMetadata>().unwrap();
+    let meta = state.get_md_or_insert_with(DrCovMetadata::new);
 
     match DRCOV_MAP.lock().unwrap().as_mut().unwrap().entry(pc) {
         Entry::Occupied(entry) => {
@@ -189,14 +182,14 @@ where
 pub fn gen_block_lengths<ET, F, I, S>(
     _qemu: Qemu,
     emulator_modules: &mut EmulatorModules<ET, I, S>,
-    _state: Option<&mut S>,
+    _state: &mut S,
     pc: GuestAddr,
     block_length: GuestUsize,
 ) where
     ET: EmulatorModuleTuple<I, S>,
     F: AddressFilter,
     I: Unpin,
-    S: Unpin + HasMetadata,
+    S: Unpin + FlatState,
 {
     let drcov_module = emulator_modules.get::<DrCovModule<F>>().unwrap();
     if !drcov_module.must_instrument(pc) {
@@ -214,13 +207,13 @@ pub fn gen_block_lengths<ET, F, I, S>(
 pub fn exec_trace_block<ET, F, I, S>(
     _qemu: Qemu,
     _emulator_modules: &mut EmulatorModules<ET, I, S>,
-    _state: Option<&mut S>,
+    _state: &mut S,
     id: u64,
 ) where
     ET: EmulatorModuleTuple<I, S>,
     F: AddressFilter,
     I: Unpin,
-    S: Unpin + HasMetadata,
+    S: Unpin + FlatState,
 {
     DRCOV_IDS.lock().unwrap().as_mut().unwrap().push(id);
 }
@@ -229,7 +222,7 @@ impl<F, I, S> EmulatorModule<I, S> for DrCovModule<F>
 where
     F: AddressFilter,
     I: Unpin,
-    S: Unpin + HasMetadata,
+    S: Unpin + FlatState,
 {
     #[cfg(feature = "usermode")]
     fn first_exec<ET>(
@@ -237,7 +230,8 @@ where
         qemu: Qemu,
         emulator_modules: &mut EmulatorModules<ET, I, S>,
         _state: &mut S,
-    ) where
+    ) -> Result<()>
+    where
         ET: EmulatorModuleTuple<I, S>,
     {
         if self.full_trace {
@@ -327,6 +321,8 @@ where
         } else {
             log::info!("Using user-provided module mapping for DrCov module.");
         }
+
+        Ok(())
     }
 
     #[cfg(feature = "systemmode")]
@@ -366,19 +362,20 @@ where
         _input: &I,
         _observers: &mut OT,
         _exit_kind: &mut ExitKind,
-    ) where
-        OT: ObserversTuple<I, S>,
+    ) -> Result<()>
+    where
+        OT: ObserversTuple<S>,
         ET: EmulatorModuleTuple<I, S>,
     {
-        self.flush();
+        self.flush()
     }
 
-    unsafe fn on_crash(&mut self) {
-        self.flush();
+    unsafe fn on_crash(&mut self) -> Result<()> {
+        self.flush()
     }
 
-    unsafe fn on_timeout(&mut self) {
-        self.flush();
+    unsafe fn on_timeout(&mut self) -> Result<()> {
+        self.flush()
     }
 }
 
@@ -429,9 +426,10 @@ impl<F> DrCovModule<F> {
         self.path.as_path()
     }
 
-    pub fn flush(&mut self) {
+    pub fn flush(&mut self) -> Result<()> {
         let lengths_opt = DRCOV_LENGTHS.lock().unwrap();
         let lengths = lengths_opt.as_ref().unwrap();
+
         if self.full_trace {
             if DRCOV_IDS.lock().unwrap().as_ref().unwrap().len() > self.drcov_len {
                 let mut drcov_vec = Vec::<DrCovBasicBlock>::new();
@@ -444,7 +442,7 @@ impl<F> DrCovModule<F> {
                         unsafe {
                             for module in self.module_mapping.as_ref().unwrap_unchecked().iter() {
                                 let (range, (_, _)) = module;
-                                if range.contains(&u64::from(*pc)) {
+                                if range.contains(&(*pc as u64)) {
                                     module_found = true;
                                     break;
                                 }
@@ -458,8 +456,8 @@ impl<F> DrCovModule<F> {
                             match lengths.get(pc) {
                                 Some(block_length) => {
                                     drcov_vec.push(DrCovBasicBlock::new(
-                                        u64::from(*pc),
-                                        u64::from(*pc) + u64::from(*block_length),
+                                        *pc as u64,
+                                        *pc as u64 + *block_length as u64,
                                     ));
                                 }
                                 None => {
@@ -475,8 +473,7 @@ impl<F> DrCovModule<F> {
                 // Module mapping is already set. It's checked or filled when the module is first run.
                 unsafe {
                     DrCovWriter::new(self.module_mapping.as_ref().unwrap_unchecked())
-                        .write(&self.path, &drcov_vec)
-                        .expect("Failed to write coverage file");
+                        .write(&self.path, &drcov_vec)?;
                 }
             }
             if self.clean_on_flush {
@@ -511,8 +508,8 @@ impl<F> DrCovModule<F> {
                     match lengths.get(pc) {
                         Some(block_length) => {
                             drcov_vec.push(DrCovBasicBlock::new(
-                                u64::from(*pc),
-                                u64::from(*pc) + u64::from(*block_length),
+                                *pc as u64,
+                                *pc as u64 + *block_length as u64,
                             ));
                         }
                         None => {
@@ -526,12 +523,13 @@ impl<F> DrCovModule<F> {
                 // Module mapping is already set. It's checked or filled when the module is first run.
                 unsafe {
                     DrCovWriter::new(self.module_mapping.as_ref().unwrap_unchecked())
-                        .write(&self.path, &drcov_vec)
-                        .expect("Failed to write coverage file");
+                        .write(&self.path, &drcov_vec)?;
                 }
             }
             self.drcov_len = DRCOV_MAP.lock().unwrap().as_ref().unwrap().len();
         }
+
+        Ok(())
     }
 }
 

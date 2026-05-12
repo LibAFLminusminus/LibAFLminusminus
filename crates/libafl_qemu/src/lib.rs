@@ -35,8 +35,6 @@ pub mod modules;
 
 pub mod executor;
 pub use executor::QemuExecutor;
-#[cfg(feature = "fork")]
-pub use executor::QemuForkExecutor;
 
 pub mod qemu;
 pub use qemu::*;
@@ -48,7 +46,9 @@ pub mod breakpoint;
 pub mod command;
 pub mod sync_exit;
 
-pub use libafl_qemu_sys::{GuestAddr, MmapPerms};
+#[cfg(feature = "usermode")]
+pub use libafl_qemu_sys::GuestAbiUlong;
+pub use libafl_qemu_sys::{GuestAddr, GuestUlong, GuestUsize, MmapPerms};
 #[cfg(feature = "systemmode")]
 pub use libafl_qemu_sys::{GuestPhysAddr, GuestVirtAddr};
 

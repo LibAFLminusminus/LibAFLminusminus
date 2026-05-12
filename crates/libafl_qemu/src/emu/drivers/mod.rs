@@ -3,10 +3,11 @@
 
 #[cfg(feature = "systemmode")]
 use std::collections::HashMap;
-use std::{cell::OnceCell, fmt::Debug};
+use std::{cell::OnceCell, fmt::Debug, result};
 
-use libafl::{executors::ExitKind, inputs::HasTargetBytes, observers::ObserversTuple};
+use libafl::{Result, executors::ExitKind, inputs::Input, observers::ObserversTuple};
 use libafl_bolts::os::{CTRL_C_EXIT, unix_signals::Signal};
+use libafl_core::runtime;
 
 #[cfg(not(feature = "systemmode"))]
 use crate::InputLocation;
@@ -15,8 +16,8 @@ use crate::PhysMemoryChunk;
 #[cfg(feature = "systemmode")]
 use crate::emu::systemmode::SystemInputLocation as InputLocation;
 use crate::{
-    Emulator, EmulatorExitError, EmulatorExitResult, IsSnapshotManager, Qemu, QemuError,
-    QemuShutdownCause, Regs, SnapshotId, SnapshotManagerCheckError, SnapshotManagerError,
+    EmulatorExitError, EmulatorExitResult, IsSnapshotManager, Qemu, QemuError, QemuShutdownCause,
+    Regs, SnapshotId, SnapshotManagerCheckError, SnapshotManagerError, StdEmulator,
     command::{CommandError, CommandManager, IsCommand},
     modules::EmulatorModuleTuple,
 };
@@ -65,6 +66,12 @@ pub enum EmulatorDriverError {
     EndBeforeStart,
 }
 
+impl From<EmulatorDriverError> for libafl::Error {
+    fn from(value: EmulatorDriverError) -> Self {
+        runtime!("Emulator driver error: {value:?}")
+    }
+}
+
 impl From<QemuError> for EmulatorDriverError {
     fn from(error: QemuError) -> Self {
         EmulatorDriverError::QemuError(error)
@@ -78,10 +85,13 @@ pub trait InputSetter<I, S> {
         qemu: Qemu,
         state: &mut S,
         input: &I,
-    ) -> Result<(), EmulatorDriverError>;
+    ) -> result::Result<(), EmulatorDriverError>;
 
     /// Set location at which input should be set.
-    fn set_input_location(&mut self, location: InputLocation) -> Result<(), EmulatorDriverError>;
+    fn set_input_location(
+        &mut self,
+        location: InputLocation,
+    ) -> result::Result<(), EmulatorDriverError>;
 
     /// Get the input location, if it is set.
     fn input_location(&self) -> Option<&InputLocation>;
@@ -96,11 +106,14 @@ impl<I, S> InputSetter<I, S> for NopInputSetter {
         _qemu: Qemu,
         _state: &mut S,
         _input: &I,
-    ) -> Result<(), EmulatorDriverError> {
+    ) -> result::Result<(), EmulatorDriverError> {
         Ok(())
     }
 
-    fn set_input_location(&mut self, _location: InputLocation) -> Result<(), EmulatorDriverError> {
+    fn set_input_location(
+        &mut self,
+        _location: InputLocation,
+    ) -> result::Result<(), EmulatorDriverError> {
         Ok(())
     }
 
@@ -120,42 +133,46 @@ where
 {
     /// Just before calling user's harness for the first time.
     /// Called only once
-    fn first_harness_exec(emulator: &mut Emulator<C, CM, Self, ET, I, S, SM>, state: &mut S) {
-        emulator.modules.first_exec_all(emulator.qemu, state);
+    fn first_harness_exec(
+        emulator: &mut StdEmulator<C, CM, Self, ET, I, S, SM>,
+        state: &mut S,
+    ) -> Result<()> {
+        emulator.modules.first_exec_all(emulator.qemu, state)
     }
 
     /// Just before calling user's harness
     fn pre_harness_exec(
-        emulator: &mut Emulator<C, CM, Self, ET, I, S, SM>,
+        emulator: &mut StdEmulator<C, CM, Self, ET, I, S, SM>,
         state: &mut S,
         input: &I,
-    ) {
-        emulator.modules.pre_exec_all(emulator.qemu, state, input);
+    ) -> Result<()> {
+        emulator.modules.pre_exec_all(emulator.qemu, state, input)
     }
 
     /// Just after returning from user's harness
     fn post_harness_exec<OT>(
-        emulator: &mut Emulator<C, CM, Self, ET, I, S, SM>,
+        emulator: &mut StdEmulator<C, CM, Self, ET, I, S, SM>,
         input: &I,
         observers: &mut OT,
         state: &mut S,
         exit_kind: &mut ExitKind,
-    ) where
-        OT: ObserversTuple<I, S>,
+    ) -> Result<()>
+    where
+        OT: ObserversTuple<S>,
     {
         emulator
             .modules
-            .post_exec_all(emulator.qemu, state, input, observers, exit_kind);
+            .post_exec_all(emulator.qemu, state, input, observers, exit_kind)
     }
 
     /// Just before entering QEMU
-    fn pre_qemu_exec(_emulator: &mut Emulator<C, CM, Self, ET, I, S, SM>, _input: &I) {}
+    fn pre_qemu_exec(_emulator: &mut StdEmulator<C, CM, Self, ET, I, S, SM>, _input: &I) {}
 
     /// Just after QEMU exits
     fn post_qemu_exec(
-        _emulator: &mut Emulator<C, CM, Self, ET, I, S, SM>,
-        exit_reason: &mut Result<EmulatorExitResult<C>, EmulatorExitError>,
-    ) -> Result<Option<EmulatorDriverResult<C>>, EmulatorDriverError> {
+        _emulator: &mut StdEmulator<C, CM, Self, ET, I, S, SM>,
+        exit_reason: &mut result::Result<EmulatorExitResult<C>, EmulatorExitError>,
+    ) -> result::Result<Option<EmulatorDriverResult<C>>, EmulatorDriverError> {
         match exit_reason {
             Ok(reason) => Ok(Some(EmulatorDriverResult::ReturnToClient(reason.clone()))),
             Err(error) => Err(error.clone().into()),
@@ -347,7 +364,7 @@ impl<IS> GenericEmulatorDriver<IS> {
         qemu: Qemu,
         state: &mut S,
         input: &I,
-    ) -> Result<(), EmulatorDriverError>
+    ) -> result::Result<(), EmulatorDriverError>
     where
         IS: InputSetter<I, S>,
     {
@@ -362,7 +379,7 @@ impl<IS> GenericEmulatorDriver<IS> {
         &mut self.input_setter
     }
 
-    pub fn set_snapshot_id(&self, snapshot_id: SnapshotId) -> Result<(), SnapshotId> {
+    pub fn set_snapshot_id(&self, snapshot_id: SnapshotId) -> result::Result<(), SnapshotId> {
         self.snapshot_id.set(snapshot_id)
     }
 
@@ -404,51 +421,57 @@ where
     C: IsCommand<CM::Commands, CM, Self, ET, I, S, SM>,
     CM: CommandManager<C, Self, ET, I, S, SM, Commands = C>,
     ET: EmulatorModuleTuple<I, S>,
-    I: HasTargetBytes + Unpin,
+    I: Input + Unpin,
     IS: InputSetter<I, S> + 'static,
     S: Unpin,
     SM: IsSnapshotManager,
 {
-    fn first_harness_exec(emulator: &mut Emulator<C, CM, Self, ET, I, S, SM>, state: &mut S) {
-        emulator.modules.first_exec_all(emulator.qemu, state);
+    fn first_harness_exec(
+        emulator: &mut StdEmulator<C, CM, Self, ET, I, S, SM>,
+        state: &mut S,
+    ) -> Result<()> {
+        emulator.modules.first_exec_all(emulator.qemu, state)
     }
 
     fn pre_harness_exec(
-        emulator: &mut Emulator<C, CM, Self, ET, I, S, SM>,
+        emulator: &mut StdEmulator<C, CM, Self, ET, I, S, SM>,
         state: &mut S,
         input: &I,
-    ) {
-        emulator.modules.pre_exec_all(emulator.qemu, state, input);
+    ) -> Result<()> {
+        emulator.modules.pre_exec_all(emulator.qemu, state, input)?;
 
         // set the input in the target, according the input setter
         // this should be run iif the emulator is "started".
         emulator
             .driver
             .input_setter
-            .write_input(emulator.qemu, state, input)
+            .write_input(emulator.qemu(), state, input)
             .unwrap();
+
+        Ok(())
     }
 
     fn post_harness_exec<OT>(
-        emulator: &mut Emulator<C, CM, Self, ET, I, S, SM>,
+        emulator: &mut StdEmulator<C, CM, Self, ET, I, S, SM>,
         input: &I,
         observers: &mut OT,
         state: &mut S,
         exit_kind: &mut ExitKind,
-    ) where
-        OT: ObserversTuple<I, S>,
+    ) -> Result<()>
+    where
+        OT: ObserversTuple<S>,
     {
         emulator
             .modules
-            .post_exec_all(emulator.qemu, state, input, observers, exit_kind);
+            .post_exec_all(emulator.qemu, state, input, observers, exit_kind)
     }
 
-    fn pre_qemu_exec(_emulator: &mut Emulator<C, CM, Self, ET, I, S, SM>, _input: &I) {}
+    fn pre_qemu_exec(_emulator: &mut StdEmulator<C, CM, Self, ET, I, S, SM>, _input: &I) {}
 
     fn post_qemu_exec(
-        emulator: &mut Emulator<C, CM, Self, ET, I, S, SM>,
-        exit_reason: &mut Result<EmulatorExitResult<C>, EmulatorExitError>,
-    ) -> Result<Option<EmulatorDriverResult<C>>, EmulatorDriverError> {
+        emulator: &mut StdEmulator<C, CM, Self, ET, I, S, SM>,
+        exit_reason: &mut result::Result<EmulatorExitResult<C>, EmulatorExitError>,
+    ) -> result::Result<Option<EmulatorDriverResult<C>>, EmulatorDriverError> {
         let qemu = emulator.qemu();
 
         // Check if QEMU existed because of an error or to handle some request
@@ -524,7 +547,7 @@ where
 {
     type Error = String;
 
-    fn try_from(value: EmulatorDriverResult<C>) -> Result<Self, Self::Error> {
+    fn try_from(value: EmulatorDriverResult<C>) -> result::Result<Self, Self::Error> {
         match value {
             EmulatorDriverResult::ReturnToClient(unhandled_qemu_exit) => {
                 Err(format!("Unhandled QEMU exit: {:?}", &unhandled_qemu_exit))

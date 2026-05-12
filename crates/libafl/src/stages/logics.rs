@@ -1,11 +1,9 @@
 //! Stage wrappers that add logics to stage list
 
-use core::marker::PhantomData;
-
 use crate::{
     DependencyResolver, Error,
     corpus::testcase::TestcaseId,
-    stages::{RuntimeHandle, Stage, StageId, StagesTuple},
+    stages::{RuntimeHandle, Stage, StagesTuple},
 };
 
 #[derive(Debug)]
@@ -16,7 +14,7 @@ pub struct WhileStage<CB, ST> {
 }
 
 impl<CB, ST> WhileStage<CB, ST> {
-    /// Constructor
+    /// Constructor for [`struct@WhileStage`]
     pub fn new(closure: CB, stages: ST) -> Self {
         Self { closure, stages }
     }
@@ -72,7 +70,7 @@ where
 }
 
 impl<CB, ST> IfStage<CB, ST> {
-    /// Constructor
+    /// Constructor for [`struct@IfStage`]
     pub fn new(closure: CB, if_stages: ST) -> Self {
         Self { closure, if_stages }
     }
@@ -100,7 +98,8 @@ where
     }
 }
 
-/// Perform either stage if they evaluate to true
+/// Perform [`Self::if_stages`] if the closure evaluates to true, else perfrom [`Self::else_stages`]
+#[derive(Debug)]
 pub struct IfElseStage<CB, ST1, ST2> {
     closure: CB,
     if_stages: ST1,
@@ -113,13 +112,13 @@ where
     ST2: DependencyResolver,
 {
     fn register(&mut self, registrator: &mut crate::Registrator) -> Result<(), Error> {
-        self.if_stages.register(registrator);
+        self.if_stages.register(registrator)?;
         self.else_stages.register(registrator)
     }
 }
 
 impl<CB, ST1, ST2> IfElseStage<CB, ST1, ST2> {
-    /// Constructor
+    /// Constructor for [`struct@IfElseStage`]
     pub fn new(closure: CB, if_stages: ST1, else_stages: ST2) -> Self {
         Self {
             closure,

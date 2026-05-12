@@ -10,7 +10,7 @@ use core::{
 use libafl_bolts::{AsSlice, AsSliceMut, HasLen, Named, Truncate, ownedref::OwnedMutSlice};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
-use crate::{DependencyResolver, Error, executors::ExitKind, observers::Observer};
+use crate::{DependencyResolver, Error, observers::Observer};
 
 pub mod const_map;
 pub use const_map::*;

@@ -3,17 +3,12 @@
 use alloc::borrow::Cow;
 use core::marker::PhantomData;
 
-use libafl_bolts::{
-    Error, Named,
-    rands::Rand,
-    tuples::{Map as _, Merge},
-};
+use libafl_bolts::{Error, Named, rands::Rand, tuples::Merge};
 use tuple_list::{tuple_list, tuple_list_type};
-use tuple_list_ex::{map_tuple_list_type, merge_tuple_list_type};
 
 use super::{MutationResult, Mutator};
 use crate::{
-    corpus::{Corpus, TestcaseId, schedulers::Scheduler},
+    corpus::{Corpus, schedulers::Scheduler},
     fuzzers::EvaluationResult,
     inputs::value::Numeric,
     states::{HasCorpus, HasScheduler},
@@ -90,7 +85,7 @@ where
     R: Rand,
     I: Numeric,
 {
-    fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
+    fn mutate(&mut self, input: &mut I, rand: &mut R, _state: &S) -> Result<MutationResult, Error> {
         let offset = rand.choose(0..size_of::<I>()).unwrap();
         input.flip_bit_at(offset);
         Ok(MutationResult::Mutated)
@@ -115,7 +110,12 @@ impl<I, R, S> Mutator<I, R, S> for NegateMutator
 where
     I: Numeric,
 {
-    fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
+    fn mutate(
+        &mut self,
+        input: &mut I,
+        _rand: &mut R,
+        _state: &S,
+    ) -> Result<MutationResult, Error> {
         input.flip_all_bits();
         Ok(MutationResult::Mutated)
     }
@@ -139,7 +139,12 @@ impl<I, R, S> Mutator<I, R, S> for IncMutator
 where
     I: Numeric,
 {
-    fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
+    fn mutate(
+        &mut self,
+        input: &mut I,
+        _rand: &mut R,
+        _state: &S,
+    ) -> Result<MutationResult, Error> {
         input.wrapping_inc();
         Ok(MutationResult::Mutated)
     }
@@ -163,7 +168,12 @@ impl<I, R, S> Mutator<I, R, S> for DecMutator
 where
     I: Numeric,
 {
-    fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
+    fn mutate(
+        &mut self,
+        input: &mut I,
+        _rand: &mut R,
+        _state: &S,
+    ) -> Result<MutationResult, Error> {
         input.wrapping_dec();
         Ok(MutationResult::Mutated)
     }
@@ -187,7 +197,12 @@ impl<I, R, S> Mutator<I, R, S> for TwosComplementMutator
 where
     I: Numeric,
 {
-    fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
+    fn mutate(
+        &mut self,
+        input: &mut I,
+        _rand: &mut R,
+        _state: &S,
+    ) -> Result<MutationResult, Error> {
         input.twos_complement();
         Ok(MutationResult::Mutated)
     }
@@ -212,7 +227,7 @@ where
     I: Numeric,
     R: Rand,
 {
-    fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
+    fn mutate(&mut self, input: &mut I, rand: &mut R, _state: &S) -> Result<MutationResult, Error> {
         // set to random data byte-wise since the RNGs don't work for all numeric types
         input.randomize(rand);
         Ok(MutationResult::Mutated)
@@ -241,7 +256,7 @@ where
 {
     fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
         let ids = state.scheduler().ids();
-        let Some(id) = rand.choose(ids.into_iter()) else {
+        let Some(id) = rand.choose(ids) else {
             return Ok(MutationResult::Skipped);
         };
 
@@ -290,7 +305,7 @@ where
 {
     fn mutate(&mut self, input: &mut O, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
         let ids = state.scheduler().ids();
-        let Some(id) = rand.choose(ids.into_iter()) else {
+        let Some(id) = rand.choose(ids) else {
             return Ok(MutationResult::Skipped);
         };
 
@@ -319,6 +334,8 @@ impl<F, I> Named for MappedCrossoverMutator<F, I> {
 #[cfg(test)]
 mod tests {
 
+    use alloc::rc::Rc;
+
     use libafl_bolts::{
         rands::{Rand, XkcdRand},
         tuples::IntoVec as _,
@@ -328,14 +345,10 @@ mod tests {
     use super::{Numeric, int_mutators};
     use crate::{
         corpus::{Corpus, InMemoryCorpus, Testcase, schedulers::QueueScheduler},
-        inputs::{
-            bytes::{BytesContext, BytesInput},
-            value::{I16Input, PrimitiveContext},
-        },
+        inputs::value::{I16Input, PrimitiveContext},
         mutators::MutationResult,
         states::StdState,
     };
-    use alloc::rc::Rc;
 
     #[test]
     fn randomized() {
@@ -366,11 +379,15 @@ mod tests {
 
     #[test]
     fn all_mutate_owned() {
-        let mut corpus = InMemoryCorpus::new(PrimitiveContext::default(), QueueScheduler::new());
-        corpus.add(Testcase::new(Rc::new(I16Input::new(42_i16.into())))).unwrap();
+        let mut corpus = InMemoryCorpus::new(QueueScheduler::new());
+        corpus
+            .add(Testcase::new(Rc::new(I16Input::new(42_i16.into()))))
+            .unwrap();
+        let primitive_context: PrimitiveContext<i16> = PrimitiveContext::default();
         let mut state = StdState::new(
+            primitive_context,
             corpus,
-            InMemoryCorpus::new(PrimitiveContext::default(), QueueScheduler::new()),
+            InMemoryCorpus::new(QueueScheduler::new()),
         )
         .unwrap();
         let mut rand = XkcdRand::new();

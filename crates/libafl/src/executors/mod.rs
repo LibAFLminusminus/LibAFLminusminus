@@ -16,16 +16,17 @@ use tuple_list_ex::RefIndexable;
 use crate::observers::{StdErrObserver, StdOutObserver};
 use crate::{
     DependencyResolver, Error, Worker,
-    observers::{Observer, ObserversTuple},
-    runtimes::{RuntimeHandle, utils::unix::signal::OsTerminationParams},
+    observers::ObserversTuple,
+    runtimes::{
+        RuntimeHandle,
+        inprocess::{CrashStatus, TimeoutStatus},
+        utils::unix::signal::OsTerminationParams,
+    },
     states::FlatState,
 };
 
 /// The module for all the executor hooks
 pub mod hooks;
-
-pub mod combined;
-pub use combined::CombinedExecutor;
 
 pub mod nop;
 pub use nop::NopExecutor;
@@ -35,15 +36,12 @@ pub mod forkserver;
 #[cfg(all(feature = "std", unix))]
 pub use forkserver::*;
 
-mod std;
-pub use std::StdExecutor;
+pub mod standard;
+pub use standard::StdExecutor;
 
 /// How an execution finished.
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[cfg_attr(
-    miri,
-    expect(clippy::unsafe_derive_deserialize)
-)] // for SerdeAny
+#[cfg_attr(miri, expect(clippy::unsafe_derive_deserialize))] // for SerdeAny
 pub enum ExitKind {
     /// The run exited normally.
     Ok,
@@ -67,10 +65,7 @@ libafl_bolts::impl_serdeany!(ExitKind);
 
 /// How one of the diffing executions finished.
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[cfg_attr(
-    miri,
-    expect(clippy::unsafe_derive_deserialize)
-)] // for SerdeAny
+#[cfg_attr(miri, expect(clippy::unsafe_derive_deserialize))] // for SerdeAny
 pub enum DiffExitKind {
     /// The run exited normally.
     Ok,
@@ -89,6 +84,7 @@ libafl_bolts::impl_serdeany!(DiffExitKind);
 
 /// Runs the fuzzer harness.
 pub trait Executor<I, S>: DependencyResolver {
+    /// The [`Observer`]s owned by the Executor.
     type Observers: ObserversTuple<S>;
 
     /// The init function of the executor.
@@ -148,7 +144,7 @@ pub trait Executor<I, S>: DependencyResolver {
         // start_timer!(state);
         self.observers_mut()
             .post_exec_all(state, &exit_kind)
-            .map(|_| exit_kind)
+            .map(|()| exit_kind)
         // mark_feature_time!(state, PerfFeature::PostExecObservers);
     }
 
@@ -158,16 +154,33 @@ pub trait Executor<I, S>: DependencyResolver {
     /// Get the linked observers (mutable)
     fn observers_mut(&mut self) -> RefIndexable<&mut Self::Observers, Self::Observers>;
 
-    // TODO: connect to executors.
-    // this will be useful for qemu at least
-    fn handle_crash(params: &OsTerminationParams) -> Result<(), Error> {
-        Ok(())
+    /// Handle crash.
+    ///
+    /// Returns whether the crash is due to the fuzzer or the target.
+    /// By default, it returns [`CrashStatus::TargetCrash`].
+    ///
+    /// # Safety
+    ///
+    /// This will run in a signal handler, so it's very constrained.
+    /// In particular, it should not allocate anything in the heap.
+    unsafe fn handle_crash(&mut self, _params: &OsTerminationParams) -> Result<CrashStatus, Error> {
+        Ok(CrashStatus::TargetCrash)
     }
 
-    // TODO: connect to executors.
-    // this will be useful for qemu at least
-    fn handle_timeout(params: &OsTerminationParams) -> Result<(), Error> {
-        Ok(())
+    /// Handle timeout
+    ///
+    /// Returns what the fuzzer should do on timeout.
+    /// By default, it returns [`TimeoutStatus::Exit`].
+    ///
+    /// # Safety
+    ///
+    /// This will run in a signal handler, so it's very constrained.
+    /// In particular, it should not allocate anything in the heap.
+    unsafe fn handle_timeout(
+        &mut self,
+        _params: &OsTerminationParams,
+    ) -> Result<TimeoutStatus, Error> {
+        Ok(TimeoutStatus::Exit)
     }
 }
 

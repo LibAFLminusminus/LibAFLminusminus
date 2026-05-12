@@ -17,11 +17,11 @@ use libafl_core::non_zero;
 
 use crate::{
     Error,
-    corpus::{Corpus, Scheduler, TestcaseId},
+    corpus::{Corpus, Scheduler},
     fuzzers::EvaluationResult,
     inputs::{HasMutatorBytes, ResizableMutator},
     mutators::{MutationResult, Mutator},
-    states::{FlatState, HasCorpus, HasScheduler, State},
+    states::{FlatState, State},
 };
 
 /// Mem move in the own vec
@@ -131,7 +131,7 @@ impl<I, R: Rand, S> Mutator<I, R, S> for BitFlipMutator
 where
     I: HasMutatorBytes,
 {
-    fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
+    fn mutate(&mut self, input: &mut I, rand: &mut R, _state: &S) -> Result<MutationResult, Error> {
         if input.mutator_bytes().is_empty() {
             Ok(MutationResult::Skipped)
         } else {
@@ -170,7 +170,7 @@ impl<I, R: Rand, S> Mutator<I, R, S> for ByteFlipMutator
 where
     I: HasMutatorBytes,
 {
-    fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
+    fn mutate(&mut self, input: &mut I, rand: &mut R, _state: &S) -> Result<MutationResult, Error> {
         if input.mutator_bytes().is_empty() {
             Ok(MutationResult::Skipped)
         } else {
@@ -207,7 +207,7 @@ impl<I, R: Rand, S> Mutator<I, R, S> for ByteIncMutator
 where
     I: HasMutatorBytes,
 {
-    fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
+    fn mutate(&mut self, input: &mut I, rand: &mut R, _state: &S) -> Result<MutationResult, Error> {
         if input.mutator_bytes().is_empty() {
             Ok(MutationResult::Skipped)
         } else {
@@ -245,7 +245,7 @@ impl<I, R: Rand, S> Mutator<I, R, S> for ByteDecMutator
 where
     I: HasMutatorBytes,
 {
-    fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
+    fn mutate(&mut self, input: &mut I, rand: &mut R, _state: &S) -> Result<MutationResult, Error> {
         if input.mutator_bytes().is_empty() {
             Ok(MutationResult::Skipped)
         } else {
@@ -283,7 +283,7 @@ impl<I, R: Rand, S> Mutator<I, R, S> for ByteNegMutator
 where
     I: HasMutatorBytes,
 {
-    fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
+    fn mutate(&mut self, input: &mut I, rand: &mut R, _state: &S) -> Result<MutationResult, Error> {
         if input.mutator_bytes().is_empty() {
             Ok(MutationResult::Skipped)
         } else {
@@ -321,7 +321,7 @@ impl<I, R: Rand, S> Mutator<I, R, S> for ByteRandMutator
 where
     I: HasMutatorBytes,
 {
-    fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
+    fn mutate(&mut self, input: &mut I, rand: &mut R, _state: &S) -> Result<MutationResult, Error> {
         if input.mutator_bytes().is_empty() {
             Ok(MutationResult::Skipped)
         } else {
@@ -438,7 +438,7 @@ macro_rules! interesting_mutator_impl {
                 &mut self,
                 input: &mut I,
                 rand: &mut R,
-                state: &S,
+                _state: &S,
             ) -> Result<MutationResult, Error> {
                 if input.mutator_bytes().len() < size_of::<$size>() {
                     Ok(MutationResult::Skipped)
@@ -496,7 +496,7 @@ impl<I, R: Rand, S> Mutator<I, R, S> for BytesDeleteMutator
 where
     I: ResizableMutator<u8> + HasMutatorBytes,
 {
-    fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
+    fn mutate(&mut self, input: &mut I, rand: &mut R, _state: &S) -> Result<MutationResult, Error> {
         let size = input.mutator_bytes().len();
         if size <= 2 {
             return Ok(MutationResult::Skipped);
@@ -727,7 +727,7 @@ impl<I, R: Rand, S> Mutator<I, R, S> for BytesSetMutator
 where
     I: HasMutatorBytes,
 {
-    fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
+    fn mutate(&mut self, input: &mut I, rand: &mut R, _state: &S) -> Result<MutationResult, Error> {
         let size = input.mutator_bytes().len();
         if size == 0 {
             return Ok(MutationResult::Skipped);
@@ -771,7 +771,7 @@ impl<I, R: Rand, S> Mutator<I, R, S> for BytesRandSetMutator
 where
     I: HasMutatorBytes,
 {
-    fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
+    fn mutate(&mut self, input: &mut I, rand: &mut R, _state: &S) -> Result<MutationResult, Error> {
         let size = input.mutator_bytes().len();
         if size == 0 {
             return Ok(MutationResult::Skipped);
@@ -815,7 +815,7 @@ impl<I, R: Rand, S> Mutator<I, R, S> for BytesCopyMutator
 where
     I: HasMutatorBytes,
 {
-    fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
+    fn mutate(&mut self, input: &mut I, rand: &mut R, _state: &S) -> Result<MutationResult, Error> {
         let size = input.mutator_bytes().len();
         if size <= 1 {
             return Ok(MutationResult::Skipped);
@@ -944,7 +944,7 @@ impl<I, R: Rand, S> Mutator<I, R, S> for BytesSwapMutator
 where
     I: ResizableMutator<u8> + HasMutatorBytes,
 {
-    fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
+    fn mutate(&mut self, input: &mut I, rand: &mut R, _state: &S) -> Result<MutationResult, Error> {
         let size = input.mutator_bytes().len();
         if size <= 1 {
             return Ok(MutationResult::Skipped);
@@ -1215,7 +1215,7 @@ where
         }
 
         let other_size = {
-            let mut other_testcase = state.corpus().get(&id)?;
+            let other_testcase = state.corpus().get(&id)?;
             other_testcase.input_len()
         };
 
@@ -1314,7 +1314,7 @@ where
         }
 
         let other_size = {
-            let mut testcase = state.corpus().get_from_all(&id)?;
+            let testcase = state.corpus().get_from_all(&id)?;
             testcase.input_len()
         };
 
@@ -1424,7 +1424,7 @@ where
         }
 
         let other_size = {
-            let mut other_testcase = state.corpus().get_from_all(&id)?;
+            let other_testcase = state.corpus().get_from_all(&id)?;
             let other_input = other_testcase.input();
             let input_mapped = (self.input_mapper)(&other_input).map_to_option_bytes();
             input_mapped.map_or(0, <Vec<u8>>::len)
@@ -1516,7 +1516,7 @@ where
         }
 
         let other_size = {
-            let mut other_testcase = state.corpus().get_from_all(&id)?;
+            let other_testcase = state.corpus().get_from_all(&id)?;
             let other_input = other_testcase.input();
             let input_mapped = (self.input_mapper)(&other_input).map_to_option_bytes();
             input_mapped.map_or(0, <Vec<u8>>::len)
@@ -1604,7 +1604,7 @@ where
         }
 
         let (first_diff, last_diff) = {
-            let mut other_testcase = state.corpus().get_from_all(&id)?;
+            let other_testcase = state.corpus().get_from_all(&id)?;
             let other = other_testcase.input();
 
             let (f, l) = locate_diffs(input.mutator_bytes(), other.mutator_bytes());
@@ -1694,6 +1694,8 @@ pub fn str_decode(item: &str) -> Result<Vec<u8>, Error> {
 
 #[cfg(test)]
 mod tests {
+    use alloc::rc::Rc;
+
     use libafl_bolts::{
         rands::StdRand,
         tuples::{HasConstLen, tuple_list, tuple_list_type},
@@ -1707,9 +1709,8 @@ mod tests {
         },
         inputs::{BytesInput, bytes::BytesContext},
         mutators::MutatorsTuple,
-        states::StdState,
+        states::{HasCorpus, StdState},
     };
-    use alloc::rc::Rc;
 
     type TestMutatorsTupleType = tuple_list_type!(
         BitFlipMutator,
@@ -1768,24 +1769,16 @@ mod tests {
     }
 
     fn test_state() -> impl HasCorpus<BytesInput> + FlatState {
-        let mut corpus = InMemoryCorpus::<BytesContext, BytesInput, QueueScheduler>::new(
-            BytesContext::default(),
-            QueueScheduler::new(),
-        );
+        let mut corpus = InMemoryCorpus::<BytesInput, QueueScheduler>::new(QueueScheduler::new());
 
         corpus
-            .add(Testcase::new(Rc::new(BytesInput::new(vec![
-                0x42;
-                0x1337
-            ]))))
+            .add(Testcase::new(Rc::new(BytesInput::new(vec![0x42; 0x1337]))))
             .unwrap();
 
         StdState::new(
+            BytesContext::default(),
             corpus,
-            InMemoryCorpus::<BytesContext, BytesInput, NopScheduler>::new(
-                BytesContext::default(),
-                NopScheduler,
-            ),
+            InMemoryCorpus::<BytesInput, NopScheduler>::new(NopScheduler),
         )
         .unwrap()
     }
@@ -1803,7 +1796,7 @@ mod tests {
             BytesInput::new(vec![1; 4]),
         ];
 
-        let mut state = test_state();
+        let state = test_state();
         let mut rand = StdRand::with_seed(1337);
 
         let mut mutations = test_mutations();
@@ -1832,7 +1825,7 @@ mod tests {
         let base = BytesInput::new((0..10).collect());
         let mut counts = [0usize; 10];
 
-        let mut state = test_state();
+        let state = test_state();
         let mut rand = StdRand::with_seed(1337);
         let mut mutator = BytesDeleteMutator::new();
 
@@ -1890,7 +1883,7 @@ mod tests {
         let base = BytesInput::new((0..10).collect());
         let mut counts = [0usize; 10];
 
-        let mut state = test_state();
+        let state = test_state();
         let mut rand = StdRand::with_seed(1337);
         let mut mutator = BytesExpandMutator::new();
 
@@ -1941,7 +1934,7 @@ mod tests {
         let mut counts = [0usize; 10];
         let mut insertions = [0usize; 16];
 
-        let mut state = test_state();
+        let state = test_state();
         let mut rand = StdRand::with_seed(1337);
         let mut mutator = BytesInsertMutator::new();
 
@@ -1994,7 +1987,7 @@ mod tests {
         let mut counts = [0usize; 256];
         let mut insertions = [0usize; 16];
 
-        let mut state = test_state();
+        let state = test_state();
         let mut rand = StdRand::with_seed(1337);
         let mut mutator = BytesRandInsertMutator::new();
 

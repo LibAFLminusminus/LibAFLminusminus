@@ -1,7 +1,5 @@
 //! Trivial Constant Executor
 
-use core::time::Duration;
-
 use libafl_bolts::tuples::RefIndexable;
 
 use super::{Executor, ExitKind};
@@ -15,15 +13,14 @@ pub type NopExecutor = ConstantExecutor<()>;
 #[derive(Debug)]
 pub struct ConstantExecutor<OT = ()> {
     exit: ExitKind,
-    tm: Duration,
-    ot: OT,
+    observers: OT,
 }
 
 impl<OT> ConstantExecutor<OT> {
     /// Construct a [`ConstantExecutor`]
     #[must_use]
-    pub fn new(exit: ExitKind, tm: Duration, ot: OT) -> Self {
-        Self { exit, tm, ot }
+    pub fn new(exit: ExitKind, observers: OT) -> Self {
+        Self { exit, observers }
     }
 }
 
@@ -31,7 +28,7 @@ impl ConstantExecutor<()> {
     /// Create a new `nop` executor that does nothing.
     #[must_use]
     pub fn nop() -> Self {
-        Self::new(ExitKind::Ok, Duration::default(), ())
+        Self::new(ExitKind::Ok, ())
     }
 }
 
@@ -39,13 +36,13 @@ impl ConstantExecutor<()> {
     /// Construct a [`ConstantExecutor`] that always returns Ok
     #[must_use]
     pub fn ok() -> Self {
-        Self::new(ExitKind::Ok, Duration::default(), ())
+        Self::new(ExitKind::Ok, ())
     }
 
     /// Construct a [`ConstantExecutor`] that always returns Crash
     #[must_use]
     pub fn crash() -> Self {
-        Self::new(ExitKind::Crash, Duration::default(), ())
+        Self::new(ExitKind::Crash, ())
     }
 }
 
@@ -70,10 +67,10 @@ where
     }
 
     fn observers(&self) -> RefIndexable<&Self::Observers, Self::Observers> {
-        RefIndexable::from(&self.ot)
+        RefIndexable::from(&self.observers)
     }
 
     fn observers_mut(&mut self) -> RefIndexable<&mut Self::Observers, Self::Observers> {
-        RefIndexable::from(&mut self.ot)
+        RefIndexable::from(&mut self.observers)
     }
 }

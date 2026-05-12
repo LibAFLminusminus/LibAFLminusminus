@@ -1,8 +1,8 @@
 //! The queue corpus scheduler implements an AFL-like queue mechanism
 
-use alloc::borrow::ToOwned;
-use std::vec::Vec;
+use alloc::{borrow::ToOwned, vec::Vec};
 
+use libafl_core::Result;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -20,18 +20,18 @@ pub struct QueueScheduler {
 impl DependencyResolver for QueueScheduler {}
 
 impl Scheduler for QueueScheduler {
-    fn on_add(&mut self, id: TestcaseId) -> Result<(), Error> {
+    fn on_add(&mut self, id: TestcaseId) -> Result<()> {
         self.queue.push(id);
 
         Ok(())
     }
 
     fn current(&self) -> Option<TestcaseId> {
-        self.current.map(|idx| self.queue[idx].clone())
+        self.current.map(|idx| self.queue[idx])
     }
 
     /// Gets the next entry in the queue
-    fn next(&mut self) -> Result<TestcaseId, Error> {
+    fn next(&mut self) -> Result<TestcaseId> {
         if self.queue.is_empty() {
             Err(Error::empty("Scheduler queue is empty.".to_owned()))
         } else {
@@ -75,9 +75,8 @@ impl Default for QueueScheduler {
 #[cfg(feature = "std")]
 mod tests {
 
+    use alloc::rc::Rc;
     use std::path::PathBuf;
-
-    use libafl_bolts::rands::StdRand;
 
     use crate::{
         corpus::{
@@ -87,31 +86,23 @@ mod tests {
         inputs::bytes::{BytesContext, BytesInput},
         states::{HasCorpus, HasScheduler, StdState},
     };
-    use alloc::rc::Rc;
 
     #[test]
     fn test_queue_corpus() {
-        let rand = StdRand::with_seed(4);
         let scheduler: QueueScheduler = QueueScheduler::new();
         let context = BytesContext::default();
 
-        let corpus = OnDiskCorpus::<BytesContext, BytesInput, QueueScheduler>::new(
-            PathBuf::from("/tmp"),
-            context.clone(),
-            scheduler,
-        )
-        .unwrap();
+        let corpus =
+            OnDiskCorpus::<BytesInput, QueueScheduler>::new(PathBuf::from("/tmp"), scheduler)
+                .unwrap();
         // let t = Testcase::with_filename(BytesInput::new(vec![0_u8; 4]), "fancyfile".into());
         // q.add(t).unwrap();
 
-        let objective = OnDiskCorpus::<BytesContext, BytesInput, NopScheduler>::new(
-            PathBuf::from("/tmp"),
-            context,
-            NopScheduler,
-        )
-        .unwrap();
+        let objective =
+            OnDiskCorpus::<BytesInput, NopScheduler>::new(PathBuf::from("/tmp"), NopScheduler)
+                .unwrap();
 
-        let _state = StdState::new(corpus, objective).unwrap();
+        let _state = StdState::new(context, corpus, objective).unwrap();
 
         // let filename = state
         //     .corpus()
@@ -129,14 +120,10 @@ mod tests {
 
     #[test]
     fn test_queue_scheduler() {
-        let rand = StdRand::with_seed(42);
         let scheduler = QueueScheduler::new();
         let context = BytesContext::default();
 
-        let mut q = InMemoryCorpus::<BytesContext, BytesInput, QueueScheduler>::new(
-            context.clone(),
-            scheduler,
-        );
+        let mut q = InMemoryCorpus::<BytesInput, QueueScheduler>::new(scheduler);
         let t1 = BytesInput::new(vec![0_u8; 4]);
         let t2 = BytesInput::new(vec![1_u8; 4]);
         let t3 = BytesInput::new(vec![2_u8; 4]);
@@ -145,7 +132,7 @@ mod tests {
         let id2 = q.add(Testcase::new(Rc::new(t2))).unwrap();
         let id3 = q.add(Testcase::new(Rc::new(t3))).unwrap();
 
-        let mut state = StdState::new(q, InMemoryCorpus::new(context, NopScheduler)).unwrap();
+        let mut state = StdState::new(context, q, InMemoryCorpus::new(NopScheduler)).unwrap();
 
         let next_id = state.corpus_mut().scheduler_mut().next().unwrap();
         assert_eq!(next_id, id1);

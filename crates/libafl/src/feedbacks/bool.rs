@@ -6,6 +6,7 @@ use libafl_bolts::{
     Error, Named,
     tuples::{Handle, MatchNameRef},
 };
+use libafl_core::Result;
 
 use crate::{
     common::DependencyResolver,
@@ -19,8 +20,6 @@ use crate::{
 pub struct BoolValueFeedback<'a> {
     name: Cow<'static, str>,
     observer_hnd: Handle<ValueObserver<'a, bool>>,
-    #[cfg(feature = "track_hit_feedbacks")]
-    last_result: Option<bool>,
 }
 
 impl<'a> BoolValueFeedback<'a> {
@@ -39,8 +38,6 @@ impl<'a> BoolValueFeedback<'a> {
         Self {
             name,
             observer_hnd: observer_hnd.clone(),
-            #[cfg(feature = "track_hit_feedbacks")]
-            last_result: None,
         }
     }
 }
@@ -63,7 +60,7 @@ where
         _input: &I,
         observers: &OT,
         _exit_kind: &crate::executors::ExitKind,
-    ) -> Result<bool, Error> {
+    ) -> Result<bool> {
         let Some(observer) = observers.get(&self.observer_hnd) else {
             return Err(Error::illegal_state(format!(
                 "Observer {:?} not found",
@@ -71,9 +68,9 @@ where
             )));
         };
 
-        let val = observer.value.as_ref();
+        let val = *observer.value.as_ref();
 
-        Ok(*val)
+        Ok(val)
     }
 
     fn append_metadata(
@@ -81,13 +78,8 @@ where
         _state: &mut S,
         _observers: &OT,
         _testcase_id: &TestcaseId,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         Ok(())
-    }
-
-    #[cfg(feature = "track_hit_feedbacks")]
-    fn last_result(&self) -> Result<bool, Error> {
-        self.last_result.ok_or_else(|| Error::illegal_state("No last result set in `BoolValuefeedback`. Either `is_interesting` has never been called or the fuzzer restarted in the meantime."))
     }
 }
 

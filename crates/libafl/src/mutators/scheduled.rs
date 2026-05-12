@@ -1,57 +1,20 @@
-//! The `ScheduledMutator` schedules multiple mutations internally.
+//! The [`ScheduledMutator`] schedules multiple mutations internally.
 
-use alloc::{borrow::Cow, vec::Vec};
-use core::{
-    fmt::Debug,
-    num::NonZero,
-    ops::{Deref, DerefMut},
-};
+use alloc::borrow::Cow;
+use core::{fmt::Debug, num::NonZero};
 
 use libafl_bolts::{
     Named,
     rands::Rand,
     tuples::{NamedTuple, tuple_list, tuple_list_type},
 };
-use serde::{Deserialize, Serialize};
 
 use super::MutationId;
 use crate::{
     Error,
-    corpus::{Corpus, TestcaseId, testcase},
     fuzzers::EvaluationResult,
     mutators::{MutationResult, Mutator, MutatorsTuple, TokenInsert, TokenReplace},
-    states::HasCorpus,
 };
-
-/// The metadata placed in a [`crate::corpus::Testcase`] by a [`LoggerScheduledMutator`].
-#[derive(Debug, Serialize, Deserialize)]
-#[cfg_attr(miri, expect(clippy::unsafe_derive_deserialize))] // for SerdeAny
-pub struct LogMutationMetadata {
-    /// A list of logs
-    pub list: Vec<Cow<'static, str>>,
-}
-
-libafl_bolts::impl_serdeany!(LogMutationMetadata);
-
-impl Deref for LogMutationMetadata {
-    type Target = [Cow<'static, str>];
-    fn deref(&self) -> &[Cow<'static, str>] {
-        &self.list
-    }
-}
-impl DerefMut for LogMutationMetadata {
-    fn deref_mut(&mut self) -> &mut [Cow<'static, str>] {
-        &mut self.list
-    }
-}
-
-impl LogMutationMetadata {
-    /// Creates new [`struct@LogMutationMetadata`].
-    #[must_use]
-    pub fn new(list: Vec<Cow<'static, str>>) -> Self {
-        Self { list }
-    }
-}
 
 /// A [`Mutator`] that composes multiple mutations into one.
 pub trait ComposedByMutations {
@@ -128,13 +91,13 @@ where
 
 impl<MT> ComposedByMutations for SingleChoiceScheduledMutator<MT> {
     type Mutations = MT;
-    /// Get the mutations
+    /// Get the inner mutations [`Self::Mutations`]
     #[inline]
     fn mutations(&self) -> &MT {
         &self.mutations
     }
 
-    // Get the mutations (mutable)
+    /// Get the inner mutations [`Self::Mutations`] (mutable)
     #[inline]
     fn mutations_mut(&mut self) -> &mut MT {
         &mut self.mutations
@@ -147,12 +110,12 @@ where
     MT: MutatorsTuple<I, R, S>,
 {
     /// Compute the number of iterations used to apply stacked mutations
-    fn iterations(&self, _: &I, rand: &mut R, state: &S) -> u64 {
+    fn iterations(&self, _: &I, _rand: &mut R, _state: &S) -> u64 {
         1
     }
 
     /// Get the next mutation to apply
-    fn schedule(&self, _: &I, rand: &mut R, state: &S) -> MutationId {
+    fn schedule(&self, _: &I, rand: &mut R, _state: &S) -> MutationId {
         debug_assert_ne!(self.mutations.len(), 0);
         // # Safety
         // We check for empty mutations
@@ -209,13 +172,13 @@ where
 
 impl<MT> ComposedByMutations for HavocScheduledMutator<MT> {
     type Mutations = MT;
-    /// Get the mutations
+    /// Get the inner mutations [`Self::Mutations`]
     #[inline]
     fn mutations(&self) -> &MT {
         &self.mutations
     }
 
-    // Get the mutations (mutable)
+    /// Get the inner mutations [`Self::Mutations`] (mutable)
     #[inline]
     fn mutations_mut(&mut self) -> &mut MT {
         &mut self.mutations
@@ -228,12 +191,12 @@ where
     MT: MutatorsTuple<I, R, S>,
 {
     /// Compute the number of iterations used to apply stacked mutations
-    fn iterations(&self, _: &I, rand: &mut R, state: &S) -> u64 {
+    fn iterations(&self, _: &I, rand: &mut R, _state: &S) -> u64 {
         1 << (1 + rand.below_or_zero(self.max_stack_pow))
     }
 
     /// Get the next mutation to apply
-    fn schedule(&self, _: &I, rand: &mut R, state: &S) -> MutationId {
+    fn schedule(&self, _: &I, rand: &mut R, _state: &S) -> MutationId {
         debug_assert_ne!(self.mutations.len(), 0);
         // # Safety
         // We check for empty mutations
@@ -280,11 +243,12 @@ pub fn tokens_mutations() -> tuple_list_type!(TokenInsert, TokenReplace) {
 
 #[cfg(test)]
 mod tests {
+    use alloc::rc::Rc;
+
     use libafl_bolts::rands::{StdRand, XkcdRand};
 
     use crate::{
         corpus::{Corpus, InMemoryCorpus, Testcase, schedulers::QueueScheduler},
-        feedbacks::ConstFeedback,
         inputs::{BytesInput, HasMutatorBytes, bytes::BytesContext},
         mutators::{
             Mutator,
@@ -295,12 +259,10 @@ mod tests {
         states::StdState,
     };
 
-    use alloc::rc::Rc;
-
     #[test]
     fn test_mut_scheduled() {
         let mut rand = XkcdRand::with_seed(0);
-        let mut corpus = InMemoryCorpus::new(BytesContext::default(), QueueScheduler::new());
+        let mut corpus = InMemoryCorpus::new(QueueScheduler::new());
         let id1 = corpus
             .add(Testcase::new(Rc::new(BytesInput::new(
                 vec![b'a', b'b', b'c'].into(),
@@ -315,8 +277,9 @@ mod tests {
         let mut input = corpus.get(&id1).unwrap().cloned_input();
 
         let mut state = StdState::new(
+            BytesContext::default(),
             corpus,
-            InMemoryCorpus::new(BytesContext::default(), QueueScheduler::new()),
+            InMemoryCorpus::new(QueueScheduler::new()),
         )
         .unwrap();
 
@@ -332,7 +295,7 @@ mod tests {
     #[test]
     fn test_havoc() {
         let mut rand = StdRand::with_seed(0x1337);
-        let mut corpus = InMemoryCorpus::new(BytesContext::default(), QueueScheduler::new());
+        let mut corpus = InMemoryCorpus::new(QueueScheduler::new());
         let id1 = corpus
             .add(Testcase::new(Rc::new(BytesInput::new(
                 b"abc".to_vec().into(),
@@ -348,8 +311,9 @@ mod tests {
         let input_prior = input.clone();
 
         let mut state = StdState::new(
+            BytesContext::default(),
             corpus,
-            InMemoryCorpus::new(BytesContext::default(), QueueScheduler::new()),
+            InMemoryCorpus::new(QueueScheduler::new()),
         )
         .unwrap();
 
@@ -375,7 +339,7 @@ mod tests {
     #[test]
     fn test_single_choice() {
         let mut rand = StdRand::with_seed(0x1337);
-        let mut corpus = InMemoryCorpus::new(BytesContext::default(), QueueScheduler::new());
+        let mut corpus = InMemoryCorpus::new(QueueScheduler::new());
         let id1 = corpus
             .add(Testcase::new(Rc::new(BytesInput::new(
                 b"abc".to_vec().into(),
@@ -391,8 +355,9 @@ mod tests {
         let input_prior = input.clone();
 
         let mut state = StdState::new(
+            BytesContext::default(),
             corpus,
-            InMemoryCorpus::new(BytesContext::default(), QueueScheduler::new()),
+            InMemoryCorpus::new(QueueScheduler::new()),
         )
         .unwrap();
 

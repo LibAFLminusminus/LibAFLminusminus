@@ -16,7 +16,7 @@ use crate::{
     observers::{ConstLenMapObserver, Observer, map::MapObserver},
 };
 
-/// Use a const size to speedup `Feedback::is_interesting` when the user can
+/// Use a const size to speedup [`Feedback::is_interesting`](crate::feedbacks::Feedback::is_interesting) when the user can
 /// know the size of the map at compile time.
 #[derive(Serialize, Deserialize, Debug)]
 #[expect(clippy::unsafe_derive_deserialize)]
@@ -175,7 +175,7 @@ impl<'a, T, const N: usize> ConstMapObserver<'a, T, N>
 where
     T: Default,
 {
-    /// Creates a new [`MapObserver`]
+    /// Creates a new [`struct@ConstMapObserver`]
     ///
     /// # Note
     /// Will get a pointer to the map and dereference it at any point in time.
@@ -190,7 +190,7 @@ where
         }
     }
 
-    /// Creates a new [`MapObserver`] from a raw pointer
+    /// Creates a new [`struct@ConstMapObserver`] from a raw pointer
     ///
     /// # Safety
     /// Will dereference the `map_ptr` with up to len elements.

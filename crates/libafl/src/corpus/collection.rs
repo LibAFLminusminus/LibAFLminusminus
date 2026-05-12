@@ -1,21 +1,21 @@
 //! A collection of various [`Corpus`].
 
-use alloc::rc::Rc;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
-use libafl_bolts::Error;
+use libafl_core::Result;
 use serde::{Deserialize, Serialize};
 
 use crate::{
     DependencyResolver,
     corpus::{
-        Corpus, InMemoryStore, OnDiskStore, Scheduler, SingleCorpus, Testcase,
-        TestcaseFilenameFormat,
+        Corpus, FifoCache, IdentityCache, InMemoryStore, OnDiskStore, Scheduler, SingleCorpus,
+        Testcase, TestcaseFilenameFormat,
+        combined::CombinedCorpus,
         maps::{self, InMemoryCorpusMap},
         store::{StorageResult, Store, ondisk::OnDiskStoreBuilder},
         testcase::TestcaseId,
     },
-    inputs::{Input, InputContext},
+    inputs::Input,
     states::HasScheduler,
 };
 
@@ -28,11 +28,22 @@ type StdInMemoryMap<T> = maps::BtreeCorpusMap<T>;
 
 type InnerStdInMemoryCorpusMap<I> = StdInMemoryMap<Testcase<I>>;
 type InnerStdInMemoryStore<I> = InMemoryStore<I, InnerStdInMemoryCorpusMap<I>>;
-type InnerInMemoryCorpus<CT, I, SC> = SingleCorpus<CT, I, InnerStdInMemoryStore<I>, SC>;
+type InnerInMemoryCorpus<I, SC> = SingleCorpus<I, InnerStdInMemoryStore<I>, SC>;
 
 type InnerStdOnDiskStore<I> = OnDiskStore<I, StdInMemoryMap<TestcaseId>>;
 #[cfg(feature = "std")]
-type InnerOnDiskCorpus<CT, I, SC> = SingleCorpus<CT, I, InnerStdOnDiskStore<I>, SC>;
+type InnerOnDiskCorpus<I, SC> = SingleCorpus<I, InnerStdOnDiskStore<I>, SC>;
+
+type InnerInMemoryOnDiskCorpus<I, SC> =
+    CombinedCorpus<IdentityCache, InnerStdInMemoryStore<I>, InnerStdOnDiskStore<I>, I, SC>;
+
+type InnerCachedOnDiskCorpus<I, SC> = CombinedCorpus<
+    FifoCache<InnerStdInMemoryStore<I>, InnerStdOnDiskStore<I>, I>,
+    InnerStdInMemoryStore<I>,
+    InnerStdOnDiskStore<I>,
+    I,
+    SC,
+>;
 
 /// The standard fully in-memory corpus map.
 #[repr(transparent)]
@@ -52,18 +63,38 @@ pub struct StdOnDiskStore<I>(InnerStdOnDiskStore<I>);
 /// The standard in-memory corpus.
 #[repr(transparent)]
 #[derive(Debug, Serialize, Deserialize)]
-pub struct InMemoryCorpus<CT, I, SC>(InnerInMemoryCorpus<CT, I, SC>);
+pub struct InMemoryCorpus<I, SC>(InnerInMemoryCorpus<I, SC>);
 
 /// The standard fully on-disk corpus.
 #[cfg(feature = "std")]
 #[repr(transparent)]
 #[derive(Debug, Serialize, Deserialize)]
-pub struct OnDiskCorpus<CT, I, SC>(InnerOnDiskCorpus<CT, I, SC>);
+pub struct OnDiskCorpus<I, SC>(InnerOnDiskCorpus<I, SC>);
 
 /// The on-disk corpus builder
 #[cfg(feature = "std")]
 #[derive(Debug, Clone, Default)]
 pub struct OnDiskCorpusBuilder(OnDiskStoreBuilder);
+
+/// The standard corpus for storing on disk and in-memory.
+#[repr(transparent)]
+#[derive(Debug, Serialize)]
+pub struct InMemoryOnDiskCorpus<I, SC>(InnerInMemoryOnDiskCorpus<I, SC>);
+
+/// The standard corpus for storing on disk and in-memory with a cache.
+/// Useful for very large corpuses.
+#[repr(transparent)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct CachedOnDiskCorpus<I, SC>(InnerCachedOnDiskCorpus<I, SC>);
+
+/// The cached on-disk corpus builder
+#[cfg(feature = "std")]
+#[derive(Debug, Clone)]
+pub struct CachedOnDiskCorpusBuilder<SC> {
+    store_builder: OnDiskStoreBuilder,
+    cache_max_len: usize,
+    scheduler: Option<SC>,
+}
 
 impl<I> InMemoryCorpusMap<Testcase<I>> for StdInMemoryCorpusMap<I>
 where
@@ -122,18 +153,15 @@ where
         self.0.count_disabled()
     }
 
-    fn add_shared<const ENABLED: bool>(
-        &mut self,
-        testcase: Testcase<I>,
-    ) -> Result<StorageResult, Error> {
+    fn add_shared<const ENABLED: bool>(&mut self, testcase: Testcase<I>) -> Result<StorageResult> {
         self.0.add_shared::<ENABLED>(testcase)
     }
 
-    fn get_from<const ENABLED: bool>(&self, id: &TestcaseId) -> Result<Testcase<I>, Error> {
+    fn get_from<const ENABLED: bool>(&self, id: &TestcaseId) -> Result<Testcase<I>> {
         self.0.get_from::<ENABLED>(id)
     }
 
-    fn disable(&mut self, id: &TestcaseId) -> Result<(), Error> {
+    fn disable(&mut self, id: &TestcaseId) -> Result<()> {
         self.0.disable(id)
     }
 }
@@ -150,37 +178,33 @@ where
         self.0.count_disabled()
     }
 
-    fn add_shared<const ENABLED: bool>(
-        &mut self,
-        testcase: Testcase<I>,
-    ) -> Result<StorageResult, Error> {
+    fn add_shared<const ENABLED: bool>(&mut self, testcase: Testcase<I>) -> Result<StorageResult> {
         self.0.add_shared::<ENABLED>(testcase)
     }
 
-    fn get_from<const ENABLED: bool>(&self, id: &TestcaseId) -> Result<Testcase<I>, Error> {
+    fn get_from<const ENABLED: bool>(&self, id: &TestcaseId) -> Result<Testcase<I>> {
         self.0.get_from::<ENABLED>(id)
     }
 
-    fn disable(&mut self, id: &TestcaseId) -> Result<(), Error> {
+    fn disable(&mut self, id: &TestcaseId) -> Result<()> {
         self.0.disable(id)
     }
 }
 
-impl<CT, I, SC> InMemoryCorpus<CT, I, SC> {
+impl<I, SC> InMemoryCorpus<I, SC> {
     /// Create a new [`InMemoryCorpus`].
     #[must_use]
-    pub fn new(context: CT, scheduler: SC) -> Self {
+    pub fn new(scheduler: SC) -> Self {
         InMemoryCorpus(InnerInMemoryCorpus::new(
-            context,
             InnerStdInMemoryStore::default(),
             scheduler,
         ))
     }
 }
 
-impl<CT, I, SC> DependencyResolver for InMemoryCorpus<CT, I, SC> {}
+impl<I, SC> DependencyResolver for InMemoryCorpus<I, SC> {}
 
-impl<CT, I, SC> HasScheduler for InMemoryCorpus<CT, I, SC>
+impl<I, SC> HasScheduler for InMemoryCorpus<I, SC>
 where
     SC: Scheduler,
 {
@@ -195,13 +219,11 @@ where
     }
 }
 
-impl<CT, I, SC> Corpus<I> for InMemoryCorpus<CT, I, SC>
+impl<I, SC> Corpus<I> for InMemoryCorpus<I, SC>
 where
-    CT: InputContext<I>,
     I: Input,
     SC: Scheduler,
 {
-    type Context = CT;
     fn count(&self) -> usize {
         self.0.count()
     }
@@ -214,23 +236,12 @@ where
         self.0.count_all()
     }
 
-    fn add_shared<const ENABLED: bool>(
-        &mut self,
-        testcase: Testcase<I>,
-    ) -> Result<TestcaseId, Error> {
+    fn add_shared<const ENABLED: bool>(&mut self, testcase: Testcase<I>) -> Result<TestcaseId> {
         self.0.add_shared::<ENABLED>(testcase)
     }
 
-    fn get_from<const ENABLED: bool>(&self, id: &TestcaseId) -> Result<Testcase<I>, Error> {
+    fn get_from<const ENABLED: bool>(&self, id: &TestcaseId) -> Result<Testcase<I>> {
         self.0.get_from::<ENABLED>(id)
-    }
-
-    fn context(&self) -> &Self::Context {
-        self.0.context()
-    }
-
-    fn context_mut(&mut self) -> &mut Self::Context {
-        self.0.context_mut()
     }
 }
 
@@ -238,7 +249,7 @@ where
 // where
 //     SC: RemovableScheduler<I, S>,
 // {
-//     fn disable(&mut self, id: TestcaseId) -> Result<(), Error> {
+//     fn disable(&mut self, id: TestcaseId) -> Result<()> {
 //         self.0.disable(id)
 //     }
 // }
@@ -265,38 +276,28 @@ impl OnDiskCorpusBuilder {
 
     /// Build an [`OnDiskStore`].
     /// The root directory must be set.
-    pub fn build<CT, I, SC>(
-        &self,
-        context: CT,
-        scheduler: SC,
-    ) -> Result<OnDiskCorpus<CT, I, SC>, Error> {
-        Ok(OnDiskCorpus(SingleCorpus::new(
-            context,
-            self.0.build()?,
-            scheduler,
-        )))
+    pub fn build<I, SC>(&self, scheduler: SC) -> Result<OnDiskCorpus<I, SC>> {
+        Ok(OnDiskCorpus(SingleCorpus::new(self.0.build()?, scheduler)))
     }
 }
 
 #[cfg(feature = "std")]
-impl<CT, I, SC> OnDiskCorpus<CT, I, SC>
+impl<I, SC> OnDiskCorpus<I, SC>
 where
     I: Input,
 {
     /// Create a new [`OnDiskCorpus`]
-    pub fn new<P: AsRef<Path>>(root: P, context: CT, scheduler: SC) -> Result<Self, Error> {
-        Self::new_with_format(root, TestcaseFilenameFormat::Id, context, scheduler)
+    pub fn new<P: AsRef<Path>>(root: P, scheduler: SC) -> Result<Self> {
+        Self::new_with_format(root, TestcaseFilenameFormat::Id, scheduler)
     }
 
     /// Create a new [`OnDiskCorpus`]
     pub fn new_with_format<P: AsRef<Path>>(
         root: P,
         filename_format: TestcaseFilenameFormat,
-        context: CT,
         scheduler: SC,
-    ) -> Result<Self, Error> {
+    ) -> Result<Self> {
         Ok(OnDiskCorpus(InnerOnDiskCorpus::new(
-            context,
             InnerStdOnDiskStore::new(root, filename_format)?,
             scheduler,
         )))
@@ -309,9 +310,9 @@ where
     }
 }
 
-impl<CT, I, SC> DependencyResolver for OnDiskCorpus<CT, I, SC> {}
+impl<I, SC> DependencyResolver for OnDiskCorpus<I, SC> {}
 
-impl<CT, I, SC> HasScheduler for OnDiskCorpus<CT, I, SC>
+impl<I, SC> HasScheduler for OnDiskCorpus<I, SC>
 where
     SC: Scheduler,
 {
@@ -327,14 +328,11 @@ where
 }
 
 #[cfg(feature = "std")]
-impl<CT, I, SC> Corpus<I> for OnDiskCorpus<CT, I, SC>
+impl<I, SC> Corpus<I> for OnDiskCorpus<I, SC>
 where
-    CT: InputContext<I>,
     I: Input,
     SC: Scheduler,
 {
-    type Context = CT;
-
     fn count(&self) -> usize {
         self.0.count()
     }
@@ -347,28 +345,174 @@ where
         self.0.count_all()
     }
 
-    fn add_shared<const ENABLED: bool>(
-        &mut self,
-        testcase: Testcase<I>,
-    ) -> Result<TestcaseId, Error> {
+    fn add_shared<const ENABLED: bool>(&mut self, testcase: Testcase<I>) -> Result<TestcaseId> {
         self.0.add_shared::<ENABLED>(testcase)
     }
 
-    fn get_from<const ENABLED: bool>(&self, id: &TestcaseId) -> Result<Testcase<I>, Error> {
+    fn get_from<const ENABLED: bool>(&self, id: &TestcaseId) -> Result<Testcase<I>> {
         self.0.get_from::<ENABLED>(id)
-    }
-
-    fn context(&self) -> &Self::Context {
-        self.0.context()
-    }
-
-    fn context_mut(&mut self) -> &mut Self::Context {
-        self.0.context_mut()
     }
 }
 
 // impl<I, SC> DisableEntry for OnDiskCorpus<I, SC> {
-//     fn disable(&mut self, id: TestcaseId) -> Result<(), Error> {
+//     fn disable(&mut self, id: TestcaseId) -> Result<()> {
 //         self.0.disable(id)
 //     }
 // }
+
+impl<I, SC> HasScheduler for InMemoryOnDiskCorpus<I, SC>
+where
+    SC: Scheduler,
+{
+    type Scheduler = SC;
+
+    fn scheduler(&self) -> &Self::Scheduler {
+        self.0.scheduler()
+    }
+
+    fn scheduler_mut(&mut self) -> &mut Self::Scheduler {
+        self.0.scheduler_mut()
+    }
+}
+
+impl<I, SC> DependencyResolver for InMemoryOnDiskCorpus<I, SC> {}
+
+impl<I, SC> Corpus<I> for InMemoryOnDiskCorpus<I, SC>
+where
+    I: Input,
+    SC: Scheduler,
+{
+    fn count(&self) -> usize {
+        self.0.count()
+    }
+
+    fn count_disabled(&self) -> usize {
+        self.0.count_disabled()
+    }
+
+    fn count_all(&self) -> usize {
+        self.0.count_all()
+    }
+
+    fn add_shared<const ENABLED: bool>(&mut self, testcase: Testcase<I>) -> Result<TestcaseId> {
+        self.0.add_shared::<ENABLED>(testcase)
+    }
+
+    fn get_from<const ENABLED: bool>(&self, id: &TestcaseId) -> Result<Testcase<I>> {
+        self.0.get_from::<ENABLED>(id)
+    }
+}
+
+impl<I, SC> HasScheduler for CachedOnDiskCorpus<I, SC>
+where
+    SC: Scheduler,
+{
+    type Scheduler = SC;
+
+    fn scheduler(&self) -> &Self::Scheduler {
+        self.0.scheduler()
+    }
+
+    fn scheduler_mut(&mut self) -> &mut Self::Scheduler {
+        self.0.scheduler_mut()
+    }
+}
+
+impl<I, SC> DependencyResolver for CachedOnDiskCorpus<I, SC> {}
+
+impl<I, SC> Corpus<I> for CachedOnDiskCorpus<I, SC>
+where
+    I: Input,
+    SC: Scheduler,
+{
+    fn count(&self) -> usize {
+        self.0.count()
+    }
+
+    fn count_disabled(&self) -> usize {
+        self.0.count_disabled()
+    }
+
+    fn count_all(&self) -> usize {
+        self.0.count_all()
+    }
+
+    fn add_shared<const ENABLED: bool>(&mut self, testcase: Testcase<I>) -> Result<TestcaseId> {
+        self.0.add_shared::<ENABLED>(testcase)
+    }
+
+    fn get_from<const ENABLED: bool>(&self, id: &TestcaseId) -> Result<Testcase<I>> {
+        self.0.get_from::<ENABLED>(id)
+    }
+}
+
+impl<I, SC> CachedOnDiskCorpus<I, SC> {
+    /// Get a [`CachedOnDiskCorpus`] builder.
+    #[must_use]
+    pub fn builder() -> CachedOnDiskCorpusBuilder<SC> {
+        CachedOnDiskCorpusBuilder::new()
+    }
+
+    /// Get the fallback store
+    pub fn fallback_store(&self) -> &InnerStdOnDiskStore<I> {
+        self.0.fallback_store()
+    }
+}
+
+impl<SC> Default for CachedOnDiskCorpusBuilder<SC> {
+    fn default() -> Self {
+        Self {
+            store_builder: OnDiskStoreBuilder::new(),
+            cache_max_len: DEFAULT_CACHE_LEN,
+            scheduler: None,
+        }
+    }
+}
+
+#[cfg(feature = "std")]
+impl<SC> CachedOnDiskCorpusBuilder<SC> {
+    /// Create a new [`CachedOnDiskCorpusBuilder`].
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Set the [`Scheduler`].
+    #[must_use]
+    pub fn scheduler(mut self, scheduler: SC) -> Self {
+        self.scheduler = Some(scheduler);
+        self
+    }
+
+    /// Set the cache max length.
+    #[must_use]
+    pub fn cache_max_len(mut self, cache_max_len: usize) -> Self {
+        self.cache_max_len = cache_max_len;
+        self
+    }
+
+    /// Set the root directory, where the testcases will be stored.
+    #[must_use]
+    pub fn root_dir(mut self, root: &Path) -> Self {
+        self.store_builder.root_dir(root);
+        self
+    }
+
+    /// Set the on-disk filename format
+    #[must_use]
+    pub fn filename_format(mut self, filename_format: TestcaseFilenameFormat) -> Self {
+        self.store_builder.filename_format(filename_format);
+        self
+    }
+
+    /// Build an [`OnDiskStore`].
+    /// The root directory must be set.
+    pub fn build<I: Input>(self) -> Result<CachedOnDiskCorpus<I, SC>> {
+        Ok(CachedOnDiskCorpus(CombinedCorpus::new(
+            self.scheduler.unwrap(),
+            FifoCache::new(self.cache_max_len),
+            InnerStdInMemoryStore::default(),
+            self.store_builder.build()?,
+        )))
+    }
+}
