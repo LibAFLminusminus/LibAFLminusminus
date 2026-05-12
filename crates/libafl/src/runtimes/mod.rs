@@ -195,7 +195,6 @@ impl<S, W> RuntimeHandle<S, W> {
     ) where
         E: Executor<I, S>,
         I: Input,
-        R: Runtime<S, W>,
         ST: StagesTuple<E, R, S, W, Z>,
         Z: Fuzzer<E, I, R, S, ST, W>,
     {
