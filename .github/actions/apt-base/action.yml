@@ -13,13 +13,10 @@ runs:
           lsb-release \
           wget \
           software-properties-common \
-          gnupg shellcheck pax-utils \
-          libsqlite3-dev \
-          libpixman-1-dev \
+          gnupg \
+          shellcheck \
           libc6-dev \
           gcc \
           g++ \
           build-essential \
-          libglib2.0-dev \
-          meson \
           libfile-mimeinfo-perl
