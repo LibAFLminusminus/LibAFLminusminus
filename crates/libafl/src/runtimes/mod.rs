@@ -159,12 +159,16 @@ impl<S, W> RuntimeHandle<S, W> {
     /// `termination_data` must outlive this [`RuntimeHandle`].
     pub unsafe fn set_termination_handler(
         &mut self,
-        termination_data: Pin<&mut TerminationHandlerData>,
+        mut termination_data: Pin<&mut TerminationHandlerData>,
     ) {
         assert!(
             self.termination_data_ptr.is_none(),
             "Termination data pointer has already been set. This is a fuzzer bug."
         );
+
+        unsafe {
+            TerminationHandlerData::commit_global(termination_data.as_mut());
+        }
 
         self.termination_data_ptr = Some(unsafe { PinnedPtr::from_pin(termination_data) });
     }

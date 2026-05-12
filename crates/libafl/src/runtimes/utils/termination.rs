@@ -8,6 +8,8 @@ use crate::{
     runtimes::{RuntimeHandle, utils::OsTerminationParams},
 };
 use core::pin::Pin;
+use core::ptr;
+use core::sync::atomic::{AtomicPtr, Ordering};
 use core::{ffi::c_void, ptr::NonNull};
 use libafl_core::Result;
 
@@ -16,6 +18,8 @@ pub trait IntoTerminationHandlerData {
     /// Get the pinned [`TerminationHandlerData`] from the pinned wrapper
     fn termination_handler_data(self: Pin<&mut Self>) -> Option<Pin<&mut TerminationHandlerData>>;
 }
+
+static GLOBAL_TERMINATION_DATA: AtomicPtr<TerminationHandlerData> = AtomicPtr::new(ptr::null_mut());
 
 /// Termination handlers
 #[derive(Debug, Clone)]
@@ -198,6 +202,36 @@ impl TerminationHandlerData {
         termination_params: &OsTerminationParams,
     ) -> Result<TimeoutStatus> {
         (self.timeout_handler.expect("No timeout handler found"))(self, termination_params)
+    }
+
+    /// Commit the global process state
+    ///
+    /// # Safety
+    ///
+    /// `Self` must outlive any call to `commit_global`.
+    pub unsafe fn commit_global(self: Pin<&mut Self>) {
+        let ptr = unsafe { Pin::into_inner_unchecked(self) } as *mut Self;
+        GLOBAL_TERMINATION_DATA.store(ptr, Ordering::Release);
+    }
+
+    /// Get a reference to the process global state
+    ///
+    /// # Safety
+    ///
+    /// Committed data must still be alive.
+    pub unsafe fn global() -> Option<&'static Self> {
+        let ptr = GLOBAL_TERMINATION_DATA.load(Ordering::Acquire);
+        unsafe { ptr.as_ref() }
+    }
+
+    /// Get a mutable reference to the process global state
+    ///
+    /// # Safety
+    ///
+    /// Committed data must still be alive.
+    pub unsafe fn global_mut() -> Option<&'static mut Self> {
+        let ptr = GLOBAL_TERMINATION_DATA.load(Ordering::Acquire);
+        unsafe { ptr.as_mut() }
     }
 }
 
