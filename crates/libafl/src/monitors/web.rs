@@ -1,12 +1,14 @@
+//! WebUI gathers data from fuzzers and show stats to users through a web interface
 use std::{
     fs::OpenOptions,
     io::Write,
     net::SocketAddr,
     path::{Path, PathBuf},
-    string::{String, ToString},
     sync::{Arc, RwLock},
     vec::Vec,
 };
+
+use alloc::string::ToString;
 
 use libafl_bolts::current_time;
 use serde::{Deserialize, Serialize};
@@ -29,20 +31,25 @@ struct Snapshot {
 }
 
 // serde_json::Value is Send + Sync, so SharedState is too.
+#[derive(Debug)]
 struct SharedState {
     history: Vec<Value>,
 }
 
+/// WebUI gathers data from fuzzers and show stats to users through a web interface
+#[derive(Debug)]
 pub struct WebMonitor {
     history_path: PathBuf,
     shared: Arc<RwLock<SharedState>>,
 }
 
 impl WebMonitor {
+    /// constructor for [`struct@WebMonitor`]
     pub fn new(history_path: PathBuf) -> Self {
         Self::with_port(history_path, 13337)
     }
 
+    /// constructor for [`struct@WebMonitor`] specifying an opening port
     pub fn with_port(history_path: PathBuf, port: u16) -> Self {
         let _ = std::fs::remove_file(&history_path);
         let shared = Arc::new(RwLock::new(SharedState {
