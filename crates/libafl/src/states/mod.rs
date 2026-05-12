@@ -168,6 +168,11 @@ pub trait FlatState {
         unnamed_metadata_mut(self.metadata_map_mut())
     }
 
+    /// Get the mutable reference to the unnamed metadata with type `T` or insert `value` and return it
+    fn get_md_or_insert_with<T: SerdeAny>(&mut self, value: impl FnOnce() -> T) -> &mut T {
+        self.metadata_map_mut().get_unnamed_or_insert_with(value)
+    }
+
     /// Get the reference to the metadata with type `T` and name `name`
     fn get_named_md<T: SerdeAny>(&self, name: &str) -> Result<&T> {
         named_metadata(self.metadata_map(), name)
@@ -176,6 +181,15 @@ pub trait FlatState {
     /// Get the mutable reference to the metadata with type `T` and name `name`
     fn get_named_md_mut<T: SerdeAny>(&mut self, name: &str) -> Result<&mut T> {
         named_metadata_mut(self.metadata_map_mut(), name)
+    }
+
+    /// Get the mutable reference to the metadata with type `T` and name `name` or insert `value` and return it
+    fn get_named_md_or_insert_with<T: SerdeAny>(
+        &mut self,
+        name: &str,
+        value: impl FnOnce() -> T,
+    ) -> &mut T {
+        self.metadata_map_mut().get_or_insert_with(name, value)
     }
 }
 
@@ -187,6 +201,7 @@ pub trait State<I>:
     + HasObjectiveCorpus<I>
     + HasScheduler
     + HasTestcase<I>
+    + HasContext<I>
 {
 }
 
@@ -698,6 +713,7 @@ where
 impl<C, CT, I, OC, SC> State<I> for StdState<C, CT, I, OC, SC>
 where
     C: Corpus<I>,
+    CT: InputContext<I>,
     OC: Corpus<I>,
 {
 }
