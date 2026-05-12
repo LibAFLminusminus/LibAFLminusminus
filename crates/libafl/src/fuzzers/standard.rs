@@ -343,7 +343,6 @@ where
     H: FuzzerHooksTuple<E, I, S, W>,
     I: Input,
     OF: Feedback<I, E::Observers, S>,
-    R: Runtime<S, W>,
     S: State<I>,
     ST: StagesTuple<E, R, S, W, Self>,
     W: Worker,
