@@ -19,15 +19,6 @@ The easiest way to do this is to use `git`.
 $ git clone https://github.com/AFLplusplus/LibAFL.git
 ```
 
-Alternatively, on a UNIX-like machine, you can download a compressed archive and extract it with:
-
-```sh
-$ wget https://github.com/AFLplusplus/LibAFL/archive/main.tar.gz
-$ tar xvf main.tar.gz
-$ rm main.tar.gz
-$ ls LibAFL-main # this is the extracted folder
-```
-
 ## Clang installation
 
 One of the external dependencies of LibAFL is the Clang C/C++ compiler.
