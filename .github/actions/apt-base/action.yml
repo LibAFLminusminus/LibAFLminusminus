@@ -21,4 +21,5 @@ runs:
           g++ \
           build-essential \
           libglib2.0-dev \
-          meson
+          meson \
+          libfile-mimeinfo-perl
