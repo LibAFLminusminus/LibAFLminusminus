@@ -28,20 +28,22 @@ pub mod simple;
 pub use simple::SimpleInProcessRuntime;
 
 /// The status of a crash.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub enum CrashStatus {
     /// The crash is caused by the fuzzer, it's a LibAFLmm bug
     FuzzerCrash,
     /// The crash is caused by the target, it's a target bug
+    #[default]
     TargetCrash,
 }
 
 /// The status of a timeout
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub enum TimeoutStatus {
     /// Resume on timeout
     Resume,
     /// Exit with timeout error code on timeout
+    #[default]
     Exit,
 }
 

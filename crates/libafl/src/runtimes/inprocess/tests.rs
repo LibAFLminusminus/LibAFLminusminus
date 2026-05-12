@@ -9,7 +9,8 @@ use crate::{
     inputs::NopInput,
     nop::NopWorker,
     runtimes::{
-        Runtime, RuntimeHandle, TerminationHandlerData, inprocess::InProcessRuntime,
+        Runtime, RuntimeHandle, TerminationHandlerData,
+        inprocess::{CrashStatus, InProcessRuntime, TimeoutStatus},
         utils::OsTerminationParams,
     },
     states::NopState,
@@ -18,20 +19,20 @@ use crate::{
 rusty_fork_test! {
     #[test]
     fn test_runtime_create() {
-        let mut state = NopState::<NopInput>::new();
+        let state = NopState::<NopInput>::new();
         let worker = NopWorker;
 
         let task = |_rt_handle: &mut RuntimeHandle<NopState<NopInput>, NopWorker>, _state: &mut NopState<NopInput>| {
             Err(Error::shutting_down())
         };
 
-        let crash_handler = |_data: &mut TerminationHandlerData, _params: &OsTerminationParams| Ok(());
+        let crash_handler = |_data: &mut TerminationHandlerData, _params: &OsTerminationParams| Ok(CrashStatus::default());
 
-        let timeout_handler = |_data: &mut TerminationHandlerData, _params: &OsTerminationParams| Ok(());
+        let timeout_handler = |_data: &mut TerminationHandlerData, _params: &OsTerminationParams| Ok(TimeoutStatus::default());
 
         let std_timer = StdTimer::new();
 
-        let mut runtime = InProcessRuntime::new(task, crash_handler, TerminationHandlerData::new(), timeout_handler, std_timer);
+        let runtime = InProcessRuntime::new(task, crash_handler, TerminationHandlerData::new(), timeout_handler, std_timer);
 
         match runtime.run(state, worker).err() {
             Some(Error::ShuttingDown) => {}
@@ -52,19 +53,19 @@ where
             &mut NopState<NopInput>,
         ) -> Result<(), Error>
         + 'static,
-    for<'a> CH: FnMut(&mut TerminationHandlerData, &OsTerminationParams<'a>) -> Result<(), Error>
+    for<'a> CH: FnMut(&mut TerminationHandlerData, &OsTerminationParams<'a>) -> Result<CrashStatus, Error>
         + Send
         + Sync
         + Unpin
         + 'static,
-    for<'a> TH: FnMut(&mut TerminationHandlerData, &OsTerminationParams<'a>) -> Result<(), Error>
+    for<'a> TH: FnMut(&mut TerminationHandlerData, &OsTerminationParams<'a>) -> Result<TimeoutStatus, Error>
         + Send
         + Sync
         + Unpin
         + 'static,
 {
     let state = NopState::<NopInput>::new();
-    let mut worker = NopWorker;
+    let worker = NopWorker;
 
     let std_timer = StdTimer::new();
 
@@ -99,9 +100,9 @@ fn test_runtime_timeout() {
         || {
             let task = |rt_handle: &mut RuntimeHandle<NopState<NopInput>, NopWorker>,
                         _state: &mut NopState<NopInput>| {
-                rt_handle.set_timeout(Duration::from_millis(10));
+                rt_handle.set_timeout(Duration::from_millis(10))?;
 
-                rt_handle.arm_timeout();
+                rt_handle.arm_timeout()?;
                 thread::sleep(Duration::from_millis(50));
 
                 panic!("Did not timeout!");
@@ -110,11 +111,15 @@ fn test_runtime_timeout() {
                 Ok::<(), Error>(())
             };
 
-            let crash_handler =
-                |_data: &mut TerminationHandlerData, _params: &OsTerminationParams| Ok(());
+            let crash_handler = |_data: &mut TerminationHandlerData,
+                                 _params: &OsTerminationParams| {
+                Ok(CrashStatus::default())
+            };
 
             let timeout_handler =
-                |_data: &mut TerminationHandlerData, _params: &OsTerminationParams| Ok(());
+                |_data: &mut TerminationHandlerData, _params: &OsTerminationParams| {
+                    Ok(TimeoutStatus::default())
+                };
 
             run_runtime(task, crash_handler, timeout_handler, false)
         },
@@ -149,11 +154,15 @@ fn test_runtime_crash() {
                 Ok::<(), Error>(())
             };
 
-            let crash_handler =
-                |_data: &mut TerminationHandlerData, _params: &OsTerminationParams| Ok(());
+            let crash_handler = |_data: &mut TerminationHandlerData,
+                                 _params: &OsTerminationParams| {
+                Ok(CrashStatus::default())
+            };
 
             let timeout_handler =
-                |_data: &mut TerminationHandlerData, _params: &OsTerminationParams| Ok(());
+                |_data: &mut TerminationHandlerData, _params: &OsTerminationParams| {
+                    Ok(TimeoutStatus::default())
+                };
 
             run_runtime(task, crash_handler, timeout_handler, false)
         },
@@ -180,7 +189,7 @@ fn test_runtime_timeout_handler() {
         || {
             let task = |rt_handle: &mut RuntimeHandle<NopState<NopInput>, NopWorker>,
                         _state: &mut NopState<NopInput>| {
-                rt_handle.set_timeout(Duration::from_millis(10));
+                rt_handle.set_timeout(Duration::from_millis(10))?;
 
                 rt_handle.arm_timeout()?;
 
@@ -192,8 +201,10 @@ fn test_runtime_timeout_handler() {
                 Ok::<(), Error>(())
             };
 
-            let crash_handler =
-                |_data: &mut TerminationHandlerData, _params: &OsTerminationParams| Ok(());
+            let crash_handler = |_data: &mut TerminationHandlerData,
+                                 _params: &OsTerminationParams| {
+                Ok(CrashStatus::default())
+            };
 
             let timeout_handler =
                 |_data: &mut TerminationHandlerData, _params: &OsTerminationParams| unsafe {
@@ -239,7 +250,9 @@ fn test_runtime_crash_handler() {
             };
 
             let timeout_handler =
-                |_data: &mut TerminationHandlerData, _params: &OsTerminationParams| Ok(());
+                |_data: &mut TerminationHandlerData, _params: &OsTerminationParams| {
+                    Ok(TimeoutStatus::default())
+                };
 
             run_runtime(task, crash_handler, timeout_handler, true)
         },
