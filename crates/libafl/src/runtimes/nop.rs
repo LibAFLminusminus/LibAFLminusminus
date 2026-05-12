@@ -1,10 +1,11 @@
 //! The module for the [`NopRuntime`].
 
+use libafl_core::Result;
+
 use crate::{
     DependencyResolver,
     runtimes::{Runtime, RuntimeHandle},
 };
-use libafl_core::Result;
 
 /// Simplest runtime, just runs the task.
 #[derive(Debug)]

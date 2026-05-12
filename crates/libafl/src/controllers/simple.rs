@@ -150,9 +150,7 @@ impl Controller for SimpleController {
     }
 
     fn worker_descriptors_mut(&mut self) -> impl IntoIterator<Item = &mut Self::Descriptor> {
-        self.workers
-            .iter_mut()
-            .map(|repr| &mut repr.descriptor)
+        self.workers.iter_mut().map(|repr| &mut repr.descriptor)
     }
 
     fn on_worker_start(&mut self, descriptor: &Self::Descriptor, _id: InstanceId) -> Result<()> {

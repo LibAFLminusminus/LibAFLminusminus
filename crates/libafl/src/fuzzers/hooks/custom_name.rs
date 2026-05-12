@@ -1,12 +1,13 @@
 //! Custom name hook.
 
+use alloc::string::String;
+use core::marker::PhantomData;
+
 use crate::{
     DependencyResolver, FuzzerHook, Result, Verdict,
     corpus::testcase::{Testcase, TestcaseFilenameFormat},
     runtimes::RuntimeHandle,
 };
-use alloc::string::String;
-use core::marker::PhantomData;
 
 /// Set a custom filename to the [`Testcase`].
 #[derive(Debug)]

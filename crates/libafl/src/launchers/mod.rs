@@ -1,6 +1,11 @@
 //! Module defining launchers.
 //! Launchers start the fuzzing session, involving multiple instances.
 
+use core::{marker::PhantomData, num::NonZeroUsize, time::Duration};
+
+use libafl_bolts::{StdTimer, core_affinity::Cores};
+use serde::Serialize;
+
 use crate::{
     Controller, Error, Result, Worker,
     inputs::NopInput,
@@ -12,9 +17,6 @@ use crate::{
     simple::SimpleController,
     states::NopState,
 };
-use core::{marker::PhantomData, num::NonZeroUsize, time::Duration};
-use libafl_bolts::{StdTimer, core_affinity::Cores};
-use serde::Serialize;
 
 pub mod instances;
 pub use instances::{Instance, InstanceId, InstanceRepr, Instances};
@@ -354,12 +356,7 @@ where
             controller: self.controller,
             monitor: self.monitor,
             cores: self.cores,
-            runtime: StdInProcessRuntime::new(
-                task,
-                ram_limit,
-                self.timer.clone(),
-                self.timeout,
-            ),
+            runtime: StdInProcessRuntime::new(task, ram_limit, self.timer.clone(), self.timeout),
             state_builder: self.state_builder,
             max_state_size_per_client: self.max_state_size_per_client,
             monitor_refresh: self.monitor_refresh,
@@ -382,9 +379,7 @@ where
     #[expect(clippy::type_complexity)]
     pub fn build(mut self) -> Result<StdLauncher<CT::Descriptor, CT, MT, RT, S, CT::Worker>> {
         if self.cores.is_empty() {
-            return Err(Error::illegal_argument(
-                "No CPU cores have been allocated.",
-            ));
+            return Err(Error::illegal_argument("No CPU cores have been allocated."));
         }
 
         let monitor = self

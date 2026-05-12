@@ -1,16 +1,17 @@
 //! `CmpLog` logs and reports back values touched during fuzzing.
 //! The values will then be used in subsequent mutations.
 
-use core::fmt::Debug;
+use alloc::{borrow::Cow, vec::Vec};
+use core::{
+    fmt::Debug,
+    ops::{Deref, DerefMut},
+};
+
 use libafl_bolts::{EmptyShmHeader, Named, SysVShm, ownedref::OwnedMutPtr};
 use libafl_targets::{
     CMPLOG_KIND_INS, CMPLOG_RTN_LEN, CmpLogHeader, CmpLogMap, CmpLogVals, Operand, Routine,
 };
-
-use alloc::{borrow::Cow, vec::Vec};
 use serde::{Deserialize, Serialize};
-
-use core::ops::{Deref, DerefMut};
 
 use crate::{
     DependencyResolver, Error,

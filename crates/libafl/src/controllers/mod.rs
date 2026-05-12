@@ -1,15 +1,17 @@
 //! Module defining [`Controller`]s.
 
+use std::{
+    fs::{self, File, OpenOptions},
+    path::{Path, PathBuf},
+};
+
+use libafl_core::{Error, WorkerId, internal_bug};
+use nix::sys::signal::Signal;
+
 use crate::{
     Result,
     launchers::InstanceId,
     states::{Stats, sync_stats},
-};
-use libafl_core::{Error, WorkerId, internal_bug};
-use nix::sys::signal::Signal;
-use std::{
-    fs::{self, File, OpenOptions},
-    path::{Path, PathBuf},
 };
 
 // pub mod aflpp;
@@ -227,8 +229,7 @@ impl Workdir {
     /// Get the file associated with stdout for the [`Workdir`].
     pub fn stdout(&mut self) -> Result<Option<File>> {
         if let Some(wd_f) = &mut self.stdout {
-            wd_f.get_file_wr(self.root_dir.as_path())
-                .map(Some)
+            wd_f.get_file_wr(self.root_dir.as_path()).map(Some)
         } else {
             Ok(None)
         }
@@ -237,8 +238,7 @@ impl Workdir {
     /// Get the file associated with stderr for the [`Workdir`].
     pub fn stderr(&mut self) -> Result<Option<File>> {
         if let Some(wd_f) = &mut self.stderr {
-            wd_f.get_file_wr(self.root_dir.as_path())
-                .map(Some)
+            wd_f.get_file_wr(self.root_dir.as_path()).map(Some)
         } else {
             Ok(None)
         }

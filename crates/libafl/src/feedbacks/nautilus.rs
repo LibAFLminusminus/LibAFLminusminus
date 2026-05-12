@@ -2,10 +2,10 @@
 
 use alloc::{borrow::Cow, string::String};
 use core::fmt::Debug;
-use libafl_core::Result;
 use std::fs::create_dir_all;
 
 use libafl_bolts::Named;
+use libafl_core::Result;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -88,10 +88,8 @@ where
         testcase_id: &TestcaseId,
     ) -> Result<()> {
         let input = state.corpus().get(testcase_id)?;
-        let meta = named_metadata_mut::<NautilusChunksMetadata>(
-            state.metadata_map_mut(),
-            self.name(),
-        )?;
+        let meta =
+            named_metadata_mut::<NautilusChunksMetadata>(state.metadata_map_mut(), self.name())?;
         meta.cks.add_tree(input.input().tree.clone(), self.ctx);
         Ok(())
     }

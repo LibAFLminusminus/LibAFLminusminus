@@ -2,7 +2,6 @@
 
 pub mod cmplog_observer;
 pub use cmplog_observer::*;
-
 use libafl_core::{AsSlice, HasLen};
 use serde::{Deserialize, Serialize};
 

@@ -1,9 +1,11 @@
 //! The `Fuzzer` is the main struct for a fuzz campaign.
 
-use crate::{Error, executors::ExitKind, runtimes::RuntimeHandle};
 use alloc::string::ToString;
 use core::fmt::Debug;
+
 use libafl_core::Result;
+
+use crate::{Error, executors::ExitKind, runtimes::RuntimeHandle};
 
 pub mod standard;
 pub use standard::*;

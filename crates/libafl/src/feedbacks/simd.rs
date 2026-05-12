@@ -1,5 +1,20 @@
 //! SIMD accelerated map feedback with stable Rust.
 
+use alloc::borrow::Cow;
+use core::{
+    fmt::Debug,
+    marker::PhantomData,
+    ops::{Deref, DerefMut},
+};
+
+use libafl_bolts::{
+    AsIter, AsSlice, Named,
+    simd::{Reducer, SimdReducer, VectorType, covmap_is_interesting_simd},
+    tuples::{Handle, MatchName, MatchNameRef},
+};
+use libafl_core::Result;
+use serde::{Serialize, de::DeserializeOwned};
+
 use super::{DifferentIsNovel, Feedback, HasObserverHandle, MapFeedback};
 use crate::{
     common::DependencyResolver,
@@ -9,19 +24,6 @@ use crate::{
     observers::MapObserver,
     states::{FlatState, HasTestcase},
 };
-use alloc::borrow::Cow;
-use core::{
-    fmt::Debug,
-    marker::PhantomData,
-    ops::{Deref, DerefMut},
-};
-use libafl_bolts::{
-    AsIter, AsSlice, Named,
-    simd::{Reducer, SimdReducer, VectorType, covmap_is_interesting_simd},
-    tuples::{Handle, MatchName, MatchNameRef},
-};
-use libafl_core::Result;
-use serde::{Serialize, de::DeserializeOwned};
 
 /// Stable Rust wrapper for SIMD accelerated map feedback. Unfortunately, we have to
 /// keep this until specialization is stablized (not yet since 2016).

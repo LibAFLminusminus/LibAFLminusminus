@@ -1,6 +1,16 @@
 //! The feedbacks reduce observer state after each run to a single `is_interesting`-value.
 //! If a testcase is interesting, it may be added to a Corpus.
 
+use alloc::borrow::Cow;
+use core::{fmt::Debug, marker::PhantomData};
+
+use libafl_bolts::{
+    Named,
+    tuples::{Handle, Handled, MatchName, MatchNameRef},
+};
+use libafl_core::Result;
+use serde::{Deserialize, Serialize};
+
 use crate::{
     Error,
     corpus::TestcaseId,
@@ -9,14 +19,6 @@ use crate::{
     observers::TimeObserver,
     states::HasTestcase,
 };
-use alloc::borrow::Cow;
-use core::{fmt::Debug, marker::PhantomData};
-use libafl_bolts::{
-    Named,
-    tuples::{Handle, Handled, MatchName, MatchNameRef},
-};
-use libafl_core::Result;
-use serde::{Deserialize, Serialize};
 
 pub mod list;
 pub use list::*;

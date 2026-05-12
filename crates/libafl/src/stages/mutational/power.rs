@@ -5,8 +5,8 @@ use alloc::{
     borrow::{Cow, ToOwned},
     string::ToString,
 };
-
 use core::marker::PhantomData;
+
 use libafl_bolts::{Named, rands::Rand};
 
 use crate::{

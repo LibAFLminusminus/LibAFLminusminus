@@ -1,7 +1,8 @@
 //! Corpuses contain the testcases, either in memory, on disk, or somewhere else.
 
-use crate::{DependencyResolver, states::HasScheduler};
 use core::fmt;
+
+use crate::{DependencyResolver, states::HasScheduler};
 
 pub mod testcase;
 use libafl_core::Result;

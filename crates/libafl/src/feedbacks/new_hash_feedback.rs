@@ -2,13 +2,13 @@
 
 use alloc::{borrow::Cow, string::ToString};
 use core::fmt::Debug;
-use libafl_core::Result;
 
 use hashbrown::HashSet;
 use libafl_bolts::{
     Named,
     tuples::{Handle, Handled, MatchName, MatchNameRef},
 };
+use libafl_core::Result;
 use serde::{Deserialize, Serialize};
 
 use crate::{

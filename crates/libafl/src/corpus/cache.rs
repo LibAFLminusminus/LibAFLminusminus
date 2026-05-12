@@ -5,6 +5,13 @@
 //!     - a **cache store** holding on the testcases with quick access.
 //!     - a **backing store** with more expensive access, used when the testcase cannot be found in the cache store.
 
+use alloc::collections::VecDeque;
+use core::marker::PhantomData;
+
+use libafl_bolts::Error;
+use libafl_core::Result;
+use serde::{Deserialize, Serialize};
+
 use crate::{
     corpus::{
         Testcase, TestcaseId,
@@ -12,11 +19,6 @@ use crate::{
     },
     inputs::Input,
 };
-use alloc::collections::VecDeque;
-use core::marker::PhantomData;
-use libafl_bolts::Error;
-use libafl_core::Result;
-use serde::{Deserialize, Serialize};
 
 /// A cache, managing a cache store and a fallback store.
 pub trait Cache<CS, FS, I> {

@@ -1,7 +1,8 @@
 //! Stores are collections managing testcases
 
-use super::{Testcase, testcase::TestcaseId};
 use libafl_core::Result;
+
+use super::{Testcase, testcase::TestcaseId};
 
 pub mod maps;
 pub use maps::{BtreeCorpusMap, HashCorpusMap, InMemoryCorpusMap};

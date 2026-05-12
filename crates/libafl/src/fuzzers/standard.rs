@@ -1,5 +1,13 @@
 //! The standard [`Fuzzer`], for everyday use.
 
+use alloc::rc::Rc;
+use core::time::Duration;
+
+use libafl_bolts::current_time;
+use libafl_core::Result;
+use quanta::{Clock, Instant};
+use tuple_list::tuple_list;
+
 use crate::{
     FuzzerHooksTuple, Worker,
     corpus::{Corpus, Scheduler, Testcase},
@@ -17,12 +25,6 @@ use crate::{
     stages::StagesTuple,
     states::State,
 };
-use alloc::rc::Rc;
-use core::time::Duration;
-use libafl_bolts::current_time;
-use libafl_core::Result;
-use quanta::{Clock, Instant};
-use tuple_list::tuple_list;
 
 const STATS_UPDATE_INTERVAL: Duration = Duration::from_secs(4);
 

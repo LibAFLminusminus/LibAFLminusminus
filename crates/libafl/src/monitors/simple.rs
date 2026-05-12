@@ -1,7 +1,7 @@
 //! The most simple [`Monitor`]. It gathers data from children instances and dumps the data to stdout
 
-use core::time::Duration;
 use alloc::{string::String, vec::Vec};
+use core::time::Duration;
 
 use libafl_bolts::current_time;
 

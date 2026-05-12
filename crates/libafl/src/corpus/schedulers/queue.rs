@@ -1,13 +1,14 @@
 //! The queue corpus scheduler implements an AFL-like queue mechanism
 
+use alloc::{borrow::ToOwned, vec::Vec};
+
+use libafl_core::Result;
+use serde::{Deserialize, Serialize};
+
 use crate::{
     DependencyResolver, Error,
     corpus::{Scheduler, testcase::TestcaseId},
 };
-use alloc::borrow::ToOwned;
-use alloc::vec::Vec;
-use libafl_core::Result;
-use serde::{Deserialize, Serialize};
 
 /// Walk the corpus in a queue-like fashion
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -1,5 +1,11 @@
 //! A simple in-process [`Runtime`].
 
+use core::time::Duration;
+
+use libafl_bolts::timers::Timer;
+use libafl_core::Result;
+use serde::Serialize;
+
 use crate::{
     DependencyResolver,
     runtimes::{
@@ -8,10 +14,6 @@ use crate::{
         utils::OsTerminationParams,
     },
 };
-use core::time::Duration;
-use libafl_bolts::timers::Timer;
-use libafl_core::Result;
-use serde::Serialize;
 
 type InnerRuntime<S, T, TM> = InProcessRuntime<
     fn(&mut TerminationHandlerData, &OsTerminationParams) -> Result<CrashStatus>,

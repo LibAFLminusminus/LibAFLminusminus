@@ -1,15 +1,17 @@
 //! A cached corpus, using a given [`Cache`] policy and two [`Store`]s.
 
+use alloc::{rc::Rc, vec::Vec};
+use core::{cell::RefCell, marker::PhantomData};
+
+use libafl_core::Result;
+use serde::{Deserialize, Serialize};
+
 use super::{Corpus, Testcase, store::Store};
 use crate::{
     DependencyResolver,
     corpus::{Cache, Scheduler, TestcaseId, store::StorageResult},
     states::HasScheduler,
 };
-use alloc::{rc::Rc, vec::Vec};
-use core::{cell::RefCell, marker::PhantomData};
-use libafl_core::Result;
-use serde::{Deserialize, Serialize};
 
 /// A [`CombinedCorpus`] tries first to use the main store according to some policy.
 /// If it fails, it falls back to the secondary store.

@@ -1,15 +1,17 @@
 //! Standard [`Executor`].
 
+use core::{marker::PhantomData, time::Duration};
+
+use libafl_core::Result;
+use tuple_list::tuple_list;
+use tuple_list_ex::RefIndexable;
+
 use crate::{
     CompatibilityChecker, DependencyResolver, Registrator, Worker,
     executors::{Executor, ExitKind, hooks::ExecutorHooksTuple},
     observers::ObserversTuple,
     runtimes::RuntimeHandle,
 };
-use core::{marker::PhantomData, time::Duration};
-use libafl_core::Result;
-use tuple_list::tuple_list;
-use tuple_list_ex::RefIndexable;
 
 /// A standard [`Executor`], used for casual fuzzing.
 #[derive(Debug)]

@@ -1,8 +1,7 @@
 //! Schedule the access to the Corpus.
 
-use alloc::borrow::ToOwned;
+use alloc::{borrow::ToOwned, vec::Vec};
 use core::fmt::Debug;
-use alloc::vec::Vec;
 
 use libafl_bolts::rands::{Rand, StdRand};
 use libafl_core::{Result, non_zero};

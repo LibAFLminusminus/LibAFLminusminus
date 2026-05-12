@@ -7,6 +7,7 @@ use core::{
     pin::Pin,
     time::Duration,
 };
+
 use libafl_bolts::timers::Timer;
 use libafl_core::Result;
 

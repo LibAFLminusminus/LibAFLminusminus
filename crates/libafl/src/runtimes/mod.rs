@@ -1,5 +1,8 @@
 //! Module defining [`Runtime`]s.
 
+use core::{pin::Pin, ptr::NonNull, time::Duration};
+use std::process::exit;
+
 use crate::{
     DependencyResolver, Fuzzer, Result,
     executors::Executor,
@@ -11,8 +14,6 @@ use crate::{
     },
     stages::StagesTuple,
 };
-use core::{pin::Pin, ptr::NonNull, time::Duration};
-use std::process::exit;
 
 pub mod inprocess;
 pub use inprocess::{InProcessRuntime, SimpleInProcessRuntime};

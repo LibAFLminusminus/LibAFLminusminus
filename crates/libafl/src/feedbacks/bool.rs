@@ -1,17 +1,19 @@
 //! The [`BoolValueFeedback`] is a [`Feedback`] returning `true` or `false` as the `is_interesting` value.
 
+use alloc::borrow::Cow;
+
+use libafl_bolts::{
+    Error, Named,
+    tuples::{Handle, MatchNameRef},
+};
+use libafl_core::Result;
+
 use crate::{
     common::DependencyResolver,
     corpus::TestcaseId,
     feedbacks::Feedback,
     observers::{ObserversTuple, ValueObserver},
 };
-use alloc::borrow::Cow;
-use libafl_bolts::{
-    Error, Named,
-    tuples::{Handle, MatchNameRef},
-};
-use libafl_core::Result;
 
 /// This feedback returns `true` or `false` as the `is_interesting` value.
 #[derive(Debug)]

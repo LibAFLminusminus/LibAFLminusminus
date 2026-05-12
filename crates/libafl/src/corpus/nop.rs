@@ -1,13 +1,15 @@
 //! The null corpus does not store any [`Testcase`]s.
 
+use core::marker::PhantomData;
+
+use libafl_core::Result;
+use serde::{Deserialize, Serialize};
+
 use crate::{
     DependencyResolver, Error,
     corpus::{Corpus, HasScheduler, Testcase, TestcaseId, schedulers::NopScheduler},
     inputs::NopContext,
 };
-use core::marker::PhantomData;
-use libafl_core::Result;
-use serde::{Deserialize, Serialize};
 
 /// A corpus which does not store any [`Testcase`]s.
 #[derive(Serialize, Deserialize, Debug)]

@@ -2,6 +2,12 @@
 //!
 //! A [`SingleCorpus`] owns a single store, in which every testcase is added.
 
+use alloc::vec::Vec;
+use core::marker::PhantomData;
+
+use libafl_core::Result;
+use serde::{Deserialize, Serialize};
+
 use super::{Corpus, Testcase, store::Store};
 use crate::{
     DependencyResolver,
@@ -12,10 +18,6 @@ use crate::{
     inputs::Input,
     states::HasScheduler,
 };
-use alloc::vec::Vec;
-use core::marker::PhantomData;
-use libafl_core::Result;
-use serde::{Deserialize, Serialize};
 
 /// You average corpus.
 /// It has one backing store, used to store / retrieve testcases.

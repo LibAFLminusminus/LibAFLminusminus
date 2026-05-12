@@ -1,5 +1,10 @@
 //! A collection of various [`Corpus`].
 
+use std::path::Path;
+
+use libafl_core::Result;
+use serde::{Deserialize, Serialize};
+
 use crate::{
     DependencyResolver,
     corpus::{
@@ -13,9 +18,6 @@ use crate::{
     inputs::Input,
     states::HasScheduler,
 };
-use libafl_core::Result;
-use serde::{Deserialize, Serialize};
-use std::path::Path;
 
 const DEFAULT_CACHE_LEN: usize = 32;
 

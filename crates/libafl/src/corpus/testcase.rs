@@ -1,11 +1,13 @@
 //! The [`Testcase`] is a struct embedded in each [`Corpus`].
 //! It will contain a respective input, and metadata.
 
-use crate::inputs::Input;
 use alloc::{rc::Rc, string::String};
 use core::{borrow::Borrow, fmt::Debug, hash::Hasher};
+
 use libafl_bolts::{HasLen, hasher_std};
 use serde::{Deserialize, Serialize};
+
+use crate::inputs::Input;
 
 /// Indicates how a [`Testcase`] should be named on-disk.
 #[derive(Default, Clone, Serialize, Deserialize, Debug)]

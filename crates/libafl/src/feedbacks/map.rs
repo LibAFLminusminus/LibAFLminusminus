@@ -1,21 +1,12 @@
 //! Map feedback, maximizing or minimizing maps, for example the afl-style map observer.
 
-#[cfg(feature = "simd")]
-use super::simd::SimdMapFeedback;
-use crate::{
-    DependencyResolver,
-    corpus::TestcaseId,
-    executors::ExitKind,
-    feedbacks::{Feedback, HasObserverHandle},
-    observers::MapObserver,
-    states::{FlatState, HasTestcase},
-};
 use alloc::{borrow::Cow, vec::Vec};
 use core::{
     fmt::Debug,
     marker::PhantomData,
     ops::{Deref, DerefMut},
 };
+
 use hashbrown::HashMap;
 #[cfg(all(feature = "simd", target_arch = "x86_64"))]
 use libafl_bolts::simd::vector::u8x16;
@@ -31,6 +22,17 @@ use libafl_bolts::{
 use libafl_core::Result;
 use num_traits::PrimInt;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
+
+#[cfg(feature = "simd")]
+use super::simd::SimdMapFeedback;
+use crate::{
+    DependencyResolver,
+    corpus::TestcaseId,
+    executors::ExitKind,
+    feedbacks::{Feedback, HasObserverHandle},
+    observers::MapObserver,
+    states::{FlatState, HasTestcase},
+};
 
 #[cfg(feature = "simd")]
 /// A [`SimdMapFeedback`] that implements the AFL algorithm using an [`SimdOrReducer`] combining the bits for the history map and the bit from (`HitcountsMapObserver`)[`crate::observers::HitcountsMapObserver`].

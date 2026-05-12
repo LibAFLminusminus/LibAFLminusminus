@@ -1,14 +1,13 @@
 //! A list of [`Feedback`]s.
 
-use crate::{
-    common::DependencyResolver, corpus::TestcaseId, executors::ExitKind, feedbacks::Feedback,
-    observers::ListObserver, states::FlatState,
-};
 use alloc::borrow::Cow;
 use core::{
     fmt::{Debug, LowerHex},
     hash::Hash,
 };
+#[cfg(feature = "std")]
+use std::{fs::File, io::Write, path::Path};
+
 use hashbrown::HashSet;
 use libafl_bolts::{
     HasRefCnt, Named,
@@ -16,8 +15,11 @@ use libafl_bolts::{
 };
 use libafl_core::Result;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
-#[cfg(feature = "std")]
-use std::{fs::File, io::Write, path::Path};
+
+use crate::{
+    common::DependencyResolver, corpus::TestcaseId, executors::ExitKind, feedbacks::Feedback,
+    observers::ListObserver, states::FlatState,
+};
 
 /// The metadata to remember past observed value
 #[derive(Debug, Serialize, Deserialize)]

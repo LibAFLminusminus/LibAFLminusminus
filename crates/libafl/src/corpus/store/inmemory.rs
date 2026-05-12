@@ -1,14 +1,16 @@
 //! An in-memory store
 
+use core::marker::PhantomData;
+
+use libafl_bolts::Error;
+use libafl_core::Result;
+use serde::{Deserialize, Serialize};
+
 use super::{InMemoryCorpusMap, RemovableStore, Store};
 use crate::{
     corpus::{Testcase, store::StorageResult, testcase::TestcaseId},
     inputs::Input,
 };
-use core::marker::PhantomData;
-use libafl_bolts::Error;
-use libafl_core::Result;
-use serde::{Deserialize, Serialize};
 
 /// The map type in which testcases are stored (disable the feature `corpus_btreemap` to use a `HashMap` instead of `BTreeMap`)
 #[derive(Serialize, Deserialize, Clone, Debug)]

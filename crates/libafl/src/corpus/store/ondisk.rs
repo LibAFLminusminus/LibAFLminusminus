@@ -1,16 +1,18 @@
 //! An on-disk store
 
+use alloc::rc::Rc;
+use core::marker::PhantomData;
+use std::path::{Path, PathBuf};
+
+use libafl_bolts::Error;
+use libafl_core::{Result, illegal_argument};
+use serde::{Deserialize, Serialize};
+
 use super::{InMemoryCorpusMap, Store};
 use crate::{
     corpus::{Testcase, TestcaseFilenameFormat, store::StorageResult, testcase::TestcaseId},
     inputs::Input,
 };
-use alloc::rc::Rc;
-use core::marker::PhantomData;
-use libafl_bolts::Error;
-use libafl_core::{Result, illegal_argument};
-use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
 
 /// An on-disk store
 ///

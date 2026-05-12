@@ -1,8 +1,9 @@
 //! Trivial Constant Executor
 
+use libafl_bolts::tuples::RefIndexable;
+
 use super::{Executor, ExitKind};
 use crate::{DependencyResolver, Result, Worker, observers::ObserversTuple};
-use libafl_bolts::tuples::RefIndexable;
 
 /// [`NopExecutor`] is an executor that does nothing
 pub type NopExecutor = ConstantExecutor<()>;

@@ -156,7 +156,9 @@ tuple_list_ex = { workspace = true }
 quanta = "0.12.6"
 ahash = { workspace = true } # The hash function already used in hashbrown
 arbitrary-int = { workspace = true }
-backtrace = { workspace = true, optional = true, features = ["std"] } # Used to get the stacktrace in StacktraceObserver
+backtrace = { workspace = true, optional = true, features = [
+  "std",
+] } # Used to get the stacktrace in StacktraceObserver
 bitbybit = { workspace = true }
 enumflags2 = { version = "0.7.10", optional = true }
 fastbloom = { workspace = true, optional = true }
