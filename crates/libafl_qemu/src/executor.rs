@@ -105,7 +105,7 @@ where
                 signal,
                 siginfo,
                 context,
-            } => (signal.clone(), *siginfo, context.cloned()),
+            } => (signal.clone(), **siginfo, context.cloned()),
             OsTerminationParams::Panic(panic) => panic!(
                 "Panic termination ended up in QEMU crash handler, this is not expected: {panic:?}"
             ),
