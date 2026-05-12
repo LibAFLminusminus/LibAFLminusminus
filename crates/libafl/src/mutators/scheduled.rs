@@ -249,7 +249,6 @@ mod tests {
 
     use crate::{
         corpus::{Corpus, InMemoryCorpus, Testcase, schedulers::QueueScheduler},
-        feedbacks::ConstFeedback,
         inputs::{BytesInput, HasMutatorBytes, bytes::BytesContext},
         mutators::{
             Mutator,

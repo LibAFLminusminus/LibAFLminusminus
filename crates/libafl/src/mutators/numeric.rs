@@ -345,10 +345,7 @@ mod tests {
     use super::{Numeric, int_mutators};
     use crate::{
         corpus::{Corpus, InMemoryCorpus, Testcase, schedulers::QueueScheduler},
-        inputs::{
-            bytes::{BytesContext, BytesInput},
-            value::{I16Input, PrimitiveContext},
-        },
+        inputs::value::{I16Input, PrimitiveContext},
         mutators::MutationResult,
         states::StdState,
     };

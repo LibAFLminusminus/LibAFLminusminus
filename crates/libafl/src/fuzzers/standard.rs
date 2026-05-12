@@ -359,7 +359,7 @@ where
 
         if state.should_initialize_metadata() {
             // 1 - collect the required mds and involved types
-            let mut registrator = Registrator::new(state.named_metadata_map().clone());
+            let mut registrator = Registrator::new(state.metadata_map().clone());
 
             self.feedback.register_with_ty(&mut registrator)?;
             self.objective.register_with_ty(&mut registrator)?;
@@ -378,7 +378,7 @@ where
             executor.check(&checker)?;
 
             // 3 - now state metadata get replaced by
-            *state.named_metadata_map_mut() = checker.finish();
+            *state.metadata_map_mut() = checker.finish();
         }
 
         // 4 - populate signal handler data if the runtime needs it

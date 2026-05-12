@@ -11,10 +11,7 @@ use crate::{
     fuzzers::{ExitKind, FuzzerHook},
     inputs::Input,
     observers::{MapObserver, ObserversTuple},
-    states::{
-        FlatState, HasCorpus, HasScheduler, has_unnamed_metadata, named_metadata_mut,
-        unnamed_metadata_mut,
-    },
+    states::{FlatState, HasCorpus, HasScheduler, named_metadata_mut, unnamed_metadata_mut},
 };
 use alloc::{borrow::Cow, string::ToString, vec::Vec};
 use core::{marker::PhantomData, time::Duration};
@@ -169,7 +166,7 @@ where
         let observers = &executor.observers();
         let map_first = observers[&self.map_observer_handle].as_ref();
         let map_first_filled_count = match state
-            .named_metadata_map()
+            .metadata_map()
             .get::<MapFeedbackMetadata<O::Entry>>(&self.map_name)
         {
             Some(metadata) => metadata.num_covered_map_indexes,
@@ -205,7 +202,7 @@ where
                     .to_vec();
 
                 let map_state = state
-                    .named_metadata_map_mut()
+                    .metadata_map_mut()
                     .get_mut::<MapFeedbackMetadata<O::Entry>>(&self.map_name)
                     .unwrap();
                 let history_map = &mut map_state.history_map;
@@ -239,7 +236,7 @@ where
         let unstable_found = !unstable_entries.is_empty();
         let stability = if unstable_found {
             let metadata = named_metadata_mut::<UnstableEntriesMetadata>(
-                state.named_metadata_map_mut(),
+                state.metadata_map_mut(),
                 self.name(),
             )?;
 
@@ -263,9 +260,9 @@ where
             .user_map
             .insert("stability", StabilityValue(stability));
 
-        if has_unnamed_metadata::<PowerScheduleData>(state.named_metadata_map()) {
+        if state.has_md::<PowerScheduleData>() {
             let current = state.corpus().scheduler().current();
-            let psdata = unnamed_metadata_mut::<PowerScheduleData>(state.named_metadata_map_mut())?;
+            let psdata = unnamed_metadata_mut::<PowerScheduleData>(state.metadata_map_mut())?;
 
             let observers = executor.observers();
             let map = observers[&self.map_observer_handle].as_ref();

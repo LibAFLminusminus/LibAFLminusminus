@@ -11,6 +11,7 @@ use core::pin::Pin;
 use core::ptr;
 use core::sync::atomic::{AtomicPtr, Ordering};
 use core::{ffi::c_void, ptr::NonNull};
+use libafl_bolts::DebugUnwrap;
 use libafl_core::Result;
 
 /// Convertible into [`TerminationHandlerData`].
@@ -101,40 +102,46 @@ impl TerminationHandlerData {
     /// # Safety
     ///
     /// S must be the same as the one used during init
+    /// In release mode, initialization is not checked.
     #[must_use]
     #[expect(clippy::mut_from_ref)]
     pub unsafe fn state<S>(&self) -> &mut S {
-        unsafe { self.state_ptr.unwrap().cast().as_mut() }
+        debug_assert!(self.state_ptr.is_some(), "state_ptr is not initialized");
+        unsafe { self.state_ptr.unwrap_debug().cast().as_mut() }
     }
 
     /// # Safety
     ///
     /// Z must be the same as the one used during init
+    /// In release mode, initialization is not checked.
     #[must_use]
     #[expect(clippy::mut_from_ref)]
     pub unsafe fn fuzzer<Z>(&self) -> &mut Z {
-        unsafe { self.fuzzer_ptr.unwrap().cast().as_mut() }
+        debug_assert!(self.fuzzer_ptr.is_some(), "fuzzer_ptr is not initialized");
+        unsafe { self.fuzzer_ptr.unwrap_debug().cast().as_mut() }
     }
 
     /// # Safety
     ///
     /// O must be the same as the one used during init
+    /// In release mode, initialization is not checked.
     #[must_use]
     #[expect(clippy::mut_from_ref)]
     pub unsafe fn executor<E, I, S>(&self) -> &mut E
     where
         E: Executor<I, S>,
     {
-        unsafe { self.executor_ptr.unwrap().cast().as_mut() }
+        unsafe { self.executor_ptr.unwrap_debug().cast().as_mut() }
     }
 
     /// # Safety
     ///
     /// S and W must be the same as the one used during init
+    /// In release mode, initialization is not checked.
     #[must_use]
     #[expect(clippy::mut_from_ref)]
     pub unsafe fn rt_handle<S, W>(&self) -> &mut RuntimeHandle<S, W> {
-        unsafe { self.rt_handle_ptr.unwrap().cast().as_mut() }
+        unsafe { self.rt_handle_ptr.unwrap_debug().cast().as_mut() }
     }
 
     /// # Safety
@@ -219,9 +226,10 @@ impl TerminationHandlerData {
     /// # Safety
     ///
     /// Committed data must still be alive.
-    pub unsafe fn global() -> Option<&'static Self> {
+    /// In release mode, previous commitment is not checked.
+    pub unsafe fn global() -> &'static Self {
         let ptr = GLOBAL_TERMINATION_DATA.load(Ordering::Acquire);
-        unsafe { ptr.as_ref() }
+        unsafe { ptr.as_ref().unwrap_debug() }
     }
 
     /// Get a mutable reference to the process global state
@@ -229,9 +237,10 @@ impl TerminationHandlerData {
     /// # Safety
     ///
     /// Committed data must still be alive.
-    pub unsafe fn global_mut() -> Option<&'static mut Self> {
+    /// In release mode, previous commitment is not checked.
+    pub unsafe fn global_mut() -> &'static mut Self {
         let ptr = GLOBAL_TERMINATION_DATA.load(Ordering::Acquire);
-        unsafe { ptr.as_mut() }
+        unsafe { ptr.as_mut().unwrap_debug() }
     }
 }
 

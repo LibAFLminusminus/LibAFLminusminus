@@ -6,8 +6,6 @@ use std::collections::HashSet;
 use libafl_bolts::serdeany::{NamedSerdeAnyMap, SerdeAny};
 use libafl_core::Result;
 
-use crate::states::add_named_metadata_checked;
-
 /// Dependency registrator.
 ///
 /// Used to register types and metadata used during the fuzzing run.
@@ -38,14 +36,20 @@ impl Registrator {
 
     /// Register a new metadata.
     pub fn register_md<T: SerdeAny>(&mut self, name: &str, value: T) {
-        add_named_metadata_checked::<T>(&mut self.map, name, value)
-            .unwrap_or_else(|_| panic!("Addind same metadata twice: {name}"));
+        if self.map.contains::<T>(name) {
+            panic!("Addind same metadata twice: {name}")
+        }
+
+        self.map.insert(name, value);
     }
 
     /// Register a new metadata, with its default value.
     pub fn register_md_default<T: Default + SerdeAny>(&mut self, name: &str) {
-        add_named_metadata_checked::<T>(&mut self.map, name, T::default())
-            .unwrap_or_else(|_| panic!("Addind same metadata twice: {name}"));
+        if self.map.contains::<T>(name) {
+            panic!("Addind same metadata twice: {name}")
+        }
+
+        self.map.insert(name, T::default())
     }
 
     /// Register a new type.

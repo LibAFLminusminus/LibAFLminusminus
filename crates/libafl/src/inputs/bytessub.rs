@@ -216,9 +216,9 @@ mod tests {
 
     use crate::{
         corpus::{InMemoryCorpus, schedulers::QueueScheduler},
-        inputs::{BytesInput, HasMutatorBytes, NopInput, ResizableMutator, bytes::BytesContext},
+        inputs::{BytesInput, HasMutatorBytes, ResizableMutator, bytes::BytesContext},
         mutators::{MutatorsTuple, havoc_mutations_no_crossover},
-        states::{NopState, StdState},
+        states::StdState,
     };
 
     fn init_bytes_input() -> (BytesInput, usize) {

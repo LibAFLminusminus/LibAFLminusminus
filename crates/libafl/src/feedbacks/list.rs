@@ -94,7 +94,7 @@ where
         self.novelty.clear();
         // can't fail
         let history_set = state
-            .named_metadata_map_mut()
+            .metadata_map_mut()
             .get_mut::<ListFeedbackMetadata<T>>(self.name())
             .unwrap();
         for v in observer.list() {
@@ -116,7 +116,7 @@ where
 
     fn append_list_observer_metadata<S: FlatState>(&mut self, state: &mut S) {
         let history_set = state
-            .named_metadata_map_mut()
+            .metadata_map_mut()
             .get_mut::<ListFeedbackMetadata<T>>(self.name())
             .unwrap();
 

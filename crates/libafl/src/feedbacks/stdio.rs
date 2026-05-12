@@ -71,7 +71,7 @@ where
             .ok_or_else(|| Error::illegal_state("StdOutObserver has no stdout"))?;
         let stdout = String::from_utf8_lossy(buffer).into_owned();
         state
-            .named_metadata_map_mut()
+            .metadata_map_mut()
             .get_mut::<StdOutMetadata>(self.name())
             .unwrap()
             .stdout
@@ -123,7 +123,7 @@ where
             .ok_or_else(|| Error::illegal_state("StdErrObserver has no stderr"))?;
         let stderr = String::from_utf8_lossy(buffer).into_owned();
         state
-            .named_metadata_map_mut()
+            .metadata_map_mut()
             .get_mut::<StdErrMetadata>(self.name())
             .unwrap()
             .stderr

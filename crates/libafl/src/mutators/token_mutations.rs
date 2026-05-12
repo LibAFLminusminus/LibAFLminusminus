@@ -311,7 +311,7 @@ where
     fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
         let max_size = state.max_size();
         let tokens_len = {
-            let Some(meta) = state.named_metadata_map().get::<Tokens>(DEFAULT_TOKEN_MAP) else {
+            let Some(meta) = state.metadata_map().get::<Tokens>(DEFAULT_TOKEN_MAP) else {
                 return Ok(MutationResult::Skipped);
             };
             if let Some(tokens_len) = NonZero::new(meta.tokens().len()) {
@@ -329,7 +329,7 @@ where
         let off = rand.below(unsafe { NonZero::new_unchecked(size.saturating_add(1)) });
 
         let meta = state
-            .named_metadata_map()
+            .metadata_map()
             .get::<Tokens>(DEFAULT_TOKEN_MAP)
             .unwrap();
         let token = &meta.tokens()[token_idx];
@@ -392,7 +392,7 @@ where
         };
 
         let tokens_len = {
-            let Some(meta) = state.named_metadata_map().get::<Tokens>(DEFAULT_TOKEN_MAP) else {
+            let Some(meta) = state.metadata_map().get::<Tokens>(DEFAULT_TOKEN_MAP) else {
                 return Ok(MutationResult::Skipped);
             };
             if let Some(tokens_len) = NonZero::new(meta.tokens().len()) {
@@ -404,7 +404,7 @@ where
         let token_idx = rand.below(tokens_len);
 
         let meta = state
-            .named_metadata_map()
+            .metadata_map()
             .get::<Tokens>(DEFAULT_TOKEN_MAP)
             .unwrap();
         let token = &meta.tokens()[token_idx];

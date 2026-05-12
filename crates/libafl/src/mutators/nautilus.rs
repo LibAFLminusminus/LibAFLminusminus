@@ -185,8 +185,7 @@ where
         let mut tmp = vec![];
         // Create a fast temp mutator to get around borrowing..
         let mut rand_cpy = { RomuDuoJrRand::with_seed(rand.next()) };
-        let meta =
-            named_metadata::<NautilusChunksMetadata>(state.named_metadata_map(), self.name())?;
+        let meta = named_metadata::<NautilusChunksMetadata>(state.metadata_map(), self.name())?;
         self.mutator
             .mut_splice::<_, _>(
                 &mut rand_cpy,

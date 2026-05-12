@@ -351,7 +351,7 @@ where
         let observer = observers.get(&self.map_ref).expect("MapObserver not found. This is likely because you entered the crash handler with the wrong executor/observer").as_ref();
         let initial = observer.initial();
         let map_state = state
-            .named_metadata_map_mut()
+            .metadata_map_mut()
             .get_mut::<MapFeedbackMetadata<O::Entry>>(&self.name)
             .unwrap();
         let len = observer.len();
@@ -451,7 +451,7 @@ where
         let observer = observers.get(&self.map_ref).unwrap().as_ref();
 
         let map_state = state
-            .named_metadata_map_mut()
+            .metadata_map_mut()
             .get_mut::<MapFeedbackMetadata<O::Entry>>(&self.name)
             .unwrap();
         let len = observer.len();

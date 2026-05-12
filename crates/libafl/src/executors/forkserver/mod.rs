@@ -1138,7 +1138,6 @@ mod tests {
             StdChildArgs,
             forkserver::{FAILED_TO_START_FORKSERVER_MSG, ForkserverExecutor},
         },
-        inputs::BytesInput,
         observers::{ConstMapObserver, HitcountsMapObserver},
     };
 

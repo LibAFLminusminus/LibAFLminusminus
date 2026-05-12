@@ -23,7 +23,7 @@ use crate::{
 pub struct CmpLogObserver<H, V> {
     /// the underlying that this observer observes from
     map: OwnedMutPtr<CmpLogMap<H, V>>,
-    /// the size of the underlying `[Self::map]`    
+    /// the size of the underlying `[Self::map]`
     size: Option<OwnedMutPtr<usize>>,
     add_meta: bool,
     name: Cow<'static, str>,
@@ -71,8 +71,7 @@ where
 
     fn post_exec(&mut self, state: &mut S, _exit_kind: &ExitKind) -> Result<(), Error> {
         if self.add_meta {
-            let meta =
-                named_metadata_mut::<CmpLogMetadata>(state.named_metadata_map_mut(), self.name())?;
+            let meta = named_metadata_mut::<CmpLogMetadata>(state.metadata_map_mut(), self.name())?;
 
             let usable_count = self.usable_count();
 

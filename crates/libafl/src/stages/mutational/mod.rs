@@ -32,13 +32,13 @@ where
 {
     #[expect(clippy::cast_precision_loss, clippy::cast_sign_loss)]
     fn score(state: &mut S, testcase_id: TestcaseId) -> Result<usize> {
-        let psmeta = unnamed_metadata_mut::<PowerScheduleData>(state.named_metadata_map_mut())?;
+        let psmeta = unnamed_metadata_mut::<PowerScheduleData>(state.metadata_map_mut())?;
 
         let avg_exec_us = psmeta.exec_time().as_nanos() as f64 / psmeta.cycles() as f64; // cycles is just a counter yet it is called cycles. don't blame me. i didn't name it.
         let avg_bitmap_size = if psmeta.bitmap_entries() == 0 {
             1
         } else {
-            psmeta.bitmap_size() / psmeta.bitmap_entries() // bad name too but i didn't name it. 
+            psmeta.bitmap_size() / psmeta.bitmap_entries() // bad name too but i didn't name it.
         };
 
         let mut perf_score = 100.0;

@@ -1,6 +1,9 @@
 //! The fuzzer, and state are the core pieces of every good fuzzer
 
-use alloc::{boxed::Box, string::{String, ToString}, vec::Vec};
+use alloc::{
+    string::{String, ToString},
+    vec::Vec,
+};
 use core::{
     any::type_name,
     fmt::{self, Debug},
@@ -138,12 +141,42 @@ pub trait FlatState {
     fn start_time_mut(&mut self) -> &mut Duration;
 
     /// A map, storing all metadata
-    fn named_metadata_map(&self) -> &NamedSerdeAnyMap;
+    fn metadata_map(&self) -> &NamedSerdeAnyMap;
     /// A map, storing all metadata (mutable)
-    fn named_metadata_map_mut(&mut self) -> &mut NamedSerdeAnyMap;
+    fn metadata_map_mut(&mut self) -> &mut NamedSerdeAnyMap;
 
     /// should initialize metadata or not?
     fn should_initialize_metadata(&mut self) -> bool;
+
+    /// Does the metadata has the unnamed metadata with type `T`?
+    fn has_md<T: SerdeAny>(&self) -> bool {
+        self.metadata_map().contains_unnamed::<T>()
+    }
+
+    /// Does the metadata has the metadata with type `T` and name `name`?
+    fn has_named_md<T: SerdeAny>(&self, name: &str) -> bool {
+        self.metadata_map().contains::<T>(name)
+    }
+
+    /// Get the reference to the unnamed metadata with type `T`
+    fn get_md<T: SerdeAny>(&self) -> Result<&T> {
+        unnamed_metadata(self.metadata_map())
+    }
+
+    /// Get the mutable reference to the unnamed metadata with type `T`
+    fn get_md_mut<T: SerdeAny>(&mut self) -> Result<&mut T> {
+        unnamed_metadata_mut(self.metadata_map_mut())
+    }
+
+    /// Get the reference to the metadata with type `T` and name `name`
+    fn get_named_md<T: SerdeAny>(&self, name: &str) -> Result<&T> {
+        named_metadata(self.metadata_map(), name)
+    }
+
+    /// Get the mutable reference to the metadata with type `T` and name `name`
+    fn get_named_md_mut<T: SerdeAny>(&mut self, name: &str) -> Result<&mut T> {
+        named_metadata_mut(self.metadata_map_mut(), name)
+    }
 }
 
 /// The trait containing all the stuff that [`StdState`] implements. It's rather a shortcut for typing all the traits
@@ -370,96 +403,6 @@ where
     M: SerdeAny,
 {
     map.insert(name, meta);
-}
-
-/// Add an unnamed metadata (the name is just a empty string "" actually) to the metadata map
-#[inline]
-pub fn add_unnamed_metadata<M>(map: &mut NamedSerdeAnyMap, meta: M)
-where
-    M: SerdeAny,
-{
-    map.insert("", meta);
-}
-
-/// Add a metadata to the metadata map
-/// Return an error if there already is the metadata with the same name
-#[inline]
-pub fn add_named_metadata_checked<M>(map: &mut NamedSerdeAnyMap, name: &str, meta: M) -> Result<()>
-where
-    M: SerdeAny,
-{
-    map.try_insert(name, meta)
-}
-
-/// Add an metadata to the metadata map
-/// Return an error if there already is the metadata with the same name
-#[inline]
-pub fn add_unnamed_metadata_checked<M>(map: &mut NamedSerdeAnyMap, meta: M) -> Result<()>
-where
-    M: SerdeAny,
-{
-    map.try_insert("", meta)
-}
-
-/// Remove a named metadata to the metadata map
-#[inline]
-pub fn remove_named_metadata<M>(map: &mut NamedSerdeAnyMap, name: &str) -> Option<Box<M>>
-where
-    M: SerdeAny,
-{
-    map.remove::<M>(name)
-}
-
-/// Remove an unnamed metadata to the metadata map
-#[inline]
-pub fn remove_unnamed_metadata<M>(map: &mut NamedSerdeAnyMap) -> Option<Box<M>>
-where
-    M: SerdeAny,
-{
-    map.remove::<M>("")
-}
-
-/// Check for if this named metadata exists
-#[inline]
-#[must_use]
-pub fn has_named_metadata<M>(map: &NamedSerdeAnyMap, name: &str) -> bool
-where
-    M: SerdeAny,
-{
-    map.contains::<M>(name)
-}
-
-/// Check for if this unnamed metadata exists
-#[inline]
-#[must_use]
-pub fn has_unnamed_metadata<M>(map: &NamedSerdeAnyMap) -> bool
-where
-    M: SerdeAny,
-{
-    map.contains::<M>("")
-}
-
-/// Gets a named metadata, or inserts it using the given construction function `default` from a [`NamedSerdeAnyMap`]
-pub fn named_metadata_or_insert_with<'a, M>(
-    map: &'a mut NamedSerdeAnyMap,
-    name: &str,
-    default: impl FnOnce() -> M,
-) -> &'a mut M
-where
-    M: SerdeAny,
-{
-    map.get_or_insert_with::<M>(name, default)
-}
-
-/// Gets an unnamed metadata, or inserts it using the given construction function `default` from a [`NamedSerdeAnyMap`]
-pub fn unnamed_metadata_or_insert_with<M>(
-    map: &mut NamedSerdeAnyMap,
-    default: impl FnOnce() -> M,
-) -> &mut M
-where
-    M: SerdeAny,
-{
-    map.get_or_insert_with::<M>("", default)
 }
 
 /// To get named metadata from a [`NamedSerdeAnyMap`]
@@ -719,13 +662,13 @@ impl<C, CT, I, OC, SC> FlatState for StdState<C, CT, I, OC, SC> {
 
     /// Get the metadata map from [`NamedSerdeAnyMap`]
     #[inline]
-    fn named_metadata_map(&self) -> &NamedSerdeAnyMap {
+    fn metadata_map(&self) -> &NamedSerdeAnyMap {
         &self.named_metadata
     }
 
     /// Get the mutable metadata map from [`NamedSerdeAnyMap`]
     #[inline]
-    fn named_metadata_map_mut(&mut self) -> &mut NamedSerdeAnyMap {
+    fn metadata_map_mut(&mut self) -> &mut NamedSerdeAnyMap {
         &mut self.named_metadata
     }
 

@@ -1,9 +1,6 @@
 //! Nautilus grammar mutator, see <https://github.com/nautilus-fuzz/nautilus>
 
-use alloc::{
-    borrow::Cow,
-    string::String,
-};
+use alloc::{borrow::Cow, string::String};
 use core::fmt::Debug;
 use libafl_core::Result;
 use std::fs::create_dir_all;
@@ -92,7 +89,7 @@ where
     ) -> Result<()> {
         let input = state.corpus().get(testcase_id)?;
         let meta = named_metadata_mut::<NautilusChunksMetadata>(
-            state.named_metadata_map_mut(),
+            state.metadata_map_mut(),
             self.name(),
         )?;
         meta.cks.add_tree(input.input().tree.clone(), self.ctx);

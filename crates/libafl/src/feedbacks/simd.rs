@@ -50,7 +50,7 @@ where
         let observer = observers.get(self.map.observer_handle()).expect("MapObserver not found. This is likely because you entered the crash handler with the wrong executor/observer").as_ref();
 
         let map_state = state
-            .named_metadata_map_mut()
+            .metadata_map_mut()
             .get_mut::<MapFeedbackMetadata<u8>>(self.map.name())
             .unwrap();
         let size = observer.usable_count();
