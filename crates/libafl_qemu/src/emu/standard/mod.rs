@@ -1,3 +1,11 @@
+use std::{cell::RefCell, collections::HashMap, fmt::Debug, pin::Pin, result};
+
+use libafl::{
+    Result, executors::ExitKind, inputs::Input, observers::ObserversTuple, states::FlatState,
+};
+use libafl_core::runtime;
+use libafl_qemu_sys::GuestAddr;
+
 use crate::{
     Emulator, EmulatorDriver, EmulatorDriverError, EmulatorDriverResult, EmulatorExitError,
     EmulatorExitResult, EmulatorHooks, EmulatorModules, NopEmulatorDriver, NopSnapshotManager,
@@ -8,11 +16,6 @@ use crate::{
     modules::EmulatorModuleTuple,
     sync_exit::CustomInsn,
 };
-use libafl::{
-    Result, executors::ExitKind, inputs::Input, observers::ObserversTuple, states::FlatState,
-};
-use libafl_qemu_sys::GuestAddr;
-use std::{cell::RefCell, collections::HashMap, pin::Pin, result};
 
 pub mod builder;
 pub use builder::StdEmulatorBuilder;
@@ -20,7 +23,7 @@ pub use builder::StdEmulatorBuilder;
 #[cfg(feature = "usermode")]
 pub(crate) mod usermode;
 #[cfg(feature = "usermode")]
-pub use usermode::*;
+pub use usermode::{InputLocation, StdSnapshotManager};
 
 #[cfg(feature = "systemmode")]
 pub(crate) mod systemmode;
@@ -58,8 +61,10 @@ pub struct StdEmulator<C, CM, ED, ET, I, S, SM> {
 
 impl<C, CM, ED, ET, I, S, SM> Emulator<I, S> for StdEmulator<C, CM, ED, ET, I, S, SM>
 where
-    C: Clone,
-    ED: EmulatorDriver<C, CM, ED, I, S, SM>,
+    C: Debug + Clone,
+    CM: CommandManager<C, ED, ET, I, S, SM, Commands = C>,
+    ED: EmulatorDriver<C, CM, ET, I, S, SM>,
+    ET: EmulatorModuleTuple<I, S> + Unpin,
     I: Unpin,
     S: Unpin,
 {
@@ -72,7 +77,19 @@ where
     }
 
     fn exec_input(&mut self, input: &I) -> Result<ExitKind> {
-        todo!()
+        match unsafe { self.run(input)? } {
+            EmulatorDriverResult::EndOfRun(exit_kind) => Ok(exit_kind),
+            EmulatorDriverResult::ReturnToClient(exit_reason) => {
+                Err(runtime!("Unexpected return to client: {exit_reason:?}"))
+            }
+            EmulatorDriverResult::ShutdownRequest => {
+                log::warn!(
+                    "QEMU received a shutdown request during a fuzzing run. It will be considered as a crash."
+                );
+
+                Ok(ExitKind::Crash)
+            }
+        }
     }
 
     fn post_exec<OT>(
@@ -88,12 +105,12 @@ where
         ED::post_harness_exec(self, input, observers, state, exit_kind)
     }
 
-    fn on_crash(&mut self) -> libafl::Result<()> {
-        self.modules.modules_mut().on_crash_all()
+    fn on_crash(&mut self) -> Result<()> {
+        unsafe { self.modules.modules_mut().on_crash_all() }
     }
 
-    fn on_timeout(&mut self) -> libafl::Result<()> {
-        self.modules.modules_mut().on_timeout_all()
+    fn on_timeout(&mut self) -> Result<()> {
+        unsafe { self.modules.modules_mut().on_timeout_all() }
     }
 }
 

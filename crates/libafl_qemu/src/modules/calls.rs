@@ -22,7 +22,7 @@ pub trait CallTraceCollector: 'static {
     fn on_call<ET, I, S>(
         &mut self,
         emulator_modules: &mut EmulatorModules<ET, I, S>,
-        state: Option<&mut S>,
+        state: &mut S,
         pc: GuestAddr,
         call_len: usize,
     ) where
@@ -33,7 +33,7 @@ pub trait CallTraceCollector: 'static {
     fn on_ret<ET, I, S>(
         &mut self,
         emulator_modules: &mut EmulatorModules<ET, I, S>,
-        state: Option<&mut S>,
+        state: &mut S,
         pc: GuestAddr,
         ret_addr: GuestAddr,
     ) where
@@ -66,7 +66,7 @@ pub trait CallTraceCollectorTuple: 'static + MatchFirstType {
     fn on_call_all<ET, I, S>(
         &mut self,
         emulator_modules: &mut EmulatorModules<ET, I, S>,
-        _state: Option<&mut S>,
+        _state: &mut S,
         pc: GuestAddr,
         call_len: usize,
     ) where
@@ -77,7 +77,7 @@ pub trait CallTraceCollectorTuple: 'static + MatchFirstType {
     fn on_ret_all<ET, I, S>(
         &mut self,
         emulator_modules: &mut EmulatorModules<ET, I, S>,
-        _state: Option<&mut S>,
+        _state: &mut S,
         _pc: GuestAddr,
         ret_addr: GuestAddr,
     ) where
@@ -105,7 +105,7 @@ impl CallTraceCollectorTuple for () {
     fn on_call_all<ET, I, S>(
         &mut self,
         _emulator_modules: &mut EmulatorModules<ET, I, S>,
-        _state: Option<&mut S>,
+        _state: &mut S,
         _pc: GuestAddr,
         _call_len: usize,
     ) where
@@ -118,7 +118,7 @@ impl CallTraceCollectorTuple for () {
     fn on_ret_all<ET, I, S>(
         &mut self,
         _emulator_modules: &mut EmulatorModules<ET, I, S>,
-        _state: Option<&mut S>,
+        _state: &mut S,
         _pc: GuestAddr,
         _ret_addr: GuestAddr,
     ) where
@@ -156,7 +156,7 @@ where
     fn on_call_all<ET, I, S>(
         &mut self,
         emulator_modules: &mut EmulatorModules<ET, I, S>,
-        mut state: Option<&mut S>,
+        state: &mut S,
         pc: GuestAddr,
         call_len: usize,
     ) where
@@ -164,22 +164,14 @@ where
         I: Unpin,
         S: Unpin,
     {
-        self.0.on_call(
-            emulator_modules,
-            match state.as_mut() {
-                Some(s) => Some(*s),
-                None => None,
-            },
-            pc,
-            call_len,
-        );
+        self.0.on_call(emulator_modules, state, pc, call_len);
         self.1.on_call_all(emulator_modules, state, pc, call_len);
     }
 
     fn on_ret_all<ET, I, S>(
         &mut self,
         emulator_modules: &mut EmulatorModules<ET, I, S>,
-        mut state: Option<&mut S>,
+        state: &mut S,
         pc: GuestAddr,
         ret_addr: GuestAddr,
     ) where
@@ -187,15 +179,7 @@ where
         I: Unpin,
         S: Unpin,
     {
-        self.0.on_ret(
-            emulator_modules,
-            match state.as_mut() {
-                Some(s) => Some(*s),
-                None => None,
-            },
-            pc,
-            ret_addr,
-        );
+        self.0.on_ret(emulator_modules, state, pc, ret_addr);
         self.1.on_ret_all(emulator_modules, state, pc, ret_addr);
     }
 
@@ -254,7 +238,7 @@ where
     fn on_ret<ET, I, S>(
         qemu: Qemu,
         emulator_modules: &mut EmulatorModules<ET, I, S>,
-        state: Option<&mut S>,
+        state: &mut S,
         pc: GuestAddr,
     ) where
         ET: EmulatorModuleTuple<I, S>,
@@ -285,7 +269,7 @@ where
     fn gen_blocks_calls<ET, I, S>(
         qemu: Qemu,
         emulator_modules: &mut EmulatorModules<ET, I, S>,
-        _state: Option<&mut S>,
+        _state: &mut S,
         pc: GuestAddr,
     ) -> Option<u64>
     where
@@ -379,7 +363,7 @@ where
             let call_cb = Box::new(
                 move |_qemu: Qemu,
                       emulator_modules: &mut EmulatorModules<ET, I, S>,
-                      state: Option<&mut S>,
+                      state: &mut S,
                       pc| {
                     // eprintln!("CALL @ 0x{:#x}", pc + call_len);
                     let mut collectors = if let Some(h) = emulator_modules.get_mut::<Self>() {
@@ -525,7 +509,7 @@ where
     fn on_call<ET, I, S>(
         &mut self,
         _emulator_modules: &mut EmulatorModules<ET, I, S>,
-        _state: Option<&mut S>,
+        _state: &mut S,
         pc: GuestAddr,
         call_len: usize,
     ) where
@@ -540,7 +524,7 @@ where
     fn on_ret<ET, I, S>(
         &mut self,
         _emulator_modules: &mut EmulatorModules<ET, I, S>,
-        _state: Option<&mut S>,
+        _state: &mut S,
         _pc: GuestAddr,
         ret_addr: GuestAddr,
     ) where
@@ -572,6 +556,7 @@ where
         let observer = observers
             .get_mut(&self.observer_handle)
             .expect("A OnCrashBacktraceCollector needs a BacktraceObserver");
+
         observer.fill_external(self.callstack_hash, exit_kind);
     }
 }
@@ -643,7 +628,7 @@ impl CallTraceCollector for FullBacktraceCollector {
     fn on_call<ET, I, S>(
         &mut self,
         _emulator_modules: &mut EmulatorModules<ET, I, S>,
-        _state: Option<&mut S>,
+        _state: &mut S,
         pc: GuestAddr,
         call_len: usize,
     ) where
@@ -663,7 +648,7 @@ impl CallTraceCollector for FullBacktraceCollector {
     fn on_ret<ET, I, S>(
         &mut self,
         _emulator_modules: &mut EmulatorModules<ET, I, S>,
-        _state: Option<&mut S>,
+        _state: &mut S,
         _pc: GuestAddr,
         ret_addr: GuestAddr,
     ) where

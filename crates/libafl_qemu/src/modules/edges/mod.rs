@@ -431,7 +431,6 @@ mod tests {
                 OwnedMutSlice::from_raw_parts_mut(edges_map_mut_ptr(), EDGES_MAP_DEFAULT_SIZE),
                 &raw mut MAX_EDGES_FOUND,
             ))
-            .track_indices()
         };
 
         StdEdgeCoverageModule::builder()

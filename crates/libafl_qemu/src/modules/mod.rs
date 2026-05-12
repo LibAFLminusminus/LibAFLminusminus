@@ -162,12 +162,16 @@ pub trait EmulatorModule<I, S>: 'static + Debug {
     /// # Safety
     ///
     /// This is getting executed in a signal handler.
-    unsafe fn on_crash(&mut self) {}
+    unsafe fn on_crash(&mut self) -> Result<()> {
+        Ok(())
+    }
 
     /// # Safety
     ///
     /// This is getting executed in a signal handler.
-    unsafe fn on_timeout(&mut self) {}
+    unsafe fn on_timeout(&mut self) -> Result<()> {
+        Ok(())
+    }
 }
 
 pub trait EmulatorModuleTuple<I, S>:
@@ -224,12 +228,12 @@ pub trait EmulatorModuleTuple<I, S>:
     /// # Safety
     ///
     /// This is getting executed in a signal handler.
-    unsafe fn on_crash_all(&mut self);
+    unsafe fn on_crash_all(&mut self) -> Result<()>;
 
     /// # Safety
     ///
     /// This is getting executed in a signal handler.
-    unsafe fn on_timeout_all(&mut self);
+    unsafe fn on_timeout_all(&mut self) -> Result<()>;
 }
 
 impl<I, S> EmulatorModuleTuple<I, S> for ()
@@ -297,9 +301,13 @@ where
         Ok(())
     }
 
-    unsafe fn on_crash_all(&mut self) {}
+    unsafe fn on_crash_all(&mut self) -> Result<()> {
+        Ok(())
+    }
 
-    unsafe fn on_timeout_all(&mut self) {}
+    unsafe fn on_timeout_all(&mut self) -> Result<()> {
+        Ok(())
+    }
 }
 
 impl<Head, Tail, I, S> EmulatorModuleTuple<I, S> for (Head, Tail)
@@ -378,17 +386,17 @@ where
             .post_exec_all(qemu, emulator_modules, state, input, observers, exit_kind)
     }
 
-    unsafe fn on_crash_all(&mut self) {
+    unsafe fn on_crash_all(&mut self) -> Result<()> {
         unsafe {
-            self.0.on_crash();
-            self.1.on_crash_all();
+            self.0.on_crash()?;
+            self.1.on_crash_all()
         }
     }
 
-    unsafe fn on_timeout_all(&mut self) {
+    unsafe fn on_timeout_all(&mut self) -> Result<()> {
         unsafe {
-            self.0.on_timeout();
-            self.1.on_timeout_all();
+            self.0.on_timeout()?;
+            self.1.on_timeout_all()
         }
     }
 }
@@ -473,15 +481,23 @@ where
         }
     }
 
-    unsafe fn on_crash(&mut self) {
+    unsafe fn on_crash(&mut self) -> Result<()> {
         if let Some(m) = self {
-            unsafe { m.on_crash() };
+            unsafe {
+                m.on_crash()?;
+            }
         }
+
+        Ok(())
     }
 
-    unsafe fn on_timeout(&mut self) {
+    unsafe fn on_timeout(&mut self) -> Result<()> {
         if let Some(m) = self {
-            unsafe { m.on_timeout() };
+            unsafe {
+                m.on_timeout()?;
+            }
         }
+
+        Ok(())
     }
 }

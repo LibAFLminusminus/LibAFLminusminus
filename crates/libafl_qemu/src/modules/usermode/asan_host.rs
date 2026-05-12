@@ -9,11 +9,12 @@ use std::{
     fs,
     path::PathBuf,
     pin::Pin,
+    result,
     sync::Mutex,
 };
 
 use hashbrown::{HashMap, HashSet};
-use libafl::{executors::ExitKind, observers::ObserversTuple};
+use libafl::{Result, executors::ExitKind, observers::ObserversTuple};
 use libafl_bolts::os::unix_signals::Signal;
 use libafl_qemu_sys::{GuestAddr, GuestUlong, MapInfo};
 use libc::{
@@ -194,13 +195,13 @@ impl AsanErrorCallback {
 impl TryFrom<u32> for QasanAction {
     type Error = num_enum::TryFromPrimitiveError<QasanAction>;
 
-    fn try_from(value: u32) -> Result<Self, Self::Error> {
+    fn try_from(value: u32) -> result::Result<Self, Self::Error> {
         QasanAction::try_from(u64::from(value))
     }
 }
 
 impl Display for AsanError {
-    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> result::Result<(), fmt::Error> {
         match self {
             AsanError::Read(addr, len) => write!(fmt, "Invalid {len} bytes read at {addr:#x}"),
             AsanError::Write(addr, len) => {
@@ -1076,7 +1077,8 @@ where
         qemu: Qemu,
         emulator_modules: &mut EmulatorModules<ET, I, S>,
         _state: &mut S,
-    ) where
+    ) -> Result<()>
+    where
         ET: EmulatorModuleTuple<I, S>,
     {
         if let Some(asan_lib) = &self.asan_lib {
@@ -1119,6 +1121,8 @@ where
                 Hook::Function(trace_write_n_asan_snapshot::<ET, I, S>),
             );
         }
+
+        Ok(())
     }
 
     fn pre_exec<ET>(
@@ -1127,7 +1131,8 @@ where
         _emulator_modules: &mut EmulatorModules<ET, I, S>,
         _state: &mut S,
         _input: &I,
-    ) where
+    ) -> Result<()>
+    where
         ET: EmulatorModuleTuple<I, S>,
     {
         self.rt.error_found = false;
@@ -1136,6 +1141,8 @@ where
             self.rt.snapshot(qemu);
             self.empty = false;
         }
+
+        Ok(())
     }
 
     fn post_exec<OT, ET>(
@@ -1146,7 +1153,8 @@ where
         _input: &I,
         _observers: &mut OT,
         exit_kind: &mut ExitKind,
-    ) where
+    ) -> Result<()>
+    where
         ET: EmulatorModuleTuple<I, S>,
         OT: ObserversTuple<S>,
     {
@@ -1159,6 +1167,8 @@ where
         if self.reset(qemu) == AsanRollback::HasLeaks {
             *exit_kind = ExitKind::Crash;
         }
+
+        Ok(())
     }
 }
 
@@ -1190,7 +1200,7 @@ pub fn oncrash_asan<ET, I, S>(
 pub fn gen_readwrite_asan<ET, I, S>(
     _qemu: Qemu,
     emulator_modules: &mut EmulatorModules<ET, I, S>,
-    _state: Option<&mut S>,
+    _state: &mut S,
     pc: GuestAddr,
     _addr: *mut TCGTemp,
     _info: MemAccessInfo,
@@ -1220,7 +1230,7 @@ where
 pub fn trace_read_asan<ET, I, S, const N: usize>(
     qemu: Qemu,
     emulator_modules: &mut EmulatorModules<ET, I, S>,
-    _state: Option<&mut S>,
+    _state: &mut S,
     id: u64,
     _pc: GuestAddr,
     addr: GuestAddr,
@@ -1236,7 +1246,7 @@ pub fn trace_read_asan<ET, I, S, const N: usize>(
 pub fn trace_read_n_asan<ET, I, S>(
     qemu: Qemu,
     emulator_modules: &mut EmulatorModules<ET, I, S>,
-    _state: Option<&mut S>,
+    _state: &mut S,
     id: u64,
     _pc: GuestAddr,
     addr: GuestAddr,
@@ -1253,7 +1263,7 @@ pub fn trace_read_n_asan<ET, I, S>(
 pub fn trace_write_asan<ET, I, S, const N: usize>(
     qemu: Qemu,
     emulator_modules: &mut EmulatorModules<ET, I, S>,
-    _state: Option<&mut S>,
+    _state: &mut S,
     id: u64,
     _pc: GuestAddr,
     addr: GuestAddr,
@@ -1269,7 +1279,7 @@ pub fn trace_write_asan<ET, I, S, const N: usize>(
 pub fn trace_write_n_asan<ET, I, S>(
     qemu: Qemu,
     emulator_modules: &mut EmulatorModules<ET, I, S>,
-    _state: Option<&mut S>,
+    _state: &mut S,
     id: u64,
     _pc: GuestAddr,
     addr: GuestAddr,
@@ -1286,7 +1296,7 @@ pub fn trace_write_n_asan<ET, I, S>(
 pub fn gen_write_asan_snapshot<ET, I, S>(
     _qemu: Qemu,
     emulator_modules: &mut EmulatorModules<ET, I, S>,
-    _state: Option<&mut S>,
+    _state: &mut S,
     pc: GuestAddr,
     _addr: *mut TCGTemp,
     _info: MemAccessInfo,
@@ -1316,7 +1326,7 @@ where
 pub fn trace_write_asan_snapshot<ET, I, S, const N: usize>(
     qemu: Qemu,
     emulator_modules: &mut EmulatorModules<ET, I, S>,
-    _state: Option<&mut S>,
+    _state: &mut S,
     id: u64,
     _pc: GuestAddr,
     addr: GuestAddr,
@@ -1336,7 +1346,7 @@ pub fn trace_write_asan_snapshot<ET, I, S, const N: usize>(
 pub fn trace_write_n_asan_snapshot<ET, I, S>(
     qemu: Qemu,
     emulator_modules: &mut EmulatorModules<ET, I, S>,
-    _state: Option<&mut S>,
+    _state: &mut S,
     id: u64,
     _pc: GuestAddr,
     addr: GuestAddr,
@@ -1358,7 +1368,7 @@ pub fn trace_write_n_asan_snapshot<ET, I, S>(
 pub fn qasan_fake_syscall<ET, I, S>(
     qemu: Qemu,
     emulator_modules: &mut EmulatorModules<ET, I, S>,
-    _state: Option<&mut S>,
+    _state: &mut S,
     sys_num: i32,
     a0: GuestUlong,
     a1: GuestUlong,

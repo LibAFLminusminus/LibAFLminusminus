@@ -88,7 +88,7 @@ mod generators {
     >(
         qemu: Qemu,
         emulator_modules: &mut EmulatorModules<ET, I, S>,
-        state: Option<&mut S>,
+        state: &mut S,
         src: GuestAddr,
         dest: GuestAddr,
     ) -> Option<u64>
@@ -130,8 +130,7 @@ mod generators {
 
         let mask: usize = get_mask::<IS_CONST_MAP, MAP_SIZE>();
 
-        let state = state.expect("The gen_unique_edge_ids hook works only for in-process fuzzing. Is the Executor initialized?");
-        let meta = state.metadata_or_insert_with(QemuEdgesMapMetadata::new);
+        let meta = state.get_md_or_insert_with(QemuEdgesMapMetadata::new);
 
         match meta.map.entry((src, dest)) {
             Entry::Occupied(e) => {
@@ -176,7 +175,7 @@ mod generators {
     >(
         qemu: Qemu,
         emulator_modules: &mut EmulatorModules<ET, I, S>,
-        _state: Option<&mut S>,
+        _state: &mut S,
         src: GuestAddr,
         dest: GuestAddr,
     ) -> Option<u64>
@@ -240,7 +239,7 @@ mod generators {
     >(
         qemu: Qemu,
         emulator_modules: &mut EmulatorModules<ET, I, S>,
-        _state: Option<&mut S>,
+        _state: &mut S,
         pc: GuestAddr,
     ) -> Option<u64>
     where

@@ -3,6 +3,7 @@
 use std::{cell::UnsafeCell, mem::MaybeUninit, ops::Range, sync::Mutex};
 
 use hashbrown::{HashMap, HashSet};
+use libafl::Result;
 use libafl_qemu_sys::{GuestAddr, GuestUlong, MmapPerms};
 use meminterval::{Interval, IntervalTree};
 use thread_local::ThreadLocal;
@@ -814,7 +815,8 @@ where
         _emulator_modules: &mut EmulatorModules<ET, I, S>,
         _state: &mut S,
         _input: &I,
-    ) where
+    ) -> Result<()>
+    where
         ET: EmulatorModuleTuple<I, S>,
     {
         if self.empty {
@@ -822,6 +824,8 @@ where
         } else if self.auto_reset {
             self.reset(qemu);
         }
+
+        Ok(())
     }
 }
 
@@ -839,7 +843,7 @@ impl HasAddressFilter for SnapshotModule {
 pub fn trace_write_snapshot<ET, I, S, const SIZE: usize>(
     _qemu: Qemu,
     emulator_modules: &mut EmulatorModules<ET, I, S>,
-    _state: Option<&mut S>,
+    _state: &mut S,
     _id: u64,
     _pc: GuestAddr,
     addr: GuestAddr,
@@ -855,7 +859,7 @@ pub fn trace_write_snapshot<ET, I, S, const SIZE: usize>(
 pub fn trace_write_n_snapshot<ET, I, S>(
     _qemu: Qemu,
     emulator_modules: &mut EmulatorModules<ET, I, S>,
-    _state: Option<&mut S>,
+    _state: &mut S,
     _id: u64,
     _pc: GuestAddr,
     addr: GuestAddr,
@@ -874,7 +878,7 @@ pub fn trace_write_n_snapshot<ET, I, S>(
 pub fn filter_mmap_snapshot<ET, I, S>(
     _qemu: Qemu,
     emulator_modules: &mut EmulatorModules<ET, I, S>,
-    _state: Option<&mut S>,
+    _state: &mut S,
     sys_num: i32,
     a0: GuestUlong,
     a1: GuestUlong,
@@ -921,7 +925,7 @@ where
 pub fn trace_mmap_snapshot<ET, I, S>(
     _qemu: Qemu,
     emulator_modules: &mut EmulatorModules<ET, I, S>,
-    _state: Option<&mut S>,
+    _state: &mut S,
     result: GuestUlong,
     sys_num: i32,
     a0: GuestUlong,

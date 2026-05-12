@@ -3,9 +3,7 @@ use libafl_qemu_sys::{GuestAddr, MmapPerms, VerifyAccess};
 
 #[cfg(doc)]
 use crate::Qemu;
-use crate::{
-    CPU, Emulator, GuestMaps, NopSnapshotManager, Regs, StdEmulator, TargetSignalHandling,
-};
+use crate::{CPU, GuestMaps, NopSnapshotManager, Regs, StdEmulator, TargetSignalHandling};
 
 pub type StdSnapshotManager = NopSnapshotManager;
 

@@ -1,5 +1,6 @@
 use core::fmt::Debug;
 
+use libafl::Result;
 use libafl_bolts::HasLen;
 use libafl_qemu_sys::GuestUlong;
 
@@ -72,10 +73,13 @@ where
         _qemu: Qemu,
         emulator_modules: &mut EmulatorModules<ET, I, S>,
         _state: &mut S,
-    ) where
+    ) -> Result<()>
+    where
         ET: EmulatorModuleTuple<I, S>,
     {
         emulator_modules.pre_syscalls(Hook::Function(syscall_read_hook::<ET, I, S>));
+
+        Ok(())
     }
 
     fn pre_exec<ET>(
@@ -84,11 +88,14 @@ where
         _emulator_modules: &mut EmulatorModules<ET, I, S>,
         _state: &mut S,
         input: &I,
-    ) where
+    ) -> Result<()>
+    where
         ET: EmulatorModuleTuple<I, S>,
     {
         self.total = input.len();
         self.read = 0;
+
+        Ok(())
     }
 }
 
@@ -96,7 +103,7 @@ where
 fn syscall_read_hook<ET, I, S>(
     _qemu: Qemu,
     emulator_modules: &mut EmulatorModules<ET, I, S>,
-    _state: Option<&mut S>,
+    _state: &mut S,
     syscall: i32,
     x0: GuestUlong,
     x1: GuestUlong,

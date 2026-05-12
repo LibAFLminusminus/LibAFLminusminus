@@ -145,7 +145,7 @@ pub struct DrCovModule<F> {
 pub fn gen_unique_block_ids<ET, F, I, S>(
     _qemu: Qemu,
     emulator_modules: &mut EmulatorModules<ET, I, S>,
-    state: Option<&mut S>,
+    state: &mut S,
     pc: GuestAddr,
 ) -> Option<u64>
 where
@@ -159,16 +159,7 @@ where
         return None;
     }
 
-    let state = state.expect("The gen_unique_block_ids hook works only for in-process fuzzing. Is the Executor initialized?");
-    if state
-        .named_metadata_map_mut()
-        .get_mut::<DrCovMetadata>()
-        .is_none()
-    {
-        state.add_metadata(DrCovMetadata::new());
-    }
-
-    let meta = state.metadata_map_mut().get_mut::<DrCovMetadata>().unwrap();
+    let meta = state.get_md_or_insert_with(DrCovMetadata::new);
 
     match DRCOV_MAP.lock().unwrap().as_mut().unwrap().entry(pc) {
         Entry::Occupied(entry) => {
@@ -191,7 +182,7 @@ where
 pub fn gen_block_lengths<ET, F, I, S>(
     _qemu: Qemu,
     emulator_modules: &mut EmulatorModules<ET, I, S>,
-    _state: Option<&mut S>,
+    _state: &mut S,
     pc: GuestAddr,
     block_length: GuestUsize,
 ) where
@@ -216,7 +207,7 @@ pub fn gen_block_lengths<ET, F, I, S>(
 pub fn exec_trace_block<ET, F, I, S>(
     _qemu: Qemu,
     _emulator_modules: &mut EmulatorModules<ET, I, S>,
-    _state: Option<&mut S>,
+    _state: &mut S,
     id: u64,
 ) where
     ET: EmulatorModuleTuple<I, S>,
@@ -379,12 +370,12 @@ where
         self.flush()
     }
 
-    unsafe fn on_crash(&mut self) {
-        self.flush();
+    unsafe fn on_crash(&mut self) -> Result<()> {
+        self.flush()
     }
 
-    unsafe fn on_timeout(&mut self) {
-        self.flush();
+    unsafe fn on_timeout(&mut self) -> Result<()> {
+        self.flush()
     }
 }
 

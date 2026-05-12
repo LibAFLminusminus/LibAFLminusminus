@@ -4,6 +4,8 @@ use hashbrown::HashMap;
 use libafl::{Result, states::FlatState};
 use libafl_bolts::hash_64_fast;
 use libafl_qemu_sys::GuestAddr;
+#[cfg(feature = "usermode")]
+use libafl_targets::CMPLOG_ENABLED;
 pub use libafl_targets::{
     CMPLOG_MAP_H, CMPLOG_MAP_PTR, CMPLOG_MAP_SIZE, CMPLOG_MAP_W, CmpLogMap,
     cmps::{__libafl_targets_cmplog_instructions, __libafl_targets_cmplog_routines},
@@ -196,7 +198,7 @@ impl HasPageFilter for CmpLogChildModule {
 pub fn gen_unique_cmp_ids<ET, I, S>(
     _qemu: Qemu,
     emulator_modules: &mut EmulatorModules<ET, I, S>,
-    state: Option<&mut S>,
+    state: &mut S,
     pc: GuestAddr,
     _size: usize,
 ) -> Option<u64>
@@ -211,14 +213,7 @@ where
         return None;
     }
 
-    let state = state.expect("The gen_unique_cmp_ids hook works only for in-process fuzzing. Is the Executor initialized?");
-    if state.metadata_map().get::<QemuCmpsMapMetadata>().is_none() {
-        state.add_metadata(QemuCmpsMapMetadata::new());
-    }
-    let meta = state
-        .metadata_map_mut()
-        .get_mut::<QemuCmpsMapMetadata>()
-        .unwrap();
+    let meta = state.get_md_or_insert_with::<QemuCmpsMapMetadata>(QemuCmpsMapMetadata::new);
     let id = meta.current_id as usize;
 
     Some(*meta.map.entry(pc as u64).or_insert_with(|| {
@@ -231,7 +226,7 @@ where
 pub fn gen_hashed_cmp_ids<ET, I, S>(
     _qemu: Qemu,
     emulator_modules: &mut EmulatorModules<ET, I, S>,
-    _state: Option<&mut S>,
+    _state: &mut S,
     pc: GuestAddr,
     _size: usize,
 ) -> Option<u64>
@@ -325,7 +320,7 @@ impl CmpLogRoutinesModule {
     fn gen_blocks_calls<ET, I, S>(
         qemu: Qemu,
         emulator_modules: &mut EmulatorModules<ET, I, S>,
-        _state: Option<&mut S>,
+        _state: &mut S,
         pc: GuestAddr,
     ) -> Option<u64>
     where

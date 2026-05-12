@@ -3,6 +3,7 @@
 
 use std::{env, fmt::Debug, fs, ops::Range, path::PathBuf};
 
+use libafl::Result;
 use libafl_qemu_sys::{GuestAddr, MapInfo};
 
 use super::IntervalSnapshotFilter;
@@ -100,7 +101,7 @@ where
 fn gen_readwrite_guest_asan<ET, F, I, S>(
     _qemu: Qemu,
     emulator_modules: &mut EmulatorModules<ET, I, S>,
-    _state: Option<&mut S>,
+    _state: &mut S,
     pc: GuestAddr,
     addr: *mut TCGTemp,
     info: MemAccessInfo,
@@ -143,7 +144,7 @@ unsafe fn libafl_tcg_gen_asan(addr: *mut TCGTemp, size: usize) {}
 fn guest_trace_error_asan<ET, I, S>(
     _qemu: Qemu,
     _emulator_modules: &mut EmulatorModules<ET, I, S>,
-    _state: Option<&mut S>,
+    _state: &mut S,
     _id: u64,
     _pc: GuestAddr,
     _addr: GuestAddr,
@@ -159,7 +160,7 @@ fn guest_trace_error_asan<ET, I, S>(
 fn guest_trace_error_n_asan<ET, I, S>(
     _qemu: Qemu,
     _emulator_modules: &mut EmulatorModules<ET, I, S>,
-    _state: Option<&mut S>,
+    _state: &mut S,
     _id: u64,
     _pc: GuestAddr,
     _addr: GuestAddr,
@@ -274,7 +275,8 @@ where
         qemu: Qemu,
         emulator_modules: &mut EmulatorModules<ET, I, S>,
         _state: &mut S,
-    ) where
+    ) -> Result<()>
+    where
         ET: EmulatorModuleTuple<I, S>,
         I: Unpin,
         S: Unpin,
@@ -332,6 +334,8 @@ where
             Hook::Function(guest_trace_error_asan::<ET, I, S>),
             Hook::Function(guest_trace_error_n_asan::<ET, I, S>),
         );
+
+        Ok(())
     }
 }
 

@@ -7,6 +7,7 @@ use std::{cell::OnceCell, fmt::Debug, result};
 
 use libafl::{Result, executors::ExitKind, inputs::Input, observers::ObserversTuple};
 use libafl_bolts::os::{CTRL_C_EXIT, unix_signals::Signal};
+use libafl_core::runtime;
 
 #[cfg(not(feature = "systemmode"))]
 use crate::InputLocation;
@@ -63,6 +64,12 @@ pub enum EmulatorDriverError {
     SnapshotNotFound,
     NotStartedYet,
     EndBeforeStart,
+}
+
+impl From<EmulatorDriverError> for libafl::Error {
+    fn from(value: EmulatorDriverError) -> Self {
+        runtime!("Emulator driver error: {value:?}")
+    }
 }
 
 impl From<QemuError> for EmulatorDriverError {

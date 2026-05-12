@@ -1,14 +1,16 @@
 //! A `QEMU`-based executor for binary-only instrumentation in `LibAFL`
 
-use crate::Emulator;
 #[cfg(feature = "usermode")]
-use crate::{Qemu, QemuSignalContext};
+use std::str;
+#[cfg(feature = "systemmode")]
+use std::sync::atomic::{AtomicBool, Ordering};
+
 use libafl::{
-    DependencyResolver, Result,
+    DependencyResolver, Result, Worker,
     executors::{Executor, ExitKind},
     observers::ObserversTuple,
     runtimes::{
-        OsTerminationParams,
+        OsTerminationParams, RuntimeHandle,
         inprocess::{CrashStatus, TimeoutStatus},
     },
 };
@@ -17,10 +19,10 @@ use libafl_bolts::minibsod;
 use libafl_bolts::tuples::RefIndexable;
 #[cfg(feature = "systemmode")]
 use libafl_qemu_sys::libafl_exit_request_timeout;
+
+use crate::Emulator;
 #[cfg(feature = "usermode")]
-use std::str;
-#[cfg(feature = "systemmode")]
-use std::sync::atomic::{AtomicBool, Ordering};
+use crate::{Qemu, QemuSignalContext};
 
 pub struct QemuExecutor<EMU, OT, PRE, POST> {
     emulator: EMU,
@@ -68,10 +70,10 @@ where
 {
     type Observers = OT;
 
-    fn init<W: libafl::Worker>(
+    fn init<W: Worker>(
         &mut self,
         state: &mut S,
-        _rt_handle: &mut libafl::runtimes::RuntimeHandle<S, W>,
+        _rt_handle: &mut RuntimeHandle<S, W>,
     ) -> Result<()> {
         self.emulator.first_exec(state)
     }
