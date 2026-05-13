@@ -10,10 +10,8 @@ use core::{
     hash::Hash,
     ops::{DerefMut, RangeBounds},
 };
-#[cfg(feature = "std")]
 use std::{fs::File, io::Read, path::Path};
 
-#[cfg(feature = "std")]
 use libafl_bolts::fs::write_file_atomic;
 use libafl_bolts::{
     Error, HasLen, generic_hash_std,
@@ -42,7 +40,6 @@ pub use nautilus::*;
 pub type MutVecInput<'a> = &'a mut Vec<u8>;
 
 /// An input for the target
-#[cfg(feature = "std")]
 pub trait Input: Clone + Serialize + serde::de::DeserializeOwned + Debug + Hash {
     /// Write this input to the file
     fn to_file<P>(&self, path: P) -> Result<(), Error>

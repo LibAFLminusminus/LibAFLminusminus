@@ -3,16 +3,13 @@
 use alloc::vec::Vec;
 use core::{fmt::Debug, time::Duration};
 
-#[cfg(feature = "std")]
 use ::std::path::PathBuf;
 #[cfg(unix)]
 use libafl_bolts::os::unix_signals::Signal;
-#[cfg(feature = "std")]
 use libafl_bolts::{core_affinity::CoreId, tuples::Handle};
 use serde::{Deserialize, Serialize};
 use tuple_list_ex::RefIndexable;
 
-#[cfg(feature = "std")]
 use crate::observers::{StdErrObserver, StdOutObserver};
 use crate::{
     DependencyResolver, Error, Worker,
@@ -216,7 +213,6 @@ pub fn common_signals() -> Vec<Signal> {
 }
 
 /// The inner shared members of [`StdChildArgs`]
-#[cfg(feature = "std")]
 #[derive(Debug, Clone)]
 pub struct StdChildArgsInner {
     /// The timeout of the children
@@ -233,7 +229,6 @@ pub struct StdChildArgsInner {
     pub core: Option<CoreId>,
 }
 
-#[cfg(feature = "std")]
 impl Default for StdChildArgsInner {
     fn default() -> Self {
         Self {
@@ -247,7 +242,6 @@ impl Default for StdChildArgsInner {
     }
 }
 
-#[cfg(feature = "std")]
 /// The shared implementation for children with stdout/stderr/timeouts.
 pub trait StdChildArgs: Sized {
     /// The inner struct of child environment.

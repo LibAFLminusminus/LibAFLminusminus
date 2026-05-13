@@ -21,9 +21,7 @@ pub use havoc_mutations::*;
 pub mod numeric;
 pub use numeric::int_mutators;
 
-#[cfg(feature = "std")]
 pub mod hash;
-#[cfg(feature = "std")]
 pub use hash::*;
 
 #[cfg(feature = "nautilus")]

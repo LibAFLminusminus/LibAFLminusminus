@@ -3,7 +3,6 @@
 #![doc = include_str!("../README.md")]
 /*! */
 #![cfg_attr(feature = "document-features", doc = document_features::document_features!())]
-#![no_std]
 #![cfg_attr(not(test), warn(
     missing_debug_implementations,
     missing_docs,

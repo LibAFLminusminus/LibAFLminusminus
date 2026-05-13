@@ -92,7 +92,6 @@ pub mod windows_asan_handler {
                         "ASAN detected crash but we're not in the target... Bug in the fuzzer? Exiting.",
                     );
                 }
-                #[cfg(feature = "std")]
                 {
                     log::error!("Type QUIT to restart the child");
                     let mut line = String::new();
@@ -133,7 +132,6 @@ pub mod windows_asan_handler {
 
 /// The module to take care of windows crash or timeouts
 pub mod windows_exception_handler {
-    #[cfg(feature = "std")]
     use alloc::boxed::Box;
     use alloc::{string::String, vec::Vec};
     use core::{
@@ -142,9 +140,7 @@ pub mod windows_exception_handler {
         ptr,
         sync::atomic::{Ordering, compiler_fence},
     };
-    #[cfg(feature = "std")]
     use std::io::Write;
-    #[cfg(feature = "std")]
     use std::panic;
 
     use libafl_bolts::os::{
@@ -216,7 +212,6 @@ pub mod windows_exception_handler {
     ///
     /// # Safety
     /// Well, exception handling is not safe
-    #[cfg(feature = "std")]
     pub fn setup_panic_hook<E, EM, I, OF, S, Z>()
     where
         E: Executor<EM, I, S, Z> + HasObservers,
@@ -382,7 +377,6 @@ pub mod windows_exception_handler {
 
         // Is this really crash?
         let mut is_crash = true;
-        #[cfg(feature = "std")]
         if let Some(exception_pointers) = unsafe { exception_pointers.as_mut() } {
             let code: ExceptionCode = ExceptionCode::from(unsafe {
                 exception_pointers
@@ -431,7 +425,6 @@ pub mod windows_exception_handler {
                     "We crashed at addr 0x{crash_addr:x}, but are not in the target... Bug in the fuzzer? Exiting."
                 );
             }
-            #[cfg(feature = "std")]
             {
                 log::error!("Type QUIT to restart the child");
                 let mut line = String::new();

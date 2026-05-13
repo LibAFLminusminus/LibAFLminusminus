@@ -9,7 +9,6 @@ use core::{
     ops::{Add, AddAssign, Deref},
     slice::Iter,
 };
-#[cfg(feature = "std")]
 use std::{
     fs::File,
     io::{BufRead, BufReader},
@@ -20,7 +19,6 @@ use hashbrown::HashSet;
 use libafl_bolts::{AsSlice, rands::Rand};
 use serde::{Deserialize, Serialize};
 
-#[cfg(feature = "std")]
 use crate::mutators::str_decode;
 use crate::{
     Error, EvaluationResult,
@@ -64,7 +62,6 @@ impl Tokens {
     }
 
     /// Build [`Tokens`] from files
-    #[cfg(feature = "std")]
     pub fn add_from_files<IT, P>(mut self, files: IT) -> Result<Self, Error>
     where
         IT: IntoIterator<Item = P>,
@@ -132,7 +129,6 @@ impl Tokens {
     }
 
     /// Creates a new [`Tokens`] from a file
-    #[cfg(feature = "std")]
     pub fn from_file<P>(file: P) -> Result<Self, Error>
     where
         P: AsRef<Path>,
@@ -154,7 +150,6 @@ impl Tokens {
     }
 
     /// Reads a [`Tokens`] file, returning the count of new entries read
-    #[cfg(feature = "std")]
     pub fn add_from_file<P>(&mut self, file: P) -> Result<&mut Self, Error>
     where
         P: AsRef<Path>,

@@ -6,7 +6,6 @@ use core::{fmt::Debug, hash::Hash, marker::PhantomData};
 
 use libafl_bolts::{Error, ownedref::OwnedSlice, rands::Rand};
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "std")]
 use {
     libafl_bolts::fs::write_file_atomic,
     std::{fs::File, io::Read, path::Path},
@@ -179,7 +178,6 @@ impl_numeric_cast_randomize!( u8 u16 u32 u64 usize i8 i16 i32 i64 isize );
 /// manually implemented because files can be written more efficiently
 impl Input for ValueInput<Vec<u8>> {
     /// Write this input to the file
-    #[cfg(feature = "std")]
     fn to_file<P>(&self, path: P) -> Result<(), Error>
     where
         P: AsRef<Path>,
@@ -189,7 +187,6 @@ impl Input for ValueInput<Vec<u8>> {
     }
 
     /// Load the content of this input from a file
-    #[cfg(feature = "std")]
     fn from_file<P>(path: P) -> Result<Self, Error>
     where
         P: AsRef<Path>,

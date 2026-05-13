@@ -4,7 +4,6 @@
 #![doc = include_str!("../README.md")]
 /*! */
 #![cfg_attr(feature = "document-features", doc = document_features::document_features!())]
-#![no_std]
 #![cfg_attr(not(test), warn(
     missing_debug_implementations,
     missing_docs,
@@ -69,17 +68,13 @@ macro_rules! format {
     }};
 }
 /// Re-export of the "format" macro
-#[cfg(feature = "alloc")]
 pub use alloc::{borrow::Cow, format};
 
-#[cfg(feature = "std")]
 #[macro_use]
 extern crate std;
-#[cfg(feature = "alloc")]
 #[doc(hidden)]
 pub extern crate alloc;
 
-#[cfg(feature = "alloc")]
 use alloc::vec::Vec;
 use core::{
     array::TryFromSliceError,
@@ -87,12 +82,10 @@ use core::{
     num::{ParseIntError, TryFromIntError},
     ops::{Deref, DerefMut},
 };
-#[cfg(feature = "std")]
 use std::{env::VarError, io};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "alloc")]
 use {
     alloc::string::{FromUtf8Error, String},
     core::cell::{BorrowError, BorrowMutError},
@@ -171,7 +164,6 @@ pub enum Error {
     /// Shutting down, not really an error.
     ShuttingDown,
     /// OS error, wrapping a [`io::Error`]
-    #[cfg(feature = "std")]
     OsError(io::Error, String, ErrorBacktrace),
     /// Something else happened
     Unknown(String, ErrorBacktrace),
@@ -299,7 +291,6 @@ impl Error {
     }
 
     /// OS error with additional message
-    #[cfg(feature = "std")]
     #[must_use]
     pub fn os_error<S>(err: io::Error, msg: S) -> Self
     where
@@ -309,7 +300,6 @@ impl Error {
     }
 
     /// OS error from [`io::Error::last_os_error`] with additional message
-    #[cfg(feature = "std")]
     #[must_use]
     pub fn last_os_error<S>(msg: S) -> Self
     where
@@ -456,21 +446,18 @@ macro_rules! internal_bug {
 }
 
 /// build an [`Error::OsError`] from an [`io::Error`].
-#[cfg(feature = "std")]
 #[macro_export]
 macro_rules! os_error {
     ($err:expr, $($arg:tt)*) => { $crate::Error::os_error($err, $crate::format!($($arg)*)) };
 }
 
 /// build an [`Error::OsError`] from [`io::Error::last_os_error`].
-#[cfg(feature = "std")]
 #[macro_export]
 macro_rules! last_os_error {
     ($($arg:tt)*) => { $crate::Error::last_os_error($crate::format!($($arg)*)) };
 }
 
 impl core::error::Error for Error {
-    #[cfg(feature = "std")]
     fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
         if let Self::OsError(err, _, _) = self {
             Some(err)
@@ -538,7 +525,6 @@ impl Display for Error {
                 display_error_backtrace(f, b)
             }
             Self::ShuttingDown => write!(f, "Shutting down!"),
-            #[cfg(feature = "std")]
             Self::OsError(err, s, b) => {
                 write!(f, "OS error: {0}: {1}", &s, err)?;
                 display_error_backtrace(f, b)
@@ -572,14 +558,12 @@ impl Display for Error {
     }
 }
 
-#[cfg(feature = "alloc")]
 impl From<BorrowError> for Error {
     fn from(err: BorrowError) -> Self {
         crate::illegal_state!("Couldn't borrow from a RefCell as immutable: {err:?}")
     }
 }
 
-#[cfg(feature = "alloc")]
 impl From<BorrowMutError> for Error {
     fn from(err: BorrowMutError) -> Self {
         crate::illegal_state!("Couldn't borrow from a RefCell as mutable: {err:?}")
@@ -587,7 +571,6 @@ impl From<BorrowMutError> for Error {
 }
 
 /// Stringify the postcard serializer error
-#[cfg(feature = "alloc")]
 impl From<postcard::Error> for Error {
     fn from(err: postcard::Error) -> Self {
         crate::serialize!("{err:?}")
@@ -602,28 +585,24 @@ impl From<nix::Error> for Error {
 }
 
 /// Create an AFL Error from io Error
-#[cfg(feature = "std")]
 impl From<io::Error> for Error {
     fn from(err: io::Error) -> Self {
         crate::os_error!(err, "io::Error ocurred")
     }
 }
 
-#[cfg(feature = "alloc")]
 impl From<FromUtf8Error> for Error {
     fn from(err: FromUtf8Error) -> Self {
         crate::unknown!("Could not convert byte / utf-8: {err:?}")
     }
 }
 
-#[cfg(feature = "alloc")]
 impl From<Utf8Error> for Error {
     fn from(err: Utf8Error) -> Self {
         crate::unknown!("Could not convert byte / utf-8: {err:?}")
     }
 }
 
-#[cfg(feature = "std")]
 impl From<VarError> for Error {
     fn from(err: VarError) -> Self {
         crate::empty!("Could not get env var: {err:?}")
@@ -849,7 +828,6 @@ pub use nonzero_macros::{non_zero, non_zero_const, nonnull_raw_mut, try_non_zero
 ///
 /// The input closure should fully initialize the new [`Vec`], not leaving any uninitialized bytes.
 // TODO: Use MaybeUninit API at some point.
-#[cfg(feature = "alloc")]
 #[expect(clippy::uninit_vec)]
 pub unsafe fn vec_init<E, F, T>(nb_elts: usize, init_fn: F) -> core::result::Result<Vec<T>, E>
 where
@@ -866,13 +844,11 @@ where
 }
 
 /// We need fixed names for many parts of this lib.
-#[cfg(feature = "alloc")]
 pub trait Named {
     /// Provide the name of this element.
     fn name(&self) -> &Cow<'static, str>;
 }
 
-#[cfg(feature = "alloc")]
 impl Named for () {
     #[inline]
     fn name(&self) -> &Cow<'static, str> {

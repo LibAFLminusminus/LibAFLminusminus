@@ -2,7 +2,6 @@
 #![doc = include_str!("../README.md")]
 /*! */
 #![cfg_attr(feature = "document-features", doc = document_features::document_features!())]
-#![no_std]
 #![cfg_attr(not(test), warn(
     missing_debug_implementations,
     missing_docs,
@@ -44,17 +43,13 @@
     )
 )]
 
-#[cfg(feature = "std")]
 #[macro_use]
 extern crate std;
-#[cfg(feature = "alloc")]
 #[doc(hidden)]
 pub extern crate alloc;
 
-#[cfg(feature = "alloc")]
 use alloc::{borrow::Cow, vec::Vec};
 use core::{any::TypeId, mem::transmute};
-#[cfg(feature = "alloc")]
 use core::{
     any::type_name,
     fmt::{Debug, Formatter},
@@ -62,13 +57,11 @@ use core::{
     ops::{Deref, DerefMut, Index, IndexMut},
 };
 
-#[cfg(feature = "alloc")]
 use libafl_core::Named;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 pub use tuple_list::{TupleList, tuple_list, tuple_list_type};
 
-#[cfg(feature = "alloc")]
 use crate::seal::StackedExtract;
 
 /// Returns if the type `T` is equal to `U`, ignoring lifetimes.
@@ -118,7 +111,6 @@ where
 
 /// Create a [`Vec`] from a tuple list or similar
 /// (We need this trait since we cannot implement `Into` for foreign types)
-#[cfg(feature = "alloc")]
 pub trait IntoVec<T> {
     /// Convert this into a [`Vec`], reversed.
     /// (Having this method around makes some implementations more performant)
@@ -135,7 +127,6 @@ pub trait IntoVec<T> {
     fn into_vec(self) -> Vec<T>;
 }
 
-#[cfg(feature = "alloc")]
 impl<T> IntoVec<T> for () {
     #[inline]
     fn into_vec(self) -> Vec<T> {
@@ -353,7 +344,6 @@ where
     }
 }
 
-#[cfg(feature = "alloc")]
 /// A named tuple
 pub trait NamedTuple {
     /// Gets the name of this tuple
@@ -363,7 +353,6 @@ pub trait NamedTuple {
     fn names(&self) -> Vec<Cow<'static, str>>;
 }
 
-#[cfg(feature = "alloc")]
 impl NamedTuple for () {
     fn name(&self, _index: usize) -> Option<&Cow<'static, str>> {
         None
@@ -374,7 +363,6 @@ impl NamedTuple for () {
     }
 }
 
-#[cfg(feature = "alloc")]
 impl<Head, Tail> NamedTuple for (Head, Tail)
 where
     Head: Named,
@@ -397,7 +385,6 @@ where
 }
 
 /// Match for a name and return the value
-#[cfg(feature = "alloc")]
 pub trait MatchName {
     /// Match for a name and return the borrowed value
     #[deprecated = "Use `.handle` and either `.get` (fallible access) or `[]` (infallible access) instead"]
@@ -407,7 +394,6 @@ pub trait MatchName {
     fn match_name_mut<T>(&mut self, name: &str) -> Option<&mut T>;
 }
 
-#[cfg(feature = "alloc")]
 impl MatchName for () {
     fn match_name<T>(&self, _name: &str) -> Option<&T> {
         None
@@ -417,7 +403,6 @@ impl MatchName for () {
     }
 }
 
-#[cfg(feature = "alloc")]
 #[expect(deprecated)]
 impl<Head, Tail> MatchName for (Head, Tail)
 where
@@ -443,7 +428,6 @@ where
 
 /// Structs that have a [`Handle`] to reference this element by, in maps.
 /// You should use this when you want to avoid specifying types.
-#[cfg(feature = "alloc")]
 pub trait Handled: Named {
     /// Return the [`Handle`]
     fn handle(&self) -> Handle<Self> {
@@ -454,19 +438,16 @@ pub trait Handled: Named {
     }
 }
 
-#[cfg(feature = "alloc")]
 impl<N> Handled for N where N: Named {}
 
 /// Object with the type T and the name associated with its concrete value
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg(feature = "alloc")]
 pub struct Handle<T: ?Sized> {
     name: Cow<'static, str>,
     #[cfg_attr(feature = "serde", serde(skip))]
     phantom: PhantomData<T>,
 }
 
-#[cfg(feature = "alloc")]
 impl<T: ?Sized> Handle<T> {
     /// Create a new [`Handle`] with the given name.
     #[must_use]
@@ -487,7 +468,6 @@ impl<T: ?Sized> Handle<T> {
     }
 }
 
-#[cfg(feature = "alloc")]
 impl<T> Clone for Handle<T> {
     fn clone(&self) -> Self {
         Self {
@@ -497,7 +477,6 @@ impl<T> Clone for Handle<T> {
     }
 }
 
-#[cfg(feature = "alloc")]
 impl<T> Debug for Handle<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("Handle")
@@ -508,7 +487,6 @@ impl<T> Debug for Handle<T> {
 }
 
 /// Search using `Handle `
-#[cfg(feature = "alloc")]
 pub trait MatchNameRef {
     /// Search using name and `Handle `
     fn get<T>(&self, rf: &Handle<T>) -> Option<&T>;
@@ -525,7 +503,6 @@ pub trait MatchNameRef {
 /// let handles = tuple_list!(&a_handle, &c_handle);
 /// let tuple_list!(a_ref, c_ref) = tuple.get_all(handles);
 /// ```
-#[cfg(feature = "alloc")]
 pub trait GetAll<HandleTuple> {
     /// The result type of getting all values
     type GetAllResult<'a>
@@ -544,7 +521,6 @@ pub trait GetAll<HandleTuple> {
     fn get_all_mut(&mut self, handles: HandleTuple) -> Self::GetAllMutResult<'_>;
 }
 
-#[cfg(feature = "alloc")]
 #[expect(deprecated)]
 impl<M> MatchNameRef for M
 where
@@ -559,7 +535,6 @@ where
     }
 }
 
-#[cfg(feature = "alloc")]
 impl<Head, Tail> GetAll<()> for (Head, Tail)
 where
     (Head, Tail): MatchNameRef,
@@ -590,7 +565,6 @@ pub trait InnerBorrowMut {
     fn inner_borrow_mut(&mut self) -> Self::Borrowed<'_>;
 }
 
-#[cfg(feature = "alloc")]
 mod seal {
     //! The logic in this section enables the [`super::GetAll::get_all_mut`] implementation.
     //!
@@ -726,7 +700,6 @@ mod seal {
     }
 }
 
-#[cfg(feature = "alloc")]
 impl<'b, Head, Tail, T, HandleTail> GetAll<(&'b Handle<T>, HandleTail)> for (Head, Tail)
 where
     (Head, Tail): MatchNameRef + GetAll<HandleTail> + InnerBorrowMut,
@@ -764,12 +737,10 @@ where
 }
 
 /// A wrapper type to enable the indexing of [`MatchName`] implementors with `[]`.
-#[cfg(feature = "alloc")]
 #[derive(Debug, Copy, Clone)]
 #[repr(transparent)]
 pub struct RefIndexable<RM, M>(RM, PhantomData<M>);
 
-#[cfg(feature = "alloc")]
 impl<RM, M> From<RM> for RefIndexable<RM, M>
 where
     RM: Deref<Target = M>,
@@ -779,7 +750,6 @@ where
     }
 }
 
-#[cfg(feature = "alloc")]
 impl<RM, M> Deref for RefIndexable<RM, M>
 where
     RM: Deref<Target = M>,
@@ -791,7 +761,6 @@ where
     }
 }
 
-#[cfg(feature = "alloc")]
 impl<RM, M> DerefMut for RefIndexable<RM, M>
 where
     RM: DerefMut<Target = M>,
@@ -801,7 +770,6 @@ where
     }
 }
 
-#[cfg(feature = "alloc")]
 impl<T, RM, M> Index<&Handle<T>> for RefIndexable<RM, M>
 where
     RM: Deref<Target = M>,
@@ -817,7 +785,6 @@ where
     }
 }
 
-#[cfg(feature = "alloc")]
 impl<T, RM, M> IndexMut<&Handle<T>> for RefIndexable<RM, M>
 where
     RM: DerefMut<Target = M>,
@@ -1102,7 +1069,6 @@ impl<Head, Tail> PlusOne for (Head, Tail) where
 mod test {
     use core::marker::PhantomData;
 
-    #[cfg(feature = "alloc")]
     use ownedref::OwnedMutSlice;
     use tuple_list::{tuple_list, tuple_list_type};
 
@@ -1197,7 +1163,6 @@ mod test {
 
     /// Function that tests the tuple macros
     #[test]
-    #[cfg(feature = "std")]
     fn test_macros() {
         let mut t = tuple_list!(1, "a");
 
@@ -1210,7 +1175,6 @@ mod test {
         });
     }
 
-    #[cfg(feature = "alloc")]
     mod get_all {
         use alloc::{
             borrow::Cow,

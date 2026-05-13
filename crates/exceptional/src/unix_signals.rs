@@ -1,11 +1,9 @@
 //! Signal handling for unix
-#[cfg(feature = "std")]
+
 use alloc::ffi::CString;
-#[cfg(feature = "alloc")]
 use alloc::vec::Vec;
 #[cfg(all(target_vendor = "apple", target_arch = "aarch64"))]
 use core::mem::size_of;
-#[cfg(feature = "alloc")]
 use core::{
     cell::UnsafeCell,
     ptr::{self, write_volatile},
@@ -15,12 +13,10 @@ use core::{
     fmt::{self, Display, Formatter},
     mem,
 };
-
 use libafl_core::format;
 /// armv7 `libc` does not feature a `uncontext_t` implementation
 #[cfg(target_arch = "arm")]
 pub use libc::c_ulong;
-#[cfg(feature = "std")]
 use nix::errno::Errno;
 
 /// The special exit code when the target exited through ctrl-c
@@ -255,7 +251,6 @@ use libc::ssize_t;
     all(target_vendor = "apple", target_arch = "aarch64")
 )))]
 pub use libc::ucontext_t;
-#[cfg(feature = "alloc")]
 use libc::{
     SA_NODEFER, SA_ONSTACK, SA_SIGINFO, malloc, sigaction, sigaddset, sigaltstack, sigemptyset,
     stack_t,
@@ -307,7 +302,6 @@ pub enum Signal {
     SigTrap = SIGTRAP,
 }
 
-#[cfg(feature = "std")]
 impl Signal {
     /// Handle an incoming signal
     pub fn handle(&self) {
@@ -344,7 +338,6 @@ impl TryFrom<&str> for Signal {
     }
 }
 
-#[cfg(feature = "std")]
 impl From<Signal> for nix::sys::signal::Signal {
     fn from(value: Signal) -> Self {
         // we can be semi-certain that all signals exist in nix.
@@ -386,7 +379,6 @@ impl Display for Signal {
 }
 
 /// A trait for `LibAFL` signal handling
-#[cfg(feature = "alloc")]
 pub trait SignalHandler {
     /// Handle a signal
     ///
@@ -404,24 +396,19 @@ pub trait SignalHandler {
     fn signals(&self) -> Vec<Signal>;
 }
 
-#[cfg(feature = "alloc")]
 struct HandlerHolder {
     handler: UnsafeCell<*mut dyn SignalHandler>,
 }
 
-#[cfg(feature = "alloc")]
 unsafe impl Send for HandlerHolder {}
 
 /// Let's get 8 mb for now.
-#[cfg(feature = "alloc")]
 const SIGNAL_STACK_SIZE: usize = 2 << 22;
 
 /// To be able to handle SIGSEGV when the stack is exhausted, we need our own little stack space.
-#[cfg(feature = "alloc")]
 static mut SIGNAL_STACK_PTR: *mut c_void = ptr::null_mut();
 
 /// Keep track of which handler is registered for which signal
-#[cfg(feature = "alloc")]
 static mut SIGNAL_HANDLERS: [Option<HandlerHolder>; 32] = [
     // We cannot use [None; 32] because it requires Copy. Ugly, but I don't think there's an
     // alternative.
@@ -434,7 +421,6 @@ static mut SIGNAL_HANDLERS: [Option<HandlerHolder>; 32] = [
 /// # Safety
 /// This should be somewhat safe to call for signals previously registered,
 /// unless the signal handlers registered using [`setup_signal_handler()`] are broken.
-#[cfg(feature = "alloc")]
 unsafe fn handle_signal(sig: c_int, info: *mut siginfo_t, void: *mut c_void) {
     unsafe {
         let signal = &Signal::try_from(sig).unwrap();
@@ -463,7 +449,6 @@ unsafe fn handle_signal(sig: c_int, info: *mut siginfo_t, void: *mut c_void) {
 /// The signal handlers will be called on any signal. They should (tm) be async safe.
 /// The handler pointer will be dereferenced, and the data the pointer points to may therefore not move.
 /// A lot can go south in signal handling. Be sure you know what you are doing.
-#[cfg(feature = "alloc")]
 pub unsafe fn setup_signal_handler<T: 'static + SignalHandler>(
     handler: *mut T,
 ) -> Result<(), Error> {
@@ -498,7 +483,6 @@ pub unsafe fn setup_signal_handler<T: 'static + SignalHandler>(
             );
 
             if sigaction(sig as i32, &raw mut sa, ptr::null_mut()) < 0 {
-                #[cfg(feature = "std")]
                 {
                     let err_str = CString::new(format!("Failed to setup {sig} handler")).unwrap();
                     libc::perror(err_str.as_ptr());
@@ -535,7 +519,6 @@ pub fn ucontext() -> Result<ucontext_t, Error> {
             #[cfg(not(feature = "std"))]
             return Err(Error::unknown("Failed to get ucontex"));
 
-            #[cfg(feature = "std")]
             Err(Error::unknown(format!(
                 "Failed to get ucontext: {:?}",
                 Errno::last()

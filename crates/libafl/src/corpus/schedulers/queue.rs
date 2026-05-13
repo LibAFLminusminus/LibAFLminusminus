@@ -72,7 +72,6 @@ impl Default for QueueScheduler {
 }
 
 #[cfg(test)]
-#[cfg(feature = "std")]
 mod tests {
 
     use alloc::rc::Rc;
