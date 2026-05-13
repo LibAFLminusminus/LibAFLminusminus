@@ -1,30 +1,29 @@
-use std::time::Duration;
-
-use libafl::{
-    Result, Worker,
+use libaflmm::{
     corpus::{
-        Corpus, InMemoryCorpus, OnDiskCorpus, Scheduler,
         schedulers::{NopScheduler, QueueScheduler},
+        Corpus, InMemoryCorpus, OnDiskCorpus, Scheduler,
     },
     executors::StdExecutor,
     feedback_or_fast,
     feedbacks::{CrashFeedback, MaxMapFeedback, TimeoutFeedback},
     fuzzers::{CalibrationHook, Fuzzer, StdFuzzer},
     generators::RandPrintablesGenerator,
-    inputs::{BytesInput, bytes::BytesContext},
-    launchers::{DEFAULT_MAX_STATE_SIZE_PER_WORKER, StdLauncher},
+    inputs::{bytes::BytesContext, BytesInput},
+    launchers::{StdLauncher, DEFAULT_MAX_STATE_SIZE_PER_WORKER},
     monitors::SimpleMonitor,
-    mutators::{HavocScheduledMutator, havoc_mutations},
+    mutators::{havoc_mutations, HavocScheduledMutator},
     non_zero,
     observers::ConstMapObserver,
     runtimes::{RuntimeHandle, StdInProcessRuntime},
     simple::{SimpleController, SimpleWorker},
     stages::StdMutationalStage,
     states::StdState,
+    Result, Worker,
 };
-use libafl_bolts::{
+use libaflmm_bolts::{
     current_nanos, nonnull_raw_mut, rands::StdRand, timers::FastTimer, tuples::tuple_list,
 };
+use std::time::Duration;
 
 use crate::target::SIGNALS;
 

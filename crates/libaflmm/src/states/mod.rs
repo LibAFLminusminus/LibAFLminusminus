@@ -1,33 +1,5 @@
 //! The fuzzer, and state are the core pieces of every good fuzzer
 
-use alloc::{
-    string::{String, ToString},
-    vec::Vec,
-};
-use core::{
-    any::type_name,
-    fmt::{self, Debug},
-    marker::PhantomData,
-    time::Duration,
-};
-use std::{
-    collections::HashMap,
-    fs::{self, File},
-    io::{Seek, SeekFrom},
-    path::{Path, PathBuf},
-};
-
-use libaflmm_bolts::{
-    NamedSerdeAnyMap, SerdeAny, SerdeAnyMap,
-    rands::{Rand, StdRand},
-};
-#[cfg(not(debug_assertions))]
-use libaflmm_core::nonzero_macros::non_zero_unchecked;
-use nix::fcntl::{Flock, FlockArg};
-use num_traits::Zero;
-use serde::{Deserialize, Serialize, de::DeserializeOwned};
-use typed_builder::TypedBuilder;
-
 use crate::{
     Error, Result,
     corpus::{
@@ -41,6 +13,30 @@ use crate::{
     launchers::InstanceId,
     runtimes::RuntimeHandle,
 };
+use alloc::{
+    string::{String, ToString},
+    vec::Vec,
+};
+use core::{
+    any::type_name,
+    fmt::{self, Debug},
+    marker::PhantomData,
+    time::Duration,
+};
+use libaflmm_bolts::{
+    NamedSerdeAnyMap, SerdeAny, SerdeAnyMap,
+    rands::{Rand, StdRand},
+};
+use nix::fcntl::{Flock, FlockArg};
+use num_traits::Zero;
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use std::{
+    collections::HashMap,
+    fs::{self, File},
+    io::{Seek, SeekFrom},
+    path::{Path, PathBuf},
+};
+use typed_builder::TypedBuilder;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 /// The stats the fuzzer produces at intervals.
