@@ -6,7 +6,7 @@ mod tests {
         ptr::null_mut,
     };
 
-    use libafl_asan::{expect_panic, hooks::fgets::fgets};
+    use libaflmm_asan::{expect_panic, hooks::fgets::fgets};
     use libc::FILE;
 
     #[test]

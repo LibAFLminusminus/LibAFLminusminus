@@ -3,7 +3,7 @@
 mod tests {
     use core::ffi::{CStr, c_int, c_void};
 
-    use libafl_asan::{
+    use libaflmm_asan::{
         GuestAddr,
         symbols::{
             Function, Symbols,
@@ -33,7 +33,7 @@ mod tests {
 
     #[test]
     fn test_dlsym() {
-        use libafl_asan::symbols::FunctionPointer;
+        use libaflmm_asan::symbols::FunctionPointer;
 
         let mmap = DlSym::lookup(c"mmap").unwrap();
         let mmap2 = DlSym::lookup(c"mmap").unwrap();

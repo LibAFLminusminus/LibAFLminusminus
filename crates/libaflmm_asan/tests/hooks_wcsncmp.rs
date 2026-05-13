@@ -3,7 +3,7 @@
 mod tests {
     use core::ptr::null;
 
-    use libafl_asan::{expect_panic, hooks::wcsncmp::wcsncmp, wchar_t};
+    use libaflmm_asan::{expect_panic, hooks::wcsncmp::wcsncmp, wchar_t};
     use widestring::widecstr;
 
     #[test]

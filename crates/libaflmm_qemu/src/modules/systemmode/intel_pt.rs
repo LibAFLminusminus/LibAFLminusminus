@@ -1,15 +1,14 @@
-use std::fmt::Debug;
-
-use libaflmm::{HasMetadata, observers::ObserversTuple};
-pub use libaflmm_intelpt::PtImage;
-use libaflmm_intelpt::{CoverageEntry, IntelPT, IntelPTBuilder};
-use libaflmm_qemu_sys::CPUArchStatePtr;
-use typed_builder::TypedBuilder;
-
 use crate::{
     EmulatorModules, NewThreadHook, Qemu, QemuParams,
     modules::{EmulatorModule, EmulatorModuleTuple, ExitKind},
 };
+use libaflmm::Result;
+use libaflmm::observers::ObserversTuple;
+pub use libaflmm_intelpt::PtImage;
+use libaflmm_intelpt::{CoverageEntry, IntelPT, IntelPTBuilder};
+use libaflmm_qemu_sys::CPUArchStatePtr;
+use std::fmt::Debug;
+use typed_builder::TypedBuilder;
 
 #[derive(Debug, TypedBuilder)]
 pub struct IntelPTModule<T = u8> {
@@ -38,7 +37,7 @@ impl<T> IntelPTModule<T> {
 impl<I, S, T> EmulatorModule<I, S> for IntelPTModule<T>
 where
     I: Unpin,
-    S: Unpin + HasMetadata,
+    S: Unpin,
     T: CoverageEntry + 'static,
 {
     fn pre_qemu_init<ET>(
@@ -61,7 +60,8 @@ where
         _emulator_modules: &mut EmulatorModules<ET, I, S>,
         _state: &mut S,
         _input: &I,
-    ) where
+    ) -> Result<()>
+    where
         ET: EmulatorModuleTuple<I, S>,
     {
         assert!(self.pt.is_some(), "Intel PT module not initialized.");
@@ -75,8 +75,9 @@ where
         _input: &I,
         _observers: &mut OT,
         _exit_kind: &mut ExitKind,
-    ) where
-        OT: ObserversTuple<I, S>,
+    ) -> Result<()>
+    where
+        OT: ObserversTuple<S>,
         ET: EmulatorModuleTuple<I, S>,
     {
         let pt = self.pt.as_mut().expect("Intel PT module not initialized.");
@@ -103,7 +104,7 @@ pub fn intel_pt_new_thread<ET, I, S, T>(
 ) -> bool
 where
     I: Unpin,
-    S: HasMetadata + Unpin,
+    S: Unpin,
     ET: EmulatorModuleTuple<I, S>,
     T: Debug + 'static,
 {

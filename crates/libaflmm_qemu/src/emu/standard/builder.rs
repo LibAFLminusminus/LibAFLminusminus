@@ -4,10 +4,10 @@ use std::marker::PhantomData;
 use libaflmm::{inputs::Input, states::FlatState};
 use libaflmm_bolts::tuples::{Append, Prepend, tuple_list};
 
-#[cfg(feature = "systemmode")]
-use crate::FastSnapshotManager;
 #[cfg(doc)]
 use crate::config::QemuConfig;
+#[cfg(feature = "systemmode")]
+use crate::standard::FastSnapshotManager;
 use crate::{
     NopEmulatorDriver, NopSnapshotManager, Qemu, QemuInitError, QemuParams, StdEmulator,
     StdEmulatorDriver,
@@ -102,8 +102,8 @@ impl<C, I, S>
         super::systemmode::StdSnapshotManager,
     >
 where
-    S: HasExecutions + Unpin,
-    I: HasTargetBytes,
+    S: FlatState + Unpin,
+    I: Input,
 {
     #[expect(clippy::should_implement_trait)]
     #[must_use]

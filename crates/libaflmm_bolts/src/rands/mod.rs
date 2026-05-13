@@ -1,7 +1,5 @@
 //! The fast random number generators of `LibAFLmm`
 
-#[cfg(all(not(feature = "std"), target_has_atomic = "ptr"))]
-use core::sync::atomic::{AtomicUsize, Ordering};
 use core::{
     debug_assert,
     fmt::Debug,
@@ -13,28 +11,20 @@ use serde::{Deserialize, Serialize};
 pub mod loaded_dice;
 pub use loaded_dice::LoadedDiceSampler;
 
-#[cfg(all(not(feature = "std"), target_has_atomic = "ptr"))]
-static SEED_COUNTER: AtomicUsize = AtomicUsize::new(0);
-
 /// Return a pseudo-random seed. For `no_std` environments, a single deterministic sequence is used.
 #[must_use]
 #[allow(unreachable_code)] // cfg dependent
 pub fn random_seed() -> u64 {
-    #[cfg(feature = "std")]
-    return random_seed_from_random_state();
-    #[cfg(all(not(feature = "std"), target_has_atomic = "ptr"))]
-    return random_seed_deterministic();
-    // no_std and no atomics; https://xkcd.com/221/
-    4
+    random_seed_from_random_state()
+    // return random_seed_deterministic();
 }
 
-#[cfg(all(not(feature = "std"), target_has_atomic = "ptr"))]
-fn random_seed_deterministic() -> u64 {
-    let mut seed = SEED_COUNTER.fetch_add(1, Ordering::Relaxed) as u64;
-    splitmix64(&mut seed)
-}
+// #[cfg(all(not(feature = "std"), target_has_atomic = "ptr"))]
+// fn random_seed_deterministic() -> u64 {
+//     let mut seed = SEED_COUNTER.fetch_add(1, Ordering::Relaxed) as u64;
+//     splitmix64(&mut seed)
+// }
 
-#[cfg(feature = "std")]
 fn random_seed_from_random_state() -> u64 {
     use core::hash::{BuildHasher, Hasher};
     use std::collections::hash_map::RandomState;

@@ -1,18 +1,21 @@
 //! Signal handling for unix
+use alloc::ffi::CString;
+use core::cell::UnsafeCell;
+use core::ffi::c_void;
 #[cfg(all(target_vendor = "apple", target_arch = "aarch64"))]
 use core::mem::size_of;
+use core::ptr::{self, write_volatile};
 use core::result;
+use core::sync::atomic::{Ordering, compiler_fence};
 use core::{
     fmt::{self, Display, Formatter},
     mem,
 };
-#[cfg(unix)]
 use libaflmm_core::Result;
 use libaflmm_core::{illegal_argument, unknown};
 use libc::siginfo_t;
 #[cfg(all(target_vendor = "apple", target_arch = "aarch64"))]
 use libc::ssize_t;
-#[cfg(unix)]
 use libc::ucontext_t;
 #[cfg(not(any(
     all(target_os = "linux", target_arch = "arm"),
@@ -27,10 +30,6 @@ use libc::{
     SIGTERM, SIGTRAP, SIGUSR2, c_int,
 };
 use num_enum::{IntoPrimitive, TryFromPrimitive};
-use std::cell::UnsafeCell;
-use std::ffi::c_void;
-use std::ptr::{self, write_volatile};
-use std::sync::atomic::{Ordering, compiler_fence};
 
 /// armv7 `libc` does not feature a `uncontext_t` implementation
 #[cfg(target_arch = "arm")]
@@ -322,7 +321,6 @@ impl TryFrom<&str> for Signal {
     }
 }
 
-#[cfg(feature = "std")]
 impl From<Signal> for nix::sys::signal::Signal {
     fn from(value: Signal) -> Self {
         // we can be semi-certain that all signals exist in nix.
@@ -466,7 +464,6 @@ pub unsafe fn setup_signal_handler<T: 'static + SignalHandler>(handler: *mut T) 
             );
 
             if sigaction(sig as i32, &raw mut sa, ptr::null_mut()) < 0 {
-                #[cfg(feature = "std")]
                 {
                     let err_str = CString::new(format!("Failed to setup {sig} handler")).unwrap();
                     libc::perror(err_str.as_ptr());

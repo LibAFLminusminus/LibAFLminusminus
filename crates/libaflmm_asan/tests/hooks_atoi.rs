@@ -4,7 +4,7 @@ mod tests {
     use core::{ffi::c_char, ptr::null_mut};
     use std::ffi::c_int;
 
-    use libafl_asan::{expect_panic, hooks::atoi::atoi};
+    use libaflmm_asan::{expect_panic, hooks::atoi::atoi};
 
     #[test]
     fn atoi_test_null() {

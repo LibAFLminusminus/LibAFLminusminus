@@ -3,7 +3,7 @@
 mod tests {
     use core::{ffi::c_char, ptr::null};
 
-    use libafl_asan::{expect_panic, hooks::strcasecmp::strcasecmp};
+    use libaflmm_asan::{expect_panic, hooks::strcasecmp::strcasecmp};
 
     #[test]
     fn test_strcasecmp_null_s1() {

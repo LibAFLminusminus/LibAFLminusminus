@@ -3,7 +3,7 @@
 mod tests {
     use core::{ffi::c_void, ptr::null_mut};
 
-    use libafl_asan::{expect_panic, hooks::memset::memset};
+    use libaflmm_asan::{expect_panic, hooks::memset::memset};
 
     #[test]
     fn test_memset_zero_length() {

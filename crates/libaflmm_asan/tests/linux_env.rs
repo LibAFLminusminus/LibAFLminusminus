@@ -1,6 +1,6 @@
 #[cfg(all(test, feature = "syscalls", target_os = "linux"))]
 mod tests {
-    use libafl_asan::{env::Env, file::linux::LinuxFileReader};
+    use libaflmm_asan::{env::Env, file::linux::LinuxFileReader};
     #[test]
     fn test_linux_env() {
         /* RUST_LOG=debug PROFILE=dev cargo +nightly nextest run test_linux_env --no-capture */

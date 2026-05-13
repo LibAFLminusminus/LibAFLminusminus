@@ -1,8 +1,7 @@
+use crate::{
+    EmulatorDriverError, InputSetter, Qemu, emu::standard::systemmode::SystemInputLocation,
+};
 use std::{cell::OnceCell, cmp::min, ptr, slice::from_raw_parts};
-
-use libaflmm::inputs::HasTargetBytes;
-
-use crate::{EmulatorDriverError, InputSetter, Qemu, emu::systemmode::SystemInputLocation};
 
 #[derive(Clone, Debug)]
 pub struct StdNyxInputSetter {

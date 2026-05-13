@@ -3,7 +3,7 @@
 mod tests {
     use core::{ffi::c_char, ptr::null};
 
-    use libafl_asan::{expect_panic, hooks::strlen::strlen};
+    use libaflmm_asan::{expect_panic, hooks::strlen::strlen};
 
     #[test]
     fn test_strlen_cs_null() {

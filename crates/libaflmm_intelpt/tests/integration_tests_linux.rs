@@ -1,14 +1,7 @@
-#![cfg(feature = "std")]
 #![cfg(target_os = "linux")]
 
 use core::arch::asm;
-use std::{
-    fs::File,
-    io::{Read, Seek, SeekFrom},
-    process,
-};
-
-use libafl_intelpt::{IntelPT, availability};
+use libaflmm_intelpt::{IntelPT, availability};
 use nix::{
     sys::{
         signal::{Signal, kill, raise},
@@ -18,6 +11,11 @@ use nix::{
 };
 use proc_maps::get_process_maps;
 use ptcov::PtImage;
+use std::{
+    fs::File,
+    io::{Read, Seek, SeekFrom},
+    process,
+};
 
 /// To run this test ensure that the executable has the required capabilities.
 /// This can be achieved with the script `./run_integration_tests_linux_with_caps.sh`

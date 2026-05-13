@@ -7,7 +7,7 @@ use core::{
 };
 
 use criterion::{Criterion, criterion_group, criterion_main};
-use libafl_bolts::rands::{Rand, StdRand};
+use libaflmm_bolts::rands::{Rand, StdRand};
 //use xxhash_rust::const_xxh3;
 use xxhash_rust::xxh3;
 

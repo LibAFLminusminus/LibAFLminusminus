@@ -6,7 +6,7 @@ mod tests {
         ptr::{null, null_mut},
     };
 
-    use libafl_asan::{expect_panic, hooks::wcschr::wcschr, wchar_t};
+    use libaflmm_asan::{expect_panic, hooks::wcschr::wcschr, wchar_t};
     use widestring::widecstr;
 
     #[test]

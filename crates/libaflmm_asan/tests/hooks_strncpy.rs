@@ -7,7 +7,7 @@ mod tests {
         slice::from_raw_parts,
     };
 
-    use libafl_asan::{expect_panic, hooks::strncpy::strncpy};
+    use libaflmm_asan::{expect_panic, hooks::strncpy::strncpy};
 
     #[test]
     fn test_strncpy_zero_length() {

@@ -1,6 +1,6 @@
 #[cfg(all(test, feature = "libc"))]
 mod tests {
-    use libafl_asan::{
+    use libaflmm_asan::{
         env::Env,
         file::libc::LibcFileReader,
         symbols::dlsym::{DlSymSymbols, LookupTypeNext},

@@ -1,8 +1,6 @@
-# `LibAFL_build`: Build-time utilities for LibAFL
+# `libaflmm_build`: Build-time utilities for `LibAFL--`
 
-<img align="right" src="https://raw.githubusercontent.com/AFLplusplus/Website/main/static/libafl_logo.svg" alt="LibAFL logo" width="250" heigh="250">
-
-The `libafl_build` crate provides build-time utilities for LibAFL, specifically for detecting LLVM tools and versions. It is used by other LibAFL crates to ensure they are built with the correct LLVM configuration.
+The `libaflmm_build` crate provides build-time utilities for `LibAFL--`, specifically for detecting LLVM tools and versions. It is used by other `LibAFL--` crates to ensure they are built with the correct LLVM configuration.
 
 ## Features
 

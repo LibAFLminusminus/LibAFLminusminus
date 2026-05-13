@@ -4,7 +4,7 @@ extern crate alloc;
 mod tests {
     use alloc::alloc::{GlobalAlloc, Layout};
 
-    use libafl_asan::{
+    use libaflmm_asan::{
         GuestAddr,
         allocator::frontend::{AllocatorFrontend, default::DefaultFrontend},
         mmap::{Mmap, unix::MmapRegion},

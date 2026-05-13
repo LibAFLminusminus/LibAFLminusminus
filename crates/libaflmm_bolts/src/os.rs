@@ -1,15 +1,9 @@
 //! Operating System specific abstractions
 
-#[cfg(all(unix, feature = "std"))]
 use alloc::{borrow::Cow, ffi::CString};
-#[cfg(all(unix, feature = "std"))]
 use core::ffi::CStr;
-#[cfg(unix)]
-use std::ffi::CString;
-#[cfg(all(unix, feature = "std"))]
 use std::io::{stderr, stdout};
 use std::{env, process::Command};
-#[cfg(all(unix, feature = "std"))]
 use std::{
     fs::File,
     os::fd::{AsRawFd, RawFd},
@@ -17,19 +11,15 @@ use std::{
 };
 
 pub use crate::exceptions::unix_signals;
-#[cfg(all(windows, feature = "std"))]
+#[cfg(windows)]
 pub use exceptional::windows_exceptions;
 // Allow a few extra features we need for the whole module
 #[cfg(unix)]
 use libc::pid_t;
-#[cfg(all(windows, feature = "std"))]
-pub use windows_exceptions::CTRL_C_EXIT;
 
-#[cfg(any(unix, all(windows, feature = "std")))]
 use crate::Error;
 
 /// A file that we keep open, pointing to /dev/null
-#[cfg(all(feature = "std", unix))]
 static NULL_FILE: OnceLock<File> = OnceLock::new();
 
 /// Child Process Handle
@@ -93,7 +83,6 @@ pub fn startable_self() -> Result<Command, Error> {
 ///
 /// # Safety
 /// The fd need to be a legal fd.
-#[cfg(all(unix, feature = "std"))]
 pub unsafe fn dup(fd: RawFd) -> Result<RawFd, Error> {
     match unsafe { libc::dup(fd) } {
         -1 => Err(Error::last_os_error(format!("Error calling dup({fd})"))),
@@ -105,7 +94,6 @@ pub unsafe fn dup(fd: RawFd) -> Result<RawFd, Error> {
 // LICENSE: MIT https://github.com/RustPython/RustPython/commit/37355d612a451fba7fef8f13a1b9fdd51310b37e
 /// Get the peak rss (Resident Set Size) of the all child processes
 /// that have terminated and been waited for
-#[cfg(all(unix, feature = "std"))]
 pub fn peak_rss_mb_child_processes() -> Result<i64, Error> {
     use core::mem;
     use std::io;
@@ -131,7 +119,6 @@ pub fn peak_rss_mb_child_processes() -> Result<i64, Error> {
 ///
 /// # Safety
 /// The fds need to be legal fds.
-#[cfg(all(unix, feature = "std"))]
 pub unsafe fn dup2(fd: RawFd, device: RawFd) -> Result<(), Error> {
     match unsafe { libc::dup2(fd, device) } {
         -1 => Err(Error::last_os_error(format!(
@@ -146,7 +133,6 @@ pub unsafe fn dup2(fd: RawFd, device: RawFd) -> Result<(), Error> {
 ///
 /// # Safety
 /// The function in itiself is safe, but it might have undesirable side effects since it closes `stdout` and `stderr`.
-#[cfg(all(unix, feature = "std"))]
 #[expect(unused_qualifications)]
 pub unsafe fn dup_and_mute_outputs() -> Result<(RawFd, RawFd), Error> {
     let old_stdout = stdout().as_raw_fd();
@@ -168,7 +154,6 @@ pub unsafe fn dup_and_mute_outputs() -> Result<(RawFd, RawFd), Error> {
 
 /// Gets the stringified version of the last `errno`.
 /// This is roughly equivalent to `strerror(errno)` in C.
-#[cfg(all(unix, feature = "std"))]
 #[must_use]
 pub fn last_error_str<'a>() -> Option<Cow<'a, str>> {
     std::io::Error::last_os_error().raw_os_error().map(|errno| {
@@ -180,7 +165,6 @@ pub fn last_error_str<'a>() -> Option<Cow<'a, str>> {
 }
 
 /// Get a file descriptor ([`RawFd`]) pointing to "/dev/null"
-#[cfg(all(unix, feature = "std"))]
 pub fn null_fd() -> Result<RawFd, Error> {
     // We don't care about opening the file twice here - races are ok.
     if let Some(file) = NULL_FILE.get() {
@@ -196,28 +180,9 @@ pub fn null_fd() -> Result<RawFd, Error> {
 /// On other Unix systems, it uses `libc::_exit`.
 /// On Windows, it uses `ExitProcess`.
 pub fn exit(code: i32) -> ! {
-    #[cfg(target_os = "linux")]
     unsafe {
         libc::syscall(libc::SYS_exit_group, code);
         // This should be unreachable, but just in case
         libc::_exit(code);
-    }
-
-    #[cfg(all(unix, not(target_os = "linux")))]
-    unsafe {
-        libc::_exit(code);
-    }
-
-    #[cfg(windows)]
-    unsafe {
-        #[allow(clippy::cast_sign_loss)]
-        windows::Win32::System::Threading::ExitProcess(code as u32);
-    }
-
-    #[cfg(not(any(unix, windows)))]
-    {
-        std::process::exit(code);
-        #[cfg(not(feature = "std"))]
-        panic!("exit called with {code} on unsupported no_std platform");
     }
 }

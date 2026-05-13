@@ -6,7 +6,7 @@ mod tests {
         ptr::{null, null_mut},
     };
 
-    use libafl_asan::{expect_panic, hooks::strrchr::strrchr};
+    use libaflmm_asan::{expect_panic, hooks::strrchr::strrchr};
 
     #[test]
     fn test_strrchr_zero_length() {

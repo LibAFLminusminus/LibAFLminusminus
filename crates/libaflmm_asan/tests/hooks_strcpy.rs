@@ -6,7 +6,7 @@ mod tests {
         ptr::{null, null_mut},
     };
 
-    use libafl_asan::{expect_panic, hooks::strcpy::strcpy};
+    use libaflmm_asan::{expect_panic, hooks::strcpy::strcpy};
 
     #[test]
     fn test_strcpy_null_s() {

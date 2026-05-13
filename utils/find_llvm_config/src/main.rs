@@ -1,4 +1,4 @@
-use libafl_build::find_llvm_config;
+use libaflmm_build::find_llvm_config;
 
 fn main() {
     match find_llvm_config() {

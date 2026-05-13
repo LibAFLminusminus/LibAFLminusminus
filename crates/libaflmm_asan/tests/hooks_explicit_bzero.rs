@@ -3,7 +3,7 @@
 mod tests {
     use core::{ffi::c_void, ptr::null_mut};
 
-    use libafl_asan::{expect_panic, hooks::explicit_bzero::explicit_bzero};
+    use libaflmm_asan::{expect_panic, hooks::explicit_bzero::explicit_bzero};
 
     #[test]
     fn test_explicit_bzero_zero_length() {

@@ -6,7 +6,7 @@ mod tests {
         sync::Mutex,
     };
 
-    use libafl_asan::{allocator::backend::dlmalloc::DlmallocBackend, mmap::unix::MmapRegion};
+    use libaflmm_asan::{allocator::backend::dlmalloc::DlmallocBackend, mmap::unix::MmapRegion};
     use spin::Lazy;
 
     static INIT_ONCE: Lazy<Mutex<()>> = Lazy::new(|| {

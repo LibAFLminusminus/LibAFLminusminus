@@ -3,7 +3,7 @@
 mod tests {
     use core::{ptr::null_mut, slice::from_raw_parts_mut};
 
-    use libafl_asan::{expect_panic, hooks::memalign::memalign};
+    use libaflmm_asan::{expect_panic, hooks::memalign::memalign};
 
     #[test]
     fn memalign_zero_size() {

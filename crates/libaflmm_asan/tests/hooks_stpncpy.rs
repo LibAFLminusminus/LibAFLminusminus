@@ -3,7 +3,7 @@
 mod tests {
     use core::{ffi::c_char, ptr::null_mut};
 
-    use libafl_asan::{expect_panic, hooks::stpncpy::stpncpy};
+    use libaflmm_asan::{expect_panic, hooks::stpncpy::stpncpy};
 
     #[test]
     fn test_stpncpy_zero_length() {

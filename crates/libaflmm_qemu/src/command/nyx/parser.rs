@@ -1,9 +1,3 @@
-use std::ffi::CStr;
-
-use enum_map::EnumMap;
-use libaflmm::inputs::HasTargetBytes;
-use libc::c_uint;
-
 use crate::{
     GuestAddr, GuestReg, GuestVirtAddr, IsSnapshotManager, Qemu, QemuMemoryChunk, Regs,
     StdEmulatorDriver,
@@ -18,6 +12,9 @@ use crate::{
     modules::{EmulatorModuleTuple, utils::filters::HasStdFiltersTuple},
     sync_exit::ExitArgs,
 };
+use enum_map::EnumMap;
+use libc::c_uint;
+use std::ffi::CStr;
 
 fn get_guest_string(qemu: Qemu, string_ptr_reg: Regs) -> Result<String, CommandError> {
     let str_addr = qemu.read_reg(string_ptr_reg)? as GuestVirtAddr;

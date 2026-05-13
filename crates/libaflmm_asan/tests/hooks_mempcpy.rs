@@ -6,7 +6,7 @@ mod tests {
         ptr::{null, null_mut},
     };
 
-    use libafl_asan::{expect_panic, hooks::mempcpy::mempcpy};
+    use libaflmm_asan::{expect_panic, hooks::mempcpy::mempcpy};
 
     #[test]
     fn test_mempcpy_zero_length() {

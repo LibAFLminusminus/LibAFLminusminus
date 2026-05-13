@@ -7,10 +7,21 @@
 
 #[cfg(feature = "xxh3")]
 use core::hash::{Hash, Hasher};
+use core::mem;
+#[cfg(unix)]
+use std::{
+    fs::File,
+    io::Write,
+    os::fd::{FromRawFd, RawFd},
+    panic,
+    time::SystemTime,
+};
 // There's a bug in ahash that doesn't let it build in `alloc` without once_cell right now.
 // TODO: re-enable once <https://github.com/tkaitchuck/aHash/issues/155> is resolved.
 #[cfg(feature = "libaflmm_derive")]
 pub use libaflmm_derive::SerdeAny;
+#[cfg(unix)]
+use log::{Metadata, Record};
 #[cfg(feature = "xxh3")]
 use xxhash_rust::xxh3::xxh3_64;
 
@@ -27,10 +38,7 @@ pub use shm::{
     SysVShm,
 };
 
-#[cfg(all(
-    any(feature = "cli", feature = "frida_cli", feature = "qemu_cli"),
-    feature = "std"
-))]
+#[cfg(any(feature = "cli", feature = "frida_cli", feature = "qemu_cli"))]
 pub mod cli;
 
 pub mod compress;
@@ -93,23 +101,13 @@ pub use ctor;
 /// The purpose of this module is to alleviate imports of the bolts by adding a glob import.
 #[cfg(feature = "prelude")]
 pub mod bolts_prelude {
-    #[cfg(feature = "std")]
     pub use super::build_id::*;
-    #[cfg(all(
-        any(feature = "cli", feature = "frida_cli", feature = "qemu_cli"),
-        feature = "std"
-    ))]
+    #[cfg(any(feature = "cli", feature = "frida_cli", feature = "qemu_cli"))]
     pub use super::cli::*;
-    #[cfg(feature = "std")]
     pub use super::core_affinity::*;
-    #[cfg(feature = "std")]
     pub use super::fs::*;
-    #[cfg(all(feature = "std", unix))]
     pub use super::minibsod::*;
-    #[cfg(feature = "std")]
-    pub use super::staterestore::*;
-    #[cfg(feature = "alloc")]
-    pub use super::{anymap::*, llmp::*, ownedref::*, rands::*, serdeany::*, shmem::*, tuples::*};
+    pub use super::{anymap::*, ownedref::*, rands::*, shm::*, tuples::*};
     pub use super::{compress::*, os::*};
 }
 
@@ -121,6 +119,10 @@ pub trait DebugUnwrap {
 
     /// Unwrap the inner object, and check it is present only in `Debug` mode.
     /// In `Release` mode, the inner object gets accessed without any check.
+    ///
+    /// # Safety
+    ///
+    /// In release mode, no check is done on the inner object.
     unsafe fn unwrap_debug(self) -> Self::Output;
 }
 
@@ -138,7 +140,7 @@ impl<T> DebugUnwrap for Option<T> {
 /// Returns the hasher for the input with a given hash, depending on features:
 /// [`xxh3_64`](https://docs.rs/xxhash-rust/latest/xxhash_rust/xxh3/fn.xxh3_64.html)
 /// if the `xxh3` feature is used, /// else [`ahash`](https://docs.rs/ahash/latest/ahash/).
-#[cfg(any(feature = "xxh3"))]
+#[cfg(feature = "xxh3")]
 #[must_use]
 pub fn hasher_std() -> impl Hasher + Clone {
     #[cfg(feature = "xxh3")]
@@ -181,7 +183,7 @@ pub fn hash_64_fast(mut x: u64) -> u64 {
 /// if the `xxh3` feature is used, /// else [`ahash`](https://docs.rs/ahash/latest/ahash/).
 ///
 /// If you have access to a `&[u8]` directly, [`hash_std`] may provide better performance
-#[cfg(any(feature = "xxh3"))]
+#[cfg(feature = "xxh3")]
 #[must_use]
 pub fn generic_hash_std<I: Hash>(input: &I) -> u64 {
     let mut hasher = hasher_std();
@@ -235,31 +237,25 @@ pub fn format_big_number(val: u64) -> String {
     format!("{short} ({long})")
 }
 
-/// Stderr logger
-#[cfg(feature = "std")]
-pub static LIBAFL_STDERR_LOGGER: SimpleStderrLogger = SimpleStderrLogger::new();
-
 /// Stdout logger
-#[cfg(feature = "std")]
 pub static LIBAFL_STDOUT_LOGGER: SimpleStdoutLogger = SimpleStdoutLogger::new();
 
+/// Stderr logger
+pub static LIBAFL_STDERR_LOGGER: SimpleStderrLogger = SimpleStderrLogger::new();
+
 /// A logger we can use log to raw fds.
-#[cfg(all(unix, feature = "std"))]
 static mut LIBAFL_RAWFD_LOGGER: SimpleFdLogger = unsafe { SimpleFdLogger::new(1) };
 
 /// A simple logger struct that logs to stdout when used with [`log::set_logger`].
 #[derive(Debug)]
-#[cfg(feature = "std")]
 pub struct SimpleStdoutLogger {}
 
-#[cfg(feature = "std")]
 impl Default for SimpleStdoutLogger {
     fn default() -> Self {
         Self::new()
     }
 }
 
-#[cfg(feature = "std")]
 impl SimpleStdoutLogger {
     /// Create a new [`log::Log`] logger that will write log to stdout
     #[must_use]
@@ -274,7 +270,6 @@ impl SimpleStdoutLogger {
     }
 }
 
-#[cfg(feature = "std")]
 #[cfg(target_os = "windows")]
 #[allow(clippy::cast_ptr_alignment)]
 #[must_use]
@@ -308,7 +303,6 @@ pub fn get_thread_id() -> u64 {
     unsafe { syscall(SYS_gettid) as u64 }
 }
 
-#[cfg(feature = "std")]
 #[cfg(not(any(target_os = "windows", target_os = "linux")))]
 #[must_use]
 /// Return thread ID using Rust's `std::thread`
@@ -318,7 +312,6 @@ pub fn get_thread_id() -> u64 {
     unsafe { mem::transmute::<_, u64>(thread_id) }
 }
 
-#[cfg(feature = "std")]
 #[cfg(target_os = "windows")]
 mod windows_logging {
     use core::ptr;
@@ -377,7 +370,6 @@ mod windows_logging {
     }
 }
 
-#[cfg(feature = "std")]
 impl log::Log for SimpleStdoutLogger {
     #[inline]
     fn enabled(&self, _metadata: &Metadata) -> bool {
@@ -415,17 +407,14 @@ impl log::Log for SimpleStdoutLogger {
 
 /// A simple logger struct that logs to stderr when used with [`log::set_logger`].
 #[derive(Debug)]
-#[cfg(feature = "std")]
 pub struct SimpleStderrLogger {}
 
-#[cfg(feature = "std")]
 impl Default for SimpleStderrLogger {
     fn default() -> Self {
         Self::new()
     }
 }
 
-#[cfg(feature = "std")]
 impl SimpleStderrLogger {
     /// Create a new [`log::Log`] logger that will write log to stdout
     #[must_use]
@@ -440,7 +429,6 @@ impl SimpleStderrLogger {
     }
 }
 
-#[cfg(feature = "std")]
 impl log::Log for SimpleStderrLogger {
     #[inline]
     fn enabled(&self, _metadata: &Metadata) -> bool {
@@ -461,13 +449,13 @@ impl log::Log for SimpleStderrLogger {
 }
 
 /// A simple logger struct that logs to a `RawFd` when used with [`log::set_logger`].
+#[cfg(unix)]
 #[derive(Debug)]
-#[cfg(all(feature = "std", unix))]
 pub struct SimpleFdLogger {
     fd: RawFd,
 }
 
-#[cfg(all(feature = "std", unix))]
+#[cfg(unix)]
 impl SimpleFdLogger {
     /// Create a new [`log::Log`] logger that will write the log to the given `fd`
     ///
@@ -505,7 +493,7 @@ impl SimpleFdLogger {
     }
 }
 
-#[cfg(all(feature = "std", unix))]
+#[cfg(unix)]
 impl log::Log for SimpleFdLogger {
     #[inline]
     fn enabled(&self, _metadata: &Metadata) -> bool {
@@ -534,7 +522,7 @@ impl log::Log for SimpleFdLogger {
 /// # Safety
 /// Will fail if `new_stderr` is not a valid file descriptor.
 /// May not be called multiple times concurrently.
-#[cfg(all(unix, feature = "std"))]
+#[cfg(unix)]
 pub unsafe fn set_error_print_panic_hook(new_stderr: RawFd) {
     // Make sure potential errors get printed to the correct (non-closed) stderr
     panic::set_hook(Box::new(move |panic_info| {
@@ -545,7 +533,6 @@ pub unsafe fn set_error_print_panic_hook(new_stderr: RawFd) {
     }));
 }
 
-#[cfg(feature = "std")]
 #[cfg(target_os = "windows")]
 #[repr(C)]
 #[allow(clippy::upper_case_acronyms)]
@@ -555,7 +542,6 @@ struct TEB {
     reserved2: [u8; 0xC0],
 }
 
-#[cfg(feature = "std")]
 #[cfg(target_arch = "x86_64")]
 #[inline(always)]
 #[cfg(target_os = "windows")]
@@ -571,7 +557,6 @@ fn nt_current_teb() -> *mut TEB {
 /// Some of our hooks can be invoked from threads that do not have TLS yet.
 /// Many Rust and Frida functions require TLS to be set up, so we need to check if we have TLS.
 /// This was observed on Windows, so for now for other platforms we assume that we have TLS.
-#[cfg(feature = "std")]
 #[inline]
 #[allow(unreachable_code)]
 #[must_use]
@@ -716,11 +701,11 @@ pub mod pybind {
 #[cfg(test)]
 mod tests {
 
-    #[cfg(all(feature = "std", unix))]
+    #[cfg(unix)]
     use crate::LIBAFL_RAWFD_LOGGER;
 
     #[test]
-    #[cfg(all(unix, feature = "std"))]
+    #[cfg(unix)]
     fn test_logger() {
         use std::{io::stdout, os::fd::AsRawFd};
 

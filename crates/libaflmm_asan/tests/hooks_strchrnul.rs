@@ -6,7 +6,7 @@ mod tests {
         ptr::null,
     };
 
-    use libafl_asan::{expect_panic, hooks::strchrnul::strchrnul};
+    use libaflmm_asan::{expect_panic, hooks::strchrnul::strchrnul};
 
     #[test]
     fn test_strchrnul_zero_length() {

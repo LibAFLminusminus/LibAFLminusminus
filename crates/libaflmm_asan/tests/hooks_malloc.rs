@@ -3,7 +3,7 @@
 mod tests {
     use core::{ptr::null_mut, slice::from_raw_parts_mut};
 
-    use libafl_asan::hooks::malloc::malloc;
+    use libaflmm_asan::hooks::malloc::malloc;
 
     #[test]
     fn test_malloc_zero() {

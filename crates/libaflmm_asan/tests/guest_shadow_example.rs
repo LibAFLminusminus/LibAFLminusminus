@@ -3,7 +3,7 @@
 mod tests {
     use std::sync::Mutex;
 
-    use libafl_asan::{
+    use libaflmm_asan::{
         mmap::libc::LibcMmap,
         shadow::{
             PoisonType, Shadow,

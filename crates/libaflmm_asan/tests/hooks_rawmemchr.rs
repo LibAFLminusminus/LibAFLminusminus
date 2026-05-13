@@ -6,7 +6,7 @@ mod tests {
         ptr::null_mut,
     };
 
-    use libafl_asan::{expect_panic, hooks::rawmemchr::rawmemchr};
+    use libaflmm_asan::{expect_panic, hooks::rawmemchr::rawmemchr};
 
     #[test]
     fn test_rawmemchr_null_buffer() {

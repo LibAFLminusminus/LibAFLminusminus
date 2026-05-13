@@ -6,7 +6,7 @@ mod tests {
         ptr::{null, null_mut},
     };
 
-    use libafl_asan::{expect_panic, hooks::strcat::strcat};
+    use libaflmm_asan::{expect_panic, hooks::strcat::strcat};
 
     #[test]
     fn test_strcat_null_s() {

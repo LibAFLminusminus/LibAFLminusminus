@@ -1,7 +1,7 @@
 #[cfg(all(test, feature = "syscalls", target_os = "linux", feature = "dlmalloc"))]
 mod tests {
 
-    use libafl_asan::{
+    use libaflmm_asan::{
         allocator::{
             backend::dlmalloc::DlmallocBackend,
             frontend::{AllocatorFrontend, default::DefaultFrontend},

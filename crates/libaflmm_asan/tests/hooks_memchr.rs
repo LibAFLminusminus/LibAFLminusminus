@@ -5,8 +5,7 @@ mod tests {
         ffi::{c_int, c_void},
         ptr::null_mut,
     };
-
-    use libafl_asan::{expect_panic, hooks::memchr::memchr};
+    use libaflmm_asan::{expect_panic, hooks::memchr::memchr};
 
     #[test]
     fn test_memchr_zero_length() {

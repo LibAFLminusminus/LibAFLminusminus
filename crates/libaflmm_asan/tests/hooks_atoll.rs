@@ -4,7 +4,7 @@ mod tests {
     use core::{ffi::c_char, ptr::null_mut};
     use std::ffi::c_longlong;
 
-    use libafl_asan::{expect_panic, hooks::atoll::atoll};
+    use libaflmm_asan::{expect_panic, hooks::atoll::atoll};
 
     #[test]
     fn atoll_test_null() {

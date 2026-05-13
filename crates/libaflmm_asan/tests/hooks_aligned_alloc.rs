@@ -3,7 +3,7 @@
 mod tests {
     use core::{ptr::null_mut, slice::from_raw_parts_mut};
 
-    use libafl_asan::{expect_panic, hooks::aligned_alloc::aligned_alloc};
+    use libaflmm_asan::{expect_panic, hooks::aligned_alloc::aligned_alloc};
 
     #[test]
     fn aligned_alloc_zero_size() {

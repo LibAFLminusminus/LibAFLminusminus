@@ -4,7 +4,7 @@ mod tests {
     use core::{ptr::null_mut, slice::from_raw_parts_mut};
     use std::os::raw::c_void;
 
-    use libafl_asan::{expect_panic, hooks::posix_memalign::posix_memalign};
+    use libaflmm_asan::{expect_panic, hooks::posix_memalign::posix_memalign};
 
     #[test]
     fn posix_memalign_zero_size() {

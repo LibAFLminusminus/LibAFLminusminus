@@ -1,3 +1,9 @@
+use libaflmm_qemu_sys::{
+    GuestAddr, GuestPhysAddr, GuestVirtAddr, libafl_load_qemu_snapshot, libafl_page_from_addr,
+    libafl_qemu_current_paging_id, libafl_qemu_run, libafl_save_qemu_snapshot, qemu_cleanup,
+};
+use libc::EXIT_SUCCESS;
+use num_traits::Zero;
 use std::{
     cmp::min,
     ffi::{CStr, CString, c_void},
@@ -6,17 +12,9 @@ use std::{
     slice,
 };
 
-use libaflmm_qemu_sys::{
-    GuestAddr, GuestPhysAddr, GuestVirtAddr, libafl_qemu_current_paging_id, libafl_qemu_run,
-    libaflmm_load_qemu_snapshot, libaflmm_page_from_addr, libaflmm_save_qemu_snapshot,
-    qemu_cleanup,
-};
-use libc::EXIT_SUCCESS;
-use num_traits::Zero;
-
 use crate::{
-    CPU, FastSnapshotPtr, GuestAddrKind, MemAccessInfo, Qemu, QemuMemoryChunk,
-    QemuSnapshotCheckResult,
+    CPU, GuestAddrKind, MemAccessInfo, Qemu, QemuMemoryChunk, QemuSnapshotCheckResult,
+    standard::FastSnapshotPtr,
 };
 
 pub(super) extern "C" fn qemu_cleanup_atexit() {
@@ -108,7 +106,7 @@ impl CPU {
     #[must_use]
     pub fn get_phys_addr(&self, vaddr: GuestVirtAddr) -> Option<GuestPhysAddr> {
         unsafe {
-            let page = libaflmm_page_from_addr(vaddr);
+            let page = libafl_page_from_addr(vaddr);
             let mut attrs = MaybeUninit::<libaflmm_qemu_sys::MemTxAttrs>::uninit();
             let paddr = libaflmm_qemu_sys::cpu_get_phys_page_attrs_debug(
                 self.cpu_ptr,
@@ -249,12 +247,12 @@ impl Qemu {
 
     pub fn save_snapshot(&self, name: &str, sync: bool) {
         let s = CString::new(name).expect("Invalid snapshot name");
-        unsafe { libaflmm_save_qemu_snapshot(s.as_ptr().cast_mut(), sync) };
+        unsafe { libafl_save_qemu_snapshot(s.as_ptr().cast_mut(), sync) };
     }
 
     pub fn load_snapshot(&self, name: &str, sync: bool) {
         let s = CString::new(name).expect("Invalid snapshot name");
-        unsafe { libaflmm_load_qemu_snapshot(s.as_ptr().cast_mut(), sync) };
+        unsafe { libafl_load_qemu_snapshot(s.as_ptr().cast_mut(), sync) };
     }
 
     #[must_use]

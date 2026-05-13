@@ -3,7 +3,7 @@
 mod tests {
     use core::ptr::null_mut;
 
-    use libafl_asan::hooks::valloc::valloc;
+    use libaflmm_asan::hooks::valloc::valloc;
 
     #[test]
     fn test_valloc_zero() {

@@ -1,7 +1,7 @@
 #[cfg(all(test, feature = "syscalls", target_os = "linux"))]
 mod tests {
     use itertools::Itertools;
-    use libafl_asan::{
+    use libaflmm_asan::{
         file::linux::LinuxFileReader,
         maps::{entry::MapEntry, iterator::MapIterator},
         mmap::MmapProt,

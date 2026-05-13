@@ -1,5 +1,5 @@
 use clap::Parser;
-use libafl_bolts::drcov::DrCovReader;
+use libaflmm_bolts::drcov::DrCovReader;
 use std::path::PathBuf;
 
 #[derive(Parser, Debug)]

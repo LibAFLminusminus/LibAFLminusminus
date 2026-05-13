@@ -7,7 +7,7 @@ mod tests {
         slice::from_raw_parts,
     };
 
-    use libafl_asan::{expect_panic, hooks::strdup::strdup};
+    use libaflmm_asan::{expect_panic, hooks::strdup::strdup};
 
     #[test]
     fn test_strdup_cs_null() {

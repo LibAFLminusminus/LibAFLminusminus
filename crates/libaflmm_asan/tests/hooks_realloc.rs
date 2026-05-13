@@ -3,7 +3,7 @@
 mod tests {
     use core::{ptr::null_mut, slice::from_raw_parts_mut};
 
-    use libafl_asan::hooks::realloc::realloc;
+    use libaflmm_asan::hooks::realloc::realloc;
 
     #[test]
     fn test_realloc_p_null_size_zero() {

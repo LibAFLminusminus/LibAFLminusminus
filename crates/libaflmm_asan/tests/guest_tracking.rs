@@ -4,7 +4,7 @@ mod tests {
 
     use std::sync::Mutex;
 
-    use libafl_asan::{
+    use libaflmm_asan::{
         GuestAddr,
         tracking::{
             Tracking,

@@ -1,6 +1,6 @@
 #[cfg(all(test, feature = "host", feature = "syscalls", target_os = "linux"))]
 mod tests {
-    use libafl_asan::host::linux::LinuxHost;
+    use libaflmm_asan::host::linux::LinuxHost;
 
     #[test]
     fn test_sysno() {

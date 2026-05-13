@@ -1,7 +1,7 @@
 #[cfg(test)]
 #[cfg(feature = "guest")]
 mod tests {
-    use libafl_asan::{
+    use libaflmm_asan::{
         GuestAddr,
         mmap::{Mmap, MmapProt},
         shadow::guest::{DefaultShadowLayout, GuestShadow},

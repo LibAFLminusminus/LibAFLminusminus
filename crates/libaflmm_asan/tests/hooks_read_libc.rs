@@ -3,7 +3,7 @@
 mod tests {
     use core::{ffi::c_void, ptr::null_mut};
 
-    use libafl_asan::{expect_panic, hooks::read::libc::read, size_t};
+    use libaflmm_asan::{expect_panic, hooks::read::libc::read, size_t};
 
     #[test]
     fn test_read_invalid_args() {

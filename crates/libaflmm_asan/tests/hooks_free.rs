@@ -3,7 +3,7 @@
 mod tests {
     use core::ptr::null_mut;
 
-    use libafl_asan::hooks::{free::free, malloc::malloc};
+    use libaflmm_asan::hooks::{free::free, malloc::malloc};
 
     #[test]
     fn test_free_null() {

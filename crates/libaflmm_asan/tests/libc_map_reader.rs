@@ -2,7 +2,7 @@
 #[cfg(feature = "libc")]
 mod tests {
     use itertools::Itertools;
-    use libafl_asan::{
+    use libaflmm_asan::{
         file::libc::LibcFileReader,
         maps::{entry::MapEntry, iterator::MapIterator},
         mmap::MmapProt,

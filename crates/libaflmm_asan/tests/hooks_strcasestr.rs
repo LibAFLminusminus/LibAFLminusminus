@@ -6,7 +6,7 @@ mod tests {
         ptr::{null, null_mut},
     };
 
-    use libafl_asan::{expect_panic, hooks::strcasestr::strcasestr};
+    use libaflmm_asan::{expect_panic, hooks::strcasestr::strcasestr};
 
     #[test]
     fn test_strcasestr_null_s1() {

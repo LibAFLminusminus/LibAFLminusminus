@@ -6,7 +6,7 @@ mod tests {
         ptr::{null, null_mut},
     };
 
-    use libafl_asan::{expect_panic, hooks::memmem::memmem};
+    use libaflmm_asan::{expect_panic, hooks::memmem::memmem};
 
     #[test]
     fn test_memmem_needle_zero_length() {

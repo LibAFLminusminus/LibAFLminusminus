@@ -14,7 +14,7 @@ use crate::InputLocation;
 #[cfg(feature = "systemmode")]
 use crate::PhysMemoryChunk;
 #[cfg(feature = "systemmode")]
-use crate::emu::systemmode::SystemInputLocation as InputLocation;
+use crate::emu::standard::systemmode::SystemInputLocation as InputLocation;
 use crate::{
     EmulatorExitError, EmulatorExitResult, IsSnapshotManager, Qemu, QemuError, QemuShutdownCause,
     Regs, SnapshotId, SnapshotManagerCheckError, SnapshotManagerError, StdEmulator,

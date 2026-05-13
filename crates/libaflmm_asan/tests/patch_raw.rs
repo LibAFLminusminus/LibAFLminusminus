@@ -4,7 +4,7 @@
 #[cfg(feature = "libc")]
 #[cfg(not(target_arch = "arm"))]
 mod tests {
-    use libafl_asan::{
+    use libaflmm_asan::{
         GuestAddr,
         mmap::{Mmap, MmapProt, libc::LibcMmap},
         patch::{Patch, raw::RawPatch},
@@ -70,7 +70,7 @@ mod tests {
 #[cfg(feature = "libc")]
 #[cfg(target_arch = "arm")]
 mod tests {
-    use libafl_asan::{
+    use libaflmm_asan::{
         GuestAddr,
         mmap::{Mmap, MmapProt, libc::LibcMmap},
         patch::{Patch, raw::RawPatch},

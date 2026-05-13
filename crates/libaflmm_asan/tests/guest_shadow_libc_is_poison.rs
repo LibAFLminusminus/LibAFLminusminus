@@ -3,7 +3,7 @@
 mod tests {
     use std::sync::Mutex;
 
-    use libafl_asan::{
+    use libaflmm_asan::{
         GuestAddr,
         mmap::libc::LibcMmap,
         shadow::{
@@ -74,7 +74,7 @@ mod tests {
 
     #[test]
     fn test_is_posion_top_of_low_shadow() {
-        use libafl_asan::GuestAddr;
+        use libaflmm_asan::GuestAddr;
 
         let shadow = get_shadow();
         const ADDR: GuestAddr = GS::LOW_SHADOW_OFFSET + GS::LOW_SHADOW_SIZE - 8;

@@ -1,53 +1,6 @@
 #![doc = include_str!("../README.md")]
-#![cfg_attr(
-    not(test),
-    warn(
-        missing_debug_implementations,
-        missing_docs,
-        trivial_casts,
-        trivial_numeric_casts,
-        unused_extern_crates,
-        unused_import_braces,
-        unused_qualifications,
-        unused_results
-    )
-)]
-#![cfg_attr(
-    test,
-    deny(
-        missing_debug_implementations,
-        missing_docs,
-        trivial_casts,
-        trivial_numeric_casts,
-        unused_extern_crates,
-        unused_import_braces,
-        unused_qualifications,
-        unused_must_use,
-        unused_results
-    )
-)]
-#![cfg_attr(
-    test,
-    deny(
-        bad_style,
-        dead_code,
-        improper_ctypes,
-        non_shorthand_field_patterns,
-        no_mangle_generic_items,
-        overflowing_literals,
-        path_statements,
-        patterns_in_fns_without_body,
-        unconditional_recursion,
-        unused,
-        unused_allocation,
-        unused_comparisons,
-        unused_parens,
-        while_true
-    )
-)]
 
 use std::{env, process::Command};
-
 use which::which;
 
 #[cfg(not(target_vendor = "apple"))]
@@ -62,7 +15,7 @@ pub const LLVM_VERSION_MIN: u32 = 15;
 ///
 /// It checks:
 /// 1. `LLVM_CONFIG` environment variable.
-/// 2. `llvm-config` in `brew` (MacOS).
+/// 2. `llvm-config` in `brew` (`MacOS`).
 /// 3. `llvm-config-VERSION` for versions in `LLVM_VERSION_MIN..=LLVM_VERSION_MAX`.
 /// 4. `llvm-config` in PATH.
 ///
@@ -137,6 +90,7 @@ pub fn exec_llvm_config(args: &[&str]) -> Result<String, String> {
 /// Find the LLVM version.
 ///
 /// Checks `LLVM_VERSION` environment variable first, then calls `llvm-config --version`.
+#[must_use]
 pub fn find_llvm_version() -> Option<i32> {
     let llvm_env_version = env::var("LLVM_VERSION");
     let output = if let Ok(version) = llvm_env_version {
@@ -144,10 +98,10 @@ pub fn find_llvm_version() -> Option<i32> {
     } else {
         exec_llvm_config(&["--version"]).ok()?
     };
-    if let Some(major) = output.split('.').collect::<Vec<&str>>().first() {
-        if let Ok(res) = major.parse::<i32>() {
-            return Some(res);
-        }
+    if let Some(major) = output.split('.').collect::<Vec<&str>>().first()
+        && let Ok(res) = major.parse::<i32>()
+    {
+        return Some(res);
     }
     None
 }
@@ -249,6 +203,7 @@ fn find_llvm_config_brew() -> Result<std::path::PathBuf, String> {
 ///
 /// # Panics
 /// Panics if `rustc` cannot be executed.
+#[must_use]
 pub fn exec_rustc(args: &[&str]) -> String {
     let rustc = env::var("RUSTC").unwrap_or_else(|_| "rustc".to_string());
     match Command::new(rustc).args(args).output() {
@@ -261,13 +216,14 @@ pub fn exec_rustc(args: &[&str]) -> String {
 }
 
 /// Find the LLVM version used by `rustc`.
+#[must_use]
 pub fn find_rustc_llvm_version() -> Option<i32> {
     let output = exec_rustc(&["--verbose", "--version"]);
     let ver = output.split(':').next_back().unwrap().trim();
-    if let Some(major) = ver.split('.').collect::<Vec<&str>>().first() {
-        if let Ok(res) = major.parse::<i32>() {
-            return Some(res);
-        }
+    if let Some(major) = ver.split('.').collect::<Vec<&str>>().first()
+        && let Ok(res) = major.parse::<i32>()
+    {
+        return Some(res);
     }
     None
 }
@@ -276,11 +232,12 @@ pub fn find_rustc_llvm_version() -> Option<i32> {
 ///
 /// # Panics
 /// Panics if the target family is unsupported (not windows or unix).
+#[must_use]
 pub fn dll_extension<'a>() -> &'a str {
-    if let Ok(vendor) = env::var("CARGO_CFG_TARGET_VENDOR") {
-        if vendor == "apple" {
-            return "dylib";
-        }
+    if let Ok(vendor) = env::var("CARGO_CFG_TARGET_VENDOR")
+        && vendor == "apple"
+    {
+        return "dylib";
     }
     let family = env::var("CARGO_CFG_TARGET_FAMILY").unwrap_or_else(|_| "unknown".into());
     match family.as_str() {
@@ -294,6 +251,7 @@ pub fn dll_extension<'a>() -> &'a str {
 ///
 /// # Panics
 /// Panics if `xcrun` fails to execute.
+#[must_use]
 pub fn find_macos_sdk_libs() -> String {
     let sdk_path_out = Command::new("xcrun")
         .arg("--show-sdk-path")

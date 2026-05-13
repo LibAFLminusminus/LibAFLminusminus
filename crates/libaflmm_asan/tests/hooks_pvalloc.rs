@@ -3,7 +3,7 @@
 mod tests {
     use core::{ptr::null_mut, slice::from_raw_parts_mut};
 
-    use libafl_asan::hooks::pvalloc::pvalloc;
+    use libaflmm_asan::hooks::pvalloc::pvalloc;
 
     #[test]
     fn test_pvalloc_zero() {

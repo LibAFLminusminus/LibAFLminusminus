@@ -29,9 +29,6 @@ document-features = ["dep:document-features"]
 #! # Feature Flags
 #! ### General Features
 
-## Enables features that need rust's `std` lib to work, like print, env, ... support
-std = []
-
 ## Provide the `#[derive(SerdeAny)]` macro.
 derive = ["libaflmm_derive"]
 
@@ -40,7 +37,7 @@ derive = ["libaflmm_derive"]
 rand_trait = []
 
 ## Will build the `pyo3` bindings
-python = ["pyo3", "std", "libaflmm_core/python"]
+python = ["pyo3", "libaflmm_core/python"]
 
 ## Expose `libafl::prelude` for direct access to all types without additional `use` directives
 prelude = []
@@ -126,9 +123,7 @@ wide = { version = "1.1.1", optional = true }
 atomic = "0.6.1"
 num-traits = { workspace = true }
 ctor = { workspace = true }
-erased-serde = { workspace = true, default-features = false, features = [
-  "alloc",
-] }
+erased-serde = { workspace = true, default-features = true }
 hashbrown = { workspace = true, features = [
   "serde",
   "default-hasher",
@@ -188,4 +183,4 @@ path = "./examples/simd/simd.rs"
 bench = true
 test = false
 harness = false
-required-features = ["std", "simd"]
+required-features = ["simd"]

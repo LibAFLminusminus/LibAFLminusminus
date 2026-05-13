@@ -1,9 +1,8 @@
 //! Compare the speed of rand implementations
 
 use core::hint::black_box;
-
 use criterion::{Criterion, criterion_group, criterion_main};
-use libafl_bolts::rands::{
+use libaflmm_bolts::rands::{
     Lehmer64Rand, Rand, RomuDuoJrRand, RomuTrioRand, Sfc64Rand, XorShift64Rand,
     Xoshiro256PlusPlusRand,
 };

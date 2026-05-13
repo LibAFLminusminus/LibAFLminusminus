@@ -3,7 +3,7 @@
 mod tests {
     use core::{ffi::c_char, ptr::null};
 
-    use libafl_asan::{expect_panic, hooks::strncasecmp::strncasecmp};
+    use libaflmm_asan::{expect_panic, hooks::strncasecmp::strncasecmp};
 
     #[test]
     fn test_strncasecmp_zero_length() {

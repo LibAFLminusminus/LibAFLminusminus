@@ -3,7 +3,7 @@
 mod tests {
     use core::ptr::null_mut;
 
-    use libafl_asan::hooks::{malloc::malloc, malloc_usable_size::malloc_usable_size};
+    use libaflmm_asan::hooks::{malloc::malloc, malloc_usable_size::malloc_usable_size};
 
     #[test]
     fn test_malloc_usable_size_null() {

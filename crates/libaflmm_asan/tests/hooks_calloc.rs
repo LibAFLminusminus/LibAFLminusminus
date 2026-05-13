@@ -3,7 +3,7 @@
 mod tests {
     use core::ptr::null_mut;
 
-    use libafl_asan::{expect_panic, hooks::calloc::calloc, size_t};
+    use libaflmm_asan::{expect_panic, hooks::calloc::calloc, size_t};
 
     #[test]
     fn test_zero_length() {
