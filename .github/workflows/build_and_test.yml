@@ -157,6 +157,9 @@ jobs:
 
   check-md-links:
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - uses: actions/checkout@v6
         with:
