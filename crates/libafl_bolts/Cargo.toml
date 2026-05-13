@@ -101,8 +101,6 @@ xxh3 = ["xxhash-rust"]
 ## However, we make sure that no two types with the same name ever exist.
 stable_anymap = ["serde_anymap/stable_anymap"]
 
-## Automatically register all `#[derive(SerdeAny)]` types at startup.
-
 #! ### Stable SIMD features
 
 ## Use the best SIMD implementation by our benchmark.

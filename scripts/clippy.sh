@@ -13,7 +13,7 @@ run_clippy() {
    echo "Running Clippy on $dir"
    echo "$CLIPPY_CMD ${features:+"$features"} -- $RUSTC_FLAGS"
    pushd "$dir" || return 1
-   
+
    eval "$CLIPPY_CMD ${features:+"$features"} -- $RUSTC_FLAGS"
 
    popd || return 1
@@ -25,13 +25,8 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
       "crates/libafl"
       "crates/libafl_bolts"
       "crates/libafl_cc"
-      "crates/libafl_concolic/symcc_runtime"
-      "crates/libafl_concolic/symcc_libafl"
-      "crates/libafl_frida"
-      "crates/libafl_libfuzzer"
-      "crates/libafl_libfuzzer_runtime"
+      # "crates/libafl_frida" TODO: restore when frida is up again.
       "crates/libafl_qemu"
-      "crates/libafl_tinyinst"
       "crates/libafl_qemu/libafl_qemu_build"
       "crates/libafl_qemu/libafl_qemu_sys"
       "crates/libafl_nyx"

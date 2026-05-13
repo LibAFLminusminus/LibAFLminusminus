@@ -90,7 +90,7 @@ mod tests {
     #[test]
     fn test_queue_corpus() {
         let scheduler: QueueScheduler = QueueScheduler::new();
-        let context = BytesContext::default();
+        let context = BytesContext;
 
         let corpus =
             OnDiskCorpus::<BytesInput, QueueScheduler>::new(PathBuf::from("/tmp"), scheduler)
@@ -121,7 +121,7 @@ mod tests {
     #[test]
     fn test_queue_scheduler() {
         let scheduler = QueueScheduler::new();
-        let context = BytesContext::default();
+        let context = BytesContext;
 
         let mut q = InMemoryCorpus::<BytesInput, QueueScheduler>::new(scheduler);
         let t1 = BytesInput::new(vec![0_u8; 4]);

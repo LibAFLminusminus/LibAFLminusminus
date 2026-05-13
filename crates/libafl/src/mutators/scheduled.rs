@@ -264,15 +264,20 @@ mod tests {
         let mut rand = XkcdRand::with_seed(0);
         let mut corpus = InMemoryCorpus::new(QueueScheduler::new());
         let id1 = corpus
-            .add(Testcase::new(Rc::new(BytesInput::new(
-                vec![b'a', b'b', b'c'].into(),
-            ))))
+            .add(Testcase::new(Rc::new(BytesInput::new(vec![
+                b'a', b'b', b'c',
+            ]))))
+            .unwrap();
+        corpus
+            .add(Testcase::new(Rc::new(BytesInput::new(vec![
+                b'd', b'e', b'f',
+            ]))))
             .unwrap();
 
         let mut input = corpus.get(&id1).unwrap().cloned_input();
 
         let state = StdState::new(
-            BytesContext::default(),
+            BytesContext,
             corpus,
             InMemoryCorpus::new(QueueScheduler::new()),
         )
@@ -292,16 +297,14 @@ mod tests {
         let mut rand = StdRand::with_seed(0x1337);
         let mut corpus = InMemoryCorpus::new(QueueScheduler::new());
         let id1 = corpus
-            .add(Testcase::new(Rc::new(BytesInput::new(
-                b"abc".to_vec().into(),
-            ))))
+            .add(Testcase::new(Rc::new(BytesInput::new(b"abc".to_vec()))))
             .unwrap();
 
         let mut input = corpus.get(&id1).unwrap().cloned_input();
         let input_prior = input.clone();
 
         let state = StdState::new(
-            BytesContext::default(),
+            BytesContext,
             corpus,
             InMemoryCorpus::new(QueueScheduler::new()),
         )
@@ -331,16 +334,14 @@ mod tests {
         let mut rand = StdRand::with_seed(0x1337);
         let mut corpus = InMemoryCorpus::new(QueueScheduler::new());
         let id1 = corpus
-            .add(Testcase::new(Rc::new(BytesInput::new(
-                b"abc".to_vec().into(),
-            ))))
+            .add(Testcase::new(Rc::new(BytesInput::new(b"abc".to_vec()))))
             .unwrap();
 
         let mut input = corpus.get(&id1).unwrap().cloned_input();
         let input_prior = input.clone();
 
         let state = StdState::new(
-            BytesContext::default(),
+            BytesContext,
             corpus,
             InMemoryCorpus::new(QueueScheduler::new()),
         )

@@ -129,10 +129,8 @@ pub mod bolts_prelude {
     pub use super::fs::*;
     #[cfg(all(feature = "std", unix))]
     pub use super::minibsod::*;
-    #[cfg(feature = "std")]
-    pub use super::staterestore::*;
     #[cfg(feature = "alloc")]
-    pub use super::{anymap::*, llmp::*, ownedref::*, rands::*, serdeany::*, shmem::*, tuples::*};
+    pub use super::{anymap::*, ownedref::*, rands::*, serdeany::*, tuples::*};
     pub use super::{compress::*, os::*};
 }
 
@@ -176,6 +174,10 @@ pub trait DebugUnwrap {
 
     /// Unwrap the inner object, and check it is present only in `Debug` mode.
     /// In `Release` mode, the inner object gets accessed without any check.
+    ///
+    /// # Safety
+    ///
+    /// In `Release` mode, the inner value will be unwrapped without any check.
     unsafe fn unwrap_debug(self) -> Self::Output;
 }
 

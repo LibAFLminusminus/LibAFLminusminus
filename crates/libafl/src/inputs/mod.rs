@@ -245,7 +245,7 @@ mod tests {
     fn test_from_target_bytes() {
         let original_bytes = vec![0, 1, 2, 3];
         let input = BytesInput::from(original_bytes.clone());
-        let mut nop = BytesContext::default();
+        let mut nop = BytesContext;
         let res = nop.to_bytes(&input);
         assert_eq!(res.as_slice(), &original_bytes);
     }

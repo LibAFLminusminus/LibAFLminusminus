@@ -67,7 +67,7 @@ impl SimpleMonitor {
             .iter()
             .map(|s| s.start_time)
             .min()
-            .map(|t| now - t)
+            .map(|t| now.checked_sub(t).unwrap())
             .unwrap_or_default();
 
         let total_execs: u64 = all_stats.iter().map(|s| s.executions).sum();
@@ -79,7 +79,7 @@ impl SimpleMonitor {
             .iter()
             .map(|s| s.last_found_time)
             .max()
-            .map(|t| now - t)
+            .map(|t| now.checked_sub(t).unwrap())
             .unwrap_or_default();
 
         let execs_str = format_si(total_execs);

@@ -171,7 +171,7 @@ impl<S, W> RuntimeHandle<S, W> {
             TerminationHandlerData::commit_global(termination_data.as_mut());
         }
 
-        self.termination_data_ptr = Some(unsafe { PinnedPtr::from_pin(termination_data) });
+        self.termination_data_ptr = Some(PinnedPtr::from_pin(termination_data));
     }
 
     /// Set the shared memory saver (used by the [`RestartingRuntime`]).
