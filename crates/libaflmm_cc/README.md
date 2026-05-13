@@ -1,6 +1,6 @@
-# `LibAFL_CC`: The `LibAFL` compiler wrapper
+# `LibAFLmm_CC`: The `LibAFLmm` compiler wrapper
 
-`LibAFL` CC provides a convenient compiler wrapper toolkit for `LibAFL` users.
+`LibAFLmm` CC provides a convenient compiler wrapper toolkit for `LibAFLmm` users.
 
 It's advisable to use this crate together with a fairly recent `LLVM` version.
 To install LLVM, use the official [download page](https://releases.llvm.org/download.html).
@@ -29,3 +29,9 @@ $ cmake -S llvm\llvm -B build -DLLVM_ENABLE_PROJECTS=lld -DLLVM_TARGETS_TO_BUILD
 $ cd build
 $ cmake --build . --target install --config release
 ```
+
+## The `LibAFLmm` Project
+
+This crate is part of the [LibAFLmm project](https://github.com/LibAFLminusminus/LibAFLminusminus).
+
+The [README](../../README.md) contains the list of maintainers and licensing information.

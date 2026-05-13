@@ -1,4 +1,4 @@
-# `libaflmm_build`: Build-time utilities for `LibAFL--`
+# `libaflmm_build`: Build-time utilities for `LibAFLmm`
 
 The `libaflmm_build` crate provides build-time utilities for `LibAFL--`, specifically for detecting LLVM tools and versions. It is used by other `LibAFL--` crates to ensure they are built with the correct LLVM configuration.
 
@@ -28,40 +28,8 @@ if let Some(version) = find_llvm_version() {
 }
 ```
 
-## Maintainers
+## The `LibAFLmm` Project
 
-`LibAFL_build` is written and maintained by
+This crate is part of the [LibAFLmm project](https://github.com/LibAFLminusminus/LibAFLminusminus).
 
-* [Andrea Fioraldi](https://twitter.com/andreafioraldi) <andrea@aflplus.plus>
-* [Dominik Maier](https://bsky.app/profile/dmnk.bsky.social) <dominik@aflplus.plus>
-* [s1341](https://twitter.com/srubenst1341) <github@shmarya.net>
-* [Dongjia Zhang](https://github.com/tokatoka) <toka@aflplus.plus>
-* [Addison Crump](https://github.com/addisoncrump) <me@addisoncrump.info>
-
-## Contributing
-
-For bugs, feel free to open issues or contact us directly. Thank you for your support. <3
-
-Even though we will gladly assist you in finishing up your PR, try to
-
-* keep all the crates compiling with *stable* rust (hide the eventual non-stable code under `cfg`s.)
-* run `cargo nightly fmt` on your code before pushing
-* check the output of `cargo clippy --all` or `./clippy.sh`
-* run `cargo build --no-default-features` to check for `no_std` compatibility (and possibly add `#[cfg(feature = "std")]`) to hide parts of your code.
-
-Some parts in this list may sound hard, but don't be afraid to open a PR if you cannot fix them by yourself. We will gladly assist.
-
-#### License
-
-<sup>
-Licensed under either of <a href="../../LICENSE-APACHE">Apache License, Version
-2.0</a> or <a href="../../LICENSE-MIT">MIT license</a> at your option.
-</sup>
-
-<br>
-
-<sub>
-Unless you explicitly state otherwise, any contribution intentionally submitted
-for inclusion in this crate by you, as defined in the Apache-2.0 license, shall
-be dual licensed as above, without any additional terms or conditions.
-</sub>
+The [README](../../README.md) contains the list of maintainers and licensing information.

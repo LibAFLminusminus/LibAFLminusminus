@@ -1,20 +1,20 @@
-# `LibAFL_QEMU`: A Library for Fuzzing-oriented Emulation and Hooking
+# `LibAFL QEMU`: A Library for Fuzzing-oriented Emulation and Hooking
 
-`LibAFL_QEMU` is a fuzzing-oriented emulation library that wraps `QEMU` with a rich API in Rust.
+`libaflmm_qemu` is a fuzzing-oriented emulation library that wraps `QEMU` with a rich API in Rust.
 
 It comes in two variants, `usermode` to fuzz Linux ELFs userspace binaries and `systemmode`, to fuzz arbitrary operating systems with QEMU TCG.
 
 ## Usage
 
-To use `libafl_qemu` in your project, add it as a dependency in your `Cargo.toml`:
+To use `libaflmm_qemu` in your project, add it as a dependency in your `Cargo.toml`:
 
 ```toml
 [dependencies]
 # Set this to the latest version
-libafl_qemu = { version = "0.16.0", features = ["usermode", "x86_64"] }
+libaflmm_qemu = { version = "0.16.0", features = ["usermode", "x86_64"] }
 ```
 
-`libafl_qemu` offers several feature flags to customize its build for different use cases. These flags are typically enabled in your `Cargo.toml`.
+`libaflmm_qemu` offers several feature flags to customize its build for different use cases. These flags are typically enabled in your `Cargo.toml`.
 
 ## Modes
 
@@ -23,7 +23,7 @@ libafl_qemu = { version = "0.16.0", features = ["usermode", "x86_64"] }
 
 ## Cite
 
-If you use `LibAFL_QEMU` for your academic work, consider citing the following paper:
+If you use `LibAFL QEMU` for your academic work, consider citing the following paper:
 
 ```bibtex
 @InProceedings{libaflqemu:bar24,
@@ -37,3 +37,9 @@ If you use `LibAFL_QEMU` for your academic work, consider citing the following p
   keywords     = {fuzzing, emulation},
 }
 ```
+
+## The `LibAFLmm` Project
+
+This crate is part of the [LibAFLmm project](https://github.com/LibAFLminusminus/LibAFLminusminus).
+
+The [README](../../README.md) contains the list of maintainers and licensing information.
