@@ -1,8 +1,13 @@
 [package]
-name = "libafl_qemu_asan_host"
-version.workspace = true
+name = "libaflmm_qemu_asan_host"
+
+documentation.workspace = true
 edition.workspace = true
+license.workspace = true
+repository.workspace = true
+readme.workspace = true
 rust-version.workspace = true
+version.workspace = true
 
 [lib]
 name = "afl_qemu_asan_host"
@@ -10,10 +15,10 @@ crate-type = ["staticlib"]
 
 [features]
 default = []
-test = ["libafl_asan/test", "libafl_asan_libc/test"]
+test = ["libaflmm_asan/test", "libaflmm_asan_libc/test"]
 
 [dependencies]
-libafl_asan = { path = "../../../libafl_asan", default-features = false, features = [
+libaflmm_asan = { path = "../../../libaflmm_asan", default-features = false, features = [
   "dlmalloc",
   "global_allocator",
   "hooks",
@@ -22,7 +27,7 @@ libafl_asan = { path = "../../../libafl_asan", default-features = false, feature
   "mimalloc",
   "tracking",
 ] }
-libafl_asan_libc = { path = "../../../libafl_asan/libafl_asan_libc", default-features = false }
+libaflmm_asan_libc = { path = "../../../libaflmm_asan/libaflmm_asan_libc", default-features = false }
 libc = { version = "0.2.169", default-features = false }
 log = { version = "0.4.22", default-features = false, features = [
   "release_max_level_info",

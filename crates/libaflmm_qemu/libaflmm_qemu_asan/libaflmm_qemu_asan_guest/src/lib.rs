@@ -3,7 +3,7 @@ extern crate alloc;
 
 use core::ffi::{CStr, c_char, c_void};
 
-use libafl_asan::{
+use libaflmm_asan::{
     GuestAddr,
     allocator::{
         backend::{dlmalloc::DlmallocBackend, mimalloc::MimallocBackend},

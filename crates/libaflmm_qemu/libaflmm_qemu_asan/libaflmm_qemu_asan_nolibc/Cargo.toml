@@ -1,8 +1,13 @@
 [package]
-name = "libafl_qemu_asan_nolibc"
-version.workspace = true
+name = "libaflmm_qemu_asan_nolibc"
+
+documentation.workspace = true
 edition.workspace = true
+license.workspace = true
+repository.workspace = true
+readme.workspace = true
 rust-version.workspace = true
+version.workspace = true
 
 [lib]
 name = "afl_qemu_asan_nolibc"
@@ -10,10 +15,10 @@ crate-type = ["staticlib"]
 
 [features]
 default = []
-test = ["libafl_asan/test"]
+test = ["libaflmm_asan/test"]
 
 [dependencies]
-libafl_asan = { path = "../../../libafl_asan", default-features = false, features = [
+libaflmm_asan = { path = "../../../libaflmm_asan", default-features = false, features = [
   "dlmalloc",
   "global_allocator",
   "guest",
