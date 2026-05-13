@@ -26,6 +26,7 @@ use libafl_core::nonzero_macros::non_zero_unchecked;
 use nix::fcntl::{Flock, FlockArg};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use serde_json::{Map, Value};
 use typed_builder::TypedBuilder;
 
 use crate::{
@@ -56,8 +57,8 @@ pub struct Stats {
     pub(crate) objective: usize,
     /// last time smth was found
     pub(crate) last_found_time: Duration,
-    /// [`NamedSerdeAnyMap`] to hold additional info that users want
-    pub(crate) user_map: NamedSerdeAnyMap,
+    /// [`serde_json::Map`] to hold additional info that users want.
+    pub(crate) user_map: Map<String, Value>,
 }
 
 impl fmt::Display for Stats {
@@ -1090,7 +1091,7 @@ where
                 objective: 0,
                 last_found_time: libafl_bolts::current_time(),
                 start_time: libafl_bolts::current_time(),
-                user_map: NamedSerdeAnyMap::new(),
+                user_map: Map::new(),
             },
             named_metadata: NamedSerdeAnyMap::default(),
             corpus,

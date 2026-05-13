@@ -5,12 +5,6 @@
 use alloc::{borrow::Cow, string::ToString, vec::Vec};
 use core::{marker::PhantomData, time::Duration};
 
-use hashbrown::HashSet;
-use libafl_bolts::{Named, current_time, impl_serdeany, tuples::Handle};
-use libafl_core::illegal_state;
-use num_traits::Bounded;
-use serde::{Deserialize, Serialize};
-
 use crate::{
     DependencyResolver, Error, Result, TestcasePowerScheduleData, Verdict, Worker,
     common::PowerScheduleData,
@@ -22,6 +16,12 @@ use crate::{
     observers::{MapObserver, ObserversTuple},
     states::{FlatState, HasCorpus, HasScheduler, named_metadata_mut, unnamed_metadata_mut},
 };
+use hashbrown::HashSet;
+use libafl_bolts::{Named, current_time, impl_serdeany, tuples::Handle};
+use libafl_core::illegal_state;
+use num_traits::Bounded;
+use serde::{Deserialize, Serialize};
+use serde_json::value::Number;
 
 /// AFL++'s `CAL_CYCLES` + 1
 const CAL_STAGE_MAX: usize = 8;
@@ -260,7 +260,7 @@ where
         state
             .stats_mut()
             .user_map
-            .insert("stability", StabilityValue(stability));
+            .insert("stability".to_string(), Number::from_f64(stability).into());
 
         if state.has_md::<PowerScheduleData>() {
             let current = state.corpus().scheduler().current();

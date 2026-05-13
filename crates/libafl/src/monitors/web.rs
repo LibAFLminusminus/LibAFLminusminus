@@ -112,7 +112,6 @@ impl Monitor for WebMonitor {
         if all_stats.is_empty() {
             return Ok(());
         }
-
         let snapshot = Snapshot {
             timestamp_secs: current_time().as_secs(),
             stats: all_stats,
