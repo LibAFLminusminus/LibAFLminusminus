@@ -1,4 +1,7 @@
 //! WebUI gathers data from fuzzers and show stats to users through a web interface
+//! 
+//! Vibe-coding WARNING!! I fully vibe coded the frontend part with claude code Opus 4.7 since I know nothing about js and css.
+//! But we are always looking for somebody who can help us design a better & maintainable beautiful web UI!
 use std::{
     fs::OpenOptions,
     io::Write,
@@ -8,7 +11,7 @@ use std::{
     vec::Vec,
 };
 
-use alloc::string::ToString;
+use alloc::string::{String, ToString};
 
 use libafl_bolts::current_time;
 use serde::{Deserialize, Serialize};
@@ -22,15 +25,14 @@ use crate::{
 
 const FRONTEND_HTML: &str = include_str!("frontend/index.html");
 const HISTORY_LIMIT: usize = 100;
+const NAME_PLACEHOLDER: &str = "__MONITOR_NAME__";
 
-// Only used for NDJSON serialization/deserialization — not stored in SharedState.
 #[derive(Serialize, Deserialize)]
 struct Snapshot {
     timestamp_secs: u64,
     stats: Vec<Stats>,
 }
 
-// serde_json::Value is Send + Sync, so SharedState is too.
 #[derive(Debug)]
 struct SharedState {
     history: Vec<Value>,
@@ -44,17 +46,18 @@ pub struct WebMonitor {
 }
 
 impl WebMonitor {
-    /// constructor for [`struct@WebMonitor`]
-    pub fn new(history_path: PathBuf) -> Self {
-        Self::with_port(history_path, 13337)
+    /// constructor for [`struct@WebMonitor`]; `name` is displayed as the page title.
+    pub fn new(name: &str, history_path: PathBuf) -> Self {
+        Self::with_port(name, history_path, 13337)
     }
 
     /// constructor for [`struct@WebMonitor`] specifying an opening port
-    pub fn with_port(history_path: PathBuf, port: u16) -> Self {
+    pub fn with_port(name: &str, history_path: PathBuf, port: u16) -> Self {
         let _ = std::fs::remove_file(&history_path);
         let shared = Arc::new(RwLock::new(SharedState {
             history: Vec::new(),
         }));
+        let html = FRONTEND_HTML.replace(NAME_PLACEHOLDER, name);
 
         let shared_clone = shared.clone();
         std::thread::spawn(move || {
@@ -62,10 +65,13 @@ impl WebMonitor {
                 .enable_all()
                 .build()
                 .expect("failed to build tokio runtime for WebMonitor")
-                .block_on(serve(shared_clone, port));
+                .block_on(serve(shared_clone, port, html));
         });
 
-        WebMonitor { history_path, shared }
+        WebMonitor {
+            history_path,
+            shared,
+        }
     }
 
     fn append_to_file(path: &Path, json: &str) {
@@ -75,21 +81,31 @@ impl WebMonitor {
     }
 }
 
-async fn serve(shared: Arc<RwLock<SharedState>>, port: u16) {
+async fn serve(shared: Arc<RwLock<SharedState>>, port: u16, html: String) {
     use axum::{Json, Router, extract::State, response::Html, routing::get};
 
-    async fn root() -> Html<&'static str> {
-        Html(FRONTEND_HTML)
+    #[derive(Clone)]
+    struct AppState {
+        shared: Arc<RwLock<SharedState>>,
+        html: Arc<str>,
     }
 
-    async fn history(State(s): State<Arc<RwLock<SharedState>>>) -> Json<Value> {
-        Json(Value::Array(s.read().unwrap().history.clone()))
+    async fn root(State(s): State<AppState>) -> Html<String> {
+        Html(s.html.to_string())
     }
 
+    async fn history(State(s): State<AppState>) -> Json<Value> {
+        Json(Value::Array(s.shared.read().unwrap().history.clone()))
+    }
+
+    let state = AppState {
+        shared,
+        html: Arc::from(html),
+    };
     let app = Router::new()
         .route("/", get(root))
         .route("/api/history", get(history))
-        .with_state(shared);
+        .with_state(state);
 
     let addr = SocketAddr::from(([127, 0, 0, 1], port));
     let listener = tokio::net::TcpListener::bind(addr)

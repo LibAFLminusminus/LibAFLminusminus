@@ -118,7 +118,7 @@ pub fn main() -> Result<()> {
         .build()?;
 
     // The monitor tracks the fuzzing current status.
-    let monitor = WebMonitor::new(PathBuf::from("history.ndjson"));
+    let monitor = WebMonitor::new("baby_fuzzer", PathBuf::from("history.ndjson"));
 	// let monitor = SimpleMonitor::new();
 
     let fast_timer = FastTimer::new();
