@@ -27,7 +27,7 @@
 //! }
 //! ```
 //!
-//! ## Example (`libafl_qemu`)
+//! ## Example (`libaflmm_qemu`)
 //!
 //! ```ignore
 //! use libaflmm_bolts::cli::{parse_args, FuzzerOptions};

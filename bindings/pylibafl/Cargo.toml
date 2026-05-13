@@ -12,16 +12,20 @@ readme.workspace = true
 rust-version.workspace = true
 version.workspace = true
 
+[features]
+extension-module = ["pyo3/extension-module"]
+
 [dependencies]
-pyo3 = { version = "0.28.3", features = ["extension-module"] }
-pyo3-log = { version = "0.13.1" }
 libaflmm_bolts = { workspace = true, features = ["python"] }
+
+pyo3 = { workspace = true }
+pyo3-log = { workspace = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 libaflmm_qemu = { workspace = true, features = ["python"] }
 
 [build-dependencies]
-pyo3-build-config = "0.28.3"
+pyo3-build-config = { workspace = true }
 
 [lib]
 name = "pylibafl"

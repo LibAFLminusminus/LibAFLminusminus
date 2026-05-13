@@ -140,7 +140,7 @@ impl QemuSnapshotManager {
 
     #[must_use]
     pub fn snapshot_id_to_name(&self, snapshot_id: &SnapshotId) -> String {
-        format!("__libafl_qemu_snapshot_{}", snapshot_id.inner())
+        format!("__libaflmm_qemu_snapshot_{}", snapshot_id.inner())
     }
 }
 

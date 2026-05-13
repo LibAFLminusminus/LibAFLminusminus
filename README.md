@@ -13,7 +13,7 @@ Add temp stuff to `IDEAS.md`, this is useless atm.
 
 `LibAFL--`, contrarily to `LibAFL`, exposes `AFL++` as a submodule.
 We only use it to maintain compabitility and compare with target-side code like `forkserver` or LLVM passes.
-Thus, only `libafl_targets` depends on `AFL++`, there is no shared code for the fuzzing part.
+Thus, only `libaflmm_targets` depends on `AFL++`, there is no shared code for the fuzzing part.
 
 ## Building and installing
 

@@ -2,7 +2,7 @@
 
 NYX supports both source-based and binary-only fuzzing.
 
-Currently, `libafl_nyx` only supports [afl++](https://github.com/AFLplusplus/AFLplusplus)'s instruction type. To install it, you can use `sudo apt install aflplusplus`. Or compile from the source:
+Currently, `libaflmm_nyx` only supports [afl++](https://github.com/AFLplusplus/AFLplusplus)'s instruction type. To install it, you can use `sudo apt install aflplusplus`. Or compile from the source:
 
 ```bash
 git clone https://github.com/AFLplusplus/AFLplusplus

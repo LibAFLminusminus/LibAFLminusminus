@@ -8,7 +8,7 @@ static LIBAFL_QEMU_RUNTIME_TEST: &str = r#"
 #include <stdio.h>
 #include "libafl_qemu.h"
 
-void __libafl_qemu_testfile() {}
+void __libaflmm_qemu_testfile() {}
 "#;
 
 #[expect(clippy::too_many_lines)]

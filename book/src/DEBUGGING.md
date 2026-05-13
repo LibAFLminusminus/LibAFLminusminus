@@ -54,4 +54,3 @@ Type `q` to leave TUI.
 ## Q. I see `QEMU internal SIGSEGV {code=MAPERR, addr=0x48}` and my QEMU fuzzer doesn't run
 
 Are you running QEMU fuzzer on WSL? You have to enable vsyscall <https://github.com/microsoft/WSL/issues/4694#issuecomment-556095344>.
-

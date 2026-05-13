@@ -20,20 +20,20 @@ use crate::{
 };
 
 /// End the restarter; the task is over.
-pub const LIBAFL_EXIT_END: i32 = 100;
+pub const LIBAFLMM_EXIT_END: i32 = 100;
 
 /// Restart the task
-pub const LIBAFL_EXIT_RESTART: i32 = 101;
+pub const LIBAFLMM_EXIT_RESTART: i32 = 101;
 
 /// Infinite recursion bug in termination handlers.
-pub const LIBAFL_EXIT_TERMINATION_INFINITE_RECURSION: i32 = 102;
+pub const LIBAFLMM_EXIT_TERMINATION_INFINITE_RECURSION: i32 = 102;
 
 /// A restarting [`Runtime`].
 ///
 /// The inner runtime will restart when it exits with special exit codes:
-///     - [`LIBAFL_EXIT_END`]: The runtime finished its task, exit successfully.
-///     - [`LIBAFL_EXIT_RESTART`]: The runtime must be restarted but no hard error happened.
-///     - [`LIBAFL_EXIT_TERMINATION_INFINITE_RECURSION`]: The runtime signal handler is in an infinite recursion. It's a bug.
+///     - [`LIBAFLMM_EXIT_END`]: The runtime finished its task, exit successfully.
+///     - [`LIBAFLMM_EXIT_RESTART`]: The runtime must be restarted but no hard error happened.
+///     - [`LIBAFLMM_EXIT_TERMINATION_INFINITE_RECURSION`]: The runtime signal handler is in an infinite recursion. It's a bug.
 #[derive(Debug, Clone)]
 pub struct RestartingRuntime<RT> {
     inner: RT,
@@ -114,13 +114,13 @@ where
 
                             // the child exited with some status code, handle it here.
                             match status {
-                                LIBAFL_EXIT_END => return Ok(()),
-                                LIBAFL_EXIT_RESTART => {
+                                LIBAFLMM_EXIT_END => return Ok(()),
+                                LIBAFLMM_EXIT_RESTART => {
                                     // at this point, the child finished and must be restarted with the new state. shm must be loaded with state.
                                     // this must be hit on crash / timeout in the child
                                     unsafe { state_receiver.receive()? }
                                 }
-                                LIBAFL_EXIT_TERMINATION_INFINITE_RECURSION => {
+                                LIBAFLMM_EXIT_TERMINATION_INFINITE_RECURSION => {
                                     return Err(Error::runtime(
                                         "An infinite termination recursion occured in the child process.",
                                     ));
@@ -156,7 +156,7 @@ where
 
                     if getppid() != parent_pid {
                         // handle racey call to set_pdeathsig
-                        exit(LIBAFL_EXIT_END);
+                        exit(LIBAFLMM_EXIT_END);
                     }
 
                     // set the state saver, which should be called by the child on erroneous exit.
@@ -173,7 +173,7 @@ where
                             .expect("Error while running the child runtime");
                     }
 
-                    exit(LIBAFL_EXIT_END);
+                    exit(LIBAFLMM_EXIT_END);
                 }
                 Err(e) => {
                     return Err(Error::runtime(format!(

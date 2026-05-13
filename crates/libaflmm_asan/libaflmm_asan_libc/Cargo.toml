@@ -11,10 +11,10 @@ categories = [
   "os",
   "no-std",
 ]
-version.workspace = true
-license.workspace = true
-repository.workspace = true
-readme.workspace = true
+version = "0.16.0"
+license = "MPL-2.0"
+repository = "https://github.com/LibAFLminusminus/LibAFLminusminus"
+readme = "./README.md"
 
 [lib]
 name = "afl_asan_libc"

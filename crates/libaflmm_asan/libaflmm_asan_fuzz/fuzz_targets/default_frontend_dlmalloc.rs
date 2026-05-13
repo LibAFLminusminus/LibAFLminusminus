@@ -2,7 +2,7 @@
 
 use std::sync::{LazyLock, Mutex, MutexGuard};
 
-use libafl_asan::{
+use libaflmm_asan::{
     GuestAddr,
     allocator::{
         backend::dlmalloc::DlmallocBackend,

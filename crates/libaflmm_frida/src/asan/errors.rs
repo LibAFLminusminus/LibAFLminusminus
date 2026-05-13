@@ -1,4 +1,4 @@
-//! Errors that can be caught by the `libafl_frida` address sanitizer.
+//! Errors that can be caught by the `libaflmm_frida` address sanitizer.
 use alloc::borrow::Cow;
 use core::{fmt::Debug, marker::PhantomData};
 use std::{
@@ -161,7 +161,7 @@ impl AsanErrors {
             .verbosity(Verbosity::Full)
             .add_frame_filter(Box::new(|frames| {
                 frames.retain(
-                    |x| matches!(&x.name, Some(n) if !n.starts_with("libafl_frida::asan_rt::")),
+                    |x| matches!(&x.name, Some(n) if !n.starts_with("libaflmm_frida::asan_rt::")),
                 );
             }));
 

@@ -6,7 +6,7 @@ use std::{
     sync::{LazyLock, Mutex, MutexGuard},
 };
 
-use libafl_asan::{
+use libaflmm_asan::{
     GuestAddr,
     allocator::frontend::{AllocatorFrontend, default::DefaultFrontend},
     mmap::{Mmap, unix::MmapRegion},

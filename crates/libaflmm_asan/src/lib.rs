@@ -6,28 +6,28 @@
 //! It has a modular design intended to support different use cases and
 //! environments. The following initial variants are proposed:
 //!
-//! - `libafl_qemu_asan_host` - Intended as a drop in replacement for the
+//! - `libaflmm_qemu_asan_host` - Intended as a drop in replacement for the
 //!   original libqasan, this will have dependency on `libc` and will interact
 //!   with QEMU using the bespoke syscall interface to perform memory tracking
 //!   and shadowing.
-//! - `libafl_qemu_asan_guest` - This is similar to `libafl_qemu_asan_host`, but
+//! - `libaflmm_qemu_asan_guest` - This is similar to `libaflmm_qemu_asan_host`, but
 //!   rather than having QEMU perform the management of the shadow memory and
 //!   memory tracking, this work will be carried out purely in the guest (and
 //!   hence should be more performant).
-//! - `libafl_qemu_asan_nolibc` - This variant is intended to have no
+//! - `libaflmm_qemu_asan_nolibc` - This variant is intended to have no
 //!   dependencies on libc, nor any other libraries. It is intended to be used
 //!   in bare-metal targets or targets which have statically linked `libc`.
 //!
 //! The following ancilliary crates are provided as follows:
-//! - `libafl_asan_libc` - A dummy libc library used during linking which
+//! - `libaflmm_asan_libc` - A dummy libc library used during linking which
 //!   provides only the symbols `dlsym` and `dlerror`. This is intended to
-//!   ensure that `libafl_qemu_asan_guest` and `libafl_qemu_asan_host` do not
+//!   ensure that `libaflmm_qemu_asan_guest` and `libaflmm_qemu_asan_host` do not
 //!   have any direct dependency on libc and hence avoids the possibility of
 //!   accidental re-entrancy. (e.g. in the case that we have hooked a function
 //!   such as `malloc` and in our handling of the call inadvertently call
 //!   `malloc`, or one of our other hooked functions ourselves).
-//! - `libafl_asan_fuzz` - A few different fuzzing harnesses used to test
-//!   `libafl_asan`.
+//! - `libaflmm_asan_fuzz` - A few different fuzzing harnesses used to test
+//!   `libaflmm_asan`.
 //!
 //! The componentized nature of the design is intended to permit the user to
 //! adapt `asan` to their needs with minimal modification by selecting and

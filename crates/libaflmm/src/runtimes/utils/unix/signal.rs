@@ -19,7 +19,7 @@ use crate::{
     executors::common_signals,
     runtimes::{
         inprocess::{CrashStatus, TimeoutStatus},
-        restarting::{LIBAFL_EXIT_RESTART, LIBAFL_EXIT_TERMINATION_INFINITE_RECURSION},
+        restarting::{LIBAFLMM_EXIT_RESTART, LIBAFLMM_EXIT_TERMINATION_INFINITE_RECURSION},
         utils::{IntoTerminationHandlerData, PinnedPtr, TerminationHandler},
     },
 };
@@ -116,11 +116,11 @@ where
 
         if max_depth_reached {
             log::error!(
-                "The in process signal handler has been triggered {} times recursively (timeout handler), which is not expected. Exiting with error code {LIBAFL_EXIT_TERMINATION_INFINITE_RECURSION}...",
+                "The in process signal handler has been triggered {} times recursively (timeout handler), which is not expected. Exiting with error code {LIBAFLMM_EXIT_TERMINATION_INFINITE_RECURSION}...",
                 self.inner().max_depth()
             );
 
-            exit(LIBAFL_EXIT_TERMINATION_INFINITE_RECURSION);
+            exit(LIBAFLMM_EXIT_TERMINATION_INFINITE_RECURSION);
         }
 
         if D::termination_handler_data(Pin::new(&mut self.inner.termination_data))
@@ -133,7 +133,7 @@ where
             match status {
                 TimeoutStatus::Exit => {
                     // timeout should exit
-                    exit(LIBAFL_EXIT_RESTART);
+                    exit(LIBAFLMM_EXIT_RESTART);
                 }
                 TimeoutStatus::Resume => {
                     // resume the fuzzer on timeout
@@ -196,7 +196,7 @@ where
                 (self.inner.crash_handler)(&mut self.inner.termination_data, &signal_params)
                     .expect("Error while handling crash handler");
 
-                exit(LIBAFL_EXIT_RESTART);
+                exit(LIBAFLMM_EXIT_RESTART);
             } else {
                 // not in fuzzing loop, this is a fuzzer bug.
                 let si_addr = { siginfo.si_addr() as usize };
@@ -260,11 +260,11 @@ where
 
             if max_depth_reached {
                 log::error!(
-                    "The in process signal handler has been triggered {} times recursively (panic handler), which is not expected. Exiting with error code {LIBAFL_EXIT_TERMINATION_INFINITE_RECURSION}...",
+                    "The in process signal handler has been triggered {} times recursively (panic handler), which is not expected. Exiting with error code {LIBAFLMM_EXIT_TERMINATION_INFINITE_RECURSION}...",
                     signal_handler.inner.max_depth()
                 );
 
-                exit(LIBAFL_EXIT_TERMINATION_INFINITE_RECURSION);
+                exit(LIBAFLMM_EXIT_TERMINATION_INFINITE_RECURSION);
             }
 
             if !D::termination_handler_data(Pin::new(&mut signal_handler.inner.termination_data))
@@ -287,7 +287,7 @@ where
             )
             .expect("Error in panic handler");
 
-            exit(LIBAFL_EXIT_RESTART);
+            exit(LIBAFLMM_EXIT_RESTART);
         }));
     }
 }
@@ -322,10 +322,10 @@ where
 
         if max_depth_reached {
             log::error!(
-                "The in process signal handler has been triggered {} times recursively (crash handler), which is not expected. Exiting with error code {LIBAFL_EXIT_TERMINATION_INFINITE_RECURSION}...",
+                "The in process signal handler has been triggered {} times recursively (crash handler), which is not expected. Exiting with error code {LIBAFLMM_EXIT_TERMINATION_INFINITE_RECURSION}...",
                 self.inner.max_depth()
             );
-            exit(LIBAFL_EXIT_TERMINATION_INFINITE_RECURSION);
+            exit(LIBAFLMM_EXIT_TERMINATION_INFINITE_RECURSION);
         }
 
         match signal {

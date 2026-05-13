@@ -24,8 +24,8 @@ extern EXT_VAR(__stop_libafl_token, uint8_t);
 
 #elif defined(__APPLE__)
 extern uint8_t __start_libafl_token __asm(
-    "section$start$__DATA$__libafl_token");
-extern uint8_t __stop_libafl_token __asm("section$end$__DATA$__libafl_token");
+    "section$start$__DATA$__libaflmm_token");
+extern uint8_t __stop_libafl_token __asm("section$end$__DATA$__libaflmm_token");
 #endif
 
 #if defined(__linux__) || defined(__APPLE__)

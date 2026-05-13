@@ -1,5 +1,5 @@
-#ifndef __LIBAFL_TARGETS_COMMON__
-#define __LIBAFL_TARGETS_COMMON__
+#ifndef __LIBAFLMM_TARGETS_COMMON__
+#define __LIBAFLMM_TARGETS_COMMON__
 
 #include <stdint.h>
 

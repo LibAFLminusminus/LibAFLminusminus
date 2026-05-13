@@ -30,7 +30,7 @@ use iced_x86::{
     OpKind, Register,
 };
 use libafl::Error;
-use libafl_targets::{CMPLOG_MAP_W, cmps::__libafl_targets_cmplog_instructions};
+use libafl_targets::{CMPLOG_MAP_W, cmps::__libaflmm_targets_cmplog_instructions};
 use rangemap::RangeMap;
 
 use crate::helper::FridaRuntime;
@@ -173,7 +173,7 @@ impl CmpLogRuntime {
         k &= (CMPLOG_MAP_W as u64) - 1;
 
         unsafe {
-            __libafl_targets_cmplog_instructions(k as usize, 8, op1, op2);
+            __libaflmm_targets_cmplog_instructions(k as usize, 8, op1, op2);
         }
     }
 
@@ -188,7 +188,7 @@ impl CmpLogRuntime {
         k &= (CMPLOG_MAP_W as u64) - 1;
 
         unsafe {
-            __libafl_targets_cmplog_instructions(k as usize, size, op1, op2);
+            __libaflmm_targets_cmplog_instructions(k as usize, size, op1, op2);
         }
     }
 

@@ -1,5 +1,5 @@
 /*!
- * Welcome to `LibAFL_bolts`
+ * Welcome to `LibAFLmm_bolts`
  */
 #![doc = include_str!("../README.md")]
 /*! */
@@ -238,13 +238,13 @@ pub fn format_big_number(val: u64) -> String {
 }
 
 /// Stdout logger
-pub static LIBAFL_STDOUT_LOGGER: SimpleStdoutLogger = SimpleStdoutLogger::new();
+pub static LIBAFLMM_STDOUT_LOGGER: SimpleStdoutLogger = SimpleStdoutLogger::new();
 
 /// Stderr logger
-pub static LIBAFL_STDERR_LOGGER: SimpleStderrLogger = SimpleStderrLogger::new();
+pub static LIBAFLMM_STDERR_LOGGER: SimpleStderrLogger = SimpleStderrLogger::new();
 
 /// A logger we can use log to raw fds.
-static mut LIBAFL_RAWFD_LOGGER: SimpleFdLogger = unsafe { SimpleFdLogger::new(1) };
+static mut LIBAFLMM_RAWFD_LOGGER: SimpleFdLogger = unsafe { SimpleFdLogger::new(1) };
 
 /// A simple logger struct that logs to stdout when used with [`log::set_logger`].
 #[derive(Debug)]
@@ -265,7 +265,7 @@ impl SimpleStdoutLogger {
 
     /// register stdout logger
     pub fn set_logger() -> Result<()> {
-        log::set_logger(&LIBAFL_STDOUT_LOGGER)
+        log::set_logger(&LIBAFLMM_STDOUT_LOGGER)
             .map_err(|err| Error::illegal_state(format!("Failed to set logger: {err:?}")))
     }
 }
@@ -424,7 +424,7 @@ impl SimpleStderrLogger {
 
     /// register stderr logger
     pub fn set_logger() -> Result<()> {
-        log::set_logger(&LIBAFL_STDERR_LOGGER)
+        log::set_logger(&LIBAFLMM_STDERR_LOGGER)
             .map_err(|err| Error::illegal_state(format!("Could not set logger: {err:?}")))
     }
 }
@@ -483,7 +483,7 @@ impl SimpleFdLogger {
         // # Safety
         // The passed-in `fd` has to be a legal file descriptor to log to.
         // We also access a shared variable here.
-        let logger = &raw mut LIBAFL_RAWFD_LOGGER;
+        let logger = &raw mut LIBAFLMM_RAWFD_LOGGER;
         unsafe {
             let logger = &mut *logger;
             logger.set_fd(log_fd);
@@ -702,16 +702,16 @@ pub mod pybind {
 mod tests {
 
     #[cfg(unix)]
-    use crate::LIBAFL_RAWFD_LOGGER;
+    use crate::LIBAFLMM_RAWFD_LOGGER;
 
     #[test]
     #[cfg(unix)]
     fn test_logger() {
         use std::{io::stdout, os::fd::AsRawFd};
 
-        unsafe { LIBAFL_RAWFD_LOGGER.fd = stdout().as_raw_fd() };
+        unsafe { LIBAFLMM_RAWFD_LOGGER.fd = stdout().as_raw_fd() };
 
-        let libafl_rawfd_logger_fd = &raw const LIBAFL_RAWFD_LOGGER;
+        let libafl_rawfd_logger_fd = &raw const LIBAFLMM_RAWFD_LOGGER;
         unsafe {
             log::set_logger(&*libafl_rawfd_logger_fd).unwrap();
         }

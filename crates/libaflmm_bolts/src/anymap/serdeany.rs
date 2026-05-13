@@ -161,7 +161,7 @@ pub mod serdeany_registry {
                     .ok_or_else(||
                         de::Error::custom(super::ERR_EMPTY_TYPES_REGISTER))?
                     .get(&id)
-                    .ok_or_else(|| de::Error::custom(format_args!("Cannot deserialize the unregistered type with id {id}. Enable the `serde_autoreg` feature in libafl_bolts or register all requried types manually.")))?
+                    .ok_or_else(|| de::Error::custom(format_args!("Cannot deserialize the unregistered type with id {id}. Enable the `serde_autoreg` feature in libaflmm_bolts or register all requried types manually.")))?
                     .0
             };
             let seed = DeserializeCallbackSeed::<dyn crate::anymap::serdeany::SerdeAny> { cb };

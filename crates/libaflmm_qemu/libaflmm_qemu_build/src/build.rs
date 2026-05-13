@@ -81,10 +81,10 @@ fn configure_qemu(
 
     // Set common options for usermode and systemmode
     cmd.current_dir(qemu_path)
-        .env("__LIBAFL_QEMU_CONFIGURE", "")
-        .env("__LIBAFL_QEMU_BUILD_OUT", build_dir.join("linkinfo.json"))
-        .env("__LIBAFL_QEMU_BUILD_CC", cc_compiler.path())
-        .env("__LIBAFL_QEMU_BUILD_CXX", cpp_compiler.path())
+        .env("__LIBAFLMM_QEMU_CONFIGURE", "")
+        .env("__LIBAFLMM_QEMU_BUILD_OUT", build_dir.join("linkinfo.json"))
+        .env("__LIBAFLMM_QEMU_BUILD_CC", cc_compiler.path())
+        .env("__LIBAFLMM_QEMU_BUILD_CXX", cpp_compiler.path())
         .arg(format!("--cc={}", linker_interceptor.display()))
         .arg(format!("--cxx={}", linker_interceptor_plus_plus.display()))
         .arg("--as-shared-lib")
@@ -233,10 +233,10 @@ fn build_qemu(
     let mut cmd = Command::new("make");
 
     cmd.current_dir(build_dir)
-        .env("__LIBAFL_QEMU_CONFIGURE", "")
-        .env("__LIBAFL_QEMU_BUILD_OUT", build_dir.join("linkinfo.json"))
-        .env("__LIBAFL_QEMU_BUILD_CC", cc_compiler.path())
-        .env("__LIBAFL_QEMU_BUILD_CXX", cpp_compiler.path())
+        .env("__LIBAFLMM_QEMU_CONFIGURE", "")
+        .env("__LIBAFLMM_QEMU_BUILD_OUT", build_dir.join("linkinfo.json"))
+        .env("__LIBAFLMM_QEMU_BUILD_CC", cc_compiler.path())
+        .env("__LIBAFLMM_QEMU_BUILD_CXX", cpp_compiler.path())
         .arg("-j");
 
     if let Some(j) = jobs {

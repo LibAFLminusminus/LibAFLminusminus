@@ -14,7 +14,7 @@
 #ifdef SANCOV_VALUE_PROFILE
   #define SANCOV_VALUE_PROFILE_CALL(k, arg_size, arg1, arg2, arg1_is_const) \
     k &= CMP_MAP_SIZE - 1;                                                  \
-    __libafl_targets_value_profile##arg_size(k, arg1, arg2);
+    __libaflmm_targets_value_profile##arg_size(k, arg1, arg2);
 #else
   #define SANCOV_VALUE_PROFILE_CALL(k, arg_size, arg1, arg2, arg1_is_const)
 #endif
@@ -65,18 +65,18 @@ void __sanitizer_cov_trace_switch(uint64_t val, uint64_t *cases) {
     k &= CMP_MAP_SIZE - 1;
     switch (cases[1]) {
       case 8:
-        __libafl_targets_value_profile1(k, (uint8_t)val, (uint8_t)cases[i + 2]);
+        __libaflmm_targets_value_profile1(k, (uint8_t)val, (uint8_t)cases[i + 2]);
         break;
       case 16:
-        __libafl_targets_value_profile2(k, (uint16_t)val,
+        __libaflmm_targets_value_profile2(k, (uint16_t)val,
                                         (uint16_t)cases[i + 2]);
         break;
       case 32:
-        __libafl_targets_value_profile4(k, (uint32_t)val,
+        __libaflmm_targets_value_profile4(k, (uint32_t)val,
                                         (uint32_t)cases[i + 2]);
         break;
       default:
-        __libafl_targets_value_profile8(k, val, cases[i + 2]);
+        __libaflmm_targets_value_profile8(k, val, cases[i + 2]);
         break;
     }
 #endif

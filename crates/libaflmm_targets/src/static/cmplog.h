@@ -1,5 +1,5 @@
-#ifndef __LIBAFL_TARGETS_CMPLOG__
-#define __LIBAFL_TARGETS_CMPLOG__
+#ifndef __LIBAFLMM_TARGETS_CMPLOG__
+#define __LIBAFLMM_TARGETS_CMPLOG__
 
 #include "common.h"
 #include <stddef.h>
@@ -117,14 +117,14 @@ static inline void cmplog_routines_checked(uintptr_t k, const uint8_t *ptr1,
 // Expose these three APIs so that you can still call into them from outside
 // libafl_targets
 
-void __libafl_targets_cmplog_instructions(uintptr_t k, uint8_t shape,
+void __libaflmm_targets_cmplog_instructions(uintptr_t k, uint8_t shape,
                                           uint64_t arg1, uint64_t arg2);
-void __libafl_targets_cmplog_instructions_extended(uintptr_t k, uint8_t shape,
+void __libaflmm_targets_cmplog_instructions_extended(uintptr_t k, uint8_t shape,
                                           uint64_t arg1, uint64_t arg2);
-void __libafl_targets_cmplog_routines(uintptr_t k, const uint8_t *ptr1,
+void __libaflmm_targets_cmplog_routines(uintptr_t k, const uint8_t *ptr1,
                                       const uint8_t *ptr2);
 
-void __libafl_targets_cmplog_routines_len(uintptr_t k, const uint8_t *ptr1,
+void __libaflmm_targets_cmplog_routines_len(uintptr_t k, const uint8_t *ptr1,
                                           const uint8_t *ptr2, size_t len);
 
 #endif

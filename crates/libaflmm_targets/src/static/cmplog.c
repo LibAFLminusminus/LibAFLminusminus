@@ -9,7 +9,7 @@
 
   #include <windows.h>
 
-void *__libafl_asan_region_is_poisoned(void *beg, size_t size) {
+void *__libaflmm_asan_region_is_poisoned(void *beg, size_t size) {
   (void)beg;
   (void)size;
   return NULL;
@@ -24,7 +24,7 @@ void *__asan_region_is_poisoned(void *beg, size_t size) {
   #else
     #pragma comment( \
         linker,      \
-        "/alternatename:__asan_region_is_poisoned=__libafl_asan_region_is_poisoned")
+        "/alternatename:__asan_region_is_poisoned=__libaflmm_asan_region_is_poisoned")
   #endif
 
 #elif defined(__unix__) || (defined(__APPLE__) && defined(__MACH__))
@@ -96,13 +96,13 @@ static inline long area_is_valid(const void *ptr, size_t len) {
 }
 
 // Very generic cmplog instructions callback
-void __libafl_targets_cmplog_instructions(uintptr_t k, uint8_t size,
+void __libaflmm_targets_cmplog_instructions(uintptr_t k, uint8_t size,
                                           uint64_t arg1, uint64_t arg2) {
   cmplog_instructions_checked(k, size, arg1, arg2, 0);
 }
 
 // Very generic cmplog routines callback
-void __libafl_targets_cmplog_routines(uintptr_t k, const uint8_t *ptr1,
+void __libaflmm_targets_cmplog_routines(uintptr_t k, const uint8_t *ptr1,
                                       const uint8_t *ptr2) {
   if (!libafl_cmplog_enabled) { return; }
 
@@ -117,7 +117,7 @@ void __libafl_targets_cmplog_routines(uintptr_t k, const uint8_t *ptr1,
 }
 
 // cmplog routines but with len specified
-void __libafl_targets_cmplog_routines_len(uintptr_t k, const uint8_t *ptr1,
+void __libaflmm_targets_cmplog_routines_len(uintptr_t k, const uint8_t *ptr1,
                                           const uint8_t *ptr2, size_t len) {
   if (!libafl_cmplog_enabled) { return; }
 

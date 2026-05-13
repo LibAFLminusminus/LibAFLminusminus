@@ -9,7 +9,7 @@ use crate::{
     inputs::Input,
     runtimes::{
         inprocess::{CrashStatus, TimeoutStatus},
-        restarting::LIBAFL_EXIT_END,
+        restarting::LIBAFLMM_EXIT_END,
         utils::{PinnedPtr, unix::OsShmSender},
     },
     stages::StagesTuple,
@@ -70,7 +70,7 @@ pub trait Runtime<S, W>: DependencyResolver {
 
         unsafe { self.run_impl(state, &mut rt_handle)? };
 
-        exit(LIBAFL_EXIT_END);
+        exit(LIBAFLMM_EXIT_END);
     }
 
     /// Set a timeout value for the runtime.

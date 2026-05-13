@@ -550,9 +550,9 @@ PreservedAnalyses AutoTokensPass::run(Module &M, ModuleAnalysisManager &MAM) {
           "libafl_dictionary_" + M.getName());
 #if defined(__linux__) || defined(__FreeBSD__) || defined(__NetBSD__) || \
     defined(__OpenBSD__) || defined(__DragonFly__)
-      dict->setSection("libafl_token");
+      dict->setSection("libaflmm_token");
 #elif defined(__APPLE__)
-      dict->setSection("__DATA,__libafl_token");
+      dict->setSection("__DATA,__libaflmm_token");
 #endif
     }
   }
