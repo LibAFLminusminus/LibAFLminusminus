@@ -45,9 +45,9 @@ jobs:
         run: cargo build --workspace --all-targets --exclude libafl_asan_libc --exclude libafl_frida --exclude args_reorder --exclude generics_reorder --exclude use_after_mod
       - name: Check examples
         run: |
-          cargo check --workspace --all-targets --exclude libafl_asan_libc --exclude libafl_frida --exclude args_reorder --exclude generics_reorder --exclude use_after_mod --example
-          cargo build --workspace --all-targets --exclude libafl_asan_libc --exclude libafl_frida --exclude args_reorder --exclude generics_reorder --exclude use_after_mod --example
-          cargo test --workspace --all-targets --exclude libafl_asan_libc --exclude libafl_frida --exclude args_reorder --exclude generics_reorder --exclude use_after_mod --example
+          cargo check --workspace --all-targets --exclude libafl_asan_libc --exclude libafl_frida --exclude args_reorder --exclude generics_reorder --exclude use_after_mod --examples
+          cargo build --workspace --all-targets --exclude libafl_asan_libc --exclude libafl_frida --exclude args_reorder --exclude generics_reorder --exclude use_after_mod --examples
+          cargo test --workspace --all-targets --exclude libafl_asan_libc --exclude libafl_frida --exclude args_reorder --exclude generics_reorder --exclude use_after_mod --examples
       - name: Build docs
         run: ./scripts/doc_all.py
       - name: Run tests serially
