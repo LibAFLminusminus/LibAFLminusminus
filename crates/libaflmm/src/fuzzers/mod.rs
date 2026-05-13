@@ -3,7 +3,7 @@
 use alloc::string::ToString;
 use core::fmt::Debug;
 
-use libafl_core::Result;
+use libaflmm_core::Result;
 
 use crate::{Error, executors::ExitKind, runtimes::RuntimeHandle};
 

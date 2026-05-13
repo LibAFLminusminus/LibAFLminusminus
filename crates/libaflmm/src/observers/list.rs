@@ -2,7 +2,7 @@
 use alloc::{borrow::Cow, vec::Vec};
 use core::fmt::Debug;
 
-use libafl_bolts::{Error, Named, ownedref::OwnedMutPtr};
+use libaflmm_bolts::{Error, Named, ownedref::OwnedMutPtr};
 use serde::{Deserialize, Serialize};
 
 use crate::{DependencyResolver, observers::Observer};

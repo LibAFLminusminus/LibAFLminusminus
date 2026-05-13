@@ -16,7 +16,7 @@ use std::{
 };
 
 use hashbrown::HashSet;
-use libafl_bolts::{AsSlice, rands::Rand};
+use libaflmm_bolts::{AsSlice, rands::Rand};
 use serde::{Deserialize, Serialize};
 
 use crate::mutators::str_decode;
@@ -36,7 +36,7 @@ pub struct Tokens {
     tokens_set: HashSet<Vec<u8>>,
 }
 
-libafl_bolts::impl_serdeany!(Tokens);
+libaflmm_bolts::impl_serdeany!(Tokens);
 
 /// The default metadata name for holding the tokens map
 pub static DEFAULT_TOKEN_MAP: &str = "default_tokens";

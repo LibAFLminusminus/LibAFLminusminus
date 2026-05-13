@@ -3,7 +3,7 @@
 use alloc::{rc::Rc, vec::Vec};
 use core::{cell::RefCell, marker::PhantomData};
 
-use libafl_core::Result;
+use libaflmm_core::Result;
 use serde::{Deserialize, Serialize};
 
 use super::{Corpus, Testcase, store::Store};

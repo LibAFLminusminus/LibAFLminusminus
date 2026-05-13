@@ -3,8 +3,8 @@
 use alloc::rc::Rc;
 use core::time::Duration;
 
-use libafl_bolts::current_time;
-use libafl_core::Result;
+use libaflmm_bolts::current_time;
+use libaflmm_core::Result;
 use quanta::{Clock, Instant};
 use tuple_list::tuple_list;
 

@@ -3,7 +3,7 @@
 use alloc::borrow::Cow;
 use core::marker::PhantomData;
 
-use libafl_bolts::{Error, Named, rands::Rand, tuples::Merge};
+use libaflmm_bolts::{Error, Named, rands::Rand, tuples::Merge};
 use tuple_list::{tuple_list, tuple_list_type};
 
 use super::{MutationResult, Mutator};
@@ -336,7 +336,7 @@ mod tests {
 
     use alloc::rc::Rc;
 
-    use libafl_bolts::{
+    use libaflmm_bolts::{
         rands::{Rand, XkcdRand},
         tuples::IntoVec as _,
     };

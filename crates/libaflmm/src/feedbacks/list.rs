@@ -8,11 +8,11 @@ use core::{
 use std::{fs::File, io::Write, path::Path};
 
 use hashbrown::HashSet;
-use libafl_bolts::{
+use libaflmm_bolts::{
     HasRefCnt, Named,
     tuples::{Handle, Handled, MatchName, MatchNameRef},
 };
-use libafl_core::Result;
+use libaflmm_core::Result;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use crate::{
@@ -71,7 +71,7 @@ pub struct ListFeedback<T> {
     file: Option<File>,
 }
 
-libafl_bolts::impl_serdeany!(
+libaflmm_bolts::impl_serdeany!(
     ListFeedbackMetadata<T: Debug + 'static + Serialize + DeserializeOwned + Eq + Hash>,
     <u8>,<u16>,<u32>,<u64>,<i8>,<i16>,<i32>,<i64>,<bool>,<char>,<usize>
 );

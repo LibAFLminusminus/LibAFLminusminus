@@ -3,7 +3,7 @@
 use alloc::borrow::Cow;
 use core::hash::Hash;
 
-use libafl_bolts::{Error, Named, generic_hash_std, rands::Rand};
+use libaflmm_bolts::{Error, Named, generic_hash_std, rands::Rand};
 
 use super::{MutationResult, Mutator};
 use crate::fuzzers::EvaluationResult;
@@ -55,7 +55,7 @@ impl<M> Named for MutationChecker<M> {
 
 #[cfg(test)]
 mod tests {
-    use libafl_bolts::rands::StdRand;
+    use libaflmm_bolts::rands::StdRand;
 
     use crate::{
         inputs::BytesInput,

@@ -1,7 +1,7 @@
 use alloc::vec::Vec;
 use core::num::NonZero;
 
-use libafl_bolts::rands::Rand;
+use libaflmm_bolts::rands::Rand;
 use regex_syntax::hir::{Class, ClassBytesRange, ClassUnicodeRange, Hir, Literal};
 
 /// A script for generating strings from a regex

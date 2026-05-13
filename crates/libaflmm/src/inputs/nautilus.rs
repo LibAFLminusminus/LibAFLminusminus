@@ -5,7 +5,7 @@ use core::{
     hash::{Hash, Hasher},
 };
 
-use libafl_bolts::HasLen;
+use libaflmm_bolts::HasLen;
 use serde::{Deserialize, Serialize};
 
 use crate::{

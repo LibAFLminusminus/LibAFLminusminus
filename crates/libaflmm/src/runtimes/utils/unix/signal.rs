@@ -8,12 +8,12 @@ use std::{
     panic::{self, PanicHookInfo},
 };
 
-use libafl_bolts::os::{
+use libaflmm_bolts::os::{
     exit,
-    unix_signals::{Signal, SignalHandler, setup_signal_handler, ucontext_t},
+    unix_signals::{Signal, SignalHandler, setup_signal_handler},
 };
-use libafl_core::Result;
-use libc::{SIGABRT, siginfo_t};
+use libaflmm_core::Result;
+use libc::{SIGABRT, siginfo_t, ucontext_t};
 
 use crate::{
     executors::common_signals,
@@ -176,7 +176,7 @@ where
                     let mut bsod = Vec::new();
                     {
                         let mut writer = std::io::BufWriter::new(&mut bsod);
-                        let bsod = libafl_bolts::minibsod::generate_minibsod(
+                        let bsod = libaflmm_bolts::minibsod::generate_minibsod(
                             &mut writer,
                             signal,
                             siginfo,
@@ -209,7 +209,7 @@ where
                     let mut bsod = Vec::new();
                     {
                         let mut writer = std::io::BufWriter::new(&mut bsod);
-                        let bsod = libafl_bolts::minibsod::generate_minibsod(
+                        let bsod = libaflmm_bolts::minibsod::generate_minibsod(
                             &mut writer,
                             signal,
                             siginfo,

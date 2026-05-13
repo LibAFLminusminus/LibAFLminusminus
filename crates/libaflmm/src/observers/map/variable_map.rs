@@ -7,7 +7,7 @@ use core::{
     ops::{Deref, DerefMut},
 };
 
-use libafl_bolts::{
+use libaflmm_bolts::{
     AsSlice, AsSliceMut, HasLen, Named,
     ownedref::{OwnedMutPtr, OwnedMutSlice},
 };

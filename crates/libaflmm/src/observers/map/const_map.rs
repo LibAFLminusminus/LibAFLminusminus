@@ -8,7 +8,7 @@ use core::{
     ptr::NonNull,
 };
 
-use libafl_bolts::{HasLen, Named, ownedref::OwnedMutSizedSlice};
+use libaflmm_bolts::{HasLen, Named, ownedref::OwnedMutSizedSlice};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use crate::{

@@ -4,8 +4,8 @@ use alloc::{borrow::Cow, string::String};
 use core::fmt::Debug;
 use std::fs::create_dir_all;
 
-use libafl_bolts::Named;
-use libafl_core::Result;
+use libaflmm_bolts::Named;
+use libaflmm_core::Result;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -35,7 +35,7 @@ impl Debug for NautilusChunksMetadata {
     }
 }
 
-libafl_bolts::impl_serdeany!(NautilusChunksMetadata);
+libaflmm_bolts::impl_serdeany!(NautilusChunksMetadata);
 
 impl NautilusChunksMetadata {
     /// Creates a new [`NautilusChunksMetadata`]

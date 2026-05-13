@@ -1,6 +1,6 @@
 //! Unix-specific [`Runtime`] primitives.
 
-use libafl_bolts::{AnonShmBuilder, AnonShmReceiver, AnonShmSender};
+use libaflmm_bolts::{AnonShmBuilder, AnonShmReceiver, AnonShmSender};
 
 #[cfg(unix)]
 pub mod signal;

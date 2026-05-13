@@ -2,7 +2,7 @@
 
 use std::path::Path;
 
-use libafl_core::Result;
+use libaflmm_core::Result;
 use serde::{Deserialize, Serialize};
 
 use crate::{

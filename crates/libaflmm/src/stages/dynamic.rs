@@ -18,7 +18,7 @@ where
     T1: DependencyResolver,
     T2: DependencyResolver,
 {
-    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<(), libafl_core::Error> {
+    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<(), libaflmm_core::Error> {
         match self {
             Self::Stage1(st1) => st1.register(registrator),
             Self::Stage2(st2) => st2.register(registrator),
@@ -39,7 +39,7 @@ where
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
         testcase_id: &TestcaseId,
-    ) -> Result<(), libafl_bolts::Error> {
+    ) -> Result<(), libaflmm_bolts::Error> {
         match self {
             Self::Stage1(st1) => st1.perform(fuzzer, executor, rand, state, rt_handle, testcase_id),
             Self::Stage2(st2) => st2.perform(fuzzer, executor, rand, state, rt_handle, testcase_id),

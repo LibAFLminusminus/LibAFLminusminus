@@ -7,8 +7,8 @@ use alloc::{
 };
 use core::{marker::PhantomData, num::NonZeroUsize};
 
-use libafl_bolts::{Named, rands::Rand};
-use libafl_core::non_zero;
+use libaflmm_bolts::{Named, rands::Rand};
+use libaflmm_core::non_zero;
 
 use crate::{
     DependencyResolver, Error,

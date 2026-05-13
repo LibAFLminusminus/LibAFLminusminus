@@ -8,7 +8,7 @@ use core::{
     slice,
 };
 
-use libafl_bolts::{AsIter, AsIterMut, AsSlice, AsSliceMut, HasLen, Named, Truncate};
+use libaflmm_bolts::{AsIter, AsIterMut, AsSlice, AsSliceMut, HasLen, Named, Truncate};
 use serde::{Deserialize, Serialize};
 
 use crate::{

@@ -2,7 +2,7 @@
 
 pub mod cmplog_observer;
 pub use cmplog_observer::*;
-use libafl_core::{AsSlice, HasLen};
+use libaflmm_core::{AsSlice, HasLen};
 use serde::{Deserialize, Serialize};
 
 /// A bytes string for cmplog with up to 32 elements.

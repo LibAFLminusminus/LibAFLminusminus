@@ -19,9 +19,8 @@ pub mod list;
 use core::{fmt::Debug, time::Duration};
 use std::time::Instant;
 
-#[cfg(not(feature = "std"))]
-use libafl_bolts::current_time;
-use libafl_bolts::{Named, tuples::MatchName};
+use libaflmm_bolts::Named;
+use libaflmm_bolts::tuples::MatchName;
 pub use list::*;
 use serde::{Deserialize, Serialize};
 pub use value::*;
@@ -187,7 +186,7 @@ impl Named for TimeObserver {
 #[cfg(test)]
 mod tests {
 
-    use libafl_bolts::{
+    use libaflmm_bolts::{
         Named,
         ownedref::OwnedMutSlice,
         tuples::{tuple_list, tuple_list_type},

@@ -3,7 +3,7 @@
 use alloc::{string::String, vec::Vec};
 use core::time::Duration;
 
-use libafl_bolts::current_time;
+use libaflmm_bolts::current_time;
 
 use crate::{
     Controller, Descriptor, Result,

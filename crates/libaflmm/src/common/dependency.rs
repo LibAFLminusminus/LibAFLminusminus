@@ -3,8 +3,8 @@
 use core::any;
 use std::collections::HashSet;
 
-use libafl_bolts::serdeany::{NamedSerdeAnyMap, SerdeAny};
-use libafl_core::Result;
+use libaflmm_bolts::{NamedSerdeAnyMap, SerdeAny};
+use libaflmm_core::Result;
 
 /// Dependency registrator.
 ///

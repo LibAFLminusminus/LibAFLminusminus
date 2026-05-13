@@ -77,7 +77,7 @@ static mut __afl_fuzz_len_local: u32 = 0;
 pub static mut __afl_fuzz_len: *mut u32 = &raw mut __afl_fuzz_len_local;
 
 #[cfg(any(feature = "sancov_pcguard_edges", feature = "sancov_pcguard_hitcounts",))]
-use libafl_bolts::ownedref::OwnedMutSlice;
+use libaflmm_bolts::ownedref::OwnedMutSlice;
 
 /// Gets the edges map from the `EDGES_MAP_PTR` raw pointer.
 /// Assumes a `len` of at least `EDGES_MAP_PTR_MAX`.

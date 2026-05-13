@@ -4,10 +4,10 @@
 use alloc::vec::Vec;
 use core::{fmt::Debug, hash::Hash, marker::PhantomData};
 
-use libafl_bolts::{Error, ownedref::OwnedSlice, rands::Rand};
+use libaflmm_bolts::{Error, ownedref::OwnedSlice, rands::Rand};
 use serde::{Deserialize, Serialize};
 use {
-    libafl_bolts::fs::write_file_atomic,
+    libaflmm_bolts::fs::write_file_atomic,
     std::{fs::File, io::Read, path::Path},
 };
 

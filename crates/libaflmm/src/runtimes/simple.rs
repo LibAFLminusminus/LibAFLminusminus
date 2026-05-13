@@ -1,6 +1,6 @@
 //! The module for the [`SimpleRuntime`].
 
-use libafl_core::Result;
+use libaflmm_core::Result;
 
 use crate::{
     DependencyResolver,

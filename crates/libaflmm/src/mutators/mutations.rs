@@ -12,8 +12,8 @@ use core::{
     ops::Range,
 };
 
-use libafl_bolts::{Named, rands::Rand};
-use libafl_core::non_zero;
+use libaflmm_bolts::{Named, rands::Rand};
+use libaflmm_core::non_zero;
 
 use crate::{
     Error,
@@ -1696,7 +1696,7 @@ pub fn str_decode(item: &str) -> Result<Vec<u8>, Error> {
 mod tests {
     use alloc::rc::Rc;
 
-    use libafl_bolts::{
+    use libaflmm_bolts::{
         rands::StdRand,
         tuples::{HasConstLen, tuple_list, tuple_list_type},
     };

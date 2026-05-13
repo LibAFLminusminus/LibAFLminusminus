@@ -1,6 +1,6 @@
 //! Stores are collections managing testcases
 
-use libafl_core::Result;
+use libaflmm_core::Result;
 
 use super::{Testcase, testcase::TestcaseId};
 

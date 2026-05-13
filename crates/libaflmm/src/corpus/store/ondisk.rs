@@ -4,8 +4,8 @@ use alloc::rc::Rc;
 use core::marker::PhantomData;
 use std::path::{Path, PathBuf};
 
-use libafl_bolts::Error;
-use libafl_core::{Result, illegal_argument};
+use libaflmm_bolts::Error;
+use libaflmm_core::{Result, illegal_argument};
 use serde::{Deserialize, Serialize};
 
 use super::{InMemoryCorpusMap, Store};

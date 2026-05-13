@@ -1,6 +1,6 @@
 //! Trivial Constant Executor
 
-use libafl_bolts::tuples::RefIndexable;
+use libaflmm_bolts::tuples::RefIndexable;
 
 use super::{Executor, ExitKind};
 use crate::{DependencyResolver, Result, Worker, observers::ObserversTuple};

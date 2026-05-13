@@ -4,11 +4,11 @@ use core::{
     mem::{size_of, zeroed},
     ops::Index,
 };
-use libafl_bolts::{
+use libaflmm_bolts::OwnedRefMut;
+use libaflmm_bolts::{
     Error,
     shm::{EmptyShmHeader, SysVShm},
 };
-use ownedref::OwnedRefMut;
 
 // CONSTANTS
 

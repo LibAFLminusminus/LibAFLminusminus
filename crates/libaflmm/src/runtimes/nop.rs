@@ -1,6 +1,6 @@
 //! The module for the [`NopRuntime`].
 
-use libafl_core::Result;
+use libaflmm_core::Result;
 
 use crate::{
     DependencyResolver,

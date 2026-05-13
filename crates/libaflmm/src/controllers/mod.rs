@@ -5,7 +5,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use libafl_core::{Error, WorkerId, internal_bug};
+use libaflmm_core::{Error, WorkerId, internal_bug};
 use nix::sys::signal::Signal;
 
 use crate::{

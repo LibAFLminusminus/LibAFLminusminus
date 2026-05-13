@@ -8,7 +8,7 @@ use core::{
     slice::{Iter, IterMut},
 };
 
-use libafl_bolts::{
+use libaflmm_bolts::{
     AsIter, AsIterMut, AsSlice, AsSliceMut, HasLen, Named, ownedref::OwnedMutSlice,
 };
 use meminterval::IntervalTree;

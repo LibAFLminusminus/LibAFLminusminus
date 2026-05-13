@@ -9,8 +9,8 @@ use crate::{
     states::NopState,
 };
 use core::time::Duration;
-use libafl_bolts::StdTimer;
-use libafl_core::Error;
+use libaflmm_bolts::StdTimer;
+use libaflmm_core::Error;
 use libc::SIGALRM;
 use rusty_fork::{rusty_fork_id, rusty_fork_test};
 use std::thread;

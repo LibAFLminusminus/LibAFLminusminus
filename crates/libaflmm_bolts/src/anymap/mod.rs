@@ -4,6 +4,7 @@
 use core::{any::TypeId, mem::size_of, ptr::read_unaligned};
 
 pub mod serdeany;
+pub use serdeany::{NamedSerdeAnyMap, SerdeAny, SerdeAnyMap};
 
 /// Get a [`TypeId`] from its previously unpacked `u128`.
 /// Opposite of [`unpack_type_id`].

@@ -2,8 +2,8 @@
 
 use core::marker::PhantomData;
 
-use libafl_bolts::Error;
-use libafl_core::Result;
+use libaflmm_bolts::Error;
+use libaflmm_core::Result;
 use serde::{Deserialize, Serialize};
 
 use super::{InMemoryCorpusMap, RemovableStore, Store};

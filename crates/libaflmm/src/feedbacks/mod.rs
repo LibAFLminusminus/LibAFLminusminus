@@ -4,11 +4,11 @@
 use alloc::borrow::Cow;
 use core::{fmt::Debug, marker::PhantomData};
 
-use libafl_bolts::{
+use libaflmm_bolts::{
     Named,
     tuples::{Handle, Handled, MatchName, MatchNameRef},
 };
-use libafl_core::Result;
+use libaflmm_core::Result;
 use serde::{Deserialize, Serialize};
 
 use crate::{

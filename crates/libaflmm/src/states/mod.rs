@@ -17,12 +17,12 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use libafl_bolts::{
+use libaflmm_bolts::{
+    NamedSerdeAnyMap, SerdeAny, SerdeAnyMap,
     rands::{Rand, StdRand},
-    serdeany::{NamedSerdeAnyMap, SerdeAny, SerdeAnyMap},
 };
 #[cfg(not(debug_assertions))]
-use libafl_core::nonzero_macros::non_zero_unchecked;
+use libaflmm_core::nonzero_macros::non_zero_unchecked;
 use nix::fcntl::{Flock, FlockArg};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
@@ -67,7 +67,7 @@ impl fmt::Display for Stats {
             "[{}] [{}] execs: {} ({}/s) | corpus: {} | objectives: {}",
             self.pid,
             humantime::format_duration(Duration::from_secs(
-                libafl_bolts::current_time()
+                libaflmm_bolts::current_time()
                     .checked_sub(self.start_time)
                     .unwrap()
                     .as_secs()
@@ -94,7 +94,7 @@ impl Stats {
     /// Get the exec/sec
     #[must_use]
     pub fn execs_per_sec(&self) -> u64 {
-        let as_sec = libafl_bolts::current_time()
+        let as_sec = libaflmm_bolts::current_time()
             .checked_sub(self.start_time)
             .unwrap()
             .as_secs();
@@ -645,7 +645,7 @@ impl PSMetadata {
     }
 }
 
-libafl_bolts::impl_serdeany!(PSMetadata);
+libaflmm_bolts::impl_serdeany!(PSMetadata);
 
 impl<C, CT, I, OC, SC> FlatState for StdState<C, CT, I, OC, SC> {
     fn stats(&self) -> &Stats {
@@ -1094,8 +1094,8 @@ where
                 executions: 0,
                 corpus: 0,
                 objective: 0,
-                last_found_time: libafl_bolts::current_time(),
-                start_time: libafl_bolts::current_time(),
+                last_found_time: libaflmm_bolts::current_time(),
+                start_time: libaflmm_bolts::current_time(),
                 user_map: NamedSerdeAnyMap::new(),
             },
             named_metadata: NamedSerdeAnyMap::default(),

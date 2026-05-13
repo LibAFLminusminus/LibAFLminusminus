@@ -6,7 +6,7 @@ use alloc::{
 use core::fmt::Debug;
 use std::{fs, io::BufReader, path::Path};
 
-use libafl_bolts::{ownedref::OwnedSlice, rands::Rand};
+use libaflmm_bolts::{ownedref::OwnedSlice, rands::Rand};
 use serde::{Deserialize, Serialize};
 
 pub use crate::common::nautilus::grammartec::newtypes::NTermId;

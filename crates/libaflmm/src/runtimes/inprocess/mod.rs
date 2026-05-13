@@ -8,8 +8,8 @@ use core::{
     time::Duration,
 };
 
-use libafl_bolts::timers::Timer;
-use libafl_core::Result;
+use libaflmm_bolts::timers::Timer;
+use libaflmm_core::Result;
 
 use crate::{
     DependencyResolver,

@@ -3,7 +3,7 @@
 use core::{num::NonZeroUsize, time::Duration};
 use std::process::exit;
 
-use libafl_core::{Error, Result};
+use libaflmm_core::{Error, Result};
 use nix::{
     sys::{
         prctl::set_pdeathsig,

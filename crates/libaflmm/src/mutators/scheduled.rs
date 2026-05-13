@@ -3,10 +3,10 @@
 use alloc::borrow::Cow;
 use core::{fmt::Debug, num::NonZero};
 
-use libafl_bolts::{
+use libaflmm_bolts::{
     Named,
     rands::Rand,
-    tuples::{NamedTuple, tuple_list, tuple_list_type},
+    {tuple_list, tuple_list_type, tuples::NamedTuple},
 };
 
 use super::MutationId;
@@ -245,7 +245,7 @@ pub fn tokens_mutations() -> tuple_list_type!(TokenInsert, TokenReplace) {
 mod tests {
     use alloc::rc::Rc;
 
-    use libafl_bolts::rands::{StdRand, XkcdRand};
+    use libaflmm_bolts::rands::{StdRand, XkcdRand};
 
     use crate::{
         corpus::{Corpus, InMemoryCorpus, Testcase, schedulers::QueueScheduler},

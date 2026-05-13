@@ -3,7 +3,7 @@
 
 use core::{marker::PhantomData, num::NonZeroUsize, time::Duration};
 
-use libafl_bolts::{StdTimer, core_affinity::Cores};
+use libaflmm_bolts::{StdTimer, core_affinity::Cores};
 use serde::Serialize;
 
 use crate::{

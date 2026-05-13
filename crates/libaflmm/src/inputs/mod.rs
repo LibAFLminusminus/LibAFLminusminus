@@ -12,8 +12,8 @@ use core::{
 };
 use std::{fs::File, io::Read, path::Path};
 
-use libafl_bolts::fs::write_file_atomic;
-use libafl_bolts::{
+use libaflmm_bolts::fs::write_file_atomic;
+use libaflmm_bolts::{
     Error, HasLen, generic_hash_std,
     ownedref::{OwnedMutSlice, OwnedSlice},
     subrange::{SubRangeMutSlice, SubRangeSlice},
@@ -234,7 +234,7 @@ impl ResizableMutator<u8> for &mut Vec<u8> {
 
 #[cfg(test)]
 mod tests {
-    use libafl_bolts::AsSlice;
+    use libaflmm_bolts::AsSlice;
 
     use crate::inputs::{BytesInput, InputContext, bytes::BytesContext};
 

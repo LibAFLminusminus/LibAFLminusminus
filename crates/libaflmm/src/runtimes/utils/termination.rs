@@ -8,8 +8,8 @@ use core::{
     sync::atomic::{AtomicPtr, Ordering},
 };
 
-use libafl_bolts::DebugUnwrap;
-use libafl_core::Result;
+use libaflmm_bolts::DebugUnwrap;
+use libaflmm_core::Result;
 
 use crate::{
     Fuzzer,

@@ -3,7 +3,7 @@
 use alloc::borrow::Cow;
 use core::fmt::Debug;
 
-use libafl_bolts::{
+use libaflmm_bolts::{
     Named,
     rands::{Rand, RomuDuoJrRand},
 };

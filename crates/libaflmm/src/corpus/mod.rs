@@ -5,7 +5,7 @@ use core::fmt;
 use crate::{DependencyResolver, states::HasScheduler};
 
 pub mod testcase;
-use libafl_core::Result;
+use libaflmm_core::Result;
 pub use testcase::{Testcase, TestcaseFilenameFormat, TestcaseId};
 
 pub mod single;

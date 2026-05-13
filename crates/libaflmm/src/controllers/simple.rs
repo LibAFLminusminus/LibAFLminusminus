@@ -6,7 +6,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use libafl_core::{WorkerId, illegal_argument, internal_bug};
+use libaflmm_core::{WorkerId, illegal_argument, internal_bug};
 use nix::unistd::{dup2_stderr, dup2_stdout};
 
 use crate::{Controller, Descriptor, Result, Workdir, WorkdirFile, Worker, launchers::InstanceId};

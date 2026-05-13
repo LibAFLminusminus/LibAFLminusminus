@@ -2,7 +2,7 @@ use alloc::vec::Vec;
 use core::{mem, num::NonZero};
 
 use hashbrown::HashSet;
-use libafl_bolts::{Error, rands::Rand};
+use libaflmm_bolts::{Error, rands::Rand};
 
 use crate::common::nautilus::grammartec::{
     chunkstore::ChunkStore,
@@ -329,7 +329,7 @@ mod tests {
     use core::str;
 
     use hashbrown::HashSet;
-    use libafl_bolts::rands::StdRand;
+    use libaflmm_bolts::rands::StdRand;
 
     use crate::{
         common::nautilus::grammartec::{

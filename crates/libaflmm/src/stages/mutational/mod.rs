@@ -4,7 +4,7 @@ pub mod std;
 pub use std::*;
 
 pub mod power;
-use libafl_core::illegal_state;
+use libaflmm_core::illegal_state;
 pub use power::*;
 
 use crate::{

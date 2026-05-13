@@ -3,8 +3,8 @@
 use alloc::{borrow::ToOwned, vec::Vec};
 use core::fmt::Debug;
 
-use libafl_bolts::rands::{Rand, StdRand};
-use libafl_core::{Result, non_zero};
+use libaflmm_bolts::rands::{Rand, StdRand};
+use libaflmm_core::{Result, non_zero};
 use serde::{Deserialize, Serialize};
 
 use crate::{

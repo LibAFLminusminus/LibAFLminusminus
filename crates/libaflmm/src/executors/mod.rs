@@ -5,10 +5,10 @@ use core::{fmt::Debug, time::Duration};
 
 use ::std::path::PathBuf;
 #[cfg(unix)]
-use libafl_bolts::os::unix_signals::Signal;
-use libafl_bolts::{core_affinity::CoreId, tuples::Handle};
+use libaflmm_bolts::os::unix_signals::Signal;
+use libaflmm_bolts::tuples::RefIndexable;
+use libaflmm_bolts::{core_affinity::CoreId, tuples::Handle};
 use serde::{Deserialize, Serialize};
-use tuple_list_ex::RefIndexable;
 
 use crate::observers::{StdErrObserver, StdOutObserver};
 use crate::{
@@ -58,7 +58,7 @@ pub enum ExitKind {
     // The run resulted in a custom `ExitKind`.
     // Custom(Box<dyn SerdeAny>),
 }
-libafl_bolts::impl_serdeany!(ExitKind);
+libaflmm_bolts::impl_serdeany!(ExitKind);
 
 /// How one of the diffing executions finished.
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -77,7 +77,7 @@ pub enum DiffExitKind {
     // The run resulted in a custom `ExitKind`.
     // Custom(Box<dyn SerdeAny>),
 }
-libafl_bolts::impl_serdeany!(DiffExitKind);
+libaflmm_bolts::impl_serdeany!(DiffExitKind);
 
 /// Runs the fuzzer harness.
 pub trait Executor<I, S>: DependencyResolver {

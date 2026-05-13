@@ -17,13 +17,13 @@ use std::{
     process::{Child, Command, Stdio},
 };
 
-use libafl_bolts::{
+use libaflmm_bolts::{
     InputLocation, Pipe, StdTargetArgs, StdTargetArgsInner, SysVShm, Truncate,
     core_affinity::CoreId,
     fs::{InputFile, get_unique_std_input_file},
     tuples::{MatchNameRef, RefIndexable},
 };
-use libafl_core::forkserver::{
+use libaflmm_core::forkserver::{
     AFL_GCC_ONLY_FSRV_VAR, AFL_LLVM_ONLY_FSRV_VAR, AFL_MAP_SIZE_ENV_VAR, FS_ERROR_MAP_ADDR,
     FS_ERROR_MAP_SIZE, FS_ERROR_MMAP, FS_ERROR_OLD_CMPLOG, FS_ERROR_OLD_CMPLOG_QEMU,
     FS_ERROR_SHM_OPEN, FS_ERROR_SHMAT, FS_NEW_ERROR, FS_NEW_OPT_AUTODTCT, FS_NEW_OPT_MAPSIZE,
@@ -1129,7 +1129,7 @@ impl<'a> ForkserverExecutorBuilder<'a> {
 mod tests {
     use std::ffi::OsString;
 
-    use libafl_bolts::{AsSliceMut, StdTargetArgs, SysVShm, tuples::tuple_list};
+    use libaflmm_bolts::{AsSliceMut, StdTargetArgs, SysVShm, tuples::tuple_list};
     use serial_test::serial;
 
     use crate::{

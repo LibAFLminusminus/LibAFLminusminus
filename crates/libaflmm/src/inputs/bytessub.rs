@@ -6,7 +6,7 @@ use core::{
     ops::{Range, RangeBounds},
 };
 
-use libafl_bolts::{
+use libaflmm_bolts::{
     HasLen,
     subrange::{end_index, start_index, sub_range},
 };
@@ -212,7 +212,7 @@ where
 mod tests {
     use alloc::vec::Vec;
 
-    use libafl_bolts::{HasLen, rands::StdRand};
+    use libaflmm_bolts::{HasLen, rands::StdRand};
 
     use crate::{
         corpus::{InMemoryCorpus, schedulers::QueueScheduler},

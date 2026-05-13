@@ -6,7 +6,7 @@ use alloc::{
 };
 use core::{fmt::Debug, marker::PhantomData};
 
-use libafl_bolts::Named;
+use libaflmm_bolts::Named;
 
 use crate::{
     DependencyResolver, Error, Evaluator,
@@ -98,7 +98,7 @@ pub fn cmplog_pre_hook<E, R, S, W, Z>(
     _: &mut Z,
 ) -> Result<(), Error> {
     unsafe {
-        libafl_targets::CMPLOG_ENABLED = 1;
+        libaflmm_targets::CMPLOG_ENABLED = 1;
     }
     Ok(())
 }
@@ -112,7 +112,7 @@ pub fn cmplog_post_hook<E, R, S, W, Z>(
     _: &mut Z,
 ) -> Result<(), Error> {
     unsafe {
-        libafl_targets::CMPLOG_ENABLED = 0;
+        libaflmm_targets::CMPLOG_ENABLED = 0;
     }
     Ok(())
 }

@@ -1,7 +1,7 @@
 use alloc::{string::String, vec::Vec};
 use std::sync::OnceLock;
 
-use libafl_bolts::rands::Rand;
+use libaflmm_bolts::rands::Rand;
 #[cfg(feature = "nautilus_py")]
 use pyo3::prelude::{Py, PyAny, Python};
 use regex_syntax::hir::Hir;

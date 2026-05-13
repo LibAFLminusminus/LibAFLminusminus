@@ -1,6 +1,6 @@
 use core::fmt::Debug;
 
-pub use libafl_intelpt::{CoverageEntry, IntelPT, PAGE_SIZE, PtImage};
+pub use libaflmm_intelpt::{CoverageEntry, IntelPT, PAGE_SIZE, PtImage};
 use serde::Serialize;
 use typed_builder::TypedBuilder;
 

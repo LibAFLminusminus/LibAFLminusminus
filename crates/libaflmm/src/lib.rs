@@ -26,10 +26,10 @@ pub extern crate alloc;
 #[cfg(feature = "derive")]
 #[allow(unused_imports)] // cfg-dependent
 #[macro_use]
-extern crate libafl_derive;
+extern crate libaflmm_derive;
 #[cfg(feature = "derive")]
 #[doc(hidden)]
-pub use libafl_derive::*;
+pub use libaflmm_derive::*;
 
 pub mod common;
 pub use common::*;
@@ -50,8 +50,8 @@ pub mod runtimes;
 pub mod stages;
 pub mod states;
 
-pub use libafl_bolts::{non_zero, non_zero_const};
-pub use libafl_core::{Error, Result};
+pub use libaflmm_core::{Error, Result};
+pub use libaflmm_core::{non_zero, non_zero_const};
 
 /// The purpose of this module is to alleviate imports of many components by adding a glob import.
 #[cfg(feature = "prelude")]
@@ -78,8 +78,8 @@ pub unsafe extern "C" fn external_current_millis() -> u64 {
 mod tests {
 
     #[cfg(miri)]
-    use libafl_bolts::serdeany::RegistryBuilder;
-    use libafl_bolts::{
+    use libaflmm_bolts::serdeany::RegistryBuilder;
+    use libaflmm_bolts::{
         rands::{RomuDuoJrRand, StdRand},
         tuples::tuple_list,
     };

@@ -2,11 +2,11 @@
 
 use alloc::borrow::Cow;
 
-use libafl_bolts::{
+use libaflmm_bolts::{
     Error, Named,
     tuples::{Handle, MatchNameRef},
 };
-use libafl_core::Result;
+use libaflmm_core::Result;
 
 use crate::{
     common::DependencyResolver,
@@ -87,7 +87,7 @@ where
 mod test {
     use core::{cell::UnsafeCell, ptr::write_volatile};
 
-    use libafl_bolts::{ownedref::OwnedRef, tuples::Handled};
+    use libaflmm_bolts::{ownedref::OwnedRef, tuples::Handled};
     use tuple_list::tuple_list;
 
     use crate::{

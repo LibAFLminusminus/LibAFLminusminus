@@ -26,7 +26,7 @@ pub mod windows_asan_handler {
     use alloc::string::String;
     use core::sync::atomic::{Ordering, compiler_fence};
 
-    use libafl_bolts::os::SIGNAL_RECURSION_EXIT;
+    use libaflmm_bolts::os::SIGNAL_RECURSION_EXIT;
     use windows::Win32::System::Threading::{
         CRITICAL_SECTION, EnterCriticalSection, ExitProcess, LeaveCriticalSection,
     };
@@ -125,7 +125,7 @@ pub mod windows_asan_handler {
                 );
             }
             // Don't need to exit, Asan will exit for us
-            libafl_bolts::os::exit(1);
+            libaflmm_bolts::os::exit(1);
         }
     }
 }
@@ -143,7 +143,7 @@ pub mod windows_exception_handler {
     use std::io::Write;
     use std::panic;
 
-    use libafl_bolts::os::{
+    use libaflmm_bolts::os::{
         SIGNAL_RECURSION_EXIT,
         windows_exceptions::{
             CRASH_EXCEPTIONS, EXCEPTION_HANDLERS_SIZE, EXCEPTION_POINTERS, ExceptionCode,
@@ -258,7 +258,7 @@ pub mod windows_exception_handler {
                     ExitKind::Crash,
                 );
 
-                libafl_bolts::os::exit(1);
+                libaflmm_bolts::os::exit(1);
             }
             old_hook(panic_info);
         }));
@@ -328,7 +328,7 @@ pub mod windows_exception_handler {
 
                 compiler_fence(Ordering::SeqCst);
 
-                libafl_bolts::os::exit(1);
+                libaflmm_bolts::os::exit(1);
             }
         }
         compiler_fence(Ordering::SeqCst);
@@ -467,7 +467,7 @@ pub mod windows_exception_handler {
                     {
                         let mut writer = std::io::BufWriter::new(&mut bsod);
                         writeln!(writer, "input: {:?}", input.generate_name(None)).unwrap();
-                        libafl_bolts::minibsod::generate_minibsod(&mut writer, exception_pointers)
+                        libaflmm_bolts::minibsod::generate_minibsod(&mut writer, exception_pointers)
                             .unwrap();
                         writer.flush().unwrap();
                     }
@@ -480,7 +480,7 @@ pub mod windows_exception_handler {
 
         if is_crash {
             log::info!("Exiting!");
-            libafl_bolts::os::exit(1);
+            libaflmm_bolts::os::exit(1);
         }
         // log::info!("Not Exiting!");
     }

@@ -1,6 +1,6 @@
 //! Powerschedule-related modules
 
-libafl_bolts::impl_serdeany!(PowerScheduleData);
+libaflmm_bolts::impl_serdeany!(PowerScheduleData);
 use core::time::Duration;
 
 use hashbrown::HashMap;
@@ -256,4 +256,4 @@ impl TestcasePowerScheduleData {
     }
 }
 
-libafl_bolts::impl_serdeany!(TestcasePowerScheduleData);
+libaflmm_bolts::impl_serdeany!(TestcasePowerScheduleData);

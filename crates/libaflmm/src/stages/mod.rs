@@ -4,12 +4,10 @@ A well-known [`Stage`], for example, is the mutational stage, running multiple [
 Other stages may enrich [`crate::corpus::Testcase`]s with metadata.
 */
 
-use alloc::{boxed::Box, vec::Vec};
-
-use libafl_bolts::tuples::{HasConstLen, IntoVec};
-use tuple_list::NonEmptyTuple;
-
 use crate::{DependencyResolver, Error, corpus::TestcaseId, runtimes::RuntimeHandle};
+use alloc::{boxed::Box, vec::Vec};
+use libaflmm_bolts::tuples::{HasConstLen, IntoVec};
+use tuple_list::NonEmptyTuple;
 
 pub mod tracer;
 pub use tracer::*;

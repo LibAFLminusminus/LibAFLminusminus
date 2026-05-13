@@ -6,7 +6,7 @@ use alloc::{
 };
 use core::{fmt::Debug, marker::PhantomData};
 
-use libafl_bolts::Named;
+use libaflmm_bolts::Named;
 
 use crate::{
     DependencyResolver, Error, Worker,

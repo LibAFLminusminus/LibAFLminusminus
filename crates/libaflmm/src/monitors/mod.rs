@@ -1,6 +1,6 @@
 //! Module defining [`Monitor`]s.
 
-use libafl_bolts::Result;
+use libaflmm_bolts::Result;
 
 use crate::Controller;
 

@@ -5,8 +5,8 @@
 use alloc::{borrow::Cow, boxed::Box, vec::Vec};
 use core::fmt;
 
-use libafl_bolts::{HasLen, Named, rands::Rand, tuples::IntoVec};
-use libafl_core::Error;
+use libaflmm_bolts::{HasLen, Named, rands::Rand, tuples::IntoVec};
+use libaflmm_core::Error;
 use serde::{Deserialize, Serialize};
 use tuple_list::NonEmptyTuple;
 

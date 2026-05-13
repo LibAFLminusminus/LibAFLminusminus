@@ -7,8 +7,8 @@ use std::os::{
 /// Configure the target, `limit`, `setsid`, `pipe_stdin`, the code was borrowed from the [`Angora`](https://github.com/AngoraFuzzer/Angora) fuzzer
 use std::{io, os::fd::RawFd, process::Command};
 
-use libafl_bolts::{core_affinity::CoreId, os::last_error_str};
-use libafl_core::forkserver::FORKSRV_FD_NUM;
+use libaflmm_bolts::{core_affinity::CoreId, os::last_error_str};
+use libaflmm_core::forkserver::FORKSRV_FD_NUM;
 use nix::{
     libc::RLIM_INFINITY,
     unistd::{close, dup2},

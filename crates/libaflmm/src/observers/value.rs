@@ -9,7 +9,7 @@ use core::{
 };
 
 use ahash::RandomState;
-use libafl_bolts::{AsIter, AsIterMut, AsSlice, AsSliceMut, HasLen, Named, ownedref::OwnedRef};
+use libaflmm_bolts::{AsIter, AsIterMut, AsSlice, AsSliceMut, HasLen, Named, ownedref::OwnedRef};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use crate::{

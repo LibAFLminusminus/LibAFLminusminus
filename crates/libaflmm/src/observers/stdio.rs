@@ -13,7 +13,7 @@ use std::{
     io::{Read, Seek, SeekFrom},
 };
 
-use libafl_bolts::Named;
+use libaflmm_bolts::Named;
 use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::{DependencyResolver, Error, observers::Observer};

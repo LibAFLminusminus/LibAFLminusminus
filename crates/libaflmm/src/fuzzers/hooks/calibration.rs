@@ -6,8 +6,8 @@ use alloc::{borrow::Cow, string::ToString, vec::Vec};
 use core::{marker::PhantomData, time::Duration};
 
 use hashbrown::HashSet;
-use libafl_bolts::{Named, current_time, impl_serdeany, tuples::Handle};
-use libafl_core::illegal_state;
+use libaflmm_bolts::{Named, current_time, impl_serdeany, tuples::Handle};
+use libaflmm_core::illegal_state;
 use num_traits::Bounded;
 use serde::{Deserialize, Serialize};
 

@@ -1,7 +1,7 @@
 use alloc::{fmt, vec::Vec};
 
 use hashbrown::HashMap;
-use libafl_bolts::{
+use libaflmm_bolts::{
     Error,
     rands::{Rand, loaded_dice::LoadedDiceSampler},
 };

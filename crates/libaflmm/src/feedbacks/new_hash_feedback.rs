@@ -4,11 +4,11 @@ use alloc::{borrow::Cow, string::ToString};
 use core::fmt::Debug;
 
 use hashbrown::HashSet;
-use libafl_bolts::{
+use libaflmm_bolts::{
     Named,
     tuples::{Handle, Handled, MatchName, MatchNameRef},
 };
-use libafl_core::Result;
+use libaflmm_core::Result;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -38,7 +38,7 @@ pub struct NewHashFeedbackMetadata {
 }
 
 #[rustfmt::skip]
-libafl_bolts::impl_serdeany!(NewHashFeedbackMetadata);
+libaflmm_bolts::impl_serdeany!(NewHashFeedbackMetadata);
 
 impl NewHashFeedbackMetadata {
     /// Create a new [`NewHashFeedbackMetadata`]

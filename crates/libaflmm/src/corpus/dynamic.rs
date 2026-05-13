@@ -3,7 +3,7 @@
 use alloc::rc::Rc;
 use core::marker::PhantomData;
 
-use libafl_bolts::Error;
+use libaflmm_bolts::Error;
 use serde::{Deserialize, Serialize};
 
 use crate::corpus::{Corpus, CorpusId, Testcase, TestcaseMetadata};

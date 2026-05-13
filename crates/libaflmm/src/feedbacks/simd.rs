@@ -7,12 +7,12 @@ use core::{
     ops::{Deref, DerefMut},
 };
 
-use libafl_bolts::{
+use libaflmm_bolts::{
     AsIter, AsSlice, Named,
     simd::{Reducer, SimdReducer, VectorType, covmap_is_interesting_simd},
     tuples::{Handle, MatchName, MatchNameRef},
 };
-use libafl_core::Result;
+use libaflmm_core::Result;
 use serde::{Serialize, de::DeserializeOwned};
 
 use super::{DifferentIsNovel, Feedback, HasObserverHandle, MapFeedback};

@@ -8,7 +8,7 @@ use alloc::{
 };
 use core::cell::RefCell;
 
-use libafl_bolts::{HasLen, ownedref::OwnedSlice};
+use libaflmm_bolts::{HasLen, ownedref::OwnedSlice};
 use serde::{Deserialize, Serialize};
 
 use super::ValueInput;

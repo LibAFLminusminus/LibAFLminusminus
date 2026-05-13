@@ -9,17 +9,17 @@ use core::{
 
 use hashbrown::HashMap;
 #[cfg(all(feature = "simd", target_arch = "x86_64"))]
-use libafl_bolts::simd::vector::u8x16;
+use libaflmm_bolts::simd::vector::u8x16;
 #[cfg(not(feature = "simd"))]
-use libafl_bolts::simd::{MinReducer, OrReducer};
+use libaflmm_bolts::simd::{MinReducer, OrReducer};
 #[cfg(feature = "simd")]
-use libafl_bolts::simd::{SimdMaxReducer, SimdMinReducer, SimdOrReducer, vector::u8x32};
-use libafl_bolts::{
+use libaflmm_bolts::simd::{SimdMaxReducer, SimdMinReducer, SimdOrReducer, vector::u8x32};
+use libaflmm_bolts::{
     AsIter, HasRefCnt, Named,
     simd::{MaxReducer, NopReducer, Reducer},
     tuples::{Handle, Handled, MatchName, MatchNameRef},
 };
-use libafl_core::Result;
+use libaflmm_core::Result;
 use num_traits::PrimInt;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
@@ -168,7 +168,7 @@ pub struct MapIndexesMetadata {
     pub data: HashMap<TestcaseId, MapIndexes>,
 }
 
-libafl_bolts::impl_serdeany!(MapIndexesMetadata);
+libaflmm_bolts::impl_serdeany!(MapIndexesMetadata);
 
 impl Deref for MapIndexes {
     type Target = [usize];
@@ -210,7 +210,7 @@ pub struct MapNoveltiesMetadata {
     pub list: Vec<usize>,
 }
 
-libafl_bolts::impl_serdeany!(MapNoveltiesMetadata);
+libaflmm_bolts::impl_serdeany!(MapNoveltiesMetadata);
 
 impl Deref for MapNoveltiesMetadata {
     type Target = [usize];
@@ -244,7 +244,7 @@ pub struct MapFeedbackMetadata<T> {
     pub num_covered_map_indexes: usize,
 }
 
-libafl_bolts::impl_serdeany!(
+libaflmm_bolts::impl_serdeany!(
     MapFeedbackMetadata<T: 'static + Debug + Serialize + DeserializeOwned>,
     <u8>,<u16>,<u32>,<u64>,<i8>,<i16>,<i32>,<i64>,<f32>,<f64>,<bool>,<char>,<usize>
 );

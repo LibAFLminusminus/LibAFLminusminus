@@ -2,7 +2,7 @@
 
 use alloc::{borrow::ToOwned, vec::Vec};
 
-use libafl_core::Result;
+use libaflmm_core::Result;
 use serde::{Deserialize, Serialize};
 
 use crate::{

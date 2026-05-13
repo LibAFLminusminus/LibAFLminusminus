@@ -3,7 +3,7 @@
 use alloc::vec::Vec;
 use core::{cmp::max, num::NonZeroUsize};
 
-use libafl_bolts::rands::Rand;
+use libaflmm_bolts::rands::Rand;
 
 use crate::{Error, inputs::bytes::BytesInput, non_zero};
 

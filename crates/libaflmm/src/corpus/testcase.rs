@@ -4,7 +4,7 @@
 use alloc::{rc::Rc, string::String};
 use core::{borrow::Borrow, fmt::Debug, hash::Hasher};
 
-use libafl_bolts::{HasLen, hasher_std};
+use libaflmm_bolts::{HasLen, hasher_std};
 use serde::{Deserialize, Serialize};
 
 use crate::inputs::Input;

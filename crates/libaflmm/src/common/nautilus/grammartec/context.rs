@@ -1,7 +1,7 @@
 use alloc::{borrow::ToOwned, string::String, vec::Vec};
 
 use hashbrown::HashMap;
-use libafl_bolts::{
+use libaflmm_bolts::{
     non_zero,
     rands::{Rand, RomuDuoJrRand},
 };
@@ -378,7 +378,7 @@ impl Context {
 mod tests {
     use alloc::{string::String, vec::Vec};
 
-    use libafl_bolts::rands::StdRand;
+    use libaflmm_bolts::rands::StdRand;
 
     use crate::common::nautilus::grammartec::{
         context::Context,

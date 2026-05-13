@@ -31,7 +31,7 @@ pub extern crate alloc;
 
 pub use libaflmm_core::{
     AsIter, AsIterMut, AsSlice, AsSliceMut, Error, HasLen, HasRefCnt, Named, Result, Truncate,
-    WorkerId,
+    WorkerId, non_zero, non_zero_const, non_zero_unchecked,
 };
 
 pub mod shm;
@@ -65,6 +65,7 @@ pub mod target_args;
 pub use target_args::*;
 
 pub mod anymap;
+pub use anymap::{NamedSerdeAnyMap, SerdeAny, SerdeAnyMap};
 
 pub mod drcov;
 pub mod simd;
@@ -91,9 +92,16 @@ pub use rands::{
     XkcdRand, XorShift64Rand, Xoshiro256PlusPlusRand, choose, fast_bound, random_seed,
 };
 
-pub mod tuple_list;
+pub mod tuples;
+pub use tuples::{tuple_list, tuple_list_type, type_eq};
 
 pub mod ownedref;
+pub use ownedref::{
+    OwnedMutPtr, OwnedMutSizedSlice, OwnedMutSizedSliceInner, OwnedMutSlice, OwnedMutSliceInner,
+    OwnedPtr, OwnedRef, OwnedRefMut, OwnedSlice, UnsafeMarker, subrange,
+};
+
+pub use ctor;
 
 /// The purpose of this module is to alleviate imports of the bolts by adding a glob import.
 #[cfg(feature = "prelude")]

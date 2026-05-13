@@ -918,7 +918,7 @@ impl<'de> Deserialize<'de> for Box<dyn crate::anymap::serdeany::SerdeAny> {
 #[macro_export]
 macro_rules! create_register {
     ($struct_type:ty) => {
-        ctor::declarative::ctor! {
+        $crate::ctor::declarative::ctor! {
             /// Automatically register this type
             #[ctor(anonymous)]
             unsafe fn register() {

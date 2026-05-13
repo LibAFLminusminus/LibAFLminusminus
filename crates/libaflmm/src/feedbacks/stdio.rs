@@ -3,11 +3,11 @@
 use alloc::{borrow::Cow, string::String};
 
 use hashbrown::HashMap;
-use libafl_bolts::{
+use libaflmm_bolts::{
     Named, impl_serdeany,
     tuples::{Handle, Handled, MatchName, MatchNameRef},
 };
-use libafl_core::Result;
+use libaflmm_core::Result;
 use serde::{Deserialize, Serialize};
 
 use crate::{

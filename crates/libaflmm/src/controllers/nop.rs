@@ -1,6 +1,6 @@
 //! Nop controller and workers.
 
-use libafl_core::{Result, WorkerId};
+use libaflmm_core::{Result, WorkerId};
 
 use crate::{Controller, Descriptor, Workdir, Worker};
 

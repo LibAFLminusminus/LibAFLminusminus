@@ -26,7 +26,7 @@ impl<E, R, S, W, Z> Stage<E, R, S, W, Z> for NopStage {
         _state: &mut S,
         _rt_handle: &mut RuntimeHandle<S, W>,
         _testcase_id: &TestcaseId,
-    ) -> Result<(), libafl_bolts::Error> {
+    ) -> Result<(), libaflmm_bolts::Error> {
         Ok(())
     }
 }

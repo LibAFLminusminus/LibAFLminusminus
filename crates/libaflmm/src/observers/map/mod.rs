@@ -7,7 +7,7 @@ use core::{
     ops::{Deref, DerefMut},
 };
 
-use libafl_bolts::{AsSlice, AsSliceMut, HasLen, Named, Truncate, ownedref::OwnedMutSlice};
+use libaflmm_bolts::{AsSlice, AsSliceMut, HasLen, Named, Truncate, ownedref::OwnedMutSlice};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use crate::{DependencyResolver, Error, observers::Observer};

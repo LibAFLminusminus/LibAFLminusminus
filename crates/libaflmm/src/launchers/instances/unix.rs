@@ -4,7 +4,7 @@ use alloc::vec::Vec;
 use core::{borrow::Borrow, hash::Hash, time::Duration};
 use std::{collections::HashSet, os::fd::AsFd, process::exit};
 
-use libafl_bolts::core_affinity::CoreId;
+use libaflmm_bolts::core_affinity::CoreId;
 use nix::{
     poll::{PollFd, PollFlags, PollTimeout, poll},
     sys::{

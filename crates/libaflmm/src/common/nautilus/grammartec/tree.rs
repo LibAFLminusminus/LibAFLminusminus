@@ -3,7 +3,7 @@ use core::{cmp, marker::Sized};
 use std::io::{Cursor, Write, stdout};
 
 use hashbrown::HashSet;
-use libafl_bolts::rands::Rand;
+use libaflmm_bolts::rands::Rand;
 #[cfg(feature = "nautilus_py")]
 use pyo3::{
     PyTypeInfo,
@@ -512,7 +512,7 @@ impl TreeLike for TreeMutation<'_> {
 
 #[cfg(test)]
 mod tests {
-    use libafl_bolts::rands::StdRand;
+    use libaflmm_bolts::rands::StdRand;
 
     use super::{
         super::{context::Context, newtypes::NodeId},

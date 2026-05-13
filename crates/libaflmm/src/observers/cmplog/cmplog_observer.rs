@@ -8,8 +8,8 @@ use core::{
     ptr,
 };
 
-use libafl_bolts::{EmptyShmHeader, Named, SysVShm, ownedref::OwnedMutPtr};
-use libafl_targets::{
+use libaflmm_bolts::{EmptyShmHeader, Named, SysVShm, ownedref::OwnedMutPtr};
+use libaflmm_targets::{
     CMPLOG_KIND_INS, CMPLOG_RTN_LEN, CmpLogHeader, CmpLogMap, CmpLogVals, Operand, Routine,
 };
 use serde::{Deserialize, Serialize};
@@ -120,7 +120,7 @@ pub struct CmpLogMetadata {
     pub list: Vec<CmpValues>,
 }
 
-libafl_bolts::impl_serdeany!(CmpLogMetadata);
+libaflmm_bolts::impl_serdeany!(CmpLogMetadata);
 
 impl Deref for CmpLogMetadata {
     type Target = [CmpValues];

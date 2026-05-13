@@ -3,7 +3,7 @@ use core::sync::atomic::AtomicBool;
 use std::{fs::File, io::Write, sync::RwLock};
 
 use hashbrown::{HashMap, HashSet};
-use libafl_bolts::rands::Rand;
+use libaflmm_bolts::rands::Rand;
 use serde::{Deserialize, Serialize};
 
 use super::{
@@ -119,7 +119,7 @@ mod tests {
     use alloc::string::ToString;
     use std::fs;
 
-    use libafl_bolts::rands::StdRand;
+    use libaflmm_bolts::rands::StdRand;
 
     use crate::common::nautilus::grammartec::{
         chunkstore::ChunkStore, context::Context, tree::TreeLike,

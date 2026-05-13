@@ -7,7 +7,7 @@ use alloc::{
 };
 use core::marker::PhantomData;
 
-use libafl_bolts::{Named, rands::Rand};
+use libaflmm_bolts::{Named, rands::Rand};
 
 use crate::{
     DependencyResolver, PowerScheduleData, Result,
