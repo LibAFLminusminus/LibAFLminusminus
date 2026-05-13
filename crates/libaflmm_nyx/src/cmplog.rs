@@ -4,22 +4,22 @@
 
 use alloc::borrow::Cow;
 
-use libafl::{
+use libaflmm::{
     DependencyResolver, Error,
     executors::ExitKind,
     observers::{CmpLogMetadata, CmpValues, Observer},
     states::{FlatState, named_metadata_mut},
 };
-use libafl_bolts::Named;
-pub use libafl_targets::{
+use libaflmm_bolts::Named;
+pub use libaflmm_targets::{
     CMPLOG_ENABLED, CMPLOG_MAP_H, CMPLOG_MAP_PTR, CMPLOG_MAP_SIZE, CMPLOG_MAP_W, CmpLogMap,
-    cmps::{__libafl_targets_cmplog_instructions, __libafl_targets_cmplog_routines},
+    cmps::{__libaflmm_targets_cmplog_instructions, __libaflmm_targets_cmplog_routines},
 };
 use serde::{Deserialize, Serialize};
 
 extern crate alloc;
 
-/// A [`CmpObserver`](libafl::observers::cmp::CmpObserver) observer for Nyx
+/// A [`CmpObserver`](libaflmm::observers::cmp::CmpObserver) observer for Nyx
 #[derive(Serialize, Deserialize, Debug)]
 pub struct NyxCmpObserver {
     /// Observer name
@@ -42,7 +42,7 @@ impl NyxCmpObserver {
 }
 
 impl DependencyResolver for NyxCmpObserver {
-    fn register(&mut self, registrator: &mut libafl::Registrator) -> Result<(), Error> {
+    fn register(&mut self, registrator: &mut libaflmm::Registrator) -> Result<(), Error> {
         registrator.register_md_default::<CmpLogMetadata>(self.name());
         Ok(())
     }

@@ -1,6 +1,6 @@
 //! The command wrapper for properly setting up the forkserver.
 
-use libaflmm_bolts::core_affinity::CoreId;
+use libaflmm_bolts::{core_affinity::CoreId, os::last_os_error};
 use libaflmm_core::forkserver::FORKSRV_FD_NUM;
 use nix::{
     libc::RLIM_INFINITY,
@@ -46,7 +46,7 @@ impl Config for Command {
             // raw libc call without any parameters
             unsafe {
                 if libc::setsid() == -1 {
-                    log::warn!("Failed to set sid. Error: {:?}", last_error_str());
+                    log::warn!("Failed to set sid. Error: {:?}", last_os_error());
                 }
             };
             Ok(())

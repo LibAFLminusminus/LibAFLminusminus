@@ -2,7 +2,7 @@
 use core::{fmt::Debug, time::Duration};
 use std::{fs::File, path::Path};
 
-use libafl::Error;
+use libaflmm::Error;
 use libnyx::{NyxConfig, NyxProcess, NyxProcessRole};
 
 use crate::settings::NyxSettings;

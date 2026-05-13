@@ -4,14 +4,14 @@ use std::{
     os::fd::AsRawFd,
 };
 
-use libafl::{
+use libaflmm::{
     DependencyResolver, Error,
     executors::{Executor, ExitKind},
     inputs::InputContext,
     observers::{ObserversTuple, StdOutObserver},
     states::{FlatState, HasContext},
 };
-use libafl_bolts::{
+use libaflmm_bolts::{
     AsSlice,
     tuples::{Handle, RefIndexable},
 };
@@ -49,10 +49,10 @@ where
 {
     type Observers = OT;
 
-    fn init<W: libafl::Worker>(
+    fn init<W: libaflmm::Worker>(
         &mut self,
         _state: &mut S,
-        _rt_handle: &mut libafl::runtimes::RuntimeHandle<S, W>,
+        _rt_handle: &mut libaflmm::runtimes::RuntimeHandle<S, W>,
     ) -> Result<(), Error> {
         if let Some(tm) = self.timeout {
             self.set_timeout(tm);
@@ -68,14 +68,14 @@ where
         RefIndexable::from(&mut self.observers)
     }
 
-    fn execute<W: libafl::Worker>(
+    fn execute<W: libaflmm::Worker>(
         &mut self,
         state: &mut S,
-        _rt_handle: &mut libafl::runtimes::RuntimeHandle<S, W>,
+        _rt_handle: &mut libaflmm::runtimes::RuntimeHandle<S, W>,
         input: &I,
     ) -> Result<ExitKind, Error>
     where
-        S: libafl::states::FlatState,
+        S: libaflmm::states::FlatState,
     {
         unsafe { self.execute_impl(state, input) }
     }

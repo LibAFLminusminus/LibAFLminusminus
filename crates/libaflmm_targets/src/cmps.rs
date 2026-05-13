@@ -34,19 +34,19 @@ pub const CMPLOG_KIND_RTN: u8 = 1;
     feature = "sancov_cmplog",
     feature = "sancov_value_profile"
 ))]
-// void __libafl_targets_cmplog_instructions(uintptr_t k, uint8_t size, uint64_t arg1, uint64_t arg2)
+// void __libaflmm_targets_cmplog_instructions(uintptr_t k, uint8_t size, uint64_t arg1, uint64_t arg2)
 unsafe extern "C" {
     /// Logs an instruction for feedback during fuzzing
-    pub fn __libafl_targets_cmplog_instructions(k: usize, size: u8, arg1: u64, arg2: u64);
+    pub fn __libaflmm_targets_cmplog_instructions(k: usize, size: u8, arg1: u64, arg2: u64);
 
     /// Logs an AFL++ style instruction for feedback during fuzzing
-    pub fn __libafl_targets_cmplog_instructions_extended(k: usize, size: u8, arg1: u64, arg2: u64);
+    pub fn __libaflmm_targets_cmplog_instructions_extended(k: usize, size: u8, arg1: u64, arg2: u64);
 
     /// Logs a routine for feedback during fuzzing
-    pub fn __libafl_targets_cmplog_routines(k: usize, ptr1: *const u8, ptr2: *const u8);
+    pub fn __libaflmm_targets_cmplog_routines(k: usize, ptr1: *const u8, ptr2: *const u8);
 
     /// Cmplog routines but with len specified.
-    pub fn __libafl_targets_cmplog_routines_len(
+    pub fn __libaflmm_targets_cmplog_routines_len(
         k: usize,
         ptr1: *const u8,
         ptr2: *const u8,

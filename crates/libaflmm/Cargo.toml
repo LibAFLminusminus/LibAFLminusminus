@@ -166,9 +166,7 @@ num-traits = { workspace = true, default-features = false }
 postcard = { workspace = true } # no_std compatible serde serialization format
 pyo3 = { workspace = true, optional = true }
 serde = { workspace = true, features = ["derive", "rc"] }
-serde_json = { workspace = true, default-features = false, features = [
-  "alloc",
-], optional = true }
+serde_json = { workspace = true, default-features = true, optional = true }
 static_assertions = { workspace = true }
 humantime = "2.1"
 tokio = { version = "1.40.0", optional = true, features = [
