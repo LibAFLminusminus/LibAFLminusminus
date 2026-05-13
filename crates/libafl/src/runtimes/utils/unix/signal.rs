@@ -137,7 +137,6 @@ where
                 }
                 TimeoutStatus::Resume => {
                     // resume the fuzzer on timeout
-                    return;
                 }
             }
         } else {
@@ -247,7 +246,7 @@ where
         let old_hook = panic::take_hook();
 
         let signal_handler_ptr: PinnedPtr<UnixSignalHandler<CH, D, TH>> =
-            unsafe { PinnedPtr::from_pin(self.as_mut()) };
+            PinnedPtr::from_pin(self.as_mut());
 
         // # Safety
         // The panic handler should only run when all other execution stopped.

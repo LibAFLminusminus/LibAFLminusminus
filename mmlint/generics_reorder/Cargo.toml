@@ -1,5 +1,5 @@
 [package]
-name = "generic_reorder"
+name = "generics_reorder"
 version = "0.1.0"
 authors = ["authors go here"]
 description = "description goes here"

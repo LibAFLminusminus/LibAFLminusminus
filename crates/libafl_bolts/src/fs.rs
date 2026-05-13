@@ -92,7 +92,6 @@ impl Clone for InputFile {
     }
 }
 
-#[cfg(feature = "std")]
 impl InputFile {
     /// Creates a new [`InputFile`], or truncates if it already exists
     pub fn create<P>(filename: P) -> Result<Self, Error>

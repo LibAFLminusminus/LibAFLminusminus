@@ -31,7 +31,7 @@ pub use simple::SimpleInProcessRuntime;
 /// The status of a crash.
 #[derive(Debug, Default)]
 pub enum CrashStatus {
-    /// The crash is caused by the fuzzer, it's a LibAFLmm bug
+    /// The crash is caused by the fuzzer, it's a `LibAFLmm` bug
     FuzzerCrash,
     /// The crash is caused by the target, it's a target bug
     #[default]

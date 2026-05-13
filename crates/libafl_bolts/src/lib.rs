@@ -4,7 +4,6 @@
 #![doc = include_str!("../README.md")]
 /*! */
 #![cfg_attr(feature = "document-features", doc = document_features::document_features!())]
-#![no_std]
 #![cfg_attr(not(test), warn(
     missing_debug_implementations,
     missing_docs,
@@ -46,17 +45,13 @@
     )
 )]
 
-#[cfg(feature = "std")]
 #[macro_use]
 extern crate std;
-#[cfg(feature = "alloc")]
 #[macro_use]
 #[doc(hidden)]
 pub extern crate alloc;
 
-#[cfg(feature = "std")]
 pub use build_id2 as build_id;
-#[cfg(feature = "alloc")]
 pub use serde_anymap::anymap;
 pub mod shm;
 pub use shm::{
@@ -69,17 +64,12 @@ pub use shm::{
 ))]
 pub mod cli;
 pub mod compress;
-#[cfg(feature = "std")]
 pub use core_affinity2 as core_affinity;
-#[cfg(feature = "std")]
 pub mod fs;
 pub mod math;
-#[cfg(feature = "std")]
 pub use minibsod;
 pub mod os;
-#[cfg(feature = "alloc")]
 pub use serde_anymap::serdeany;
-#[cfg(feature = "std")]
 #[cfg(any(feature = "xxh3", feature = "alloc"))]
 pub use tuple_list_ex as tuples;
 
@@ -88,7 +78,6 @@ pub mod argparse;
 #[cfg(all(feature = "std", unix))]
 pub use argparse::*;
 
-#[cfg(feature = "std")]
 pub mod target_args;
 pub use fast_rands as rands;
 pub use libafl_core::{
@@ -96,9 +85,7 @@ pub use libafl_core::{
     WorkerId,
 };
 pub use ownedref::{self, subrange};
-#[cfg(feature = "alloc")]
 pub use serde_anymap::impl_serdeany;
-#[cfg(feature = "std")]
 pub use target_args::*;
 
 pub mod drcov;
@@ -116,35 +103,27 @@ pub use pipes::Pipe;
 /// The purpose of this module is to alleviate imports of the bolts by adding a glob import.
 #[cfg(feature = "prelude")]
 pub mod bolts_prelude {
-    #[cfg(feature = "std")]
     pub use super::build_id::*;
     #[cfg(all(
         any(feature = "cli", feature = "frida_cli", feature = "qemu_cli"),
         feature = "std"
     ))]
     pub use super::cli::*;
-    #[cfg(feature = "std")]
     pub use super::core_affinity::*;
-    #[cfg(feature = "std")]
     pub use super::fs::*;
     #[cfg(all(feature = "std", unix))]
     pub use super::minibsod::*;
-    #[cfg(feature = "std")]
-    pub use super::staterestore::*;
-    #[cfg(feature = "alloc")]
-    pub use super::{anymap::*, llmp::*, ownedref::*, rands::*, serdeany::*, shmem::*, tuples::*};
+    pub use super::{anymap::*, ownedref::*, rands::*, serdeany::*, tuples::*};
     pub use super::{compress::*, os::*};
 }
 
 #[cfg(all(unix, feature = "std"))]
 use alloc::boxed::Box;
-#[cfg(feature = "alloc")]
 use alloc::string::String;
-#[cfg(feature = "alloc")]
 use alloc::string::ToString;
 #[cfg(all(not(feature = "xxh3"), feature = "alloc"))]
 use core::hash::BuildHasher;
-#[cfg(feature = "xxh3")]
+#[cfg(any(feature = "xxh3", feature = "alloc"))]
 use core::hash::{Hash, Hasher};
 #[cfg(unix)]
 use core::mem;
@@ -163,7 +142,6 @@ use std::{
 use ahash::RandomState;
 #[cfg(feature = "libafl_derive")]
 pub use libafl_derive::SerdeAny;
-#[cfg(feature = "std")]
 use log::{Metadata, Record};
 #[cfg(feature = "xxh3")]
 use xxhash_rust::xxh3::xxh3_64;
@@ -176,6 +154,10 @@ pub trait DebugUnwrap {
 
     /// Unwrap the inner object, and check it is present only in `Debug` mode.
     /// In `Release` mode, the inner object gets accessed without any check.
+    ///
+    /// # Safety
+    ///
+    /// In `Release` mode, the inner value will be unwrapped without any check.
     unsafe fn unwrap_debug(self) -> Self::Output;
 }
 
@@ -253,7 +235,6 @@ pub mod prelude {
 }
 
 /// Format a number with thousands separators
-#[cfg(feature = "alloc")]
 #[must_use]
 pub fn format_big_number(val: u64) -> String {
     let short = {
@@ -292,11 +273,9 @@ pub fn format_big_number(val: u64) -> String {
 }
 
 /// Stderr logger
-#[cfg(feature = "std")]
 pub static LIBAFL_STDERR_LOGGER: SimpleStderrLogger = SimpleStderrLogger::new();
 
 /// Stdout logger
-#[cfg(feature = "std")]
 pub static LIBAFL_STDOUT_LOGGER: SimpleStdoutLogger = SimpleStdoutLogger::new();
 
 /// A logger we can use log to raw fds.
@@ -305,17 +284,14 @@ static mut LIBAFL_RAWFD_LOGGER: SimpleFdLogger = unsafe { SimpleFdLogger::new(1)
 
 /// A simple logger struct that logs to stdout when used with [`log::set_logger`].
 #[derive(Debug)]
-#[cfg(feature = "std")]
 pub struct SimpleStdoutLogger {}
 
-#[cfg(feature = "std")]
 impl Default for SimpleStdoutLogger {
     fn default() -> Self {
         Self::new()
     }
 }
 
-#[cfg(feature = "std")]
 impl SimpleStdoutLogger {
     /// Create a new [`log::Log`] logger that will write log to stdout
     #[must_use]
@@ -330,7 +306,6 @@ impl SimpleStdoutLogger {
     }
 }
 
-#[cfg(feature = "std")]
 #[cfg(target_os = "windows")]
 #[allow(clippy::cast_ptr_alignment)]
 #[must_use]
@@ -364,7 +339,6 @@ pub fn get_thread_id() -> u64 {
     unsafe { syscall(SYS_gettid) as u64 }
 }
 
-#[cfg(feature = "std")]
 #[cfg(not(any(target_os = "windows", target_os = "linux")))]
 #[must_use]
 /// Return thread ID using Rust's `std::thread`
@@ -374,7 +348,6 @@ pub fn get_thread_id() -> u64 {
     unsafe { mem::transmute::<_, u64>(thread_id) }
 }
 
-#[cfg(feature = "std")]
 #[cfg(target_os = "windows")]
 mod windows_logging {
     use core::ptr;
@@ -433,7 +406,6 @@ mod windows_logging {
     }
 }
 
-#[cfg(feature = "std")]
 impl log::Log for SimpleStdoutLogger {
     #[inline]
     fn enabled(&self, _metadata: &Metadata) -> bool {
@@ -471,17 +443,14 @@ impl log::Log for SimpleStdoutLogger {
 
 /// A simple logger struct that logs to stderr when used with [`log::set_logger`].
 #[derive(Debug)]
-#[cfg(feature = "std")]
 pub struct SimpleStderrLogger {}
 
-#[cfg(feature = "std")]
 impl Default for SimpleStderrLogger {
     fn default() -> Self {
         Self::new()
     }
 }
 
-#[cfg(feature = "std")]
 impl SimpleStderrLogger {
     /// Create a new [`log::Log`] logger that will write log to stdout
     #[must_use]
@@ -496,7 +465,6 @@ impl SimpleStderrLogger {
     }
 }
 
-#[cfg(feature = "std")]
 impl log::Log for SimpleStderrLogger {
     #[inline]
     fn enabled(&self, _metadata: &Metadata) -> bool {
@@ -601,7 +569,6 @@ pub unsafe fn set_error_print_panic_hook(new_stderr: RawFd) {
     }));
 }
 
-#[cfg(feature = "std")]
 #[cfg(target_os = "windows")]
 #[repr(C)]
 #[allow(clippy::upper_case_acronyms)]
@@ -611,7 +578,6 @@ struct TEB {
     reserved2: [u8; 0xC0],
 }
 
-#[cfg(feature = "std")]
 #[cfg(target_arch = "x86_64")]
 #[inline(always)]
 #[cfg(target_os = "windows")]
@@ -627,7 +593,6 @@ fn nt_current_teb() -> *mut TEB {
 /// Some of our hooks can be invoked from threads that do not have TLS yet.
 /// Many Rust and Frida functions require TLS to be set up, so we need to check if we have TLS.
 /// This was observed on Windows, so for now for other platforms we assume that we have TLS.
-#[cfg(feature = "std")]
 #[inline]
 #[allow(unreachable_code)]
 #[must_use]

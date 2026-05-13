@@ -1,15 +1,13 @@
 //! Generates `DrCov` traces
+use crate::helper::FridaRuntime;
+use ahash::RandomState;
 use alloc::rc::Rc;
 use core::hash::{BuildHasher, Hasher};
-use std::path::PathBuf;
-
-use ahash::RandomState;
 use frida_gum::ModuleMap;
 use libafl::Error;
-use libafl_targets::drcov::{DrCovBasicBlock, DrCovWriter};
+use libafl_bolts::drcov::{DrCovBasicBlock, DrCovWriter};
 use rangemap::RangeMap;
-
-use crate::helper::FridaRuntime;
+use std::path::PathBuf;
 
 /// Generates `DrCov` traces
 #[derive(Debug, Clone)]

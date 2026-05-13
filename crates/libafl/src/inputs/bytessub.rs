@@ -335,7 +335,7 @@ mod tests {
         let mut sub_input = bytes_input.sub_input(..2);
 
         // Note that if you want to use NopState in production like this, you should see the rng! :)
-        let context = BytesContext::default();
+        let context = BytesContext;
         let corpus_sch = QueueScheduler::new();
         let corpus: InMemoryCorpus<BytesInput, _> = InMemoryCorpus::new(corpus_sch.clone());
         let objective_corpus = InMemoryCorpus::new(corpus_sch);

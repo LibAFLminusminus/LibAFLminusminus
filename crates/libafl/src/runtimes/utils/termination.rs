@@ -224,7 +224,7 @@ impl TerminationHandlerData {
     ///
     /// `Self` must outlive any call to `commit_global`.
     pub unsafe fn commit_global(self: Pin<&mut Self>) {
-        let ptr = unsafe { Pin::into_inner_unchecked(self) } as *mut Self;
+        let ptr = ptr::from_mut::<Self>(unsafe { Pin::into_inner_unchecked(self) });
         GLOBAL_TERMINATION_DATA.store(ptr, Ordering::Release);
     }
 

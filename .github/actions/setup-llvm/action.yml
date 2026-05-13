@@ -1,0 +1,38 @@
+name: setup-llvm
+description: Setup LLVM
+
+inputs:
+  version:
+    description: LLVM version to install
+    required: false
+    default: "22"
+
+runs:
+  using: composite
+  steps:
+    - name: Install LLVM ${{ inputs.version }}
+      shell: bash
+      run: |
+        wget https://apt.llvm.org/llvm.sh
+        chmod +x llvm.sh
+        sudo ./llvm.sh "${{ inputs.version }}" all
+
+        sudo update-alternatives --install \
+            /usr/bin/clang clang \
+            /usr/bin/clang-${{ inputs.version }} 200
+
+    - name: Export LLVM env
+      shell: bash
+      run: |
+        {
+          echo "LLVM_CONFIG_PATH=$(which llvm-config-${{ inputs.version }})"
+          echo "LIBCLANG_PATH=/usr/lib/llvm-${{ inputs.version }}/lib"
+          echo "LLVM_CONFIG=llvm-config-${{ inputs.version }}"
+        } >> "$GITHUB_ENV"
+
+    - name: Symlink ASM headers
+      shell: bash
+      run: |
+        if [ ! -e /usr/include/asm ]; then
+          sudo ln -s /usr/include/asm-generic /usr/include/asm
+        fi

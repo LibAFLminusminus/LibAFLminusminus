@@ -1,4 +1,3 @@
-#![no_std]
 #![cfg_attr(feature = "document-features", doc = document_features::document_features!())]
 #![doc = include_str!("../README.md")]
 #![deny(rustdoc::broken_intra_doc_links)]

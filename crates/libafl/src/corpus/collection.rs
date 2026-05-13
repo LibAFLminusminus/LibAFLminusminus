@@ -31,7 +31,6 @@ type InnerStdInMemoryStore<I> = InMemoryStore<I, InnerStdInMemoryCorpusMap<I>>;
 type InnerInMemoryCorpus<I, SC> = SingleCorpus<I, InnerStdInMemoryStore<I>, SC>;
 
 type InnerStdOnDiskStore<I> = OnDiskStore<I, StdInMemoryMap<TestcaseId>>;
-#[cfg(feature = "std")]
 type InnerOnDiskCorpus<I, SC> = SingleCorpus<I, InnerStdOnDiskStore<I>, SC>;
 
 type InnerInMemoryOnDiskCorpus<I, SC> =
@@ -66,13 +65,11 @@ pub struct StdOnDiskStore<I>(InnerStdOnDiskStore<I>);
 pub struct InMemoryCorpus<I, SC>(InnerInMemoryCorpus<I, SC>);
 
 /// The standard fully on-disk corpus.
-#[cfg(feature = "std")]
 #[repr(transparent)]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct OnDiskCorpus<I, SC>(InnerOnDiskCorpus<I, SC>);
 
 /// The on-disk corpus builder
-#[cfg(feature = "std")]
 #[derive(Debug, Clone, Default)]
 pub struct OnDiskCorpusBuilder(OnDiskStoreBuilder);
 
@@ -88,7 +85,6 @@ pub struct InMemoryOnDiskCorpus<I, SC>(InnerInMemoryOnDiskCorpus<I, SC>);
 pub struct CachedOnDiskCorpus<I, SC>(InnerCachedOnDiskCorpus<I, SC>);
 
 /// The cached on-disk corpus builder
-#[cfg(feature = "std")]
 #[derive(Debug, Clone)]
 pub struct CachedOnDiskCorpusBuilder<SC> {
     store_builder: OnDiskStoreBuilder,
@@ -254,7 +250,6 @@ where
 //     }
 // }
 
-#[cfg(feature = "std")]
 impl OnDiskCorpusBuilder {
     /// Create a new [`OnDiskCorpusBuilder`].
     #[must_use]
@@ -281,7 +276,6 @@ impl OnDiskCorpusBuilder {
     }
 }
 
-#[cfg(feature = "std")]
 impl<I, SC> OnDiskCorpus<I, SC>
 where
     I: Input,
@@ -327,7 +321,6 @@ where
     }
 }
 
-#[cfg(feature = "std")]
 impl<I, SC> Corpus<I> for OnDiskCorpus<I, SC>
 where
     I: Input,
@@ -469,7 +462,6 @@ impl<SC> Default for CachedOnDiskCorpusBuilder<SC> {
     }
 }
 
-#[cfg(feature = "std")]
 impl<SC> CachedOnDiskCorpusBuilder<SC> {
     /// Create a new [`CachedOnDiskCorpusBuilder`].
     #[must_use]

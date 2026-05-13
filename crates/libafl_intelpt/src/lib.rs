@@ -4,7 +4,6 @@
 //! on linux hosts
 #![doc = include_str!("../README.md")]
 // Just in case this crate will have real `no_std` support in the future
-#![no_std]
 #![cfg(target_arch = "x86_64")]
 #![cfg(feature = "std")]
 

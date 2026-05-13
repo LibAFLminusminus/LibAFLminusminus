@@ -5,6 +5,7 @@ use alloc::{borrow::Cow, vec::Vec};
 use core::{
     fmt::Debug,
     ops::{Deref, DerefMut},
+    ptr,
 };
 
 use libafl_bolts::{EmptyShmHeader, Named, SysVShm, ownedref::OwnedMutPtr};
@@ -100,7 +101,7 @@ where
         add_meta: bool,
     ) -> Result<Self, Error> {
         let mut owned = CmpLogMap::<H, V>::from_shm(&mut shm)?;
-        let map_ptr = owned.as_mut() as *mut CmpLogMap<H, V>;
+        let map_ptr = ptr::from_mut::<CmpLogMap<H, V>>(owned.as_mut());
         Ok(Self {
             name: Cow::from(name),
             size: None,

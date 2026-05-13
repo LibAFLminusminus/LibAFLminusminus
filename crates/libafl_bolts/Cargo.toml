@@ -85,7 +85,7 @@ frida_cli = ["cli"]
 errors_backtrace = ["libafl_core/errors_backtrace"]
 
 ## Enables gzip compression in certain parts of the lib
-gzip = ["miniz_oxide", "alloc"]
+gzip = ["alloc"]
 
 ## Replaces `ahash` with the potentially faster [`xxh3`](https://github.com/Cyan4973/xxHash) in some parts of the lib.
 ## This yields a stable and fast hash, but may increase the resulting binary size slightly
@@ -100,8 +100,6 @@ xxh3 = ["xxhash-rust"]
 ## The rust doc specifically states that "multiple types may map to the same type name", so it could potentially lead to bugs.
 ## However, we make sure that no two types with the same name ever exist.
 stable_anymap = ["serde_anymap/stable_anymap"]
-
-## Automatically register all `#[derive(SerdeAny)]` types at startup.
 
 #! ### Stable SIMD features
 
@@ -144,7 +142,7 @@ serde = { workspace = true, default-features = false, features = [
 ] } # serialization lib
 postcard = { workspace = true, optional = true } # no_std compatible serde serialization format
 
-miniz_oxide = { version = "0.9.0", optional = true }
+miniz_oxide = { version = "0.9.1" }
 log = { workspace = true }
 nix = { workspace = true, optional = true, default-features = false, features = [
   "fs",

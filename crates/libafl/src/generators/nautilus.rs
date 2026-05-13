@@ -36,7 +36,7 @@ impl InputContext<NautilusInput> for NautilusContext {
 
 impl Debug for NautilusContext {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "NautilusContext {{}}",)
+        write!(f, "NautilusContext {{}}")
     }
 }
 
@@ -140,7 +140,7 @@ pub struct NautilusGenerator<'a> {
 
 impl Debug for NautilusGenerator<'_> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "NautilusGenerator {{}}",)
+        write!(f, "NautilusGenerator {{}}")
     }
 }
 

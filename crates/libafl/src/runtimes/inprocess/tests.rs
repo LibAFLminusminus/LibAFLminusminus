@@ -1,10 +1,3 @@
-use std::{thread, time::Duration};
-
-use libafl_bolts::StdTimer;
-use libafl_core::Error;
-use libc::SIGALRM;
-use rusty_fork::{rusty_fork_id, rusty_fork_test};
-
 use crate::{
     inputs::NopInput,
     nop::NopWorker,
@@ -15,6 +8,12 @@ use crate::{
     },
     states::NopState,
 };
+use core::time::Duration;
+use libafl_bolts::StdTimer;
+use libafl_core::Error;
+use libc::SIGALRM;
+use rusty_fork::{rusty_fork_id, rusty_fork_test};
+use std::thread;
 
 rusty_fork_test! {
     #[test]
@@ -43,7 +42,7 @@ rusty_fork_test! {
     }
 }
 
-/// set_input is important:
+/// `set_input` is important:
 /// - if it is set, the runner considers we are in fuzzing loop, so crash / timeout is expected
 /// - if it is not set, the runner considers we are out of the fuzzing loop, so crash / timeout is unexpected (fuzzer bug)
 fn run_runtime<CH, T, TH>(task: T, crash_handler: CH, timeout_handler: TH, set_input: bool)
@@ -121,7 +120,7 @@ fn test_runtime_timeout() {
                     Ok(TimeoutStatus::default())
                 };
 
-            run_runtime(task, crash_handler, timeout_handler, false)
+            run_runtime(task, crash_handler, timeout_handler, false);
         },
     )
     .unwrap();
@@ -164,7 +163,7 @@ fn test_runtime_crash() {
                     Ok(TimeoutStatus::default())
                 };
 
-            run_runtime(task, crash_handler, timeout_handler, false)
+            run_runtime(task, crash_handler, timeout_handler, false);
         },
     )
     .unwrap();
@@ -211,7 +210,7 @@ fn test_runtime_timeout_handler() {
                     libc::exit(114);
                 };
 
-            run_runtime(task, crash_handler, timeout_handler, true)
+            run_runtime(task, crash_handler, timeout_handler, true);
         },
     )
     .unwrap();
@@ -254,7 +253,7 @@ fn test_runtime_crash_handler() {
                     Ok(TimeoutStatus::default())
                 };
 
-            run_runtime(task, crash_handler, timeout_handler, true)
+            run_runtime(task, crash_handler, timeout_handler, true);
         },
     )
     .unwrap();

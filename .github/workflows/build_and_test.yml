@@ -10,138 +10,88 @@ on:
     types: ["labeled", "opened", "synchronize", "reopened"]
   workflow_dispatch:
   merge_group:
+  schedule:
+    - cron: "0 6 * * 1" # Re-run every mondays at 06:00 UTC in case a new lint break everything
 env:
   CARGO_TERM_COLOR: always
   CARGO_NET_GIT_FETCH_WITH_CLI: true
-  MAIN_LLVM_VERSION: 18
+  MAIN_LLVM_VERSION: 22
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  common:
-    strategy:
-      matrix:
-        os: [ubuntu-24.04] # TODO: revive windows here
-    runs-on: ${{ matrix.os }}
-    steps:
-      - name: Install mimetype
-        run: sudo apt-get update && sudo apt-get install -y libfile-mimeinfo-perl
-      - name: install mdbook
-        uses: baptiste0928/cargo-install@v3
-        with:
-          crate: mdbook
-      - name: install linkcheck
-        uses: baptiste0928/cargo-install@v3
-        with:
-          crate: mdbook-linkcheck
-          # NOTE: The current crates.io release of mdbook-linkcheck (v0.7.7) is broken
-          #       => https://github.com/Michael-F-Bryan/mdbook-linkcheck/pull/82#issuecomment-2241058491
-          git: https://github.com/Michael-F-Bryan/mdbook-linkcheck.git
-          rev: 8c783c5d754d83bcd50c28fb4174854b04ece990
-      - uses: actions/checkout@v4
-      - uses: extractions/setup-just@v3
-      - uses: ./.github/workflows/ubuntu-prepare
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-        with: { shared-key: "ubuntu" }
-      - name: Check for binary blobs
-        run: just check-blobs
-      - name: Build libafl debug
-        run: just build-libafl
-      - name: Test the book (Linux)
-        # TODO: fix books test fail with updated windows-rs
-        run: cd docs && mdbook test -L ../target/debug/deps
-      - name: Build individual libafl book examples (linux)
-        run: cd docs/listings/baby_fuzzer/ && just build-all
-      - name: Doc
-        run: just doc
-      - name: Run tests (Linux)
-        run: just test-serial
-
-  ubuntu-doc-build:
+  ubuntu:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/workflows/ubuntu-prepare
-      - uses: Swatinem/rust-cache@v2
-      # ---- doc check ----
-      - name: Build Docs
-        run: just doc
-
-  ubuntu-doc-test:
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/workflows/ubuntu-prepare
-      - name: install mdbook
-        uses: baptiste0928/cargo-install@v3
+      - uses: actions/checkout@v6
         with:
-          crate: mdbook
-      # ---- doc check ----
-      - name: Test Docs
-        run: just test-docs
-      # DO NOT move the cache pull before this point, as it causes mdbook to fail due to duplicated deps
-      - uses: Swatinem/rust-cache@v2
+          submodules: true
+      - uses: ./.github/actions/apt
+        with:
+          qemu: true
+      - uses: ./.github/actions/setup-llvm
+        with:
+          version: ${{ env.MAIN_LLVM_VERSION }}
+      - uses: ./.github/actions/setup-rust
+        with:
+          cache-key: ubuntu
+      - name: Check for blobs
+        run: ./scripts/check_for_blobs.sh
+      - name: Check for conflicting dependency versions
+        run: cargo tree -d --workspace
+      - name: Build workspace (Debug)
+        run: cargo build --workspace --all-targets --exclude libafl_asan_libc --exclude libafl_frida --exclude args_reorder --exclude generics_reorder --exclude use_after_mod
+      - name: Check examples
+        run: |
+          cargo check --workspace --all-targets --exclude libafl_asan_libc --exclude libafl_frida --exclude args_reorder --exclude generics_reorder --exclude use_after_mod --examples
+          cargo build --workspace --all-targets --exclude libafl_asan_libc --exclude libafl_frida --exclude args_reorder --exclude generics_reorder --exclude use_after_mod --examples
+          cargo test --workspace --all-targets --exclude libafl_asan_libc --exclude libafl_frida --exclude args_reorder --exclude generics_reorder --exclude use_after_mod --examples
+      - name: Build docs
+        run: ./scripts/doc_all.py
+      - name: Run tests serially
+        run: cargo test -- --test-threads 1
+      - name: Check sancov pcguard edges
+        run: cargo check --features=sancov_pcguard_edges
+      - name: Shellcheck
+        run: shellcheck ./scripts/*.sh
 
   ubuntu-miri:
     runs-on: ubuntu-24.04
     if: contains( github.event.pull_request.labels.*.name, 'pre-release')
     steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/workflows/ubuntu-prepare
+      - uses: actions/checkout@v6
         with:
-          use_nightly: "true"
-      - name: Add miri
-        run: rustup +nightly component add miri
-      - uses: Swatinem/rust-cache@v2
+          submodules: true
+      - uses: ./.github/actions/apt
+      - uses: ./.github/actions/setup-llvm
         with:
-          shared-key: ubuntu-miri
-      # --- miri undefined behavior test --
+          version: ${{ env.MAIN_LLVM_VERSION }}
+      - uses: ./.github/actions/setup-rust
+        with:
+          components: miri
+          cache-key: ubuntu-miri
       - name: Run miri tests
-        run: just test-miri
-
-  ubuntu:
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Remove Dotnet & Haskell
-        run: rm -rf /usr/share/dotnet && rm -rf /opt/ghc
-      - uses: actions/checkout@v4
-      - uses: ./.github/workflows/ubuntu-prepare
-      - uses: Swatinem/rust-cache@v2
-        with: { shared-key: "ubuntu" }
-      # pcguard edges and pcguard hitcounts are not compatible and we need to build them seperately
-      - name: Check pcguard edges
-        run: just check-sancov-edges
-      - name: run shellcheck
-        run: just shellcheck
-      # ---- build normal and examples ----
-      - name: Run a normal build
-        run: just build
-      # - name: Run libafl_qemu usermode tests
-      #   run: cd crates/libafl_qemu && cargo test
-      # - name: Run libafl_qemu systemmode tests
-      #   run: cd crates/libafl_qemu && cargo test --no-default-features --features x86_64,systemmode
-      - name: Build examples
-        run: just examples
+        run: RUST_BACKTRACE=1 MIRIFLAGS="-Zmiri-disable-isolation" cargo miri test
 
   ubuntu-clippy:
     runs-on: ubuntu-24.04
     steps:
-      - name: Remove Dotnet & Haskell
-        run: rm -rf /usr/share/dotnet && rm -rf /opt/ghc
-      - uses: actions/checkout@v4
-      - uses: ./.github/workflows/ubuntu-prepare
-      - uses: Swatinem/rust-cache@v2
+      - uses: actions/checkout@v6
         with:
-          shared-key: "ubuntu-clippy"
+          submodules: true
+      - uses: ./.github/actions/apt
+        with:
+          qemu: true
+      - uses: ./.github/actions/setup-llvm
+        with:
+          version: ${{ env.MAIN_LLVM_VERSION }}
+      - uses: ./.github/actions/setup-rust
+        with:
+          cache-key: ubuntu
       - name: Run clippy
-        run: LLVM_CONFIG=llvm-config-${{env.MAIN_LLVM_VERSION}} ./scripts/clippy.sh
-    # --- test embedding the libafl_libfuzzer_runtime library
-    # Fix me plz
-    # - name: Test Build libafl_libfuzzer with embed
-    #  run: cargo test --features=embed-runtime --manifest-path libafl_libfuzzer/Cargo.toml
+        run: ./scripts/clippy.sh
 
   ubuntu-check:
     runs-on: ubuntu-24.04
@@ -171,587 +121,48 @@ jobs:
           ]
       fail-fast: false
     steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/workflows/ubuntu-prepare
-      - uses: Swatinem/rust-cache@v2
-        with: { shared-key: "ubuntu" }
-      # ---- build and feature check ----
-      # cargo-hack's --feature-powerset would be nice here but libafl has a too many knobs
-
-      # Tracking: https://github.com/CensoredUsername/dynasm-rs/issues/114
-      # One dep of libafl_frida fails on `DOCS_RS` for stable toolchain. Therefore, we _only_ run nightly for that.
-      # For the rest of other crates, we still use stable toolchain.
-      - uses: extractions/setup-just@v3
-      - name: "Setup nightly"
-        uses: dtolnay/rust-toolchain@nightly
+      - uses: actions/checkout@v6
+        with:
+          submodules: true
+      - uses: ./.github/actions/apt
+        with:
+          qemu: true
+      - uses: ./.github/actions/setup-llvm
+        with:
+          version: ${{ env.MAIN_LLVM_VERSION }}
+      - uses: ./.github/actions/setup-rust
         with:
           components: clippy, rustfmt
-      - name: "But default to stable"
-        run: rustup default stable
+          cache-key: ubuntu-clippy
       - name: Check each feature
-        # Skipping `python` as it has to be built with the `maturin` tool
-        # `sancov_pcguard_edges` is tested seperatelyc
-        run: just check-features ${{ matrix.instance_idx }}
-
-  #  idk why bindgen generates a corrupted file only on CI.
-  #  ubuntu-concolic:
-  #    runs-on: ubuntu-24.04
-  #    needs: ubuntu
-  #    steps:
-  #      - uses: dtolnay/rust-toolchain@stable
-  #      - uses: actions/checkout@v4
-  #      - uses: Swatinem/rust-cache@v2
-  #        with: { shared-key: "ubuntu" }
-  #      - name: Install smoke test deps
-  #        run: sudo ./crates/libafl_concolic/test/smoke_test_ubuntu_deps.sh
-  #      - name: Run smoke test
-  #        run: ./crates/libafl_concolic/test/smoke_test.sh
-  #
-  #  python-bindings:
-  #    runs-on: ubuntu-24.04
-  #    steps:
-  #      - name: Install deps
-  #        run: sudo apt-get update && sudo apt-get install -y lsb-release wget software-properties-common gnupg libz3-dev
-  #      - name: Install maturin
-  #        run: cargo install --locked maturin
-  #      - uses: actions/checkout@v4
-  #      - uses: ./.github/workflows/ubuntu-prepare
-  #      - uses: Swatinem/rust-cache@v2
-  #        with: { shared-key: "ubuntu" }
-  #      - name: Run a maturin build
-  #        run: export LLVM_CONFIG=llvm-config-${{env.MAIN_LLVM_VERSION}} && just build-python
-  #      - name: Run python test
-  #        run: . ./bindings/pylibafl/.env/bin/activate # && cd fuzzers/binary_only/python_qemu/ && python3 fuzzer.py 2>&1 | grep "Bye"
+        run: cargo run --manifest-path utils/ci_splitter/Cargo.toml -- ${{ matrix.instance_idx }}
 
   cargo-fmt:
     runs-on: ubuntu-24.04
-    env:
-      MAIN_LLVM_VERSION: 21
     steps:
-      - uses: actions/checkout@v4
-      - uses: extractions/setup-just@v3
-      - uses: dtolnay/rust-toolchain@nightly
+      - uses: actions/checkout@v6
         with:
-          components: rustfmt
-      - uses: Swatinem/rust-cache@v2
-        with: { shared-key: "ubuntu" }
-      - uses: extractions/setup-just@v3
-      - name: Installing black
+          submodules: true
+      - uses: ./.github/actions/apt
+      - uses: ./.github/actions/setup-llvm
+        with:
+          version: ${{ env.MAIN_LLVM_VERSION }}
+      - uses: ./.github/actions/setup-rust
+        with:
+          cache-key: ubuntu
+      - name: Installing python3 black
         run: python3 -m pip install black
-      - name: Format Check
-        run: just check-fmt
+      - name: Check formatting
+        run: ./scripts/fmt_all.sh check
 
   check-md-links:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
+        with:
+          submodules: true
       - name: Run linkspector
         uses: umbrelladocs/action-linkspector@v1
         with:
           fail_on_error: "true"
           config_file: ".github/.linkspector.yml"
-
-  msrv:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: extractions/setup-just@v3
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: taiki-e/install-action@cargo-hack
-      # Note: We currently only specify minimum rust versions for the default workspace members
-      - run: just msrv
-
-  fuzzers-preflight:
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-      - uses: extractions/setup-just@v3
-      - name: Fuzzer in CI Check
-        run: just fuzzers-preflight
-
-  fuzzers:
-    name: 🚀 ${{ matrix.fuzzer }}
-    needs:
-      - fuzzers-preflight
-    strategy:
-      fail-fast: false
-      matrix:
-        fuzzer:
-          # Binary-only
-          - binary_only/frida_crash_repro
-          - binary_only/frida_executable_libpng
-          - binary_only/frida_libpng
-          - binary_only/intel_pt_baby_fuzzer
-          - binary_only/intel_pt_command_executor
-
-          # In-process
-          - inprocess/fuzzbench
-          - inprocess/sqlite
-
-          # Structure-aware
-          - structure_aware/baby_fuzzer_nautilus
-
-          # Tutorial
-          - tutorial/baby_cmplog
-          - tutorial/baby_forkserver
-          - tutorial/baby_fuzzer
-          - tutorial/baby_fuzzer_minimizing
-          - tutorial/baby_fuzzer_nyx
-
-    runs-on: ubuntu-24.04
-    steps:
-      # Get the name of the fuzzer so that we can use it as the key for a cache
-      # of the built artefacts. The key cannot have any special characters.
-      - name: Get fuzzer name
-        id: fuzzer_name
-        run: |
-          fname=$(basename "${{ matrix.fuzzer }}")
-          echo "fuzzer_name=$fname" >> $GITHUB_OUTPUT
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Prepare
-        uses: ./.github/workflows/fuzzer-tester-prepare
-        with:
-          fuzzer-name: ${{ matrix.fuzzer }}
-      - name: Configure Cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          # We will have these guys all share a cache (since they should share
-          # and awful lot of their dependencies). That way we won't use up
-          # as much space.
-          shared-key: fuzzers-x86_64
-          # We want to include the commit hash to ensure the cache is replaced
-          # on each new commit.
-          key: ${{ github.sha }}
-          # We will only save the cache for one of the builds. Though we could
-          # just omit this filter and the jobs race to push to the cache, since
-          # they would all share the same key (combining the `shared-key` and
-          # `key`) our build would generate a load of warnings. Why this
-          # particular fuzzer? No real reason, but we had to choose one.
-          save-if: ${{ matrix.fuzzer == 'binary_only/frida_libpng' }}
-          cache-all-crates: true
-          # The code is built in the fuzzers own directory, not in the target
-          # directory in the root of the workspace
-          workspaces: |
-            fuzzers/${{ matrix.fuzzer }}
-      - name: Test
-        shell: bash
-        run: |
-          LLVM_CONFIG=llvm-config-${{env.MAIN_LLVM_VERSION}} \
-          just test-fuzzer fuzzers/${{ matrix.fuzzer }}
-
-  # This job checks whether any changes have been made to the QEMU code to avoid
-  # rebuilding and testing the QEMU related fuzzers unnecessarily as they are
-  # more expensive to build
-  qemu-changes:
-    runs-on: ubuntu-24.04
-    permissions:
-      pull-requests: read
-    outputs:
-      qemu: ${{ steps.filter.outputs.qemu }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Filter
-        uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          filters: |
-            qemu:
-              - '.github/**'
-              - 'libafl/**'
-              - 'libafl_bolts/**'
-              - 'libafl_targets/**'
-              - 'libafl_qemu/**'
-              - 'fuzzers/**/*qemu*/**'
-
-  # Job to build and test the QEMU fuzzers
-  qemu-user:
-    name: 🤖 ${{ matrix.fuzzer }}
-    needs:
-      - fuzzers-preflight # Check that all the fuzzers listed for testing or explicitly ignored
-      - qemu-changes # Only build if the QEMU code has changed
-    if: ${{ needs.qemu-changes.outputs.qemu == 'true' }}
-    strategy:
-      matrix:
-        fuzzer:
-          - binary_only/qemu_cmin
-          - binary_only/qemu_tmin
-          - binary_only/qemu_coverage
-          - binary_only/qemu_launcher
-    runs-on: ubuntu-24.04
-    # container: registry.gitlab.com/qemu-project/qemu/qemu/ubuntu2204:latest
-    steps:
-      # Get the name of the fuzzer so that we can use it as the key for a cache
-      # of the built artefacts. The key cannot have any special characters.
-      - name: Get fuzzer name
-        id: fuzzer_name
-        run: |
-          fname=$(basename "${{ matrix.fuzzer }}")
-          echo "fuzzer_name=$fname" >> $GITHUB_OUTPUT
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Prepare
-        uses: ./.github/workflows/qemu-fuzzer-tester-prepare
-      - name: Configure Cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          # We will have each of these fuzzers have its own cache since these
-          # are some of the heaviest fuzzers to build.
-          shared-key: qemu-${{ steps.fuzzer_name.outputs.fuzzer_name }}-x86_64
-          # We want to include the commit hash to ensure the cache is replaced
-          # on each new commit.
-          key: ${{ github.sha }}
-          cache-all-crates: true
-          # The code is built in the fuzzers own directory, not in the target
-          # directory in the root of the workspace
-          workspaces: |
-            fuzzers/${{ matrix.fuzzer }}
-      - name: Test
-        shell: bash
-        run: |
-          unset RUSTC && \
-          ARCH=x86_64 \
-          LLVM_CONFIG=llvm-config-${{env.MAIN_LLVM_VERSION}} \
-          just test-fuzzer fuzzers/${{ matrix.fuzzer }}
-
-  # Job to build and test the QEMU fuzzers
-  qemu-system:
-    name: 🤖 ${{ matrix.fuzzer }}
-    needs:
-      - fuzzers-preflight # Check that all the fuzzers listed for testing or explicitly ignored
-      - qemu-changes # Only build if the QEMU code has changed
-    if: ${{ needs.qemu-changes.outputs.qemu == 'true' }}
-    strategy:
-      matrix:
-        fuzzer:
-          - full_system/qemu_baremetal
-          - full_system/qemu_linux_process
-          - full_system/qemu_linux_kernel
-    runs-on: ubuntu-24.04
-    # container: registry.gitlab.com/qemu-project/qemu/qemu/ubuntu2204:latest
-    steps:
-      # Get the name of the fuzzer so that we can use it as the key for a cache
-      # of the built artefacts. The key cannot have any special characters.
-      - name: Get fuzzer name
-        id: fuzzer_name
-        run: |
-          fname=$(basename "${{ matrix.fuzzer }}")
-          echo "fuzzer_name=$fname" >> $GITHUB_OUTPUT
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Prepare
-        uses: ./.github/workflows/qemu-fuzzer-tester-prepare
-      - name: Configure Cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          # We will have each of these fuzzers have its own cache since these
-          # are some of the heaviest fuzzers to build.
-          shared-key: qemu-${{ steps.fuzzer_name.outputs.fuzzer_name }}-arm
-          # We want to include the commit hash to ensure the cache is replaced
-          # on each new commit.
-          key: ${{ github.sha }}
-          cache-all-crates: true
-          # The code is built in the fuzzers own directory, not in the target
-          # directory in the root of the workspace
-          workspaces: |
-            fuzzers/${{ matrix.fuzzer }}
-      - name: Test
-        shell: bash
-        run: |
-          unset RUSTC && \
-          ARCH=arm \
-          LLVM_CONFIG=llvm-config-${{env.MAIN_LLVM_VERSION}} \
-          just test-fuzzer fuzzers/${{ matrix.fuzzer }}
-
-  libafl_qemu-full:
-    if: contains(github.event.pull_request.labels.*.name, 'qemu-full')
-    runs-on: ubuntu-24.04
-    strategy:
-      matrix:
-        mode:
-          - usermode
-          - systemmode
-        arch:
-          - aarch64
-          - arm
-          - i386
-          - mips
-          - ppc
-          - riscv32
-          - riscv64
-          - x86_64
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Prepare
-        uses: ./.github/workflows/qemu-fuzzer-tester-prepare
-      - name: Configure Cache
-        uses: Swatinem/rust-cache@v2
-      # ---- build normal and examples ----
-      - name: Build LibAFL QEMU (${{ matrix.mode }} - ${{ matrix.arch }})
-        env:
-          LLVM_CONFIG: llvm-config-${{env.MAIN_LLVM_VERSION}}
-        run: cargo build --verbose --package libafl_qemu --no-default-features --features ${{ matrix.mode }},${{ matrix.arch }}
-      - name: Test LibAFL QEMU (${{ matrix.mode }} - ${{ matrix.arch }})
-        env:
-          LLVM_CONFIG: llvm-config-${{env.MAIN_LLVM_VERSION}}
-        run: cargo test --package libafl_qemu --no-default-features --features ${{ matrix.mode }},${{ matrix.arch }}
-
-  # hexagon systemmode is not available yet in qemu upstream.
-  # in the meantime, we only test usermode
-  libafl_qemu-hexagon:
-    if: contains(github.event.pull_request.labels.*.name, 'qemu-full')
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Prepare
-        uses: ./.github/workflows/qemu-fuzzer-tester-prepare
-      - name: Configure Cache
-        uses: Swatinem/rust-cache@v2
-      # ---- build normal and examples ----
-      - name: Build LibAFL QEMU (usermode - hexagon)
-        env:
-          LLVM_CONFIG: llvm-config-${{env.MAIN_LLVM_VERSION}}
-        run: cargo build --verbose --package libafl_qemu --no-default-features --features usermode,hexagon
-      - name: Test LibAFL QEMU (usermode - hexagon)
-        env:
-          LLVM_CONFIG: llvm-config-${{env.MAIN_LLVM_VERSION}}
-        run: cargo test --package libafl_qemu --no-default-features --features usermode,hexagon
-
-  libafl_asan:
-    name: 🔧 libafl_asan
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          submodules: true
-          fetch-depth: 0
-      - name: Prepare
-        uses: ./.github/workflows/asan-prepare
-      - name: Configure Cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          # Use the task name to build the cache key. We will have a separate
-          # cache for each since they are both expensive to build and one builds
-          # for many different architectures.
-          shared-key: libafl_asan
-          # We want to include the commit hash to ensure the cache is replaced
-          # on each new commit.
-          key: ${{ github.sha }}
-          cache-all-crates: true
-          # Again the artefacts aren't built in the target root directory.
-          workspaces: |
-            libafl_asan
-      - name: Test
-        shell: bash
-        run: |
-          RUN_ON_CI=1 \
-          RUSTC_BOOTSTRAP=1 \
-          LLVM_CONFIG=llvm-config-${{env.MAIN_LLVM_VERSION}} \
-          just \
-            -f ./crates/libafl_asan/Justfile \
-            test_everything
-
-  libafl_qemu_asan:
-    name: 🔧 libafl_qemu_asan
-    needs:
-      - qemu-changes
-    if: ${{ needs.qemu-changes.outputs.qemu == 'true' }}
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          submodules: true
-          fetch-depth: 0
-      - name: Prepare
-        uses: ./.github/workflows/asan-prepare
-      - name: Configure Cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          # Use the task name to build the cache key. We will have a separate
-          # cache for each since they are both expensive to build and one builds
-          # for many different architectures.
-          shared-key: libafl_qemu_asan
-          # We want to include the commit hash to ensure the cache is replaced
-          # on each new commit.
-          key: ${{ github.sha }}
-          cache-all-crates: true
-          # Again the artefacts aren't built in the target root directory.
-          workspaces: |
-            libafl_qemu/libafl_qemu_asan
-      - name: Build
-        shell: bash
-        run: |
-          RUN_ON_CI=1 \
-          RUSTC_BOOTSTRAP=1 \
-          LLVM_CONFIG=llvm-config-${{env.MAIN_LLVM_VERSION}} \
-          just \
-            -f ./crates/libafl_qemu/libafl_qemu_asan/Justfile \
-            build_everything_dev \
-            build_x86_64_release
-
-  format-toml:
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Install taplo
-        run: curl -fsSL https://github.com/tamasfe/taplo/releases/download/0.10.0/taplo-linux-x86_64.gz | gzip -d - | install -m 755 /dev/stdin /usr/local/bin/taplo
-      - uses: actions/checkout@v4
-      - uses: extractions/setup-just@v3
-      - name: Run taplo
-        run: just check-toml
-
-  build-docker:
-    runs-on: ubuntu-24.04
-
-    permissions:
-      packages: write
-      contents: read
-
-    outputs:
-      image: ghcr.io/aflplusplus/libafl:latest
-
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v3
-
-      - name: Check Dockerfile for changes
-        uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          filters: |
-            changed:
-              - 'Dockerfile'
-              - '.github/workflows/build_and_test.yml'
-
-      - name: Restore Docker build cache
-        if: steps.filter.outputs.changed == 'true'
-        uses: actions/cache@v4
-        with:
-          path: /tmp/.buildx-cache
-          # We want to be able to update the cache if the Dockerfile is changed,
-          # but still be able to use previous versions if available.
-          key: ${{ runner.os }}-buildx-${{ github.ref }}-${{ hashFiles('Dockerfile') }}
-          restore-keys: |
-            ${{ runner.os }}-buildx-${{ github.ref }}-
-            ${{ runner.os }}-buildx-
-
-      - name: Set up Docker Buildx
-        if: steps.filter.outputs.changed == 'true'
-        uses: docker/setup-buildx-action@v3
-        with:
-          driver: docker-container
-
-      - name: Log in to GitHub Container Registry
-        if: steps.filter.outputs.changed == 'true' && github.ref == 'refs/heads/main'
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build Docker image
-        if: steps.filter.outputs.changed == 'true'
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ./Dockerfile
-          push: ${{ github.ref == 'refs/heads/main' }}
-          load: ${{ github.ref != 'refs/heads/main' }}
-          tags: ghcr.io/aflplusplus/libafl:latest
-          cache-from: |
-            type=registry,ref=ghcr.io/aflplusplus/libafl:cache
-            type=local,src=/tmp/.buildx-cache
-          cache-to: |
-            ${{ github.ref == 'refs/heads/main' && 'type=registry,ref=ghcr.io/aflplusplus/libafl:cache,mode=max' || 'type=local,dest=/tmp/.buildx-cache' }}
-
-      - name: Save Docker build cache
-        if: steps.filter.outputs.changed == 'true'
-        uses: actions/cache@v4
-        with:
-          path: /tmp/.buildx-cache
-          # We want to be able to update the cache if the Dockerfile is changed,
-          # but still be able to use previous versions if available.
-          key: ${{ runner.os }}-buildx-${{ github.ref }}-${{ hashFiles('Dockerfile') }}
-          restore-keys: |
-            ${{ runner.os }}-buildx-${{ github.ref }}-
-            ${{ runner.os }}-buildx-
-
-  #   # The windows fuzzers require the same setup, so we will use a matrix build
-  #   windows:
-  #     name: 🚙 ${{ matrix.fuzzer }}
-  #     strategy:
-  #       matrix:
-  #         fuzzer:
-  #           - binary_only/frida_libpng
-  #           - inprocess/libafl_libfuzzer_windows
-  #           - inprocess/libfuzzer_stb_image
-  #           - binary_only/frida_windows_gdiplus
-  #           - binary_only/tinyinst_simple
-  #           # - inprocess/libfuzzer_windows_asan
-  #       fail-fast: false
-  #     runs-on: windows-latest
-  #     needs:
-  #       - fuzzers-preflight
-  #       - common
-  #     steps:
-  #       # Get the name of the fuzzer so that we can use it as the key for a cache
-  #       # of the built artefacts. The key cannot have any special characters.
-  #       - name: Get fuzzer name
-  #         id: fuzzer_name
-  #         shell: pwsh
-  #         run: |
-  #           $fname = Split-Path -Leaf "${{ matrix.fuzzer }}"
-  #           "fuzzer_name=$fname" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-  #       - name: Checkout
-  #         uses: actions/checkout@v4
-  #       - name: Prepare
-  #         uses: ./.github/workflows/windows-tester-prepare
-  #       - name: install cxx bridge
-  #         # Needs to match version in tinyinst-rs
-  #         run: cargo install cxxbridge-cmd@=1.0.190
-  #       - name: Install vcpkg dependencies
-  #         run: vcpkg install zlib:x64-windows-static-md
-  #         env:
-  #           VCPKG_ROOT: C:\vcpkg
-  #       - name: Configure Cache
-  #         uses: Swatinem/rust-cache@v2
-  #         with:
-  #           # There aren't too many of these fuzzers, so lets just give them a
-  #           # separate cache each for now.
-  #           shared-key: fuzzers-windows-${{ steps.fuzzer_name.outputs.fuzzer_name }}-x86_64
-  #           # We want to include the commit hash to ensure the cache is replaced
-  #           # on each new commit.
-  #           key: ${{ github.sha }}
-  #           cache-all-crates: true
-  #           # The code is built in the fuzzers own directory, not in the target
-  #           # directory in the root of the workspace
-  #           workspaces: |
-  #             fuzzers/${{ matrix.fuzzer }}
-  #       - name: Test
-  #         run: cd fuzzers/${{ matrix.fuzzer }} && just test
-  #         env:
-  #           VCPKG_ROOT: C:\vcpkg
-  #
-  #   windows-clippy:
-  #     runs-on: windows-latest
-  #     needs:
-  #       - common
-  #     steps:
-  #       - uses: dtolnay/rust-toolchain@stable
-  #       - name: Setup Z3
-  #         id: z3
-  #         uses: cda-tum/setup-z3@v1
-  #         with:
-  #           add_to_library_path: true
-  #       - uses: actions/checkout@v4
-  #       - uses: ./.github/workflows/windows-tester-prepare
-  #       - uses: Swatinem/rust-cache@v2
-  #         with:
-  #           shared-key: windows-clippy
-  #       - name: Run real clippy, not the fake one
-  #         shell: pwsh
-  #         run: .\scripts\clippy.ps1

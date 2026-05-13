@@ -1,0 +1,38 @@
+name: setup-rust
+description: Setup Rust
+
+inputs:
+  toolchain:
+    description: Choose the toolchain version (stable, nightly, specific version, etc.)
+    required: false
+    default: stable
+  components:
+    description: Choose the toolchain components to integrate (clippy, rustfmt, etc.)
+    required: false
+    default: clippy,rustfmt
+  cache-key:
+    description: Shared cache key
+    required: true
+  save-cache:
+    description: write to the cache
+    required: false
+    default: true
+
+runs:
+  using: composite
+  steps:
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@master
+      with:
+        toolchain: ${{ inputs.toolchain }}
+        components: ${{ inputs.components }}
+
+    - name: Install Just
+      uses: extractions/setup-just@v4
+
+    - name: Rust cache
+      uses: Swatinem/rust-cache@v2
+      with:
+        shared-key: ${{ inputs.cache-key }}
+        save-if: ${{ inputs.save-cache }}
+        cache-all-crates: true

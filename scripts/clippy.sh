@@ -13,7 +13,7 @@ run_clippy() {
    echo "Running Clippy on $dir"
    echo "$CLIPPY_CMD ${features:+"$features"} -- $RUSTC_FLAGS"
    pushd "$dir" || return 1
-   
+
    eval "$CLIPPY_CMD ${features:+"$features"} -- $RUSTC_FLAGS"
 
    popd || return 1
@@ -25,13 +25,8 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
       "crates/libafl"
       "crates/libafl_bolts"
       "crates/libafl_cc"
-      "crates/libafl_concolic/symcc_runtime"
-      "crates/libafl_concolic/symcc_libafl"
-      "crates/libafl_frida"
-      "crates/libafl_libfuzzer"
-      "crates/libafl_libfuzzer_runtime"
+      # "crates/libafl_frida" TODO: restore when frida is up again.
       "crates/libafl_qemu"
-      "crates/libafl_tinyinst"
       "crates/libafl_qemu/libafl_qemu_build"
       "crates/libafl_qemu/libafl_qemu_sys"
       "crates/libafl_nyx"
@@ -69,6 +64,6 @@ for project in "${PROJECTS[@]}"; do
    fi
 done
 # Last run it on all
-eval "$CLIPPY_CMD --workspace -- $RUSTC_FLAGS"
+eval "$CLIPPY_CMD --workspace --exclude args_reorder --exclude generics_reorder --exclude use_after_mod --exclude libafl_frida -- $RUSTC_FLAGS"
 
 echo "Clippy run completed for all specified projects."

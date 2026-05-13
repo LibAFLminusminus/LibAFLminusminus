@@ -106,6 +106,7 @@ pub enum Rule {
     Plain(PlainRule),
     /// A script rule (Python)
     #[cfg(feature = "nautilus_py")]
+    #[serde(skip_serializing, skip_deserializing)]
     Script(ScriptRule),
     /// A regex rule
     RegExp(RegExpRule),

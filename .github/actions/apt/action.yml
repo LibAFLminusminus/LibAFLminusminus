@@ -1,0 +1,47 @@
+name: apt
+description: Base packages for Linux jobs
+
+inputs:
+  qemu:
+    description: Install QEMU dependencies
+    required: false
+    default: false
+
+runs:
+  using: composite
+  steps:
+    - name: Enable apt source repositories
+      shell: bash
+      run: |
+        # Enable source repository to install build-dep later on
+        if [ -f /etc/apt/sources.list.d/ubuntu.sources ]; then
+          sudo sed -i 's/^Types: deb$/Types: deb deb-src/' /etc/apt/sources.list.d/ubuntu.sources
+        fi
+
+        if [ -f /etc/apt/sources.list ]; then
+          sudo sed -i 's/^# deb-src/deb-src/' /etc/apt/sources.list
+        fi
+
+        sudo apt-get update
+
+    - name: Install base packages
+      shell: bash
+      run: |
+        sudo apt-get install -y --no-install-recommends \
+          curl \
+          lsb-release \
+          wget \
+          software-properties-common \
+          gnupg \
+          shellcheck \
+          libc6-dev \
+          gcc \
+          g++ \
+          build-essential \
+          libfile-mimeinfo-perl
+
+    - name: Install QEMU build dependencies
+      if: ${{ inputs.qemu == 'true' }}
+      shell: bash
+      # According to https://www.qemu.org/docs/master/devel/build-environment.html#systems-with-package-managers
+      run: sudo apt-get build-dep -y qemu

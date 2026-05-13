@@ -36,20 +36,22 @@ impl Registrator {
 
     /// Register a new metadata.
     pub fn register_md<T: SerdeAny>(&mut self, name: &str, value: T) {
-        if self.map.contains::<T>(name) {
-            panic!("Addind same metadata twice: {name}")
-        }
+        assert!(
+            !self.map.contains::<T>(name),
+            "Addind same metadata twice: {name}"
+        );
 
         self.map.insert(name, value);
     }
 
     /// Register a new metadata, with its default value.
     pub fn register_md_default<T: Default + SerdeAny>(&mut self, name: &str) {
-        if self.map.contains::<T>(name) {
-            panic!("Addind same metadata twice: {name}")
-        }
+        assert!(
+            !self.map.contains::<T>(name),
+            "Addind same metadata twice: {name}"
+        );
 
-        self.map.insert(name, T::default())
+        self.map.insert(name, T::default());
     }
 
     /// Register a new type.

@@ -5,7 +5,6 @@ use core::{
     fmt::{Debug, LowerHex},
     hash::Hash,
 };
-#[cfg(feature = "std")]
 use std::{fs::File, io::Write, path::Path};
 
 use hashbrown::HashSet;
@@ -69,7 +68,6 @@ impl<T> HasRefCnt for ListFeedbackMetadata<T> {
 pub struct ListFeedback<T> {
     observer_handle: Handle<ListObserver<T>>,
     novelty: HashSet<T>,
-    #[cfg(feature = "std")]
     file: Option<File>,
 }
 
@@ -107,7 +105,6 @@ where
         !self.novelty.is_empty()
     }
 
-    #[cfg(feature = "std")]
     fn dump_coverage(&mut self) {
         if let Some(mut file) = self.file.as_ref() {
             for line in &self.novelty {
@@ -126,7 +123,6 @@ where
             history_set.set.insert(*v);
         }
 
-        #[cfg(feature = "std")]
         self.dump_coverage();
     }
 }
@@ -190,14 +186,12 @@ impl<T> ListFeedback<T> {
         Self {
             observer_handle: observer.handle(),
             novelty: HashSet::new(),
-            #[cfg(feature = "std")]
             file: None,
         }
     }
 
     /// Creates a new [`ListFeedback`], deciding if the given [`ListObserver`] value of a run is interesting.
     /// Will dump newly observed addresses to `path`. If `path` exists, the file will be truncated.
-    #[cfg(feature = "std")]
     pub fn with_coverage_dump<P: AsRef<Path>>(observer: &ListObserver<T>, path: P) -> Self {
         let file = Some(File::create(path).unwrap());
 
