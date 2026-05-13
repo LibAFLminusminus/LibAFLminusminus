@@ -1,6 +1,5 @@
 //! Module for SIMD assisted methods.
 
-use alloc::vec::Vec;
 use core::ops::{BitAnd, BitOr};
 
 #[cfg(feature = "wide")]
@@ -353,7 +352,7 @@ pub fn std_simplify_map(map: &mut [u8]) {
 ///
 /// The caller must ensure that `hist.len() >= map.len()` so all reads from `hist`
 /// performed by this function remain in-bounds.
-#[cfg(all(feature = "alloc", feature = "wide"))]
+#[cfg(feature = "wide")]
 #[must_use]
 pub unsafe fn covmap_is_interesting_simd<R, V>(hist: &[u8], map: &[u8]) -> bool
 where

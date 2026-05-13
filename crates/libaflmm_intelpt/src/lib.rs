@@ -5,7 +5,6 @@
 #![doc = include_str!("../README.md")]
 // Just in case this crate will have real `no_std` support in the future
 #![cfg(target_arch = "x86_64")]
-#![cfg(feature = "std")]
 
 #[macro_use]
 extern crate std;

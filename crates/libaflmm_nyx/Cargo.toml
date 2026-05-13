@@ -8,7 +8,6 @@ categories = [
   "emulators",
   "embedded",
   "os",
-  "no-std",
 ]
 
 documentation.workspace = true
@@ -24,17 +23,14 @@ version.workspace = true
 [target.'cfg(target_os = "linux")'.dependencies]
 libnyx = "0.1.3"
 libaflmm = { workspace = true, default-features = true, features = [
-  "std",
   "libaflmm_derive",
   "frida_cli",
 ] }
 libaflmm_bolts = { workspace = true, default-features = true, features = [
-  "std",
   "libaflmm_derive",
   "frida_cli",
 ] }
 libaflmm_targets = { workspace = true, default-features = true, features = [
-  "std",
   "sancov_cmplog",
 ] }
 

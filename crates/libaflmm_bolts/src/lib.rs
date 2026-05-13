@@ -5,25 +5,12 @@
 /*! */
 #![cfg_attr(feature = "document-features", doc = document_features::document_features!())]
 
-#[cfg(all(not(feature = "xxh3"), feature = "alloc"))]
-use core::hash::BuildHasher;
 #[cfg(feature = "xxh3")]
 use core::hash::{Hash, Hasher};
-use core::mem;
-use std::time::SystemTime;
-use std::{
-    fs::File,
-    io::Write,
-    os::fd::{FromRawFd, RawFd},
-    panic,
-};
 // There's a bug in ahash that doesn't let it build in `alloc` without once_cell right now.
 // TODO: re-enable once <https://github.com/tkaitchuck/aHash/issues/155> is resolved.
-#[cfg(all(not(feature = "xxh3"), feature = "alloc"))]
-use ahash::RandomState;
 #[cfg(feature = "libaflmm_derive")]
 pub use libaflmm_derive::SerdeAny;
-use log::{Metadata, Record};
 #[cfg(feature = "xxh3")]
 use xxhash_rust::xxh3::xxh3_64;
 
@@ -151,7 +138,7 @@ impl<T> DebugUnwrap for Option<T> {
 /// Returns the hasher for the input with a given hash, depending on features:
 /// [`xxh3_64`](https://docs.rs/xxhash-rust/latest/xxhash_rust/xxh3/fn.xxh3_64.html)
 /// if the `xxh3` feature is used, /// else [`ahash`](https://docs.rs/ahash/latest/ahash/).
-#[cfg(any(feature = "xxh3", feature = "alloc"))]
+#[cfg(any(feature = "xxh3"))]
 #[must_use]
 pub fn hasher_std() -> impl Hasher + Clone {
     #[cfg(feature = "xxh3")]
@@ -165,7 +152,7 @@ pub fn hasher_std() -> impl Hasher + Clone {
 /// Hashes the input with a given hash, depending on features:
 /// [`xxh3_64`](https://docs.rs/xxhash-rust/latest/xxhash_rust/xxh3/fn.xxh3_64.html)
 /// if the `xxh3` feature is used, /// else [`ahash`](https://docs.rs/ahash/latest/ahash/).
-#[cfg(any(feature = "xxh3", feature = "alloc"))]
+#[cfg(feature = "xxh3")]
 #[must_use]
 pub fn hash_std(input: &[u8]) -> u64 {
     #[cfg(feature = "xxh3")]
@@ -194,7 +181,7 @@ pub fn hash_64_fast(mut x: u64) -> u64 {
 /// if the `xxh3` feature is used, /// else [`ahash`](https://docs.rs/ahash/latest/ahash/).
 ///
 /// If you have access to a `&[u8]` directly, [`hash_std`] may provide better performance
-#[cfg(any(feature = "xxh3", feature = "alloc"))]
+#[cfg(any(feature = "xxh3"))]
 #[must_use]
 pub fn generic_hash_std<I: Hash>(input: &I) -> u64 {
     let mut hasher = hasher_std();
@@ -211,7 +198,6 @@ pub mod prelude {
 }
 
 /// Format a number with thousands separators
-#[cfg(feature = "alloc")]
 #[must_use]
 pub fn format_big_number(val: u64) -> String {
     let short = {

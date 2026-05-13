@@ -4,6 +4,8 @@
 use alloc::{borrow::Cow, ffi::CString};
 #[cfg(all(unix, feature = "std"))]
 use core::ffi::CStr;
+#[cfg(unix)]
+use std::ffi::CString;
 #[cfg(all(unix, feature = "std"))]
 use std::io::{stderr, stdout};
 use std::{env, process::Command};
@@ -41,53 +43,7 @@ pub struct ChildHandle {
 /// Returns the last OS error (errno).
 #[must_use]
 pub fn last_os_error() -> i32 {
-    std::io::Error::last_os_error().raw_os_error().unwrap_or(0)
-}
-
-/// Returns the last OS error (errno).
-///
-/// Currently supported on `no_std`:
-/// * Linux
-/// * Android
-/// * macOS
-/// * FreeBSD
-/// * Dragonfly
-/// * OpenBSD
-/// * NetBSD
-#[must_use]
-#[cfg(all(
-    not(feature = "std"),
-    any(
-        target_os = "linux",
-        target_os = "android",
-        target_os = "macos",
-        target_os = "freebsd",
-        target_os = "dragonfly",
-        target_os = "openbsd",
-        target_os = "netbsd"
-    )
-))]
-pub fn last_os_error() -> i32 {
-    unsafe {
-        #[cfg(target_os = "linux")]
-        {
-            *libc::__errno_location()
-        }
-        #[cfg(target_os = "android")]
-        {
-            *libc::__errno()
-        }
-        #[cfg(any(
-            target_os = "macos",
-            target_os = "freebsd",
-            target_os = "dragonfly",
-            target_os = "openbsd",
-            target_os = "netbsd"
-        ))]
-        {
-            *libc::__error()
-        }
-    }
+    std::io::Error::last_os_error().raw_os_error().unwrap()
 }
 
 /// The `ForkResult` (result of a fork)

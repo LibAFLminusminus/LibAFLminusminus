@@ -1,16 +1,7 @@
 //! Signal handling for unix
-use alloc::ffi::CString;
-use alloc::vec::Vec;
-#[cfg(feature = "alloc")]
-use core::ffi::c_void;
 #[cfg(all(target_vendor = "apple", target_arch = "aarch64"))]
 use core::mem::size_of;
-use core::{
-    cell::UnsafeCell,
-    ptr::{self, write_volatile},
-    result,
-    sync::atomic::{Ordering, compiler_fence},
-};
+use core::result;
 use core::{
     fmt::{self, Display, Formatter},
     mem,
@@ -18,7 +9,6 @@ use core::{
 #[cfg(unix)]
 use libaflmm_core::Result;
 use libaflmm_core::{illegal_argument, unknown};
-#[cfg(feature = "alloc")]
 use libc::siginfo_t;
 #[cfg(all(target_vendor = "apple", target_arch = "aarch64"))]
 use libc::ssize_t;
@@ -28,7 +18,6 @@ use libc::ucontext_t;
     all(target_os = "linux", target_arch = "arm"),
     all(target_vendor = "apple", target_arch = "aarch64")
 )))]
-#[cfg(feature = "alloc")]
 use libc::{
     SA_NODEFER, SA_ONSTACK, SA_SIGINFO, malloc, sigaction, sigaddset, sigaltstack, sigemptyset,
     stack_t,
@@ -38,6 +27,10 @@ use libc::{
     SIGTERM, SIGTRAP, SIGUSR2, c_int,
 };
 use num_enum::{IntoPrimitive, TryFromPrimitive};
+use std::cell::UnsafeCell;
+use std::ffi::c_void;
+use std::ptr::{self, write_volatile};
+use std::sync::atomic::{Ordering, compiler_fence};
 
 /// armv7 `libc` does not feature a `uncontext_t` implementation
 #[cfg(target_arch = "arm")]
@@ -371,7 +364,6 @@ impl Display for Signal {
 }
 
 /// A trait for `LibAFL` signal handling
-#[cfg(feature = "alloc")]
 pub trait SignalHandler {
     /// Handle a signal
     ///
@@ -389,24 +381,19 @@ pub trait SignalHandler {
     fn signals(&self) -> Vec<Signal>;
 }
 
-#[cfg(feature = "alloc")]
 struct HandlerHolder {
     handler: UnsafeCell<*mut dyn SignalHandler>,
 }
 
-#[cfg(feature = "alloc")]
 unsafe impl Send for HandlerHolder {}
 
 /// Let's get 8 mb for now.
-#[cfg(feature = "alloc")]
 const SIGNAL_STACK_SIZE: usize = 2 << 22;
 
 /// To be able to handle SIGSEGV when the stack is exhausted, we need our own little stack space.
-#[cfg(feature = "alloc")]
 static mut SIGNAL_STACK_PTR: *mut c_void = ptr::null_mut();
 
 /// Keep track of which handler is registered for which signal
-#[cfg(feature = "alloc")]
 static mut SIGNAL_HANDLERS: [Option<HandlerHolder>; 32] = [
     // We cannot use [None; 32] because it requires Copy. Ugly, but I don't think there's an
     // alternative.
@@ -419,7 +406,6 @@ static mut SIGNAL_HANDLERS: [Option<HandlerHolder>; 32] = [
 /// # Safety
 /// This should be somewhat safe to call for signals previously registered,
 /// unless the signal handlers registered using [`setup_signal_handler()`] are broken.
-#[cfg(feature = "alloc")]
 unsafe fn handle_signal(sig: c_int, info: *mut siginfo_t, void: *mut c_void) {
     unsafe {
         let signal = &Signal::try_from(sig).unwrap();
@@ -448,7 +434,6 @@ unsafe fn handle_signal(sig: c_int, info: *mut siginfo_t, void: *mut c_void) {
 /// The signal handlers will be called on any signal. They should (tm) be async safe.
 /// The handler pointer will be dereferenced, and the data the pointer points to may therefore not move.
 /// A lot can go south in signal handling. Be sure you know what you are doing.
-#[cfg(feature = "alloc")]
 pub unsafe fn setup_signal_handler<T: 'static + SignalHandler>(handler: *mut T) -> Result<()> {
     unsafe {
         // First, set up our own stack to be used during segfault handling. (and specify `SA_ONSTACK` in `sigaction`)

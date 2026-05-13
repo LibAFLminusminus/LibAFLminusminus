@@ -1,19 +1,18 @@
 //! The command wrapper for properly setting up the forkserver.
 
-use std::os::{
-    fd::{BorrowedFd, FromRawFd, OwnedFd},
-    unix::process::CommandExt,
-};
-/// Configure the target, `limit`, `setsid`, `pipe_stdin`, the code was borrowed from the [`Angora`](https://github.com/AngoraFuzzer/Angora) fuzzer
-use std::{io, os::fd::RawFd, process::Command};
-
-use libaflmm_bolts::{core_affinity::CoreId, os::last_error_str};
+use libaflmm_bolts::core_affinity::CoreId;
 use libaflmm_core::forkserver::FORKSRV_FD_NUM;
 use nix::{
     libc::RLIM_INFINITY,
     unistd::{close, dup2},
 };
+use std::os::{
+    fd::{BorrowedFd, FromRawFd, OwnedFd},
+    unix::process::CommandExt,
+};
+use std::{io, os::fd::RawFd, process::Command};
 
+/// Configure the target, `limit`, `setsid`, `pipe_stdin`, the code was borrowed from the [`Angora`](https://github.com/AngoraFuzzer/Angora) fuzzer
 pub(crate) trait Config {
     /// Sets the sid
     fn setsid(&mut self) -> &mut Self;

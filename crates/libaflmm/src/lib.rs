@@ -65,16 +65,7 @@ pub mod prelude {
     };
 }
 
-#[cfg(all(any(doctest, test), not(feature = "std")))]
-/// Provide custom time in `no_std` tests.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn external_current_millis() -> u64 {
-    // TODO: use "real" time here
-    1000
-}
-
 #[cfg(test)]
-#[cfg(not(feature = "remove_me"))]
 mod tests {
 
     #[cfg(miri)]
@@ -90,14 +81,12 @@ mod tests {
     use crate::{
         StdFuzzer,
         corpus::{Corpus, InMemoryCorpus, Testcase},
-        events::NopEventManager,
-        executors::{ExitKind, InProcessExecutor},
+        executors::ExitKind,
         feedbacks::ConstFeedback,
         fuzzers::Fuzzer,
         inputs::BytesInput,
         monitors::SimpleMonitor,
         mutators::{HavocScheduledMutator, mutations::BitFlipMutator},
-        schedulers::RandScheduler,
         stages::StdMutationalStage,
         states::{HasCorpus, StdState},
     };

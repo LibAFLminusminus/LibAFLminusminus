@@ -14,9 +14,6 @@ rust-version.workspace = true
 version.workspace = true
 
 [features]
-default = ["std"]
-std = ["libaflmm_bolts/std"]
-
 ## Export raw Intel PT traces on decode, useful for debug, disabled by default for best performance
 export_raw = []
 

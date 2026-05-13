@@ -13,7 +13,6 @@ categories = [
   "emulators",
   "embedded",
   "os",
-  "no-std",
 ]
 
 documentation.workspace = true
@@ -29,7 +28,14 @@ features = ["document-features"]
 all-features = true
 
 [features]
-default = ["alloc", "derive", "gzip", "rand_trait", "std", "xxh3"]
+default = [
+    "derive",
+    "gzip",
+    "rand_trait",
+    "xxh3",
+    "simd",
+    "uds",
+]
 document-features = ["dep:document-features"]
 
 #! # Feature Flags
@@ -37,20 +43,6 @@ document-features = ["dep:document-features"]
 
 ## Enables features that need rust's `std` lib to work, like print, env, ... support
 std = [
-  "alloc",
-  "libaflmm_core/nix",
-  "libaflmm_core/std",
-  "nix",
-  "serde/std",
-  "simd",
-  "uds",
-]
-
-## Enables all features that allocate in `no_std`
-alloc = [
-  "ahash",
-  "libaflmm_core/alloc",
-  "serde/alloc",
 ]
 
 ## Provide the `#[derive(SerdeAny)]` macro.
@@ -79,7 +71,7 @@ frida_cli = ["cli"]
 errors_backtrace = ["libaflmm_core/errors_backtrace"]
 
 ## Enables gzip compression in certain parts of the lib
-gzip = ["alloc"]
+gzip = []
 
 ## Replaces `ahash` with the potentially faster [`xxh3`](https://github.com/Cyan4973/xxHash) in some parts of the lib.
 ## This yields a stable and fast hash, but may increase the resulting binary size slightly
@@ -98,7 +90,7 @@ stable_anymap = []
 #! ### Stable SIMD features
 
 ## Use the best SIMD implementation by our benchmark.
-simd = ["alloc", "wide"]
+simd = ["wide"]
 
 [build-dependencies]
 rustversion = { workspace = true }
@@ -117,7 +109,7 @@ libaflmm_derive = { workspace = true, default-features = true, optional = true }
 num_enum = { workspace = true }
 rand_core = { version = "0.9.5" }
 uuid = { workspace = true }
-ahash = { workspace = true, optional = true } # The hash function already used in hashbrown
+ahash = { workspace = true } # The hash function already used in hashbrown
 clap = { workspace = true, features = [
   "derive",
   "wrap_help",
@@ -131,7 +123,7 @@ serde = { workspace = true, default-features = false, features = [
 
 miniz_oxide = { version = "0.9.1" }
 log = { workspace = true }
-nix = { workspace = true, optional = true, default-features = false, features = [
+nix = { workspace = true, default-features = false, features = [
   "fs",
   "signal",
   "socket",
@@ -140,6 +132,7 @@ nix = { workspace = true, optional = true, default-features = false, features = 
   "mman",
 ] }
 pyo3 = { workspace = true, optional = true, features = ["serde", "macros"] }
+bytemuck = "1.25.0"
 
 # optional stable simd
 wide = { version = "1.1.1", optional = true }

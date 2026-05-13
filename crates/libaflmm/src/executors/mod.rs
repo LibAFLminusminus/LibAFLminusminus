@@ -28,9 +28,9 @@ pub mod hooks;
 pub mod nop;
 pub use nop::NopExecutor;
 
-#[cfg(all(feature = "std", unix))]
+#[cfg(unix)]
 pub mod forkserver;
-#[cfg(all(feature = "std", unix))]
+#[cfg(unix)]
 pub use forkserver::*;
 
 pub mod standard;

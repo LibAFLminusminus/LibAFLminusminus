@@ -90,9 +90,6 @@ pub struct TimeObserver {
     #[serde(with = "instant_serializer")]
     start_time: Instant,
 
-    #[cfg(not(feature = "std"))]
-    start_time: Duration,
-
     last_runtime: Option<Duration>,
 }
 
@@ -133,9 +130,6 @@ impl TimeObserver {
 
             start_time: Instant::now(),
 
-            #[cfg(not(feature = "std"))]
-            start_time: Duration::from_secs(0),
-
             last_runtime: None,
         }
     }
@@ -156,21 +150,8 @@ impl<S> Observer<S> for TimeObserver {
         Ok(())
     }
 
-    #[cfg(not(feature = "std"))]
-    fn pre_exec(&mut self, _state: &mut S) -> Result<(), Error> {
-        self.last_runtime = None;
-        self.start_time = current_time();
-        Ok(())
-    }
-
     fn post_exec(&mut self, _state: &mut S, _exit_kind: &ExitKind) -> Result<(), Error> {
         self.last_runtime = Some(self.start_time.elapsed());
-        Ok(())
-    }
-
-    #[cfg(not(feature = "std"))]
-    fn post_exec(&mut self, _state: &mut S, _exit_kind: &ExitKind) -> Result<(), Error> {
-        self.last_runtime = Some(current_time().saturating_sub(self.start_time));
         Ok(())
     }
 }

@@ -44,30 +44,17 @@ default = [
   "rand_trait",
   "regex",
   "simd",
-  "std",
-  "remove_me",
   "nautilus",
+  "dep:nix",
+  "fastbloom",
+  "serde_json",
+  "serial_test",
+  "typed-builder",
 ]
 document-features = ["dep:document-features"]
 
 #! # Feature Flags
 #! ### General Features
-
-## Enables features that need rust's `std` lib to work, like print, env, ... support
-std = [
-  "dep:nix",
-  "fastbloom",
-  "libaflmm_bolts/std",
-  "serde_json",
-  "serde_json/std",
-  "serde/std",
-  "serial_test",
-  "typed-builder",
-]
-
-## THIS IS A TEMPORARY DEV FEATURE FOR FAST COMPILATION
-## REMOVE ME WHEN LIABFL-- REFACTORING IS DONE
-remove_me = []
 
 ## `ValueBloomFeedback` checks if an observed value has already been observed, and returns `is_interesting=true` otherwise.
 value_bloom_feedback = ["fastbloom", "fastbloom/serde"]
@@ -95,14 +82,11 @@ handle_sigpipe = []
 
 #! ## Additional Components
 
-## Enable multi-machine support
-multi_machine = ["tokio", "std", "enumflags2", "ahash/std"]
-
 ## Enables the `NaiveTokenizer` and `StacktraceObserver`
-regex = ["std", "dep:regex", "dep:backtrace"]
+regex = ["dep:regex", "dep:backtrace"]
 
 ## Intel Processor Trace
-intel_pt = ["std", "dep:libaflmm_intelpt", "dep:nix"]
+intel_pt = ["dep:libaflmm_intelpt", "dep:nix"]
 ## Save all the Intel PT raw traces to files, use only for debug
 intel_pt_export_raw = ["intel_pt", "libaflmm_intelpt/export_raw"]
 
@@ -129,7 +113,7 @@ rand_trait = ["libaflmm_bolts/rand_trait"]
 #! ### SerdeAny features
 
 ## Grammar mutator.
-nautilus = ["std", "serde_json/std", "rand_trait", "regex-syntax", "regex"]
+nautilus = ["rand_trait", "regex-syntax", "regex"]
 
 ## Python grammar support for nautilus
 nautilus_py = ["nautilus", "dep:pyo3"]
@@ -149,7 +133,7 @@ bytecount = "0.6.8"
 rusty-fork = "0.3.1"
 
 [dependencies]
-libaflmm_bolts = { workspace = true, features = ["alloc"] }
+libaflmm_bolts = { workspace = true }
 libaflmm_core = { workspace = true }
 libaflmm_derive = { workspace = true, default-features = true, optional = true }
 libaflmm_intelpt = { workspace = true, default-features = true, optional = true }
@@ -158,9 +142,7 @@ libaflmm_targets = { workspace = true, default-features = true }
 quanta = "0.12.6"
 ahash = { workspace = true } # The hash function already used in hashbrown
 arbitrary-int = { workspace = true }
-backtrace = { workspace = true, optional = true, features = [
-  "std",
-] } # Used to get the stacktrace in StacktraceObserver
+backtrace = { workspace = true, optional = true } # Used to get the stacktrace in StacktraceObserver
 bitbybit = { workspace = true }
 enumflags2 = { version = "0.7.10", optional = true }
 fastbloom = { workspace = true, optional = true }
@@ -183,7 +165,7 @@ nix = { workspace = true, optional = true, features = [
 num-traits = { workspace = true, default-features = false }
 postcard = { workspace = true } # no_std compatible serde serialization format
 pyo3 = { workspace = true, optional = true }
-serde = { workspace = true, features = ["alloc", "derive", "rc"] }
+serde = { workspace = true, features = ["derive", "rc"] }
 serde_json = { workspace = true, default-features = false, features = [
   "alloc",
 ], optional = true }

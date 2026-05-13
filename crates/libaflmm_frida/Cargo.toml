@@ -8,7 +8,6 @@ categories = [
   "emulators",
   "embedded",
   "os",
-  "no-std",
 ]
 
 documentation.workspace = true
@@ -43,13 +42,11 @@ cc = { workspace = true, features = ["parallel"] }
 
 [dependencies]
 libaflmm = { workspace = true, features = [
-  "std",
   "derive",
   "frida_cli",
 ], default-features = false }
-libaflmm_bolts = { workspace = true, features = ["std", "derive", "frida_cli"] }
+libaflmm_bolts = { workspace = true, features = ["derive", "frida_cli"] }
 libaflmm_targets = { workspace = true, default-features = true, features = [
-  "std",
   "sancov_cmplog",
 ] }
 
@@ -74,7 +71,6 @@ color-backtrace = { version = "0.7.0", features = ["resolve-modules"] }
 termcolor = "1.4.1"
 serde = { workspace = true, default-features = true }
 backtrace = { workspace = true, default-features = false, features = [
-  "std",
   "serde",
 ] }
 num-traits = { workspace = true, default-features = true }

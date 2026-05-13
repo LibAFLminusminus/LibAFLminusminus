@@ -11,7 +11,6 @@ categories = [
   "emulators",
   "embedded",
   "os",
-  "no-std",
 ]
 
 documentation.workspace = true
@@ -23,7 +22,7 @@ rust-version.workspace = true
 version.workspace = true
 
 [dev-dependencies]
-libaflmm_bolts = { workspace = true, features = ["xxh3", "alloc"] } # libaflmm_bolts
+libaflmm_bolts = { workspace = true, features = ["xxh3"] } # libaflmm_bolts
 
 criterion = "0.8.1" # Benchmarking
 ahash = { workspace = true, default-features = false } # The hash function already used in hashbrown

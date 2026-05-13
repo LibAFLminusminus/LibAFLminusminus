@@ -1,12 +1,14 @@
 [package]
 name = "libaflmm_core"
 authors = [
+  "Romain Malmain <rmalmain@pm.me>",
+  "tokatoka <tokazerkje@outlook.com>",
   "Andrea Fioraldi <andreafioraldi@gmail.com>",
   "Dominik Maier <domenukk@gmail.com>",
 ]
 description = "A platform-independent shared memory library for Rust"
-keywords = ["os", "shmem", "no-std"]
-categories = ["embedded", "os", "no-std"]
+keywords = ["os", "shmem"]
+categories = ["embedded", "os"]
 
 documentation.workspace = true
 edition.workspace = true
@@ -26,23 +28,14 @@ document-features = ["dep:document-features"]
 #! # Feature Flags
 #! ### General Features
 
-## Enables features that need rust's `std` lib to work, like print, env, ... support
-std = ["alloc"]
-
-## Enables all features that allocate in `no_std`
-alloc = []
-
 ## Stores the backtraces of all generated `Error`s. Good for debugging, but may come with a slight performance hit.
-errors_backtrace = ["std"]
+errors_backtrace = []
 
 ## Enable python error conversion
 python = ["dep:pyo3"]
 
-## Enables nix error conversion
-nix = ["dep:nix"]
-
 ## Enables Serde support for some types
-serde = ["dep:serde", "alloc"]
+serde = ["dep:serde"]
 
 [build-dependencies]
 rustversion = { workspace = true }
@@ -52,9 +45,9 @@ rustversion = { workspace = true }
 [dependencies]
 document-features = { workspace = true, optional = true }
 postcard = { workspace = true }
-nix = { workspace = true, optional = true }
+nix = { workspace = true }
 pyo3 = { workspace = true, optional = true }
-serde = { workspace = true, features = ["derive", "alloc"], optional = true }
+serde = { workspace = true, features = ["derive"], optional = true }
 
 [target.'cfg(windows)'.dependencies]
 windows-result = "0.4.1"

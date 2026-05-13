@@ -11,7 +11,6 @@ categories = [
   "emulators",
   "embedded",
   "os",
-  "no-std",
 ]
 
 documentation.workspace = true
@@ -103,9 +102,9 @@ shared = ["libaflmm_qemu_sys/shared"]
 clippy = ["libaflmm_qemu_sys/clippy", "libvharness_sys/clippy"]
 
 [dependencies]
-libaflmm = { workspace = true, features = ["std", "derive", "regex"] }
-libaflmm_bolts = { workspace = true, features = ["std", "derive"] }
-libaflmm_core = { workspace = true, features = ["std"] }
+libaflmm = { workspace = true, features = ["derive", "regex"] }
+libaflmm_bolts = { workspace = true, features = ["derive"] }
+libaflmm_core = { workspace = true }
 libaflmm_targets = { workspace = true, default-features = true }
 libaflmm_qemu_sys = { workspace = true }
 libaflmm_derive = { workspace = true, default-features = true }

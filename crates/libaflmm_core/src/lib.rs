@@ -512,7 +512,6 @@ impl From<postcard::Error> for Error {
     }
 }
 
-#[cfg(all(unix, feature = "std", feature = "nix"))]
 impl From<nix::Error> for Error {
     fn from(err: nix::Error) -> Self {
         crate::unknown!("Unix error: {err:?}")
@@ -799,7 +798,6 @@ pub trait HasLen {
     }
 }
 
-#[cfg(feature = "alloc")]
 impl<T> HasLen for Vec<T> {
     #[inline]
     fn len(&self) -> usize {

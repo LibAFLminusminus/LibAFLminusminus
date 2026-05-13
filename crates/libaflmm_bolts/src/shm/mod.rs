@@ -3,6 +3,8 @@
 //!
 //! It supports both header-based and header-less style shared memory.
 
+use atomic::Atomic;
+use bytemuck::NoUninit;
 use core::{
     fmt,
     marker::PhantomData,
@@ -11,11 +13,8 @@ use core::{
     slice,
     sync::atomic::Ordering,
 };
-
-use atomic::Atomic;
 use libaflmm_core::{Result, runtime};
 use num_traits::{Bounded, NumCast};
-use wide::bytemuck::NoUninit;
 
 pub mod anonymous;
 pub use anonymous::{AnonShmBuilder, AnonShmReceiver, AnonShmSender};

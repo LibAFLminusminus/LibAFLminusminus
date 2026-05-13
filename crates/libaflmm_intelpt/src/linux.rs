@@ -23,7 +23,7 @@ use std::{
 use arbitrary_int::u4;
 use bitbybit::bitfield;
 use caps::{CapSet, Capability};
-use libafl_bolts::Error;
+use libaflmm_bolts::Error;
 use num_enum::TryFromPrimitive;
 use num_traits::Euclid;
 use perf_event_open_sys::{
