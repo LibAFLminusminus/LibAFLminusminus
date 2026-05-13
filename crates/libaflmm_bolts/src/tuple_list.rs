@@ -1,52 +1,4 @@
 //! Compiletime lists/tuples used throughout the `LibAFL` universe
-#![doc = include_str!("../README.md")]
-/*! */
-#![cfg_attr(feature = "document-features", doc = document_features::document_features!())]
-#![cfg_attr(not(test), warn(
-    missing_debug_implementations,
-    missing_docs,
-    //trivial_casts,
-    trivial_numeric_casts,
-    unused_extern_crates,
-    unused_import_braces,
-    unused_qualifications,
-    //unused_results
-))]
-#![cfg_attr(test, deny(
-    missing_debug_implementations,
-    missing_docs,
-    //trivial_casts,
-    trivial_numeric_casts,
-    unused_extern_crates,
-    unused_import_braces,
-    unused_qualifications,
-    unused_must_use,
-    //unused_results
-))]
-#![cfg_attr(
-    test,
-    deny(
-        bad_style,
-        dead_code,
-        improper_ctypes,
-        non_shorthand_field_patterns,
-        no_mangle_generic_items,
-        overflowing_literals,
-        path_statements,
-        patterns_in_fns_without_body,
-        unconditional_recursion,
-        unused,
-        unused_allocation,
-        unused_comparisons,
-        unused_parens,
-        while_true
-    )
-)]
-
-#[macro_use]
-extern crate std;
-#[doc(hidden)]
-pub extern crate alloc;
 
 use alloc::{borrow::Cow, vec::Vec};
 use core::{any::TypeId, mem::transmute};
@@ -57,12 +9,11 @@ use core::{
     ops::{Deref, DerefMut, Index, IndexMut},
 };
 
-use libafl_core::Named;
-#[cfg(feature = "serde")]
+use libaflmm_core::Named;
 use serde::{Deserialize, Serialize};
 pub use tuple_list::{TupleList, tuple_list, tuple_list_type};
 
-use crate::seal::StackedExtract;
+use seal::StackedExtract;
 
 /// Returns if the type `T` is equal to `U`, ignoring lifetimes.
 #[must_use]
@@ -441,10 +392,10 @@ pub trait Handled: Named {
 impl<N> Handled for N where N: Named {}
 
 /// Object with the type T and the name associated with its concrete value
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 pub struct Handle<T: ?Sized> {
     name: Cow<'static, str>,
-    #[cfg_attr(feature = "serde", serde(skip))]
+    #[serde(skip)]
     phantom: PhantomData<T>,
 }
 
@@ -612,10 +563,10 @@ mod seal {
     //! [Some(a), Some(c), None]
     //! ```
 
-    use libafl_core::Named;
+    use libaflmm_core::Named;
     use tuple_list::tuple_list;
 
-    use crate::{Handle, InnerBorrowMut, Merge, type_eq};
+    use crate::tuple_list::{Handle, InnerBorrowMut, Merge, type_eq};
 
     impl<Head, Tail> InnerBorrowMut for (Head, Tail)
     where

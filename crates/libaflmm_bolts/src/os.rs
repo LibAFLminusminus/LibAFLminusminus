@@ -14,14 +14,9 @@ use std::{
     sync::OnceLock,
 };
 
-#[cfg(unix)]
-pub use exceptional::unix_signals;
-#[cfg(unix)]
-pub use exceptional::unix_signals::CTRL_C_EXIT;
+pub use crate::exceptions::unix_signals;
 #[cfg(all(windows, feature = "std"))]
 pub use exceptional::windows_exceptions;
-#[cfg(unix)]
-use libaflmm_core::format;
 // Allow a few extra features we need for the whole module
 #[cfg(unix)]
 use libc::pid_t;
@@ -41,15 +36,6 @@ static NULL_FILE: OnceLock<File> = OnceLock::new();
 pub struct ChildHandle {
     /// The process id
     pub pid: pid_t,
-}
-
-#[cfg(unix)]
-impl ChildHandle {
-    /// Block until the child exited and the status code becomes available
-    #[must_use]
-    pub fn status(&self) -> i32 {
-        waitpid_with_signals(self.pid)
-    }
 }
 
 /// Returns the last OS error (errno).
@@ -100,41 +86,6 @@ pub fn last_os_error() -> i32 {
         ))]
         {
             *libc::__error()
-        }
-    }
-}
-
-/// Waits for a pid and returns the status
-#[must_use]
-#[cfg(unix)]
-pub fn waitpid_with_signals(pid: i32) -> i32 {
-    unsafe {
-        let mut status = 0;
-        loop {
-            let res = libc::waitpid(pid, &raw mut status, 0);
-            if res < 0 {
-                {
-                    let err = std::io::Error::last_os_error();
-                    if err.kind() == std::io::ErrorKind::Interrupted {
-                        continue;
-                    }
-                }
-                #[cfg(not(feature = "std"))]
-                {
-                    if last_os_error() == libc::EINTR {
-                        continue;
-                    }
-                }
-                return 0;
-            }
-            if libc::WIFSIGNALED(status) {
-                let sig = libc::WTERMSIG(status);
-                if sig == libc::SIGINT || sig == libc::SIGTERM {
-                    return CTRL_C_EXIT;
-                }
-                return 128 + sig;
-            }
-            return libc::WEXITSTATUS(status);
         }
     }
 }

@@ -1,6 +1,9 @@
+//! A map that can retrieve values by type - and is `Serde` serializable.
 //! Poor-rust-man's downcasts to have `AnyMap`
 
 use core::{any::TypeId, mem::size_of, ptr::read_unaligned};
+
+pub mod serdeany;
 
 /// Get a [`TypeId`] from its previously unpacked `u128`.
 /// Opposite of [`unpack_type_id`].

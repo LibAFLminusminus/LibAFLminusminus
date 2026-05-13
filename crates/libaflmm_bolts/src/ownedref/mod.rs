@@ -1,51 +1,5 @@
 //! Wrappers that abstracts references (or pointers) and owned data accesses.
 //! The serialization is towards owned, allowing to serialize pointers without troubles.
-#![doc = include_str!("../README.md")]
-/*! */
-#![cfg_attr(feature = "document-features", doc = document_features::document_features!())]
-#![cfg_attr(not(test), warn(
-    missing_debug_implementations,
-    missing_docs,
-    //trivial_casts,
-    trivial_numeric_casts,
-    unused_extern_crates,
-    unused_import_braces,
-    unused_qualifications,
-    //unused_results
-))]
-#![cfg_attr(test, deny(
-    missing_debug_implementations,
-    missing_docs,
-    //trivial_casts,
-    trivial_numeric_casts,
-    unused_extern_crates,
-    unused_import_braces,
-    unused_qualifications,
-    unused_must_use,
-    //unused_results
-))]
-#![cfg_attr(
-    test,
-    deny(
-        bad_style,
-        dead_code,
-        improper_ctypes,
-        non_shorthand_field_patterns,
-        no_mangle_generic_items,
-        overflowing_literals,
-        path_statements,
-        patterns_in_fns_without_body,
-        unconditional_recursion,
-        unused,
-        unused_allocation,
-        unused_comparisons,
-        unused_parens,
-        while_true
-    )
-)]
-
-#[doc(hidden)]
-pub extern crate alloc;
 
 pub mod subrange;
 
@@ -59,7 +13,7 @@ use core::{
     slice::{Iter, IterMut, SliceIndex},
 };
 
-use libafl_core::{AsSizedSlice, AsSizedSliceMut, AsSlice, AsSliceMut, IntoOwned, Truncate};
+use libaflmm_core::{AsSizedSlice, AsSizedSliceMut, AsSlice, AsSliceMut, IntoOwned, Truncate};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// Constant size array visitor for serde deserialization.
@@ -67,8 +21,6 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 mod arrays {
     use alloc::{boxed::Box, fmt, vec::Vec};
     use core::{convert::TryInto, marker::PhantomData};
-
-    use libafl_core::format;
     use serde::{
         Deserialize, Deserializer,
         de::{SeqAccess, Visitor},

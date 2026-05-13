@@ -6,9 +6,9 @@ use core::{
     ops::{Bound, Range, RangeBounds},
 };
 
-use libafl_core::HasLen;
+use libaflmm_core::HasLen;
 
-use crate::{OwnedMutSlice, OwnedSlice};
+use crate::ownedref::{OwnedMutSlice, OwnedSlice};
 
 /// An immutable contiguous subslice of a byte slice.
 /// It is mostly useful to cheaply wrap a subslice of a given input.

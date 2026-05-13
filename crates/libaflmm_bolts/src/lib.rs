@@ -5,7 +5,34 @@
 /*! */
 #![cfg_attr(feature = "document-features", doc = document_features::document_features!())]
 
+#[cfg(all(not(feature = "xxh3"), feature = "alloc"))]
+use core::hash::BuildHasher;
+#[cfg(feature = "xxh3")]
+use core::hash::{Hash, Hasher};
+use core::mem;
+use std::time::SystemTime;
+use std::{
+    fs::File,
+    io::Write,
+    os::fd::{FromRawFd, RawFd},
+    panic,
+};
+// There's a bug in ahash that doesn't let it build in `alloc` without once_cell right now.
+// TODO: re-enable once <https://github.com/tkaitchuck/aHash/issues/155> is resolved.
+#[cfg(all(not(feature = "xxh3"), feature = "alloc"))]
+use ahash::RandomState;
+#[cfg(feature = "libaflmm_derive")]
+pub use libaflmm_derive::SerdeAny;
+use log::{Metadata, Record};
+#[cfg(feature = "xxh3")]
+use xxhash_rust::xxh3::xxh3_64;
+
 pub extern crate alloc;
+
+pub use libaflmm_core::{
+    AsIter, AsIterMut, AsSlice, AsSliceMut, Error, HasLen, HasRefCnt, Named, Result, Truncate,
+    WorkerId,
+};
 
 pub mod shm;
 pub use shm::{
@@ -22,29 +49,19 @@ pub mod cli;
 pub mod compress;
 
 pub mod fs;
-pub mod math;
-pub use minibsod;
-pub mod os;
-pub use serde_anymap::serdeany;
-#[cfg(any(feature = "xxh3", feature = "alloc"))]
-pub use tuple_list_ex as tuples;
 
-#[cfg(all(feature = "std", unix))]
+pub mod math;
+
+pub mod minibsod;
+
+pub mod os;
+
+#[cfg(unix)]
 pub mod argparse;
-#[cfg(all(feature = "std", unix))]
+#[cfg(unix)]
 pub use argparse::*;
 
-#[cfg(feature = "std")]
 pub mod target_args;
-pub use fast_rands as rands;
-pub use libaflmm_core::{
-    AsIter, AsIterMut, AsSlice, AsSliceMut, Error, HasLen, HasRefCnt, Named, Result, Truncate,
-    WorkerId,
-};
-pub use ownedref::{self, subrange};
-#[cfg(feature = "alloc")]
-pub use serde_anymap::impl_serdeany;
-#[cfg(feature = "std")]
 pub use target_args::*;
 
 pub mod anymap;
@@ -74,6 +91,10 @@ pub use rands::{
     XkcdRand, XorShift64Rand, Xoshiro256PlusPlusRand, choose, fast_bound, random_seed,
 };
 
+pub mod tuple_list;
+
+pub mod ownedref;
+
 /// The purpose of this module is to alleviate imports of the bolts by adding a glob import.
 #[cfg(feature = "prelude")]
 pub mod bolts_prelude {
@@ -96,38 +117,6 @@ pub mod bolts_prelude {
     pub use super::{anymap::*, llmp::*, ownedref::*, rands::*, serdeany::*, shmem::*, tuples::*};
     pub use super::{compress::*, os::*};
 }
-
-#[cfg(all(unix, feature = "std"))]
-use alloc::boxed::Box;
-#[cfg(feature = "alloc")]
-use alloc::string::String;
-#[cfg(feature = "alloc")]
-use alloc::string::ToString;
-#[cfg(all(not(feature = "xxh3"), feature = "alloc"))]
-use core::hash::BuildHasher;
-#[cfg(feature = "xxh3")]
-use core::hash::{Hash, Hasher};
-#[cfg(unix)]
-use core::mem;
-use std::time::SystemTime;
-#[cfg(unix)]
-use std::{
-    fs::File,
-    io::Write,
-    os::fd::{FromRawFd, RawFd},
-    panic,
-};
-
-// There's a bug in ahash that doesn't let it build in `alloc` without once_cell right now.
-// TODO: re-enable once <https://github.com/tkaitchuck/aHash/issues/155> is resolved.
-#[cfg(all(not(feature = "xxh3"), feature = "alloc"))]
-use ahash::RandomState;
-#[cfg(feature = "libaflmm_derive")]
-pub use libaflmm_derive::SerdeAny;
-#[cfg(feature = "std")]
-use log::{Metadata, Record};
-#[cfg(feature = "xxh3")]
-use xxhash_rust::xxh3::xxh3_64;
 
 /// Unwrap a type (most likely an [`Option`]),
 /// and check the inner object is present only in `Debug` mode.

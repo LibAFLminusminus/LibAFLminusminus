@@ -156,6 +156,8 @@ hashbrown = { workspace = true, features = [
 ] }
 postcard = { workspace = true }
 static_assertions = { workspace = true }
+tuple_list = { workspace = true }
+typeid = { workspace = true }
 
 # Document all features of this crate (for `cargo doc`)
 document-features = { workspace = true, optional = true }
