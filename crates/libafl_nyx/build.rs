@@ -19,6 +19,8 @@ fn main() {
         println!("cargo:rerun-if-changed=build.rs");
         let status = Command::new("./build_nyx_support.sh")
             .arg(target_dir)
+            .env("CC", "gcc")
+            .env("CXX", "g++")
             .status()
             .expect("can't run ./build_nyx_support.sh");
         if status.success() {
