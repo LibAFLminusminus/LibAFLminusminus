@@ -15,14 +15,10 @@ version.workspace = true
 [dependencies]
 pyo3 = { version = "0.28.3", features = ["extension-module"] }
 pyo3-log = { version = "0.13.1" }
-libaflmm_bolts = { workspace = true, features = [
-  "python",
-] }
+libaflmm_bolts = { workspace = true, features = ["python"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-libaflmm_qemu = { workspace = true, features = [
-  "python",
-] }
+libaflmm_qemu = { workspace = true, features = ["python"] }
 
 [build-dependencies]
 pyo3-build-config = "0.28.3"

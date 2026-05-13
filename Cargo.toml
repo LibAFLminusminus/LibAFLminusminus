@@ -35,6 +35,9 @@ members = [
   "mmlint/generics_reorder",
   "mmlint/args_reorder",
   "mmlint/use_after_mod",
+
+  # bindings
+  "bindings/pylibafl",
 ]
 
 default-members = [
