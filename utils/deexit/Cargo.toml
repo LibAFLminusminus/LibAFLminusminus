@@ -10,7 +10,7 @@ description = "DeExit: Replace exits with aborts to catch them during in-process
 documentation = "https://docs.rs/libafl"
 repository = "https://github.com/AFLplusplus/LibAFL/"
 readme = "../../README.md"
-license = "MIT OR Apache-2.0"
+license = "MPL-2.0"
 keywords = ["fuzzing", "libafl", "ldpreload"]
 categories = [
   "development-tools::testing",

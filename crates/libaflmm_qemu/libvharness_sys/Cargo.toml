@@ -7,7 +7,7 @@ description = "libvharness Rust bindings"
 documentation = "https://docs.rs/libafl_qemu"
 repository = "https://github.com/AFLplusplus/LibAFL/"
 readme = "README.md"
-license = "MIT"
+license = "MPL-2.0"
 keywords = ["fuzzing", "qemu", "instrumentation"]
 categories = ["external-ffi-bindings", "embedded", "os", "no-std"]
 
