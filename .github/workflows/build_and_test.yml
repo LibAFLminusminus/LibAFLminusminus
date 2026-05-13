@@ -10,6 +10,8 @@ on:
     types: ["labeled", "opened", "synchronize", "reopened"]
   workflow_dispatch:
   merge_group:
+  schedule:
+    - cron: "0 6 * * 1" # Re-run every mondays at 06:00 UTC in case a new lint break everything
 env:
   CARGO_TERM_COLOR: always
   CARGO_NET_GIT_FETCH_WITH_CLI: true
