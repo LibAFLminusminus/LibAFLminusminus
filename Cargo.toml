@@ -53,7 +53,6 @@ exclude = [
   "utils/gdb_qemu",
   "utils/libaflmm_repo_tools",
   "utils/multi_machine_generator",
-  "utils/libaflmm_repo_tools",
   "utils/noaslr",
 ]
 

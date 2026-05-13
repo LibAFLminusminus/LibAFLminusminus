@@ -14,3 +14,6 @@ version.workspace = true
 
 [dependencies]
 libaflmm_build = { path = "../../crates/libaflmm_build" }
+
+[lints]
+workspace = true

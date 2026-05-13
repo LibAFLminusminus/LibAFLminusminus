@@ -1,25 +1,26 @@
 [package]
 name = "pylibafl"
 description = "Python bindings for LibAFL"
-version = "0.16.0"
-license = "MPL-2.0"
-repository = "https://github.com/AFLplusplus/LibAFL/"
 keywords = ["fuzzing", "testing", "security", "python"]
-edition = "2024"
 categories = ["development-tools::testing", "emulators", "embedded", "os"]
+
+documentation.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+readme.workspace = true
+rust-version.workspace = true
+version.workspace = true
 
 [dependencies]
 pyo3 = { version = "0.28.3", features = ["extension-module"] }
 pyo3-log = { version = "0.13.1" }
-libafl_sugar = { path = "../../crates/libafl_sugar", version = "0.16.0", features = [
-  "python",
-] }
-libafl_bolts = { path = "../../crates/libafl_bolts", version = "0.16.0", features = [
+libaflmm_bolts = { workspace = true, features = [
   "python",
 ] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-libafl_qemu = { path = "../../crates/libafl_qemu", version = "0.16.0", features = [
+libaflmm_qemu = { workspace = true, features = [
   "python",
 ] }
 

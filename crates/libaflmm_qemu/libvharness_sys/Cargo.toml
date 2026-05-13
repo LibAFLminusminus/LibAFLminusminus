@@ -1,15 +1,17 @@
 [package]
 name = "libvharness_sys"
-version.workspace = true
-edition = "2024"
 authors = ["Romain Malmain <rmalmain@pm.me>"]
 description = "libvharness Rust bindings"
-documentation = "https://docs.rs/libafl_qemu"
-repository = "https://github.com/AFLplusplus/LibAFL/"
-readme = "README.md"
-license = "MPL-2.0"
 keywords = ["fuzzing", "qemu", "instrumentation"]
 categories = ["external-ffi-bindings", "embedded", "os", "no-std"]
+
+documentation.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+readme.workspace = true
+rust-version.workspace = true
+version.workspace = true
 
 [features]
 # Special platforms
