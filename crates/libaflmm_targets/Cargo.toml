@@ -19,7 +19,6 @@ readme.workspace = true
 rust-version.workspace = true
 version.workspace = true
 
-
 [package.metadata.docs.rs]
 features = ["document-features"]
 all-features = true
@@ -27,7 +26,6 @@ all-features = true
 
 [features]
 default = [
-  "std",
   "sanitizers_flags",
   "windows_asan",
   "cmplog",
@@ -37,9 +35,6 @@ default = [
 
 #! # Feature Flags
 #! ### General Features
-
-## Enables features that need rust's `std` lib to work, like print, env, ... support
-std = []
 
 ## Support for the `sancov` 8-bit counters.
 ## This feature enables the `8-bit-counters` runtime for `LibAFL`, which uses a global `COUNTERS_MAPS` to store coverage maps.
@@ -100,14 +95,14 @@ whole_archive = []
 ## Support for function logging.
 ## This feature enables the `call` module, which provides hooks for function calls.
 ## It allows tracing function entries and exits.
-function-logging = ["common", "std"]
+function-logging = ["common"]
 
 #! ### Libfuzzer-compatibility Features
 
 ## Libfuzzer compatibility mode.
 ## This feature compiles `libfuzzer.c` and enables Libfuzzer compatibility.
 ## It allows `LibAFL` to be used as a drop-in replacement for Libfuzzer.
-libfuzzer = ["std", "common"]
+libfuzzer = ["common"]
 
 ## Libfuzzer mode without linking main.
 ## This feature defines `FUZZER_NO_LINK_MAIN` when compiling `libfuzzer.c`.

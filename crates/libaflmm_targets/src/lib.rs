@@ -55,7 +55,7 @@ pub use sancov::*;
 pub mod cmps;
 pub use cmps::*;
 
-#[cfg(all(windows, feature = "std", feature = "windows_asan"))]
+#[cfg(all(windows, feature = "windows_asan"))]
 pub mod windows_asan;
-#[cfg(all(windows, feature = "std", feature = "windows_asan"))]
+#[cfg(all(windows, feature = "windows_asan"))]
 pub use windows_asan::*;

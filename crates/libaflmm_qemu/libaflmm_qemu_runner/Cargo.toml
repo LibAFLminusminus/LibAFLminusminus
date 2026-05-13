@@ -51,8 +51,6 @@ path = "src/ppc.rs"
 required-features = ["ppc"]
 
 [features]
-default = ["std"]
-std = []
 clippy = []
 ## Set emulator to big endian
 be = ["libaflmm_qemu/be"]
