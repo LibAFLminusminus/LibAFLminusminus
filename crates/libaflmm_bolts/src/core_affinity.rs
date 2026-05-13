@@ -6,11 +6,11 @@
 //!
 //! ```rust
 //! # use std::thread;
-//! use core_affinity2;
+//! use libaflmm_bolts::core_affinity;
 //!
 //! // Retrieve the IDs of all active CPU cores.
 //! # #[cfg(not(miri))]
-//! let core_ids = core_affinity2::get_core_ids().unwrap();
+//! let core_ids = core_affinity::get_core_ids().unwrap();
 //!
 //! // Create a thread for each active CPU core.
 //! # #[cfg(not(miri))]

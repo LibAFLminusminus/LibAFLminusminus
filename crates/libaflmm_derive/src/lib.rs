@@ -66,9 +66,9 @@ pub fn libafl_serdeany_derive(input: TokenStream) -> TokenStream {
 /// # Examples
 ///
 /// ```rust
-/// use libafl_derive;
+/// use libaflmm_derive;
 ///
-/// #[derive(libafl_derive::Display)]
+/// #[derive(libaflmm_derive::Display)]
 /// struct MyStruct {
 ///     foo: String,
 ///     bar: Option<u32>,

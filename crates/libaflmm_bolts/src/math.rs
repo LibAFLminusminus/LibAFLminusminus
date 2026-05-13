@@ -61,7 +61,7 @@ pub const fn integer_sqrt(val: u64) -> u64 {
 ///
 /// So, to give an example:
 /// ```rust
-/// # extern crate libafl_bolts;
+/// # extern crate libaflmm_bolts;
 /// use libaflmm_bolts::math::calculate_cumulative_sum_in_place;
 ///
 /// let mut value = [2, 4, 1, 3];

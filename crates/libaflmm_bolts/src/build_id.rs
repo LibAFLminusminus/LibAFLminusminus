@@ -29,8 +29,8 @@ static BUILD_ID: OnceLock<Uuid> = OnceLock::new();
 /// # Examples
 ///
 /// ```
-/// # let remote_build_id = build_id2::get();
-/// let local_build_id = build_id2::get();
+/// # let remote_build_id = libaflmm_bolts::build_id::get();
+/// let local_build_id = libaflmm_bolts::build_id::get();
 /// if local_build_id == remote_build_id {
 ///     println!("We're running the same binary as remote!");
 /// } else {

@@ -32,7 +32,7 @@ This macro implements the `core::fmt::Display` trait for a struct. It generates 
 **Example:**
 
 ```rust
-use libafl_derive::Display;
+use libaflmm_derive::Display;
 use std::fmt::Display;
 
 #[derive(Display)]
@@ -47,6 +47,7 @@ let instance = MyStruct {
     bar: Some(42),
     baz: vec![1, 2, 3],
 };
+
 // The following will print: " hello 42 1 2 3"
 println!("{}", instance);
 ```

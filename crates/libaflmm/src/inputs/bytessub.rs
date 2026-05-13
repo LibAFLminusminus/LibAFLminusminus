@@ -19,13 +19,9 @@ use crate::inputs::{HasMutatorBytes, ResizableMutator};
 /// For example, we can do the following:
 /// ```rust
 /// # extern crate alloc;
-/// # extern crate libafl;
-/// # use libafl::inputs::{BytesInput, HasMutatorBytes};
+/// # extern crate libaflmm;
+/// # use libaflmm::inputs::{BytesInput, HasMutatorBytes};
 /// # use alloc::vec::Vec;
-/// #
-/// # #[cfg(not(feature = "std"))]
-/// # #[unsafe(no_mangle)]
-/// # pub extern "C" fn external_current_millis() -> u64 { 0 }
 ///
 /// let mut bytes_input = BytesInput::new(vec![1, 2, 3]);
 /// let mut sub_input = bytes_input.sub_input(1..);
@@ -44,13 +40,9 @@ use crate::inputs::{HasMutatorBytes, ResizableMutator};
 /// For example:
 /// ```rust
 /// # extern crate alloc;
-/// # extern crate libafl;
-/// # use libafl::inputs::{BytesInput, HasMutatorBytes, ResizableMutator};
+/// # extern crate libaflmm;
+/// # use libaflmm::inputs::{BytesInput, HasMutatorBytes, ResizableMutator};
 /// # use alloc::vec::Vec;
-/// #
-/// # #[cfg(not(feature = "std"))]
-/// # #[unsafe(no_mangle)]
-/// # pub extern "C" fn external_current_millis() -> u64 { 0 }
 ///
 /// let mut bytes_input = BytesInput::new(vec![1, 2, 3, 4, 5]);
 ///
