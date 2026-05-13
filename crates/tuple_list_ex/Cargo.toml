@@ -1,19 +1,20 @@
 [package]
 name = "tuple_list_ex"
-version.workspace = true
 authors = [
   "Andrea Fioraldi <andreafioraldi@gmail.com>",
   "Dominik Maier <domenukk@gmail.com>",
 ]
 description = "Useful Haskel-like extensions for the tuple_list crate"
-documentation = "https://docs.rs/libafl"
-repository = "https://github.com/AFLplusplus/LibAFL/"
-readme = "./README.md"
-license = "MIT OR Apache-2.0"
 keywords = ["os", "no-std"]
-edition = "2024"
-rust-version = "1.89"
 categories = ["embedded", "os", "no-std"]
+
+documentation.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+readme.workspace = true
+rust-version.workspace = true
+version.workspace = true
 
 [package.metadata.docs.rs]
 features = ["document-features"]
@@ -30,7 +31,7 @@ document-features = ["dep:document-features"]
 std = ["alloc"]
 
 ## Enables all features that allocate in `no_std`
-alloc = ["ownedref", "libafl_core/alloc"]
+alloc = ["ownedref", "libaflmm_core/alloc"]
 
 ## Enables serde support for tuple lists
 serde = ["alloc", "dep:serde"]
@@ -44,7 +45,7 @@ rustversion = { workspace = true }
 # Document all features of this crate (for `cargo doc`)
 document-features = { workspace = true, optional = true }
 
-libafl_core = { workspace = true }
+libaflmm_core = { workspace = true }
 
 serde = { workspace = true, default-features = false, features = [
   "derive",

@@ -32,7 +32,7 @@ std = ["alloc"]
 ## Enables all features that allocate in `no_std`
 alloc = []
 
-## If set, libafl_rand's `rand` implementations will implement `rand_core::CoreRng`
+## If set, libaflmm_rand's `rand` implementations will implement `rand_core::CoreRng`
 ## and, inversely, all seedable `rand_core::RngCore` types can be used as Rng for LibAFL.
 rand_trait = ["rand_core"]
 

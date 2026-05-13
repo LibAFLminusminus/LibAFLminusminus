@@ -1,0 +1,59 @@
+[package]
+name = "libaflmm_cc"
+authors = ["Andrea Fioraldi <andreafioraldi@gmail.com>"]
+description = "Commodity library to wrap compilers and link LibAFL"
+keywords = ["fuzzing", "testing", "compiler"]
+categories = [
+  "development-tools::testing",
+  "emulators",
+  "embedded",
+  "os",
+  "no-std",
+]
+
+documentation.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+readme.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[features]
+default = [
+  "function-logging",
+  "cmplog-routines",
+  "autotokens",
+  "coverage-accounting",
+  "cmplog-instructions",
+  "ctx",
+  "dump-cfg",
+]
+
+# llvm passes
+function-logging = []
+cmplog-routines = []
+autotokens = []
+coverage-accounting = []
+cmplog-instructions = []
+ctx = []
+dump-cfg = []
+
+[build-dependencies]
+cc = { workspace = true, features = ["parallel"] }
+libaflmm_build = { workspace = true }
+which = { workspace = true }
+
+[target.'cfg(target_vendor = "apple")'.build-dependencies]
+glob = "0.3.3"
+
+[dependencies]
+serde = { workspace = true, default-features = false, features = [
+  "alloc",
+  "derive",
+] } # serialization lib
+
+[lints]
+workspace = true
