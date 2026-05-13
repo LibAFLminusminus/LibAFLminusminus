@@ -1,5 +1,11 @@
 //! Observers give insights about runs of a target, such as coverage, timing, stack depth, and more.
+use crate::{DependencyResolver, Error, executors::ExitKind};
 use alloc::borrow::Cow;
+use core::{fmt::Debug, time::Duration};
+use libaflmm_bolts::Named;
+use libaflmm_bolts::tuples::MatchName;
+use serde::{Deserialize, Serialize};
+use std::time::Instant;
 
 pub mod cmp;
 pub use cmp::*;
@@ -16,16 +22,8 @@ pub use map::*;
 pub mod value;
 
 pub mod list;
-use core::{fmt::Debug, time::Duration};
-use std::time::Instant;
-
-use libaflmm_bolts::Named;
-use libaflmm_bolts::tuples::MatchName;
 pub use list::*;
-use serde::{Deserialize, Serialize};
 pub use value::*;
-
-use crate::{DependencyResolver, Error, executors::ExitKind};
 
 /// [`Observers`] observe different information about the target.
 /// They can then be used by various sorts of [`Feedback`](crate::feedbacks::Feedback).
