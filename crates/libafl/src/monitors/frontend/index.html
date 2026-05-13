@@ -35,7 +35,8 @@
     .panel-title { font-size: 0.9rem; color: var(--text2); text-transform: uppercase; letter-spacing: 0.08em; }
     .panel-body { display: flex; flex-direction: column; gap: 1rem; padding: 1rem; flex: 1; min-height: 0; }
     .tabs { display: flex; gap: 0.4rem; flex-wrap: wrap; min-width: 0; }
-    .tab { background: transparent; border: 1px solid var(--border2); padding: 0.3rem 0.9rem; border-radius: 3px; cursor: pointer; font-size: 0.85rem; color: var(--text3); font-family: monospace; }
+    #userMapTabs { max-height: 6rem; overflow-y: auto; align-content: flex-start; }
+    .tab { background: transparent; border: 1px solid var(--border2); padding: 0.3rem 0.9rem; border-radius: 3px; cursor: pointer; font-size: 0.85rem; color: var(--text3); font-family: monospace; flex-shrink: 0; }
     .tab.active { border-color: var(--accent); color: var(--accent); }
     .chart-wrap { background: var(--bg2); border: 1px solid var(--border); border-radius: 4px; padding: 1rem; flex: 1; min-height: 0; min-width: 0; position: relative; }
   </style>
@@ -247,7 +248,11 @@
     function selectUserMapTab(key) {
       selectedUserMapKey = key;
       const tabsEl = document.getElementById('userMapTabs');
-      tabsEl.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.key === key));
+      tabsEl.querySelectorAll('.tab').forEach(t => {
+        const active = t.dataset.key === key;
+        t.classList.toggle('active', active);
+        if (active) t.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      });
       Object.entries(userMapCharts).forEach(([k, c]) => {
         c.canvas.parentElement.style.display = k === key ? '' : 'none';
       });
