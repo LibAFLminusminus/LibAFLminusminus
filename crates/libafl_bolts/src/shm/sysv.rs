@@ -109,7 +109,6 @@ impl<SZ: ShmHeader> SysVShm<SZ> {
     ///
     /// # Safety
     /// Writes to env variables and may only be done single-threaded.
-    #[cfg(feature = "std")]
     pub unsafe fn write_to_env(&self, env_name: &str) -> Result<()> {
         let map_size = self.shm.total_len();
         let map_size_env = format!("{env_name}_SIZE");

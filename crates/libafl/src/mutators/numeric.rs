@@ -381,10 +381,10 @@ mod tests {
     fn all_mutate_owned() {
         let mut corpus = InMemoryCorpus::new(QueueScheduler::new());
         corpus
-            .add(Testcase::new(Rc::new(I16Input::new(42_i16.into()))))
+            .add(Testcase::new(Rc::new(I16Input::new(42_i16))))
             .unwrap();
         let primitive_context: PrimitiveContext<i16> = PrimitiveContext::default();
-        let mut state = StdState::new(
+        let state = StdState::new(
             primitive_context,
             corpus,
             InMemoryCorpus::new(QueueScheduler::new()),

@@ -35,7 +35,6 @@
 #![doc = include_str!("../README.md")]
 /*! */
 #![cfg_attr(feature = "document-features", doc = document_features::document_features!())]
-#![no_std]
 #![cfg_attr(not(test), warn(
     missing_debug_implementations,
     missing_docs,
@@ -77,13 +76,9 @@
     )
 )]
 
-#[macro_use]
-extern crate std;
-#[doc(hidden)]
-pub extern crate alloc;
+extern crate alloc;
 
 use alloc::{slice, vec, vec::Vec};
-
 use libafl_core::{Error, Result};
 use serde::{Deserialize, Serialize};
 
@@ -347,9 +342,10 @@ fn get_affinity_helper() -> Result<Option<CoreId>> {
     target_os = "freebsd"
 ))]
 mod unix {
+    use super::CoreId;
     use alloc::{string::ToString, vec::Vec};
     use core::mem::{size_of, zeroed};
-
+    use libafl_core::{Error, Result};
     #[cfg(not(target_os = "freebsd"))]
     use libc::cpu_set_t;
     #[cfg(target_os = "freebsd")]
@@ -358,12 +354,9 @@ mod unix {
     use libc::{CPU_ISSET, CPU_SET, CPU_SETSIZE, sched_getaffinity, sched_setaffinity};
     #[cfg(target_os = "dragonfly")]
     use libc::{CPU_ISSET, CPU_SET, sched_getaffinity, sched_setaffinity};
+
     #[cfg(target_os = "dragonfly")]
     const CPU_SETSIZE: libc::c_int = 256;
-
-    use libafl_core::{Error, Result};
-
-    use super::CoreId;
 
     #[allow(trivial_numeric_casts)]
     pub fn get_core_ids() -> Result<Vec<CoreId>> {

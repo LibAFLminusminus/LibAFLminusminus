@@ -12,11 +12,7 @@ use color_backtrace::{BacktracePrinter, Verbosity, default_output_stream};
 use frida_gum::interceptor::Interceptor;
 use frida_gum::{Gum, Process};
 use libafl::{
-    Error, HasMetadata,
-    corpus::Testcase,
-    executors::ExitKind,
-    feedbacks::{Feedback, StateInitializer},
-    observers::Observer,
+    Error, corpus::Testcase, executors::ExitKind, feedbacks::Feedback, observers::Observer,
 };
 use libafl_bolts::{
     Named, SerdeAny,
@@ -677,8 +673,6 @@ pub struct AsanErrorsFeedback<S> {
     observer_handle: Handle<AsanErrorsObserver>,
     phantom: PhantomData<S>,
 }
-
-impl<S> StateInitializer<S> for AsanErrorsFeedback<S> {}
 
 impl<EM, I, OT, S> Feedback<EM, I, OT, S> for AsanErrorsFeedback<S>
 where

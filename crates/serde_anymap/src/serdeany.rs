@@ -670,7 +670,7 @@ pub mod serdeany_registry {
         where
             T: crate::serdeany::SerdeAny,
         {
-            self.insert("", val)
+            self.insert("", val);
         }
 
         /// Insert an element into the map if it doesn't exist, else return error.

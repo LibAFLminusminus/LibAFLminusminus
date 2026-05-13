@@ -17,11 +17,11 @@ use frida_gum::{
 };
 use frida_gum_sys::gchar;
 use libafl::Error;
+use libafl_bolts::drcov::DrCovBasicBlock;
 use libafl_bolts::{
     cli::{FridaScriptBackend, FuzzerOptions},
     tuples::MatchFirstType,
 };
-use libafl_targets::drcov::DrCovBasicBlock;
 #[cfg(unix)]
 use nix::sys::mman::{MapFlags, ProtFlags, mmap_anonymous};
 use rangemap::RangeMap;

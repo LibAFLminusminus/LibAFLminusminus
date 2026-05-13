@@ -1,6 +1,5 @@
 //! Module for SIMD assisted methods.
 
-#[cfg(feature = "alloc")]
 use alloc::vec::Vec;
 use core::ops::{BitAnd, BitOr};
 
@@ -403,7 +402,6 @@ where
 ///
 /// The caller must ensure that `hist.len() >= map.len()` so all reads from `hist`
 /// performed by this function remain in-bounds.
-#[cfg(feature = "alloc")]
 #[must_use]
 pub unsafe fn covmap_is_interesting_naive<R>(hist: &[u8], map: &[u8]) -> bool
 where

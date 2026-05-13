@@ -32,11 +32,8 @@ pub mod nautilus;
 #[cfg(feature = "nautilus")]
 pub use nautilus::*;
 
-#[cfg(feature = "std")]
 pub mod new_hash_feedback;
-#[cfg(feature = "std")]
 pub use new_hash_feedback::NewHashFeedback;
-#[cfg(feature = "std")]
 pub use new_hash_feedback::NewHashFeedbackMetadata;
 
 pub mod bool;
@@ -45,7 +42,6 @@ pub use bool::BoolValueFeedback;
 #[cfg(feature = "simd")]
 pub mod simd;
 
-#[cfg(feature = "std")]
 pub mod stdio;
 
 /// Feedbacks evaluate the observers.

@@ -264,20 +264,20 @@ mod tests {
         let mut rand = XkcdRand::with_seed(0);
         let mut corpus = InMemoryCorpus::new(QueueScheduler::new());
         let id1 = corpus
-            .add(Testcase::new(Rc::new(BytesInput::new(
-                vec![b'a', b'b', b'c'].into(),
-            ))))
+            .add(Testcase::new(Rc::new(BytesInput::new(vec![
+                b'a', b'b', b'c',
+            ]))))
             .unwrap();
-        let id2 = corpus
-            .add(Testcase::new(Rc::new(BytesInput::new(
-                vec![b'd', b'e', b'f'].into(),
-            ))))
+        corpus
+            .add(Testcase::new(Rc::new(BytesInput::new(vec![
+                b'd', b'e', b'f',
+            ]))))
             .unwrap();
 
         let mut input = corpus.get(&id1).unwrap().cloned_input();
 
-        let mut state = StdState::new(
-            BytesContext::default(),
+        let state = StdState::new(
+            BytesContext,
             corpus,
             InMemoryCorpus::new(QueueScheduler::new()),
         )
@@ -297,21 +297,14 @@ mod tests {
         let mut rand = StdRand::with_seed(0x1337);
         let mut corpus = InMemoryCorpus::new(QueueScheduler::new());
         let id1 = corpus
-            .add(Testcase::new(Rc::new(BytesInput::new(
-                b"abc".to_vec().into(),
-            ))))
-            .unwrap();
-        let id2 = corpus
-            .add(Testcase::new(Rc::new(BytesInput::new(
-                b"def".to_vec().into(),
-            ))))
+            .add(Testcase::new(Rc::new(BytesInput::new(b"abc".to_vec()))))
             .unwrap();
 
         let mut input = corpus.get(&id1).unwrap().cloned_input();
         let input_prior = input.clone();
 
-        let mut state = StdState::new(
-            BytesContext::default(),
+        let state = StdState::new(
+            BytesContext,
             corpus,
             InMemoryCorpus::new(QueueScheduler::new()),
         )
@@ -341,21 +334,14 @@ mod tests {
         let mut rand = StdRand::with_seed(0x1337);
         let mut corpus = InMemoryCorpus::new(QueueScheduler::new());
         let id1 = corpus
-            .add(Testcase::new(Rc::new(BytesInput::new(
-                b"abc".to_vec().into(),
-            ))))
-            .unwrap();
-        let id2 = corpus
-            .add(Testcase::new(Rc::new(BytesInput::new(
-                b"def".to_vec().into(),
-            ))))
+            .add(Testcase::new(Rc::new(BytesInput::new(b"abc".to_vec()))))
             .unwrap();
 
         let mut input = corpus.get(&id1).unwrap().cloned_input();
         let input_prior = input.clone();
 
-        let mut state = StdState::new(
-            BytesContext::default(),
+        let state = StdState::new(
+            BytesContext,
             corpus,
             InMemoryCorpus::new(QueueScheduler::new()),
         )

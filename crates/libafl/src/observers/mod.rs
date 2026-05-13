@@ -4,9 +4,7 @@ use alloc::borrow::Cow;
 pub mod cmp;
 pub use cmp::*;
 
-#[cfg(feature = "std")]
 pub mod stdio;
-#[cfg(feature = "std")]
 pub use stdio::{StdErrObserver, StdOutObserver};
 
 pub mod cmplog;
@@ -19,7 +17,6 @@ pub mod value;
 
 pub mod list;
 use core::{fmt::Debug, time::Duration};
-#[cfg(feature = "std")]
 use std::time::Instant;
 
 #[cfg(not(feature = "std"))]
@@ -93,7 +90,6 @@ pub trait ObserverWithHashField {
 pub struct TimeObserver {
     name: Cow<'static, str>,
 
-    #[cfg(feature = "std")]
     #[serde(with = "instant_serializer")]
     start_time: Instant,
 
@@ -103,7 +99,6 @@ pub struct TimeObserver {
     last_runtime: Option<Duration>,
 }
 
-#[cfg(feature = "std")]
 mod instant_serializer {
     use core::time::Duration;
     use std::time::Instant;
@@ -139,7 +134,6 @@ impl TimeObserver {
         Self {
             name: name.into(),
 
-            #[cfg(feature = "std")]
             start_time: Instant::now(),
 
             #[cfg(not(feature = "std"))]
@@ -159,7 +153,6 @@ impl TimeObserver {
 impl DependencyResolver for TimeObserver {}
 
 impl<S> Observer<S> for TimeObserver {
-    #[cfg(feature = "std")]
     fn pre_exec(&mut self, _state: &mut S) -> Result<(), Error> {
         self.last_runtime = None;
         self.start_time = Instant::now();
@@ -173,7 +166,6 @@ impl<S> Observer<S> for TimeObserver {
         Ok(())
     }
 
-    #[cfg(feature = "std")]
     fn post_exec(&mut self, _state: &mut S, _exit_kind: &ExitKind) -> Result<(), Error> {
         self.last_runtime = Some(self.start_time.elapsed());
         Ok(())
@@ -192,7 +184,6 @@ impl Named for TimeObserver {
     }
 }
 
-#[cfg(feature = "std")]
 #[cfg(test)]
 mod tests {
 

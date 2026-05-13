@@ -2,7 +2,6 @@
 #![doc = include_str!("../README.md")]
 /*! */
 #![cfg_attr(feature = "document-features", doc = document_features::document_features!())]
-#![no_std]
 #![cfg_attr(not(test), warn(
     missing_debug_implementations,
     missing_docs,
@@ -44,7 +43,6 @@
     )
 )]
 
-#[cfg(feature = "std")]
 #[macro_use]
 extern crate std;
 #[doc(hidden)]
@@ -62,7 +60,6 @@ use core::{
 use rand_core::{RngCore, SeedableRng};
 use serde::{Deserialize, Serialize};
 
-#[cfg(feature = "alloc")]
 pub mod loaded_dice;
 
 #[cfg(all(not(feature = "std"), target_has_atomic = "ptr"))]
@@ -72,7 +69,6 @@ static SEED_COUNTER: AtomicUsize = AtomicUsize::new(0);
 #[must_use]
 #[allow(unreachable_code)] // cfg dependent
 pub fn random_seed() -> u64 {
-    #[cfg(feature = "std")]
     return random_seed_from_random_state();
     #[cfg(all(not(feature = "std"), target_has_atomic = "ptr"))]
     return random_seed_deterministic();
@@ -86,7 +82,6 @@ fn random_seed_deterministic() -> u64 {
     splitmix64(&mut seed)
 }
 
-#[cfg(feature = "std")]
 fn random_seed_from_random_state() -> u64 {
     use core::hash::{BuildHasher, Hasher};
     use std::collections::hash_map::RandomState;

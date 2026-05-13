@@ -54,12 +54,19 @@ if [ ! -f "QEMU-Nyx/x86_64-softmmu/qemu-system-x86_64" ]; then
     cd QEMU-Nyx/ || return
     # We need to copy our custom `Makefile.libxdc` after `git submodule update`, otherwise we get a git error.
     sed -i "s,git submodule update libxdc$,git submodule update libxdc \&\& cp $SCRIPT_DIR/Makefile.libxdc ./libxdc/Makefile || exit 1," compile_qemu_nyx.sh
+    # Disable some useless features that break with newer libraries:
+    # - nettle >= 4
+    # - libnfs >= 5
+    sed -i 's,--disable-tools,--disable-tools --disable-nettle --disable-gnutls --disable-gcrypt --disable-libnfs,' compile_qemu_nyx.sh
     ./compile_qemu_nyx.sh lto || exit 1
     cd ..
 fi
 
 echo "[*] checking packer init.cpio.gz ..."
 if [ ! -f "packer/linux_initramfs/init.cpio.gz" ]; then
+    # Replace upstream pack.sh with our portable version that resolves libc/libdl/etc.
+    # via ldconfig instead of hardcoding Debian/Ubuntu filesystem paths.
+    cp "$SCRIPT_DIR/pack.sh" packer/linux_initramfs/pack.sh
     cd packer/linux_initramfs/ || return
     sh pack.sh || exit 1
     cd ../../

@@ -1776,7 +1776,7 @@ mod tests {
             .unwrap();
 
         StdState::new(
-            BytesContext::default(),
+            BytesContext,
             corpus,
             InMemoryCorpus::<BytesInput, NopScheduler>::new(NopScheduler),
         )

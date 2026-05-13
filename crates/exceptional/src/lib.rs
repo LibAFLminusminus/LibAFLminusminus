@@ -4,7 +4,6 @@
 #![doc = include_str!("../README.md")]
 /*! */
 #![cfg_attr(feature = "document-features", doc = document_features::document_features!())]
-#![no_std]
 #![cfg_attr(not(test), warn(
     missing_debug_implementations,
     missing_docs,
@@ -46,13 +45,9 @@
     )
 )]
 
-#[cfg(feature = "std")]
-#[macro_use]
-extern crate std;
-#[cfg(feature = "alloc")]
-#[doc(hidden)]
-pub extern crate alloc;
+extern crate alloc;
 
+#[macro_use]
 #[cfg(unix)]
 pub mod unix_signals;
 

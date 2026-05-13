@@ -40,12 +40,14 @@ impl<T> DerefMut for PinnedPtr<T> {
 
 impl<T> PinnedPtr<T> {
     /// Transform (conceptually) a `Pin<&mut T>` into a `Pin<*mut T>`.
-    pub unsafe fn from_pin(ptr: Pin<&mut T>) -> Self {
+    #[must_use]
+    pub fn from_pin(ptr: Pin<&mut T>) -> Self {
         let ptr = NonNull::from(unsafe { Pin::into_inner_unchecked(ptr) });
         Self { ptr }
     }
 
     /// Get the pinned pointer as a raw pointer
+    #[must_use]
     pub fn as_ptr(&self) -> *mut T {
         self.ptr.as_ptr()
     }

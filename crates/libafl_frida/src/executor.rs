@@ -17,10 +17,9 @@ use frida_gum::{
 use libafl::executors::{hooks::inprocess::InProcessHooks, inprocess::HasInProcessHooks};
 use libafl::{
     Error,
-    executors::{Executor, ExitKind, HasObservers, InProcessExecutor},
-    inputs::{Input, ToTargetBytesConverter},
+    executors::{Executor, ExitKind},
+    inputs::Input,
     observers::ObserversTuple,
-    states::{HasCurrentTestcase, HasExecutions, HasSolutions},
 };
 use libafl_bolts::{AsSlice, tuples::RefIndexable};
 

@@ -4,7 +4,6 @@ Welcome to `LibAFL`
 #![doc = include_str!("../README.md")]
 /*! */
 #![cfg_attr(feature = "document-features", doc = document_features::document_features!())]
-#![no_std]
 #![cfg_attr(
     not(test),
     warn(
@@ -17,7 +16,6 @@ Welcome to `LibAFL`
     )
 )]
 
-#[cfg(feature = "std")]
 #[macro_use]
 extern crate std;
 #[macro_use]
@@ -75,7 +73,6 @@ pub unsafe extern "C" fn external_current_millis() -> u64 {
     1000
 }
 
-#[cfg(feature = "std")]
 #[cfg(test)]
 #[cfg(not(feature = "remove_me"))]
 mod tests {

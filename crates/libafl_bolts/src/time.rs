@@ -43,14 +43,11 @@
     )
 )]
 
-#[cfg(feature = "alloc")]
 use alloc::string::String;
 use core::time;
-#[cfg(feature = "std")]
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Format a `Duration` into a HMS string
-#[cfg(feature = "alloc")]
 #[must_use]
 pub fn format_duration(duration: &time::Duration) -> String {
     const MINS_PER_HOUR: u64 = 60;
@@ -90,7 +87,6 @@ pub unsafe extern "C" fn external_current_millis() -> u64 {
 }
 
 /// Current time
-#[cfg(feature = "std")]
 #[must_use]
 #[inline]
 pub fn current_time() -> time::Duration {

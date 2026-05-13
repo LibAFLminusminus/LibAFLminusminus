@@ -6,7 +6,6 @@ use alloc::{borrow::Cow, ffi::CString};
 use core::ffi::CStr;
 #[cfg(all(unix, feature = "std"))]
 use std::io::{stderr, stdout};
-#[cfg(feature = "std")]
 use std::{env, process::Command};
 #[cfg(all(unix, feature = "std"))]
 use std::{
@@ -55,7 +54,6 @@ impl ChildHandle {
 
 /// Returns the last OS error (errno).
 #[must_use]
-#[cfg(feature = "std")]
 pub fn last_os_error() -> i32 {
     std::io::Error::last_os_error().raw_os_error().unwrap_or(0)
 }
@@ -115,7 +113,6 @@ pub fn waitpid_with_signals(pid: i32) -> i32 {
         loop {
             let res = libc::waitpid(pid, &raw mut status, 0);
             if res < 0 {
-                #[cfg(feature = "std")]
                 {
                     let err = std::io::Error::last_os_error();
                     if err.kind() == std::io::ErrorKind::Interrupted {
@@ -164,7 +161,6 @@ pub unsafe fn fork() -> Result<ForkResult, Error> {
             pid if pid < 0 => {
                 // Getting errno from rust is hard, we'll just let the libc print to stderr for now.
                 // In any case, this should usually not happen.
-                #[cfg(feature = "std")]
                 {
                     let err_str = CString::new("Fork failed").unwrap();
                     libc::perror(err_str.as_ptr());
@@ -178,7 +174,6 @@ pub unsafe fn fork() -> Result<ForkResult, Error> {
 
 /// Executes the current process from the beginning, as subprocess.
 /// use `start_self.status()?` to wait for the child
-#[cfg(feature = "std")]
 pub fn startable_self() -> Result<Command, Error> {
     let mut startable = Command::new(env::current_exe()?);
     startable
@@ -314,7 +309,6 @@ pub fn exit(code: i32) -> ! {
 
     #[cfg(not(any(unix, windows)))]
     {
-        #[cfg(feature = "std")]
         std::process::exit(code);
         #[cfg(not(feature = "std"))]
         panic!("exit called with {code} on unsupported no_std platform");

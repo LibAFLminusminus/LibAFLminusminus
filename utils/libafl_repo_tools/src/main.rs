@@ -187,7 +187,6 @@ async fn run_cargo_fmt(cargo_file_path: PathBuf, is_check: bool, verbose: bool) 
     // Use nightly rustfmt so unstable rustfmt.toml features (e.g.
     // `imports_granularity = "Crate"`) actually take effect.
     fmt_command
-        .arg("+nightly")
         .arg("fmt")
         .arg("--manifest-path")
         .arg(cargo_file_path.as_path());
@@ -329,10 +328,7 @@ async fn main() -> io::Result<()> {
     println!("Using {}", get_version_string("cargo", &[]).await?);
 
     // rustfmt version
-    println!(
-        "Using {}",
-        get_version_string("cargo", &["+nightly", "fmt"]).await?
-    );
+    println!("Using {}", get_version_string("cargo", &["fmt"]).await?);
 
     let mut tokio_joinset = JoinSet::new();
     let mut all_errors: Vec<String> = Vec::new();

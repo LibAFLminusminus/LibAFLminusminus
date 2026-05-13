@@ -67,7 +67,10 @@ impl fmt::Display for Stats {
             "[{}] [{}] execs: {} ({}/s) | corpus: {} | objectives: {}",
             self.pid,
             humantime::format_duration(Duration::from_secs(
-                (libafl_bolts::current_time() - self.start_time).as_secs()
+                libafl_bolts::current_time()
+                    .checked_sub(self.start_time)
+                    .unwrap()
+                    .as_secs()
             )),
             self.executions,
             self.execs_per_sec(),
@@ -91,7 +94,10 @@ impl Stats {
     /// Get the exec/sec
     #[must_use]
     pub fn execs_per_sec(&self) -> u64 {
-        let as_sec = (libafl_bolts::current_time() - self.start_time).as_secs();
+        let as_sec = libafl_bolts::current_time()
+            .checked_sub(self.start_time)
+            .unwrap()
+            .as_secs();
 
         if as_sec.is_zero() {
             0
