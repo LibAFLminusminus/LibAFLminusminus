@@ -7,7 +7,7 @@ use alloc::borrow::Cow;
 use libafl::{
     DependencyResolver, Error,
     executors::ExitKind,
-    observers::{CmpValues, CmpValuesMetadata, Observer},
+    observers::{CmpLogMetadata, CmpValues, Observer},
     states::{FlatState, named_metadata_mut},
 };
 use libafl_bolts::Named;
@@ -43,7 +43,7 @@ impl NyxCmpObserver {
 
 impl DependencyResolver for NyxCmpObserver {
     fn register(&mut self, registrator: &mut libafl::Registrator) -> Result<(), Error> {
-        registrator.register_md_default::<CmpValuesMetadata>(self.name().to_string());
+        registrator.register_md_default::<CmpLogMetadata>(self.name());
         Ok(())
     }
 }
@@ -64,8 +64,7 @@ where
             CMPLOG_ENABLED = 0;
         }
         if self.add_meta {
-            let meta =
-                named_metadata_mut::<CmpValuesMetadata>(state.metadata_map_mut(), self.name())?;
+            let meta = named_metadata_mut::<CmpLogMetadata>(state.metadata_map_mut(), self.name())?;
             let rq_data = parse_redqueen_data(&std::fs::read_to_string(self.path.as_ref())?);
             for event in rq_data.bps {
                 if let Ok(cmp_value) = event.try_into() {

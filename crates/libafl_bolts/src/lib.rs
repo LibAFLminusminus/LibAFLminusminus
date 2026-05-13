@@ -142,7 +142,7 @@ use alloc::string::String;
 use alloc::string::ToString;
 #[cfg(all(not(feature = "xxh3"), feature = "alloc"))]
 use core::hash::BuildHasher;
-#[cfg(feature = "xxh3")]
+#[cfg(any(feature = "xxh3", feature = "alloc"))]
 use core::hash::{Hash, Hasher};
 #[cfg(unix)]
 use core::mem;
