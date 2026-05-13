@@ -1,11 +1,10 @@
+use clap::Parser;
+use libafl_bolts::drcov::DrCovReader;
 use std::{
     fs::{File, create_dir_all},
     io::Write,
     path::PathBuf,
 };
-
-use clap::Parser;
-use libafl_targets::drcov::DrCovReader;
 use walkdir::WalkDir;
 
 #[derive(Parser, Debug)]

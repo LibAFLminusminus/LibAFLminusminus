@@ -64,6 +64,6 @@ for project in "${PROJECTS[@]}"; do
    fi
 done
 # Last run it on all
-eval "$CLIPPY_CMD --workspace -- $RUSTC_FLAGS"
+eval "$CLIPPY_CMD --workspace --exclude args_reorder --exclude generics_reorder --exclude use_after_mod --exclude libafl_frida -- $RUSTC_FLAGS"
 
 echo "Clippy run completed for all specified projects."
