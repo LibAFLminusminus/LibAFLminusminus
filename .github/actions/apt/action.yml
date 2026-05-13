@@ -1,5 +1,11 @@
-name: apt-base
+name: apt
 description: Base packages for Linux jobs
+
+inputs:
+  qemu:
+    description: Install QEMU dependencies
+    required: false
+    default: false
 
 runs:
   using: composite
@@ -35,6 +41,7 @@ runs:
           libfile-mimeinfo-perl
 
     - name: Install QEMU build dependencies
+      if: ${{ inputs.qemu == 'true' }}
       shell: bash
       # According to https://www.qemu.org/docs/master/devel/build-environment.html#systems-with-package-managers
       run: sudo apt-get build-dep -y qemu

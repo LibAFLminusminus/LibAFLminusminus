@@ -16,7 +16,7 @@ inputs:
   save-cache:
     description: write to the cache
     required: false
-    default: "true"
+    default: true
 
 runs:
   using: composite
@@ -35,4 +35,4 @@ runs:
       with:
         shared-key: ${{ inputs.cache-key }}
         save-if: ${{ inputs.save-cache }}
-        cache-all-crates: "true"
+        cache-all-crates: true
