@@ -52,7 +52,7 @@ document-features = ["dep:document-features"]
 #! # Feature Flags
 #! ### General Features
 
-## Expose `libafl::prelude` for access without additional using directives
+## Expose `libaflmm::prelude` for access without additional using directives
 prelude = ["libaflmm_bolts/prelude"]
 
 ## Calculate exec/sec like AFL, using 5 second time windows

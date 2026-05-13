@@ -39,7 +39,7 @@ rand_trait = []
 ## Will build the `pyo3` bindings
 python = ["pyo3", "libaflmm_core/python"]
 
-## Expose `libafl::prelude` for direct access to all types without additional `use` directives
+## Expose `libaflmm::prelude` for direct access to all types without additional `use` directives
 prelude = []
 
 ## Expose `libaflmm_bolts::cli` for easy commandline parsing of common fuzzer settings
