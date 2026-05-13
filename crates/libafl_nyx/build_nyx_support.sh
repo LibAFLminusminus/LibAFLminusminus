@@ -64,6 +64,9 @@ fi
 
 echo "[*] checking packer init.cpio.gz ..."
 if [ ! -f "packer/linux_initramfs/init.cpio.gz" ]; then
+    # Replace upstream pack.sh with our portable version that resolves libc/libdl/etc.
+    # via ldconfig instead of hardcoding Debian/Ubuntu filesystem paths.
+    cp "$SCRIPT_DIR/pack.sh" packer/linux_initramfs/pack.sh
     cd packer/linux_initramfs/ || return
     sh pack.sh || exit 1
     cd ../../
