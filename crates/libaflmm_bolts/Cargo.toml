@@ -91,7 +91,7 @@ libaflmm_core = { workspace = true, features = ["serde"] }
 libaflmm_derive = { workspace = true, default-features = true, optional = true }
 
 num_enum = { workspace = true }
-rand_core = { version = "0.9.5" }
+rand_core = { workspace = true }
 uuid = { workspace = true }
 ahash = { workspace = true } # The hash function already used in hashbrown
 clap = { workspace = true, features = [
