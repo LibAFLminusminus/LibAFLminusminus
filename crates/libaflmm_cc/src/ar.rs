@@ -1,5 +1,5 @@
 //! Ar Wrapper from `LibAFL`
-// pass to e.g. cmake with -DCMAKE_AR=/path/to/fuzzer/target/release/libafl_ar
+// pass to e.g. cmake with -DCMAKE_AR=/path/to/fuzzer/target/release/libaflmm_ar
 
 use core::str::FromStr;
 use std::{env, path::PathBuf};
@@ -16,8 +16,8 @@ pub struct ArWrapper {
 
     name: String,
     linking: bool,
-    need_libafl_arg: bool,
-    has_libafl_arg: bool,
+    need_libaflmm_arg: bool,
+    has_libaflmm_arg: bool,
 
     configurations: Vec<crate::Configuration>,
     parse_args_called: bool,
@@ -68,25 +68,25 @@ impl ToolWrapper for ArWrapper {
             match args[i].as_ref() {
                 "--libafl-no-link" => {
                     suppress_linking += 1;
-                    self.has_libafl_arg = true;
+                    self.has_libaflmm_arg = true;
                     i += 1;
                     continue;
                 }
                 "--libafl" => {
                     suppress_linking += 1337;
-                    self.has_libafl_arg = true;
+                    self.has_libaflmm_arg = true;
                     i += 1;
                     continue;
                 }
                 "-fsanitize=fuzzer-no-link" => {
                     suppress_linking += 1;
-                    self.has_libafl_arg = true;
+                    self.has_libaflmm_arg = true;
                     i += 1;
                     continue;
                 }
                 "-fsanitize=fuzzer" => {
                     suppress_linking += 1337;
-                    self.has_libafl_arg = true;
+                    self.has_libaflmm_arg = true;
                     i += 1;
                     continue;
                 }
@@ -106,7 +106,7 @@ impl ToolWrapper for ArWrapper {
             i += 1;
         }
         if linking
-            && (suppress_linking > 0 || (self.has_libafl_arg && suppress_linking == 0))
+            && (suppress_linking > 0 || (self.has_libaflmm_arg && suppress_linking == 0))
             && suppress_linking < 1337
         {
             linking = false;
@@ -189,7 +189,7 @@ impl ToolWrapper for ArWrapper {
 
         args.extend_from_slice(base_args.as_slice());
 
-        if self.need_libafl_arg && !self.has_libafl_arg {
+        if self.need_libaflmm_arg && !self.has_libaflmm_arg {
             return Ok(args);
         }
 
@@ -226,8 +226,8 @@ impl ArWrapper {
         Self {
             name: String::new(),
             linking: false,
-            need_libafl_arg: false,
-            has_libafl_arg: false,
+            need_libaflmm_arg: false,
+            has_libaflmm_arg: false,
             configurations: vec![crate::Configuration::Default],
             parse_args_called: false,
             base_args: vec![],
@@ -242,8 +242,8 @@ impl ArWrapper {
     }
 
     /// Set if it needs the --libafl arg to add the custom arguments to clang
-    pub fn need_libafl_arg(&mut self, value: bool) -> &'_ mut Self {
-        self.need_libafl_arg = value;
+    pub fn need_libaflmm_arg(&mut self, value: bool) -> &'_ mut Self {
+        self.need_libaflmm_arg = value;
         self
     }
 }

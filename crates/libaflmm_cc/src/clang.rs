@@ -85,8 +85,8 @@ pub struct ClangWrapper {
     shared: bool,
     x_set: bool,
     bit_mode: u32,
-    need_libafl_arg: bool,
-    has_libafl_arg: bool,
+    need_libaflmm_arg: bool,
+    has_libaflmm_arg: bool,
 
     output: Option<PathBuf>,
     configurations: Vec<crate::Configuration>,
@@ -164,25 +164,25 @@ impl ToolWrapper for ClangWrapper {
             match args[i].as_ref() {
                 "--libafl-no-link" => {
                     suppress_linking += 1;
-                    self.has_libafl_arg = true;
+                    self.has_libaflmm_arg = true;
                     i += 1;
                     continue;
                 }
                 "--libafl" => {
                     suppress_linking += 1337;
-                    self.has_libafl_arg = true;
+                    self.has_libaflmm_arg = true;
                     i += 1;
                     continue;
                 }
                 "-fsanitize=fuzzer-no-link" => {
                     suppress_linking += 1;
-                    self.has_libafl_arg = true;
+                    self.has_libaflmm_arg = true;
                     i += 1;
                     continue;
                 }
                 "-fsanitize=fuzzer" => {
                     suppress_linking += 1337;
-                    self.has_libafl_arg = true;
+                    self.has_libaflmm_arg = true;
                     i += 1;
                     continue;
                 }
@@ -232,7 +232,7 @@ impl ToolWrapper for ClangWrapper {
             i += 1;
         }
         if linking
-            && (suppress_linking > 0 || (self.has_libafl_arg && suppress_linking == 0))
+            && (suppress_linking > 0 || (self.has_libaflmm_arg && suppress_linking == 0))
             && suppress_linking < 1337
         {
             linking = false;
@@ -395,7 +395,7 @@ impl ToolWrapper for ClangWrapper {
 
         args.extend_from_slice(&configuration.to_flags()?);
 
-        if self.need_libafl_arg && !self.has_libafl_arg {
+        if self.need_libaflmm_arg && !self.has_libaflmm_arg {
             return Ok(args);
         }
 
@@ -530,8 +530,8 @@ impl ClangWrapper {
             shared: false,
             x_set: false,
             bit_mode: 0,
-            need_libafl_arg: false,
-            has_libafl_arg: false,
+            need_libaflmm_arg: false,
+            has_libaflmm_arg: false,
             output: None,
             configurations: vec![crate::Configuration::Default],
             ignoring_configurations: false,
@@ -601,8 +601,8 @@ impl ClangWrapper {
     }
 
     /// Set if it needs the --libafl arg to add the custom arguments to clang
-    pub fn need_libafl_arg(&mut self, value: bool) -> &'_ mut Self {
-        self.need_libafl_arg = value;
+    pub fn need_libaflmm_arg(&mut self, value: bool) -> &'_ mut Self {
+        self.need_libaflmm_arg = value;
         self
     }
 }

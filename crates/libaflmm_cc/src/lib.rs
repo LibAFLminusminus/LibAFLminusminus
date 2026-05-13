@@ -235,7 +235,7 @@ pub trait ToolWrapper {
     fn configurations(&self) -> Result<Vec<Configuration>, Error>;
 
     /// Whether to ignore the configured `Configurations`. Useful for e.g. nested calls to
-    /// `libafl_cc` from `libafl_libtool`.
+    /// `libaflmm_cc` from `libaflmm_libtool`.
     fn ignore_configurations(&self) -> Result<bool, Error>;
 
     /// Get if in linking mode
@@ -244,7 +244,7 @@ pub trait ToolWrapper {
     /// Filter out argumets
     fn filter(&self, _args: &mut Vec<String>) {}
 
-    /// Silences `libafl_cc` output
+    /// Silences `libaflmm_cc` output
     fn silence(&mut self, value: bool) -> &'_ mut Self;
 
     /// Returns `true` if `silence` was called with `true`

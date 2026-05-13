@@ -61,7 +61,7 @@ fn build_pass(
             .args(additionals)
             .args(ldflags)
             .arg("-o")
-            .arg(out_dir.join(format!("{src_stub}.{}", libafl_build::dll_extension())))
+            .arg(out_dir.join(format!("{src_stub}.{}", libaflmm_build::dll_extension())))
             .status();
 
         Some(r)
@@ -77,7 +77,7 @@ fn build_pass(
             .arg(format!(
                 "/OUT:{}",
                 out_dir
-                    .join(format!("{src_stub}.{}", libafl_build::dll_extension()))
+                    .join(format!("{src_stub}.{}", libaflmm_build::dll_extension()))
                     .display()
             ))
             .status();
@@ -143,7 +143,7 @@ fn main() {
     let llvm_version = env::var("LLVM_VERSION");
 
     // test if llvm-config is available and we can compile the passes
-    if libafl_build::find_llvm_config().is_err()
+    if libaflmm_build::find_llvm_config().is_err()
         && !(env::var("LLVM_BINDIR").is_ok()
             && env::var("LLVM_CXXFLAGS").is_ok()
             && env::var("LLVM_LDFLAGS").is_ok()
@@ -171,16 +171,16 @@ pub const LIBAFL_CC_LLVM_VERSION: Option<usize> = None;
         return;
     }
 
-    let llvm_bindir = libafl_build::llvm_bindir().expect("Could not find LLVM bindir");
+    let llvm_bindir = libaflmm_build::llvm_bindir().expect("Could not find LLVM bindir");
     let llvm_ar_path = env::var("LLVM_AR_PATH");
-    let llvm_cxxflags = libafl_build::llvm_cxxflags().expect("Could not find LLVM cxxflags");
-    let llvm_ldflags = libafl_build::llvm_ldflags().expect("Could not find LLVM ldflags");
+    let llvm_cxxflags = libaflmm_build::llvm_cxxflags().expect("Could not find LLVM cxxflags");
+    let llvm_ldflags = libaflmm_build::llvm_ldflags().expect("Could not find LLVM ldflags");
 
     let bindir_path = Path::new(&llvm_bindir);
     let llvm_ar_path = if let Ok(ar_path) = llvm_ar_path {
         ar_path
     } else {
-        libafl_build::exec_llvm_config(&["--bindir"])
+        libaflmm_build::exec_llvm_config(&["--bindir"])
             .expect("Could not execute llvm-config --bindir")
     };
 
@@ -231,7 +231,7 @@ pub const LIBAFL_CC_LLVM_VERSION: Option<usize> = None;
         .expect("Could not parse LIBAFL_EDGES_MAP_DEFAULT_SIZE");
     cxxflags.push(format!("-DEDGES_MAP_DEFAULT_SIZE={edge_map_default_size}"));
 
-    let llvm_version = libafl_build::find_llvm_version();
+    let llvm_version = libaflmm_build::find_llvm_version();
 
     // We want the paths quoted, and debug formatting does that - allow debug formatting.
     #[allow(unknown_lints)] // not on stable yet
@@ -293,7 +293,7 @@ pub const LIBAFL_CC_LLVM_VERSION: Option<usize> = None;
         ldflags.push("dynamic_lookup");
 
         // In case the system is configured oddly, we may have trouble finding the SDK. Manually add the linker flag, just in case.
-        sdk_path = libafl_build::find_macos_sdk_libs();
+        sdk_path = libaflmm_build::find_macos_sdk_libs();
         ldflags.push(&sdk_path);
     }
 
