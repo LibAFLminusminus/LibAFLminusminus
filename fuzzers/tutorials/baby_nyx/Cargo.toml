@@ -1,0 +1,15 @@
+[package]
+name = "baby_nyx"
+version = "0.16.0"
+edition = "2024"
+
+[dependencies]
+libaflmm = { path = "../../../crates/libaflmm" }
+libaflmm_bolts = { path = "../../../crates/libaflmm_bolts" }
+libaflmm_nyx = { path = "../../../crates/libaflmm_nyx" }
+env_logger = "0.11.0"
+log = { version = "0.4.22", features = ["release_max_level_info"] }
+
+[profile.release]
+codegen-units = 1
+opt-level = 3

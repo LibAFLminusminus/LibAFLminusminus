@@ -1,31 +1,30 @@
-use std::{ops::DerefMut, path::PathBuf, time::Duration};
-
 use clap::Parser;
-use libafl::{
-    Result, Worker,
+use libaflmm::{
     corpus::{
-        Corpus, InMemoryCorpus, OnDiskCorpus, Scheduler,
         schedulers::{NopScheduler, QueueScheduler},
+        Corpus, InMemoryCorpus, OnDiskCorpus, Scheduler,
     },
     executors::{ForkserverExecutor, StdChildArgs},
     feedback_or_fast,
     feedbacks::{CrashFeedback, MaxMapFeedback, TimeoutFeedback},
     fuzzers::{Fuzzer, StdFuzzer},
     generators::RandPrintablesGenerator,
-    inputs::{BytesInput, bytes::BytesContext},
+    inputs::{bytes::BytesContext, BytesInput},
     launchers::StdLauncher,
     monitors::SimpleMonitor,
-    mutators::{HavocScheduledMutator, Tokens, havoc_mutations},
+    mutators::{havoc_mutations, HavocScheduledMutator, Tokens},
     non_zero,
     observers::{CmpLogObserver, HitcountsMapObserver, StdMapObserver},
     runtimes::RuntimeHandle,
     simple::{SimpleController, SimpleWorker},
     stages::{StdMutationalStage, TracerStage},
     states::StdState,
+    Result, Worker,
 };
-use libafl_bolts::{StdTargetArgs, SysVShm, current_nanos, rands::StdRand, tuples::tuple_list};
-use libafl_core::forkserver::{AFLPP_CMPLOG_MAP, SHM_CMPLOG_ENV_VAR, SHM_ENV_VAR};
-use libafl_targets::{AFLppCmplogVals, AFLppLibAFLCmpLogHeader};
+use libaflmm_bolts::{current_nanos, rands::StdRand, tuples::tuple_list, StdTargetArgs, SysVShm};
+use libaflmm_core::forkserver::{AFLPP_CMPLOG_MAP, SHM_CMPLOG_ENV_VAR, SHM_ENV_VAR};
+use libaflmm_targets::{AFLppCmplogVals, AFLppLibAFLCmpLogHeader};
+use std::{ops::DerefMut, path::PathBuf, time::Duration};
 
 /// The commandline args this fuzzer accepts
 #[derive(Debug, Parser)]
@@ -129,7 +128,7 @@ where
         .autotokens(&mut tokens)
         .parse_afl_cmdline(args.clone())
         .coverage_map_size(MAP_SIZE)
-        .try_use_input_shmem(true)
+        .try_use_input_shmem()
         .timeout(Duration::from_millis(3000))
         .build(tuple_list!(observer))
         .unwrap();
@@ -140,7 +139,7 @@ where
         .autotokens(&mut tokens)
         .parse_afl_cmdline(args)
         .coverage_map_size(MAP_SIZE)
-        .try_use_input_shmem(true)
+        .try_use_input_shmem()
         .timeout(Duration::from_millis(3000))
         .build(tuple_list!(cmplog_observer))
         .unwrap();

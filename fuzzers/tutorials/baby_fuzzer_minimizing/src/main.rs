@@ -1,7 +1,6 @@
+use libaflmm::prelude::*;
+use libaflmm_bolts::prelude::*;
 use std::{path::PathBuf, ptr::write};
-
-use libafl::prelude::*;
-use libafl_bolts::prelude::*;
 
 /// Coverage map with explicit assignments due to the lack of instrumentation
 const SIGNALS_LEN: usize = 16;

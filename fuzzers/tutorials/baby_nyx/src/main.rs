@@ -1,23 +1,23 @@
-use libafl::{
-    Fuzzer, Result, StdFuzzer, Worker,
+use libaflmm::{
     corpus::{
-        Corpus, InMemoryCorpus, OnDiskCorpus, Scheduler,
         schedulers::{NopScheduler, QueueScheduler},
+        Corpus, InMemoryCorpus, OnDiskCorpus, Scheduler,
     },
     feedbacks::{CrashFeedback, MaxMapFeedback},
     generators::RandPrintablesGenerator,
-    inputs::{BytesInput, bytes::BytesContext},
+    inputs::{bytes::BytesContext, BytesInput},
     launchers::StdLauncher,
     monitors::SimpleMonitor,
-    mutators::{HavocScheduledMutator, havoc_mutations},
+    mutators::{havoc_mutations, HavocScheduledMutator},
     observers::StdMapObserver,
     runtimes::RuntimeHandle,
     simple::{SimpleController, SimpleWorker},
     stages::StdMutationalStage,
     states::StdState,
+    Fuzzer, Result, StdFuzzer, Worker,
 };
-use libafl_bolts::{non_zero, rands::StdRand, tuples::tuple_list};
-use libafl_nyx::{executor::NyxExecutor, helper::NyxHelper, settings::NyxSettings};
+use libaflmm_bolts::{non_zero, rands::StdRand, tuples::tuple_list};
+use libaflmm_nyx::{executor::NyxExecutor, helper::NyxHelper, settings::NyxSettings};
 
 fn run_fuzzer<C, OC, SC>(
     rt_handle: &mut RuntimeHandle<StdState<C, BytesContext, BytesInput, OC, SC>, SimpleWorker>,

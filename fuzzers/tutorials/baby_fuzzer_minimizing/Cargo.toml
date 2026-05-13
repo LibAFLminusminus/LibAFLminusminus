@@ -6,12 +6,7 @@ authors = [
   "Dominik Maier <domenukk@gmail.com>",
   "Addison Crump <research@addisoncrump.info>",
 ]
-edition = "2021"
-
-[features]
-default = ["std"]
-tui = ["libafl/tui_monitor"]
-std = []
+edition = "2024"
 
 [profile.dev]
 panic = "abort"
@@ -24,6 +19,6 @@ opt-level = 3
 debug = true
 
 [dependencies]
-libafl = { path = "../../../crates/libafl", features = ["prelude"] }
-libafl_bolts = { path = "../../../crates/libafl_bolts", features = ["prelude"] }
+libaflmm = { path = "../../../crates/libaflmm", features = ["prelude"] }
+libaflmm_bolts = { path = "../../../crates/libaflmm_bolts", features = ["prelude"] }
 log = { version = "0.4.22", features = ["release_max_level_info"] }
