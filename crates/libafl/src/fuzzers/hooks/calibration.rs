@@ -14,14 +14,13 @@ use crate::{
     fuzzers::{ExitKind, FuzzerHook},
     inputs::Input,
     observers::{MapObserver, ObserversTuple},
-    states::{FlatState, HasCorpus, HasScheduler, named_metadata_mut, unnamed_metadata_mut},
+    states::{FlatState, HasCorpus, HasScheduler, STAT_CALIBRATION, named_metadata_mut, unnamed_metadata_mut},
 };
 use hashbrown::HashSet;
 use libafl_bolts::{Named, current_time, impl_serdeany, tuples::Handle};
 use libafl_core::illegal_state;
 use num_traits::Bounded;
 use serde::{Deserialize, Serialize};
-use serde_json::value::Number;
 
 /// AFL++'s `CAL_CYCLES` + 1
 const CAL_STAGE_MAX: usize = 8;
@@ -260,7 +259,7 @@ where
         state
             .stats_mut()
             .user_map
-            .insert("stability".to_string(), Number::from_f64(stability).into());
+            .insert(STAT_CALIBRATION.to_string(), serde_json::json!(stability));
 
         if state.has_md::<PowerScheduleData>() {
             let current = state.corpus().scheduler().current();

@@ -31,7 +31,7 @@ use crate::{
     executors::ExitKind,
     feedbacks::{Feedback, HasObserverHandle},
     observers::MapObserver,
-    states::{FlatState, HasTestcase},
+    states::{FlatState, HasTestcase, STAT_COVERAGE},
 };
 
 #[cfg(feature = "simd")]
@@ -389,10 +389,10 @@ where
             map_state.num_covered_map_indexes,
         );
 
-        let covered = map_state.num_covered_map_indexes as f64 / map_len as f64;
+        let covered = map_state.num_covered_map_indexes;
         state.stats_mut().user_map.insert(
-            self.name().to_string(),
-            serde_json::Number::from_f64(covered).into(),
+            STAT_COVERAGE.to_string(),
+            serde_json::json!([covered, map_len]),
         );
 
         Ok(())

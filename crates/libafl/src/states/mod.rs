@@ -1,5 +1,6 @@
 //! The fuzzer, and state are the core pieces of every good fuzzer
 
+use alloc::borrow::Cow;
 use alloc::{
     string::{String, ToString},
     vec::Vec,
@@ -60,6 +61,11 @@ pub struct Stats {
     /// [`serde_json::Map`] to hold additional info that users want.
     pub(crate) user_map: Map<String, Value>,
 }
+
+/// The name used in stats json file for the stability value
+pub static STAT_CALIBRATION: Cow<'static, str> = Cow::Borrowed("stability");
+/// The name used in stats json file for the coverage value
+pub static STAT_COVERAGE: Cow<'static, str> = Cow::Borrowed("coverage");
 
 impl fmt::Display for Stats {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
