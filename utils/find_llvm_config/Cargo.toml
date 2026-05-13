@@ -13,7 +13,7 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
-libaflmm_build = { path = "../../crates/libaflmm_build" }
+libaflmm_build = { workspace = true }
 
 [lints]
 workspace = true

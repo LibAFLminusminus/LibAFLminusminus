@@ -29,7 +29,7 @@ libaflmm_targets = { workspace = true, default-features = true, features = [
 
 nix = { workspace = true, default-features = true, features = ["fs"] }
 typed-builder = { workspace = true }
-regex = "1.12.2"
+regex = { workspace = true }
 serde = { workspace = true }                                           # serialization lib
 
 [lints]

@@ -115,7 +115,7 @@ nautilus_py = ["nautilus", "dep:pyo3"]
 simd = ["libaflmm_bolts/simd", "libaflmm_bolts/wide"]
 
 [build-dependencies]
-rustversion = "1.0.22"
+rustversion = { workspace = true }
 
 [dev-dependencies]
 serde_json = { workspace = true, default-features = false, features = [
