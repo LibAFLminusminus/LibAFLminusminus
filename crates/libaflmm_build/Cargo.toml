@@ -1,0 +1,19 @@
+[package]
+name = "libaflmm_build"
+description = "Build-time utilities for LibAFL"
+keywords = ["fuzzing", "testing", "build"]
+categories = ["development-tools::testing", "development-tools::build-utils"]
+
+documentation.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[dependencies]
+which = { workspace = true }
+glob = { workspace = true }
+
+[lints]
+workspace = true

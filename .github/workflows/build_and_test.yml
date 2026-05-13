@@ -42,12 +42,9 @@ jobs:
       - name: Check for conflicting dependency versions
         run: cargo tree -d --workspace
       - name: Build workspace (Debug)
-        run: cargo build --workspace --all-targets --exclude libafl_asan_libc --exclude libafl_frida --exclude args_reorder --exclude generics_reorder --exclude use_after_mod
-      - name: Check examples
-        run: |
-          cargo check --workspace --all-targets --exclude libafl_asan_libc --exclude libafl_frida --exclude args_reorder --exclude generics_reorder --exclude use_after_mod --examples
-          cargo build --workspace --all-targets --exclude libafl_asan_libc --exclude libafl_frida --exclude args_reorder --exclude generics_reorder --exclude use_after_mod --examples
-          cargo test --workspace --all-targets --exclude libafl_asan_libc --exclude libafl_frida --exclude args_reorder --exclude generics_reorder --exclude use_after_mod --examples
+        run: cargo build --workspace --all-targets --exclude libaflmm_asan_libc --exclude libaflmm_frida --exclude args_reorder --exclude generics_reorder --exclude use_after_mod
+      - name: Test examples
+        run: cargo test --workspace --all-targets --exclude libaflmm_asan --exclude libaflmm_asan_fuzz --exclude libaflmm_asan_libc --exclude libaflmm_frida --exclude args_reorder --exclude generics_reorder --exclude use_after_mod --examples
       - name: Build docs
         run: ./scripts/doc_all.py
       - name: Run tests serially
@@ -96,6 +93,9 @@ jobs:
   ubuntu-check:
     runs-on: ubuntu-24.04
     needs: ubuntu
+    env:
+      CI_INSTANCES: 18
+      LLVM_VERSION: ${{ env.MAIN_LLVM_VERSION }}
     strategy:
       matrix:
         instance_idx:
@@ -133,7 +133,7 @@ jobs:
       - uses: ./.github/actions/setup-rust
         with:
           components: clippy, rustfmt
-          cache-key: ubuntu-clippy
+          cache-key: ubuntu
       - name: Check each feature
         run: cargo run --manifest-path utils/ci_splitter/Cargo.toml -- ${{ matrix.instance_idx }}
 
@@ -157,6 +157,9 @@ jobs:
 
   check-md-links:
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - uses: actions/checkout@v6
         with:

@@ -22,21 +22,21 @@ run_clippy() {
 # Define projects based on the operating system
 if [[ "$OSTYPE" == "linux-gnu"* ]]; then
    ALL_PROJECTS=(
-      "crates/libafl"
-      "crates/libafl_bolts"
-      "crates/libafl_cc"
-      # "crates/libafl_frida" TODO: restore when frida is up again.
-      "crates/libafl_qemu"
-      "crates/libafl_qemu/libafl_qemu_build"
-      "crates/libafl_qemu/libafl_qemu_sys"
-      "crates/libafl_nyx"
-      "crates/libafl_intelpt"
+      "crates/libaflmm"
+      "crates/libaflmm_bolts"
+      "crates/libaflmm_cc"
+      # "crates/libaflmm_frida" TODO: restore when frida is up again.
+      "crates/libaflmm_qemu"
+      "crates/libaflmm_qemu/libaflmm_qemu_build"
+      "crates/libaflmm_qemu/libaflmm_qemu_sys"
+      "crates/libaflmm_nyx"
+      "crates/libaflmm_intelpt"
    )
 fi
 
 # Do not use --all-features for the following projects
 NO_ALL_FEATURES=(
-   "crates/libafl_qemu"
+   "crates/libaflmm_qemu"
 )
 
 if [ "$#" -eq 0 ]; then
@@ -64,6 +64,6 @@ for project in "${PROJECTS[@]}"; do
    fi
 done
 # Last run it on all
-eval "$CLIPPY_CMD --workspace --exclude args_reorder --exclude generics_reorder --exclude use_after_mod --exclude libafl_frida -- $RUSTC_FLAGS"
+eval "$CLIPPY_CMD --workspace --exclude args_reorder --exclude generics_reorder --exclude use_after_mod --exclude libaflmm_frida -- $RUSTC_FLAGS"
 
 echo "Clippy run completed for all specified projects."

@@ -1,0 +1,38 @@
+[package]
+name = "libaflmm_qemu_asan_guest"
+
+documentation.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+readme.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[lib]
+name = "afl_qemu_asan_guest"
+crate-type = ["staticlib"]
+
+[features]
+default = []
+test = ["libaflmm_asan/test", "libaflmm_asan_libc/test"]
+
+[dependencies]
+libaflmm_asan = { path = "../../../libaflmm_asan", default-features = false, features = [
+  "dlmalloc",
+  "global_allocator",
+  "guest",
+  "hooks",
+  "libc",
+  "mimalloc",
+  "tracking",
+] }
+libaflmm_asan_libc = { path = "../../../libaflmm_asan/libaflmm_asan_libc", default-features = false }
+log = { version = "0.4.22", default-features = false, features = [
+  "release_max_level_info",
+] }
+spin = { version = "0.9.8", default-features = false, features = [
+  "lazy",
+  "mutex",
+  "spin_mutex",
+] }

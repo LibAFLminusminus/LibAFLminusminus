@@ -1,0 +1,32 @@
+[package]
+name = "libaflmm_repo_tools"
+description = "A set of useful tools to manage the LibAFL repository"
+authors = ["Romain Malmain <romain.malmain@pm.me>"]
+keywords = ["libafl", "tools"]
+categories = ["development-tools"]
+readme = "README.md"
+
+documentation.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[dependencies]
+project-root = "0.2"
+walkdir = "2.5"
+regex = { workspace = true }
+tokio = { version = "1.44", features = [
+  "process",
+  "rt",
+  "rt-multi-thread",
+  "macros",
+] }
+clap = { workspace = true, features = ["derive"] }
+exitcode = "1.1"
+which = { workspace = true }
+colored = "3.0.0"
+
+[lints]
+workspace = true

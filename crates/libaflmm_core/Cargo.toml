@@ -1,0 +1,57 @@
+[package]
+name = "libaflmm_core"
+authors = [
+  "Romain Malmain <rmalmain@pm.me>",
+  "tokatoka <tokazerkje@outlook.com>",
+  "Andrea Fioraldi <andreafioraldi@gmail.com>",
+  "Dominik Maier <domenukk@gmail.com>",
+]
+description = "A platform-independent shared memory library for Rust"
+keywords = ["os", "shmem"]
+categories = ["embedded", "os"]
+
+documentation.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+readme.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[package.metadata.docs.rs]
+features = ["document-features"]
+all-features = true
+
+[features]
+default = []
+document-features = ["dep:document-features"]
+#! # Feature Flags
+#! ### General Features
+
+## Stores the backtraces of all generated `Error`s. Good for debugging, but may come with a slight performance hit.
+errors_backtrace = []
+
+## Enable python error conversion
+python = ["dep:pyo3"]
+
+## Enables Serde support for some types
+serde = ["dep:serde"]
+
+[build-dependencies]
+rustversion = { workspace = true }
+
+[dev-dependencies]
+
+[dependencies]
+document-features = { workspace = true, optional = true }
+postcard = { workspace = true }
+nix = { workspace = true }
+pyo3 = { workspace = true, optional = true }
+serde = { workspace = true, features = ["derive"], optional = true }
+
+[target.'cfg(windows)'.dependencies]
+windows-result = "0.4.1"
+
+
+[lints]
+workspace = true

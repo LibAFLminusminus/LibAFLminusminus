@@ -1,5 +1,5 @@
 use clap::Parser;
-use libafl_bolts::drcov::DrCovReader;
+use libaflmm_bolts::drcov::DrCovReader;
 use std::{
     fs::{File, create_dir_all},
     io::Write,

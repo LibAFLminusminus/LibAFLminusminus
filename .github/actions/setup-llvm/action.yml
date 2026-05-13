@@ -10,13 +10,30 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Cache LLVM ${{ inputs.version }}
+      id: cache-llvm
+      uses: actions/cache@v5
+      with:
+        path: |
+          /usr/lib/llvm-${{ inputs.version }}
+          /usr/bin/clang-${{ inputs.version }}
+          /usr/bin/clang++-${{ inputs.version }}
+          /usr/bin/llvm-config-${{ inputs.version }}
+          /usr/bin/lld-${{ inputs.version }}
+          /usr/bin/lldb-${{ inputs.version }}
+        key: llvm-${{ inputs.version }}-ubuntu-24.04-v1
+
     - name: Install LLVM ${{ inputs.version }}
+      if: steps.cache-llvm.outputs.cache-hit != 'true'
       shell: bash
       run: |
         wget https://apt.llvm.org/llvm.sh
         chmod +x llvm.sh
         sudo ./llvm.sh "${{ inputs.version }}" all
 
+    - name: Set up LLVM ${{ inputs.version }} alternatives
+      shell: bash
+      run: |
         sudo update-alternatives --install \
             /usr/bin/clang clang \
             /usr/bin/clang-${{ inputs.version }} 200

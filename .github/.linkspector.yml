@@ -5,6 +5,7 @@ useGitIgnore: true
 
 ignorePatterns:
   - pattern: "https://www.romu-random.org/"
+  - pattern: "https://github.com/LibAFLminusminus/LibAFLminusminus"
 
 aliveStatusCodes:
   - 0
