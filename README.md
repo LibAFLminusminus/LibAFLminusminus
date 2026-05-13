@@ -85,10 +85,10 @@ Your fuzzer doesn't work as expected? Try reading [DEBUGGING.md](./docs/src/DEBU
 
 ## License
 
-`LibAFL--` is licensed under the [GNU Affero General Public License v3.0](LICENSE).
+`LibAFL--` is licensed under the [Mozilla Public License Version 2.0](LICENSE-MPL).
 
 This project is a fork of [LibAFL](https://github.com/AFLplusplus/LibAFL),
 which is dual-licensed under [Apache-2.0](LICENSE-APACHE) and [MIT](LICENSE-MIT).
 The original LibAFL code remains available under those terms from the upstream
 project. The combined work in this repository, including all modifications and
-additions, is distributed under AGPL-3.0.
+additions, is distributed under MPL-2.0.
