@@ -24,4 +24,6 @@ crate-type = ["staticlib"]
 default = []
 test = []
 
+[workspace]
+
 [dependencies]
