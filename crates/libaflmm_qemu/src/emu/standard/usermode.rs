@@ -1,5 +1,5 @@
-use libafl_bolts::Error;
-use libafl_qemu_sys::{GuestAddr, MmapPerms, VerifyAccess};
+use libaflmm_bolts::Error;
+use libaflmm_qemu_sys::{GuestAddr, MmapPerms, VerifyAccess};
 
 #[cfg(doc)]
 use crate::Qemu;

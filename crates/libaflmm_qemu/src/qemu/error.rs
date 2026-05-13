@@ -1,7 +1,7 @@
 use core::fmt;
 use std::{convert::Infallible, fmt::Display};
 
-use libafl_qemu_sys::{CPUStatePtr, GuestAddr};
+use libaflmm_qemu_sys::{CPUStatePtr, GuestAddr};
 
 use crate::CallingConvention;
 
@@ -77,9 +77,9 @@ impl Display for QemuInitError {
     }
 }
 
-impl From<QemuInitError> for libafl::Error {
+impl From<QemuInitError> for libaflmm::Error {
     fn from(err: QemuInitError) -> Self {
-        libafl::Error::unknown(format!("{err}"))
+        libaflmm::Error::unknown(format!("{err}"))
     }
 }
 
@@ -148,9 +148,9 @@ impl From<QemuRWError> for QemuError {
     }
 }
 
-impl From<QemuError> for libafl::Error {
+impl From<QemuError> for libaflmm::Error {
     fn from(qemu_error: QemuError) -> Self {
-        libafl::Error::runtime(qemu_error)
+        libaflmm::Error::runtime(qemu_error)
     }
 }
 

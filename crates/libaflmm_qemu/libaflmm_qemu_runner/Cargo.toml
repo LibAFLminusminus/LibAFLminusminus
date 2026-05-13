@@ -1,7 +1,14 @@
 [package]
 name = "libaflmm_qemu_runner"
 description = "Tool for running targets using LibAFL's libaflmm_qemu library"
-keywords = ["fuzzing", "address", "sanitizer", "asan", "runner", "libaflmm_qemu"]
+keywords = [
+  "fuzzing",
+  "address",
+  "sanitizer",
+  "asan",
+  "runner",
+  "libaflmm_qemu",
+]
 categories = [
   "development-tools::testing",
   "emulators",

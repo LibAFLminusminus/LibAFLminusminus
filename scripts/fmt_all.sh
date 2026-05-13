@@ -6,9 +6,9 @@ LIBAFL_DIR=$(realpath "$SCRIPT_DIR/..")
 cd "${LIBAFL_DIR}" || exit 1
 
 if [ "$1" = "check" ]; then
-  cargo run --manifest-path "$LIBAFL_DIR/utils/libafl_repo_tools/Cargo.toml" --release -- -c --verbose || exit 1
+  cargo run --manifest-path "$LIBAFL_DIR/utils/libaflmm_repo_tools/Cargo.toml" --release -- -c --verbose || exit 1
 elif [ -z "$1" ]; then
-  cargo run --manifest-path "$LIBAFL_DIR/utils/libafl_repo_tools/Cargo.toml" --release -- --verbose || exit 1
+  cargo run --manifest-path "$LIBAFL_DIR/utils/libaflmm_repo_tools/Cargo.toml" --release -- --verbose || exit 1
 else
   >&2 echo "Error: invalid command."
   >&2 echo "Usage:"

@@ -5,12 +5,12 @@ use std::{
 };
 
 use enum_map::Enum;
-use libafl::executors::ExitKind;
+use libaflmm::executors::ExitKind;
 #[cfg(feature = "usermode")]
-use libafl::inputs::Input;
-use libafl_qemu_sys::GuestAddr;
+use libaflmm::inputs::Input;
+use libaflmm_qemu_sys::GuestAddr;
 #[cfg(feature = "systemmode")]
-use libafl_qemu_sys::GuestPhysAddr;
+use libaflmm_qemu_sys::GuestPhysAddr;
 use num_enum::TryFromPrimitive;
 use paste::paste;
 

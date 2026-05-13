@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
 use hashbrown::HashMap;
-use libafl_qemu_sys::GuestPhysAddr;
+use libaflmm_qemu_sys::GuestPhysAddr;
 
 use crate::{
     CPU, DeviceSnapshotFilter, Emulator, HostMemorySegments, Qemu, QemuMemoryChunk, Regs,
@@ -94,7 +94,7 @@ impl IsSnapshotManager for SnapshotManager {
     }
 }
 
-pub type FastSnapshotPtr = *mut libafl_qemu_sys::SyxSnapshot;
+pub type FastSnapshotPtr = *mut libaflmm_qemu_sys::SyxSnapshot;
 
 #[derive(Debug, Clone)]
 pub struct FastSnapshotManager {

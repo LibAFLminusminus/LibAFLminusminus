@@ -6,12 +6,7 @@ authors = [
 name = "libaflmm_benches"
 description = "LibAFL Benchmarks"
 keywords = ["fuzzing", "libafl", "benchmarks"]
-categories = [
-  "development-tools::testing",
-  "emulators",
-  "embedded",
-  "os",
-]
+categories = ["development-tools::testing", "emulators", "embedded", "os"]
 
 documentation.workspace = true
 edition.workspace = true

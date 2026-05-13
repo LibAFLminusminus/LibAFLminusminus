@@ -5,7 +5,7 @@ use std::str;
 #[cfg(feature = "systemmode")]
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use libafl::{
+use libaflmm::{
     DependencyResolver, Result, Worker,
     executors::{Executor, ExitKind},
     observers::ObserversTuple,
@@ -15,10 +15,10 @@ use libafl::{
     },
 };
 #[cfg(feature = "usermode")]
-use libafl_bolts::minibsod;
-use libafl_bolts::tuples::RefIndexable;
+use libaflmm_bolts::minibsod;
+use libaflmm_bolts::tuples::RefIndexable;
 #[cfg(feature = "systemmode")]
-use libafl_qemu_sys::libafl_exit_request_timeout;
+use libaflmm_qemu_sys::libafl_exit_request_timeout;
 
 use crate::Emulator;
 #[cfg(feature = "usermode")]
@@ -199,7 +199,7 @@ where
 
     unsafe fn handle_timeout(
         &mut self,
-        _params: &libafl::runtimes::OsTerminationParams,
+        _params: &libaflmm::runtimes::OsTerminationParams,
     ) -> Result<TimeoutStatus> {
         // run modules' crash callback
         self.emulator.on_timeout()?;
@@ -207,7 +207,7 @@ where
         #[cfg(feature = "systemmode")]
         unsafe {
             if BREAK_ON_TMOUT.load(Ordering::Acquire) {
-                libafl_exit_request_timeout();
+                libaflmm_exit_request_timeout();
                 return Ok(TimeoutStatus::Resume);
             }
         }

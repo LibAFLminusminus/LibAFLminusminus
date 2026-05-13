@@ -1,8 +1,8 @@
 use std::marker::PhantomData;
 
 #[cfg(all(feature = "usermode", not(feature = "systemmode")))]
-use libafl::{inputs::Input, states::FlatState};
-use libafl_bolts::tuples::{Append, Prepend, tuple_list};
+use libaflmm::{inputs::Input, states::FlatState};
+use libaflmm_bolts::tuples::{Append, Prepend, tuple_list};
 
 #[cfg(feature = "systemmode")]
 use crate::FastSnapshotManager;

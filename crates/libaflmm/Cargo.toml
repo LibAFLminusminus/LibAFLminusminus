@@ -45,11 +45,9 @@ default = [
   "regex",
   "simd",
   "nautilus",
-  "dep:nix",
   "fastbloom",
   "serde_json",
   "serial_test",
-  "typed-builder",
 ]
 document-features = ["dep:document-features"]
 
@@ -86,7 +84,7 @@ handle_sigpipe = []
 regex = ["dep:regex", "dep:backtrace"]
 
 ## Intel Processor Trace
-intel_pt = ["dep:libaflmm_intelpt", "dep:nix"]
+intel_pt = ["dep:libaflmm_intelpt"]
 ## Save all the Intel PT raw traces to files, use only for debug
 intel_pt_export_raw = ["intel_pt", "libaflmm_intelpt/export_raw"]
 
@@ -154,7 +152,7 @@ hashbrown = { workspace = true, features = [
 libm = "0.2.8"
 log = { workspace = true }
 meminterval = { workspace = true, features = ["serde"] }
-nix = { workspace = true, optional = true, features = [
+nix = { workspace = true, features = [
   "signal",
   "poll",
   "ptrace",
@@ -179,7 +177,7 @@ tokio = { version = "1.40.0", optional = true, features = [
   "time",
 ] } # used for TCP Event Manager and multi-machine
 tuple_list = { workspace = true }
-typed-builder = { workspace = true, optional = true } # Implement the builder pattern at compiletime
+typed-builder = { workspace = true } # Implement the builder pattern at compiletime
 
 regex = { workspace = true, optional = true }
 regex-syntax = { version = "0.8.4", optional = true } # For nautilus

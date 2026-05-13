@@ -2,8 +2,8 @@
 
 use std::{fmt::Debug, marker::PhantomData, mem::transmute, pin::Pin, ptr};
 
-use libafl::{Result, executors::ExitKind, observers::ObserversTuple};
-use libafl_qemu_sys::{CPUStatePtr, FatPtr, GuestAddr, TCGTemp};
+use libaflmm::{Result, executors::ExitKind, observers::ObserversTuple};
+use libaflmm_qemu_sys::{CPUStatePtr, FatPtr, GuestAddr, TCGTemp};
 
 #[cfg(feature = "usermode")]
 use crate::qemu::{

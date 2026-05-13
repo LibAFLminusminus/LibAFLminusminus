@@ -1,9 +1,9 @@
 use std::{fmt::Debug, ptr};
 
-use libafl::{Result, observers::VarLenMapObserver, states::FlatState};
-use libafl_qemu_sys::GuestAddr;
+use libaflmm::{Result, observers::VarLenMapObserver, states::FlatState};
+use libaflmm_qemu_sys::GuestAddr;
 #[cfg(feature = "systemmode")]
-use libafl_qemu_sys::GuestPhysAddr;
+use libaflmm_qemu_sys::GuestPhysAddr;
 
 use crate::{
     Qemu,
@@ -31,7 +31,7 @@ pub mod child;
 pub use child::{
     EdgeCoverageChildVariant, StdEdgeCoverageChildModule, StdEdgeCoverageChildModuleBuilder,
 };
-use libafl::observers::ConstLenMapObserver;
+use libaflmm::observers::ConstLenMapObserver;
 
 use super::utils::filters::HasAddressFilter;
 #[cfg(feature = "systemmode")]
@@ -406,9 +406,9 @@ where
 #[cfg(any(test, doc))]
 mod tests {
 
-    use libafl::observers::{HitcountsMapObserver, VariableMapObserver};
-    use libafl_bolts::ownedref::OwnedMutSlice;
-    use libafl_targets::{EDGES_MAP_DEFAULT_SIZE, MAX_EDGES_FOUND, edges_map_mut_ptr};
+    use libaflmm::observers::{HitcountsMapObserver, VariableMapObserver};
+    use libaflmm_bolts::ownedref::OwnedMutSlice;
+    use libaflmm_targets::{EDGES_MAP_DEFAULT_SIZE, MAX_EDGES_FOUND, edges_map_mut_ptr};
 
     use crate::modules::StdEdgeCoverageModule;
 
@@ -416,7 +416,7 @@ mod tests {
     /// permit tests that must not compile by default...
     ///
     /// ```compile_fail
-    /// use libafl_qemu::modules::StdEdgeCoverageModule;
+    /// use libaflmm_qemu::modules::StdEdgeCoverageModule;
     ///
     /// StdEdgeCoverageModule::builder().build().unwrap();
     /// ```

@@ -1,14 +1,14 @@
 #[cfg(feature = "usermode")]
 use capstone::{Capstone, InsnDetail, arch::BuildsCapstone};
 use hashbrown::HashMap;
-use libafl::{Result, states::FlatState};
-use libafl_bolts::hash_64_fast;
-use libafl_qemu_sys::GuestAddr;
+use libaflmm::{Result, states::FlatState};
+use libaflmm_bolts::hash_64_fast;
+use libaflmm_qemu_sys::GuestAddr;
 #[cfg(feature = "usermode")]
-use libafl_targets::CMPLOG_ENABLED;
-pub use libafl_targets::{
+use libaflmm_targets::CMPLOG_ENABLED;
+pub use libaflmm_targets::{
     CMPLOG_MAP_H, CMPLOG_MAP_PTR, CMPLOG_MAP_SIZE, CMPLOG_MAP_W, CmpLogMap,
-    cmps::{__libafl_targets_cmplog_instructions, __libafl_targets_cmplog_routines},
+    cmps::{__libaflmm_targets_cmplog_instructions, __libaflmm_targets_cmplog_routines},
 };
 use serde::{Deserialize, Serialize};
 
@@ -43,7 +43,7 @@ impl QemuCmpsMapMetadata {
     }
 }
 
-libafl_bolts::impl_serdeany!(QemuCmpsMapMetadata);
+libaflmm_bolts::impl_serdeany!(QemuCmpsMapMetadata);
 
 #[derive(Debug)]
 pub struct CmpLogModule {
@@ -246,25 +246,25 @@ where
 
 pub extern "C" fn trace_cmp1_cmplog(_: *const (), id: u64, v0: u8, v1: u8) {
     unsafe {
-        __libafl_targets_cmplog_instructions(id as usize, 1, u64::from(v0), u64::from(v1));
+        __libaflmm_targets_cmplog_instructions(id as usize, 1, u64::from(v0), u64::from(v1));
     }
 }
 
 pub extern "C" fn trace_cmp2_cmplog(_: *const (), id: u64, v0: u16, v1: u16) {
     unsafe {
-        __libafl_targets_cmplog_instructions(id as usize, 2, u64::from(v0), u64::from(v1));
+        __libaflmm_targets_cmplog_instructions(id as usize, 2, u64::from(v0), u64::from(v1));
     }
 }
 
 pub extern "C" fn trace_cmp4_cmplog(_: *const (), id: u64, v0: u32, v1: u32) {
     unsafe {
-        __libafl_targets_cmplog_instructions(id as usize, 4, u64::from(v0), u64::from(v1));
+        __libaflmm_targets_cmplog_instructions(id as usize, 4, u64::from(v0), u64::from(v1));
     }
 }
 
 pub extern "C" fn trace_cmp8_cmplog(_: *const (), id: u64, v0: u64, v1: u64) {
     unsafe {
-        __libafl_targets_cmplog_instructions(id as usize, 8, v0, v1);
+        __libaflmm_targets_cmplog_instructions(id as usize, 8, v0, v1);
     }
 }
 
@@ -311,7 +311,7 @@ impl CmpLogRoutinesModule {
         // if !emu.access_ok(VerifyAccess::Read, a0, 0x20) || !emu.access_ok(VerifyAccess::Read, a1, 0x20) { return; }
 
         unsafe {
-            __libafl_targets_cmplog_routines(k as usize, qemu.g2h(a0), qemu.g2h(a1));
+            __libaflmm_targets_cmplog_routines(k as usize, qemu.g2h(a0), qemu.g2h(a1));
         }
     }
 

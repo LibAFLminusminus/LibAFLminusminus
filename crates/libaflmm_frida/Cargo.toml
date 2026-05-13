@@ -3,12 +3,7 @@ name = "libaflmm_frida"
 authors = ["s1341 <github@shmarya.net>"]
 description = "Frida backend library for LibAFL"
 keywords = ["fuzzing", "frida", "instrumentation"]
-categories = [
-  "development-tools::testing",
-  "emulators",
-  "embedded",
-  "os",
-]
+categories = ["development-tools::testing", "emulators", "embedded", "os"]
 
 documentation.workspace = true
 edition.workspace = true
@@ -70,9 +65,7 @@ dynasmrt = "4.0.2"
 color-backtrace = { version = "0.7.0", features = ["resolve-modules"] }
 termcolor = "1.4.1"
 serde = { workspace = true, default-features = true }
-backtrace = { workspace = true, default-features = false, features = [
-  "serde",
-] }
+backtrace = { workspace = true, default-features = false, features = ["serde"] }
 num-traits = { workspace = true, default-features = true }
 ahash = { workspace = true, default-features = true }
 paste = { workspace = true }

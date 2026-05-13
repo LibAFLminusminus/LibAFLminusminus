@@ -1,10 +1,10 @@
 use std::{cell::RefCell, collections::HashMap, fmt::Debug, pin::Pin, result};
 
-use libafl::{
+use libaflmm::{
     Result, executors::ExitKind, inputs::Input, observers::ObserversTuple, states::FlatState,
 };
-use libafl_core::runtime;
-use libafl_qemu_sys::GuestAddr;
+use libaflmm_core::runtime;
+use libaflmm_qemu_sys::GuestAddr;
 
 use crate::{
     Emulator, EmulatorDriver, EmulatorDriverError, EmulatorDriverResult, EmulatorExitError,
@@ -98,7 +98,7 @@ where
         observers: &mut OT,
         state: &mut S,
         exit_kind: &mut ExitKind,
-    ) -> libafl::Result<()>
+    ) -> libaflmm::Result<()>
     where
         OT: ObserversTuple<S>,
     {

@@ -1,9 +1,9 @@
 use std::fmt::Debug;
 
-use libafl::{HasMetadata, observers::ObserversTuple};
-pub use libafl_intelpt::PtImage;
-use libafl_intelpt::{CoverageEntry, IntelPT, IntelPTBuilder};
-use libafl_qemu_sys::CPUArchStatePtr;
+use libaflmm::{HasMetadata, observers::ObserversTuple};
+pub use libaflmm_intelpt::PtImage;
+use libaflmm_intelpt::{CoverageEntry, IntelPT, IntelPTBuilder};
+use libaflmm_qemu_sys::CPUArchStatePtr;
 use typed_builder::TypedBuilder;
 
 use crate::{

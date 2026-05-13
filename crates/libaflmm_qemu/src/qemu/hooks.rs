@@ -6,8 +6,8 @@
 
 use core::{ffi::c_void, fmt::Debug, mem::transmute, ptr};
 
-use libafl::runtimes::TerminationHandlerData;
-use libafl_qemu_sys::{CPUArchStatePtr, CPUStatePtr, FatPtr, GuestAddr, GuestUlong, GuestUsize};
+use libaflmm::runtimes::TerminationHandlerData;
+use libaflmm_qemu_sys::{CPUArchStatePtr, CPUStatePtr, FatPtr, GuestAddr, GuestUlong, GuestUsize};
 
 use crate::{
     HookData, HookId,
@@ -87,7 +87,7 @@ pub enum Hook<F, C, R: Clone> {
 ///
 /// # Safety
 ///
-/// This enum is shadowed by another enum in QEMU (`libafl_syshook_ret`). Any change made to this
+/// This enum is shadowed by another enum in QEMU (`libaflmm_syshook_ret`). Any change made to this
 /// enum should be propagated to the C enum as well.
 #[repr(C)]
 pub enum SyscallHookResult {
@@ -398,7 +398,7 @@ macro_rules! create_hook_id {
             }
             impl HookId for [<$name HookId>] {
                 fn remove(&self, invalidate_block: bool) -> bool {
-                    unsafe { libafl_qemu_sys::$sys(self.0, invalidate_block.into()) != 0 }
+                    unsafe { libaflmm_qemu_sys::$sys(self.0, invalidate_block.into()) != 0 }
                 }
             }
         }
@@ -415,7 +415,7 @@ macro_rules! create_hook_id {
             }
             impl HookId for [<$name HookId>] {
                 fn remove(&self, _invalidate_block: bool) -> bool {
-                    unsafe { libafl_qemu_sys::$sys(self.0) != 0 }
+                    unsafe { libaflmm_qemu_sys::$sys(self.0) != 0 }
                 }
             }
         }
@@ -981,7 +981,7 @@ impl QemuHooks {
         unsafe {
             let data: u64 = data.into().0;
             let callback: extern "C" fn(u64, GuestAddr) = transmute(callback);
-            let num = libafl_qemu_sys::libafl_qemu_add_instruction_hooks(
+            let num = libaflmm_qemu_sys::libafl_qemu_add_instruction_hooks(
                 addr,
                 Some(callback),
                 data,
@@ -997,7 +997,7 @@ impl QemuHooks {
     #[must_use]
     pub fn remove_instruction_hooks_at(&self, addr: GuestAddr, invalidate_block: bool) -> usize {
         unsafe {
-            libafl_qemu_sys::libafl_qemu_remove_instruction_hooks_at(
+            libaflmm_qemu_sys::libafl_qemu_remove_instruction_hooks_at(
                 addr,
                 i32::from(invalidate_block),
             )
@@ -1021,7 +1021,7 @@ impl QemuHooks {
             let generator: Option<unsafe extern "C" fn(u64, GuestAddr, GuestAddr) -> u64> =
                 transmute(generator);
             let exec: Option<unsafe extern "C" fn(u64, u64)> = transmute(exec);
-            let num = libafl_qemu_sys::libafl_add_edge_hook(generator, exec, data);
+            let num = libaflmm_qemu_sys::libafl_add_edge_hook(generator, exec, data);
             EdgeHookId(num)
         }
     }
@@ -1050,7 +1050,7 @@ impl QemuHooks {
             let post_gen: Option<unsafe extern "C" fn(u64, GuestAddr, GuestAddr)> =
                 transmute(post_gen);
             let exec: Option<unsafe extern "C" fn(u64, u64)> = transmute(exec);
-            let num = libafl_qemu_sys::libafl_add_block_hook(generator, post_gen, exec, data);
+            let num = libaflmm_qemu_sys::libafl_add_block_hook(generator, post_gen, exec, data);
             BlockHookId(num)
         }
     }
@@ -1070,7 +1070,7 @@ impl QemuHooks {
             let data: u64 = data.into().0;
             let pre_exec: Option<unsafe extern "C" fn(u64, CPUStatePtr)> = transmute(pre_exec);
             let post_gen: Option<unsafe extern "C" fn(u64, CPUStatePtr)> = transmute(post_exec);
-            let num = libafl_qemu_sys::libafl_hook_cpu_run_add(pre_exec, post_gen, data);
+            let num = libaflmm_qemu_sys::libafl_hook_cpu_run_add(pre_exec, post_gen, data);
             CpuRunHookId(num)
         }
     }
@@ -1106,7 +1106,7 @@ impl QemuHooks {
                     u64,
                     GuestAddr,
                     *mut TCGTemp,
-                    libafl_qemu_sys::MemOpIdx,
+                    libaflmm_qemu_sys::MemOpIdx,
                 ) -> u64,
             > = transmute(generator);
             let exec1: Option<unsafe extern "C" fn(u64, u64, GuestAddr, GuestAddr)> =
@@ -1119,7 +1119,7 @@ impl QemuHooks {
                 transmute(exec8);
             let exec_n: Option<unsafe extern "C" fn(u64, u64, GuestAddr, GuestAddr, usize)> =
                 transmute(exec_n);
-            let num = libafl_qemu_sys::libafl_add_read_hook(
+            let num = libaflmm_qemu_sys::libafl_add_read_hook(
                 generator, exec1, exec2, exec4, exec8, exec_n, data,
             );
             ReadHookId(num)
@@ -1158,7 +1158,7 @@ impl QemuHooks {
                     u64,
                     GuestAddr,
                     *mut TCGTemp,
-                    libafl_qemu_sys::MemOpIdx,
+                    libaflmm_qemu_sys::MemOpIdx,
                 ) -> u64,
             > = transmute(generator);
             let exec1: Option<unsafe extern "C" fn(u64, u64, GuestAddr, GuestAddr)> =
@@ -1171,7 +1171,7 @@ impl QemuHooks {
                 transmute(exec8);
             let exec_n: Option<unsafe extern "C" fn(u64, u64, GuestAddr, GuestAddr, usize)> =
                 transmute(exec_n);
-            let num = libafl_qemu_sys::libafl_add_write_hook(
+            let num = libaflmm_qemu_sys::libafl_add_write_hook(
                 generator, exec1, exec2, exec4, exec8, exec_n, data,
             );
             WriteHookId(num)
@@ -1196,7 +1196,7 @@ impl QemuHooks {
             let exec4: Option<unsafe extern "C" fn(u64, u64, u32, u32)> = transmute(exec4);
             let exec8: Option<unsafe extern "C" fn(u64, u64, u64, u64)> = transmute(exec8);
             let num =
-                libafl_qemu_sys::libafl_add_cmp_hook(generator, exec1, exec2, exec4, exec8, data);
+                libaflmm_qemu_sys::libafl_add_cmp_hook(generator, exec1, exec2, exec4, exec8, data);
             CmpHookId(num)
         }
     }
@@ -1209,7 +1209,7 @@ impl QemuHooks {
         unsafe {
             let data: u64 = data.into().0;
             let callback: extern "C" fn(u64, CPUArchStatePtr, GuestAddr) = transmute(callback);
-            let num = libafl_qemu_sys::libafl_add_backdoor_hook(Some(callback), data);
+            let num = libaflmm_qemu_sys::libafl_add_backdoor_hook(Some(callback), data);
             BackdoorHookId(num)
         }
     }
@@ -1222,7 +1222,7 @@ impl QemuHooks {
         unsafe {
             let data: u64 = data.into().0;
             let callback: extern "C" fn(u64, CPUArchStatePtr, u32) -> bool = transmute(callback);
-            let num = libafl_qemu_sys::libafl_add_new_thread_hook(Some(callback), data);
+            let num = libaflmm_qemu_sys::libafl_add_new_thread_hook(Some(callback), data);
             NewThreadHookId(num)
         }
     }
@@ -1259,8 +1259,8 @@ impl QemuHooks {
                 GuestUlong,
                 GuestUlong,
                 GuestUlong,
-            ) -> libafl_qemu_sys::libafl_syshook_ret = transmute(callback);
-            let num = libafl_qemu_sys::libafl_add_pre_syscall_hook(Some(callback), data);
+            ) -> libaflmm_qemu_sys::libafl_syshook_ret = transmute(callback);
+            let num = libaflmm_qemu_sys::libafl_add_pre_syscall_hook(Some(callback), data);
             PreSyscallHookId(num)
         }
     }
@@ -1297,7 +1297,7 @@ impl QemuHooks {
                 GuestUlong,
                 GuestUlong,
             ) -> GuestUlong = transmute(callback);
-            let num = libafl_qemu_sys::libafl_add_post_syscall_hook(Some(callback), data);
+            let num = libaflmm_qemu_sys::libafl_add_post_syscall_hook(Some(callback), data);
             PostSyscallHookId(num)
         }
     }

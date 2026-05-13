@@ -5,8 +5,8 @@
 use core::fmt::{self, Debug, Display, Formatter};
 use std::ops::Add;
 
-use libafl::{Result, executors::ExitKind, observers::ObserversTuple};
-use libafl_qemu_sys::{GuestAddr, GuestPhysAddr, GuestVirtAddr};
+use libaflmm::{Result, executors::ExitKind, observers::ObserversTuple};
+use libaflmm_qemu_sys::{GuestAddr, GuestPhysAddr, GuestVirtAddr};
 
 use crate::{
     QemuShutdownCause, breakpoint::Breakpoint, command::CommandError, sync_exit::CustomInsn,

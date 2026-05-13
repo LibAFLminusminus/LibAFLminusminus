@@ -3,8 +3,8 @@
 use std::{cell::UnsafeCell, mem::MaybeUninit, ops::Range, sync::Mutex};
 
 use hashbrown::{HashMap, HashSet};
-use libafl::Result;
-use libafl_qemu_sys::{GuestAddr, GuestUlong, MmapPerms};
+use libaflmm::Result;
+use libaflmm_qemu_sys::{GuestAddr, GuestUlong, MmapPerms};
 use meminterval::{Interval, IntervalTree};
 use thread_local::ThreadLocal;
 

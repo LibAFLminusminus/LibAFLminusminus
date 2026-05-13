@@ -5,7 +5,7 @@ use core::{
 use std::path::PathBuf;
 
 use getset::Getters;
-use libafl_derive;
+use libaflmm_derive;
 use strum_macros;
 use typed_builder::TypedBuilder;
 
@@ -490,7 +490,7 @@ impl<P: Into<PathBuf>> From<P> for Program {
     }
 }
 
-#[derive(Debug, Clone, libafl_derive::Display, TypedBuilder, Getters)]
+#[derive(Debug, Clone, libaflmm_derive::Display, TypedBuilder, Getters)]
 pub struct QemuConfig {
     #[cfg(feature = "systemmode")]
     #[builder(default, setter(strip_option))]

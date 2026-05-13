@@ -3,9 +3,9 @@ use core::{
     slice::from_raw_parts,
 };
 
-use libafl::Result;
-use libafl_bolts::HasLen;
-use libafl_qemu_sys::GuestUlong;
+use libaflmm::Result;
+use libaflmm_bolts::HasLen;
+use libaflmm_qemu_sys::GuestUlong;
 
 #[cfg(not(cpu_target = "hexagon"))]
 use crate::SYS_write;

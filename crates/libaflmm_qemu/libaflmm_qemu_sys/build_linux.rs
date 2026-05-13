@@ -1,6 +1,6 @@
 use std::{env, fs::copy, path::PathBuf};
 
-use libafl_qemu_build::{build_with_bindings, maybe_generate_stub_bindings};
+use libaflmm_qemu_build::{build_with_bindings, maybe_generate_stub_bindings};
 
 #[macro_export]
 macro_rules! assert_unique_feature {
@@ -48,7 +48,9 @@ pub fn build() {
     // Make sure that we don't have BE set for any architecture other than arm and mips
     // Sure aarch64 may support BE, but its not in common usage and we don't
     // need it yet and so haven't tested it
-    assert_unique_feature!("be", "aarch64", "i386", "x86_64", "hexagon", "riscv32", "riscv64");
+    assert_unique_feature!(
+        "be", "aarch64", "i386", "x86_64", "hexagon", "riscv32", "riscv64"
+    );
 
     let cpu_target = if cfg!(feature = "x86_64") {
         "x86_64".to_string()
@@ -79,7 +81,9 @@ pub fn build() {
     println!("cargo:rerun-if-env-changed=CPU_TARGET");
     println!("cargo:rerun-if-env-changed=LIBAFL_QEMU_GEN_STUBS");
     println!("cargo:rustc-cfg=cpu_target=\"{cpu_target}\"");
-    println!("cargo::rustc-check-cfg=cfg(cpu_target, values(\"x86_64\", \"arm\", \"aarch64\", \"i386\", \"mips\", \"ppc\", \"hexagon\", \"riscv32\", \"riscv64\"))");
+    println!(
+        "cargo::rustc-check-cfg=cfg(cpu_target, values(\"x86_64\", \"arm\", \"aarch64\", \"i386\", \"mips\", \"ppc\", \"hexagon\", \"riscv32\", \"riscv64\"))"
+    );
 
     let jobs = env::var("NUM_JOBS")
         .ok()

@@ -18,9 +18,9 @@ use std::{
 };
 
 #[cfg(feature = "systemmode")]
-use libafl_bolts::Error;
-use libafl_bolts::os::unix_signals::Signal;
-use libafl_qemu_sys::{
+use libaflmm_bolts::Error;
+use libaflmm_bolts::os::unix_signals::Signal;
+use libaflmm_qemu_sys::{
     CPUArchState, CPUStatePtr, FatPtr, GuestAddr, GuestPhysAddr, GuestVirtAddr, libafl_flush_jit,
     libafl_get_exit_reason, libafl_page_from_addr, libafl_qemu_add_gdb_cmd, libafl_qemu_cpu_index,
     libafl_qemu_current_cpu, libafl_qemu_gdb_reply, libafl_qemu_get_cpu, libafl_qemu_init,
@@ -29,7 +29,7 @@ use libafl_qemu_sys::{
     libafl_qemu_write_reg,
 };
 #[cfg(feature = "systemmode")]
-use libafl_qemu_sys::{libafl_qemu_remove_hw_breakpoint, libafl_qemu_set_hw_breakpoint};
+use libaflmm_qemu_sys::{libafl_qemu_remove_hw_breakpoint, libafl_qemu_set_hw_breakpoint};
 use num_traits::Num;
 use strum::IntoEnumIterator;
 
@@ -55,7 +55,7 @@ pub use systemmode::*;
 
 mod hooks;
 pub use hooks::*;
-use libafl_core::{AsSliceMut, vec_init};
+use libaflmm_core::{AsSliceMut, vec_init};
 
 static mut QEMU_IS_INITIALIZED: bool = false;
 static mut QEMU_IS_RUNNING: bool = false;
@@ -148,7 +148,7 @@ pub enum QemuShutdownCause {
 #[repr(transparent)]
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
 pub struct MemAccessInfo {
-    oi: libafl_qemu_sys::MemOpIdx,
+    oi: libaflmm_qemu_sys::MemOpIdx,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -253,12 +253,12 @@ impl QemuParams {
 
 impl MemAccessInfo {
     #[must_use]
-    pub fn memop(&self) -> libafl_qemu_sys::MemOp {
-        libafl_qemu_sys::MemOp(self.oi >> 4)
+    pub fn memop(&self) -> libaflmm_qemu_sys::MemOp {
+        libaflmm_qemu_sys::MemOp(self.oi >> 4)
     }
 
     #[must_use]
-    pub fn memopidx(&self) -> libafl_qemu_sys::MemOpIdx {
+    pub fn memopidx(&self) -> libaflmm_qemu_sys::MemOpIdx {
         self.oi
     }
 
@@ -269,12 +269,12 @@ impl MemAccessInfo {
 
     #[must_use]
     pub fn size(&self) -> usize {
-        libafl_qemu_sys::memop_size(self.memop()) as usize
+        libaflmm_qemu_sys::memop_size(self.memop()) as usize
     }
 
     #[must_use]
     pub fn is_big_endian(&self) -> bool {
-        libafl_qemu_sys::memop_big_endian(self.memop())
+        libaflmm_qemu_sys::memop_big_endian(self.memop())
     }
 
     #[must_use]
@@ -290,13 +290,13 @@ impl MemAccessInfo {
     }
 
     #[must_use]
-    pub fn new(oi: libafl_qemu_sys::MemOpIdx) -> Self {
+    pub fn new(oi: libaflmm_qemu_sys::MemOpIdx) -> Self {
         Self { oi }
     }
 }
 
-impl From<libafl_qemu_sys::MemOpIdx> for MemAccessInfo {
-    fn from(oi: libafl_qemu_sys::MemOpIdx) -> Self {
+impl From<libaflmm_qemu_sys::MemOpIdx> for MemAccessInfo {
+    fn from(oi: libaflmm_qemu_sys::MemOpIdx) -> Self {
         Self { oi }
     }
 }
@@ -374,7 +374,7 @@ impl CPU {
     pub fn read_mem(&self, addr: GuestAddr, buf: &mut [u8]) -> Result<(), QemuRWError> {
         // TODO use gdbstub's target_cpu_memory_rw_debug
         let ret = unsafe {
-            libafl_qemu_sys::cpu_memory_rw_debug(
+            libaflmm_qemu_sys::cpu_memory_rw_debug(
                 self.cpu_ptr,
                 addr as GuestVirtAddr,
                 buf.as_mut_ptr() as *mut _,
@@ -411,7 +411,7 @@ impl CPU {
     pub fn write_mem(&self, addr: GuestAddr, buf: &[u8]) -> Result<(), QemuRWError> {
         // TODO use gdbstub's target_cpu_memory_rw_debug
         let ret = unsafe {
-            libafl_qemu_sys::cpu_memory_rw_debug(
+            libaflmm_qemu_sys::cpu_memory_rw_debug(
                 self.cpu_ptr,
                 addr as GuestVirtAddr,
                 buf.as_ptr() as *mut _,
@@ -433,7 +433,7 @@ impl CPU {
     }
 
     pub fn reset(&self) {
-        unsafe { libafl_qemu_sys::cpu_reset(self.cpu_ptr) };
+        unsafe { libaflmm_qemu_sys::cpu_reset(self.cpu_ptr) };
     }
 
     #[must_use]
@@ -441,7 +441,7 @@ impl CPU {
         unsafe {
             let mut saved = MaybeUninit::<CPUArchState>::uninit();
             copy_nonoverlapping(
-                libafl_qemu_sys::cpu_env(self.cpu_ptr.as_mut().unwrap()),
+                libaflmm_qemu_sys::cpu_env(self.cpu_ptr.as_mut().unwrap()),
                 saved.as_mut_ptr(),
                 1,
             );
@@ -453,7 +453,7 @@ impl CPU {
         unsafe {
             copy_nonoverlapping(
                 saved,
-                libafl_qemu_sys::cpu_env(self.cpu_ptr.as_mut().unwrap()),
+                libaflmm_qemu_sys::cpu_env(self.cpu_ptr.as_mut().unwrap()),
                 1,
             );
         }
@@ -599,7 +599,7 @@ impl Qemu {
 
         #[cfg(feature = "systemmode")]
         unsafe {
-            libafl_qemu_sys::syx_snapshot_init(true);
+            libaflmm_qemu_sys::syx_snapshot_init(true);
             libc::atexit(qemu_cleanup_atexit);
         }
 
@@ -662,63 +662,66 @@ impl Qemu {
         if exit_reason.is_null() {
             Err(QemuExitError::UnexpectedExit)
         } else {
-            let exit_reason: &mut libafl_qemu_sys::libafl_exit_reason =
+            let exit_reason: &mut libaflmm_qemu_sys::libafl_exit_reason =
                 unsafe { transmute(&mut *exit_reason) };
             Ok(match exit_reason.kind {
-                libafl_qemu_sys::libafl_exit_reason_kind_INTERNAL => unsafe {
-                    let qemu_shutdown_cause: QemuShutdownCause =
-                        match exit_reason.data.internal.cause {
-                            libafl_qemu_sys::ShutdownCause_SHUTDOWN_CAUSE_NONE => {
-                                QemuShutdownCause::None
-                            }
-                            libafl_qemu_sys::ShutdownCause_SHUTDOWN_CAUSE_HOST_ERROR => {
-                                QemuShutdownCause::HostError
-                            }
-                            libafl_qemu_sys::ShutdownCause_SHUTDOWN_CAUSE_HOST_QMP_QUIT => {
-                                QemuShutdownCause::HostQmpQuit
-                            }
-                            libafl_qemu_sys::ShutdownCause_SHUTDOWN_CAUSE_HOST_QMP_SYSTEM_RESET => {
-                                QemuShutdownCause::HostQmpSystemReset
-                            }
-                            libafl_qemu_sys::ShutdownCause_SHUTDOWN_CAUSE_HOST_SIGNAL => {
-                                QemuShutdownCause::HostSignal(
-                                    Signal::try_from(exit_reason.data.internal.signal).unwrap(),
-                                )
-                            }
-                            libafl_qemu_sys::ShutdownCause_SHUTDOWN_CAUSE_HOST_UI => {
-                                QemuShutdownCause::HostUi
-                            }
-                            libafl_qemu_sys::ShutdownCause_SHUTDOWN_CAUSE_GUEST_SHUTDOWN => {
-                                QemuShutdownCause::GuestShutdown
-                            }
-                            libafl_qemu_sys::ShutdownCause_SHUTDOWN_CAUSE_GUEST_RESET => {
-                                QemuShutdownCause::GuestReset
-                            }
-                            libafl_qemu_sys::ShutdownCause_SHUTDOWN_CAUSE_GUEST_PANIC => {
-                                QemuShutdownCause::GuestPanic
-                            }
-                            libafl_qemu_sys::ShutdownCause_SHUTDOWN_CAUSE_SUBSYSTEM_RESET => {
-                                QemuShutdownCause::SubsystemReset
-                            }
-                            libafl_qemu_sys::ShutdownCause_SHUTDOWN_CAUSE_SNAPSHOT_LOAD => {
-                                QemuShutdownCause::SnapshotLoad
-                            }
+                libaflmm_qemu_sys::libafl_exit_reason_kind_INTERNAL => unsafe {
+                    let qemu_shutdown_cause: QemuShutdownCause = match exit_reason
+                        .data
+                        .internal
+                        .cause
+                    {
+                        libaflmm_qemu_sys::ShutdownCause_SHUTDOWN_CAUSE_NONE => {
+                            QemuShutdownCause::None
+                        }
+                        libaflmm_qemu_sys::ShutdownCause_SHUTDOWN_CAUSE_HOST_ERROR => {
+                            QemuShutdownCause::HostError
+                        }
+                        libaflmm_qemu_sys::ShutdownCause_SHUTDOWN_CAUSE_HOST_QMP_QUIT => {
+                            QemuShutdownCause::HostQmpQuit
+                        }
+                        libaflmm_qemu_sys::ShutdownCause_SHUTDOWN_CAUSE_HOST_QMP_SYSTEM_RESET => {
+                            QemuShutdownCause::HostQmpSystemReset
+                        }
+                        libaflmm_qemu_sys::ShutdownCause_SHUTDOWN_CAUSE_HOST_SIGNAL => {
+                            QemuShutdownCause::HostSignal(
+                                Signal::try_from(exit_reason.data.internal.signal).unwrap(),
+                            )
+                        }
+                        libaflmm_qemu_sys::ShutdownCause_SHUTDOWN_CAUSE_HOST_UI => {
+                            QemuShutdownCause::HostUi
+                        }
+                        libaflmm_qemu_sys::ShutdownCause_SHUTDOWN_CAUSE_GUEST_SHUTDOWN => {
+                            QemuShutdownCause::GuestShutdown
+                        }
+                        libaflmm_qemu_sys::ShutdownCause_SHUTDOWN_CAUSE_GUEST_RESET => {
+                            QemuShutdownCause::GuestReset
+                        }
+                        libaflmm_qemu_sys::ShutdownCause_SHUTDOWN_CAUSE_GUEST_PANIC => {
+                            QemuShutdownCause::GuestPanic
+                        }
+                        libaflmm_qemu_sys::ShutdownCause_SHUTDOWN_CAUSE_SUBSYSTEM_RESET => {
+                            QemuShutdownCause::SubsystemReset
+                        }
+                        libaflmm_qemu_sys::ShutdownCause_SHUTDOWN_CAUSE_SNAPSHOT_LOAD => {
+                            QemuShutdownCause::SnapshotLoad
+                        }
 
-                            _ => panic!("shutdown cause not handled."),
-                        };
+                        _ => panic!("shutdown cause not handled."),
+                    };
 
                     QemuExitReason::End(qemu_shutdown_cause)
                 },
-                libafl_qemu_sys::libafl_exit_reason_kind_BREAKPOINT => unsafe {
+                libaflmm_qemu_sys::libafl_exit_reason_kind_BREAKPOINT => unsafe {
                     let bp_addr = exit_reason.data.breakpoint.addr;
                     QemuExitReason::Breakpoint(bp_addr)
                 },
-                libafl_qemu_sys::libafl_exit_reason_kind_CUSTOM_INSN => QemuExitReason::SyncExit,
+                libaflmm_qemu_sys::libafl_exit_reason_kind_CUSTOM_INSN => QemuExitReason::SyncExit,
 
                 #[cfg(feature = "systemmode")]
-                libafl_qemu_sys::libafl_exit_reason_kind_TIMEOUT => QemuExitReason::Timeout,
+                libaflmm_qemu_sys::libafl_exit_reason_kind_TIMEOUT => QemuExitReason::Timeout,
 
-                libafl_qemu_sys::libafl_exit_reason_kind_CRASH => QemuExitReason::Crash,
+                libaflmm_qemu_sys::libafl_exit_reason_kind_CRASH => QemuExitReason::Crash,
 
                 _ => return Err(QemuExitError::UnknownKind),
             })
@@ -980,7 +983,7 @@ impl Qemu {
 
     #[must_use]
     pub fn host_page_size(&self) -> usize {
-        unsafe { libafl_qemu_sys::libafl_qemu_host_page_size() }
+        unsafe { libaflmm_qemu_sys::libafl_qemu_host_page_size() }
     }
 
     #[must_use]

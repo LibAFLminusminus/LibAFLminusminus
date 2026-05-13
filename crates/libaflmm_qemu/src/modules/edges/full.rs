@@ -1,4 +1,4 @@
-use libafl::states::FlatState;
+use libaflmm::states::FlatState;
 
 use super::{
     EdgeCoverageVariant,
@@ -43,9 +43,9 @@ impl<AF, PF, const IS_CONST_MAP: bool, const MAP_SIZE: usize>
             Hook::Empty,
         );
         unsafe {
-            libafl_qemu_sys::libafl_qemu_edge_hook_set_jit(
+            libaflmm_qemu_sys::libafl_qemu_edge_hook_set_jit(
                 hook_id.0,
-                Some(libafl_qemu_sys::libafl_jit_trace_edge_hitcount),
+                Some(libaflmm_qemu_sys::libafl_jit_trace_edge_hitcount),
             );
         }
     }
@@ -63,9 +63,9 @@ impl<AF, PF, const IS_CONST_MAP: bool, const MAP_SIZE: usize>
             Hook::Empty,
         );
         unsafe {
-            libafl_qemu_sys::libafl_qemu_edge_hook_set_jit(
+            libaflmm_qemu_sys::libafl_qemu_edge_hook_set_jit(
                 hook_id.0,
-                Some(libafl_qemu_sys::libafl_jit_trace_edge_single),
+                Some(libaflmm_qemu_sys::libafl_jit_trace_edge_single),
             );
         }
     }

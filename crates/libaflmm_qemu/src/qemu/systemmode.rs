@@ -6,9 +6,10 @@ use std::{
     slice,
 };
 
-use libafl_qemu_sys::{
-    GuestAddr, GuestPhysAddr, GuestVirtAddr, libafl_load_qemu_snapshot, libafl_page_from_addr,
-    libafl_qemu_current_paging_id, libafl_qemu_run, libafl_save_qemu_snapshot, qemu_cleanup,
+use libaflmm_qemu_sys::{
+    GuestAddr, GuestPhysAddr, GuestVirtAddr, libafl_qemu_current_paging_id, libafl_qemu_run,
+    libaflmm_load_qemu_snapshot, libaflmm_page_from_addr, libaflmm_save_qemu_snapshot,
+    qemu_cleanup,
 };
 use libc::EXIT_SUCCESS;
 use num_traits::Zero;
@@ -76,14 +77,14 @@ pub struct HostMemoryIter {
 }
 
 impl DeviceSnapshotFilter {
-    fn enum_id(&self) -> libafl_qemu_sys::DeviceSnapshotKind {
+    fn enum_id(&self) -> libaflmm_qemu_sys::DeviceSnapshotKind {
         match self {
-            DeviceSnapshotFilter::All => libafl_qemu_sys::DeviceSnapshotKind_DEVICE_SNAPSHOT_ALL,
+            DeviceSnapshotFilter::All => libaflmm_qemu_sys::DeviceSnapshotKind_DEVICE_SNAPSHOT_ALL,
             DeviceSnapshotFilter::AllowList(_) => {
-                libafl_qemu_sys::DeviceSnapshotKind_DEVICE_SNAPSHOT_ALLOWLIST
+                libaflmm_qemu_sys::DeviceSnapshotKind_DEVICE_SNAPSHOT_ALLOWLIST
             }
             DeviceSnapshotFilter::DenyList(_) => {
-                libafl_qemu_sys::DeviceSnapshotKind_DEVICE_SNAPSHOT_DENYLIST
+                libaflmm_qemu_sys::DeviceSnapshotKind_DEVICE_SNAPSHOT_DENYLIST
             }
         }
     }
@@ -107,9 +108,9 @@ impl CPU {
     #[must_use]
     pub fn get_phys_addr(&self, vaddr: GuestVirtAddr) -> Option<GuestPhysAddr> {
         unsafe {
-            let page = libafl_page_from_addr(vaddr);
-            let mut attrs = MaybeUninit::<libafl_qemu_sys::MemTxAttrs>::uninit();
-            let paddr = libafl_qemu_sys::cpu_get_phys_page_attrs_debug(
+            let page = libaflmm_page_from_addr(vaddr);
+            let mut attrs = MaybeUninit::<libaflmm_qemu_sys::MemTxAttrs>::uninit();
+            let paddr = libaflmm_qemu_sys::cpu_get_phys_page_attrs_debug(
                 self.cpu_ptr,
                 page as GuestVirtAddr,
                 attrs.as_mut_ptr(),
@@ -133,19 +134,19 @@ impl CPU {
         is_store: bool,
     ) -> Option<GuestPhysAddr> {
         unsafe {
-            let pminfo = libafl_qemu_sys::make_plugin_meminfo(
+            let pminfo = libaflmm_qemu_sys::make_plugin_meminfo(
                 info.oi,
                 if is_store {
-                    libafl_qemu_sys::qemu_plugin_mem_rw_QEMU_PLUGIN_MEM_W
+                    libaflmm_qemu_sys::qemu_plugin_mem_rw_QEMU_PLUGIN_MEM_W
                 } else {
-                    libafl_qemu_sys::qemu_plugin_mem_rw_QEMU_PLUGIN_MEM_R
+                    libaflmm_qemu_sys::qemu_plugin_mem_rw_QEMU_PLUGIN_MEM_R
                 },
             );
-            let phwaddr = libafl_qemu_sys::qemu_plugin_get_hwaddr(pminfo, vaddr as u64);
+            let phwaddr = libaflmm_qemu_sys::qemu_plugin_get_hwaddr(pminfo, vaddr as u64);
             if phwaddr.is_null() {
                 None
             } else {
-                Some(libafl_qemu_sys::qemu_plugin_hwaddr_phys_addr(phwaddr) as GuestPhysAddr)
+                Some(libaflmm_qemu_sys::qemu_plugin_hwaddr_phys_addr(phwaddr) as GuestPhysAddr)
             }
         }
     }
@@ -169,7 +170,7 @@ impl CPU {
     pub unsafe fn read_mem_unchecked(&self, addr: GuestAddr, buf: &mut [u8]) {
         unsafe {
             // TODO use gdbstub's target_cpu_memory_rw_debug
-            libafl_qemu_sys::cpu_memory_rw_debug(
+            libaflmm_qemu_sys::cpu_memory_rw_debug(
                 self.cpu_ptr,
                 addr as GuestVirtAddr,
                 buf.as_mut_ptr() as *mut _,
@@ -187,7 +188,7 @@ impl CPU {
     pub unsafe fn write_mem_unchecked(&self, addr: GuestAddr, buf: &[u8]) {
         unsafe {
             // TODO use gdbstub's target_cpu_memory_rw_debug
-            libafl_qemu_sys::cpu_memory_rw_debug(
+            libaflmm_qemu_sys::cpu_memory_rw_debug(
                 self.cpu_ptr,
                 addr as GuestVirtAddr,
                 buf.as_ptr() as *mut _,
@@ -199,7 +200,7 @@ impl CPU {
 
     #[must_use]
     pub fn host_addr(&self, addr: GuestPhysAddr) -> *const u8 {
-        unsafe { libafl_qemu_sys::libafl_paddr2host(self.cpu_ptr, addr, false) }
+        unsafe { libaflmm_qemu_sys::libafl_paddr2host(self.cpu_ptr, addr, false) }
     }
 }
 
@@ -214,7 +215,7 @@ impl Qemu {
     // TODO: use address_space_rw and check for the result MemTxResult
     pub unsafe fn write_phys_mem(&self, paddr: GuestPhysAddr, buf: &[u8]) {
         unsafe {
-            libafl_qemu_sys::cpu_physical_memory_write(
+            libaflmm_qemu_sys::cpu_physical_memory_write(
                 paddr,
                 buf.as_ptr() as *mut _,
                 buf.len() as u64,
@@ -231,7 +232,7 @@ impl Qemu {
     // TODO: use address_space_rw and check for the result MemTxResult
     pub unsafe fn read_phys_mem(&self, paddr: GuestPhysAddr, buf: &mut [u8]) {
         unsafe {
-            libafl_qemu_sys::cpu_physical_memory_read(
+            libaflmm_qemu_sys::cpu_physical_memory_read(
                 paddr,
                 buf.as_mut_ptr() as *mut _,
                 buf.len() as u64,
@@ -248,21 +249,21 @@ impl Qemu {
 
     pub fn save_snapshot(&self, name: &str, sync: bool) {
         let s = CString::new(name).expect("Invalid snapshot name");
-        unsafe { libafl_save_qemu_snapshot(s.as_ptr().cast_mut(), sync) };
+        unsafe { libaflmm_save_qemu_snapshot(s.as_ptr().cast_mut(), sync) };
     }
 
     pub fn load_snapshot(&self, name: &str, sync: bool) {
         let s = CString::new(name).expect("Invalid snapshot name");
-        unsafe { libafl_load_qemu_snapshot(s.as_ptr().cast_mut(), sync) };
+        unsafe { libaflmm_load_qemu_snapshot(s.as_ptr().cast_mut(), sync) };
     }
 
     #[must_use]
     pub fn create_fast_snapshot(&self, track: bool) -> FastSnapshotPtr {
         unsafe {
-            libafl_qemu_sys::syx_snapshot_new(
+            libaflmm_qemu_sys::syx_snapshot_new(
                 track,
                 true,
-                libafl_qemu_sys::DeviceSnapshotKind_DEVICE_SNAPSHOT_ALL,
+                libaflmm_qemu_sys::DeviceSnapshotKind_DEVICE_SNAPSHOT_ALL,
                 null_mut(),
             )
         }
@@ -276,7 +277,7 @@ impl Qemu {
     ) -> FastSnapshotPtr {
         let mut v = vec![];
         unsafe {
-            libafl_qemu_sys::syx_snapshot_new(
+            libaflmm_qemu_sys::syx_snapshot_new(
                 track,
                 true,
                 device_filter.enum_id(),
@@ -288,7 +289,7 @@ impl Qemu {
     #[expect(clippy::missing_safety_doc)]
     pub unsafe fn restore_fast_snapshot(&self, snapshot: FastSnapshotPtr) {
         unsafe {
-            libafl_qemu_sys::syx_snapshot_root_restore(snapshot);
+            libaflmm_qemu_sys::syx_snapshot_root_restore(snapshot);
         }
     }
 
@@ -298,7 +299,7 @@ impl Qemu {
         &self,
         ref_snapshot: FastSnapshotPtr,
     ) -> QemuSnapshotCheckResult {
-        let check_result = unsafe { libafl_qemu_sys::syx_snapshot_check(ref_snapshot) };
+        let check_result = unsafe { libaflmm_qemu_sys::syx_snapshot_check(ref_snapshot) };
 
         QemuSnapshotCheckResult::new(check_result.nb_inconsistencies)
     }
@@ -307,7 +308,7 @@ impl Qemu {
     pub fn list_devices(&self) -> Vec<String> {
         let mut r = vec![];
         unsafe {
-            let devices = libafl_qemu_sys::device_list_all();
+            let devices = libaflmm_qemu_sys::device_list_all();
             if devices.is_null() {
                 return r;
             }
@@ -329,7 +330,7 @@ impl Qemu {
     /// Get the size in bytes of a guest page.
     #[must_use]
     pub fn target_page_size(&self) -> usize {
-        unsafe { libafl_qemu_sys::libafl_target_page_size() }
+        unsafe { libaflmm_qemu_sys::libafl_target_page_size() }
     }
 
     /// Get the mask of a guest page.
@@ -339,7 +340,7 @@ impl Qemu {
     pub fn target_page_mask(&self) -> usize {
         #[expect(clippy::cast_sign_loss)]
         unsafe {
-            libafl_qemu_sys::libafl_target_page_mask() as usize
+            libaflmm_qemu_sys::libafl_target_page_mask() as usize
         }
     }
 
@@ -349,7 +350,7 @@ impl Qemu {
     pub fn target_page_offset_mask(&self) -> usize {
         #[expect(clippy::cast_sign_loss)]
         unsafe {
-            libafl_qemu_sys::libafl_target_page_offset_mask() as usize
+            libaflmm_qemu_sys::libafl_target_page_offset_mask() as usize
         }
     }
 }
@@ -460,7 +461,7 @@ impl PhysMemoryChunk {
     #[must_use]
     pub fn addr_host_ptr(&self) -> Option<*const u8> {
         let host_addr: *const u8 =
-            unsafe { libafl_qemu_sys::libafl_paddr2host(self.cpu.cpu_ptr, self.addr, false) };
+            unsafe { libaflmm_qemu_sys::libafl_paddr2host(self.cpu.cpu_ptr, self.addr, false) };
 
         Some(host_addr)
     }
@@ -468,7 +469,7 @@ impl PhysMemoryChunk {
     #[must_use]
     pub fn addr_host_ptr_mut(&self) -> Option<NonNull<u8>> {
         let host_addr: *mut u8 =
-            unsafe { libafl_qemu_sys::libafl_paddr2host(self.cpu.cpu_ptr, self.addr, true) };
+            unsafe { libaflmm_qemu_sys::libafl_paddr2host(self.cpu.cpu_ptr, self.addr, true) };
 
         NonNull::new(host_addr)
     }
@@ -501,7 +502,7 @@ impl Iterator for HostMemoryIter {
         } else {
             // Host memory allocation is always host-page aligned, so we can freely go from host page to host page.
             let start_host_addr: *mut u8 =
-                unsafe { libafl_qemu_sys::libafl_paddr2host(self.cpu.cpu_ptr, self.addr, false) };
+                unsafe { libaflmm_qemu_sys::libafl_paddr2host(self.cpu.cpu_ptr, self.addr, false) };
             let host_page_size = Qemu::get().unwrap().host_page_size();
             let mut size_taken: usize = std::cmp::min(
                 (start_host_addr as usize).next_multiple_of(host_page_size),
@@ -514,7 +515,7 @@ impl Iterator for HostMemoryIter {
             // Now self.addr is host-page aligned
             while self.remaining_len > 0 {
                 let next_page_host_addr: *const u8 = unsafe {
-                    libafl_qemu_sys::libafl_paddr2host(self.cpu.cpu_ptr, self.addr, false)
+                    libaflmm_qemu_sys::libafl_paddr2host(self.cpu.cpu_ptr, self.addr, false)
                 };
 
                 // Non-contiguous, we stop here for the slice

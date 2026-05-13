@@ -8,12 +8,7 @@ authors = [
 ]
 description = "Low-level bolts to create fuzzers and so much more"
 keywords = ["fuzzing", "testing", "security"]
-categories = [
-  "development-tools::testing",
-  "emulators",
-  "embedded",
-  "os",
-]
+categories = ["development-tools::testing", "emulators", "embedded", "os"]
 
 documentation.workspace = true
 edition.workspace = true
@@ -28,22 +23,14 @@ features = ["document-features"]
 all-features = true
 
 [features]
-default = [
-    "derive",
-    "gzip",
-    "rand_trait",
-    "xxh3",
-    "simd",
-    "uds",
-]
+default = ["derive", "gzip", "rand_trait", "xxh3", "simd", "uds"]
 document-features = ["dep:document-features"]
 
 #! # Feature Flags
 #! ### General Features
 
 ## Enables features that need rust's `std` lib to work, like print, env, ... support
-std = [
-]
+std = []
 
 ## Provide the `#[derive(SerdeAny)]` macro.
 derive = ["libaflmm_derive"]

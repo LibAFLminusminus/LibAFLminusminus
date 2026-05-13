@@ -3,10 +3,10 @@ use std::slice;
 use std::{ffi::CStr, sync::OnceLock};
 
 use enum_map::{EnumMap, enum_map};
-use libafl::{executors::ExitKind, inputs::Input};
+use libaflmm::{executors::ExitKind, inputs::Input};
 #[cfg(feature = "systemmode")]
-use libafl_qemu_sys::GuestPhysAddr;
-use libafl_qemu_sys::{GuestAddr, GuestVirtAddr};
+use libaflmm_qemu_sys::GuestPhysAddr;
+use libaflmm_qemu_sys::{GuestAddr, GuestVirtAddr};
 use libc::c_uint;
 
 use super::{

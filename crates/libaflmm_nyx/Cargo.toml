@@ -3,12 +3,7 @@ name = "libaflmm_nyx"
 authors = ["syheliel <syheliel@gmail.com>"]
 description = "libafl using nyx, only avaliable on linux"
 keywords = ["fuzzing", "testing", "security"]
-categories = [
-  "development-tools::testing",
-  "emulators",
-  "embedded",
-  "os",
-]
+categories = ["development-tools::testing", "emulators", "embedded", "os"]
 
 documentation.workspace = true
 edition.workspace = true
@@ -37,7 +32,7 @@ libaflmm_targets = { workspace = true, default-features = true, features = [
 nix = { workspace = true, default-features = true, features = ["fs"] }
 typed-builder = { workspace = true }
 regex = "1.12.2"
-serde = { workspace = true } # serialization lib
+serde = { workspace = true }                                           # serialization lib
 
 [lints]
 workspace = true

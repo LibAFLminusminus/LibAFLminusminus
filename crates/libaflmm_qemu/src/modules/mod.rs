@@ -1,7 +1,7 @@
 use core::fmt::Debug;
 
-use libafl::{Result, executors::ExitKind, observers::ObserversTuple};
-use libafl_bolts::tuples::{MatchFirstType, SplitBorrowExtractFirstType};
+use libaflmm::{Result, executors::ExitKind, observers::ObserversTuple};
+use libaflmm_bolts::tuples::{MatchFirstType, SplitBorrowExtractFirstType};
 
 use crate::{
     Qemu, QemuParams,

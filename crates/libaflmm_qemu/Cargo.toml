@@ -6,12 +6,7 @@ authors = [
 ]
 description = "QEMU user backend library for LibAFL"
 keywords = ["fuzzing", "qemu", "instrumentation"]
-categories = [
-  "development-tools::testing",
-  "emulators",
-  "embedded",
-  "os",
-]
+categories = ["development-tools::testing", "emulators", "embedded", "os"]
 
 documentation.workspace = true
 edition.workspace = true
@@ -102,7 +97,7 @@ shared = ["libaflmm_qemu_sys/shared"]
 clippy = ["libaflmm_qemu_sys/clippy", "libvharness_sys/clippy"]
 
 [dependencies]
-libaflmm = { workspace = true, features = ["derive", "regex"] }
+libaflmm = { workspace = true, features = ["derive", "regex", "serde_json"] }
 libaflmm_bolts = { workspace = true, features = ["derive"] }
 libaflmm_core = { workspace = true }
 libaflmm_targets = { workspace = true, default-features = true }

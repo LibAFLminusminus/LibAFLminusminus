@@ -8,7 +8,7 @@ use std::{
     },
 };
 
-use libafl_qemu_sys::GuestAddr;
+use libaflmm_qemu_sys::GuestAddr;
 
 use crate::Qemu;
 

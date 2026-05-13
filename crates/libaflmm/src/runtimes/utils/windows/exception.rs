@@ -467,8 +467,11 @@ pub mod windows_exception_handler {
                     {
                         let mut writer = std::io::BufWriter::new(&mut bsod);
                         writeln!(writer, "input: {:?}", input.generate_name(None)).unwrap();
-                        libaflmm_bolts::minibsod::generate_minibsod(&mut writer, exception_pointers)
-                            .unwrap();
+                        libaflmm_bolts::minibsod::generate_minibsod(
+                            &mut writer,
+                            exception_pointers,
+                        )
+                        .unwrap();
                         writer.flush().unwrap();
                     }
                     log::error!("{}", core::str::from_utf8(&bsod).unwrap());

@@ -10,10 +10,10 @@ use std::{
 
 use hashbrown::{HashMap, hash_map::Entry};
 #[cfg(feature = "usermode")]
-use libafl::Result;
-use libafl::{executors::ExitKind, observers::ObserversTuple, states::FlatState};
-use libafl_bolts::drcov::{DrCovBasicBlock, DrCovWriter};
-use libafl_qemu_sys::{GuestAddr, GuestUsize};
+use libaflmm::Result;
+use libaflmm::{executors::ExitKind, observers::ObserversTuple, states::FlatState};
+use libaflmm_bolts::drcov::{DrCovBasicBlock, DrCovWriter};
+use libaflmm_qemu_sys::{GuestAddr, GuestUsize};
 use rangemap::RangeMap;
 use serde::{Deserialize, Serialize};
 
@@ -51,7 +51,7 @@ impl DrCovMetadata {
     }
 }
 
-libafl_bolts::impl_serdeany!(DrCovMetadata);
+libaflmm_bolts::impl_serdeany!(DrCovMetadata);
 
 #[derive(Debug)]
 pub struct DrCovModuleBuilder<F> {

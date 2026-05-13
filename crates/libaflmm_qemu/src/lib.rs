@@ -23,7 +23,7 @@
 
 use std::env;
 
-pub use libafl_qemu_sys as sys;
+pub use libaflmm_qemu_sys as sys;
 pub use strum::IntoEnumIterator;
 
 pub mod arch;
@@ -47,10 +47,10 @@ pub mod command;
 pub mod sync_exit;
 
 #[cfg(feature = "usermode")]
-pub use libafl_qemu_sys::GuestAbiUlong;
-pub use libafl_qemu_sys::{GuestAddr, GuestUlong, GuestUsize, MmapPerms};
+pub use libaflmm_qemu_sys::GuestAbiUlong;
+pub use libaflmm_qemu_sys::{GuestAddr, GuestUlong, GuestUsize, MmapPerms};
 #[cfg(feature = "systemmode")]
-pub use libafl_qemu_sys::{GuestPhysAddr, GuestVirtAddr};
+pub use libaflmm_qemu_sys::{GuestPhysAddr, GuestVirtAddr};
 
 #[must_use]
 pub fn filter_qemu_args() -> Vec<String> {

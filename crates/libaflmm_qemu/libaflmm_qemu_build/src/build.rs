@@ -392,7 +392,7 @@ pub fn build(
     };
 
     let libafl_qemu_build_dir = libafl_qemu_dir.join("build");
-    let config_signature_path = libafl_qemu_build_dir.join("libafl_config");
+    let config_signature_path = libafl_qemu_build_dir.join("libaflmm_config");
 
     let target_suffix = if is_usermode {
         "linux-user".to_string()
@@ -412,7 +412,7 @@ pub fn build(
         )
     };
 
-    let libafl_config_old_signature = fs::read_to_string(&config_signature_path);
+    let libaflmm_config_old_signature = fs::read_to_string(&config_signature_path);
 
     let mut config_cmd = configure_qemu(
         &cc_compiler,
@@ -428,8 +428,8 @@ pub fn build(
     let must_reconfigure = if libafl_qemu_force_configure {
         // If the user asked to reconfigure, do so
         true
-    } else if let Ok(libafl_config_old_signature) = libafl_config_old_signature {
-        if libafl_config_old_signature == current_config_signature {
+    } else if let Ok(libaflmm_config_old_signature) = libaflmm_config_old_signature {
+        if libaflmm_config_old_signature == current_config_signature {
             // Signature match, do not reconfigure
             false
         } else {

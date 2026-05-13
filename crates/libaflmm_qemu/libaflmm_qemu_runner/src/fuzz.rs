@@ -1,8 +1,8 @@
 use std::{env, fmt::Write, ops::Range};
 
 use clap::{Parser, builder::Str};
-use libafl_bolts::{Error, tuples::tuple_list};
-use libafl_qemu::{
+use libaflmm_bolts::{Error, tuples::tuple_list};
+use libaflmm_qemu::{
     GuestAddr, NopEmulatorDriver, NopSnapshotManager, QemuExitError, QemuInitError, StdEmulator,
     command::NopCommandManager,
     elf::EasyElf,

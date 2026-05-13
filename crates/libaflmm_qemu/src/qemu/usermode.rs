@@ -4,10 +4,10 @@ use std::{
     mem::MaybeUninit, ops::Range, ptr, slice::from_raw_parts_mut, str::from_utf8_unchecked_mut,
 };
 
-use libafl_bolts::{Error, os::unix_signals::Signal};
+use libaflmm_bolts::{Error, os::unix_signals::Signal};
 #[cfg(not(feature = "systemmode"))]
-use libafl_qemu_sys::libafl_qemu_run;
-use libafl_qemu_sys::{
+use libaflmm_qemu_sys::libafl_qemu_run;
+use libaflmm_qemu_sys::{
     GuestAbiUlong, GuestAddr, IntervalTreeNode, IntervalTreeRoot, MapInfo, MmapPerms, VerifyAccess,
     exec_path, free_self_maps, guest_base, libafl_force_dfl, libafl_get_brk,
     libafl_get_initial_brk, libafl_load_addr, libafl_maps_first, libafl_maps_next, libafl_set_brk,
@@ -224,7 +224,7 @@ impl CPU {
     pub fn access_ok(&self, kind: VerifyAccess, addr: GuestAddr, size: usize) -> bool {
         unsafe {
             // TODO add support for tagged GuestAddr
-            libafl_qemu_sys::page_check_range(addr, size as GuestAddr, kind.into())
+            libaflmm_qemu_sys::page_check_range(addr, size as GuestAddr, kind.into())
         }
     }
 }
@@ -240,7 +240,7 @@ impl Qemu {
     pub fn image_info(&self) -> ImageInfo {
         // # Safety
         // Safe because QEMU has been correctly initialized since it takes self as parameter.
-        let image_info = unsafe { *libafl_qemu_sys::libafl_get_image_info() };
+        let image_info = unsafe { *libaflmm_qemu_sys::libafl_get_image_info() };
 
         let code_start = image_info.start_code;
         let code_end = image_info.end_code;
@@ -347,7 +347,7 @@ impl Qemu {
         fd: i32,
     ) -> Result<GuestAddr, Error> {
         let res = unsafe {
-            libafl_qemu_sys::target_mmap(
+            libaflmm_qemu_sys::target_mmap(
                 addr as GuestAbiUlong,
                 size as GuestAbiUlong,
                 perms.into(),
@@ -398,7 +398,7 @@ impl Qemu {
 
     pub fn mprotect(&self, addr: GuestAddr, size: usize, perms: MmapPerms) -> Result<(), String> {
         let res = unsafe {
-            libafl_qemu_sys::target_mprotect(
+            libaflmm_qemu_sys::target_mprotect(
                 addr as GuestAbiUlong,
                 size as GuestAbiUlong,
                 perms.into(),
@@ -412,7 +412,7 @@ impl Qemu {
     }
 
     pub fn unmap(&self, addr: GuestAddr, size: usize) -> Result<(), String> {
-        if unsafe { libafl_qemu_sys::target_munmap(addr as GuestAbiUlong, size as GuestAbiUlong) }
+        if unsafe { libaflmm_qemu_sys::target_munmap(addr as GuestAbiUlong, size as GuestAbiUlong) }
             == 0
         {
             Ok(())
@@ -424,7 +424,7 @@ impl Qemu {
     #[must_use]
     pub fn signal_ctx(&self) -> QemuSignalContext {
         unsafe {
-            let qemu_signal_ctx = *libafl_qemu_sys::libafl_qemu_signal_context();
+            let qemu_signal_ctx = *libaflmm_qemu_sys::libafl_qemu_signal_context();
 
             if qemu_signal_ctx.in_qemu_sig_hdlr {
                 if qemu_signal_ctx.is_target_signal {
@@ -461,7 +461,7 @@ impl Qemu {
         };
 
         unsafe {
-            libafl_qemu_sys::libafl_qemu_native_signal_handler(host_sig, info, puc.cast());
+            libaflmm_qemu_sys::libafl_qemu_native_signal_handler(host_sig, info, puc.cast());
         }
     }
 
@@ -474,7 +474,7 @@ impl Qemu {
     pub unsafe fn target_signal(&self, signal: Signal) {
         unsafe {
             QEMU_IS_RUNNING = true;
-            libafl_qemu_sys::libafl_set_in_target_signal_ctx();
+            libaflmm_qemu_sys::libafl_set_in_target_signal_ctx();
             libc::raise(signal.into());
         }
     }
@@ -489,10 +489,10 @@ impl Qemu {
     pub unsafe fn set_target_crash_handling(&self, handling: &TargetSignalHandling) {
         match handling {
             TargetSignalHandling::ReturnToHarness => unsafe {
-                libafl_qemu_sys::libafl_set_return_on_crash(true);
+                libaflmm_qemu_sys::libafl_set_return_on_crash(true);
             },
             TargetSignalHandling::RaiseSignal => unsafe {
-                libafl_qemu_sys::libafl_set_return_on_crash(false);
+                libaflmm_qemu_sys::libafl_set_return_on_crash(false);
             },
         }
     }
@@ -500,7 +500,7 @@ impl Qemu {
 
 #[cfg(feature = "python")]
 pub mod pybind {
-    use libafl_qemu_sys::{GuestAddr, GuestUlong, MmapPerms};
+    use libaflmm_qemu_sys::{GuestAddr, GuestUlong, MmapPerms};
     use pyo3::{
         Bound, FromPyObject, Py, PyAny, PyResult, Python,
         exceptions::PyValueError,

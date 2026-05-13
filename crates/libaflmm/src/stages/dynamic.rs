@@ -18,7 +18,10 @@ where
     T1: DependencyResolver,
     T2: DependencyResolver,
 {
-    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<(), libaflmm_core::Error> {
+    fn register(
+        &mut self,
+        registrator: &mut crate::Registrator,
+    ) -> Result<(), libaflmm_core::Error> {
         match self {
             Self::Stage1(st1) => st1.register(registrator),
             Self::Stage2(st2) => st2.register(registrator),

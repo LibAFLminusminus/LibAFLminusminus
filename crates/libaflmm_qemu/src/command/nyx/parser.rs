@@ -1,7 +1,7 @@
 use std::ffi::CStr;
 
 use enum_map::EnumMap;
-use libafl::inputs::HasTargetBytes;
+use libaflmm::inputs::HasTargetBytes;
 use libc::c_uint;
 
 use crate::{

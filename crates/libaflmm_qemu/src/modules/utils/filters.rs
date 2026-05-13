@@ -8,7 +8,7 @@ use std::cell::UnsafeCell;
 use std::{fmt::Debug, ops::Range};
 
 use hashbrown::HashSet;
-use libafl_qemu_sys::{GuestAddr, GuestPhysAddr};
+use libaflmm_qemu_sys::{GuestAddr, GuestPhysAddr};
 
 use crate::Qemu;
 
@@ -396,7 +396,7 @@ pub(crate) static mut NOP_PAGE_FILTER: UnsafeCell<NopPageFilter> = UnsafeCell::n
 
 #[cfg(all(feature = "systemmode", test))]
 mod tests {
-    use libafl_bolts::tuples::tuple_list;
+    use libaflmm_bolts::tuples::tuple_list;
 
     use crate::modules::utils::filters::{
         AddressFilter, HasAddressFilter, HasAddressFilterTuple, HasPageFilter, HasPageFilterTuple,

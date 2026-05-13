@@ -1,10 +1,10 @@
 use std::cell::OnceCell;
 
-use libafl::{
+use libaflmm::{
     inputs::{Input, InputContext},
     states::HasContext,
 };
-use libafl_bolts::AsSlice;
+use libaflmm_bolts::AsSlice;
 
 #[cfg(not(feature = "systemmode"))]
 use crate::InputLocation;

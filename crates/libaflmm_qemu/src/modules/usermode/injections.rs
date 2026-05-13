@@ -14,8 +14,8 @@
 use std::{ffi::CStr, fmt::Display, fs, os::raw::c_char, path::Path};
 
 use hashbrown::HashMap;
-use libafl::{Error, Result};
-use libafl_qemu_sys::{GuestAddr, GuestUlong};
+use libaflmm::{Error, Result};
+use libaflmm_qemu_sys::{GuestAddr, GuestUlong};
 use serde::{Deserialize, Serialize};
 
 #[cfg(not(cpu_target = "hexagon"))]

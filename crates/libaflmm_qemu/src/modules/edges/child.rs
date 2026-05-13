@@ -1,4 +1,4 @@
-use libafl::states::FlatState;
+use libaflmm::states::FlatState;
 
 use super::{
     EdgeCoverageVariant,

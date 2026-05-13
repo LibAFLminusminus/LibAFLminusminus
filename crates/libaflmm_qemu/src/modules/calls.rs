@@ -1,9 +1,9 @@
 use core::{cell::UnsafeCell, fmt::Debug};
 
 use capstone::prelude::*;
-use libafl::{Result, executors::ExitKind, inputs::Input, observers::ObserversTuple};
-use libafl_bolts::tuples::MatchFirstType;
-use libafl_qemu_sys::GuestAddr;
+use libaflmm::{Result, executors::ExitKind, inputs::Input, observers::ObserversTuple};
+use libaflmm_bolts::tuples::MatchFirstType;
+use libaflmm_qemu_sys::GuestAddr;
 use thread_local::ThreadLocal;
 
 use super::utils::filters::HasAddressFilter;

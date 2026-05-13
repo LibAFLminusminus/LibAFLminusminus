@@ -3,8 +3,8 @@
 use std::{fs::File, io::Read, ops::Range, path::Path, str};
 
 use goblin::elf::{Elf, header::ET_DYN};
-use libafl::Error;
-use libafl_qemu_sys::GuestAddr;
+use libaflmm::Error;
+use libaflmm_qemu_sys::GuestAddr;
 
 pub struct EasyElf<'a> {
     elf: Elf<'a>,

@@ -5,9 +5,9 @@
 use std::collections::HashMap;
 use std::{cell::OnceCell, fmt::Debug, result};
 
-use libafl::{Result, executors::ExitKind, inputs::Input, observers::ObserversTuple};
-use libafl_bolts::os::{CTRL_C_EXIT, unix_signals::Signal};
-use libafl_core::runtime;
+use libaflmm::{Result, executors::ExitKind, inputs::Input, observers::ObserversTuple};
+use libaflmm_bolts::os::unix_signals::Signal;
+use libaflmm_core::runtime;
 
 #[cfg(not(feature = "systemmode"))]
 use crate::InputLocation;
@@ -66,7 +66,7 @@ pub enum EmulatorDriverError {
     EndBeforeStart,
 }
 
-impl From<EmulatorDriverError> for libafl::Error {
+impl From<EmulatorDriverError> for libaflmm::Error {
     fn from(value: EmulatorDriverError) -> Self {
         runtime!("Emulator driver error: {value:?}")
     }
@@ -497,7 +497,6 @@ where
         let (command, ret_reg): (Option<C>, Option<Regs>) = match &mut exit_reason {
             EmulatorExitResult::QemuExit(shutdown_cause) => match shutdown_cause {
                 QemuShutdownCause::HostSignal(signal) => {
-                    signal.handle();
                     return Err(EmulatorDriverError::UnhandledSignal(*signal));
                 }
                 QemuShutdownCause::GuestPanic => {
@@ -505,7 +504,8 @@ where
                 }
                 QemuShutdownCause::GuestShutdown | QemuShutdownCause::HostQmpQuit => {
                     log::warn!("Guest shutdown. Stopping fuzzing...");
-                    std::process::exit(CTRL_C_EXIT);
+                    // std::process::exit(CTRL_C_EXIT);
+                    panic!("Implement proper exit there...")
                 }
                 _ => panic!("Unhandled QEMU shutdown cause: {shutdown_cause:?}."),
             },
@@ -555,7 +555,8 @@ where
             EmulatorDriverResult::EndOfRun(exit_kind) => Ok(exit_kind),
             EmulatorDriverResult::ShutdownRequest => {
                 log::warn!("Shutdown request. Stopping fuzzing...");
-                std::process::exit(CTRL_C_EXIT);
+                // std::process::exit(CTRL_C_EXIT);
+                panic!("Implement proper exit there...")
             }
         }
     }

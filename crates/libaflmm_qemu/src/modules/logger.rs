@@ -5,8 +5,8 @@
 
 use std::fmt::Debug;
 
-use libafl::Result;
-use libafl_qemu_sys::TCGTemp;
+use libaflmm::Result;
+use libaflmm_qemu_sys::TCGTemp;
 
 use crate::{
     EmulatorModules, GuestAddr, Hook, MemAccessInfo,

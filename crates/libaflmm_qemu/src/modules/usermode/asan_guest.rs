@@ -3,8 +3,8 @@
 
 use std::{env, fmt::Debug, fs, ops::Range, path::PathBuf};
 
-use libafl::Result;
-use libafl_qemu_sys::{GuestAddr, MapInfo};
+use libaflmm::Result;
+use libaflmm_qemu_sys::{GuestAddr, MapInfo};
 
 use super::IntervalSnapshotFilter;
 #[cfg(not(feature = "clippy"))]
@@ -138,7 +138,7 @@ where
 
 #[cfg(feature = "clippy")]
 #[expect(unused_variables)]
-unsafe fn libafl_tcg_gen_asan(addr: *mut TCGTemp, size: usize) {}
+unsafe fn libaflmm_tcg_gen_asan(addr: *mut TCGTemp, size: usize) {}
 
 #[allow(clippy::needless_pass_by_value)] // no longer a problem with nightly
 fn guest_trace_error_asan<ET, I, S>(

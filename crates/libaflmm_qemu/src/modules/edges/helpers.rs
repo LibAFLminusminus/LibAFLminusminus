@@ -3,7 +3,7 @@ use core::ptr;
 /// Generators, responsible for generating block/edge ids
 pub use generators::{gen_hashed_block_ids, gen_hashed_edge_ids, gen_unique_edge_ids};
 use hashbrown::HashMap;
-use libafl_qemu_sys::GuestAddr;
+use libaflmm_qemu_sys::GuestAddr;
 use serde::{Deserialize, Serialize};
 /// Tracers, responsible for propagating an ID in a map.
 pub use tracers::{
@@ -32,7 +32,7 @@ pub struct QemuEdgesMapMetadata {
     pub current_id: u64,
 }
 
-libafl_bolts::impl_serdeany!(QemuEdgesMapMetadata);
+libaflmm_bolts::impl_serdeany!(QemuEdgesMapMetadata);
 
 impl QemuEdgesMapMetadata {
     #[must_use]
@@ -48,9 +48,9 @@ mod generators {
     use std::{cmp::max, ptr};
 
     use hashbrown::hash_map::Entry;
-    use libafl::states::FlatState;
-    use libafl_bolts::hash_64_fast;
-    use libafl_qemu_sys::GuestAddr;
+    use libaflmm::states::FlatState;
+    use libaflmm_bolts::hash_64_fast;
+    use libaflmm_qemu_sys::GuestAddr;
 
     use super::{
         super::EdgeCoverageVariant, LIBAFL_QEMU_EDGES_MAP_MASK_MAX, LIBAFL_QEMU_EDGES_MAP_SIZE_PTR,
@@ -287,7 +287,7 @@ mod generators {
 mod tracers {
     use std::cell::UnsafeCell;
 
-    use libafl_targets::EDGES_MAP;
+    use libaflmm_targets::EDGES_MAP;
 
     use super::{LIBAFL_QEMU_EDGES_MAP_MASK_MAX, LIBAFL_QEMU_EDGES_MAP_PTR};
 

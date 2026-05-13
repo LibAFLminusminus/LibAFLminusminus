@@ -30,13 +30,13 @@ pub fn build() {
     let qemu_asan_guest = cfg!(all(feature = "asan_guest", not(feature = "hexagon")));
     let qemu_asan_host = cfg!(all(feature = "asan_host", not(feature = "hexagon")));
 
-    let libafl_runtime_testfile = out_dir.join("runtime_test.c");
-    fs::write(&libafl_runtime_testfile, LIBAFL_QEMU_RUNTIME_TEST)
+    let libaflmm_runtime_testfile = out_dir.join("runtime_test.c");
+    fs::write(&libaflmm_runtime_testfile, LIBAFL_QEMU_RUNTIME_TEST)
         .expect("Could not write runtime test file");
 
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=build_linux.rs");
-    // println!("cargo:rerun-if-changed={}", libafl_runtime_dir.display());
+    // println!("cargo:rerun-if-changed={}", libaflmm_runtime_dir.display());
 
     let cpu_target = if cfg!(feature = "x86_64") {
         "x86_64".to_string()

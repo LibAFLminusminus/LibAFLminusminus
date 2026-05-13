@@ -14,9 +14,9 @@ use std::{
 };
 
 use hashbrown::{HashMap, HashSet};
-use libafl::{Result, executors::ExitKind, observers::ObserversTuple};
-use libafl_bolts::os::unix_signals::Signal;
-use libafl_qemu_sys::{GuestAddr, GuestUlong, MapInfo};
+use libaflmm::{Result, executors::ExitKind, observers::ObserversTuple};
+use libaflmm_bolts::os::unix_signals::Signal;
+use libaflmm_qemu_sys::{GuestAddr, GuestUlong, MapInfo};
 use libc::{
     MAP_ANON, MAP_FAILED, MAP_FIXED, MAP_NORESERVE, MAP_PRIVATE, PROT_READ, PROT_WRITE, c_void,
 };
@@ -36,7 +36,7 @@ use crate::{
     sys::TCGTemp,
 };
 
-// TODO at some point, merge parts with libafl_frida
+// TODO at some point, merge parts with libaflmm_frida
 
 pub const HIGH_SHADOW_ADDR: *mut c_void = 0x02008fff7000 as *mut c_void;
 pub const LOW_SHADOW_ADDR: *mut c_void = 0x00007fff8000 as *mut c_void;

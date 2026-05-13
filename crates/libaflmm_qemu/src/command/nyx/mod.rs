@@ -16,8 +16,8 @@ use std::{
 };
 
 use enum_map::EnumMap;
-use libafl::{executors::ExitKind, inputs::HasTargetBytes};
-use libafl_qemu_sys::{GuestAddr, GuestVirtAddr};
+use libaflmm::{executors::ExitKind, inputs::HasTargetBytes};
+use libaflmm_qemu_sys::{GuestAddr, GuestVirtAddr};
 use libc::c_uint;
 use paste::paste;
 
