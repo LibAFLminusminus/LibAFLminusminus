@@ -2,7 +2,7 @@
 
 use core::marker::PhantomData;
 
-use libafl_core::{Result, non_zero, runtime, serialize};
+use libaflmm_core::{Result, non_zero, runtime, serialize};
 use nix::sys::mman::{MapFlags, ProtFlags, mmap_anonymous};
 use serde::{Deserialize, Serialize};
 

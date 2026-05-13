@@ -12,7 +12,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use libafl_core::{Result, illegal_argument, illegal_state};
+use libaflmm_core::{Result, illegal_argument, illegal_state};
 use rangemap::RangeMap;
 
 /// A basic block struct

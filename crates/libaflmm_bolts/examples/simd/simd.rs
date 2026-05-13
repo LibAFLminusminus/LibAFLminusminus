@@ -1,7 +1,7 @@
 use chrono::Utc;
 use clap::Parser;
 use itertools::Itertools;
-use libafl_bolts::simd::{
+use libaflmm_bolts::simd::{
     AndReducer, MaxReducer, MinReducer, OrReducer, Reducer, SimdAndReducer, SimdMaxReducer,
     SimdMinReducer, SimdOrReducer, SimdReducer, VectorType, covmap_is_interesting_naive,
     covmap_is_interesting_simd, simplify_map_naive, simplify_map_simd,

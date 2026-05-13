@@ -4,93 +4,28 @@
 #![doc = include_str!("../README.md")]
 /*! */
 #![cfg_attr(feature = "document-features", doc = document_features::document_features!())]
-#![cfg_attr(not(test), warn(
-    missing_debug_implementations,
-    missing_docs,
-    //trivial_casts,
-    trivial_numeric_casts,
-    unused_extern_crates,
-    unused_import_braces,
-    unused_qualifications,
-    //unused_results
-))]
-#![cfg_attr(test, deny(
-    missing_debug_implementations,
-    missing_docs,
-    //trivial_casts,
-    trivial_numeric_casts,
-    unused_extern_crates,
-    unused_import_braces,
-    unused_qualifications,
-    unused_must_use,
-    //unused_results
-))]
-#![cfg_attr(
-    test,
-    deny(
-        bad_style,
-        dead_code,
-        improper_ctypes,
-        non_shorthand_field_patterns,
-        no_mangle_generic_items,
-        overflowing_literals,
-        path_statements,
-        patterns_in_fns_without_body,
-        unconditional_recursion,
-        unused,
-        unused_allocation,
-        unused_comparisons,
-        unused_parens,
-        while_true
-    )
-)]
 
-pub mod forkserver;
-
-/// We need some sort of "[`String`]" for errors in `no_alloc`...
-/// We can only support `'static` without allocator, so let's do that.
-#[cfg(not(feature = "alloc"))]
-type String = &'static str;
-
-/// A simple non-allocating "format" string wrapper for no-std.
-///
-/// Problem is that we really need a non-allocating format...
-/// This one simply returns the `fmt` string.
-/// Good enough for simple errors, for anything else, use the `alloc` feature.
-#[macro_export]
-#[cfg(not(feature = "alloc"))]
-macro_rules! format {
-    ($fmt:literal) => {{ $fmt }};
-    ($fmt:literal, $($arg:tt)*) => {{
-        // make sure the variables don't trigger unused-variable warnings
-        let _ = ($($arg)*);
-        $fmt
-    }};
-}
-/// Re-export of the "format" macro
-pub use alloc::{borrow::Cow, format};
-
-#[macro_use]
-extern crate std;
-#[doc(hidden)]
-pub extern crate alloc;
-
-use alloc::vec::Vec;
+use alloc::{borrow::Cow, vec::Vec};
 use core::{
     array::TryFromSliceError,
     fmt::{self, Display},
     num::{ParseIntError, TryFromIntError},
     ops::{Deref, DerefMut},
 };
-use std::{env::VarError, io};
-
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
+use std::{env::VarError, io};
 use {
     alloc::string::{FromUtf8Error, String},
     core::cell::{BorrowError, BorrowMutError},
     core::str::Utf8Error,
 };
+
+pub mod forkserver;
+
+pub mod nonzero_macros;
+
+pub extern crate alloc;
 
 /// The client ID for various use cases across `LibAFL`
 #[repr(transparent)]
@@ -358,103 +293,103 @@ impl Error {
 /// build an [`Error::Serialize`].
 #[macro_export]
 macro_rules! serialize {
-    ($($arg:tt)*) => { $crate::Error::serialize($crate::format!($($arg)*)) };
+    ($($arg:tt)*) => { $crate::Error::serialize(format!($($arg)*)) };
 }
 
 /// build an [`Error::EmptyOptional`].
 #[macro_export]
 macro_rules! empty_optional {
-    ($($arg:tt)*) => { $crate::Error::empty_optional($crate::format!($($arg)*)) };
+    ($($arg:tt)*) => { $crate::Error::empty_optional(format!($($arg)*)) };
 }
 
 /// build an [`Error::InvalidInput`].
 #[macro_export]
 macro_rules! invalid_input {
-    ($($arg:tt)*) => { $crate::Error::invalid_input($crate::format!($($arg)*)) };
+    ($($arg:tt)*) => { $crate::Error::invalid_input(format!($($arg)*)) };
 }
 
 /// build an [`Error::KeyNotFound`].
 #[macro_export]
 macro_rules! key_not_found {
-    ($($arg:tt)*) => { $crate::Error::key_not_found($crate::format!($($arg)*)) };
+    ($($arg:tt)*) => { $crate::Error::key_not_found(format!($($arg)*)) };
 }
 
 /// build an [`Error::KeyExists`].
 #[macro_export]
 macro_rules! key_exists {
-    ($($arg:tt)*) => { $crate::Error::key_exists($crate::format!($($arg)*)) };
+    ($($arg:tt)*) => { $crate::Error::key_exists(format!($($arg)*)) };
 }
 
 /// build an [`Error::Empty`].
 #[macro_export]
 macro_rules! empty {
-    ($($arg:tt)*) => { $crate::Error::empty($crate::format!($($arg)*)) };
+    ($($arg:tt)*) => { $crate::Error::empty(format!($($arg)*)) };
 }
 
 /// build an [`Error::IteratorEnd`].
 #[macro_export]
 macro_rules! iterator_end {
-    ($($arg:tt)*) => { $crate::Error::iterator_end($crate::format!($($arg)*)) };
+    ($($arg:tt)*) => { $crate::Error::iterator_end(format!($($arg)*)) };
 }
 
 /// build an [`Error::NotImplemented`].
 #[macro_export]
 macro_rules! not_implemented {
-    ($($arg:tt)*) => { $crate::Error::not_implemented($crate::format!($($arg)*)) };
+    ($($arg:tt)*) => { $crate::Error::not_implemented(format!($($arg)*)) };
 }
 
 /// build an [`Error::IllegalState`].
 #[macro_export]
 macro_rules! illegal_state {
-    ($($arg:tt)*) => { $crate::Error::illegal_state($crate::format!($($arg)*)) };
+    ($($arg:tt)*) => { $crate::Error::illegal_state(format!($($arg)*)) };
 }
 
 /// build an [`Error::IllegalArgument`].
 #[macro_export]
 macro_rules! illegal_argument {
-    ($($arg:tt)*) => { $crate::Error::illegal_argument($crate::format!($($arg)*)) };
+    ($($arg:tt)*) => { $crate::Error::illegal_argument(format!($($arg)*)) };
 }
 
 /// build an [`Error::Unsupported`].
 #[macro_export]
 macro_rules! unsupported {
-    ($($arg:tt)*) => { $crate::Error::unsupported($crate::format!($($arg)*)) };
+    ($($arg:tt)*) => { $crate::Error::unsupported(format!($($arg)*)) };
 }
 
 /// build an [`Error::Unknown`].
 #[macro_export]
 macro_rules! unknown {
-    ($($arg:tt)*) => { $crate::Error::unknown($crate::format!($($arg)*)) };
+    ($($arg:tt)*) => { $crate::Error::unknown(format!($($arg)*)) };
 }
 
 /// build an [`Error::InvalidCorpus`].
 #[macro_export]
 macro_rules! invalid_corpus {
-    ($($arg:tt)*) => { $crate::Error::invalid_corpus($crate::format!($($arg)*)) };
+    ($($arg:tt)*) => { $crate::Error::invalid_corpus(format!($($arg)*)) };
 }
 
 /// build an [`Error::Runtime`].
 #[macro_export]
 macro_rules! runtime {
-    ($($arg:tt)*) => { $crate::Error::runtime($crate::format!($($arg)*)) };
+    ($($arg:tt)*) => { $crate::Error::runtime(format!($($arg)*)) };
 }
 
 /// build an [`Error::InternalBug`].
 #[macro_export]
 macro_rules! internal_bug {
-    ($($arg:tt)*) => { $crate::Error::internal_bug($crate::format!($($arg)*)) };
+    ($($arg:tt)*) => { $crate::Error::internal_bug(format!($($arg)*)) };
 }
 
 /// build an [`Error::OsError`] from an [`io::Error`].
 #[macro_export]
 macro_rules! os_error {
-    ($err:expr, $($arg:tt)*) => { $crate::Error::os_error($err, $crate::format!($($arg)*)) };
+    ($err:expr, $($arg:tt)*) => { $crate::Error::os_error($err, format!($($arg)*)) };
 }
 
 /// build an [`Error::OsError`] from [`io::Error::last_os_error`].
 #[macro_export]
 macro_rules! last_os_error {
-    ($($arg:tt)*) => { $crate::Error::last_os_error($crate::format!($($arg)*)) };
+    ($($arg:tt)*) => { $crate::Error::last_os_error(format!($($arg)*)) };
 }
 
 impl core::error::Error for Error {
@@ -816,10 +751,6 @@ pub trait HasRefCnt {
     /// The ref count, mutable
     fn refcnt_mut(&mut self) -> &mut isize;
 }
-
-pub use nonzero_macros;
-#[doc(inline)]
-pub use nonzero_macros::{non_zero, non_zero_const, nonnull_raw_mut, try_non_zero};
 
 /// Create a [`Vec`] of the given type with `nb_elts` elements, initialized in place.
 /// The closure must initialize [`Vec`] (of size `nb_elts` * `sizeo_of::<T>()`).

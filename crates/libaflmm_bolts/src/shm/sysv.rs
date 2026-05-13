@@ -8,7 +8,7 @@ use core::{
 };
 use std::env;
 
-use libafl_core::{Result, last_os_error};
+use libaflmm_core::{Result, last_os_error};
 use libc::{IPC_CREAT, IPC_EXCL, IPC_PRIVATE, key_t, shmat, shmget};
 
 use crate::{

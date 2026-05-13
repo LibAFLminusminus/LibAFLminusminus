@@ -1,17 +1,11 @@
 [package]
-name = "libafl_qemu_build"
-version.workspace = true
+name = "libaflmm_qemu_build"
 authors = [
   "Andrea Fioraldi <andreafioraldi@gmail.com>",
   "Romain Malmain <rmalmain@pm.me>",
 ]
 description = "Builder for LibAFL QEMU"
-documentation = "https://docs.rs/libafl_qemu_build"
-repository = "https://github.com/AFLplusplus/LibAFL/"
-readme = "./README.md"
-license = "MIT OR Apache-2.0"
 keywords = ["fuzzing", "qemu", "instrumentation"]
-edition = "2024"
 categories = [
   "development-tools::testing",
   "emulators",
@@ -19,6 +13,14 @@ categories = [
   "os",
   "no-std",
 ]
+
+documentation.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+readme.workspace = true
+rust-version.workspace = true
+version.workspace = true
 
 [package.metadata.docs.rs]
 all-features = true

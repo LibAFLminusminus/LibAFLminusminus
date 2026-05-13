@@ -2,7 +2,7 @@
 
 use core::time::Duration;
 
-use libafl_core::Result;
+use libaflmm_core::Result;
 
 pub mod fast;
 pub use fast::FastTimer;

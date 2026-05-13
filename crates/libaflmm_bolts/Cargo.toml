@@ -38,13 +38,8 @@ document-features = ["dep:document-features"]
 ## Enables features that need rust's `std` lib to work, like print, env, ... support
 std = [
   "alloc",
-  "build_id2",
-  "core_affinity2",
-  "exceptional/std",
-  "fast_rands/std",
   "libaflmm_core/nix",
   "libaflmm_core/std",
-  "minibsod",
   "nix",
   "serde/std",
   "simd",
@@ -54,12 +49,8 @@ std = [
 ## Enables all features that allocate in `no_std`
 alloc = [
   "ahash",
-  "fast_rands/alloc",
   "libaflmm_core/alloc",
-  "postcard",
-  "serde_anymap",
   "serde/alloc",
-  "tuple_list_ex/alloc",
 ]
 
 ## Provide the `#[derive(SerdeAny)]` macro.
@@ -67,10 +58,10 @@ derive = ["libaflmm_derive"]
 
 ## If set, libaflmm_bolt's `rand` implementations will implement `rand_core::CoreRng`
 ## and, inversely, all seedable `rand_core::RngCore` types can be used as Rng for LibAFL.
-rand_trait = ["fast_rands/rand_trait"]
+rand_trait = []
 
 ## Will build the `pyo3` bindings
-python = ["pyo3", "std", "libaflmm_core/python", "fast_rands/python"]
+python = ["pyo3", "std", "libaflmm_core/python"]
 
 ## Expose `libafl::prelude` for direct access to all types without additional `use` directives
 prelude = []
@@ -102,7 +93,7 @@ xxh3 = ["xxhash-rust"]
 ## With this feature, stored state remains deserializable across multiple compilations of LibAFL.
 ## The rust doc specifically states that "multiple types may map to the same type name", so it could potentially lead to bugs.
 ## However, we make sure that no two types with the same name ever exist.
-stable_anymap = ["serde_anymap/stable_anymap"]
+stable_anymap = []
 
 #! ### Stable SIMD features
 
@@ -120,18 +111,12 @@ itertools = "0.14.0"
 
 [dependencies]
 rangemap = { workspace = true }
-build_id2 = { workspace = true, optional = true }
-core_affinity2 = { workspace = true, optional = true }
-exceptional = { workspace = true }
-fast_rands = { workspace = true }
 libaflmm_core = { workspace = true, features = ["serde"] }
 libaflmm_derive = { workspace = true, default-features = true, optional = true }
-minibsod = { workspace = true, optional = true }
-nonzero_macros = { workspace = true }
-ownedref = { workspace = true }
-serde_anymap = { workspace = true, optional = true }
-tuple_list_ex = { workspace = true, features = ["serde"] }
 
+num_enum = { workspace = true }
+rand_core = { version = "0.9.5" }
+uuid = { workspace = true }
 ahash = { workspace = true, optional = true } # The hash function already used in hashbrown
 clap = { workspace = true, features = [
   "derive",
@@ -143,7 +128,6 @@ xxhash-rust = { version = "0.8.12", features = [
 serde = { workspace = true, default-features = false, features = [
   "derive",
 ] } # serialization lib
-postcard = { workspace = true, optional = true } # no_std compatible serde serialization format
 
 miniz_oxide = { version = "0.9.1" }
 log = { workspace = true }
@@ -161,6 +145,17 @@ pyo3 = { workspace = true, optional = true, features = ["serde", "macros"] }
 wide = { version = "1.1.1", optional = true }
 atomic = "0.6.1"
 num-traits = { workspace = true }
+ctor = { workspace = true }
+erased-serde = { workspace = true, default-features = false, features = [
+  "alloc",
+] }
+hashbrown = { workspace = true, features = [
+  "serde",
+  "default-hasher",
+  "raw-entry",
+] }
+postcard = { workspace = true }
+static_assertions = { workspace = true }
 
 # Document all features of this crate (for `cargo doc`)
 document-features = { workspace = true, optional = true }

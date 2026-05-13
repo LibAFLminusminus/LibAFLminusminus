@@ -7,7 +7,7 @@
 //! The most common usage of the cli parser. Just call `parse_args` and use the results.
 //!
 //! ```ignore
-//! use libafl_bolts::cli::{parse_args, FuzzerOptions};
+//! use libaflmm_bolts::cli::{parse_args, FuzzerOptions};
 //!
 //! fn fuzz(options: FuzzerOptions) {}
 //! fn replay(options: FuzzerOptions) {}
@@ -30,11 +30,11 @@
 //! ## Example (`libafl_qemu`)
 //!
 //! ```ignore
-//! use libafl_bolts::cli::{parse_args, FuzzerOptions};
+//! use libaflmm_bolts::cli::{parse_args, FuzzerOptions};
 //! use std::env;
 //!
 //! // make sure to add `features = ["qemu_cli"]` to the `libafl` crate in `Cargo.toml`
-//! use libafl_qemu::Qemu;
+//! use libaflmm_qemu::Qemu;
 //!
 //! fn fuzz_with_qemu(mut options: FuzzerOptions) {
 //!     env::remove_var("LD_LIBRARY_PATH");
@@ -339,7 +339,7 @@ impl FuzzerOptions {
     ///
     /// ```ignore
     /// use clap::{App, IntoApp, Parser};
-    /// use libafl_bolts::cli::FuzzerOptions;
+    /// use libaflmm_bolts::cli::FuzzerOptions;
     ///
     /// fn custom_func(_: &str) {}  // not relevant; just for illustrative purposes
     ///

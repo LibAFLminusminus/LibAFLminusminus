@@ -166,7 +166,6 @@ cc = { version = "1.2.53", features = ["parallel"] }
 document-features = { workspace = true, optional = true }
 libaflmm_bolts = { workspace = true, default-features = true }
 libaflmm_core = { workspace = true }
-ownedref = { workspace = true }
 
 [lints]
 workspace = true

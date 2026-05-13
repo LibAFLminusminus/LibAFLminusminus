@@ -13,7 +13,7 @@ use core::{
 };
 
 use atomic::Atomic;
-use libafl_core::{Result, runtime};
+use libaflmm_core::{Result, runtime};
 use num_traits::{Bounded, NumCast};
 use wide::bytemuck::NoUninit;
 

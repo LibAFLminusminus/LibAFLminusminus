@@ -154,7 +154,6 @@ libaflmm_core = { workspace = true }
 libaflmm_derive = { workspace = true, default-features = true, optional = true }
 libaflmm_intelpt = { workspace = true, default-features = true, optional = true }
 libaflmm_targets = { workspace = true, default-features = true }
-tuple_list_ex = { workspace = true }
 
 quanta = "0.12.6"
 ahash = { workspace = true } # The hash function already used in hashbrown

@@ -4,82 +4,28 @@
 #![doc = include_str!("../README.md")]
 /*! */
 #![cfg_attr(feature = "document-features", doc = document_features::document_features!())]
-#![no_std]
-#![cfg_attr(not(test), warn(
-    missing_debug_implementations,
-    missing_docs,
-    //trivial_casts,
-    trivial_numeric_casts,
-    unused_extern_crates,
-    unused_import_braces,
-    unused_qualifications,
-    //unused_results
-))]
-#![cfg_attr(test, deny(
-    missing_debug_implementations,
-    missing_docs,
-    //trivial_casts,
-    trivial_numeric_casts,
-    unused_extern_crates,
-    unused_import_braces,
-    unused_qualifications,
-    unused_must_use,
-    //unused_results
-))]
-#![cfg_attr(
-    test,
-    deny(
-        bad_style,
-        dead_code,
-        improper_ctypes,
-        non_shorthand_field_patterns,
-        no_mangle_generic_items,
-        overflowing_literals,
-        path_statements,
-        patterns_in_fns_without_body,
-        unconditional_recursion,
-        unused,
-        unused_allocation,
-        unused_comparisons,
-        unused_parens,
-        while_true
-    )
-)]
 
-#[cfg(feature = "std")]
-#[macro_use]
-extern crate std;
-#[cfg(feature = "alloc")]
-#[macro_use]
-#[doc(hidden)]
 pub extern crate alloc;
 
-#[cfg(feature = "std")]
-pub use build_id2 as build_id;
-#[cfg(feature = "alloc")]
-pub use serde_anymap::anymap;
 pub mod shm;
 pub use shm::{
     AnonShmBuilder, AnonShmReceiver, AnonShmSender, EmptyShmHeader, SharedMemory, ShmHeader,
     SysVShm,
 };
+
 #[cfg(all(
     any(feature = "cli", feature = "frida_cli", feature = "qemu_cli"),
     feature = "std"
 ))]
 pub mod cli;
+
 pub mod compress;
-#[cfg(feature = "std")]
-pub use core_affinity2 as core_affinity;
-#[cfg(feature = "std")]
+
 pub mod fs;
 pub mod math;
-#[cfg(feature = "std")]
 pub use minibsod;
 pub mod os;
-#[cfg(feature = "alloc")]
 pub use serde_anymap::serdeany;
-#[cfg(feature = "std")]
 #[cfg(any(feature = "xxh3", feature = "alloc"))]
 pub use tuple_list_ex as tuples;
 
@@ -91,7 +37,7 @@ pub use argparse::*;
 #[cfg(feature = "std")]
 pub mod target_args;
 pub use fast_rands as rands;
-pub use libafl_core::{
+pub use libaflmm_core::{
     AsIter, AsIterMut, AsSlice, AsSliceMut, Error, HasLen, HasRefCnt, Named, Result, Truncate,
     WorkerId,
 };
@@ -100,6 +46,8 @@ pub use ownedref::{self, subrange};
 pub use serde_anymap::impl_serdeany;
 #[cfg(feature = "std")]
 pub use target_args::*;
+
+pub mod anymap;
 
 pub mod drcov;
 pub mod simd;
@@ -114,12 +62,17 @@ pub mod pipes;
 pub use pipes::Pipe;
 
 pub mod core_affinity;
-pub use core_affinity::{Core, CoreId, Cores};
+pub use core_affinity::{CoreId, Cores};
 
 pub mod build_id;
-pub use build_id::Uuid;
 
 pub mod exceptions;
+
+pub mod rands;
+pub use rands::{
+    Lehmer64Rand, LoadedDiceSampler, Rand, RomuDuoJrRand, RomuTrioRand, Sfc64Rand, StdRand,
+    XkcdRand, XorShift64Rand, Xoshiro256PlusPlusRand, choose, fast_bound, random_seed,
+};
 
 /// The purpose of this module is to alleviate imports of the bolts by adding a glob import.
 #[cfg(feature = "prelude")]
@@ -169,8 +122,8 @@ use std::{
 // TODO: re-enable once <https://github.com/tkaitchuck/aHash/issues/155> is resolved.
 #[cfg(all(not(feature = "xxh3"), feature = "alloc"))]
 use ahash::RandomState;
-#[cfg(feature = "libafl_derive")]
-pub use libafl_derive::SerdeAny;
+#[cfg(feature = "libaflmm_derive")]
+pub use libaflmm_derive::SerdeAny;
 #[cfg(feature = "std")]
 use log::{Metadata, Record};
 #[cfg(feature = "xxh3")]
@@ -667,10 +620,6 @@ pub fn has_tls() -> bool {
     // Default
     true
 }
-
-pub use nonzero_macros;
-#[doc(inline)]
-pub use nonzero_macros::{non_zero, non_zero_const, nonnull_raw_mut, try_non_zero};
 
 #[cfg(feature = "python")]
 #[allow(missing_docs)] // expect somehow breaks here

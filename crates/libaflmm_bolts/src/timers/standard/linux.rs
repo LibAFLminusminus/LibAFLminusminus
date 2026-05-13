@@ -1,6 +1,7 @@
 //! The struct `TimerStruct` will absorb all the difference in timeout implementation in various system.
+use crate::timers::Timer;
 use core::time::Duration;
-
+use libaflmm_core::Result;
 use nix::{
     sys::{
         signal::{SigEvent, SigevNotify, Signal},
@@ -9,8 +10,6 @@ use nix::{
     },
     time::ClockId,
 };
-
-use crate::timers::Timer;
 
 /// The strcut about all the internals of the timer.
 /// This struct absorb all platform specific differences about timer.
@@ -49,7 +48,7 @@ impl StdTimer {
 }
 
 impl Timer for StdTimer {
-    fn create_timer(&mut self, timeout: Duration) -> libafl_core::Result<()> {
+    fn create_timer(&mut self, timeout: Duration) -> Result<()> {
         if self.timer.is_some() {
             self.delete_timer()?;
         }
@@ -68,7 +67,7 @@ impl Timer for StdTimer {
         Ok(())
     }
 
-    unsafe fn arm_timer(&mut self) -> libafl_core::Result<()> {
+    unsafe fn arm_timer(&mut self) -> Result<()> {
         if let Some((timer, expiration)) = &mut self.timer {
             let flags = TimerSetTimeFlags::empty();
 
@@ -78,7 +77,7 @@ impl Timer for StdTimer {
         Ok(())
     }
 
-    unsafe fn disarm_timer(&mut self) -> libafl_core::Result<()> {
+    unsafe fn disarm_timer(&mut self) -> Result<()> {
         if let Some((timer, _)) = &mut self.timer {
             let flags = TimerSetTimeFlags::empty();
 
@@ -88,7 +87,7 @@ impl Timer for StdTimer {
         Ok(())
     }
 
-    fn delete_timer(&mut self) -> libafl_core::Result<()> {
+    fn delete_timer(&mut self) -> Result<()> {
         self.timer.take();
 
         Ok(())

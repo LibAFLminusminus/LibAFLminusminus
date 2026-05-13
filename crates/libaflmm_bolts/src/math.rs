@@ -1,19 +1,18 @@
 //! Math-related functions that we commonly (or at least sometimes) need
 
 use core::ops::AddAssign;
-
-use libafl_core::{Error, format};
+use libaflmm_core::{Result, illegal_argument};
 
 /// Returns the cumulative distribution function for a discrete distribution.
-pub fn calculate_cumulative_distribution_in_place(probabilities: &mut [f32]) -> Result<(), Error> {
+pub fn calculate_cumulative_distribution_in_place(probabilities: &mut [f32]) -> Result<()> {
     if probabilities.is_empty() {
-        return Err(Error::illegal_argument("empty list of probabilities"));
+        return Err(illegal_argument!("empty list of probabilities"));
     }
 
     if !probabilities.iter().all(|&p| (0.0..=1.0).contains(&p)) {
-        return Err(Error::illegal_argument(format!(
+        return Err(illegal_argument!(
             "invalid probability distribution: {probabilities:?}"
-        )));
+        ));
     }
 
     let cumulative = probabilities;
@@ -23,9 +22,7 @@ pub fn calculate_cumulative_distribution_in_place(probabilities: &mut [f32]) -> 
     let last = cumulative.last_mut().unwrap();
     let offset_to_1 = *last - 1.0_f32;
     if offset_to_1.is_nan() || offset_to_1 > 1.0e-4 || -offset_to_1 > 1.0e-4 {
-        return Err(Error::illegal_argument(format!(
-            "sum of probabilities ({last}) is not 1"
-        )));
+        return Err(illegal_argument!("sum of probabilities ({last}) is not 1"));
     }
 
     // Clamp the end of the vector to account for floating point errors.
@@ -65,7 +62,7 @@ pub const fn integer_sqrt(val: u64) -> u64 {
 /// So, to give an example:
 /// ```rust
 /// # extern crate libafl_bolts;
-/// use libafl_bolts::math::calculate_cumulative_sum_in_place;
+/// use libaflmm_bolts::math::calculate_cumulative_sum_in_place;
 ///
 /// let mut value = [2, 4, 1, 3];
 /// calculate_cumulative_sum_in_place(&mut value);

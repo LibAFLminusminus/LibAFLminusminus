@@ -21,7 +21,7 @@ pub use exceptional::unix_signals::CTRL_C_EXIT;
 #[cfg(all(windows, feature = "std"))]
 pub use exceptional::windows_exceptions;
 #[cfg(unix)]
-use libafl_core::format;
+use libaflmm_core::format;
 // Allow a few extra features we need for the whole module
 #[cfg(unix)]
 use libc::pid_t;

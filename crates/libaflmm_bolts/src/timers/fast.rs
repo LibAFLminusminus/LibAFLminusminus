@@ -13,7 +13,7 @@ use std::{
     time::Instant,
 };
 
-use libafl_core::Result;
+use libaflmm_core::Result;
 use libc::{SIGALRM, pthread_kill, pthread_self};
 
 use crate::timers::Timer;
