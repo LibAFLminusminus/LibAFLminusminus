@@ -150,7 +150,7 @@ jobs:
         with:
           cache-key: ubuntu
       - name: Installing python3 black
-        run: python3 -m pip install black
+        run: command -v black &>/dev/null || pipx install black
       - name: Check formatting
         run: ./scripts/fmt_all.sh check
 
