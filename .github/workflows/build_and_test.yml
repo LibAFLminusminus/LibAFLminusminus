@@ -93,9 +93,6 @@ jobs:
   ubuntu-check:
     runs-on: ubuntu-24.04
     needs: ubuntu
-    env:
-      CI_INSTANCES: 18
-      LLVM_VERSION: ${{ env.MAIN_LLVM_VERSION }}
     strategy:
       matrix:
         instance_idx:
@@ -135,6 +132,9 @@ jobs:
           components: clippy, rustfmt
           cache-key: ubuntu
       - name: Check each feature
+        env:
+          CI_INSTANCES: 18
+          LLVM_VERSION: ${{ env.MAIN_LLVM_VERSION }}
         run: cargo run --manifest-path utils/ci_splitter/Cargo.toml -- ${{ matrix.instance_idx }}
 
   cargo-fmt:
