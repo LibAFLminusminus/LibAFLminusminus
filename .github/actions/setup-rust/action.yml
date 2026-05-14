@@ -21,11 +21,38 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Install Rust
-      uses: dtolnay/rust-toolchain@master
-      with:
-        toolchain: ${{ inputs.toolchain }}
-        components: ${{ inputs.components }}
+    - name: Install Rust toolchain
+      shell: bash
+      env:
+        TOOLCHAIN: ${{ inputs.toolchain }}
+        COMPONENTS: ${{ inputs.components }}
+      run: |
+        CARGO_BIN="${CARGO_HOME:-$HOME/.cargo}/bin"
+
+        # install rustup is not already installed. locked for concurrent access.
+        if ! command -v rustup &>/dev/null && ! command -v "$CARGO_BIN/rustup" &>/dev/null; then
+          flock --timeout 300 /var/lock/github-rust.lock bash -c '
+            command -v rustup && exit 0
+            curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs \
+              | sh -s -- -y --no-modify-path --default-toolchain none
+          '
+        fi
+
+        export PATH="$CARGO_BIN:$PATH"
+        echo "$CARGO_BIN" >> "$GITHUB_PATH"
+
+        # same, careful with race conditions.
+        flock --timeout 300 /var/lock/github-rust.lock \
+          rustup toolchain install "$TOOLCHAIN" --no-self-update
+
+        # not, install components. this is fast, so not dangerous.
+        for component in $(echo "$COMPONENTS" | tr ',' ' '); do
+          rustup component add --toolchain "$TOOLCHAIN" "$component"
+        done
+
+        # set the rustup toolchain through the env.
+        # do NOT use rustup default <toolchain> as it would race with other jobs.
+        echo "RUSTUP_TOOLCHAIN=$TOOLCHAIN" >> "$GITHUB_ENV"
 
     - name: Install Just
       uses: extractions/setup-just@v4
