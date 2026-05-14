@@ -97,27 +97,8 @@ jobs:
     runs-on: ${{ fromJSON(vars.RUNS_ON || '["self-hosted","linux"]') }}
     strategy:
       matrix:
-        instance_idx:
-          [
-            "0",
-            "1",
-            "2",
-            "3",
-            "4",
-            "5",
-            "6",
-            "7",
-            "8",
-            "9",
-            "10",
-            "11",
-            "12",
-            "13",
-            "14",
-            "15",
-            "16",
-            "17",
-          ]
+        # check CI_INSTANCES if you change that to match
+        instance_idx: ["0", "1"]
       fail-fast: false
     steps:
       - uses: actions/checkout@v6
@@ -136,7 +117,8 @@ jobs:
           cache: ${{ vars.RUNS_ON != '' }}
       - name: Check each feature
         env:
-          CI_INSTANCES: 18
+          # check instance_idx if you change that to match
+          CI_INSTANCES: 2
           LLVM_VERSION: ${{ env.MAIN_LLVM_VERSION }}
         run: cargo run --manifest-path utils/ci_splitter/Cargo.toml -- ${{ matrix.instance_idx }}
 
