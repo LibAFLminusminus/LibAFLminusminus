@@ -113,18 +113,18 @@ hashbrown = { workspace = true, default-features = true, features = [
 ] } # A faster hashmap, nostd compatible
 num-traits = { workspace = true, default-features = true }
 num_enum = { workspace = true, default-features = true }
-goblin = "0.10.4"
+goblin = "0.10.5"
 libc = { workspace = true }
 strum = { workspace = true }
 strum_macros = { workspace = true }
-syscall-numbers = "4.0.2"
+syscall-numbers = "4.0.3"
 meminterval = { workspace = true }
 thread_local = "1.1.9"
 capstone = "0.14.0"
 rangemap = { workspace = true }
 log = { workspace = true }
-object = "0.38.0"
-addr2line = "0.25.0"
+object = "0.38.1"
+addr2line = "0.25.1"
 paste = { workspace = true }
 enum-map = "2.7.3"
 serde_yaml = { workspace = true, optional = true } # For parsing the injections yaml file

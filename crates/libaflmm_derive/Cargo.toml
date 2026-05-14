@@ -23,9 +23,9 @@ version.workspace = true
 proc-macro = true
 
 [dependencies]
-syn = { version = "2.0.113", features = ["full", "extra-traits"] }
-quote = "1.0.37"
-proc-macro2 = "1.0.104"
+syn = { version = "2.0.117", features = ["full", "extra-traits"] }
+quote = "1.0.45"
+proc-macro2 = "1.0.106"
 
 [lints]
 workspace = true

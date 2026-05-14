@@ -33,10 +33,10 @@ log = { workspace = true }
 num_enum = { workspace = true, default-features = false }
 num-traits = { workspace = true, default-features = false }
 ptcov = { version = "0.0.6" }
-raw-cpuid = { version = "11.1.0" }
+raw-cpuid = { version = "11.6.0" }
 
 [target.'cfg(target_os = "linux" )'.dependencies]
-caps = { version = "0.5.5" }
+caps = { version = "0.5.6" }
 perf-event-open-sys = { version = "5.0.0" }
 
 [lints]

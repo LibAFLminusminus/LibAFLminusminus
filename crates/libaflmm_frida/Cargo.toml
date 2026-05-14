@@ -49,11 +49,11 @@ nix = { workspace = true, default-features = true, features = ["mman"] }
 libc = { workspace = true }
 hashbrown = { workspace = true, default-features = true }
 rangemap = { workspace = true }
-frida-gum-sys = { version = "0.17.1", features = [
+frida-gum-sys = { version = "0.17.2", features = [
   "event-sink",
   "invocation-listener",
 ] }
-frida-gum = { version = "0.17.1", features = [
+frida-gum = { version = "0.17.2", features = [
   "event-sink",
   "invocation-listener",
   "module-names",
@@ -62,7 +62,7 @@ frida-gum = { version = "0.17.1", features = [
 ] }
 dynasmrt = "4.0.2"
 
-color-backtrace = { version = "0.7.0", features = ["resolve-modules"] }
+color-backtrace = { version = "0.7.2", features = ["resolve-modules"] }
 termcolor = "1.4.1"
 serde = { workspace = true, default-features = true }
 backtrace = { workspace = true, default-features = false, features = ["serde"] }

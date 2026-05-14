@@ -65,14 +65,14 @@ ppc = ["libaflmm_qemu/ppc", "be"]
 hexagon = ["libaflmm_qemu/hexagon"]
 
 [build-dependencies]
-vergen = { version = "9.0.1", features = ["build", "cargo", "rustc", "si"] }
+vergen = { version = "9.1.0", features = ["build", "cargo", "rustc", "si"] }
 vergen-git2 = "9.1.0"
 
 [dependencies]
-clap = { version = "4.5.52", features = ["derive", "string"] }
-env_logger = { version = "0.11.5" }
+clap = { version = "4.6.1", features = ["derive", "string"] }
+env_logger = { version = "0.11.10" }
 log = { version = "0.4.29", features = ["release_max_level_info"] }
-readonly = { version = "0.2.12" }
+readonly = { version = "0.2.13" }
 libaflmm_bolts = { path = "../../libaflmm_bolts" }
 libaflmm_qemu = { path = "../" }
-thiserror = { version = "2.0.16" }
+thiserror = { version = "2.0.18" }
