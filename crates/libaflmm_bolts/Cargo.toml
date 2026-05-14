@@ -79,7 +79,7 @@ rustversion = { workspace = true }
 [dev-dependencies]
 clap = { workspace = true, features = ["derive", "env"] }
 rand = "0.10.1"
-chrono = "0.4.43"
+chrono = "0.4.44"
 itertools = "0.14.0"
 
 [dependencies]
@@ -95,7 +95,7 @@ clap = { workspace = true, features = [
   "derive",
   "wrap_help",
 ], optional = true } # CLI parsing, for libaflmm_bolts::cli / the `cli` feature
-xxhash-rust = { version = "0.8.12", features = [
+xxhash-rust = { version = "0.8.15", features = [
   "xxh3",
 ], optional = true } # xxh3 hashing for rust
 serde = { workspace = true, default-features = false, features = [
@@ -115,7 +115,7 @@ pyo3 = { workspace = true, optional = true, features = ["serde", "macros"] }
 bytemuck = "1.25.0"
 
 # optional stable simd
-wide = { version = "1.1.1", optional = true }
+wide = { version = "1.4.0", optional = true }
 atomic = "0.6.1"
 num-traits = { workspace = true }
 ctor = { workspace = true }

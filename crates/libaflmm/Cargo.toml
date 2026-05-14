@@ -102,7 +102,7 @@ rustversion = { workspace = true }
 
 [dev-dependencies]
 # clippy-suggested optimised byte counter
-bytecount = "0.6.8"
+bytecount = "0.6.9"
 rusty-fork = "0.3.1"
 
 [dependencies]
@@ -119,7 +119,7 @@ hashbrown = { workspace = true, features = [
   "default-hasher",
   "raw-entry",
 ], default-features = false } # A faster hashmap, nostd compatible
-libm = "0.2.8"
+libm = "0.2.16"
 log = { workspace = true }
 meminterval = { workspace = true, features = ["serde"] }
 nix = { workspace = true, features = [
@@ -136,12 +136,12 @@ pyo3 = { workspace = true, optional = true }
 serde = { workspace = true, features = ["derive", "rc"] }
 serde_json = { workspace = true, default-features = true }
 static_assertions = { workspace = true }
-humantime = "2.1"
+humantime = "2.3"
 tuple_list = { workspace = true }
 typed-builder = { workspace = true } # Implement the builder pattern at compiletime
 
 regex = { workspace = true, optional = true }
-regex-syntax = { version = "0.8.4", optional = true } # For nautilus
+regex-syntax = { version = "0.8.10", optional = true } # For nautilus
 
 # optional-dev deps (change when target.'cfg(accessible(::std))'.test-dependencies will be stable)
 serial_test = { workspace = true, optional = true, default-features = false, features = [

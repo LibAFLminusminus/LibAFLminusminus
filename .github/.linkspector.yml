@@ -1,6 +1,9 @@
 dirs:
   - .
 
+excludedDirs:
+  - AFLplusplus
+
 useGitIgnore: true
 
 ignorePatterns:
