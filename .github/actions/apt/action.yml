@@ -32,8 +32,6 @@ runs:
           fi
         fi
 
-        # Only update if lists are stale (>1 h) or sources just changed.
-        # On a self-hosted runner, package lists persist — no need to refresh every job.
         cache_age=$(( $(date +%s) - $(stat -c %Y /var/cache/apt/pkgcache.bin 2>/dev/null || echo 0) ))
         if [ "$NEEDS_UPDATE" = true ] || [ ! -f /var/cache/apt/pkgcache.bin ] || [ "$cache_age" -gt 3600 ]; then
           sudo flock --timeout 300 "$APT_LOCK" apt-get update
@@ -51,6 +49,7 @@ runs:
         packages=(
           curl lsb-release wget software-properties-common gnupg
           shellcheck libc6-dev gcc g++ build-essential libfile-mimeinfo-perl
+          python3-pip
         )
 
         if ! dpkg -s "${packages[@]}" &>/dev/null; then
@@ -62,7 +61,7 @@ runs:
       if: ${{ inputs.qemu == 'true' }}
       shell: bash
       run: |
-        # build-dep has no clean installed-check; use a sentinel file instead.
+        # use a manual sentinel to make sure it's working correctly
         sentinel=/var/lib/github-runner-sentinel/qemu-build-dep
         if [ ! -f "$sentinel" ]; then
           sudo flock --timeout 300 /var/lock/github-apt.lock apt-get build-dep -y qemu

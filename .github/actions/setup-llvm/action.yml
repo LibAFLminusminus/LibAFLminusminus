@@ -13,14 +13,22 @@ runs:
     - name: Install LLVM ${{ inputs.version }}
       shell: bash
       run: |
-        # check if clang is already installed
         if command -v "clang-${{ inputs.version }}" &>/dev/null; then
+          # llvm already installed, exit.
           echo "clang-${{ inputs.version }} already present, skipping install."
-        else
-          wget https://apt.llvm.org/llvm.sh
-          chmod +x llvm.sh
-          sudo flock --timeout 300 /var/lock/github-apt.lock ./llvm.sh "${{ inputs.version }}" all
+          exit 0
         fi
+        wget https://apt.llvm.org/llvm.sh
+        chmod +x llvm.sh
+
+        # this is racey, another job could have installed llvm meanwhile.
+        sudo flock --timeout 300 /var/lock/github-apt.lock bash -c '
+          if command -v "clang-${{ inputs.version }}" &>/dev/null; then
+            echo "clang-${{ inputs.version }} installed by concurrent job, skipping."
+          else
+            ./llvm.sh "${{ inputs.version }}" all
+          fi
+        '
 
     - name: Set up LLVM ${{ inputs.version }} alternatives
       shell: bash
