@@ -39,8 +39,6 @@ runs:
 
         # now, set the compiler-related env variables.
         {
-          echo "CC=clang-${{ inputs.version }}"
-          echo "CXX=clang++-${{ inputs.version }}"
           echo "LLVM_CONFIG=llvm-config-${{ inputs.version }}"
           echo "LLVM_CONFIG_PATH=/usr/lib/llvm-${{ inputs.version }}/bin/llvm-config"
           echo "LIBCLANG_PATH=/usr/lib/llvm-${{ inputs.version }}/lib"
