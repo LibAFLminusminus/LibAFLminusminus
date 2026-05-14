@@ -97,7 +97,7 @@ shared = ["libaflmm_qemu_sys/shared"]
 clippy = ["libaflmm_qemu_sys/clippy", "libvharness_sys/clippy"]
 
 [dependencies]
-libaflmm = { workspace = true, features = ["derive", "regex"] }
+libaflmm = { workspace = true, features = ["derive"] }
 libaflmm_bolts = { workspace = true, features = ["derive"] }
 libaflmm_core = { workspace = true }
 libaflmm_targets = { workspace = true, default-features = true }

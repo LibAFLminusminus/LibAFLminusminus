@@ -239,21 +239,6 @@ fn main() {
         }
     }
 
-    // #[cfg(feature = "libfuzzer_interceptors")]
-    // {
-    //     println!("cargo:rerun-if-changed=src/libfuzzer/FuzzerInterceptors.cpp");
-
-    //     let mut libfuzzer_interceptors = cc::Build::new();
-    //     libfuzzer_interceptors.file(src_dir.join("libfuzzer/FuzzerInterceptors.cpp"));
-
-    //     #[cfg(feature = "whole_archive")]
-    //     {
-    //         libfuzzer_interceptors.link_lib_modifier("+whole-archive");
-    //     }
-
-    //     libfuzzer_interceptors.cpp(true).compile("interceptors");
-    // }
-
     println!("cargo:rustc-link-search=native={}", &out_dir);
 
     println!("cargo:rerun-if-changed=build.rs");

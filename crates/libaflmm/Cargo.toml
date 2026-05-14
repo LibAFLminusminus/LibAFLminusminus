@@ -39,7 +39,6 @@ default = [
   "nautilus",
   "libaflmm_bolts/xxh3",
   "rand_trait",
-  "regex",
   "simd",
   "serial_test",
 ]
@@ -61,9 +60,6 @@ corpus_btreemap = []
 handle_sigpipe = []
 
 #! ## Additional Components
-
-## Enables the `NaiveTokenizer` and `StacktraceObserver`
-regex = ["dep:regex", "dep:backtrace"]
 
 ## Intel Processor Trace
 intel_pt = ["dep:libaflmm_intelpt"]
@@ -93,7 +89,7 @@ rand_trait = ["libaflmm_bolts/rand_trait"]
 #! ### SerdeAny features
 
 ## Grammar mutator.
-nautilus = ["rand_trait", "regex-syntax", "regex"]
+nautilus = ["rand_trait", "dep:regex-syntax", "dep:regex"]
 
 ## Python grammar support for nautilus
 nautilus_py = ["nautilus", "dep:pyo3"]
@@ -118,7 +114,6 @@ libaflmm_targets = { workspace = true, default-features = true }
 
 quanta = "0.12.6"
 ahash = { workspace = true } # The hash function already used in hashbrown
-backtrace = { workspace = true, optional = true } # Used to get the stacktrace in StacktraceObserver
 hashbrown = { workspace = true, features = [
   "serde",
   "default-hasher",

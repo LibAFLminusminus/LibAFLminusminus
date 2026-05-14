@@ -86,11 +86,6 @@ windows_asan = ["common"]
 ## This is important for ensuring that weak symbols (like sanitizer hooks) are included in the final binary.
 whole_archive = []
 
-## Support for function logging.
-## This feature enables the `call` module, which provides hooks for function calls.
-## It allows tracing function entries and exits.
-function-logging = ["common"]
-
 #! ### Libfuzzer-compatibility Features
 
 ## Libfuzzer compatibility mode.
@@ -107,16 +102,6 @@ libfuzzer_no_link_main = ["libfuzzer"]
 ## This feature defines `FUZZER_DEFINE_RUN_DRIVER` when compiling `libfuzzer.c`.
 ## It defines the `run_driver` symbol, which is used by some Libfuzzer targets.
 libfuzzer_define_run_driver = ["libfuzzer"]
-
-## Libfuzzer interceptors.
-## This feature compiles `FuzzerInterceptors.cpp`, which defines interceptors for common library functions (e.g., `malloc`, `free`).
-## It is used to track memory allocations and other events in Libfuzzer compatibility mode.
-libfuzzer_interceptors = ["libfuzzer", "sancov_cmplog"]
-
-## Libfuzzer OOM handling.
-## This feature enables Out-Of-Memory (OOM) handling in Libfuzzer compatibility mode.
-## It registers a handler to catch OOM errors and report them to the fuzzer.
-libfuzzer_oom = ["libfuzzer"]
 
 #! ### Sanitizer Features
 
@@ -139,11 +124,6 @@ sanitizer_interfaces = []
 ## Ignore compiler warnings during clippy.
 ## This feature suppresses clippy warnings in generated code or specific modules.
 clippy = []
-
-## Observers.
-## This feature enables observer implementations in `sancov_8bit` and `cmps`.
-## It allows using these observers to track coverage and comparison values.
-observers = []
 
 ## Document all features of this crate (for `cargo doc`)
 document-features = ["dep:document-features"]

@@ -16,10 +16,12 @@ use std::{
     panic,
     time::SystemTime,
 };
+
 // There's a bug in ahash that doesn't let it build in `alloc` without once_cell right now.
 // TODO: re-enable once <https://github.com/tkaitchuck/aHash/issues/155> is resolved.
-#[cfg(feature = "libaflmm_derive")]
+#[cfg(feature = "derive")]
 pub use libaflmm_derive::SerdeAny;
+
 #[cfg(unix)]
 use log::{Metadata, Record};
 #[cfg(feature = "xxh3")]
