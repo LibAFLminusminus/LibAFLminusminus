@@ -74,8 +74,18 @@ runs:
     - name: Use mold linker if available
       shell: bash
       run: |
+        # use mold by patch config.toml with the linker extra flags
+        # do it there so that it only impacts CI; we use mold only to
+        # make linking faster.
         if command -v mold &>/dev/null; then
-          echo "RUSTFLAGS=${RUSTFLAGS:+$RUSTFLAGS }-C link-arg=-fuse-ld=mold" >> "$GITHUB_ENV"
+          config="${CARGO_HOME:-$HOME/.cargo}/config.toml"
+          flock --timeout 60 /var/lock/github-rust.lock bash -c '
+            if ! grep -qs "fuse-ld=mold" "'"$config"'" 2>/dev/null; then
+              mkdir -p "$(dirname "'"$config"'")"
+              printf "\n[profile.dev]\nrustflags = [\"-C\", \"link-arg=-fuse-ld=mold\"]\n\n[profile.test]\nrustflags = [\"-C\", \"link-arg=-fuse-ld=mold\"]\n" \
+                >> "'"$config"'"
+            fi
+          '
         fi
 
     - name: Install Just
