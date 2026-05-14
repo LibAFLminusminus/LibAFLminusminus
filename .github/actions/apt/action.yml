@@ -49,7 +49,7 @@ runs:
         packages=(
           curl lsb-release wget software-properties-common gnupg
           shellcheck libc6-dev gcc g++ build-essential libfile-mimeinfo-perl
-          python3-pip
+          python3-pip cmake
         )
 
         if ! dpkg -s "${packages[@]}" &>/dev/null; then
