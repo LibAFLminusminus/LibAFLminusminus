@@ -102,7 +102,6 @@ serde = { workspace = true, default-features = false, features = [
   "derive",
 ] } # serialization lib
 
-miniz_oxide = { version = "0.9.1" }
 log = { workspace = true }
 nix = { workspace = true, default-features = false, features = [
   "fs",

@@ -107,8 +107,8 @@ pub mod bolts_prelude {
     pub use super::core_affinity::*;
     pub use super::fs::*;
     pub use super::minibsod::*;
+    pub use super::os::*;
     pub use super::{anymap::*, ownedref::*, rands::*, shm::*, tuples::*};
-    pub use super::{compress::*, os::*};
 }
 
 /// Unwrap a type (most likely an [`Option`]),
