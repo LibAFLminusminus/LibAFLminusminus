@@ -4,7 +4,7 @@ use std::{
     process::Command,
 };
 
-static LIBAFL_QEMU_RUNTIME_TEST: &str = r#"
+static LIBAFLMM_QEMU_RUNTIME_TEST: &str = r#"
 #include <stdio.h>
 #include "libafl_qemu.h"
 
@@ -31,7 +31,7 @@ pub fn build() {
     let qemu_asan_host = cfg!(all(feature = "asan_host", not(feature = "hexagon")));
 
     let libaflmm_runtime_testfile = out_dir.join("runtime_test.c");
-    fs::write(&libaflmm_runtime_testfile, LIBAFL_QEMU_RUNTIME_TEST)
+    fs::write(&libaflmm_runtime_testfile, LIBAFLMM_QEMU_RUNTIME_TEST)
         .expect("Could not write runtime test file");
 
     println!("cargo:rerun-if-changed=build.rs");
@@ -108,7 +108,7 @@ pub fn build() {
     }
 
     if cfg!(feature = "usermode") && asan_rust {
-        let asan_dir = Path::new("libafl_qemu_asan");
+        let asan_dir = Path::new("libaflmm_qemu_asan");
         let asan_dir = fs::canonicalize(asan_dir).unwrap();
         let just_file = asan_dir.join("Justfile");
         println!("cargo:rerun-if-changed={}", asan_dir.display());

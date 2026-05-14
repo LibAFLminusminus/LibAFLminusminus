@@ -1,3 +1,4 @@
+#![cfg_attr(not(feature = "test"), no_std)]
 extern crate alloc;
 
 use core::ffi::{CStr, c_char, c_void};

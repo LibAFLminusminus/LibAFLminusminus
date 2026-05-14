@@ -196,7 +196,7 @@ where
                 .unwrap()
                 .parent()
                 .unwrap()
-                .join("libafl_qemu_asan_guest.so");
+                .join("libaflmm_qemu_asan_guest.so");
 
             let asan_lib = env::var_os("CUSTOM_LIBAFL_QEMU_ASAN_PATH").map_or(asan_lib, |x| {
                 fs::canonicalize(PathBuf::from(x.to_string_lossy().to_string())).unwrap()
