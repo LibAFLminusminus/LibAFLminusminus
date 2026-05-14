@@ -61,7 +61,7 @@ if [ ! -f "QEMU-Nyx/x86_64-softmmu/qemu-system-x86_64" ]; then
     if [ "${PROFILE:-debug}" = "release" ]; then
         ./compile_qemu_nyx.sh lto || exit 1
     else
-        ./compile_qemu_nyx.sh || exit 1
+        ./compile_qemu_nyx.sh static || exit 1
     fi
     cd ..
 fi
