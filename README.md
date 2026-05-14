@@ -75,13 +75,21 @@ It is written and maintained by
 - [Romain Malmain](https://github.com/rmalmain) <rmalmain@pm.me>
 - [Dongjia Zhang](https://github.com/tokatoka) <tokazerkje@outlook.jp>
 
+The original contributors working on `LibAFL` are:
+- [Andrea Fioraldi](https://twitter.com/andreafioraldi) <andrea@aflplus.plus>
+- [Dominik Maier](https://bsky.app/profile/dmnk.bsky.social) <dominik@aflplus.plus>
+- [s1341](https://twitter.com/srubenst1341) <github@shmarya.net>
+- [Dongjia Zhang](https://github.com/tokatoka) <toka@aflplus.plus>
+- [Addison Crump](https://github.com/addisoncrump) <me@addisoncrump.info>
+- [Romain Malmain](https://github.com/rmalmain) <rmalmain@pm.me>
+
 ## Contributing
 
 Please check out **[CONTRIBUTING.md](CONTRIBUTING.md)** for the contributing guideline.
 
 ## Debugging
 
-Your fuzzer doesn't work as expected? Try reading [DEBUGGING.md](./docs/src/DEBUGGING.md) to understand how to debug your problems.
+Your fuzzer doesn't work as expected? Try reading [DEBUGGING.md](./docs/DEBUGGING.md) to understand how to debug your problems.
 
 ## License
 
