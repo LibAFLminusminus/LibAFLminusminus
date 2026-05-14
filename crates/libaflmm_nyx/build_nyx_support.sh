@@ -58,7 +58,11 @@ if [ ! -f "QEMU-Nyx/x86_64-softmmu/qemu-system-x86_64" ]; then
     # - nettle >= 4
     # - libnfs >= 5
     sed -i 's,--disable-tools,--disable-tools --disable-nettle --disable-gnutls --disable-gcrypt --disable-libnfs,' compile_qemu_nyx.sh
-    ./compile_qemu_nyx.sh lto || exit 1
+    if [ "${PROFILE:-debug}" = "release" ]; then
+        ./compile_qemu_nyx.sh lto || exit 1
+    else
+        ./compile_qemu_nyx.sh static || exit 1
+    fi
     cd ..
 fi
 

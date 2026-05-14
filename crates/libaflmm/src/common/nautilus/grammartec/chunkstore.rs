@@ -1,6 +1,6 @@
 use alloc::{string::String, vec::Vec};
 use core::sync::atomic::AtomicBool;
-use std::{fs::File, io::Write, sync::RwLock};
+use std::{fs, fs::File, io::Write, sync::RwLock};
 
 use hashbrown::{HashMap, HashSet};
 use libaflmm_bolts::rands::Rand;
@@ -73,11 +73,11 @@ impl ChunkStore {
                     .entry(tree.get_rule(n, ctx).nonterm())
                     .or_insert_with(Vec::new)
                     .push((id, n));
-                let mut file = File::create(format!(
-                    "{}/outputs/chunks/chunk_{:09}",
-                    self.work_dir, self.number_of_chunks
-                ))
-                .expect("RAND_596689790");
+                let chunk_dir = format!("{}/outputs/chunks", self.work_dir);
+                fs::create_dir_all(&chunk_dir).expect("RAND_596689790");
+                let mut file =
+                    File::create(format!("{}/chunk_{:09}", chunk_dir, self.number_of_chunks))
+                        .expect("RAND_596689790");
                 self.number_of_chunks += 1;
                 file.write_all(&buffer).expect("RAND_606896756");
                 contains_new_chunk = true;

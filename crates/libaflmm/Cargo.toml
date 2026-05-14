@@ -37,14 +37,9 @@ default = [
   "derive",
   "errors_backtrace",
   "nautilus",
-  "fork",
-  "gzip",
   "libaflmm_bolts/xxh3",
   "rand_trait",
-  "regex",
   "simd",
-  "nautilus",
-  "serde_json",
   "serial_test",
 ]
 document-features = ["dep:document-features"]
@@ -55,28 +50,16 @@ document-features = ["dep:document-features"]
 ## Expose `libaflmm::prelude` for access without additional using directives
 prelude = ["libaflmm_bolts/prelude"]
 
-## Calculate exec/sec like AFL, using 5 second time windows
-afl_exec_sec = []
-
 ## Stores the backtraces of all generated `Error`s. Good for debugging, but may come with a slight performance hit.
 errors_backtrace = ["libaflmm_bolts/errors_backtrace"]
 
 ## Switches from `HashMap` to `BTreeMap` for `CorpusId`
 corpus_btreemap = []
 
-## Enables gzip compression in certain parts of the lib
-gzip = ["libaflmm_bolts/gzip"]
-
-## If set, will use the `fork()` syscall to spawn children, instead of launching a new command, if supported by the OS (has no effect on `Windows`).
-fork = ["libaflmm_bolts/derive"]
-
 ## If this feature is set, `LibAFL` targets (and the fuzzer) will crash on `SIGPIPE` on unix systems.
 handle_sigpipe = []
 
 #! ## Additional Components
-
-## Enables the `NaiveTokenizer` and `StacktraceObserver`
-regex = ["dep:regex", "dep:backtrace"]
 
 ## Intel Processor Trace
 intel_pt = ["dep:libaflmm_intelpt"]
@@ -106,21 +89,18 @@ rand_trait = ["libaflmm_bolts/rand_trait"]
 #! ### SerdeAny features
 
 ## Grammar mutator.
-nautilus = ["rand_trait", "regex-syntax", "regex"]
+nautilus = ["rand_trait", "dep:regex-syntax", "dep:regex"]
 
 ## Python grammar support for nautilus
 nautilus_py = ["nautilus", "dep:pyo3"]
 
 ## Use the best SIMD implementation by our benchmark
-simd = ["libaflmm_bolts/simd", "libaflmm_bolts/wide"]
+simd = ["libaflmm_bolts/simd"]
 
 [build-dependencies]
 rustversion = { workspace = true }
 
 [dev-dependencies]
-serde_json = { workspace = true, default-features = false, features = [
-  "alloc",
-] }
 # clippy-suggested optimised byte counter
 bytecount = "0.6.8"
 rusty-fork = "0.3.1"
@@ -134,7 +114,6 @@ libaflmm_targets = { workspace = true, default-features = true }
 
 quanta = "0.12.6"
 ahash = { workspace = true } # The hash function already used in hashbrown
-backtrace = { workspace = true, optional = true } # Used to get the stacktrace in StacktraceObserver
 hashbrown = { workspace = true, features = [
   "serde",
   "default-hasher",
@@ -155,7 +134,7 @@ num-traits = { workspace = true, default-features = false }
 postcard = { workspace = true } # no_std compatible serde serialization format
 pyo3 = { workspace = true, optional = true }
 serde = { workspace = true, features = ["derive", "rc"] }
-serde_json = { workspace = true, default-features = true, optional = true }
+serde_json = { workspace = true, default-features = true }
 static_assertions = { workspace = true }
 humantime = "2.1"
 tuple_list = { workspace = true }

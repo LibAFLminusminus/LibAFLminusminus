@@ -16,10 +16,12 @@ use std::{
     panic,
     time::SystemTime,
 };
+
 // There's a bug in ahash that doesn't let it build in `alloc` without once_cell right now.
 // TODO: re-enable once <https://github.com/tkaitchuck/aHash/issues/155> is resolved.
-#[cfg(feature = "libaflmm_derive")]
+#[cfg(feature = "derive")]
 pub use libaflmm_derive::SerdeAny;
+
 #[cfg(unix)]
 use log::{Metadata, Record};
 #[cfg(feature = "xxh3")]
@@ -40,8 +42,6 @@ pub use shm::{
 
 #[cfg(any(feature = "cli", feature = "frida_cli", feature = "qemu_cli"))]
 pub mod cli;
-
-pub mod compress;
 
 pub mod fs;
 
@@ -107,8 +107,8 @@ pub mod bolts_prelude {
     pub use super::core_affinity::*;
     pub use super::fs::*;
     pub use super::minibsod::*;
+    pub use super::os::*;
     pub use super::{anymap::*, ownedref::*, rands::*, shm::*, tuples::*};
-    pub use super::{compress::*, os::*};
 }
 
 /// Unwrap a type (most likely an [`Option`]),
