@@ -23,7 +23,7 @@ concurrency:
 
 jobs:
   ubuntu:
-    runs-on: ubuntu-24.04
+    runs-on: ${{ fromJSON(vars.RUNS_ON || '["self-hosted","linux"]') }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -55,7 +55,7 @@ jobs:
         run: shellcheck ./scripts/*.sh
 
   ubuntu-miri:
-    runs-on: ubuntu-24.04
+    runs-on: ${{ fromJSON(vars.RUNS_ON || '["self-hosted","linux"]') }}
     if: contains( github.event.pull_request.labels.*.name, 'pre-release')
     steps:
       - uses: actions/checkout@v6
@@ -73,7 +73,7 @@ jobs:
         run: RUST_BACKTRACE=1 MIRIFLAGS="-Zmiri-disable-isolation" cargo miri test
 
   ubuntu-clippy:
-    runs-on: ubuntu-24.04
+    runs-on: ${{ fromJSON(vars.RUNS_ON || '["self-hosted","linux"]') }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -91,7 +91,7 @@ jobs:
         run: ./scripts/clippy.sh
 
   ubuntu-check:
-    runs-on: ubuntu-24.04
+    runs-on: ${{ fromJSON(vars.RUNS_ON || '["self-hosted","linux"]') }}
     strategy:
       matrix:
         instance_idx:
@@ -137,7 +137,7 @@ jobs:
         run: cargo run --manifest-path utils/ci_splitter/Cargo.toml -- ${{ matrix.instance_idx }}
 
   cargo-fmt:
-    runs-on: ubuntu-24.04
+    runs-on: ${{ fromJSON(vars.RUNS_ON || '["self-hosted","linux"]') }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -155,7 +155,7 @@ jobs:
         run: ./scripts/fmt_all.sh check
 
   check-md-links:
-    runs-on: ubuntu-24.04
+    runs-on: ${{ fromJSON(vars.RUNS_ON || '["self-hosted","linux"]') }}
     permissions:
       contents: read
       pull-requests: read
@@ -171,7 +171,7 @@ jobs:
 
   fuzzers:
     name: Testing ${{ matrix.fuzzer }}
-    runs-on: ubuntu-24.04
+    runs-on: ${{ fromJSON(vars.RUNS_ON || '["self-hosted","linux"]') }}
     strategy:
       fail-fast: false
       matrix:
@@ -222,7 +222,7 @@ jobs:
 
   fuzzers-qemu:
     name: Testing ${{ matrix.fuzzer }} (QEMU)
-    runs-on: ubuntu-24.04
+    runs-on: ${{ fromJSON(vars.RUNS_ON || '["self-hosted","linux"]') }}
     strategy:
       fail-fast: false
       matrix:
