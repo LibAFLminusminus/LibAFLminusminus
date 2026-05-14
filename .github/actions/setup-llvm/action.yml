@@ -14,14 +14,11 @@ runs:
       shell: bash
       run: |
         if command -v "clang-${{ inputs.version }}" &>/dev/null; then
-          # llvm already installed, exit.
           echo "clang-${{ inputs.version }} already present, skipping install."
           exit 0
         fi
         wget https://apt.llvm.org/llvm.sh
         chmod +x llvm.sh
-
-        # this is racey, another job could have installed llvm meanwhile.
         sudo flock --timeout 300 /var/lock/github-apt.lock bash -c '
           if command -v "clang-${{ inputs.version }}" &>/dev/null; then
             echo "clang-${{ inputs.version }} installed by concurrent job, skipping."
@@ -30,20 +27,23 @@ runs:
           fi
         '
 
-    - name: Set up LLVM ${{ inputs.version }} alternatives
-      shell: bash
-      run: |
-        sudo update-alternatives --install \
-            /usr/bin/clang clang \
-            /usr/bin/clang-${{ inputs.version }} 200
-
     - name: Export LLVM env
       shell: bash
       run: |
+        # add llvm version to github path.
+        # do not use update-alternative, as it is racey and would fail with concurrent jobs
+        # requiring different llvm versions.
         {
-          echo "LLVM_CONFIG_PATH=$(which llvm-config-${{ inputs.version }})"
-          echo "LIBCLANG_PATH=/usr/lib/llvm-${{ inputs.version }}/lib"
+          echo "/usr/lib/llvm-${{ inputs.version }}/bin"
+        } >> "$GITHUB_PATH"
+
+        # now, set the compiler-related env variables.
+        {
+          echo "CC=clang-${{ inputs.version }}"
+          echo "CXX=clang++-${{ inputs.version }}"
           echo "LLVM_CONFIG=llvm-config-${{ inputs.version }}"
+          echo "LLVM_CONFIG_PATH=/usr/lib/llvm-${{ inputs.version }}/bin/llvm-config"
+          echo "LIBCLANG_PATH=/usr/lib/llvm-${{ inputs.version }}/lib"
         } >> "$GITHUB_ENV"
 
     - name: Symlink ASM headers
