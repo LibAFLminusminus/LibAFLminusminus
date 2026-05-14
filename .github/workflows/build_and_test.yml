@@ -92,7 +92,6 @@ jobs:
 
   ubuntu-check:
     runs-on: ubuntu-24.04
-    needs: ubuntu
     strategy:
       matrix:
         instance_idx:
