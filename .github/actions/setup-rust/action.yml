@@ -71,6 +71,13 @@ runs:
 
         echo "RUSTUP_TOOLCHAIN=$TOOLCHAIN" >> "$GITHUB_ENV"
 
+    - name: Use mold linker if available
+      shell: bash
+      run: |
+        if command -v mold &>/dev/null; then
+          echo "RUSTFLAGS=${RUSTFLAGS:+$RUSTFLAGS }-C link-arg=-fuse-ld=mold" >> "$GITHUB_ENV"
+        fi
+
     - name: Install Just
       uses: extractions/setup-just@v4
 
