@@ -41,8 +41,6 @@ pub use shm::{
 #[cfg(any(feature = "cli", feature = "frida_cli", feature = "qemu_cli"))]
 pub mod cli;
 
-pub mod compress;
-
 pub mod fs;
 
 pub mod math;

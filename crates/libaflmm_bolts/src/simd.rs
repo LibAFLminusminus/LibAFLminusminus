@@ -2,17 +2,17 @@
 
 use core::ops::{BitAnd, BitOr};
 
-#[cfg(feature = "wide")]
+#[cfg(feature = "simd")]
 use wide::CmpEq;
 
 /// Re-export our vector types
-#[cfg(feature = "wide")]
+#[cfg(feature = "simd")]
 pub mod vector {
     pub use wide::{u8x16, u8x32};
 }
 
 /// The SIMD based reducer implementation
-#[cfg(feature = "wide")]
+#[cfg(feature = "simd")]
 pub trait SimdReducer<T>: Reducer<T> {
     /// The associated primitive reducer
     type PrimitiveReducer: Reducer<u8>;
@@ -24,38 +24,38 @@ pub trait Reducer<T> {
     fn reduce(first: T, second: T) -> T;
 }
 
-#[cfg(feature = "wide")]
+#[cfg(feature = "simd")]
 trait HasMax: Sized {
     fn max_(self, rhs: Self) -> Self;
 }
 
-#[cfg(feature = "wide")]
+#[cfg(feature = "simd")]
 impl HasMax for wide::u8x16 {
     fn max_(self, rhs: Self) -> Self {
         self.max(rhs)
     }
 }
 
-#[cfg(feature = "wide")]
+#[cfg(feature = "simd")]
 impl HasMax for wide::u8x32 {
     fn max_(self, rhs: Self) -> Self {
         self.max(rhs)
     }
 }
 
-#[cfg(feature = "wide")]
+#[cfg(feature = "simd")]
 trait HasMin: Sized {
     fn min_(self, rhs: Self) -> Self;
 }
 
-#[cfg(feature = "wide")]
+#[cfg(feature = "simd")]
 impl HasMin for wide::u8x16 {
     fn min_(self, rhs: Self) -> Self {
         self.min(rhs)
     }
 }
 
-#[cfg(feature = "wide")]
+#[cfg(feature = "simd")]
 impl HasMin for wide::u8x32 {
     fn min_(self, rhs: Self) -> Self {
         self.min(rhs)
@@ -77,11 +77,11 @@ where
 }
 
 /// Unforunately we have to keep this type due to [`wide`] might not `PartialOrd`
-#[cfg(feature = "wide")]
+#[cfg(feature = "simd")]
 #[derive(Debug)]
 pub struct SimdMaxReducer;
 
-#[cfg(feature = "wide")]
+#[cfg(feature = "simd")]
 impl<T> Reducer<T> for SimdMaxReducer
 where
     T: HasMax,
@@ -91,7 +91,7 @@ where
     }
 }
 
-#[cfg(feature = "wide")]
+#[cfg(feature = "simd")]
 impl<T> SimdReducer<T> for SimdMaxReducer
 where
     T: HasMax,
@@ -110,7 +110,7 @@ impl<T> Reducer<T> for NopReducer {
     }
 }
 
-#[cfg(feature = "wide")]
+#[cfg(feature = "simd")]
 impl<T> SimdReducer<T> for NopReducer {
     type PrimitiveReducer = NopReducer;
 }
@@ -130,11 +130,11 @@ where
 }
 
 /// Unfortunately we have to keep this type due to [`wide`] might not `PartialOrd`
-#[cfg(feature = "wide")]
+#[cfg(feature = "simd")]
 #[derive(Debug)]
 pub struct SimdMinReducer;
 
-#[cfg(feature = "wide")]
+#[cfg(feature = "simd")]
 impl<T> Reducer<T> for SimdMinReducer
 where
     T: HasMin,
@@ -144,7 +144,7 @@ where
     }
 }
 
-#[cfg(feature = "wide")]
+#[cfg(feature = "simd")]
 impl<T> SimdReducer<T> for SimdMinReducer
 where
     T: HasMin,
@@ -166,7 +166,7 @@ where
     }
 }
 
-#[cfg(feature = "wide")]
+#[cfg(feature = "simd")]
 impl<T> SimdReducer<T> for OrReducer
 where
     T: BitOr<Output = T>,
@@ -175,7 +175,7 @@ where
 }
 
 /// SIMD based [`OrReducer`], alias for consistency
-#[cfg(feature = "wide")]
+#[cfg(feature = "simd")]
 pub type SimdOrReducer = OrReducer;
 
 /// A [`AndReducer`] reduces the values returning the bitwise AND with the old value
@@ -192,7 +192,7 @@ where
     }
 }
 
-#[cfg(feature = "wide")]
+#[cfg(feature = "simd")]
 impl<T> SimdReducer<T> for AndReducer
 where
     T: BitAnd<Output = T>,
@@ -201,10 +201,10 @@ where
 }
 
 /// SIMD based [`AndReducer`], alias for consistency
-#[cfg(feature = "wide")]
+#[cfg(feature = "simd")]
 pub type SimdAndReducer = AndReducer;
 
-#[cfg(feature = "wide")]
+#[cfg(feature = "simd")]
 /// The vector type that can be used with coverage map
 pub trait VectorType {
     /// Number of bytes
@@ -230,7 +230,7 @@ pub trait VectorType {
     fn as_slice(&self) -> &[u8];
 }
 
-#[cfg(feature = "wide")]
+#[cfg(feature = "simd")]
 impl VectorType for wide::u8x16 {
     const N: usize = Self::LANES as usize;
     const ZERO: Self = Self::ZERO;
@@ -261,7 +261,7 @@ impl VectorType for wide::u8x16 {
     }
 }
 
-#[cfg(feature = "wide")]
+#[cfg(feature = "simd")]
 impl VectorType for wide::u8x32 {
     const N: usize = Self::LANES as usize;
     const ZERO: Self = Self::ZERO;
@@ -311,7 +311,7 @@ pub fn simplify_map_naive(map: &mut [u8]) {
 
 /// `simplify_map` implementation by u8x16, worse performance compared to LLVM
 /// auto-vectorization but faster if LLVM doesn't vectorize.
-#[cfg(feature = "wide")]
+#[cfg(feature = "simd")]
 pub fn simplify_map_simd<V>(map: &mut [u8])
 where
     V: VectorType + Copy + Eq + CmpEq<Output = V>,
@@ -339,10 +339,10 @@ where
 
 /// The std implementation of `simplify_map`. Use the fastest implementation by benchamrk by default.
 pub fn std_simplify_map(map: &mut [u8]) {
-    #[cfg(not(feature = "wide"))]
+    #[cfg(not(feature = "simd"))]
     simplify_map_naive(map);
 
-    #[cfg(feature = "wide")]
+    #[cfg(feature = "simd")]
     simplify_map_simd::<wide::u8x32>(map);
 }
 
@@ -352,7 +352,7 @@ pub fn std_simplify_map(map: &mut [u8]) {
 ///
 /// The caller must ensure that `hist.len() >= map.len()` so all reads from `hist`
 /// performed by this function remain in-bounds.
-#[cfg(feature = "wide")]
+#[cfg(feature = "simd")]
 #[must_use]
 pub unsafe fn covmap_is_interesting_simd<R, V>(hist: &[u8], map: &[u8]) -> bool
 where

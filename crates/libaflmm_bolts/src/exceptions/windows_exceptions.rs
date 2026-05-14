@@ -1,6 +1,5 @@
 //! Exception handling for Windows
 
-#[cfg(feature = "alloc")]
 use alloc::vec::Vec;
 use core::{
     cell::UnsafeCell,
@@ -417,7 +416,6 @@ pub static EXCEPTION_CODES_MAPPING: [ExceptionCode; 79] = [
     ExceptionCode::Others,
 ];
 
-#[cfg(feature = "alloc")]
 pub trait ExceptionHandler {
     /// Handle an exception
     ///
@@ -533,7 +531,6 @@ unsafe extern "C" fn handle_signal(_signum: i32) {
 ///
 /// # Safety
 /// Exception handlers are usually ugly, handle with care!
-#[cfg(feature = "alloc")]
 pub unsafe fn setup_exception_handler<T: 'static + ExceptionHandler>(
     handler: *mut T,
 ) -> Result<(), Error> {
@@ -585,26 +582,22 @@ pub unsafe fn setup_exception_handler<T: 'static + ExceptionHandler>(
     Ok(())
 }
 
-#[cfg(feature = "std")]
 pub trait CtrlHandler {
     /// Handle an exception
     fn handle(&mut self, ctrl_type: u32) -> bool;
 }
 
-#[cfg(feature = "std")]
 struct CtrlHandlerHolder {
     handler: UnsafeCell<*mut dyn CtrlHandler>,
 }
 
 /// Keep track of which handler is registered for which exception
-#[cfg(feature = "std")]
 static mut CTRL_HANDLER: Option<CtrlHandlerHolder> = None;
 
 /// Set `ConsoleCtrlHandler` to catch Ctrl-C
 ///
 /// # Safety
 /// Same safety considerations as in `setup_exception_handler`
-#[cfg(feature = "std")]
 pub unsafe fn setup_ctrl_handler<T: 'static + CtrlHandler>(handler: *mut T) -> Result<(), Error> {
     unsafe {
         write_volatile(
@@ -630,7 +623,6 @@ pub unsafe fn setup_ctrl_handler<T: 'static + CtrlHandler>(handler: *mut T) -> R
     }
 }
 
-#[cfg(feature = "std")]
 unsafe extern "system" fn ctrl_handler(ctrl_type: u32) -> BOOL {
     let handler = unsafe { ptr::read_volatile(&raw const (CTRL_HANDLER)) };
     match handler {

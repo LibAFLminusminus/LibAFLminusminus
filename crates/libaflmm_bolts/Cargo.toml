@@ -23,7 +23,7 @@ features = ["document-features"]
 all-features = true
 
 [features]
-default = ["derive", "gzip", "rand_trait", "xxh3", "simd", "uds"]
+default = ["derive", "rand_trait", "xxh3", "simd"]
 document-features = ["dep:document-features"]
 
 #! # Feature Flags
@@ -53,9 +53,6 @@ frida_cli = ["cli"]
 
 ## Stores the backtraces of all generated `Error`s. Good for debugging, but may come with a slight performance hit.
 errors_backtrace = ["libaflmm_core/errors_backtrace"]
-
-## Enables gzip compression in certain parts of the lib
-gzip = []
 
 ## Replaces `ahash` with the potentially faster [`xxh3`](https://github.com/Cyan4973/xxHash) in some parts of the lib.
 ## This yields a stable and fast hash, but may increase the resulting binary size slightly
@@ -142,7 +139,6 @@ workspace = true
 
 [target.'cfg(unix)'.dependencies]
 libc = { workspace = true }                                            # For (*nix) libc
-uds = { version = "0.4.2", optional = true, default-features = false }
 
 [target.'cfg(windows)'.dependencies]
 windows = { workspace = true, features = [
