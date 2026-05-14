@@ -1,27 +1,27 @@
 use clap::Parser;
 use libaflmm::{
+    Result, Worker,
     corpus::{
-        schedulers::{NopScheduler, QueueScheduler},
         Corpus, InMemoryCorpus, OnDiskCorpus, Scheduler,
+        schedulers::{NopScheduler, QueueScheduler},
     },
     executors::{ForkserverExecutor, StdChildArgs},
     feedback_or_fast,
     feedbacks::{CrashFeedback, MaxMapFeedback, TimeoutFeedback},
     fuzzers::{Fuzzer, StdFuzzer},
     generators::RandPrintablesGenerator,
-    inputs::{bytes::BytesContext, BytesInput},
+    inputs::{BytesInput, bytes::BytesContext},
     launchers::StdLauncher,
     monitors::SimpleMonitor,
-    mutators::{havoc_mutations, HavocScheduledMutator, Tokens},
+    mutators::{HavocScheduledMutator, Tokens, havoc_mutations},
     non_zero,
     observers::{CmpLogObserver, HitcountsMapObserver, StdMapObserver},
     runtimes::RuntimeHandle,
     simple::{SimpleController, SimpleWorker},
     stages::{StdMutationalStage, TracerStage},
     states::StdState,
-    Result, Worker,
 };
-use libaflmm_bolts::{current_nanos, rands::StdRand, tuples::tuple_list, StdTargetArgs, SysVShm};
+use libaflmm_bolts::{StdTargetArgs, SysVShm, current_nanos, rands::StdRand, tuples::tuple_list};
 use libaflmm_core::forkserver::{AFLPP_CMPLOG_MAP, SHM_CMPLOG_ENV_VAR, SHM_ENV_VAR};
 use libaflmm_targets::{AFLppCmplogVals, AFLppLibAFLCmpLogHeader};
 use std::{ops::DerefMut, path::PathBuf, time::Duration};

@@ -1,4 +1,4 @@
-use libaflmm::{executors::ExitKind, inputs::BytesInput, Error};
+use libaflmm::{Error, executors::ExitKind, inputs::BytesInput};
 use std::ptr::write;
 
 /// Coverage map with explicit assignments due to the lack of instrumentation
