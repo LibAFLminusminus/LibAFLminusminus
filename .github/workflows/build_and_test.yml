@@ -184,28 +184,6 @@ jobs:
         with:
           cache-key: ubuntu
           cache: ${{ vars.RUNS_ON != '' }}
-      - name: Configure Cache
-        if: vars.RUNS_ON != ''
-        uses: Swatinem/rust-cache@v2
-        with:
-          # We will have these guys all share a cache (since they should share
-          # and awful lot of their dependencies). That way we won't use up
-          # as much space.
-          shared-key: fuzzers-x86_64
-          # We want to include the commit hash to ensure the cache is replaced
-          # on each new commit.
-          key: ${{ github.sha }}
-          # We will only save the cache for one of the builds. Though we could
-          # just omit this filter and the jobs race to push to the cache, since
-          # they would all share the same key (combining the `shared-key` and
-          # `key`) our build would generate a load of warnings. Why this
-          # particular fuzzer? No real reason, but we had to choose one.
-          save-if: ${{ matrix.fuzzer == 'binary_only/frida_libpng' }}
-          cache-all-crates: true
-          # The code is built in the fuzzers own directory, not in the target
-          # directory in the root of the workspace
-          workspaces: |
-            fuzzers/${{ matrix.fuzzer }}
       - name: Run test
         shell: bash
         run: |
@@ -237,28 +215,6 @@ jobs:
         with:
           cache-key: ubuntu
           cache: ${{ vars.RUNS_ON != '' }}
-      - name: Configure Cache
-        if: vars.RUNS_ON != ''
-        uses: Swatinem/rust-cache@v2
-        with:
-          # We will have these guys all share a cache (since they should share
-          # and awful lot of their dependencies). That way we won't use up
-          # as much space.
-          shared-key: fuzzers-x86_64
-          # We want to include the commit hash to ensure the cache is replaced
-          # on each new commit.
-          key: ${{ github.sha }}
-          # We will only save the cache for one of the builds. Though we could
-          # just omit this filter and the jobs race to push to the cache, since
-          # they would all share the same key (combining the `shared-key` and
-          # `key`) our build would generate a load of warnings. Why this
-          # particular fuzzer? No real reason, but we had to choose one.
-          save-if: ${{ matrix.fuzzer == 'binary_only/frida_libpng' }}
-          cache-all-crates: true
-          # The code is built in the fuzzers own directory, not in the target
-          # directory in the root of the workspace
-          workspaces: |
-            fuzzers/${{ matrix.fuzzer }}
       - uses: ./.github/actions/cache-qemu-nyx
         with:
           target-dir: fuzzers/${{ matrix.fuzzer }}/target/debug
