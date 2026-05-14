@@ -13,16 +13,31 @@ runs:
     - name: Enable apt source repositories
       shell: bash
       run: |
-        # Enable source repository to install build-dep later on
+        APT_LOCK=/var/lock/github-apt.lock
+        NEEDS_UPDATE=false
+
         if [ -f /etc/apt/sources.list.d/ubuntu.sources ]; then
-          sudo sed -i 's/^Types: deb$/Types: deb deb-src/' /etc/apt/sources.list.d/ubuntu.sources
+          if ! grep -q 'Types: deb deb-src' /etc/apt/sources.list.d/ubuntu.sources; then
+            sudo flock --timeout 300 "$APT_LOCK" \
+              sed -i 's/^Types: deb$/Types: deb deb-src/' /etc/apt/sources.list.d/ubuntu.sources
+            NEEDS_UPDATE=true
+          fi
         fi
 
         if [ -f /etc/apt/sources.list ]; then
-          sudo sed -i 's/^# deb-src/deb-src/' /etc/apt/sources.list
+          if grep -q '^# deb-src' /etc/apt/sources.list; then
+            sudo flock --timeout 300 "$APT_LOCK" \
+              sed -i 's/^# deb-src/deb-src/' /etc/apt/sources.list
+            NEEDS_UPDATE=true
+          fi
         fi
 
-        sudo apt-get update
+        # Only update if lists are stale (>1 h) or sources just changed.
+        # On a self-hosted runner, package lists persist — no need to refresh every job.
+        cache_age=$(( $(date +%s) - $(stat -c %Y /var/cache/apt/pkgcache.bin 2>/dev/null || echo 0) ))
+        if [ "$NEEDS_UPDATE" = true ] || [ ! -f /var/cache/apt/pkgcache.bin ] || [ "$cache_age" -gt 3600 ]; then
+          sudo flock --timeout 300 "$APT_LOCK" apt-get update
+        fi
 
     - name: Cache apt archives
       uses: actions/cache@v5
@@ -33,21 +48,24 @@ runs:
     - name: Install base packages
       shell: bash
       run: |
-        sudo apt-get install -y --no-install-recommends \
-          curl \
-          lsb-release \
-          wget \
-          software-properties-common \
-          gnupg \
-          shellcheck \
-          libc6-dev \
-          gcc \
-          g++ \
-          build-essential \
-          libfile-mimeinfo-perl
+        packages=(
+          curl lsb-release wget software-properties-common gnupg
+          shellcheck libc6-dev gcc g++ build-essential libfile-mimeinfo-perl
+        )
+
+        if ! dpkg -s "${packages[@]}" &>/dev/null; then
+          sudo flock --timeout 300 /var/lock/github-apt.lock \
+            apt-get install -y --no-install-recommends "${packages[@]}"
+        fi
 
     - name: Install QEMU build dependencies
       if: ${{ inputs.qemu == 'true' }}
       shell: bash
-      # According to https://www.qemu.org/docs/master/devel/build-environment.html#systems-with-package-managers
-      run: sudo apt-get build-dep -y qemu
+      run: |
+        # build-dep has no clean installed-check; use a sentinel file instead.
+        sentinel=/var/lib/github-runner-sentinel/qemu-build-dep
+        if [ ! -f "$sentinel" ]; then
+          sudo flock --timeout 300 /var/lock/github-apt.lock apt-get build-dep -y qemu
+          sudo mkdir -p "$(dirname "$sentinel")"
+          sudo touch "$sentinel"
+        fi

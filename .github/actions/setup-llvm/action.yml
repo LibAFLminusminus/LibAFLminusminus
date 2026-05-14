@@ -29,7 +29,7 @@ runs:
       run: |
         wget https://apt.llvm.org/llvm.sh
         chmod +x llvm.sh
-        sudo ./llvm.sh "${{ inputs.version }}" all
+        sudo flock --timeout 300 /var/lock/github-apt.lock ./llvm.sh "${{ inputs.version }}" all
 
     - name: Set up LLVM ${{ inputs.version }} alternatives
       shell: bash
