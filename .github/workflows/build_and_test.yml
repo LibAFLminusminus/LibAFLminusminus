@@ -93,9 +93,6 @@ jobs:
   ubuntu-check:
     runs-on: ubuntu-24.04
     needs: ubuntu
-    env:
-      CI_INSTANCES: 18
-      LLVM_VERSION: ${{ env.MAIN_LLVM_VERSION }}
     strategy:
       matrix:
         instance_idx:
@@ -135,6 +132,9 @@ jobs:
           components: clippy, rustfmt
           cache-key: ubuntu
       - name: Check each feature
+        env:
+          CI_INSTANCES: 18
+          LLVM_VERSION: ${{ env.MAIN_LLVM_VERSION }}
         run: cargo run --manifest-path utils/ci_splitter/Cargo.toml -- ${{ matrix.instance_idx }}
 
   cargo-fmt:
@@ -169,3 +169,55 @@ jobs:
         with:
           fail_on_error: "true"
           config_file: ".github/.linkspector.yml"
+
+  fuzzers:
+    name: Testing ${{ matrix.fuzzer }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        fuzzer:
+          # Tutorial
+          - tutorials/baby_cmplog
+          - tutorials/baby_forkserver
+          - tutorials/baby_inprocess
+          - tutorials/baby_nyx
+    env:
+      PROFILE: dev # build in debug mode to speed up the tests
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: true
+      - uses: ./.github/actions/apt
+      - uses: ./.github/actions/setup-llvm
+        with:
+          version: ${{ env.MAIN_LLVM_VERSION }}
+      - uses: ./.github/actions/setup-rust
+        with:
+          cache-key: ubuntu
+      - name: Configure Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          # We will have these guys all share a cache (since they should share
+          # and awful lot of their dependencies). That way we won't use up
+          # as much space.
+          shared-key: fuzzers-x86_64
+          # We want to include the commit hash to ensure the cache is replaced
+          # on each new commit.
+          key: ${{ github.sha }}
+          # We will only save the cache for one of the builds. Though we could
+          # just omit this filter and the jobs race to push to the cache, since
+          # they would all share the same key (combining the `shared-key` and
+          # `key`) our build would generate a load of warnings. Why this
+          # particular fuzzer? No real reason, but we had to choose one.
+          save-if: ${{ matrix.fuzzer == 'binary_only/frida_libpng' }}
+          cache-all-crates: true
+          # The code is built in the fuzzers own directory, not in the target
+          # directory in the root of the workspace
+          workspaces: |
+            fuzzers/${{ matrix.fuzzer }}
+      - name: Run test
+        shell: bash
+        run: |
+          cd fuzzers/${{ matrix.fuzzer }}
+          just test

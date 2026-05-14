@@ -1,0 +1,7 @@
+import "../../../just/libafl.just"
+FUZZER_NAME := "baby_forkserver"
+
+build:
+    cargo build --profile {{ PROFILE }}
+
+test: build

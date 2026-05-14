@@ -1,34 +1,23 @@
-use std::time::Duration;
-
-use libafl::{
-    Result, Worker,
+use libaflmm::{
+    Fuzzer, Result, StdFuzzer, Worker,
     corpus::{
         Corpus, InMemoryCorpus, OnDiskCorpus, Scheduler,
         schedulers::{NopScheduler, QueueScheduler},
     },
-    executors::StdExecutor,
-    feedback_or_fast,
-    feedbacks::{CrashFeedback, MaxMapFeedback, TimeoutFeedback},
-    fuzzers::{CalibrationHook, Fuzzer, StdFuzzer},
+    feedbacks::{CrashFeedback, MaxMapFeedback},
     generators::RandPrintablesGenerator,
     inputs::{BytesInput, bytes::BytesContext},
-    launchers::{DEFAULT_MAX_STATE_SIZE_PER_WORKER, StdLauncher},
+    launchers::StdLauncher,
     monitors::SimpleMonitor,
     mutators::{HavocScheduledMutator, havoc_mutations},
-    non_zero,
-    observers::ConstMapObserver,
-    runtimes::{RuntimeHandle, StdInProcessRuntime},
+    observers::StdMapObserver,
+    runtimes::RuntimeHandle,
     simple::{SimpleController, SimpleWorker},
     stages::StdMutationalStage,
     states::StdState,
 };
-use libafl_bolts::{
-    current_nanos, nonnull_raw_mut, rands::StdRand, timers::FastTimer, tuples::tuple_list,
-};
-
-use crate::target::SIGNALS;
-
-mod target;
+use libaflmm_bolts::{non_zero, rands::StdRand, tuples::tuple_list};
+use libaflmm_nyx::{executor::NyxExecutor, helper::NyxHelper, settings::NyxSettings};
 
 fn run_fuzzer<C, OC, SC>(
     rt_handle: &mut RuntimeHandle<StdState<C, BytesContext, BytesInput, OC, SC>, SimpleWorker>,
@@ -39,43 +28,34 @@ where
     OC: Corpus<BytesInput>,
     SC: Scheduler,
 {
-    // The source of randomness
-    let mut rand = StdRand::with_seed(current_nanos());
+    // nyx stuff
+    let settings = NyxSettings::builder().cpu_id(0).parent_cpu_id(None).build();
+    let helper = NyxHelper::new("/tmp/nyx_libxml2/", settings).unwrap();
+    let observer =
+        unsafe { StdMapObserver::from_mut_ptr("trace", helper.bitmap_buffer, helper.bitmap_size) };
 
-    // Create an observation channel using the signals map
-    let observer = unsafe { ConstMapObserver::from_mut_ptr("signals", nonnull_raw_mut!(SIGNALS)) };
+    let mut rand = StdRand::new();
 
-    // Feedback to rate the interestingness of an input
+    // libafl stuff
     let feedback = MaxMapFeedback::new(&observer);
+    let objective = CrashFeedback::new();
 
-    // A feedback to choose if an input is a solution or not
-    // let objective_feedback = CrashFeedback::new();
-    let objective_feedback = feedback_or_fast!(CrashFeedback::new(), TimeoutFeedback::new());
+    // switch monitor if you want
+    // let monitor = SimpleMonitor::new(|x|-> () {println!("{}",x)});
+    let mut executor = NyxExecutor::builder().build(helper, tuple_list!(observer));
 
-    // Setup a mutational stage with a basic bytes mutator
     let mutator = HavocScheduledMutator::new(havoc_mutations());
     let mut stages = tuple_list!(StdMutationalStage::new(mutator));
-
-    // Create the executor for an in-process function with just one observer
-    let mut executor = StdExecutor::new(target::target, tuple_list!(observer), None);
-
-    // Generator of printable bytearrays of max size 32
-    let mut generator = RandPrintablesGenerator::new(non_zero!(32));
-
-    let calibration_hk = CalibrationHook::new(&feedback);
-
-    // A fuzzer with feedbacks and a corpus scheduler
-    let mut fuzzer = StdFuzzer::with_hooks(
+    let mut fuzzer = StdFuzzer::new(
         feedback,
-        objective_feedback,
-        tuple_list!(calibration_hk),
+        objective,
         &mut stages,
         &mut executor,
         state,
         rt_handle,
     )?;
-
-    // Generate 8 initial inputs
+    // Generator of printable bytearrays of max size 32
+    let mut generator = RandPrintablesGenerator::new(non_zero!(32));
     state.generate_initial_inputs(
         &mut fuzzer,
         &mut executor,
@@ -84,8 +64,7 @@ where
         rt_handle,
         8,
     )?;
-
-    // Start the fuzzer
+    // start fuzz
     fuzzer.fuzz_loop(&mut stages, &mut executor, &mut rand, state, rt_handle)
 }
 
@@ -119,21 +98,11 @@ pub fn main() -> Result<()> {
     // The monitor tracks the fuzzing current status.
     let monitor = SimpleMonitor::new();
 
-    let fast_timer = FastTimer::new();
-    let runtime = StdInProcessRuntime::new(
-        run_fuzzer,
-        DEFAULT_MAX_STATE_SIZE_PER_WORKER,
-        fast_timer,
-        Some(Duration::from_secs(3)),
-    );
-
     // Launch the fuzzer
     StdLauncher::builder()?
         .controller(controller)
         .monitor(monitor)
         .state_builder(state_builder)
-        .runtime(runtime)
-        // .build_with_task(run_fuzzer)?
-        .build()?
+        .build_forkserver(run_fuzzer)?
         .launch()
 }

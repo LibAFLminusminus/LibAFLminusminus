@@ -1,7 +1,5 @@
-use std::{ops::DerefMut, path::PathBuf, time::Duration};
-
 use clap::Parser;
-use libafl::{
+use libaflmm::{
     Result, Worker,
     corpus::{
         Corpus, InMemoryCorpus, OnDiskCorpus, Scheduler,
@@ -23,7 +21,8 @@ use libafl::{
     stages::StdMutationalStage,
     states::StdState,
 };
-use libafl_bolts::{StdTargetArgs, SysVShm, current_nanos, rands::StdRand, tuples::tuple_list};
+use libaflmm_bolts::{StdTargetArgs, SysVShm, current_nanos, rands::StdRand, tuples::tuple_list};
+use std::{ops::DerefMut, path::PathBuf, time::Duration};
 
 /// The commandline args this fuzzer accepts
 #[derive(Debug, Parser)]
@@ -115,7 +114,7 @@ where
         .autotokens(&mut tokens)
         .parse_afl_cmdline(args)
         .coverage_map_size(MAP_SIZE)
-        .try_use_input_shmem(true)
+        .try_use_input_shmem()
         .timeout(Duration::from_millis(3000))
         .build(tuple_list!(observer))
         .unwrap();

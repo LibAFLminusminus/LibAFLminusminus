@@ -16,8 +16,8 @@ debug = true
 
 [dependencies]
 env_logger = "0.11.7"
-libafl = { path = "../../../crates/libafl" }
-libafl_bolts = { path = "../../../crates/libafl_bolts" }
-libafl_core = { path = "../../../crates/libafl_core" }
-libafl_targets = { path = "../../../crates/libafl_targets" }
+libaflmm = { path = "../../../crates/libaflmm" }
+libaflmm_bolts = { path = "../../../crates/libaflmm_bolts" }
+libaflmm_core = { path = "../../../crates/libaflmm_core" }
+libaflmm_targets = { path = "../../../crates/libaflmm_targets" }
 clap = { version = "4.5.18", features = ["derive"] }
