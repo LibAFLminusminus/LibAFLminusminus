@@ -38,6 +38,7 @@ jobs:
         with:
           cache-key: ubuntu
           cache: ${{ vars.RUNS_ON != '' }}
+      - uses: ./.github/actions/cache-qemu-nyx
       - name: Check for blobs
         run: ./scripts/check_for_blobs.sh
       - name: Check for conflicting dependency versions
@@ -90,6 +91,7 @@ jobs:
         with:
           cache-key: ubuntu
           cache: ${{ vars.RUNS_ON != '' }}
+      - uses: ./.github/actions/cache-qemu-nyx
       - name: Run clippy
         run: ./scripts/clippy.sh
 
@@ -115,6 +117,7 @@ jobs:
           components: clippy, rustfmt
           cache-key: ubuntu
           cache: ${{ vars.RUNS_ON != '' }}
+      - uses: ./.github/actions/cache-qemu-nyx
       - name: Check each feature
         env:
           # check instance_idx if you change that to match
@@ -256,6 +259,9 @@ jobs:
           # directory in the root of the workspace
           workspaces: |
             fuzzers/${{ matrix.fuzzer }}
+      - uses: ./.github/actions/cache-qemu-nyx
+        with:
+          target-dir: fuzzers/${{ matrix.fuzzer }}/target/debug
       - name: Run test
         shell: bash
         run: |

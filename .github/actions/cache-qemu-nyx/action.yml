@@ -1,0 +1,46 @@
+name: cache-qemu-nyx
+description: Restore (and save) QEMU-Nyx and packer binaries built by libaflmm_nyx
+
+inputs:
+  target-dir:
+    description: Cargo target directory that contains the QEMU-Nyx and packer builds
+    required: false
+    default: target/debug
+
+runs:
+  using: composite
+  steps:
+    - name: Compute QEMU-Nyx cache key
+      id: key
+      shell: bash
+      run: |
+        hashes=$(grep -oP '(?<=git reset --hard )[0-9a-f]{40}' \
+          crates/libaflmm_nyx/build_nyx_support.sh | tr '\n' '-')
+        mode=$([ "${PROFILE:-debug}" = "release" ] && echo lto || echo static)
+        echo "val=qemu-nyx-${hashes}${mode}" >> "$GITHUB_OUTPUT"
+
+    - name: Restore QEMU-Nyx cache
+      id: cache
+      uses: actions/cache@v5
+      with:
+        path: |
+          ${{ inputs.target-dir }}/QEMU-Nyx/x86_64-softmmu/qemu-system-x86_64
+          ${{ inputs.target-dir }}/packer/linux_initramfs/init.cpio.gz
+        key: ${{ steps.key.outputs.val }}
+
+    - name: Seed git stubs to skip re-clone on cache hit
+      if: steps.cache.outputs.cache-hit == 'true'
+      shell: bash
+      env:
+        TARGET_DIR: ${{ inputs.target-dir }}
+      run: |
+        for dir in "$TARGET_DIR/QEMU-Nyx" "$TARGET_DIR/packer"; do
+          [ -d "$dir/.git" ] && continue
+          mkdir -p "$dir"
+          git -C "$dir" init -q
+          git -C "$dir" config user.email "ci@noreply"
+          git -C "$dir" config user.name "CI"
+          touch "$dir/.gitmodules"
+          git -C "$dir" add .gitmodules
+          git -C "$dir" commit -q -m "stub"
+        done
