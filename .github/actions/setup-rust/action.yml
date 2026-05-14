@@ -42,8 +42,11 @@ runs:
         echo "$CARGO_BIN" >> "$GITHUB_PATH"
 
         # same, careful with race conditions.
-        flock --timeout 300 /var/lock/github-rust.lock \
-          rustup toolchain install "$TOOLCHAIN" --no-self-update
+        if ! rustup toolchain list 2>/dev/null | grep -q "^${TOOLCHAIN}-"; then
+          flock --timeout 300 /var/lock/github-rust.lock \
+            bash -c 'rustup toolchain list 2>/dev/null | grep -q "^'"$TOOLCHAIN"'-" ||
+                     rustup toolchain install "'"$TOOLCHAIN"'" --no-self-update'
+        fi
 
         # not, install components. this is fast, so not dangerous.
         for component in $(echo "$COMPONENTS" | tr ',' ' '); do
