@@ -1,7 +1,7 @@
 use core::error::Error;
 use std::{
     env,
-    process::{exit, Command},
+    process::{Command, exit},
 };
 
 fn main() -> Result<(), Box<dyn Error>> {
