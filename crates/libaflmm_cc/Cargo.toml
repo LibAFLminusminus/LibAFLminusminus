@@ -28,8 +28,6 @@ default = [
   "autotokens",
   "coverage-accounting",
   "cmplog-instructions",
-  "ctx",
-  "dump-cfg",
 ]
 
 # llvm passes
@@ -38,8 +36,6 @@ cmplog-routines = []
 autotokens = []
 coverage-accounting = []
 cmplog-instructions = []
-ctx = []
-dump-cfg = []
 
 [build-dependencies]
 cc = { workspace = true, features = ["parallel"] }

@@ -2,7 +2,7 @@
 use alloc::vec::Vec;
 
 use libaflmm_core::{AsSlice, AsSliceMut};
-use ownedref::OwnedMutSlice;
+use libaflmm_bolts::ownedref::OwnedMutSlice;
 
 /// A [`Vec`] of `8-bit-counters` maps for multiple modules.
 /// They are initialized by calling [`__sanitizer_cov_8bit_counters_init`](

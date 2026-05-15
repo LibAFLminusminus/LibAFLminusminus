@@ -1,7 +1,7 @@
 use core::error::Error;
 use std::{
     env,
-    process::{Command, exit},
+    process::{exit, Command},
 };
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -75,6 +75,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     );
 
     let output = Command::new("sh").arg("-c").arg(&the_command).output()?;
+    if !output.status.success() {
+        eprintln!("{}", String::from_utf8_lossy(&output.stderr));
+        exit(output.status.code().unwrap_or(1));
+    }
     let stdout = String::from_utf8_lossy(&output.stdout);
     let lines: Vec<&str> = stdout.trim().lines().collect();
 
@@ -84,8 +88,9 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let start = instance_idx * 2 * task_per_core;
     let end = ((instance_idx + 1) * 2 * task_per_core).min(lines.len());
-    for &task in &lines[start..end] {
-        println!("Running {task}");
+    let total_lines = end - start;
+    for (idx, task) in lines[start..end].iter().enumerate() {
+        println!("Running task {} / {total_lines}: \"{task}\"", idx + 1);
 
         // skip no_std crates that have no features (checking them requires panic=abort)
         if task.contains("--no-default-features") && !task.contains("--features") {

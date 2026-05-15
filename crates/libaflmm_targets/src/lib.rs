@@ -38,11 +38,6 @@ pub mod sanitizer_ifaces {
     include!(concat!(env!("OUT_DIR"), "/sanitizer_interfaces.rs"));
 }
 
-#[cfg(feature = "sancov_8bit")]
-pub mod sancov_8bit;
-#[cfg(feature = "sancov_8bit")]
-pub use sancov_8bit::*;
-
 #[cfg(feature = "coverage")]
 pub mod coverage;
 #[cfg(feature = "coverage")]

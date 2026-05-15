@@ -1,35 +1,23 @@
 use core::str;
 #[cfg(any(
     target_vendor = "apple",
-    feature = "function-logging",
     feature = "cmplog-routines",
     feature = "autotokens",
-    feature = "coverage-accounting",
     feature = "cmplog-instructions",
-    feature = "ctx",
-    feature = "dump-cfg",
 ))]
 use std::path::PathBuf;
 #[cfg(any(
-    feature = "function-logging",
     feature = "cmplog-routines",
     feature = "autotokens",
-    feature = "coverage-accounting",
     feature = "cmplog-instructions",
-    feature = "ctx",
-    feature = "dump-cfg",
 ))]
 use std::process::Command;
 use std::{env, fs::File, io::Write, path::Path};
 
 #[cfg(any(
-    feature = "function-logging",
     feature = "cmplog-routines",
     feature = "autotokens",
-    feature = "coverage-accounting",
     feature = "cmplog-instructions",
-    feature = "ctx",
-    feature = "dump-cfg",
 ))]
 #[expect(clippy::too_many_arguments)]
 fn build_pass(
@@ -51,11 +39,21 @@ fn build_pass(
         Vec::new()
     };
 
+    let host_triple = Command::new(bindir_path.join("clang++"))
+        .arg("--print-target-triple")
+        .output()
+        .ok()
+        .and_then(|o| String::from_utf8(o.stdout).ok())
+        .map(|s| s.trim().to_string());
+
     println!("cargo:rerun-if-changed=src/{src_file}");
     let command_result = if cfg!(unix) {
-        let r = Command::new(bindir_path.join("clang++"))
-            .arg("-v")
-            .arg(format!("--target={}", env::var("HOST").unwrap()))
+        let mut cmd = Command::new(bindir_path.join("clang++"));
+        cmd.arg("-v");
+        if let Some(triple) = &host_triple {
+            cmd.arg(format!("--target={triple}"));
+        }
+        let r = cmd
             .args(cxxflags)
             .arg(src_dir.join(src_file))
             .args(additionals)
@@ -66,9 +64,12 @@ fn build_pass(
 
         Some(r)
     } else if cfg!(windows) {
-        let r = Command::new(bindir_path.join("clang-cl.exe"))
-            .arg("-v")
-            .arg(format!("--target={}", env::var("HOST").unwrap()))
+        let mut cmd = Command::new(bindir_path.join("clang-cl.exe"));
+        cmd.arg("-v");
+        if let Some(triple) = &host_triple {
+            cmd.arg(format!("--target={triple}"));
+        }
+        let r = cmd
             .args(cxxflags)
             .arg(src_dir.join(src_file))
             .args(additionals)

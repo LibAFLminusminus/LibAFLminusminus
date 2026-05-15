@@ -119,7 +119,7 @@ pointer_maps = []
 ## Sanitizer interfaces.
 ## This feature generates Rust bindings for sanitizer interface headers (`sanitizer_interfaces.h`).
 ## It allows accessing sanitizer functions and structures from Rust code.
-sanitizer_interfaces = []
+sanitizer_interfaces = ["dep:bindgen"]
 
 ## Ignore compiler warnings during clippy.
 ## This feature suppresses clippy warnings in generated code or specific modules.
@@ -130,6 +130,7 @@ document-features = ["dep:document-features"]
 
 [build-dependencies]
 cc = { workspace = true, features = ["parallel"] }
+bindgen = { workspace = true, optional = true }
 
 [dependencies]
 document-features = { workspace = true, optional = true }

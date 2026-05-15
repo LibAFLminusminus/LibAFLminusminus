@@ -22,6 +22,10 @@ inputs:
       Enable Swatinem/rust-cache. Set to false on persistent self-hosted runners.
     required: false
     default: "true"
+  cargo-install:
+    description: Comma-separated list of cargo binaries to install (e.g. cargo-hack,cargo-nextest).
+    required: false
+    default: ""
 
 runs:
   using: composite
@@ -88,3 +92,13 @@ runs:
         shared-key: ${{ inputs.cache-key }}
         save-if: ${{ inputs.save-cache }}
         cache-all-crates: true
+
+    - name: Install cargo binaries
+      if: inputs.cargo-install != ''
+      shell: bash
+      env:
+        BINARIES: ${{ inputs.cargo-install }}
+      run: |
+        for bin in $(echo "$BINARIES" | tr ',' ' '); do
+          command -v "$bin" &>/dev/null || cargo install --locked "$bin"
+        done

@@ -100,7 +100,7 @@ jobs:
     strategy:
       matrix:
         # check CI_INSTANCES if you change that to match
-        instance_idx: ["0", "1"]
+        instance_idx: ["0", "1", "2", "3"]
       fail-fast: false
     steps:
       - uses: actions/checkout@v6
@@ -117,11 +117,12 @@ jobs:
           components: clippy, rustfmt
           cache-key: ubuntu
           cache: ${{ vars.RUNS_ON != '' }}
+          cargo-install: cargo-hack
       - uses: ./.github/actions/cache-qemu-nyx
       - name: Check each feature
         env:
           # check instance_idx if you change that to match
-          CI_INSTANCES: 2
+          CI_INSTANCES: 4
           LLVM_VERSION: ${{ env.MAIN_LLVM_VERSION }}
         run: cargo run --manifest-path utils/ci_splitter/Cargo.toml -- ${{ matrix.instance_idx }}
 
