@@ -7,7 +7,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use libaflmm::{
     DependencyResolver, Result, Worker,
-    executors::{Executor, ExitKind},
+    executors::{Executor, ExitKind, HasShadowObservers},
     observers::ObserversTuple,
     runtimes::{
         OsTerminationParams, RuntimeHandle,
@@ -24,24 +24,38 @@ use crate::Emulator;
 #[cfg(feature = "usermode")]
 use crate::{Qemu, QemuSignalContext};
 
-pub struct QemuExecutor<EMU, OT, PRE, POST> {
+pub struct QemuExecutor<EMU, OT, PRE, POST, SOT> {
     emulator: EMU,
     pre_exec: PRE,
     post_exec: POST,
     observers: OT,
+    shadow_observers: SOT,
 }
 
 #[cfg(feature = "systemmode")]
 pub(crate) static BREAK_ON_TMOUT: AtomicBool = AtomicBool::new(false);
 
-impl<EMU, OT, PRE, POST> QemuExecutor<EMU, OT, PRE, POST> {
-    pub fn new<OF>(emulator: EMU, pre_exec: PRE, post_exec: POST, observers: OT) -> Result<Self> {
+impl<EMU, OT, PRE, POST, SOT> QemuExecutor<EMU, OT, PRE, POST, SOT> {
+    pub fn with_shadow_observers(
+        emulator: EMU,
+        pre_exec: PRE,
+        post_exec: POST,
+        observers: OT,
+        shadow_observers: SOT,
+    ) -> Result<Self> {
         Ok(Self {
             emulator,
             pre_exec,
             post_exec,
             observers,
+            shadow_observers,
         })
+    }
+}
+
+impl<EMU, OT, PRE, POST> QemuExecutor<EMU, OT, PRE, POST, ()> {
+    pub fn new(emulator: EMU, pre_exec: PRE, post_exec: POST, observers: OT) -> Result<Self> {
+        Self::with_shadow_observers(emulator, pre_exec, post_exec, observers, ())
     }
 
     #[cfg(feature = "systemmode")]
@@ -57,14 +71,31 @@ impl<EMU, OT, PRE, POST> QemuExecutor<EMU, OT, PRE, POST> {
     }
 }
 
-impl<EMU, OT, PRE, POST> DependencyResolver for QemuExecutor<EMU, OT, PRE, POST> {}
+impl<EMU, OT, PRE, POST, SOT> DependencyResolver for QemuExecutor<EMU, OT, PRE, POST, SOT> {}
 
-impl<EMU, I, OT, PRE, POST, S> Executor<I, S> for QemuExecutor<EMU, OT, PRE, POST>
+impl<EMU, OT, PRE, POST, S, SOT> HasShadowObservers<S> for QemuExecutor<EMU, OT, PRE, POST, SOT>
+where
+    SOT: ObserversTuple<S>,
+{
+    type ShadowObservers = SOT;
+
+    fn shadow_observers(&self) -> RefIndexable<&Self::ShadowObservers, Self::ShadowObservers> {
+        RefIndexable::from(&self.shadow_observers)
+    }
+
+    fn shadow_observers_mut(
+        &mut self,
+    ) -> RefIndexable<&mut Self::ShadowObservers, Self::ShadowObservers> {
+        RefIndexable::from(&mut self.shadow_observers)
+    }
+}
+
+impl<EMU, I, OT, PRE, POST, S, SOT> Executor<I, S> for QemuExecutor<EMU, OT, PRE, POST, SOT>
 where
     EMU: Emulator<I, S>,
     OT: ObserversTuple<S>,
-    PRE: FnMut(&mut EMU) -> Result<()>,
-    POST: FnMut(&mut EMU) -> Result<()>,
+    PRE: FnMut(&mut EMU, &mut S, &I) -> Result<()>,
+    POST: FnMut(&mut EMU, &mut S) -> Result<()>,
 {
     type Observers = OT;
 
@@ -77,7 +108,7 @@ where
     }
 
     unsafe fn execute_impl(&mut self, state: &mut S, input: &I) -> Result<ExitKind> {
-        (self.pre_exec)(&mut self.emulator)?;
+        (self.pre_exec)(&mut self.emulator, state, input)?;
 
         self.emulator.pre_exec(state, input)?;
 
@@ -86,7 +117,7 @@ where
         self.emulator
             .post_exec(input, &mut self.observers, state, &mut exit_kind)?;
 
-        (self.post_exec)(&mut self.emulator)?;
+        (self.post_exec)(&mut self.emulator, state)?;
 
         Ok(exit_kind)
     }

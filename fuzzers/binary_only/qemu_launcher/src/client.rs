@@ -1,24 +1,21 @@
 use std::env;
 
 use libafl::{
+    Error,
     corpus::{InMemoryOnDiskCorpus, OnDiskCorpus},
     events::{
         ClientDescription, EventFirer, EventReceiver, EventRestarter, ProgressReporter, SendExiting,
     },
     inputs::BytesInput,
     state::StdState,
-    Error,
 };
 use libafl_bolts::{rands::StdRand, tuples::tuple_list};
 use libafl_qemu::modules::{
-    asan_guest::AsanGuestModule, asan_host::AsanHostModule, cmplog::CmpLogModule,
-    utils::filters::StdAddressFilter, DrCovModule, InjectionModule,
+    DrCovModule, InjectionModule, asan_guest::AsanGuestModule, asan_host::AsanHostModule,
+    cmplog::CmpLogModule, utils::filters::StdAddressFilter,
 };
 
 use crate::{harness::Harness, instance::Instance, options::FuzzerOptions};
-
-pub type ClientState =
-    StdState<InMemoryOnDiskCorpus<BytesInput>, BytesInput, StdRand, OnDiskCorpus<BytesInput>>;
 
 pub struct Client<'a> {
     options: &'a FuzzerOptions,
@@ -46,13 +43,7 @@ impl Client<'_> {
             .collect::<Vec<(String, String)>>()
     }
 
-    #[expect(clippy::too_many_lines)]
-    pub fn run<EM>(
-        &self,
-        state: Option<ClientState>,
-        mgr: EM,
-        client_description: ClientDescription,
-    ) -> Result<(), Error>
+    pub fn run<S>(&self, state: S) -> Result<(), Error>
     where
         EM: EventFirer<BytesInput, ClientState>
             + EventRestarter<ClientState>
@@ -158,10 +149,12 @@ impl Client<'_> {
 
                     instance_builder.build().run(args, modules, state)
                 } else {
-                    let modules = tuple_list!(DrCovModule::builder()
-                        .path(drcov.clone())
-                        .full_trace(true)
-                        .build(),);
+                    let modules = tuple_list!(
+                        DrCovModule::builder()
+                            .path(drcov.clone())
+                            .full_trace(true)
+                            .build(),
+                    );
 
                     instance_builder.build().run(args, modules, state)
                 }
@@ -229,7 +222,8 @@ impl Client<'_> {
                         CmpLogModule::default(),
                         AsanGuestModule::new(&env, asan_filter),
                     ),
-                    state,
+                    stat
+                    e,
                 )
             }
         } else if is_asan_host {
@@ -248,10 +242,12 @@ impl Client<'_> {
             } else {
                 instance_builder.build().run(
                     args,
-                    tuple_list!(AsanHostModule::builder()
-                        .env(&env)
-                        .filter(asan_filter)
-                        .build()),
+                    tuple_list!(
+                        AsanHostModule::builder()
+                            .env(&env)
+                            .filter(asan_filter)
+                            .build()
+                    ),
                     state,
                 )
             }

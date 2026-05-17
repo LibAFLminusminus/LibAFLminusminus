@@ -9,7 +9,7 @@ use libaflmm::{Result, executors::ExitKind, observers::ObserversTuple};
 use libaflmm_qemu_sys::{GuestAddr, GuestPhysAddr, GuestVirtAddr};
 
 use crate::{
-    QemuShutdownCause, breakpoint::Breakpoint, command::CommandError, sync_exit::CustomInsn,
+    Qemu, QemuShutdownCause, breakpoint::Breakpoint, command::CommandError, sync_exit::CustomInsn,
 };
 
 pub mod standard;
@@ -25,6 +25,7 @@ pub mod snapshot;
 pub use snapshot::*;
 
 pub trait Emulator<I, S> {
+    fn qemu(&self) -> Qemu;
     fn first_exec(&mut self, state: &mut S) -> Result<()>;
     fn pre_exec(&mut self, state: &mut S, input: &I) -> Result<()>;
     fn exec_input(&mut self, input: &I) -> Result<ExitKind>;

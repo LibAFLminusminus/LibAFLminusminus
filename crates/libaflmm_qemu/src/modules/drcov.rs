@@ -98,11 +98,11 @@ where
     }
 
     #[must_use]
-    pub fn path<P: Into<PathBuf>>(self, path: P) -> Self {
+    pub fn path(self, path: impl AsRef<Path>) -> Self {
         Self {
             filter: self.filter,
             module_mapping: self.module_mapping,
-            path: Some(path.into()),
+            path: Some(path.as_ref().into()),
             full_trace: self.full_trace,
             clean_on_flush: self.clean_on_flush,
         }

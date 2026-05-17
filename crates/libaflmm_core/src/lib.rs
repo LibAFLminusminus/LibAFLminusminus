@@ -787,6 +787,20 @@ impl Named for () {
     }
 }
 
+impl<N> Named for Option<N>
+where
+    N: Named,
+{
+    fn name(&self) -> &Cow<'static, str> {
+        if let Some(named) = self {
+            named.name()
+        } else {
+            static EMPTY: Cow<'static, str> = Cow::Borrowed("<empty>");
+            &EMPTY
+        }
+    }
+}
+
 /// Has a length field
 pub trait HasLen {
     /// The length

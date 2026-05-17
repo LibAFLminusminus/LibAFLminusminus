@@ -75,8 +75,12 @@ pub struct OnDiskCorpusBuilder(OnDiskStoreBuilder);
 
 /// The standard corpus for storing on disk and in-memory.
 #[repr(transparent)]
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct InMemoryOnDiskCorpus<I, SC>(InnerInMemoryOnDiskCorpus<I, SC>);
+
+/// The in-memory on-disk corpus builder
+#[derive(Debug, Clone, Default)]
+pub struct InMemoryOnDiskCorpusBuilder(OnDiskStoreBuilder);
 
 /// The standard corpus for storing on disk and in-memory with a cache.
 /// Useful for very large corpuses.
@@ -352,6 +356,48 @@ where
 //         self.0.disable(id)
 //     }
 // }
+
+impl InMemoryOnDiskCorpusBuilder {
+    /// Create a new [`InMemoryOnDiskCorpusBuilder`].
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Set the root directory, where the testcases will be stored.
+    pub fn root_dir(&mut self, root: &Path) -> &mut Self {
+        self.0.root_dir(root);
+        self
+    }
+
+    /// Set the on-disk filename format
+    pub fn filename_format(&mut self, filename_format: TestcaseFilenameFormat) -> &mut Self {
+        self.0.filename_format(filename_format);
+        self
+    }
+
+    /// Build an [`InMemoryOnDiskStore`].
+    /// The root directory must be set.
+    pub fn build<I, SC>(&self, scheduler: SC) -> Result<InMemoryOnDiskCorpus<I, SC>> {
+        Ok(InMemoryOnDiskCorpus(InnerInMemoryOnDiskCorpus::new(
+            scheduler,
+            IdentityCache,
+            InMemoryStore::default(),
+            self.0.build()?,
+        )))
+    }
+}
+
+impl<I, SC> InMemoryOnDiskCorpus<I, SC>
+where
+    I: Input,
+{
+    /// Get a [`InMemoryOnDiskCorpus`] builder.
+    #[must_use]
+    pub fn builder() -> InMemoryOnDiskCorpusBuilder {
+        InMemoryOnDiskCorpusBuilder::default()
+    }
+}
 
 impl<I, SC> HasScheduler for InMemoryOnDiskCorpus<I, SC>
 where

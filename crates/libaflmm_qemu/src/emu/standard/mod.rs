@@ -68,6 +68,10 @@ where
     I: Unpin,
     S: Unpin,
 {
+    fn qemu(&self) -> Qemu {
+        self.qemu
+    }
+
     fn first_exec(&mut self, state: &mut S) -> Result<()> {
         ED::first_harness_exec(self, state)
     }

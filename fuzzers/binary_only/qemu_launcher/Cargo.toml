@@ -10,7 +10,7 @@ edition = "2024"
 
 [features]
 default = ["injections"]
-clippy = [] # Only for clippy, don't use.
+clippy = ["libaflmm_qemu/clippy"] # Only for clippy, don't use.
 
 ## Enable fuzzing for injections (where supported)
 injections = ["libaflmm_qemu/injections"]

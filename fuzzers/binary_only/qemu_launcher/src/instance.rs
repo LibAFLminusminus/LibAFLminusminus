@@ -1,7 +1,8 @@
 use core::fmt::Debug;
-use std::{fs, ops::Range, process};
+use std::{fs, process};
 
 use libafl::{
+    Error, HasMetadata,
     corpus::{Corpus, HasCurrentCorpusId, InMemoryOnDiskCorpus, OnDiskCorpus},
     events::{
         ClientDescription, EventFirer, EventReceiver, EventRestarter, ProgressReporter, SendExiting,
@@ -12,39 +13,38 @@ use libafl::{
     fuzzer::{Evaluator, Fuzzer, StdFuzzer},
     inputs::{BytesInput, Input},
     mutators::{
-        havoc_mutations, token_mutations::I2SRandReplace, tokens_mutations, HavocScheduledMutator,
-        StdMOptMutator, Tokens,
+        HavocScheduledMutator, StdMOptMutator, Tokens, havoc_mutations,
+        token_mutations::I2SRandReplace, tokens_mutations,
     },
     observers::{
         CanTrack, HitcountsMapObserver, ObserversTuple, TimeObserver, VariableMapObserver,
     },
     schedulers::{
-        powersched::PowerSchedule, IndexesLenTimeMinimizerScheduler, PowerQueueScheduler,
+        IndexesLenTimeMinimizerScheduler, PowerQueueScheduler, powersched::PowerSchedule,
     },
     stages::{
-        calibrate::CalibrationStage, power::StdPowerMutationalStage, AflStatsStage, IfStage,
-        ShadowTracingStage, StagesTuple, StdMutationalStage,
+        AflStatsStage, IfStage, ShadowTracingStage, StagesTuple, StdMutationalStage,
+        calibrate::CalibrationStage, power::StdPowerMutationalStage,
     },
     state::{HasCorpus, HasExecutions, HasSolutions, StdState},
-    Error, HasMetadata,
 };
 use libafl_bolts::{
     ownedref::OwnedMutSlice,
     rands::StdRand,
-    tuples::{tuple_list, MatchFirstType, Merge, Prepend},
+    tuples::{MatchFirstType, Merge, Prepend, tuple_list},
 };
 use libafl_qemu::{
+    Emulator, GuestAddr, Qemu, QemuExecutor,
     elf::EasyElf,
     modules::{
+        AsanGuestModule, EdgeCoverageModule, EmulatorModuleTuple, SnapshotModule,
+        StdEdgeCoverageModule,
         cmplog::CmpLogObserver,
         edges::EdgeCoverageFullVariant,
         utils::filters::{HasAddressFilter, NopPageFilter, StdAddressFilter},
-        AsanGuestModule, EdgeCoverageModule, EmulatorModuleTuple, SnapshotModule,
-        StdEdgeCoverageModule,
     },
-    Emulator, GuestAddr, Qemu, QemuExecutor,
 };
-use libafl_targets::{edges_map_mut_ptr, EDGES_MAP_DEFAULT_SIZE, MAX_EDGES_FOUND};
+use libafl_targets::{EDGES_MAP_DEFAULT_SIZE, MAX_EDGES_FOUND, edges_map_mut_ptr};
 use typed_builder::TypedBuilder;
 
 use crate::{harness::Harness, options::FuzzerOptions};
@@ -90,38 +90,6 @@ where
         + SendExiting
         + EventReceiver<BytesInput, ClientState>,
 {
-    fn coverage_filter(&self, qemu: Qemu) -> Result<StdAddressFilter, Error> {
-        /* Conversion is required on 32-bit targets, but not on 64-bit ones */
-        if let Some(includes) = &self.options.include {
-            #[cfg_attr(target_pointer_width = "64", allow(clippy::useless_conversion))]
-            let rules = includes
-                .iter()
-                .map(|x| Range {
-                    start: x.start.into(),
-                    end: x.end.into(),
-                })
-                .collect::<Vec<Range<GuestAddr>>>();
-            Ok(StdAddressFilter::allow_list(rules))
-        } else if let Some(excludes) = &self.options.exclude {
-            #[cfg_attr(target_pointer_width = "64", allow(clippy::useless_conversion))]
-            let rules = excludes
-                .iter()
-                .map(|x| Range {
-                    start: x.start.into(),
-                    end: x.end.into(),
-                })
-                .collect::<Vec<Range<GuestAddr>>>();
-            Ok(StdAddressFilter::deny_list(rules))
-        } else {
-            let mut elf_buffer = Vec::new();
-            let elf = EasyElf::from_file(qemu.binary_path(), &mut elf_buffer)?;
-            let range = elf
-                .get_section(".text", qemu.load_addr())
-                .ok_or_else(|| Error::key_not_found("Failed to find .text section"))?;
-            Ok(StdAddressFilter::allow_list(vec![range]))
-        }
-    }
-
     #[expect(clippy::too_many_lines)]
     pub fn run<ET>(
         &mut self,
@@ -142,31 +110,6 @@ where
             .track_indices()
         };
 
-        let edge_coverage_module = StdEdgeCoverageModule::builder()
-            .map_observer(edges_observer.as_mut())
-            .build()?;
-
-        let snapshot_module = if self.options.rerun_input.is_some() {
-            None
-        } else {
-            let mut snapshot_module =
-                SnapshotModule::with_filters(AsanGuestModule::snapshot_filters());
-
-            /*
-             * Since the generics for the modules are already excessive when taking
-             * the SnapshotModule into account, we just always include it, but do
-             * not use it when it is not required. See the table at the top of this
-             * file for details.
-             */
-            if !self.options.snapshots || self.options.iterations.is_some() {
-                snapshot_module.use_manual_reset();
-            }
-            Some(snapshot_module)
-        };
-
-        let modules = modules
-            .prepend(edge_coverage_module)
-            .prepend(snapshot_module);
         let mut emulator = Emulator::empty()
             .qemu_parameters(args)
             .modules(modules)
@@ -191,15 +134,19 @@ where
 
         let stats_stage = IfStage::new(
             |_, _, _, _| Ok(self.options.tui),
-            tuple_list!(AflStatsStage::builder()
-                .map_feedback(&map_feedback)
-                .build()?),
+            tuple_list!(
+                AflStatsStage::builder()
+                    .map_feedback(&map_feedback)
+                    .build()?
+            ),
         );
         let stats_stage_cmplog = IfStage::new(
             |_, _, _, _| Ok(self.options.tui),
-            tuple_list!(AflStatsStage::builder()
-                .map_feedback(&map_feedback)
-                .build()?),
+            tuple_list!(
+                AflStatsStage::builder()
+                    .map_feedback(&map_feedback)
+                    .build()?
+            ),
         );
 
         // Feedback to rate the interestingness of an input

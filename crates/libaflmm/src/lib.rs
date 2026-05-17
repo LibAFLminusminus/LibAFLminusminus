@@ -38,7 +38,8 @@ pub mod states;
 pub use libaflmm_core::{Error, Result};
 pub use libaflmm_core::{
     empty, empty_optional, illegal_argument, illegal_state, internal_bug, invalid_corpus,
-    invalid_input, iterator_end, key_exists, key_not_found, not_implemented, unknown, unsupported,
+    invalid_input, iterator_end, key_exists, key_not_found, not_implemented, runtime, unknown,
+    unsupported,
 };
 pub use libaflmm_core::{non_zero, non_zero_const};
 
