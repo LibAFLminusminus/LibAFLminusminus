@@ -20,7 +20,7 @@ use crate::{
     generators::nautilus::NautilusContext,
     inputs::nautilus::NautilusInput,
     mutators::{MutationResult, Mutator},
-    states::{FlatState, named_metadata},
+    states::{CoreState, named_metadata},
 };
 
 /// The randomic mutator for `Nautilus` grammar.
@@ -173,7 +173,7 @@ impl Debug for NautilusSpliceMutator<'_> {
 
 impl<R: Rand, S> Mutator<NautilusInput, R, S> for NautilusSpliceMutator<'_>
 where
-    S: FlatState,
+    S: CoreState,
 {
     fn mutate(
         &mut self,

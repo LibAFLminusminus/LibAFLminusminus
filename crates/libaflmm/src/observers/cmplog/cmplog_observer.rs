@@ -18,7 +18,7 @@ use crate::{
     DependencyResolver, Error,
     executors::ExitKind,
     observers::{CmpObserver, CmpValues, CmplogBytes, Observer},
-    states::{FlatState, named_metadata_mut},
+    states::{CoreState, named_metadata_mut},
 };
 /// A [`CmpObserver`] observer for cmplog
 #[derive(Debug)]
@@ -64,7 +64,7 @@ impl<H, S, V> Observer<S> for CmpLogObserver<H, V>
 where
     H: CmpLogHeader,
     V: CmpLogVals,
-    S: FlatState,
+    S: CoreState,
 {
     fn pre_exec(&mut self, _state: &mut S) -> Result<(), Error> {
         self.map.as_mut().reset()?;

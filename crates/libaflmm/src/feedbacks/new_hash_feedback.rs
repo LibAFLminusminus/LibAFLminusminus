@@ -16,7 +16,7 @@ use crate::{
     executors::ExitKind,
     feedbacks::{Feedback, HasObserverHandle},
     observers::ObserverWithHashField,
-    states::FlatState,
+    states::CoreState,
 };
 
 /// The prefix of the metadata names
@@ -99,7 +99,7 @@ impl<O> NewHashFeedback<O>
 where
     O: ObserverWithHashField + Named,
 {
-    fn has_interesting_backtrace_hash_observation<OT, S: FlatState>(
+    fn has_interesting_backtrace_hash_observation<OT, S: CoreState>(
         &mut self,
         state: &mut S,
         observers: &OT,
@@ -138,7 +138,7 @@ impl<O, I, OT, S> Feedback<I, OT, S> for NewHashFeedback<O>
 where
     O: ObserverWithHashField + Named,
     OT: MatchName,
-    S: FlatState,
+    S: CoreState,
 {
     fn is_interesting(
         &mut self,

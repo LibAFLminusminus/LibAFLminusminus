@@ -123,7 +123,7 @@ pub fn sync_stats(file: File, stats: &Stats) -> Result<()> {
 }
 
 /// the all-in-one trait for all the data that normal state should contain
-pub trait FlatState {
+pub trait CoreState {
     /// Get the [`Stats`]
     fn stats(&self) -> &Stats;
 
@@ -196,7 +196,7 @@ pub trait FlatState {
 }
 
 /// The trait containing all the stuff that [`StdState`] implements. It's rather a shortcut for typing all the traits
-pub trait State<I>: FlatState + HasScheduler + DependencyResolver {
+pub trait State<I>: CoreState + HasScheduler + DependencyResolver {
     /// The associated [`Corpus`]
     type Corpus: Corpus<I>;
     /// The associated objective [`Corpus`]
@@ -545,7 +545,7 @@ impl PSMetadata {
 
 libaflmm_bolts::impl_serdeany!(PSMetadata);
 
-impl<C, CT, I, OC, SC> FlatState for StdState<C, CT, I, OC, SC> {
+impl<C, CT, I, OC, SC> CoreState for StdState<C, CT, I, OC, SC> {
     fn stats(&self) -> &Stats {
         &self.stats
     }

@@ -24,7 +24,7 @@ use crate::{
     Error, EvaluationResult,
     inputs::{HasMutatorBytes, ResizableMutator},
     mutators::{MutationResult, Mutator, Named, buffer_self_copy, mutations::buffer_copy},
-    states::FlatState,
+    states::CoreState,
 };
 
 /// A state metadata holding a list of tokens
@@ -300,7 +300,7 @@ pub struct TokenInsert;
 impl<I, R, S> Mutator<I, R, S> for TokenInsert
 where
     R: Rand,
-    S: FlatState,
+    S: CoreState,
     I: ResizableMutator<u8> + HasMutatorBytes,
 {
     fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
@@ -375,7 +375,7 @@ pub struct TokenReplace;
 impl<I, R, S> Mutator<I, R, S> for TokenReplace
 where
     R: Rand,
-    S: FlatState,
+    S: CoreState,
     I: ResizableMutator<u8> + HasMutatorBytes,
 {
     fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {

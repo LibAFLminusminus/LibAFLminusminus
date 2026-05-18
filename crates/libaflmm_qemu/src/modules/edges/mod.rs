@@ -1,6 +1,6 @@
 use std::{fmt::Debug, ptr};
 
-use libaflmm::{Result, observers::VarLenMapObserver, states::FlatState};
+use libaflmm::{Result, observers::VarLenMapObserver, states::CoreState};
 use libaflmm_qemu_sys::GuestAddr;
 #[cfg(feature = "systemmode")]
 use libaflmm_qemu_sys::GuestPhysAddr;
@@ -58,7 +58,7 @@ trait EdgeCoverageVariant<AF, PF, const IS_CONST_MAP: bool, const MAP_SIZE: usiz
         ET: EmulatorModuleTuple<I, S>,
         PF: PageFilter,
         I: Unpin,
-        S: FlatState + Unpin,
+        S: CoreState + Unpin,
     {
         panic!("JIT hitcount is not supported.")
     }
@@ -69,7 +69,7 @@ trait EdgeCoverageVariant<AF, PF, const IS_CONST_MAP: bool, const MAP_SIZE: usiz
         ET: EmulatorModuleTuple<I, S>,
         PF: PageFilter,
         I: Unpin,
-        S: FlatState + Unpin,
+        S: CoreState + Unpin,
     {
         panic!("JIT no hitcount is not supported.")
     }
@@ -80,7 +80,7 @@ trait EdgeCoverageVariant<AF, PF, const IS_CONST_MAP: bool, const MAP_SIZE: usiz
         ET: EmulatorModuleTuple<I, S>,
         PF: PageFilter,
         I: Unpin,
-        S: FlatState + Unpin,
+        S: CoreState + Unpin,
     {
         panic!("Func hitcount is not supported.")
     }
@@ -91,7 +91,7 @@ trait EdgeCoverageVariant<AF, PF, const IS_CONST_MAP: bool, const MAP_SIZE: usiz
         ET: EmulatorModuleTuple<I, S>,
         PF: PageFilter,
         I: Unpin,
-        S: FlatState + Unpin,
+        S: CoreState + Unpin,
     {
         panic!("Func no hitcount is not supported.")
     }
@@ -340,7 +340,7 @@ where
     AF: AddressFilter + 'static,
     PF: PageFilter + 'static,
     I: Unpin,
-    S: Unpin + FlatState,
+    S: Unpin + CoreState,
     V: EdgeCoverageVariant<AF, PF, IS_CONST_MAP, MAP_SIZE> + 'static,
 {
     const HOOKS_DO_SIDE_EFFECTS: bool = V::DO_SIDE_EFFECTS;

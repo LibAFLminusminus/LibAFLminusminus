@@ -1,7 +1,7 @@
 #[cfg(feature = "usermode")]
 use capstone::{Capstone, InsnDetail, arch::BuildsCapstone};
 use hashbrown::HashMap;
-use libaflmm::{Result, states::FlatState};
+use libaflmm::{Result, states::CoreState};
 use libaflmm_bolts::hash_64_fast;
 use libaflmm_qemu_sys::GuestAddr;
 #[cfg(feature = "usermode")]
@@ -71,7 +71,7 @@ impl Default for CmpLogModule {
 impl<I, S> EmulatorModule<I, S> for CmpLogModule
 where
     I: Unpin,
-    S: Unpin + FlatState,
+    S: Unpin + CoreState,
 {
     fn first_exec<ET>(
         &mut self,
@@ -145,7 +145,7 @@ impl Default for CmpLogChildModule {
 impl<I, S> EmulatorModule<I, S> for CmpLogChildModule
 where
     I: Unpin,
-    S: Unpin + FlatState,
+    S: Unpin + CoreState,
 {
     const HOOKS_DO_SIDE_EFFECTS: bool = false;
 
@@ -205,7 +205,7 @@ pub fn gen_unique_cmp_ids<ET, I, S>(
 where
     ET: EmulatorModuleTuple<I, S>,
     I: Unpin,
-    S: Unpin + FlatState,
+    S: Unpin + CoreState,
 {
     if let Some(h) = emulator_modules.get::<CmpLogModule>()
         && !h.must_instrument(pc)
@@ -233,7 +233,7 @@ pub fn gen_hashed_cmp_ids<ET, I, S>(
 where
     ET: EmulatorModuleTuple<I, S>,
     I: Unpin,
-    S: FlatState + Unpin,
+    S: CoreState + Unpin,
 {
     if let Some(h) = emulator_modules.get::<CmpLogChildModule>()
         && !h.must_instrument(pc)

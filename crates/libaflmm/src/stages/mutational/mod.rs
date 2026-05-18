@@ -11,7 +11,7 @@ use crate::{
     Result,
     common::PowerScheduleData,
     corpus::TestcaseId,
-    states::{FlatState, unnamed_metadata_mut},
+    states::{CoreState, unnamed_metadata_mut},
 };
 
 /// This is for power scheduling. It returns a "score" to decide how many times you want to mutate and test the [`Input`](crate::inputs::Input)  during one [`Stage`](crate::stages::Stage) .
@@ -28,7 +28,7 @@ pub struct AFLPower {}
 
 impl<S> Power<S> for AFLPower
 where
-    S: FlatState,
+    S: CoreState,
 {
     #[expect(clippy::cast_precision_loss, clippy::cast_sign_loss)]
     fn score(state: &mut S, testcase_id: TestcaseId) -> Result<usize> {

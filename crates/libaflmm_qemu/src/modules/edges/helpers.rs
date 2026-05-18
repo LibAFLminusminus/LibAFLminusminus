@@ -48,7 +48,7 @@ mod generators {
     use std::{cmp::max, ptr};
 
     use hashbrown::hash_map::Entry;
-    use libaflmm::states::FlatState;
+    use libaflmm::states::CoreState;
     use libaflmm_bolts::hash_64_fast;
     use libaflmm_qemu_sys::GuestAddr;
 
@@ -97,7 +97,7 @@ mod generators {
         ET: EmulatorModuleTuple<I, S>,
         PF: PageFilter,
         I: Unpin,
-        S: FlatState + Unpin,
+        S: CoreState + Unpin,
         V: EdgeCoverageVariant<AF, PF, IS_CONST_MAP, MAP_SIZE>,
     {
         if let Some(module) =
@@ -184,7 +184,7 @@ mod generators {
         ET: EmulatorModuleTuple<I, S>,
         PF: PageFilter,
         I: Unpin,
-        S: FlatState + Unpin,
+        S: CoreState + Unpin,
         V: EdgeCoverageVariant<AF, PF, IS_CONST_MAP, MAP_SIZE>,
     {
         if let Some(module) =
@@ -247,7 +247,7 @@ mod generators {
         ET: EmulatorModuleTuple<I, S>,
         PF: PageFilter,
         I: Unpin,
-        S: FlatState + Unpin,
+        S: CoreState + Unpin,
         V: EdgeCoverageVariant<AF, PF, IS_CONST_MAP, MAP_SIZE>,
     {
         // first check if we should filter

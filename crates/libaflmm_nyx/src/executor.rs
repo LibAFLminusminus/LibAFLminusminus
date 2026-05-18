@@ -75,7 +75,7 @@ where
         input: &I,
     ) -> Result<ExitKind, Error>
     where
-        S: libaflmm::states::FlatState,
+        S: libaflmm::states::CoreState,
     {
         unsafe { self.execute_impl(state, input) }
     }
