@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 #[cfg(all(feature = "usermode", not(feature = "systemmode")))]
-use libaflmm::{inputs::Input, states::FlatState};
+use libaflmm::{inputs::Input, states::CoreState};
 use libaflmm_bolts::tuples::{Append, Prepend, tuple_list};
 
 #[cfg(doc)]
@@ -72,7 +72,7 @@ impl<C, I, S>
         super::StdSnapshotManager,
     >
 where
-    S: FlatState + Unpin,
+    S: CoreState + Unpin,
     I: Input,
 {
     #[must_use]
@@ -102,7 +102,7 @@ impl<C, I, S>
         super::systemmode::StdSnapshotManager,
     >
 where
-    S: FlatState + Unpin,
+    S: CoreState + Unpin,
     I: Input,
 {
     #[expect(clippy::should_implement_trait)]

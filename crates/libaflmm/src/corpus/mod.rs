@@ -1,11 +1,10 @@
 //! Corpuses contain the testcases, either in memory, on disk, or somewhere else.
 
+use crate::DependencyResolver;
 use core::fmt;
-
-use crate::{DependencyResolver, states::HasScheduler};
+use libaflmm_core::Result;
 
 pub mod testcase;
-use libaflmm_core::Result;
 pub use testcase::{Testcase, TestcaseFilenameFormat, TestcaseId};
 
 pub mod single;
@@ -29,9 +28,25 @@ pub use collection::{
 };
 
 pub mod combined;
+pub use combined::CombinedCorpus;
 
 pub mod cache;
 pub use cache::{Cache, FifoCache, IdentityCache};
+
+pub type StdCorpus<I, SC> = InMemoryCorpus<I, SC>;
+pub type StdObjectiveCorpus<I, SC> = OnDiskCorpus<I, SC>;
+
+/// This module has a [`Scheduler`]
+pub trait HasScheduler {
+    /// [`Scheduler`] type
+    type Scheduler: Scheduler;
+
+    /// Ref to the [`Scheduler`]
+    fn scheduler(&self) -> &Self::Scheduler;
+
+    /// Mutable ref to the `Scheduler`
+    fn scheduler_mut(&mut self) -> &mut Self::Scheduler;
+}
 
 /// Corpus with all current [`Testcase`]s, or solutions
 pub trait Corpus<I>: HasScheduler + Sized + DependencyResolver {

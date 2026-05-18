@@ -50,7 +50,7 @@ use crate::{
     mutators::Tokens,
     observers::{MapObserver, ObserversTuple},
     runtimes::RuntimeHandle,
-    states::{FlatState, HasContext, HasCorpus},
+    states::State,
 };
 
 pub mod config;
@@ -599,7 +599,7 @@ impl<OT> ForkserverExecutor<OT> {
 impl<I, OT, S> Executor<I, S> for ForkserverExecutor<OT>
 where
     OT: ObserversTuple<S> + DependencyResolver,
-    S: FlatState + HasCorpus<I> + HasContext<I>,
+    S: State<I>,
 {
     type Observers = OT;
 

@@ -11,13 +11,13 @@ use libaflmm_bolts::{Named, rands::Rand};
 
 use crate::{
     DependencyResolver, PowerScheduleData, Result,
-    corpus::{Corpus, TestcaseId},
+    corpus::{Corpus, HasScheduler, TestcaseId},
     fuzzers::Evaluator,
     inputs::Input,
     mutators::{MutationResult, Mutator},
     runtimes::RuntimeHandle,
     stages::{AFLPower, MutationalStage, Power, Stage},
-    states::{HasScheduler, State},
+    states::State,
 };
 
 impl<E, F, I, M, R, S, W, Z> DependencyResolver for PowerScheduleStage<E, F, I, M, R, S, W, Z> {

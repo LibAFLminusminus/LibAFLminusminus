@@ -21,7 +21,7 @@ use crate::{
     fuzzers::EvaluationResult,
     inputs::{HasMutatorBytes, ResizableMutator},
     mutators::{MutationResult, Mutator},
-    states::{FlatState, State},
+    states::{CoreState, State},
 };
 
 /// Mem move in the own vec
@@ -537,7 +537,7 @@ pub struct BytesExpandMutator;
 
 impl<I, R: Rand, S> Mutator<I, R, S> for BytesExpandMutator
 where
-    S: FlatState,
+    S: CoreState,
     I: ResizableMutator<u8> + HasMutatorBytes,
 {
     fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
@@ -592,7 +592,7 @@ pub struct BytesInsertMutator;
 
 impl<I, R: Rand, S> Mutator<I, R, S> for BytesInsertMutator
 where
-    S: FlatState,
+    S: CoreState,
     I: ResizableMutator<u8> + HasMutatorBytes,
 {
     fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
@@ -660,7 +660,7 @@ pub struct BytesRandInsertMutator;
 
 impl<I, R: Rand, S> Mutator<I, R, S> for BytesRandInsertMutator
 where
-    S: FlatState,
+    S: CoreState,
     I: ResizableMutator<u8> + HasMutatorBytes,
 {
     fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
@@ -863,7 +863,7 @@ pub struct BytesInsertCopyMutator {
 
 impl<I, R: Rand, S> Mutator<I, R, S> for BytesInsertCopyMutator
 where
-    S: FlatState,
+    S: CoreState,
     I: ResizableMutator<u8> + HasMutatorBytes,
 {
     fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
@@ -1709,7 +1709,7 @@ mod tests {
         },
         inputs::{BytesInput, bytes::BytesContext},
         mutators::MutatorsTuple,
-        states::{HasCorpus, StdState},
+        states::StdState,
     };
 
     type TestMutatorsTupleType = tuple_list_type!(
@@ -1768,7 +1768,7 @@ mod tests {
         )
     }
 
-    fn test_state() -> impl HasCorpus<BytesInput> + FlatState {
+    fn test_state() -> impl State<BytesInput> {
         let mut corpus = InMemoryCorpus::<BytesInput, QueueScheduler>::new(QueueScheduler::new());
 
         corpus

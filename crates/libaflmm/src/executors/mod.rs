@@ -19,7 +19,7 @@ use crate::{
         inprocess::{CrashStatus, TimeoutStatus},
         utils::unix::signal::OsTerminationParams,
     },
-    states::FlatState,
+    states::CoreState,
 };
 
 /// The module for all the executor hooks
@@ -120,7 +120,7 @@ pub trait Executor<I, S>: DependencyResolver {
         input: &I,
     ) -> Result<ExitKind, Error>
     where
-        S: FlatState,
+        S: CoreState,
     {
         state.increment_execs();
 

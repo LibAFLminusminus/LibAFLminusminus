@@ -8,7 +8,7 @@ use libaflmm::{
     DependencyResolver, Error,
     executors::ExitKind,
     observers::{CmpLogMetadata, CmpValues, Observer},
-    states::{FlatState, named_metadata_mut},
+    states::{CoreState, named_metadata_mut},
 };
 use libaflmm_bolts::Named;
 pub use libaflmm_targets::{
@@ -50,7 +50,7 @@ impl DependencyResolver for NyxCmpObserver {
 
 impl<S> Observer<S> for NyxCmpObserver
 where
-    S: FlatState,
+    S: CoreState,
 {
     fn pre_exec(&mut self, _state: &mut S) -> Result<(), Error> {
         unsafe {

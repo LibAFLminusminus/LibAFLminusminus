@@ -79,11 +79,11 @@ mod tests {
 
     use crate::{
         corpus::{
-            Corpus, InMemoryCorpus, OnDiskCorpus, Testcase,
+            Corpus, HasScheduler, InMemoryCorpus, OnDiskCorpus, Testcase,
             schedulers::{NopScheduler, QueueScheduler, Scheduler},
         },
         inputs::bytes::{BytesContext, BytesInput},
-        states::{HasCorpus, HasScheduler, StdState},
+        states::{State, StdState},
     };
 
     #[test]

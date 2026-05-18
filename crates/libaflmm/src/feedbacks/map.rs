@@ -1,12 +1,21 @@
 //! Map feedback, maximizing or minimizing maps, for example the afl-style map observer.
 
+#[cfg(feature = "simd")]
+use super::simd::SimdMapFeedback;
+use crate::{
+    DependencyResolver,
+    corpus::TestcaseId,
+    executors::ExitKind,
+    feedbacks::{Feedback, HasObserverHandle},
+    observers::MapObserver,
+    states::{CoreState, State},
+};
 use alloc::{borrow::Cow, vec::Vec};
 use core::{
     fmt::Debug,
     marker::PhantomData,
     ops::{Deref, DerefMut},
 };
-
 use hashbrown::HashMap;
 #[cfg(all(feature = "simd", target_arch = "x86_64"))]
 use libaflmm_bolts::simd::vector::u8x16;
@@ -23,16 +32,7 @@ use libaflmm_core::Result;
 use num_traits::PrimInt;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
-#[cfg(feature = "simd")]
-use super::simd::SimdMapFeedback;
-use crate::{
-    DependencyResolver,
-    corpus::TestcaseId,
-    executors::ExitKind,
-    feedbacks::{Feedback, HasObserverHandle},
-    observers::MapObserver,
-    states::{FlatState, HasTestcase},
-};
+pub type StdMapFeedback<C, O> = MaxMapFeedback<C, O>;
 
 #[cfg(feature = "simd")]
 /// A [`SimdMapFeedback`] that implements the AFL algorithm using an [`SimdOrReducer`] combining the bits for the history map and the bit from (`HitcountsMapObserver`)[`crate::observers::HitcountsMapObserver`].
@@ -330,7 +330,7 @@ where
     O::Entry: 'static + Default + Debug + DeserializeOwned + Serialize,
     OT: MatchName,
     R: Reducer<O::Entry>,
-    S: FlatState + HasTestcase<I>,
+    S: State<I>,
 {
     fn is_interesting(
         &mut self,
@@ -445,7 +445,7 @@ where
 {
     fn is_interesting_default<OT, S>(&mut self, state: &mut S, observers: &OT) -> bool
     where
-        S: FlatState,
+        S: CoreState,
         OT: MatchName,
     {
         let mut interesting = false;

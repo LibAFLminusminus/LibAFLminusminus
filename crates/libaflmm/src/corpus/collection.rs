@@ -8,15 +8,14 @@ use serde::{Deserialize, Serialize};
 use crate::{
     DependencyResolver,
     corpus::{
-        Corpus, FifoCache, IdentityCache, InMemoryStore, OnDiskStore, Scheduler, SingleCorpus,
-        Testcase, TestcaseFilenameFormat,
+        Corpus, FifoCache, HasScheduler, IdentityCache, InMemoryStore, OnDiskStore, Scheduler,
+        SingleCorpus, Testcase, TestcaseFilenameFormat,
         combined::CombinedCorpus,
         maps::{self, InMemoryCorpusMap},
         store::{StorageResult, Store, ondisk::OnDiskStoreBuilder},
         testcase::TestcaseId,
     },
     inputs::Input,
-    states::HasScheduler,
 };
 
 const DEFAULT_CACHE_LEN: usize = 32;

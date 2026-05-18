@@ -8,22 +8,29 @@ use serde::{Deserialize, Serialize};
 use std::time::Instant;
 
 pub mod cmp;
-pub use cmp::*;
+pub use cmp::CmpObserver;
 
 pub mod stdio;
-pub use stdio::{StdErrObserver, StdOutObserver};
+pub use stdio::{OutputObserver, StdErrObserver, StdOutObserver};
 
 pub mod cmplog;
-pub use cmplog::*;
+pub use cmplog::{CmpLogMetadata, CmpLogObserver, CmpValues, CmplogBytes, parse_cmplog_map};
 
 pub mod map;
-pub use map::*;
+pub use map::{
+    ConstLenMapObserver, ConstMapObserver, HitcountsIterableMapObserver, HitcountsMapObserver,
+    MapObserver, MultiMapObserver, StdMapObserver, VarLenMapObserver, VariableMapObserver,
+};
 
 pub mod value;
+pub use value::{
+    RefCellValueObserver, RefCellValueObserverIter, RefCellValueObserverIterMut, ValueObserver,
+};
 
 pub mod list;
-pub use list::*;
-pub use value::*;
+pub use list::ListObserver;
+
+pub type StdObserver<'a, T> = StdMapObserver<'a, T>;
 
 /// [`Observers`] observe different information about the target.
 /// They can then be used by various sorts of [`Feedback`](crate::feedbacks::Feedback).

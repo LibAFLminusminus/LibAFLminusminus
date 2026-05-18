@@ -31,9 +31,10 @@ pub use bytessub::BytesSubInput;
 
 #[cfg(feature = "nautilus")]
 pub mod nautilus;
-
 #[cfg(feature = "nautilus")]
-pub use nautilus::*;
+pub use nautilus::NautilusInput;
+
+pub type StdInput = BytesInput;
 
 /// A wrapper type that allows us to use mutators for Mutators for `&mut `[`Vec`].
 #[deprecated(since = "0.15.0", note = "Use &mut Vec<u8> directly")]
