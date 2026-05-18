@@ -52,7 +52,7 @@ impl DependencyResolver for StdOutToMetadataFeedback {}
 impl<I, OT, S> Feedback<I, OT, S> for StdOutToMetadataFeedback
 where
     OT: MatchName,
-    S: State<I>,
+    S: State<Input = I>,
 {
     /// Append to the testcase the generated metadata in case of a new corpus item.
     #[inline]
@@ -104,7 +104,7 @@ impl DependencyResolver for StdErrToMetadataFeedback {}
 impl<I, OT, S> Feedback<I, OT, S> for StdErrToMetadataFeedback
 where
     OT: MatchName,
-    S: State<I>,
+    S: State<Input = I>,
 {
     /// Append to the testcase the generated metadata in case of a new corpus item.
     #[inline]

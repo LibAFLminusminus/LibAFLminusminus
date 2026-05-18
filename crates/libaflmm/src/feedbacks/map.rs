@@ -330,7 +330,7 @@ where
     O::Entry: 'static + Default + Debug + DeserializeOwned + Serialize,
     OT: MatchName,
     R: Reducer<O::Entry>,
-    S: State<I>,
+    S: State<Input = I>,
 {
     fn is_interesting(
         &mut self,

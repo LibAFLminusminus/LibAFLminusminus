@@ -1,3 +1,10 @@
+use hashbrown::{HashMap, hash_map::Entry};
+use libaflmm::Result;
+use libaflmm::{executors::ExitKind, observers::ObserversTuple, states::CoreState};
+use libaflmm_bolts::drcov::{DrCovBasicBlock, DrCovWriter};
+use libaflmm_qemu_sys::{GuestAddr, GuestUsize};
+use rangemap::RangeMap;
+use serde::{Deserialize, Serialize};
 #[cfg(feature = "usermode")]
 use std::{
     cmp::{max, min},
@@ -7,15 +14,6 @@ use std::{
     path::{Path, PathBuf},
     sync::Mutex,
 };
-
-use hashbrown::{HashMap, hash_map::Entry};
-#[cfg(feature = "usermode")]
-use libaflmm::Result;
-use libaflmm::{executors::ExitKind, observers::ObserversTuple, states::CoreState};
-use libaflmm_bolts::drcov::{DrCovBasicBlock, DrCovWriter};
-use libaflmm_qemu_sys::{GuestAddr, GuestUsize};
-use rangemap::RangeMap;
-use serde::{Deserialize, Serialize};
 
 use super::utils::filters::HasAddressFilter;
 #[cfg(feature = "systemmode")]
@@ -331,7 +329,8 @@ where
         _qemu: Qemu,
         emulator_modules: &mut EmulatorModules<ET, I, S>,
         _state: &mut S,
-    ) where
+    ) -> Result<()>
+    where
         ET: EmulatorModuleTuple<I, S>,
     {
         assert!(
@@ -352,6 +351,8 @@ where
                 Hook::Empty,
             );
         }
+
+        Ok(())
     }
 
     fn post_exec<OT, ET>(

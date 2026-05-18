@@ -46,7 +46,7 @@ where
     F: Feedback<I, E::Observers, S>,
     I: Input,
     OF: Feedback<I, E::Observers, S>,
-    S: State<I>,
+    S: State<Input = I>,
     W: Worker,
 {
     executor.observers_mut().post_exec_all(state, &exit_kind)?;
@@ -71,7 +71,7 @@ where
     F: Feedback<I, E::Observers, S>,
     I: Input,
     OF: Feedback<I, E::Observers, S>,
-    S: State<I>,
+    S: State<Input = I>,
     W: Worker,
 {
     // double check, not mandatory
@@ -88,14 +88,14 @@ where
     let executor = unsafe { data.executor::<E, I, S>() };
     let rt_handle = unsafe { data.rt_handle::<S, W>() };
 
-    let status = unsafe { executor.handle_crash(signal_params)? };
+    let status = unsafe { executor.handle_crash(state, input.as_ref(), signal_params)? };
 
     if let CrashStatus::TargetCrash = status {
         // if it is a target crash, handle crash termination as target objective.
         handle_objective_in_termination_handler(
             executor,
             state,
-            &input.unwrap(),
+            &input.unwrap(), // since it is a target crash, it must be during fuzzing.
             fuzzer,
             rt_handle,
             ExitKind::Crash,
@@ -116,7 +116,7 @@ where
     F: Feedback<I, E::Observers, S>,
     I: Input,
     OF: Feedback<I, E::Observers, S>,
-    S: State<I>,
+    S: State<Input = I>,
     W: Worker,
 {
     // double check, not mandatory
@@ -133,12 +133,12 @@ where
     let executor = unsafe { data.executor::<E, I, S>() };
     let rt_handle = unsafe { data.rt_handle::<S, W>() };
 
-    let status = unsafe { executor.handle_timeout(signal_params)? };
+    let status = unsafe { executor.handle_timeout(state, input.as_ref(), signal_params)? };
 
     handle_objective_in_termination_handler(
         executor,
         state,
-        &input.unwrap(),
+        &input.unwrap(), // since it is a target crash, it must be during fuzzing.
         fuzzer,
         rt_handle,
         ExitKind::Timeout,
@@ -207,7 +207,7 @@ impl<F, H, OF> StdFuzzer<F, H, OF> {
         F: Feedback<I, OT, S>,
         I: Input,
         OF: Feedback<I, OT, S>,
-        S: State<I>,
+        S: State<Input = I>,
     {
         let is_solution = self
             .objective
@@ -238,7 +238,7 @@ where
     H: FuzzerHooksTuple<E, I, S, W>,
     OF: Feedback<I, E::Observers, S>,
     I: Input,
-    S: State<I>,
+    S: State<Input = I>,
     W: Worker,
 {
     /// Process one input, adding to the respective corpora if needed and firing the right events
@@ -343,7 +343,7 @@ where
     H: FuzzerHooksTuple<E, I, S, W>,
     I: Input,
     OF: Feedback<I, E::Observers, S>,
-    S: State<I>,
+    S: State<Input = I>,
     ST: StagesTuple<E, R, S, W, Self>,
     W: Worker,
 {
@@ -538,7 +538,7 @@ impl<F, OF> StdFuzzer<F, (), OF> {
         F: Feedback<I, E::Observers, S>,
         I: Input,
         OF: Feedback<I, E::Observers, S>,
-        S: State<I>,
+        S: State<Input = I>,
         ST: StagesTuple<E, R, S, W, Self>,
         W: Worker,
     {
@@ -571,7 +571,7 @@ impl<F, H, OF> StdFuzzer<F, H, OF> {
         H: FuzzerHooksTuple<E, I, S, W>,
         I: Input,
         OF: Feedback<I, E::Observers, S>,
-        S: State<I>,
+        S: State<Input = I>,
         ST: StagesTuple<E, R, S, W, Self>,
         W: Worker,
     {

@@ -113,7 +113,7 @@ fn configure_qemu(
         } else {
             "--disable-slirp"
         })
-        .arg("--enable-fdt=internal")
+        // .arg("--enable-fdt=internal")
         .arg("--audio-drv-list=")
         .arg("--disable-af-xdp")
         .arg("--disable-alsa")

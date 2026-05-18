@@ -44,7 +44,7 @@ impl<OT> DependencyResolver for NyxExecutor<OT> {}
 
 impl<I, OT, S> Executor<I, S> for NyxExecutor<OT>
 where
-    S: State<I>,
+    S: State<Input = I>,
     OT: ObserversTuple<S>,
 {
     type Observers = OT;

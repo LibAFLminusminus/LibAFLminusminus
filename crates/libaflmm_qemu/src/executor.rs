@@ -1,10 +1,11 @@
 //! A `QEMU`-based executor for binary-only instrumentation in `LibAFL`
 
 #[cfg(feature = "usermode")]
-use std::str;
-#[cfg(feature = "systemmode")]
-use std::sync::atomic::{AtomicBool, Ordering};
+use crate::Qemu;
+#[cfg(feature = "usermode")]
+use crate::QemuSignalContext;
 
+use crate::Emulator;
 use libaflmm::{
     DependencyResolver, Result, Worker,
     executors::{Executor, ExitKind},
@@ -19,10 +20,10 @@ use libaflmm_bolts::minibsod;
 use libaflmm_bolts::tuples::RefIndexable;
 #[cfg(feature = "systemmode")]
 use libaflmm_qemu_sys::libafl_exit_request_timeout;
-
-use crate::Emulator;
 #[cfg(feature = "usermode")]
-use crate::{Qemu, QemuSignalContext};
+use std::str;
+#[cfg(feature = "systemmode")]
+use std::sync::atomic::{AtomicBool, Ordering};
 
 pub struct QemuExecutor<EMU, OT, PRE, POST> {
     emulator: EMU,
@@ -35,7 +36,7 @@ pub struct QemuExecutor<EMU, OT, PRE, POST> {
 pub(crate) static BREAK_ON_TMOUT: AtomicBool = AtomicBool::new(false);
 
 impl<EMU, OT, PRE, POST> QemuExecutor<EMU, OT, PRE, POST> {
-    pub fn new<OF>(emulator: EMU, pre_exec: PRE, post_exec: POST, observers: OT) -> Result<Self> {
+    pub fn new(emulator: EMU, pre_exec: PRE, post_exec: POST, observers: OT) -> Result<Self> {
         Ok(Self {
             emulator,
             pre_exec,
@@ -61,10 +62,10 @@ impl<EMU, OT, PRE, POST> DependencyResolver for QemuExecutor<EMU, OT, PRE, POST>
 
 impl<EMU, I, OT, PRE, POST, S> Executor<I, S> for QemuExecutor<EMU, OT, PRE, POST>
 where
-    EMU: Emulator<I, S>,
+    EMU: Emulator<Input = I, State = S>,
     OT: ObserversTuple<S>,
-    PRE: FnMut(&mut EMU) -> Result<()>,
-    POST: FnMut(&mut EMU) -> Result<()>,
+    PRE: FnMut(&mut S, &I, &mut EMU) -> Result<()>,
+    POST: FnMut(&mut S, &I, &mut EMU, &mut ExitKind) -> Result<()>,
 {
     type Observers = OT;
 
@@ -77,16 +78,16 @@ where
     }
 
     unsafe fn execute_impl(&mut self, state: &mut S, input: &I) -> Result<ExitKind> {
-        (self.pre_exec)(&mut self.emulator)?;
+        (self.pre_exec)(state, input, &mut self.emulator)?;
 
         self.emulator.pre_exec(state, input)?;
 
         let mut exit_kind = self.emulator.exec_input(input)?;
 
-        self.emulator
-            .post_exec(input, &mut self.observers, state, &mut exit_kind)?;
+        (self.post_exec)(state, input, &mut self.emulator, &mut exit_kind)?;
 
-        (self.post_exec)(&mut self.emulator)?;
+        self.emulator
+            .post_exec(state, input, &mut self.observers, &mut exit_kind)?;
 
         Ok(exit_kind)
     }
@@ -99,7 +100,24 @@ where
         RefIndexable::from(&mut self.observers)
     }
 
-    unsafe fn handle_crash(&mut self, params: &OsTerminationParams) -> Result<CrashStatus> {
+    #[cfg(feature = "systemmode")]
+    unsafe fn handle_crash(
+        &mut self,
+        _state: &mut S,
+        _input: Option<&I>,
+        _params: &OsTerminationParams,
+    ) -> Result<CrashStatus> {
+        log::error!("Crash in QEMU systemmode: this is a fuzzer bug.");
+        Ok(CrashStatus::FuzzerCrash)
+    }
+
+    #[cfg(feature = "usermode")]
+    unsafe fn handle_crash(
+        &mut self,
+        state: &mut S,
+        input: Option<&I>,
+        params: &OsTerminationParams,
+    ) -> Result<CrashStatus> {
         let (signal, mut info, mut context) = match params {
             OsTerminationParams::Signal {
                 signal,
@@ -155,7 +173,12 @@ where
                             "QEMU Target signal received that should be handled by host. It is a target crash."
                         );
 
-                        self.emulator.on_crash()?;
+                        self.emulator.post_exec(
+                            state,
+                            input.unwrap(),
+                            &mut self.observers,
+                            &mut ExitKind::Crash,
+                        )?;
 
                         if let Some(cpu) = qemu.current_cpu() {
                             eprint!("QEMU Context:\n{}", cpu.display_context());
@@ -199,10 +222,16 @@ where
 
     unsafe fn handle_timeout(
         &mut self,
+        state: &mut S,
+        input: Option<&I>,
         _params: &libaflmm::runtimes::OsTerminationParams,
     ) -> Result<TimeoutStatus> {
-        // run modules' crash callback
-        self.emulator.on_timeout()?;
+        self.emulator.post_exec(
+            state,
+            input.unwrap(),
+            &mut self.observers,
+            &mut ExitKind::Timeout,
+        )?;
 
         #[cfg(feature = "systemmode")]
         unsafe {

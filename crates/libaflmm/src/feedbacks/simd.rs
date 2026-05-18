@@ -180,7 +180,7 @@ where
     O: MapObserver<Entry = u8> + for<'a> AsSlice<'a, Entry = u8> + for<'a> AsIter<'a, Item = u8>,
     OT: MatchName,
     R: SimdReducer<V>,
-    S: State<I>,
+    S: State<Input = I>,
     V: VectorType + Copy + Eq,
     R::PrimitiveReducer: Reducer<u8>,
 {

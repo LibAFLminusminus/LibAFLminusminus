@@ -1,15 +1,19 @@
 use std::{cell::RefCell, collections::HashMap, fmt::Debug, pin::Pin, result};
 
 use libaflmm::{
-    Result, executors::ExitKind, inputs::Input, observers::ObserversTuple, states::CoreState,
+    Result,
+    executors::ExitKind,
+    inputs::Input,
+    observers::ObserversTuple,
+    states::{CoreState, State},
 };
-use libaflmm_core::runtime;
 use libaflmm_qemu_sys::GuestAddr;
 
 use crate::{
     Emulator, EmulatorDriver, EmulatorDriverError, EmulatorDriverResult, EmulatorExitError,
     EmulatorExitResult, EmulatorHooks, EmulatorModules, NopEmulatorDriver, NopSnapshotManager,
-    Qemu, QemuExitError, QemuExitReason, QemuHooks, QemuInitError, QemuParams, StdEmulatorDriver,
+    Qemu, QemuExitError, QemuExitReason, QemuHooks, QemuInitError, QemuParams, QemuShutdownCause,
+    StdEmulatorDriver,
     breakpoint::{Breakpoint, BreakpointId},
     command::{CommandManager, NopCommandManager, StdCommandManager},
     config::QemuConfigBuilder,
@@ -59,28 +63,36 @@ pub struct StdEmulator<C, CM, ED, ET, I, S, SM> {
     pub(crate) started: bool,
 }
 
-impl<C, CM, ED, ET, I, S, SM> Emulator<I, S> for StdEmulator<C, CM, ED, ET, I, S, SM>
+impl<C, CM, ED, ET, I, S, SM> Emulator for StdEmulator<C, CM, ED, ET, I, S, SM>
 where
     C: Debug + Clone,
     CM: CommandManager<C, ED, ET, I, S, SM, Commands = C>,
     ED: EmulatorDriver<C, CM, ET, I, S, SM>,
     ET: EmulatorModuleTuple<I, S> + Unpin,
-    I: Unpin,
-    S: Unpin,
+    I: Input + Unpin,
+    S: State + Unpin,
 {
-    fn first_exec(&mut self, state: &mut S) -> Result<()> {
+    type Input = I;
+    type State = S;
+
+    fn first_exec(&mut self, state: &mut Self::State) -> Result<()> {
         ED::first_harness_exec(self, state)
     }
 
-    fn pre_exec(&mut self, state: &mut S, input: &I) -> Result<()> {
+    fn pre_exec(&mut self, state: &mut Self::State, input: &Self::Input) -> Result<()> {
         ED::pre_harness_exec(self, state, input)
     }
 
-    fn exec_input(&mut self, input: &I) -> Result<ExitKind> {
+    fn exec_input(&mut self, input: &Self::Input) -> Result<ExitKind> {
         match unsafe { self.run(input)? } {
             EmulatorDriverResult::EndOfRun(exit_kind) => Ok(exit_kind),
-            EmulatorDriverResult::ReturnToClient(exit_reason) => {
-                Err(runtime!("Unexpected return to client: {exit_reason:?}"))
+            EmulatorDriverResult::ReturnToClient(EmulatorExitResult::QemuExit(qemu_exit)) => {
+                match qemu_exit {
+                    QemuShutdownCause::GuestPanic
+                    | QemuShutdownCause::GuestReset
+                    | QemuShutdownCause::GuestShutdown => return Ok(ExitKind::Crash),
+                    e => panic!("Bug in LibAFL QEMU fuzzer: {e:?}"),
+                }
             }
             EmulatorDriverResult::ShutdownRequest => {
                 log::warn!(
@@ -89,20 +101,29 @@ where
 
                 Ok(ExitKind::Crash)
             }
+            EmulatorDriverResult::ReturnToClient(exit_reason) => {
+                panic!("Unexpected return to client: {exit_reason:?}")
+            }
         }
     }
 
     fn post_exec<OT>(
         &mut self,
-        input: &I,
+        state: &mut Self::State,
+        input: &Self::Input,
         observers: &mut OT,
-        state: &mut S,
         exit_kind: &mut ExitKind,
-    ) -> libaflmm::Result<()>
+    ) -> Result<()>
     where
-        OT: ObserversTuple<S>,
+        OT: ObserversTuple<Self::State>,
     {
-        ED::post_harness_exec(self, input, observers, state, exit_kind)
+        ED::post_harness_exec(self, input, observers, state, exit_kind)?;
+
+        match exit_kind {
+            ExitKind::Crash => self.on_crash(),
+            ExitKind::Timeout => self.on_timeout(),
+            _ => Ok(()),
+        }
     }
 
     fn on_crash(&mut self) -> Result<()> {

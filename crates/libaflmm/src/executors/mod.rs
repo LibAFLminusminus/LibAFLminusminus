@@ -160,7 +160,12 @@ pub trait Executor<I, S>: DependencyResolver {
     ///
     /// This will run in a signal handler, so it's very constrained.
     /// In particular, it should not allocate anything in the heap.
-    unsafe fn handle_crash(&mut self, _params: &OsTerminationParams) -> Result<CrashStatus, Error> {
+    unsafe fn handle_crash(
+        &mut self,
+        _state: &mut S,
+        _input: Option<&I>,
+        _params: &OsTerminationParams,
+    ) -> Result<CrashStatus, Error> {
         Ok(CrashStatus::TargetCrash)
     }
 
@@ -175,6 +180,8 @@ pub trait Executor<I, S>: DependencyResolver {
     /// In particular, it should not allocate anything in the heap.
     unsafe fn handle_timeout(
         &mut self,
+        _state: &mut S,
+        _input: Option<&I>,
         _params: &OsTerminationParams,
     ) -> Result<TimeoutStatus, Error> {
         Ok(TimeoutStatus::Exit)

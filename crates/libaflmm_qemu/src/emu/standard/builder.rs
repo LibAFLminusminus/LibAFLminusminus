@@ -1,9 +1,3 @@
-use std::marker::PhantomData;
-
-#[cfg(all(feature = "usermode", not(feature = "systemmode")))]
-use libaflmm::{inputs::Input, states::CoreState};
-use libaflmm_bolts::tuples::{Append, Prepend, tuple_list};
-
 #[cfg(doc)]
 use crate::config::QemuConfig;
 #[cfg(feature = "systemmode")]
@@ -15,6 +9,9 @@ use crate::{
     config::QemuConfigBuilder,
     modules::{EmulatorModule, EmulatorModuleTuple},
 };
+use libaflmm::{inputs::Input, states::CoreState};
+use libaflmm_bolts::tuples::{Append, Prepend, tuple_list};
+use std::marker::PhantomData;
 
 /// An [`Emulator`] Builder.
 ///

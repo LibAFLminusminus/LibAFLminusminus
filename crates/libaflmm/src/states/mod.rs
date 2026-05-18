@@ -196,13 +196,15 @@ pub trait CoreState {
 }
 
 /// The trait containing all the stuff that [`StdState`] implements. It's rather a shortcut for typing all the traits
-pub trait State<I>: CoreState + HasScheduler + DependencyResolver {
+pub trait State: CoreState + HasScheduler + DependencyResolver {
+    type Input: Input;
+
     /// The associated [`Corpus`]
-    type Corpus: Corpus<I>;
+    type Corpus: Corpus<Self::Input>;
     /// The associated objective [`Corpus`]
-    type ObjectiveCorpus: Corpus<I>;
+    type ObjectiveCorpus: Corpus<Self::Input>;
     /// The associated [`InputContext`]
-    type Context: InputContext<I>;
+    type Context: InputContext<Input = Self::Input>;
 
     /// Get the reference to the [`Corpus`]
     fn corpus(&self) -> &Self::Corpus;
@@ -215,15 +217,15 @@ pub trait State<I>: CoreState + HasScheduler + DependencyResolver {
     fn objective_corpus_mut(&mut self) -> &mut Self::ObjectiveCorpus;
 
     /// Get reference to the [`Testcase`] attached to this [`Testcase`]
-    fn testcase_md<'a>(&'a self, tc: &Testcase<I>) -> Option<&'a TestcaseMetadata>;
+    fn testcase_md<'a>(&'a self, tc: &Testcase<Self::Input>) -> Option<&'a TestcaseMetadata>;
     /// Get reference to the [`Testcase`] attached to this [`Testcase`] from [`TestcaseId`]
     fn testcase_md_from_id<'a>(&'a self, id: &TestcaseId) -> Option<&'a TestcaseMetadata>;
     /// Get mutable reference to the [`Testcase`] attached to this [`Testcase`].
-    fn testcase_md_mut<'a>(&'a mut self, tc: &Testcase<I>) -> &'a mut TestcaseMetadata;
+    fn testcase_md_mut<'a>(&'a mut self, tc: &Testcase<Self::Input>) -> &'a mut TestcaseMetadata;
     /// Get mutable reference to the [`Testcase`] attached to this [`Testcase`] from [`TestcaseId`]
     fn testcase_md_mut_from_id<'a>(&'a mut self, id: &TestcaseId) -> &'a mut TestcaseMetadata;
     /// Get the [`Testcase`] from [`TestcaseId`]
-    fn testcase(&self, id: &TestcaseId) -> Result<Testcase<I>>;
+    fn testcase(&self, id: &TestcaseId) -> Result<Testcase<Self::Input>>;
 
     /// Get the mutable reference to the [`InputContext`]
     fn context(&self) -> &Self::Context;
@@ -604,7 +606,8 @@ impl<C, CT, I, OC, SC> CoreState for StdState<C, CT, I, OC, SC> {
 impl<C, CT, I, OC, SC> DependencyResolver for StdState<C, CT, I, OC, SC>
 where
     C: DependencyResolver + Corpus<I>,
-    CT: InputContext<I>,
+    CT: InputContext<Input = I>,
+    I: Input,
     OC: DependencyResolver + Corpus<I>,
 {
     fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
@@ -615,12 +618,15 @@ where
     }
 }
 
-impl<C, CT, I, OC, SC> State<I> for StdState<C, CT, I, OC, SC>
+impl<C, CT, I, OC, SC> State for StdState<C, CT, I, OC, SC>
 where
     C: Corpus<I>,
-    CT: InputContext<I>,
+    CT: InputContext<Input = I>,
+    I: Input,
     OC: Corpus<I>,
 {
+    type Input = I;
+
     type Corpus = C;
     type ObjectiveCorpus = OC;
     type Context = CT;
@@ -673,7 +679,7 @@ where
 impl<C, CT, I, OC, SC> StdState<C, CT, I, OC, SC>
 where
     C: Corpus<I>,
-    CT: InputContext<I>,
+    CT: InputContext<Input = I>,
     I: Input,
     OC: Corpus<I>,
 {

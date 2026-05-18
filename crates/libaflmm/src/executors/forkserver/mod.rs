@@ -599,7 +599,7 @@ impl<OT> ForkserverExecutor<OT> {
 impl<I, OT, S> Executor<I, S> for ForkserverExecutor<OT>
 where
     OT: ObserversTuple<S> + DependencyResolver,
-    S: State<I>,
+    S: State<Input = I>,
 {
     type Observers = OT;
 

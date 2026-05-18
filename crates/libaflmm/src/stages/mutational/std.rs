@@ -100,7 +100,7 @@ where
     I: Input,
     M: Mutator<I, R, S>,
     R: Rand,
-    S: State<I>,
+    S: State<Input = I>,
     Z: Evaluator<E, I, S, W>,
 {
     #[inline]
@@ -147,7 +147,7 @@ where
     I: Clone,
     M: Mutator<I, R, S>,
     R: Rand,
-    S: State<I>,
+    S: State<Input = I>,
     Z: Evaluator<E, I, S, W>,
 {
     /// Runs this [`StdMutationalStage`] stage for the given testcase

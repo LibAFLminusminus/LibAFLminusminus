@@ -1190,7 +1190,7 @@ impl CrossoverInsertMutator {
 impl<I, R: Rand, S> Mutator<I, R, S> for CrossoverInsertMutator
 where
     I: ResizableMutator<u8> + HasMutatorBytes,
-    S: State<I>,
+    S: State<Input = I>,
 {
     fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
         let size = input.mutator_bytes().len();
@@ -1294,7 +1294,7 @@ impl CrossoverReplaceMutator {
 impl<I, R: Rand, S> Mutator<I, R, S> for CrossoverReplaceMutator
 where
     I: HasMutatorBytes,
-    S: State<I>,
+    S: State<Input = I>,
 {
     fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
         let size = input.mutator_bytes().len();
@@ -1402,7 +1402,7 @@ where
     F: Fn(&I1) -> &O,
     I2: ResizableMutator<u8> + HasMutatorBytes,
     O: IntoOptionBytes,
-    S: State<I1>,
+    S: State<Input = I1>,
 {
     fn mutate(&mut self, input: &mut I2, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
         let size = input.mutator_bytes().len();
@@ -1496,7 +1496,7 @@ where
     F: Fn(&I1) -> &O,
     I2: HasMutatorBytes,
     O: IntoOptionBytes,
-    S: State<I1>,
+    S: State<Input = I1>,
 {
     fn mutate(&mut self, input: &mut I2, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
         let size = input.mutator_bytes().len();
@@ -1587,7 +1587,7 @@ pub struct SpliceMutator;
 
 impl<I, R: Rand, S> Mutator<I, R, S> for SpliceMutator
 where
-    S: State<I>,
+    S: State<Input = I>,
     I: ResizableMutator<u8> + HasMutatorBytes,
 {
     #[expect(clippy::cast_sign_loss)]
@@ -1768,7 +1768,7 @@ mod tests {
         )
     }
 
-    fn test_state() -> impl State<BytesInput> {
+    fn test_state() -> impl State<Input = BytesInput> {
         let mut corpus = InMemoryCorpus::<BytesInput, QueueScheduler>::new(QueueScheduler::new());
 
         corpus

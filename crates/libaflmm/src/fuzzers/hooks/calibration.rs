@@ -146,7 +146,7 @@ where
     O: MapObserver,
     O::Entry: Serialize,
     for<'de> O::Entry: Deserialize<'de> + 'static + Default + Bounded,
-    S: State<I>,
+    S: State<Input = I>,
     W: Worker,
 {
     #[expect(clippy::cast_precision_loss)]
