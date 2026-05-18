@@ -124,9 +124,7 @@ impl_input_for_value_input!(
 macro_rules! impl_to_bytes_for_primitive {
     ($($t:ty),+ $(,)?) => {
         $(
-            impl InputContext for PrimitiveContext<$t> {
-                type Input = ValueInput<$t>;
-
+            impl InputContext<ValueInput<$t>> for PrimitiveContext<$t> {
                 fn to_bytes<'a>(&mut self, input: &'a ValueInput<$t>) -> OwnedSlice<'a, u8> {
                     OwnedSlice::from(input.into_inner().to_le_bytes().to_vec())
                 }

@@ -1523,6 +1523,7 @@ dependencies = [
  "libaflmm_qemu_build",
  "libaflmm_targets",
  "log",
+ "serde",
 ]
 
 [[package]]

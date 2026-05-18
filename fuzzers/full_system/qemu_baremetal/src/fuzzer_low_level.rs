@@ -14,7 +14,7 @@ use libaflmm::{
     mutators::{havoc_mutations::havoc_mutations, scheduled::HavocScheduledMutator},
     observers::{HitcountsMapObserver, TimeObserver, VariableMapObserver},
     stages::StdMutationalStage,
-    states::{State, StdState},
+    states::{HasContext, HasCorpus, StdState},
     Fuzzer, Result, StdFuzzer, Worker,
 };
 use libaflmm_bolts::{
@@ -151,7 +151,7 @@ pub fn fuzz() -> Result<()> {
         // A feedback to choose if an input is a solution or not
         let mut objective = feedback_or_fast!(CrashFeedback::new(), TimeoutFeedback::new());
 
-        let mut pre_exec = |state: &mut StdState<_, BytesContext, _>, input, emulator| {
+        let mut pre_exec = |state: &mut StdState<_, BytesContext, _, _>, input, emulator| {
             let target = state.context_mut().to_bytes(input);
             let mut buf = target.as_slice();
             let len = buf.len();
@@ -168,7 +168,7 @@ pub fn fuzz() -> Result<()> {
         };
 
         let mut post_exec =
-            |state: &mut StdState<_, BytesContext, _>, input, emu, exit_kind: &mut _| {
+            |state: &mut StdState<_, BytesContext, _, _>, input, emu, exit_kind: &mut _| {
                 // If the execution stops at any point other than the designated breakpoint (e.g. a breakpoint on a panic method) we consider it a crash
                 let mut pcs = (0..qemu.num_cpus())
                     .map(|i| qemu.cpu_from_index(i).unwrap())

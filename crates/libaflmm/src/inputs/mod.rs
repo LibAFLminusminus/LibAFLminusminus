@@ -126,11 +126,9 @@ pub trait ResizableMutator<T> {
 }
 
 /// [`InputContext`] helps the conversion of [`Input`] type to byte slice.
-pub trait InputContext {
-    type Input: Input;
-
+pub trait InputContext<I> {
     /// Turns this `input` to slice
-    fn to_bytes<'a>(&mut self, input: &'a Self::Input) -> OwnedSlice<'a, u8>;
+    fn to_bytes<'a>(&mut self, input: &'a I) -> OwnedSlice<'a, u8>;
 }
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
@@ -141,9 +139,7 @@ pub struct NopContext;
 #[derive(Clone, Serialize, Deserialize, Debug, Default, Hash)]
 pub struct NopInput;
 
-impl InputContext for NopContext {
-    type Input = NopInput;
-
+impl InputContext<NopInput> for NopContext {
     fn to_bytes<'a>(&mut self, _input: &'a NopInput) -> OwnedSlice<'a, u8> {
         OwnedSlice::from(vec![])
     }

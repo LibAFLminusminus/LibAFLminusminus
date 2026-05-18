@@ -26,9 +26,7 @@ pub struct NautilusContext {
     pub ctx: Context,
 }
 
-impl InputContext for NautilusContext {
-    type Input = NautilusInput;
-
+impl InputContext<NautilusInput> for NautilusContext {
     fn to_bytes<'a>(&mut self, input: &'a NautilusInput) -> OwnedSlice<'a, u8> {
         let mut bytes = vec![];
         input.unparse(self, &mut bytes);

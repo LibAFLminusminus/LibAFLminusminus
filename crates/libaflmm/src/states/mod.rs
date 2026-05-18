@@ -196,47 +196,138 @@ pub trait CoreState {
 }
 
 /// The trait containing all the stuff that [`StdState`] implements. It's rather a shortcut for typing all the traits
-pub trait State: CoreState + HasScheduler + DependencyResolver {
+pub trait State:
+    CoreState
+    + HasScheduler
+    + HasCorpus<Self::Input>
+    + HasObjectiveCorpus<Self::Input>
+    + HasContext<Self::Input>
+    + HasTestcase<Self::Input>
+    + DependencyResolver
+{
     type Input: Input;
+}
 
+/// This module has a [`Testcase`]
+pub trait HasTestcase<I> {
+    /// Get reference to the [`Testcase`] attached to this [`Testcase`]
+    fn testcase_md<'a>(&'a self, tc: &Testcase<I>) -> Option<&'a TestcaseMetadata>;
+    /// Get reference to the [`Testcase`] attached to this [`Testcase`] from [`TestcaseId`]
+    fn testcase_md_from_id<'a>(&'a self, id: &TestcaseId) -> Option<&'a TestcaseMetadata>;
+    /// Get mutable reference to the [`Testcase`] attached to this [`Testcase`].
+    fn testcase_md_mut<'a>(&'a mut self, tc: &Testcase<I>) -> &'a mut TestcaseMetadata;
+    /// Get mutable reference to the [`Testcase`] attached to this [`Testcase`] from [`TestcaseId`]
+    fn testcase_md_mut_from_id<'a>(&'a mut self, id: &TestcaseId) -> &'a mut TestcaseMetadata;
+    /// Get the [`Testcase`] from [`TestcaseId`]
+    fn testcase(&self, id: &TestcaseId) -> Result<Testcase<I>>;
+}
+
+impl<C, CT, I, OC> HasTestcase<I> for StdState<C, CT, I, OC>
+where
+    C: Corpus<I>,
+{
+    fn testcase(&self, id: &TestcaseId) -> Result<Testcase<I>> {
+        self.corpus.get(id)
+    }
+
+    fn testcase_md<'a>(&'a self, tc: &Testcase<I>) -> Option<&'a TestcaseMetadata> {
+        self.testcase_metadata.get(tc.id())
+    }
+
+    fn testcase_md_from_id<'a>(&'a self, id: &TestcaseId) -> Option<&'a TestcaseMetadata> {
+        self.testcase_metadata.get(id)
+    }
+
+    fn testcase_md_mut<'a>(&'a mut self, tc: &Testcase<I>) -> &'a mut TestcaseMetadata {
+        self.testcase_metadata.entry(*tc.id()).or_default()
+    }
+
+    fn testcase_md_mut_from_id<'a>(&'a mut self, id: &TestcaseId) -> &'a mut TestcaseMetadata {
+        self.testcase_metadata.entry(*id).or_default()
+    }
+}
+
+/// This module has a [`Corpus`]
+pub trait HasCorpus<I> {
     /// The associated [`Corpus`]
-    type Corpus: Corpus<Self::Input>;
-    /// The associated objective [`Corpus`]
-    type ObjectiveCorpus: Corpus<Self::Input>;
-    /// The associated [`InputContext`]
-    type Context: InputContext<Input = Self::Input>;
+    type Corpus: Corpus<I>;
 
     /// Get the reference to the [`Corpus`]
     fn corpus(&self) -> &Self::Corpus;
     /// Get the mutable reference to the [`Corpus`]
     fn corpus_mut(&mut self) -> &mut Self::Corpus;
+}
+
+impl<C, CT, I, OC> HasCorpus<I> for StdState<C, CT, I, OC>
+where
+    C: Corpus<I>,
+{
+    type Corpus = C;
+
+    fn corpus(&self) -> &Self::Corpus {
+        &self.corpus
+    }
+
+    fn corpus_mut(&mut self) -> &mut Self::Corpus {
+        &mut self.corpus
+    }
+}
+
+/// This module has a `Corpus` for objectives
+pub trait HasObjectiveCorpus<I> {
+    /// The associated objective [`Corpus`]
+    type Corpus: Corpus<I>;
 
     /// Get the reference to the objective [`Corpus`]
-    fn objective_corpus(&self) -> &Self::ObjectiveCorpus;
+    fn objective_corpus(&self) -> &Self::Corpus;
     /// Get the mutable reference to the objective [`Corpus`]
-    fn objective_corpus_mut(&mut self) -> &mut Self::ObjectiveCorpus;
+    fn objective_corpus_mut(&mut self) -> &mut Self::Corpus;
+}
 
-    /// Get reference to the [`Testcase`] attached to this [`Testcase`]
-    fn testcase_md<'a>(&'a self, tc: &Testcase<Self::Input>) -> Option<&'a TestcaseMetadata>;
-    /// Get reference to the [`Testcase`] attached to this [`Testcase`] from [`TestcaseId`]
-    fn testcase_md_from_id<'a>(&'a self, id: &TestcaseId) -> Option<&'a TestcaseMetadata>;
-    /// Get mutable reference to the [`Testcase`] attached to this [`Testcase`].
-    fn testcase_md_mut<'a>(&'a mut self, tc: &Testcase<Self::Input>) -> &'a mut TestcaseMetadata;
-    /// Get mutable reference to the [`Testcase`] attached to this [`Testcase`] from [`TestcaseId`]
-    fn testcase_md_mut_from_id<'a>(&'a mut self, id: &TestcaseId) -> &'a mut TestcaseMetadata;
-    /// Get the [`Testcase`] from [`TestcaseId`]
-    fn testcase(&self, id: &TestcaseId) -> Result<Testcase<Self::Input>>;
+impl<C, CT, I, OC> HasObjectiveCorpus<I> for StdState<C, CT, I, OC>
+where
+    OC: Corpus<I>,
+{
+    type Corpus = OC;
 
-    /// Get the mutable reference to the [`InputContext`]
+    fn objective_corpus(&self) -> &Self::Corpus {
+        &self.objective_corpus
+    }
+
+    fn objective_corpus_mut(&mut self) -> &mut Self::Corpus {
+        &mut self.objective_corpus
+    }
+}
+
+/// This module has a `InputContext`
+pub trait HasContext<I> {
+    /// The associated [`InputContext`]
+    type Context: InputContext<I>;
+
+    /// Get the reference to the [`InputContext`]
     fn context(&self) -> &Self::Context;
     /// Get the mutable reference to the [`InputContext`]
     fn context_mut(&mut self) -> &mut Self::Context;
 }
 
-impl<C, CT, OC> HasScheduler for StdState<C, CT, OC>
+impl<C, CT, I, OC> HasContext<I> for StdState<C, CT, I, OC>
 where
-    C: Corpus<CT::Input>,
-    CT: InputContext,
+    CT: InputContext<I>,
+{
+    type Context = CT;
+
+    fn context(&self) -> &Self::Context {
+        &self.context
+    }
+
+    fn context_mut(&mut self) -> &mut Self::Context {
+        &mut self.context
+    }
+}
+
+impl<C, CT, I, OC> HasScheduler for StdState<C, CT, I, OC>
+where
+    C: Corpus<I>,
 {
     type Scheduler = C::Scheduler;
 
@@ -273,7 +364,7 @@ impl<I, S, Z> Debug for LoadConfig<'_, I, S, Z> {
         C: serde::Serialize + for<'a> serde::Deserialize<'a>,
         OC: serde::Serialize + for<'a> serde::Deserialize<'a>,
     ")]
-pub struct StdState<C, CT, OC> {
+pub struct StdState<C, CT, I, OC> {
     /// the [`InputContext`]. helper to transform [`Input`] into a byte slice
     context: CT,
     /// The [`Corpus`]
@@ -292,6 +383,7 @@ pub struct StdState<C, CT, OC> {
     dont_reenter: Option<Vec<PathBuf>>,
     metadata_initialized: bool,
     stats: Stats,
+    phantom: PhantomData<I>,
 }
 
 /// The [[`Testcase`]] metadata.
@@ -546,7 +638,7 @@ impl PSMetadata {
 
 libaflmm_bolts::impl_serdeany!(PSMetadata);
 
-impl<C, CT, OC> CoreState for StdState<C, CT, OC> {
+impl<C, CT, I, OC> CoreState for StdState<C, CT, I, OC> {
     fn stats(&self) -> &Stats {
         &self.stats
     }
@@ -602,11 +694,11 @@ impl<C, CT, OC> CoreState for StdState<C, CT, OC> {
     }
 }
 
-impl<C, CT, OC> DependencyResolver for StdState<C, CT, OC>
+impl<C, CT, I, OC> DependencyResolver for StdState<C, CT, I, OC>
 where
-    C: DependencyResolver + Corpus<CT::Input>,
-    CT: InputContext,
-    OC: DependencyResolver + Corpus<CT::Input>,
+    C: DependencyResolver + Corpus<I>,
+    CT: InputContext<I>,
+    OC: DependencyResolver + Corpus<I>,
 {
     fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
         self.corpus_mut().register(registrator)?;
@@ -616,68 +708,20 @@ where
     }
 }
 
-impl<C, CT, OC> State for StdState<C, CT, OC>
+impl<C, CT, I, OC> State for StdState<C, CT, I, OC>
 where
-    C: Corpus<CT::Input>,
-    CT: InputContext,
-    OC: Corpus<CT::Input>,
+    I: Input,
+    C: Corpus<I>,
+    CT: InputContext<I>,
+    OC: Corpus<I>,
 {
-    type Input = CT::Input;
-
-    type Corpus = C;
-    type ObjectiveCorpus = OC;
-    type Context = CT;
-
-    fn corpus(&self) -> &Self::Corpus {
-        &self.corpus
-    }
-
-    fn corpus_mut(&mut self) -> &mut Self::Corpus {
-        &mut self.corpus
-    }
-
-    fn objective_corpus(&self) -> &Self::ObjectiveCorpus {
-        &self.objective_corpus
-    }
-
-    fn objective_corpus_mut(&mut self) -> &mut Self::ObjectiveCorpus {
-        &mut self.objective_corpus
-    }
-
-    fn testcase(&self, id: &TestcaseId) -> Result<Testcase<CT::Input>> {
-        self.corpus.get(id)
-    }
-
-    fn testcase_md<'a>(&'a self, tc: &Testcase<CT::Input>) -> Option<&'a TestcaseMetadata> {
-        self.testcase_metadata.get(tc.id())
-    }
-
-    fn testcase_md_from_id<'a>(&'a self, id: &TestcaseId) -> Option<&'a TestcaseMetadata> {
-        self.testcase_metadata.get(id)
-    }
-
-    fn testcase_md_mut<'a>(&'a mut self, tc: &Testcase<CT::Input>) -> &'a mut TestcaseMetadata {
-        self.testcase_metadata.entry(*tc.id()).or_default()
-    }
-
-    fn testcase_md_mut_from_id<'a>(&'a mut self, id: &TestcaseId) -> &'a mut TestcaseMetadata {
-        self.testcase_metadata.entry(*id).or_default()
-    }
-
-    fn context(&self) -> &Self::Context {
-        &self.context
-    }
-
-    fn context_mut(&mut self) -> &mut Self::Context {
-        &mut self.context
-    }
+    type Input = I;
 }
 
-impl<C, CT, OC> StdState<C, CT, OC>
+impl<C, CT, I, OC> StdState<C, CT, I, OC>
 where
-    C: Corpus<CT::Input>,
-    CT: InputContext,
-    OC: Corpus<CT::Input>,
+    C: Corpus<I>,
+    I: Input,
 {
     /// Decide if the state must load the inputs
     pub fn must_load_initial_inputs(&self) -> bool {
@@ -769,11 +813,11 @@ where
         executor: &mut E,
         rt_handle: &mut RuntimeHandle<Self, W>,
         file_list: &[P],
-        load_config: LoadConfig<CT::Input, Self, Z>,
+        load_config: LoadConfig<I, Self, Z>,
     ) -> Result<()>
     where
         P: AsRef<Path>,
-        Z: Evaluator<E, CT::Input, Self, W>,
+        Z: Evaluator<E, I, Self, W>,
     {
         if let Some(remaining) = self.remaining_initial_files.as_ref() {
             // everything was loaded
@@ -794,10 +838,10 @@ where
         fuzzer: &mut Z,
         executor: &mut E,
         rt_handle: &mut RuntimeHandle<Self, W>,
-        config: &mut LoadConfig<CT::Input, Self, Z>,
+        config: &mut LoadConfig<I, Self, Z>,
     ) -> Result<EvaluationResult>
     where
-        Z: Evaluator<E, CT::Input, Self, W>,
+        Z: Evaluator<E, I, Self, W>,
     {
         log::info!("Loading file {} ...", path.display());
         let input = match (config.loader)(fuzzer, self, path) {
@@ -822,10 +866,10 @@ where
         fuzzer: &mut Z,
         executor: &mut E,
         rt_handle: &mut RuntimeHandle<Self, W>,
-        mut config: LoadConfig<CT::Input, Self, Z>,
+        mut config: LoadConfig<I, Self, Z>,
     ) -> Result<()>
     where
-        Z: Evaluator<E, CT::Input, Self, W>,
+        Z: Evaluator<E, I, Self, W>,
     {
         loop {
             match self.next_file() {
@@ -879,7 +923,7 @@ where
     ) -> Result<()>
     where
         P: AsRef<Path>,
-        Z: Evaluator<E, CT::Input, Self, W>,
+        Z: Evaluator<E, I, Self, W>,
     {
         self.load_initial_inputs_custom_by_filenames(
             fuzzer,
@@ -887,7 +931,7 @@ where
             rt_handle,
             file_list,
             LoadConfig {
-                loader: &mut |_, _, path| CT::Input::from_file(path),
+                loader: &mut |_, _, path| I::from_file(path),
                 exit_on_solution: false,
             },
         )
@@ -905,7 +949,7 @@ where
     ) -> Result<()>
     where
         P: AsRef<Path>,
-        Z: Evaluator<E, CT::Input, Self, W>,
+        Z: Evaluator<E, I, Self, W>,
     {
         self.canonicalize_input_dirs(in_dirs)?;
         self.continue_loading_initial_inputs_custom(
@@ -913,7 +957,7 @@ where
             executor,
             rt_handle,
             LoadConfig {
-                loader: &mut |_, _, path| CT::Input::from_file(path),
+                loader: &mut |_, _, path| I::from_file(path),
                 exit_on_solution: false,
             },
         )
@@ -930,7 +974,7 @@ where
     ) -> Result<()>
     where
         P: AsRef<Path>,
-        Z: Evaluator<E, CT::Input, Self, W>,
+        Z: Evaluator<E, I, Self, W>,
     {
         self.load_initial_inputs_custom_by_filenames(
             fuzzer,
@@ -938,7 +982,7 @@ where
             rt_handle,
             file_list,
             LoadConfig {
-                loader: &mut |_, _, path| CT::Input::from_file(path),
+                loader: &mut |_, _, path| I::from_file(path),
                 exit_on_solution: false,
             },
         )
@@ -954,7 +998,7 @@ where
     ) -> Result<()>
     where
         P: AsRef<Path>,
-        Z: Evaluator<E, CT::Input, Self, W>,
+        Z: Evaluator<E, I, Self, W>,
     {
         self.canonicalize_input_dirs(in_dirs)?;
         self.continue_loading_initial_inputs_custom(
@@ -962,7 +1006,7 @@ where
             executor,
             rt_handle,
             LoadConfig {
-                loader: &mut |_, _, path| CT::Input::from_file(path),
+                loader: &mut |_, _, path| I::from_file(path),
                 exit_on_solution: false,
             },
         )
@@ -979,7 +1023,7 @@ where
     ) -> Result<()>
     where
         P: AsRef<Path>,
-        Z: Evaluator<E, CT::Input, Self, W>,
+        Z: Evaluator<E, I, Self, W>,
     {
         self.canonicalize_input_dirs(in_dirs)?;
         self.continue_loading_initial_inputs_custom(
@@ -987,16 +1031,17 @@ where
             executor,
             rt_handle,
             LoadConfig {
-                loader: &mut |_, _, path| CT::Input::from_file(path),
+                loader: &mut |_, _, path| I::from_file(path),
                 exit_on_solution: true,
             },
         )
     }
 }
 
-impl<C, CT, OC> StdState<C, CT, OC>
+impl<I, C, CT, OC> StdState<I, C, CT, OC>
 where
-    CT: InputContext,
+    I: Input,
+    CT: InputContext<I>,
 {
     /// Generate `num` initial inputs, using the passed-in generator.
     pub fn generate_initial_inputs<G, E, R, W, Z>(
@@ -1010,8 +1055,8 @@ where
     ) -> Result<usize>
     where
         R: Rand,
-        G: Generator<CT::Input, R, Self>,
-        Z: Evaluator<E, CT::Input, Self, W>,
+        G: Generator<I, R, Self>,
+        Z: Evaluator<E, I, Self, W>,
     {
         let mut added = 0;
 
@@ -1027,11 +1072,12 @@ where
     }
 }
 
-impl<C, CT, OC> StdState<C, CT, OC>
+impl<C, CT, I, OC> StdState<C, CT, I, OC>
 where
-    C: Corpus<CT::Input>,
-    CT: InputContext,
-    OC: Corpus<CT::Input>,
+    I: Input,
+    C: Corpus<I>,
+    CT: InputContext<I>,
+    OC: Corpus<I>,
 {
     /// Creates a new `StdState`, taking ownership of all of the individual components during fuzzing.
     pub fn new(context: CT, corpus: C, objective_corpus: OC) -> Result<Self>
@@ -1058,6 +1104,7 @@ where
             dont_reenter: None,
             testcase_metadata: HashMap::new(),
             metadata_initialized: false,
+            phantom: PhantomData,
         };
         Ok(state)
     }
@@ -1067,6 +1114,7 @@ impl
     StdState<
         InMemoryCorpus<NopInput, NopScheduler>,
         NopContext,
+        NopInput,
         InMemoryCorpus<NopInput, NopScheduler>,
     >
 {

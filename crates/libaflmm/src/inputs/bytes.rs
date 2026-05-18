@@ -21,9 +21,7 @@ pub type BytesInput = ValueInput<Vec<u8>>;
 /// [`BytesContext`] just expose the inner byte slice as-is.
 pub struct BytesContext;
 
-impl InputContext for BytesContext {
-    type Input = BytesInput;
-
+impl InputContext<BytesInput> for BytesContext {
     fn to_bytes<'a>(&mut self, input: &'a BytesInput) -> OwnedSlice<'a, u8> {
         OwnedSlice::from(input.as_ref())
     }
