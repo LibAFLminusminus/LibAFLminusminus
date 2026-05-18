@@ -76,33 +76,30 @@ mod generators {
     }
 
     #[allow(unused_variables)]
-    pub fn gen_unique_edge_ids<
-        AF,
-        ET,
-        PF,
-        I,
-        S,
-        V,
-        const IS_CONST_MAP: bool,
-        const MAP_SIZE: usize,
-    >(
+    pub fn gen_unique_edge_ids<AF, ET, PF, V, const IS_CONST_MAP: bool, const MAP_SIZE: usize>(
         qemu: Qemu,
-        emulator_modules: &mut EmulatorModules<ET, I, S>,
-        state: &mut S,
+        emulator_modules: &mut EmulatorModules<ET>,
+        state: &mut ET::State,
         src: GuestAddr,
         dest: GuestAddr,
     ) -> Option<u64>
     where
         AF: AddressFilter,
-        ET: EmulatorModuleTuple<I, S>,
+        ET: EmulatorModuleTuple,
+        ET::State: CoreState + 'static,
+        ET::Input: 'static,
         PF: PageFilter,
-        I: Unpin,
-        S: CoreState + Unpin,
         V: EdgeCoverageVariant<AF, PF, IS_CONST_MAP, MAP_SIZE>,
     {
-        if let Some(module) =
-            emulator_modules.get::<EdgeCoverageModule<AF, PF, V, IS_CONST_MAP, MAP_SIZE>>()
-        {
+        if let Some(module) = emulator_modules.get::<EdgeCoverageModule<
+            AF,
+            ET::Input,
+            PF,
+            ET::State,
+            V,
+            IS_CONST_MAP,
+            MAP_SIZE,
+        >>() {
             unsafe {
                 assert!(LIBAFL_QEMU_EDGES_MAP_MASK_MAX > 0);
                 let edges_map_size_ptr = &raw const LIBAFL_QEMU_EDGES_MAP_SIZE_PTR;
@@ -163,33 +160,30 @@ mod generators {
 
     #[allow(unused_variables)]
     #[allow(clippy::needless_pass_by_value)] // no longer a problem with nightly
-    pub fn gen_hashed_edge_ids<
-        AF,
-        ET,
-        PF,
-        I,
-        S,
-        V,
-        const IS_CONST_MAP: bool,
-        const MAP_SIZE: usize,
-    >(
+    pub fn gen_hashed_edge_ids<AF, ET, PF, V, const IS_CONST_MAP: bool, const MAP_SIZE: usize>(
         qemu: Qemu,
-        emulator_modules: &mut EmulatorModules<ET, I, S>,
-        _state: &mut S,
+        emulator_modules: &mut EmulatorModules<ET>,
+        _state: &mut ET::State,
         src: GuestAddr,
         dest: GuestAddr,
     ) -> Option<u64>
     where
         AF: AddressFilter,
-        ET: EmulatorModuleTuple<I, S>,
+        ET: EmulatorModuleTuple,
+        ET::State: CoreState + 'static,
+        ET::Input: 'static,
         PF: PageFilter,
-        I: Unpin,
-        S: CoreState + Unpin,
         V: EdgeCoverageVariant<AF, PF, IS_CONST_MAP, MAP_SIZE>,
     {
-        if let Some(module) =
-            emulator_modules.get::<EdgeCoverageModule<AF, PF, V, IS_CONST_MAP, MAP_SIZE>>()
-        {
+        if let Some(module) = emulator_modules.get::<EdgeCoverageModule<
+            AF,
+            ET::Input,
+            PF,
+            ET::State,
+            V,
+            IS_CONST_MAP,
+            MAP_SIZE,
+        >>() {
             #[cfg(feature = "usermode")]
             if !module.must_instrument(src) && !module.must_instrument(dest) {
                 return None;
@@ -227,33 +221,30 @@ mod generators {
     #[allow(clippy::unnecessary_cast)]
     #[allow(unused_variables)]
     #[allow(clippy::needless_pass_by_value)] // no longer a problem with nightly
-    pub fn gen_hashed_block_ids<
-        AF,
-        ET,
-        PF,
-        I,
-        S,
-        V,
-        const IS_CONST_MAP: bool,
-        const MAP_SIZE: usize,
-    >(
+    pub fn gen_hashed_block_ids<AF, ET, PF, V, const IS_CONST_MAP: bool, const MAP_SIZE: usize>(
         qemu: Qemu,
-        emulator_modules: &mut EmulatorModules<ET, I, S>,
-        _state: &mut S,
+        emulator_modules: &mut EmulatorModules<ET>,
+        _state: &mut ET::State,
         pc: GuestAddr,
     ) -> Option<u64>
     where
         AF: AddressFilter,
-        ET: EmulatorModuleTuple<I, S>,
+        ET: EmulatorModuleTuple,
+        ET::State: CoreState + 'static,
+        ET::Input: 'static,
         PF: PageFilter,
-        I: Unpin,
-        S: CoreState + Unpin,
         V: EdgeCoverageVariant<AF, PF, IS_CONST_MAP, MAP_SIZE>,
     {
         // first check if we should filter
-        if let Some(module) =
-            emulator_modules.get::<EdgeCoverageModule<AF, PF, V, IS_CONST_MAP, MAP_SIZE>>()
-        {
+        if let Some(module) = emulator_modules.get::<EdgeCoverageModule<
+            AF,
+            ET::Input,
+            PF,
+            ET::State,
+            V,
+            IS_CONST_MAP,
+            MAP_SIZE,
+        >>() {
             #[cfg(feature = "usermode")]
             {
                 if !module.must_instrument(pc) {

@@ -111,7 +111,7 @@ macro_rules! define_std_command_manager_inner {
 
                 impl<C, ET, I, IS, S, SM> CommandManager<C, GenericEmulatorDriver<IS>, ET, I, S, SM> for $name<S>
                 where
-                    ET: EmulatorModuleTuple<I, S> + HasStdFiltersTuple,
+                    ET: EmulatorModuleTuple<Input = I, State = S> + HasStdFiltersTuple,
                     I: $($input_bound)? + Unpin,
                     IS: InputSetter<I, S>,
                     S: Unpin,
@@ -142,7 +142,7 @@ macro_rules! define_std_command_manager_inner {
 
                 impl<C, ET, I, IS, S, SM> IsCommand<C, $name<S>, GenericEmulatorDriver<IS>, ET, I, S, SM> for [<$name Commands>]
                 where
-                    ET: EmulatorModuleTuple<I, S> + HasStdFiltersTuple,
+                    ET: EmulatorModuleTuple<Input = I, State = S> + HasStdFiltersTuple,
                     I: $($input_bound)? + Unpin,
                     IS: InputSetter<I, S>,
                     S: Unpin,

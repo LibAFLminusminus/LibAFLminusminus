@@ -141,7 +141,7 @@ where
     #[allow(clippy::type_complexity)]
     pub fn build<E>(self) -> Result<StdEmulator<C, CM, ED, ET, I, S, SM>, QemuInitError>
     where
-        ET: EmulatorModuleTuple<I, S>,
+        ET: EmulatorModuleTuple<Input = I, State = S>,
         QP: TryInto<QemuParams, Error = E>,
         QemuInitError: From<E>,
     {
@@ -165,7 +165,7 @@ where
         qemu: Qemu,
     ) -> Result<StdEmulator<C, CM, ED, ET, I, S, SM>, QemuInitError>
     where
-        ET: EmulatorModuleTuple<I, S>,
+        ET: EmulatorModuleTuple<Input = I, State = S>,
     {
         // The logic from Emulator::new needs to be duplicated here because of type mismatch on modules
         //  between Emulator::new and Emulator::new_wit_qemu
@@ -212,8 +212,8 @@ where
         module: EM,
     ) -> StdEmulatorBuilder<C, CM, ED, (EM, ET), QP, I, S, SM>
     where
-        EM: EmulatorModule<I, S> + Unpin,
-        ET: EmulatorModuleTuple<I, S>,
+        EM: EmulatorModule<Input = I, State = S> + Unpin,
+        ET: EmulatorModuleTuple<Input = I, State = S>,
     {
         StdEmulatorBuilder::new(
             self.modules.prepend(module),
@@ -229,8 +229,8 @@ where
         module: EM,
     ) -> StdEmulatorBuilder<C, CM, ED, (ET, EM), QP, I, S, SM>
     where
-        EM: EmulatorModule<I, S> + Unpin,
-        ET: EmulatorModuleTuple<I, S>,
+        EM: EmulatorModule<Input = I, State = S> + Unpin,
+        ET: EmulatorModuleTuple<Input = I, State = S>,
     {
         StdEmulatorBuilder::new(
             self.modules.append(module),

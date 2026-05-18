@@ -233,9 +233,10 @@ pub trait State: CoreState + HasScheduler + DependencyResolver {
     fn context_mut(&mut self) -> &mut Self::Context;
 }
 
-impl<C, CT, I, OC, SC> HasScheduler for StdState<C, CT, I, OC, SC>
+impl<C, CT, OC> HasScheduler for StdState<C, CT, OC>
 where
-    C: Corpus<I>,
+    C: Corpus<CT::Input>,
+    CT: InputContext,
 {
     type Scheduler = C::Scheduler;
 
@@ -271,9 +272,8 @@ impl<I, S, Z> Debug for LoadConfig<'_, I, S, Z> {
         CT: serde::Serialize + for<'a> serde::Deserialize<'a>,
         C: serde::Serialize + for<'a> serde::Deserialize<'a>,
         OC: serde::Serialize + for<'a> serde::Deserialize<'a>,
-        SC: serde::Serialize + for<'a> serde::Deserialize<'a>,
     ")]
-pub struct StdState<C, CT, I, OC, SC> {
+pub struct StdState<C, CT, OC> {
     /// the [`InputContext`]. helper to transform [`Input`] into a byte slice
     context: CT,
     /// The [`Corpus`]
@@ -292,7 +292,6 @@ pub struct StdState<C, CT, I, OC, SC> {
     dont_reenter: Option<Vec<PathBuf>>,
     metadata_initialized: bool,
     stats: Stats,
-    phantom: PhantomData<(I, SC)>,
 }
 
 /// The [[`Testcase`]] metadata.
@@ -547,7 +546,7 @@ impl PSMetadata {
 
 libaflmm_bolts::impl_serdeany!(PSMetadata);
 
-impl<C, CT, I, OC, SC> CoreState for StdState<C, CT, I, OC, SC> {
+impl<C, CT, OC> CoreState for StdState<C, CT, OC> {
     fn stats(&self) -> &Stats {
         &self.stats
     }
@@ -603,12 +602,11 @@ impl<C, CT, I, OC, SC> CoreState for StdState<C, CT, I, OC, SC> {
     }
 }
 
-impl<C, CT, I, OC, SC> DependencyResolver for StdState<C, CT, I, OC, SC>
+impl<C, CT, OC> DependencyResolver for StdState<C, CT, OC>
 where
-    C: DependencyResolver + Corpus<I>,
-    CT: InputContext<Input = I>,
-    I: Input,
-    OC: DependencyResolver + Corpus<I>,
+    C: DependencyResolver + Corpus<CT::Input>,
+    CT: InputContext,
+    OC: DependencyResolver + Corpus<CT::Input>,
 {
     fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
         self.corpus_mut().register(registrator)?;
@@ -618,14 +616,13 @@ where
     }
 }
 
-impl<C, CT, I, OC, SC> State for StdState<C, CT, I, OC, SC>
+impl<C, CT, OC> State for StdState<C, CT, OC>
 where
-    C: Corpus<I>,
-    CT: InputContext<Input = I>,
-    I: Input,
-    OC: Corpus<I>,
+    C: Corpus<CT::Input>,
+    CT: InputContext,
+    OC: Corpus<CT::Input>,
 {
-    type Input = I;
+    type Input = CT::Input;
 
     type Corpus = C;
     type ObjectiveCorpus = OC;
@@ -647,11 +644,11 @@ where
         &mut self.objective_corpus
     }
 
-    fn testcase(&self, id: &TestcaseId) -> Result<Testcase<I>> {
+    fn testcase(&self, id: &TestcaseId) -> Result<Testcase<CT::Input>> {
         self.corpus.get(id)
     }
 
-    fn testcase_md<'a>(&'a self, tc: &Testcase<I>) -> Option<&'a TestcaseMetadata> {
+    fn testcase_md<'a>(&'a self, tc: &Testcase<CT::Input>) -> Option<&'a TestcaseMetadata> {
         self.testcase_metadata.get(tc.id())
     }
 
@@ -659,7 +656,7 @@ where
         self.testcase_metadata.get(id)
     }
 
-    fn testcase_md_mut<'a>(&'a mut self, tc: &Testcase<I>) -> &'a mut TestcaseMetadata {
+    fn testcase_md_mut<'a>(&'a mut self, tc: &Testcase<CT::Input>) -> &'a mut TestcaseMetadata {
         self.testcase_metadata.entry(*tc.id()).or_default()
     }
 
@@ -676,12 +673,11 @@ where
     }
 }
 
-impl<C, CT, I, OC, SC> StdState<C, CT, I, OC, SC>
+impl<C, CT, OC> StdState<C, CT, OC>
 where
-    C: Corpus<I>,
-    CT: InputContext<Input = I>,
-    I: Input,
-    OC: Corpus<I>,
+    C: Corpus<CT::Input>,
+    CT: InputContext,
+    OC: Corpus<CT::Input>,
 {
     /// Decide if the state must load the inputs
     pub fn must_load_initial_inputs(&self) -> bool {
@@ -773,11 +769,11 @@ where
         executor: &mut E,
         rt_handle: &mut RuntimeHandle<Self, W>,
         file_list: &[P],
-        load_config: LoadConfig<I, Self, Z>,
+        load_config: LoadConfig<CT::Input, Self, Z>,
     ) -> Result<()>
     where
         P: AsRef<Path>,
-        Z: Evaluator<E, I, Self, W>,
+        Z: Evaluator<E, CT::Input, Self, W>,
     {
         if let Some(remaining) = self.remaining_initial_files.as_ref() {
             // everything was loaded
@@ -798,10 +794,10 @@ where
         fuzzer: &mut Z,
         executor: &mut E,
         rt_handle: &mut RuntimeHandle<Self, W>,
-        config: &mut LoadConfig<I, Self, Z>,
+        config: &mut LoadConfig<CT::Input, Self, Z>,
     ) -> Result<EvaluationResult>
     where
-        Z: Evaluator<E, I, Self, W>,
+        Z: Evaluator<E, CT::Input, Self, W>,
     {
         log::info!("Loading file {} ...", path.display());
         let input = match (config.loader)(fuzzer, self, path) {
@@ -826,10 +822,10 @@ where
         fuzzer: &mut Z,
         executor: &mut E,
         rt_handle: &mut RuntimeHandle<Self, W>,
-        mut config: LoadConfig<I, Self, Z>,
+        mut config: LoadConfig<CT::Input, Self, Z>,
     ) -> Result<()>
     where
-        Z: Evaluator<E, I, Self, W>,
+        Z: Evaluator<E, CT::Input, Self, W>,
     {
         loop {
             match self.next_file() {
@@ -883,7 +879,7 @@ where
     ) -> Result<()>
     where
         P: AsRef<Path>,
-        Z: Evaluator<E, I, Self, W>,
+        Z: Evaluator<E, CT::Input, Self, W>,
     {
         self.load_initial_inputs_custom_by_filenames(
             fuzzer,
@@ -891,7 +887,7 @@ where
             rt_handle,
             file_list,
             LoadConfig {
-                loader: &mut |_, _, path| I::from_file(path),
+                loader: &mut |_, _, path| CT::Input::from_file(path),
                 exit_on_solution: false,
             },
         )
@@ -909,7 +905,7 @@ where
     ) -> Result<()>
     where
         P: AsRef<Path>,
-        Z: Evaluator<E, I, Self, W>,
+        Z: Evaluator<E, CT::Input, Self, W>,
     {
         self.canonicalize_input_dirs(in_dirs)?;
         self.continue_loading_initial_inputs_custom(
@@ -917,7 +913,7 @@ where
             executor,
             rt_handle,
             LoadConfig {
-                loader: &mut |_, _, path| I::from_file(path),
+                loader: &mut |_, _, path| CT::Input::from_file(path),
                 exit_on_solution: false,
             },
         )
@@ -934,7 +930,7 @@ where
     ) -> Result<()>
     where
         P: AsRef<Path>,
-        Z: Evaluator<E, I, Self, W>,
+        Z: Evaluator<E, CT::Input, Self, W>,
     {
         self.load_initial_inputs_custom_by_filenames(
             fuzzer,
@@ -942,7 +938,7 @@ where
             rt_handle,
             file_list,
             LoadConfig {
-                loader: &mut |_, _, path| I::from_file(path),
+                loader: &mut |_, _, path| CT::Input::from_file(path),
                 exit_on_solution: false,
             },
         )
@@ -958,7 +954,7 @@ where
     ) -> Result<()>
     where
         P: AsRef<Path>,
-        Z: Evaluator<E, I, Self, W>,
+        Z: Evaluator<E, CT::Input, Self, W>,
     {
         self.canonicalize_input_dirs(in_dirs)?;
         self.continue_loading_initial_inputs_custom(
@@ -966,7 +962,7 @@ where
             executor,
             rt_handle,
             LoadConfig {
-                loader: &mut |_, _, path| I::from_file(path),
+                loader: &mut |_, _, path| CT::Input::from_file(path),
                 exit_on_solution: false,
             },
         )
@@ -983,7 +979,7 @@ where
     ) -> Result<()>
     where
         P: AsRef<Path>,
-        Z: Evaluator<E, I, Self, W>,
+        Z: Evaluator<E, CT::Input, Self, W>,
     {
         self.canonicalize_input_dirs(in_dirs)?;
         self.continue_loading_initial_inputs_custom(
@@ -991,14 +987,17 @@ where
             executor,
             rt_handle,
             LoadConfig {
-                loader: &mut |_, _, path| I::from_file(path),
+                loader: &mut |_, _, path| CT::Input::from_file(path),
                 exit_on_solution: true,
             },
         )
     }
 }
 
-impl<C, CT, I, OC, SC> StdState<C, CT, I, OC, SC> {
+impl<C, CT, OC> StdState<C, CT, OC>
+where
+    CT: InputContext,
+{
     /// Generate `num` initial inputs, using the passed-in generator.
     pub fn generate_initial_inputs<G, E, R, W, Z>(
         &mut self,
@@ -1011,8 +1010,8 @@ impl<C, CT, I, OC, SC> StdState<C, CT, I, OC, SC> {
     ) -> Result<usize>
     where
         R: Rand,
-        G: Generator<I, R, Self>,
-        Z: Evaluator<E, I, Self, W>,
+        G: Generator<CT::Input, R, Self>,
+        Z: Evaluator<E, CT::Input, Self, W>,
     {
         let mut added = 0;
 
@@ -1028,11 +1027,11 @@ impl<C, CT, I, OC, SC> StdState<C, CT, I, OC, SC> {
     }
 }
 
-impl<C, CT, I, OC, SC> StdState<C, CT, I, OC, SC>
+impl<C, CT, OC> StdState<C, CT, OC>
 where
-    C: Corpus<I, Scheduler = SC>,
-    I: Input,
-    OC: Corpus<I>,
+    C: Corpus<CT::Input>,
+    CT: InputContext,
+    OC: Corpus<CT::Input>,
 {
     /// Creates a new `StdState`, taking ownership of all of the individual components during fuzzing.
     pub fn new(context: CT, corpus: C, objective_corpus: OC) -> Result<Self>
@@ -1057,7 +1056,6 @@ where
             max_size: DEFAULT_MAX_SIZE,
             remaining_initial_files: None,
             dont_reenter: None,
-            phantom: PhantomData,
             testcase_metadata: HashMap::new(),
             metadata_initialized: false,
         };
@@ -1069,9 +1067,7 @@ impl
     StdState<
         InMemoryCorpus<NopInput, NopScheduler>,
         NopContext,
-        NopInput,
         InMemoryCorpus<NopInput, NopScheduler>,
-        NopScheduler,
     >
 {
     /// Create an empty [`StdState`] that has very minimal uses.

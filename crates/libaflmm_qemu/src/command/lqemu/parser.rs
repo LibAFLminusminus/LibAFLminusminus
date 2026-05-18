@@ -33,7 +33,7 @@ impl<C, ET, I, IS, S, SM>
     NativeCommandParser<C, LqemuCommandManager<S>, GenericEmulatorDriver<IS>, ET, I, S, SM>
     for StartPhysCommandParser
 where
-    ET: EmulatorModuleTuple<I, S> + HasStdFiltersTuple,
+    ET: EmulatorModuleTuple<Input = I, State = S> + HasStdFiltersTuple,
     I: Input + Unpin,
     IS: InputSetter<I, S>,
     S: Unpin,
@@ -67,7 +67,7 @@ impl<C, ET, I, IS, S, SM>
     NativeCommandParser<C, LqemuCommandManager<S>, GenericEmulatorDriver<IS>, ET, I, S, SM>
     for StartVirtCommandParser
 where
-    ET: EmulatorModuleTuple<I, S> + HasStdFiltersTuple,
+    ET: EmulatorModuleTuple<Input = I, State = S> + HasStdFiltersTuple,
     I: Input + Unpin,
     IS: InputSetter<I, S>,
     S: Unpin,
@@ -116,7 +116,7 @@ pub struct SaveCommandParser;
 impl<C, CM, ET, I, IS, S, SM> NativeCommandParser<C, CM, GenericEmulatorDriver<IS>, ET, I, S, SM>
     for SaveCommandParser
 where
-    ET: EmulatorModuleTuple<I, S>,
+    ET: EmulatorModuleTuple<Input = I, State = S>,
     I: Unpin,
     S: Unpin,
     SM: IsSnapshotManager,
@@ -158,7 +158,7 @@ impl<C, ET, I, IS, S, SM>
     NativeCommandParser<C, LqemuCommandManager<S>, GenericEmulatorDriver<IS>, ET, I, S, SM>
     for EndCommandParser
 where
-    ET: EmulatorModuleTuple<I, S>,
+    ET: EmulatorModuleTuple<Input = I, State = S>,
     I: Input + Unpin,
     S: Unpin,
     SM: IsSnapshotManager,
@@ -211,7 +211,7 @@ pub struct VaddrFilterAllowRangeCommandParser;
 impl<C, CM, ED, ET, I, S, SM> NativeCommandParser<C, CM, ED, ET, I, S, SM>
     for VaddrFilterAllowRangeCommandParser
 where
-    ET: EmulatorModuleTuple<I, S> + HasStdFiltersTuple,
+    ET: EmulatorModuleTuple<Input = I, State = S> + HasStdFiltersTuple,
     I: Unpin,
     S: Unpin,
 {
@@ -234,7 +234,7 @@ where
 pub struct LqprintfCommandParser;
 impl<C, CM, ED, ET, I, S, SM> NativeCommandParser<C, CM, ED, ET, I, S, SM> for LqprintfCommandParser
 where
-    ET: EmulatorModuleTuple<I, S>,
+    ET: EmulatorModuleTuple<Input = I, State = S>,
     I: Unpin,
     S: Unpin,
 {
@@ -268,7 +268,7 @@ where
 pub struct TestCommandParser;
 impl<C, CM, ED, ET, I, S, SM> NativeCommandParser<C, CM, ED, ET, I, S, SM> for TestCommandParser
 where
-    ET: EmulatorModuleTuple<I, S>,
+    ET: EmulatorModuleTuple<Input = I, State = S>,
     I: Unpin,
     S: Unpin,
 {
@@ -294,7 +294,7 @@ pub struct SetMapCommandParser;
 impl<C, CM, ET, I, IS, S, SM> NativeCommandParser<C, CM, GenericEmulatorDriver<IS>, ET, I, S, SM>
     for SetMapCommandParser
 where
-    ET: EmulatorModuleTuple<I, S>,
+    ET: EmulatorModuleTuple<Input = I, State = S>,
     I: Unpin,
     S: Unpin,
 {

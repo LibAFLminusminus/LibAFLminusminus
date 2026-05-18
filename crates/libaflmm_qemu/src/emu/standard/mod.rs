@@ -1,4 +1,4 @@
-use std::{cell::RefCell, collections::HashMap, fmt::Debug, pin::Pin, result};
+use std::{cell::RefCell, collections::HashMap, fmt::Debug, marker::PhantomData, pin::Pin, result};
 
 use libaflmm::{
     Result,
@@ -54,13 +54,14 @@ pub use systemmode::*;
 #[derive(Debug)]
 pub struct StdEmulator<C, CM, ED, ET, I, S, SM> {
     pub(crate) snapshot_manager: SM,
-    pub(crate) modules: Pin<Box<EmulatorModules<ET, I, S>>>,
+    pub(crate) modules: Pin<Box<EmulatorModules<ET>>>,
     pub(crate) command_manager: CM,
     pub(crate) driver: ED,
     breakpoints_by_addr: RefCell<HashMap<GuestAddr, Breakpoint<C>>>, // TODO: change to RC here
     breakpoints_by_id: RefCell<HashMap<BreakpointId, Breakpoint<C>>>,
     pub(crate) qemu: Qemu,
     pub(crate) started: bool,
+    phantom: PhantomData<(I, S)>,
 }
 
 impl<C, CM, ED, ET, I, S, SM> Emulator for StdEmulator<C, CM, ED, ET, I, S, SM>
@@ -68,7 +69,7 @@ where
     C: Debug + Clone,
     CM: CommandManager<C, ED, ET, I, S, SM, Commands = C>,
     ED: EmulatorDriver<C, CM, ET, I, S, SM>,
-    ET: EmulatorModuleTuple<I, S> + Unpin,
+    ET: EmulatorModuleTuple<Input = I, State = S> + Unpin,
     I: Input + Unpin,
     S: State + Unpin,
 {
@@ -172,7 +173,7 @@ where
 }
 
 impl<C, CM, ED, ET, I, S, SM> StdEmulator<C, CM, ED, ET, I, S, SM> {
-    pub fn modules(&self) -> &EmulatorModules<ET, I, S> {
+    pub fn modules(&self) -> &EmulatorModules<ET> {
         &self.modules
     }
 
@@ -216,14 +217,14 @@ where
     I: Unpin,
     S: Unpin,
 {
-    pub fn modules_mut(&mut self) -> &mut EmulatorModules<ET, I, S> {
+    pub fn modules_mut(&mut self) -> &mut EmulatorModules<ET> {
         self.modules.as_mut().get_mut()
     }
 }
 
 impl<C, CM, ED, ET, I, S, SM> StdEmulator<C, CM, ED, ET, I, S, SM>
 where
-    ET: EmulatorModuleTuple<I, S>,
+    ET: EmulatorModuleTuple<Input = I, State = S>,
     I: Unpin,
     S: Unpin,
 {
@@ -257,7 +258,7 @@ where
         // TODO: fix things there properly. The biggest issue being that it creates 2 mut ref to the module with the callback being called
         unsafe {
             emulator_modules.modules_mut().pre_qemu_init_all(
-                EmulatorModules::<ET, I, S>::emulator_modules_mut_unchecked(),
+                EmulatorModules::<ET>::emulator_modules_mut_unchecked(),
                 &mut qemu_params,
             );
         }
@@ -285,7 +286,7 @@ where
     /// pre-init qemu hooks should be run before calling this.
     unsafe fn new_with_qemu(
         qemu: Qemu,
-        emulator_modules: Pin<Box<EmulatorModules<ET, I, S>>>,
+        emulator_modules: Pin<Box<EmulatorModules<ET>>>,
         driver: ED,
         snapshot_manager: SM,
         command_manager: CM,
@@ -299,6 +300,7 @@ where
             breakpoints_by_id: RefCell::new(HashMap::new()),
             qemu,
             started: false,
+            phantom: PhantomData,
         };
 
         emulator.modules.post_qemu_init_all(qemu);
@@ -312,7 +314,7 @@ where
     C: Clone,
     CM: CommandManager<C, ED, ET, I, S, SM, Commands = C>,
     ED: EmulatorDriver<C, CM, ET, I, S, SM>,
-    ET: EmulatorModuleTuple<I, S>,
+    ET: EmulatorModuleTuple<Input = I, State = S>,
     I: Unpin,
     S: Unpin,
 {

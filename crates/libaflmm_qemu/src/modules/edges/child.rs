@@ -1,3 +1,5 @@
+use std::marker::PhantomData;
+
 use libaflmm::states::CoreState;
 
 use super::{
@@ -15,11 +17,13 @@ use crate::{
 
 #[derive(Debug)]
 pub struct EdgeCoverageChildVariant;
-pub type StdEdgeCoverageChildModule =
-    EdgeCoverageModule<StdAddressFilter, StdPageFilter, EdgeCoverageChildVariant, false, 0>;
-pub type StdEdgeCoverageChildModuleBuilder = EdgeCoverageModuleBuilder<
+pub type StdEdgeCoverageChildModule<I, S> =
+    EdgeCoverageModule<StdAddressFilter, I, StdPageFilter, S, EdgeCoverageChildVariant, false, 0>;
+pub type StdEdgeCoverageChildModuleBuilder<I, S> = EdgeCoverageModuleBuilder<
     StdAddressFilter,
+    I,
     StdPageFilter,
+    S,
     EdgeCoverageChildVariant,
     false,
     false,
@@ -31,36 +35,36 @@ impl<AF, PF, const IS_CONST_MAP: bool, const MAP_SIZE: usize>
 {
     const DO_SIDE_EFFECTS: bool = false;
 
-    fn fn_hitcount<ET, I, S>(&mut self, emulator_modules: &mut EmulatorModules<ET, I, S>)
+    fn fn_hitcount<ET>(&mut self, emulator_modules: &mut EmulatorModules<ET>)
     where
         AF: AddressFilter,
-        ET: EmulatorModuleTuple<I, S>,
+        ET: EmulatorModuleTuple,
+        ET::Input: 'static,
+        ET::State: CoreState + 'static,
         PF: PageFilter,
-        I: Unpin,
-        S: CoreState + Unpin,
     {
         emulator_modules.edges(
-            Hook::Function(gen_hashed_edge_ids::<AF, ET, PF, I, S, Self, IS_CONST_MAP, MAP_SIZE>),
+            Hook::Function(gen_hashed_edge_ids::<AF, ET, PF, Self, IS_CONST_MAP, MAP_SIZE>),
             Hook::Raw(trace_edge_hitcount_ptr),
         );
     }
 
-    fn fn_no_hitcount<ET, I, S>(&mut self, emulator_modules: &mut EmulatorModules<ET, I, S>)
+    fn fn_no_hitcount<ET>(&mut self, emulator_modules: &mut EmulatorModules<ET>)
     where
         AF: AddressFilter,
-        ET: EmulatorModuleTuple<I, S>,
+        ET: EmulatorModuleTuple,
+        ET::Input: 'static,
+        ET::State: CoreState + 'static,
         PF: PageFilter,
-        I: Unpin,
-        S: CoreState + Unpin,
     {
         emulator_modules.edges(
-            Hook::Function(gen_hashed_edge_ids::<AF, ET, PF, I, S, Self, IS_CONST_MAP, MAP_SIZE>),
+            Hook::Function(gen_hashed_edge_ids::<AF, ET, PF, Self, IS_CONST_MAP, MAP_SIZE>),
             Hook::Raw(trace_edge_single_ptr),
         );
     }
 }
 
-impl Default for StdEdgeCoverageChildModuleBuilder {
+impl<I, S> Default for StdEdgeCoverageChildModuleBuilder<I, S> {
     fn default() -> Self {
         Self {
             variant: EdgeCoverageChildVariant,
@@ -68,13 +72,14 @@ impl Default for StdEdgeCoverageChildModuleBuilder {
             page_filter: StdPageFilter::default(),
             use_hitcounts: true,
             use_jit: true,
+            phantom: PhantomData,
         }
     }
 }
 
-impl StdEdgeCoverageChildModule {
+impl<I, S> StdEdgeCoverageChildModule<I, S> {
     #[must_use]
-    pub fn builder() -> StdEdgeCoverageChildModuleBuilder {
+    pub fn builder() -> StdEdgeCoverageChildModuleBuilder<I, S> {
         EdgeCoverageModuleBuilder::default().jit(false)
     }
 }

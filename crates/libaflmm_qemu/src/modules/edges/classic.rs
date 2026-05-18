@@ -1,3 +1,5 @@
+use std::marker::PhantomData;
+
 use libaflmm::states::CoreState;
 
 use super::{
@@ -18,11 +20,13 @@ use crate::{
 #[derive(Debug)]
 pub struct EdgeCoverageClassicVariant;
 
-pub type StdEdgeCoverageClassicModule =
-    EdgeCoverageModule<StdAddressFilter, StdPageFilter, EdgeCoverageClassicVariant, false, 0>;
-pub type StdEdgeCoverageClassicModuleBuilder = EdgeCoverageModuleBuilder<
+pub type StdEdgeCoverageClassicModule<I, S> =
+    EdgeCoverageModule<StdAddressFilter, I, StdPageFilter, S, EdgeCoverageClassicVariant, false, 0>;
+pub type StdEdgeCoverageClassicModuleBuilder<I, S> = EdgeCoverageModuleBuilder<
     StdAddressFilter,
+    I,
     StdPageFilter,
+    S,
     EdgeCoverageClassicVariant,
     false,
     false,
@@ -34,16 +38,16 @@ impl<AF, PF, const IS_CONST_MAP: bool, const MAP_SIZE: usize>
 {
     const DO_SIDE_EFFECTS: bool = false;
 
-    fn jit_hitcount<ET, I, S>(&mut self, emulator_modules: &mut EmulatorModules<ET, I, S>)
+    fn jit_hitcount<ET>(&mut self, emulator_modules: &mut EmulatorModules<ET>)
     where
         AF: AddressFilter,
-        ET: EmulatorModuleTuple<I, S>,
+        ET: EmulatorModuleTuple,
+        ET::Input: 'static,
+        ET::State: CoreState + 'static,
         PF: PageFilter,
-        I: Unpin,
-        S: CoreState + Unpin,
     {
         let hook_id = emulator_modules.blocks(
-            Hook::Function(gen_hashed_block_ids::<AF, ET, PF, I, S, Self, IS_CONST_MAP, MAP_SIZE>),
+            Hook::Function(gen_hashed_block_ids::<AF, ET, PF, Self, IS_CONST_MAP, MAP_SIZE>),
             Hook::Empty,
             Hook::Empty,
         );
@@ -56,16 +60,16 @@ impl<AF, PF, const IS_CONST_MAP: bool, const MAP_SIZE: usize>
         }
     }
 
-    fn jit_no_hitcount<ET, I, S>(&mut self, emulator_modules: &mut EmulatorModules<ET, I, S>)
+    fn jit_no_hitcount<ET>(&mut self, emulator_modules: &mut EmulatorModules<ET>)
     where
         AF: AddressFilter,
-        ET: EmulatorModuleTuple<I, S>,
+        ET: EmulatorModuleTuple,
+        ET::Input: 'static,
+        ET::State: CoreState + 'static,
         PF: PageFilter,
-        I: Unpin,
-        S: CoreState + Unpin,
     {
         let hook_id = emulator_modules.blocks(
-            Hook::Function(gen_hashed_block_ids::<AF, ET, PF, I, S, Self, IS_CONST_MAP, MAP_SIZE>),
+            Hook::Function(gen_hashed_block_ids::<AF, ET, PF, Self, IS_CONST_MAP, MAP_SIZE>),
             Hook::Empty,
             Hook::Empty,
         );
@@ -78,38 +82,38 @@ impl<AF, PF, const IS_CONST_MAP: bool, const MAP_SIZE: usize>
         }
     }
 
-    fn fn_hitcount<ET, I, S>(&mut self, emulator_modules: &mut EmulatorModules<ET, I, S>)
+    fn fn_hitcount<ET>(&mut self, emulator_modules: &mut EmulatorModules<ET>)
     where
         AF: AddressFilter,
-        ET: EmulatorModuleTuple<I, S>,
+        ET: EmulatorModuleTuple,
+        ET::Input: 'static,
+        ET::State: CoreState + 'static,
         PF: PageFilter,
-        I: Unpin,
-        S: CoreState + Unpin,
     {
         emulator_modules.blocks(
-            Hook::Function(gen_hashed_block_ids::<AF, ET, PF, I, S, Self, IS_CONST_MAP, MAP_SIZE>),
+            Hook::Function(gen_hashed_block_ids::<AF, ET, PF, Self, IS_CONST_MAP, MAP_SIZE>),
             Hook::Empty,
             Hook::Raw(trace_block_transition_hitcount),
         );
     }
 
-    fn fn_no_hitcount<ET, I, S>(&mut self, emulator_modules: &mut EmulatorModules<ET, I, S>)
+    fn fn_no_hitcount<ET>(&mut self, emulator_modules: &mut EmulatorModules<ET>)
     where
         AF: AddressFilter,
-        ET: EmulatorModuleTuple<I, S>,
+        ET: EmulatorModuleTuple,
+        ET::Input: 'static,
+        ET::State: CoreState + 'static,
         PF: PageFilter,
-        I: Unpin,
-        S: CoreState + Unpin,
     {
         emulator_modules.blocks(
-            Hook::Function(gen_hashed_block_ids::<AF, ET, PF, I, S, Self, IS_CONST_MAP, MAP_SIZE>),
+            Hook::Function(gen_hashed_block_ids::<AF, ET, PF, Self, IS_CONST_MAP, MAP_SIZE>),
             Hook::Empty,
             Hook::Raw(trace_block_transition_single),
         );
     }
 }
 
-impl Default for StdEdgeCoverageClassicModuleBuilder {
+impl<I, S> Default for StdEdgeCoverageClassicModuleBuilder<I, S> {
     fn default() -> Self {
         Self {
             variant: EdgeCoverageClassicVariant,
@@ -117,13 +121,14 @@ impl Default for StdEdgeCoverageClassicModuleBuilder {
             page_filter: StdPageFilter::default(),
             use_hitcounts: true,
             use_jit: true,
+            phantom: PhantomData,
         }
     }
 }
 
-impl StdEdgeCoverageClassicModule {
+impl<I, S> StdEdgeCoverageClassicModule<I, S> {
     #[must_use]
-    pub fn builder() -> StdEdgeCoverageClassicModuleBuilder {
+    pub fn builder() -> StdEdgeCoverageClassicModuleBuilder<I, S> {
         EdgeCoverageModuleBuilder::default()
     }
 }

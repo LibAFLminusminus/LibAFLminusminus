@@ -8,7 +8,7 @@ use libaflmm::{
     executors::ExitKind,
     feedback_or, feedback_or_fast,
     feedbacks::{CrashFeedback, MaxMapFeedback, TimeFeedback, TimeoutFeedback},
-    inputs::{BytesContext, BytesInput, InputContext, StdContext},
+    inputs::{BytesContext, InputContext, StdContext},
     launchers::StdLauncher,
     monitors::StdMonitor,
     mutators::{havoc_mutations::havoc_mutations, scheduled::HavocScheduledMutator},
@@ -24,7 +24,7 @@ use libaflmm_qemu::{
     config::{self, QemuConfig},
     elf::EasyElf,
     executor::QemuExecutor,
-    modules::edges::StdEdgeCoverageModuleBuilder,
+    modules::{edges::StdEdgeCoverageModuleBuilder, NopModule},
     GuestAddr, GuestPhysAddr, QemuExitReason, QemuRWError, Regs, StdEmulator,
 };
 use libaflmm_targets::{edges_map_mut_ptr, EDGES_MAP_DEFAULT_SIZE, MAX_EDGES_FOUND};
@@ -104,9 +104,12 @@ pub fn fuzz() -> Result<()> {
             .start_cpu(false)
             .build();
 
-        let emulator_modules = tuple_list!(StdEdgeCoverageModuleBuilder::default()
-            .map_observer(edges_observer.as_mut())
-            .build()?);
+        let emulator_modules = (
+            StdEdgeCoverageModuleBuilder::default()
+                .map_observer(edges_observer.as_mut())
+                .build()?,
+            NopModule::default(),
+        );
 
         let emulator = StdEmulator::empty()
             .qemu_parameters(qemu_config)
@@ -148,7 +151,7 @@ pub fn fuzz() -> Result<()> {
         // A feedback to choose if an input is a solution or not
         let mut objective = feedback_or_fast!(CrashFeedback::new(), TimeoutFeedback::new());
 
-        let mut pre_exec = |state: &mut StdState<_, BytesContext, _, _, _>, input, emulator| {
+        let mut pre_exec = |state: &mut StdState<_, BytesContext, _>, input, emulator| {
             let target = state.context_mut().to_bytes(input);
             let mut buf = target.as_slice();
             let len = buf.len();
@@ -165,7 +168,7 @@ pub fn fuzz() -> Result<()> {
         };
 
         let mut post_exec =
-            |state: &mut StdState<_, BytesContext, _, _, _>, input, emu, exit_kind: &mut _| {
+            |state: &mut StdState<_, BytesContext, _>, input, emu, exit_kind: &mut _| {
                 // If the execution stops at any point other than the designated breakpoint (e.g. a breakpoint on a panic method) we consider it a crash
                 let mut pcs = (0..qemu.num_cpus())
                     .map(|i| qemu.cpu_from_index(i).unwrap())
