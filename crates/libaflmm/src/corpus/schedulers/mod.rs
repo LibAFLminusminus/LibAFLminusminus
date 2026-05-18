@@ -15,6 +15,11 @@ use crate::{
 pub mod queue;
 pub use queue::QueueScheduler;
 
+/// A [`StdScheduler`] uses the default scheduler in `LibAFL` to schedule [`Testcase`]s.
+///
+/// The current `Std` is a [`RandScheduler`], although this may change in the future, if another [`Scheduler`] delivers better results.
+pub type StdScheduler = RandScheduler<StdRand>;
+
 /// The scheduler define how the fuzzer requests a testcase from the corpus.
 /// It has hooks to corpus add/replace/remove to allow complex scheduling algorithms to collect data.
 pub trait Scheduler: DependencyResolver {
@@ -105,11 +110,6 @@ impl<R> RandScheduler<R> {
         }
     }
 }
-
-/// A [`StdScheduler`] uses the default scheduler in `LibAFL` to schedule [`Testcase`]s.
-///
-/// The current `Std` is a [`RandScheduler`], although this may change in the future, if another [`Scheduler`] delivers better results.
-pub type StdScheduler = RandScheduler<StdRand>;
 
 /// A nop [`Scheduler`], which does not schedule anything.
 #[derive(Debug, Serialize, Deserialize)]

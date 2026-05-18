@@ -16,7 +16,7 @@ use crate::{
     observers::ObserversTuple,
     runtimes::RuntimeHandle,
     stages::Stage,
-    states::{FlatState, HasCorpus},
+    states::State,
 };
 
 /// A stage that runs a tracer executor
@@ -42,7 +42,7 @@ where
 impl<E, I, R, S, TE, W, Z> Stage<E, R, S, W, Z> for TracerStage<I, TE>
 where
     TE: Executor<I, S>,
-    S: FlatState + HasCorpus<I>,
+    S: State<I>,
     I: Input,
     W: Worker,
 {

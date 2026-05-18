@@ -12,7 +12,7 @@ use crate::{
     DependencyResolver, Error, Evaluator,
     corpus::{Corpus, testcase::TestcaseId},
     stages::{RuntimeHandle, Stage},
-    states::HasCorpus,
+    states::State,
 };
 
 /// A [`Stage`] that runs the unmutated input for only one time.
@@ -29,7 +29,7 @@ impl<I, Pre, Post> DependencyResolver for SingleRunStage<I, Pre, Post> {}
 
 impl<E, I, Pre, Post, R, S, W, Z> Stage<E, R, S, W, Z> for SingleRunStage<I, Pre, Post>
 where
-    S: HasCorpus<I>,
+    S: State<I>,
     Z: Evaluator<E, I, S, W>,
     Pre: FnMut(&mut RuntimeHandle<S, W>, &mut E, &mut R, &mut S, &mut Z) -> Result<(), Error>,
     Post: FnMut(&mut RuntimeHandle<S, W>, &mut E, &mut R, &mut S, &mut Z) -> Result<(), Error>,

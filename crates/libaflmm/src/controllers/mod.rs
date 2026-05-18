@@ -23,6 +23,10 @@ pub use simple::{
     SimpleController, SimpleControllerBuilder, SimpleDescriptor, SimpleWorker, SimpleWorkerRepr,
 };
 
+pub type StdController = SimpleController;
+pub type StdDescriptor = SimpleDescriptor;
+pub type StdWorker = SimpleWorker;
+
 /// A controller is the glue between multiple [`Worker`]s.
 ///
 /// It is reponsible for creating and configurating workers.

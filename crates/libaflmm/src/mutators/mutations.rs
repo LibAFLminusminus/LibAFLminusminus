@@ -1709,7 +1709,7 @@ mod tests {
         },
         inputs::{BytesInput, bytes::BytesContext},
         mutators::MutatorsTuple,
-        states::{HasCorpus, StdState},
+        states::StdState,
     };
 
     type TestMutatorsTupleType = tuple_list_type!(
@@ -1768,7 +1768,7 @@ mod tests {
         )
     }
 
-    fn test_state() -> impl HasCorpus<BytesInput> + FlatState {
+    fn test_state() -> impl State<BytesInput> {
         let mut corpus = InMemoryCorpus::<BytesInput, QueueScheduler>::new(QueueScheduler::new());
 
         corpus

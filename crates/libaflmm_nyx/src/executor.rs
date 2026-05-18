@@ -9,7 +9,7 @@ use libaflmm::{
     executors::{Executor, ExitKind},
     inputs::InputContext,
     observers::{ObserversTuple, StdOutObserver},
-    states::{FlatState, HasContext},
+    states::State,
 };
 use libaflmm_bolts::{
     AsSlice,
@@ -44,7 +44,7 @@ impl<OT> DependencyResolver for NyxExecutor<OT> {}
 
 impl<I, OT, S> Executor<I, S> for NyxExecutor<OT>
 where
-    S: FlatState + HasContext<I>,
+    S: State<I>,
     OT: ObserversTuple<S>,
 {
     type Observers = OT;

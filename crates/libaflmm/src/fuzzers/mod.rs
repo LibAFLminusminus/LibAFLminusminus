@@ -1,17 +1,15 @@
 //! The `Fuzzer` is the main struct for a fuzz campaign.
 
+use crate::{Error, executors::ExitKind, runtimes::RuntimeHandle};
 use alloc::string::ToString;
 use core::fmt::Debug;
-
 use libaflmm_core::Result;
 
-use crate::{Error, executors::ExitKind, runtimes::RuntimeHandle};
-
 pub mod standard;
-pub use standard::*;
+pub use standard::{StdFuzzer, StdFuzzerBuilder};
 
 pub mod hooks;
-pub use hooks::*;
+pub use hooks::{CalibrationHook, CustomNameHook, FuzzerHook, FuzzerHooksTuple};
 
 /// Holds an feedback
 pub trait HasFeedback {

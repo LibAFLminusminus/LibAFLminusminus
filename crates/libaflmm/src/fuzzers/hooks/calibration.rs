@@ -2,26 +2,24 @@
 //!
 //! This is useful in a couple of scenarios, such as when you want to measure the target unstability or you want to use power schedules.
 
-use alloc::{borrow::Cow, string::ToString, vec::Vec};
-use core::{marker::PhantomData, time::Duration};
-
-use hashbrown::HashSet;
-use libaflmm_bolts::{Named, current_time, impl_serdeany, tuples::Handle};
-use libaflmm_core::illegal_state;
-use num_traits::Bounded;
-use serde::{Deserialize, Serialize};
-
 use crate::{
     DependencyResolver, Error, Result, TestcasePowerScheduleData, Verdict, Worker,
     common::PowerScheduleData,
-    corpus::{Corpus, Scheduler, Testcase},
+    corpus::{Corpus, HasScheduler, Scheduler, Testcase},
     executors::Executor,
     feedbacks::{HasObserverHandle, MapFeedbackMetadata},
     fuzzers::{ExitKind, FuzzerHook},
     inputs::Input,
     observers::{MapObserver, ObserversTuple},
-    states::{FlatState, HasCorpus, HasScheduler, named_metadata_mut, unnamed_metadata_mut},
+    states::{FlatState, State, named_metadata_mut, unnamed_metadata_mut},
 };
+use alloc::{borrow::Cow, string::ToString, vec::Vec};
+use core::{marker::PhantomData, time::Duration};
+use hashbrown::HashSet;
+use libaflmm_bolts::{Named, current_time, impl_serdeany, tuples::Handle};
+use libaflmm_core::illegal_state;
+use num_traits::Bounded;
+use serde::{Deserialize, Serialize};
 
 /// AFL++'s `CAL_CYCLES` + 1
 const CAL_STAGE_MAX: usize = 8;
@@ -148,7 +146,7 @@ where
     O: MapObserver,
     O::Entry: Serialize,
     for<'de> O::Entry: Deserialize<'de> + 'static + Default + Bounded,
-    S: HasCorpus<I> + FlatState,
+    S: State<I>,
     W: Worker,
 {
     #[expect(clippy::cast_precision_loss)]

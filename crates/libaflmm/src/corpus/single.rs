@@ -12,11 +12,10 @@ use super::{Corpus, Testcase, store::Store};
 use crate::{
     DependencyResolver,
     corpus::{
-        DisableEntry, Scheduler, schedulers::RemovableScheduler, store::StorageResult,
-        testcase::TestcaseId,
+        DisableEntry, HasScheduler, Scheduler, schedulers::RemovableScheduler,
+        store::StorageResult, testcase::TestcaseId,
     },
     inputs::Input,
-    states::HasScheduler,
 };
 
 /// You average corpus.

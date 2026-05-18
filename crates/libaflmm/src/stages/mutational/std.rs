@@ -12,13 +12,13 @@ use libaflmm_core::non_zero;
 
 use crate::{
     DependencyResolver, Error,
-    corpus::{Corpus, TestcaseId},
+    corpus::{Corpus, HasScheduler, TestcaseId},
     fuzzers::Evaluator,
     inputs::Input,
     mutators::{MutationResult, Mutator},
     runtimes::RuntimeHandle,
     stages::Stage,
-    states::{HasScheduler, State},
+    states::State,
 };
 
 /// A Mutational stage is the stage in a fuzzing run that mutates inputs.

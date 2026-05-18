@@ -4,7 +4,9 @@ A well-known [`Stage`], for example, is the mutational stage, running multiple [
 Other stages may enrich [`crate::corpus::Testcase`]s with metadata.
 */
 
-use crate::{DependencyResolver, Error, corpus::TestcaseId, runtimes::RuntimeHandle};
+use crate::{
+    DependencyResolver, Error, corpus::TestcaseId, mutators::StdMutator, runtimes::RuntimeHandle,
+};
 use alloc::{boxed::Box, vec::Vec};
 use libaflmm_bolts::tuples::{HasConstLen, IntoVec};
 use tuple_list::NonEmptyTuple;
@@ -29,6 +31,8 @@ pub use dynamic::DynamicStage;
 
 pub mod generation;
 pub use generation::GenStage;
+
+pub type StdStage<E, I, R, S, W, Z> = StdMutationalStage<E, I, StdMutator, R, S, W, Z>;
 
 /// A stage is one step in the fuzzing loop.
 /// Multiple stages will be scheduled one by one for each input.

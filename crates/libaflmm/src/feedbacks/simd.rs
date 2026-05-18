@@ -22,7 +22,7 @@ use crate::{
     executors::ExitKind,
     feedbacks::MapFeedbackMetadata,
     observers::MapObserver,
-    states::{FlatState, HasTestcase},
+    states::{FlatState, State},
 };
 
 /// Stable Rust wrapper for SIMD accelerated map feedback. Unfortunately, we have to
@@ -180,7 +180,7 @@ where
     O: MapObserver<Entry = u8> + for<'a> AsSlice<'a, Entry = u8> + for<'a> AsIter<'a, Item = u8>,
     OT: MatchName,
     R: SimdReducer<V>,
-    S: FlatState + HasTestcase<I>,
+    S: State<I>,
     V: VectorType + Copy + Eq,
     R::PrimitiveReducer: Reducer<u8>,
 {
