@@ -276,220 +276,220 @@ pub extern "C" fn trace_cmp8_cmplog(_: *const (), id: u64, v0: u64, v1: u64) {
         __libaflmm_targets_cmplog_instructions(id as usize, 8, v0, v1);
     }
 }
-//
-// #[cfg(feature = "usermode")]
-// #[derive(Debug)]
-// pub struct CmpLogRoutinesModule {
-//     address_filter: StdAddressFilter,
-//     cs: Capstone,
-// }
-//
-// #[cfg(feature = "usermode")]
-// impl CmpLogRoutinesModule {
-//     #[must_use]
-//     pub fn new(address_filter: StdAddressFilter) -> Self {
-//         Self {
-//             address_filter,
-//             cs: capstone().detail(true).build().unwrap(),
-//         }
-//     }
-//
-//     #[must_use]
-//     pub fn must_instrument(&self, addr: GuestAddr) -> bool {
-//         self.address_filter.allowed(&addr)
-//     }
-//
-//     /// # Safety
-//     /// Dereferences k as pointer eventually.
-//     unsafe extern "C" fn on_call(k: u64, _pc: GuestAddr) {
-//         unsafe {
-//             if CMPLOG_ENABLED == 0 {
-//                 return;
-//             }
-//         }
-//
-//         let qemu = Qemu::get().unwrap();
-//
-//         let a0: GuestAddr = qemu.read_function_argument(0).unwrap_or(0) as GuestAddr;
-//         let a1: GuestAddr = qemu.read_function_argument(1).unwrap_or(0) as GuestAddr;
-//
-//         if a0 == 0 || a1 == 0 {
-//             return;
-//         }
-//
-//         // if !emu.access_ok(VerifyAccess::Read, a0, 0x20) || !emu.access_ok(VerifyAccess::Read, a1, 0x20) { return; }
-//
-//         unsafe {
-//             __libaflmm_targets_cmplog_routines(k as usize, qemu.g2h(a0), qemu.g2h(a1));
-//         }
-//     }
-//
-//     #[allow(clippy::needless_pass_by_value)] // no longer a problem with nightly
-//     #[allow(clippy::collapsible_if)]
-//     fn gen_blocks_calls<ET, I, S>(
-//         qemu: Qemu,
-//         emulator_modules: &mut EmulatorModules<ET, I, S>,
-//         _state: &mut S,
-//         pc: GuestAddr,
-//     ) -> Option<u64>
-//     where
-//         ET: EmulatorModuleTuple<I, S>,
-//         I: Unpin,
-//         S: Unpin,
-//     {
-//         if let Some(h) = emulator_modules.get_mut::<Self>() {
-//             if !h.must_instrument(pc) {
-//                 return None;
-//             }
-//
-//             #[cfg(cpu_target = "arm")]
-//             h.cs.set_mode(if pc & 1 == 1 {
-//                 capstone::arch::arm::ArchMode::Thumb.into()
-//             } else {
-//                 capstone::arch::arm::ArchMode::Arm.into()
-//             })
-//             .unwrap();
-//         }
-//
-//         if let Some(h) = emulator_modules.get::<Self>() {
-//             #[allow(unused_mut)] // cfg dependent
-//             let mut code = {
-//                 #[cfg(all(feature = "usermode", not(feature = "systemmode")))]
-//                 {
-//                     unsafe { std::slice::from_raw_parts(qemu.g2h(pc), 512) }
-//                 }
-//                 #[cfg(feature = "systemmode")]
-//                 {
-//                     &mut [0; 512]
-//                 }
-//             };
-//             #[cfg(feature = "systemmode")]
-//             {
-//                 qemu.read_mem(pc, code); // TODO handle faults
-//             }
-//
-//             let mut iaddr = pc;
-//
-//             'disasm: while let Ok(insns) = h.cs.disasm_count(code, iaddr as u64, 1) {
-//                 if insns.is_empty() {
-//                     break;
-//                 }
-//                 let insn = insns.first().unwrap();
-//                 let insn_detail: InsnDetail = h.cs.insn_detail(insn).unwrap();
-//                 for detail in insn_detail.groups() {
-//                     match u32::from(detail.0) {
-//                         capstone::InsnGroupType::CS_GRP_CALL => {
-//                             let k = (hash_64_fast(pc as u64)) & (CMPLOG_MAP_W as u64 - 1);
-//                             qemu.hooks().add_instruction_hooks(
-//                                 k,
-//                                 insn.address() as GuestAddr,
-//                                 Self::on_call,
-//                                 false,
-//                             );
-//                         }
-//                         capstone::InsnGroupType::CS_GRP_RET
-//                         | capstone::InsnGroupType::CS_GRP_INVALID
-//                         | capstone::InsnGroupType::CS_GRP_JUMP
-//                         | capstone::InsnGroupType::CS_GRP_IRET
-//                         | capstone::InsnGroupType::CS_GRP_PRIVILEGE => {
-//                             break 'disasm;
-//                         }
-//                         _ => {}
-//                     }
-//                 }
-//
-//                 iaddr += insn.bytes().len() as GuestAddr;
-//
-//                 #[cfg(all(feature = "usermode", not(feature = "systemmode")))]
-//                 {
-//                     code = unsafe { std::slice::from_raw_parts(qemu.g2h(iaddr), 512) };
-//                 }
-//                 #[cfg(feature = "systemmode")]
-//                 {
-//                     if let Err(err) = qemu.read_mem(iaddr, code) {
-//                         // TODO handle faults
-//                         log::error!(
-//                             "gen_block_calls error 2: Failed to read mem at pc {iaddr:#x}: {err:?}"
-//                         );
-//                         return None;
-//                     }
-//                 }
-//             }
-//         }
-//
-//         None
-//     }
-// }
-//
-// #[cfg(feature = "usermode")]
-// impl<I, S> EmulatorModule<I, S> for CmpLogRoutinesModule
-// where
-//     I: Unpin,
-//     S: Unpin,
-// {
-//     fn first_exec<ET>(
-//         &mut self,
-//         _qemu: Qemu,
-//         emulator_modules: &mut EmulatorModules<ET, I, S>,
-//         _state: &mut S,
-//     ) -> Result<()>
-//     where
-//         ET: EmulatorModuleTuple<I, S>,
-//     {
-//         emulator_modules.blocks(
-//             Hook::Function(Self::gen_blocks_calls::<ET, I, S>),
-//             Hook::Empty,
-//             Hook::Empty,
-//         );
-//
-//         Ok(())
-//     }
-// }
-//
-// #[cfg(feature = "usermode")]
-// impl HasAddressFilter for CmpLogRoutinesModule {
-//     type AddressFilter = StdAddressFilter;
-//
-//     fn address_filter(&self) -> &Self::AddressFilter {
-//         &self.address_filter
-//     }
-//
-//     fn address_filter_mut(&mut self) -> &mut Self::AddressFilter {
-//         &mut self.address_filter
-//     }
-// }
-//
-// #[cfg(feature = "usermode")]
-// impl crate::modules::utils::filters::HasPageFilter for CmpLogRoutinesModule {
-//     #[cfg(feature = "systemmode")]
-//     type PageFilter = NopPageFilter;
-//     #[cfg(not(feature = "systemmode"))]
-//     type PageFilter = NopPageFilter; // Or StdPageFilter? NopPageFilter is fine for usermode if not used.
-//
-//     #[cfg(feature = "systemmode")]
-//     fn page_filter(&self) -> &Self::PageFilter {
-//         unsafe { &*crate::modules::utils::filters::NOP_PAGE_FILTER.get() }
-//     }
-//
-//     #[cfg(feature = "systemmode")]
-//     fn page_filter_mut(&mut self) -> &mut Self::PageFilter {
-//         unsafe { &mut *crate::modules::utils::filters::NOP_PAGE_FILTER.get() }
-//     }
-//
-//     #[cfg(not(feature = "systemmode"))]
-//     #[allow(static_mut_refs)]
-//     fn page_filter(&self) -> &Self::PageFilter {
-//         unsafe { &*crate::modules::utils::filters::NOP_PAGE_FILTER.get() }
-//     }
-//
-//     #[cfg(not(feature = "systemmode"))]
-//     #[allow(static_mut_refs)]
-//     fn page_filter_mut(&mut self) -> &mut Self::PageFilter {
-//         unsafe {
-//             (&raw mut crate::modules::utils::filters::NOP_PAGE_FILTER)
-//                 .as_mut()
-//                 .unwrap()
-//                 .get_mut()
-//         }
-//     }
-// }
+
+#[cfg(feature = "usermode")]
+#[derive(Debug)]
+pub struct CmpLogRoutinesModule {
+    address_filter: StdAddressFilter,
+    cs: Capstone,
+}
+
+#[cfg(feature = "usermode")]
+impl CmpLogRoutinesModule {
+    #[must_use]
+    pub fn new(address_filter: StdAddressFilter) -> Self {
+        Self {
+            address_filter,
+            cs: capstone().detail(true).build().unwrap(),
+        }
+    }
+
+    #[must_use]
+    pub fn must_instrument(&self, addr: GuestAddr) -> bool {
+        self.address_filter.allowed(&addr)
+    }
+
+    /// # Safety
+    /// Dereferences k as pointer eventually.
+    unsafe extern "C" fn on_call(k: u64, _pc: GuestAddr) {
+        unsafe {
+            if CMPLOG_ENABLED == 0 {
+                return;
+            }
+        }
+
+        let qemu = Qemu::get().unwrap();
+
+        let a0: GuestAddr = qemu.read_function_argument(0).unwrap_or(0) as GuestAddr;
+        let a1: GuestAddr = qemu.read_function_argument(1).unwrap_or(0) as GuestAddr;
+
+        if a0 == 0 || a1 == 0 {
+            return;
+        }
+
+        // if !emu.access_ok(VerifyAccess::Read, a0, 0x20) || !emu.access_ok(VerifyAccess::Read, a1, 0x20) { return; }
+
+        unsafe {
+            __libaflmm_targets_cmplog_routines(k as usize, qemu.g2h(a0), qemu.g2h(a1));
+        }
+    }
+
+    #[allow(clippy::needless_pass_by_value)] // no longer a problem with nightly
+    #[allow(clippy::collapsible_if)]
+    fn gen_blocks_calls<ET, I, S>(
+        qemu: Qemu,
+        emulator_modules: &mut EmulatorModules<ET, I, S>,
+        _state: &mut S,
+        pc: GuestAddr,
+    ) -> Option<u64>
+    where
+        ET: EmulatorModuleTuple<I, S>,
+        I: Unpin,
+        S: Unpin,
+    {
+        if let Some(h) = emulator_modules.get_mut::<Self>() {
+            if !h.must_instrument(pc) {
+                return None;
+            }
+
+            #[cfg(cpu_target = "arm")]
+            h.cs.set_mode(if pc & 1 == 1 {
+                capstone::arch::arm::ArchMode::Thumb.into()
+            } else {
+                capstone::arch::arm::ArchMode::Arm.into()
+            })
+            .unwrap();
+        }
+
+        if let Some(h) = emulator_modules.get::<Self>() {
+            #[allow(unused_mut)] // cfg dependent
+            let mut code = {
+                #[cfg(all(feature = "usermode", not(feature = "systemmode")))]
+                {
+                    unsafe { std::slice::from_raw_parts(qemu.g2h(pc), 512) }
+                }
+                #[cfg(feature = "systemmode")]
+                {
+                    &mut [0; 512]
+                }
+            };
+            #[cfg(feature = "systemmode")]
+            {
+                qemu.read_mem(pc, code); // TODO handle faults
+            }
+
+            let mut iaddr = pc;
+
+            'disasm: while let Ok(insns) = h.cs.disasm_count(code, iaddr as u64, 1) {
+                if insns.is_empty() {
+                    break;
+                }
+                let insn = insns.first().unwrap();
+                let insn_detail: InsnDetail = h.cs.insn_detail(insn).unwrap();
+                for detail in insn_detail.groups() {
+                    match u32::from(detail.0) {
+                        capstone::InsnGroupType::CS_GRP_CALL => {
+                            let k = (hash_64_fast(pc as u64)) & (CMPLOG_MAP_W as u64 - 1);
+                            qemu.hooks().add_instruction_hooks(
+                                k,
+                                insn.address() as GuestAddr,
+                                Self::on_call,
+                                false,
+                            );
+                        }
+                        capstone::InsnGroupType::CS_GRP_RET
+                        | capstone::InsnGroupType::CS_GRP_INVALID
+                        | capstone::InsnGroupType::CS_GRP_JUMP
+                        | capstone::InsnGroupType::CS_GRP_IRET
+                        | capstone::InsnGroupType::CS_GRP_PRIVILEGE => {
+                            break 'disasm;
+                        }
+                        _ => {}
+                    }
+                }
+
+                iaddr += insn.bytes().len() as GuestAddr;
+
+                #[cfg(all(feature = "usermode", not(feature = "systemmode")))]
+                {
+                    code = unsafe { std::slice::from_raw_parts(qemu.g2h(iaddr), 512) };
+                }
+                #[cfg(feature = "systemmode")]
+                {
+                    if let Err(err) = qemu.read_mem(iaddr, code) {
+                        // TODO handle faults
+                        log::error!(
+                            "gen_block_calls error 2: Failed to read mem at pc {iaddr:#x}: {err:?}"
+                        );
+                        return None;
+                    }
+                }
+            }
+        }
+
+        None
+    }
+}
+
+#[cfg(feature = "usermode")]
+impl<I, S> EmulatorModule<I, S> for CmpLogRoutinesModule
+where
+    I: Unpin,
+    S: Unpin,
+{
+    fn first_exec<ET>(
+        &mut self,
+        _qemu: Qemu,
+        emulator_modules: &mut EmulatorModules<ET, I, S>,
+        _state: &mut S,
+    ) -> Result<()>
+    where
+        ET: EmulatorModuleTuple<I, S>,
+    {
+        emulator_modules.blocks(
+            Hook::Function(Self::gen_blocks_calls::<ET, I, S>),
+            Hook::Empty,
+            Hook::Empty,
+        );
+
+        Ok(())
+    }
+}
+
+#[cfg(feature = "usermode")]
+impl HasAddressFilter for CmpLogRoutinesModule {
+    type AddressFilter = StdAddressFilter;
+
+    fn address_filter(&self) -> &Self::AddressFilter {
+        &self.address_filter
+    }
+
+    fn address_filter_mut(&mut self) -> &mut Self::AddressFilter {
+        &mut self.address_filter
+    }
+}
+
+#[cfg(feature = "usermode")]
+impl crate::modules::utils::filters::HasPageFilter for CmpLogRoutinesModule {
+    #[cfg(feature = "systemmode")]
+    type PageFilter = NopPageFilter;
+    #[cfg(not(feature = "systemmode"))]
+    type PageFilter = NopPageFilter; // Or StdPageFilter? NopPageFilter is fine for usermode if not used.
+
+    #[cfg(feature = "systemmode")]
+    fn page_filter(&self) -> &Self::PageFilter {
+        unsafe { &*crate::modules::utils::filters::NOP_PAGE_FILTER.get() }
+    }
+
+    #[cfg(feature = "systemmode")]
+    fn page_filter_mut(&mut self) -> &mut Self::PageFilter {
+        unsafe { &mut *crate::modules::utils::filters::NOP_PAGE_FILTER.get() }
+    }
+
+    #[cfg(not(feature = "systemmode"))]
+    #[allow(static_mut_refs)]
+    fn page_filter(&self) -> &Self::PageFilter {
+        unsafe { &*crate::modules::utils::filters::NOP_PAGE_FILTER.get() }
+    }
+
+    #[cfg(not(feature = "systemmode"))]
+    #[allow(static_mut_refs)]
+    fn page_filter_mut(&mut self) -> &mut Self::PageFilter {
+        unsafe {
+            (&raw mut crate::modules::utils::filters::NOP_PAGE_FILTER)
+                .as_mut()
+                .unwrap()
+                .get_mut()
+        }
+    }
+}

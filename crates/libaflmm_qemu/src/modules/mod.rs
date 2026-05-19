@@ -19,16 +19,16 @@ use libaflmm_bolts::tuples::{MatchFirstType, SplitBorrowExtractFirstType};
 use libaflmm_qemu_sys::GuestPhysAddr;
 use std::marker::PhantomData;
 
-// #[cfg(feature = "usermode")]
-// pub mod usermode;
-// #[cfg(feature = "usermode")]
-// #[cfg_attr(feature = "hexagon", allow(unused_imports))]
-// pub use usermode::*;
-//
-// #[cfg(feature = "systemmode")]
-// pub mod systemmode;
-// #[cfg(all(feature = "systemmode", feature = "intel_pt"))]
-// pub use systemmode::*;
+#[cfg(feature = "usermode")]
+pub mod usermode;
+#[cfg(feature = "usermode")]
+#[cfg_attr(feature = "hexagon", allow(unused_imports))]
+pub use usermode::*;
+
+#[cfg(feature = "systemmode")]
+pub mod systemmode;
+#[cfg(all(feature = "systemmode", feature = "intel_pt"))]
+pub use systemmode::*;
 
 pub mod edges;
 pub use edges::{
@@ -37,24 +37,24 @@ pub use edges::{
     StdEdgeCoverageClassicModuleBuilder, StdEdgeCoverageFullModule,
     StdEdgeCoverageFullModuleBuilder, StdEdgeCoverageModule, StdEdgeCoverageModuleBuilder,
 };
-//
-// #[cfg(not(cpu_target = "hexagon"))]
-// pub mod calls;
-// #[cfg(not(cpu_target = "hexagon"))]
-// pub use calls::CallTracerModule;
+
+#[cfg(not(cpu_target = "hexagon"))]
+pub mod calls;
+#[cfg(not(cpu_target = "hexagon"))]
+pub use calls::CallTracerModule;
 
 #[cfg(not(any(cpu_target = "mips", cpu_target = "hexagon")))]
 pub mod cmplog;
 #[cfg(not(any(cpu_target = "mips", cpu_target = "hexagon")))]
 pub use cmplog::CmpLogModule;
 
-// #[cfg(not(cpu_target = "hexagon"))]
-// pub mod drcov;
-// #[cfg(not(cpu_target = "hexagon"))]
-// pub use drcov::{DrCovMetadata, DrCovModule, DrCovModuleBuilder};
+#[cfg(not(cpu_target = "hexagon"))]
+pub mod drcov;
+#[cfg(not(cpu_target = "hexagon"))]
+pub use drcov::{DrCovMetadata, DrCovModule, DrCovModuleBuilder};
 
-// pub mod logger;
-// pub use logger::LoggerModule;
+pub mod logger;
+pub use logger::LoggerModule;
 
 pub mod utils;
 pub use utils::filters::{AddressFilter, PageFilter};

@@ -487,7 +487,7 @@ create_hook_types!(
         dyn for<'a> FnMut(
             Qemu,
             &'a mut EmulatorModules<ET>,
-            &'a mut S,
+            &'a mut ET::State,
             i32,
             GuestUlong,
             GuestUlong,
