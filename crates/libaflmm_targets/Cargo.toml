@@ -116,11 +116,6 @@ sanitizers_flags = []
 ## This is useful when the map location is not known at compile time or when using shared memory.
 pointer_maps = []
 
-## Sanitizer interfaces.
-## This feature generates Rust bindings for sanitizer interface headers (`sanitizer_interfaces.h`).
-## It allows accessing sanitizer functions and structures from Rust code.
-sanitizer_interfaces = []
-
 ## Ignore compiler warnings during clippy.
 ## This feature suppresses clippy warnings in generated code or specific modules.
 clippy = []

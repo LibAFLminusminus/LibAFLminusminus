@@ -1,7 +1,13 @@
 //! A [`NopStage`] does nothing
 
+use alloc::borrow::Cow;
+
+use libaflmm_bolts::Named;
+
 use super::Stage;
-use crate::{DependencyResolver, corpus::TestcaseId, runtimes::RuntimeHandle};
+use crate::{
+    DependencyResolver, Result, corpus::TestcaseId, runtimes::RuntimeHandle, states::CoreState,
+};
 
 /// A [`Stage`] that does nothing
 #[derive(Debug, Copy, Clone, Default)]
@@ -17,8 +23,18 @@ impl NopStage {
 
 impl DependencyResolver for NopStage {}
 
-impl<E, R, S, W, Z> Stage<E, R, S, W, Z> for NopStage {
-    fn perform(
+impl Named for NopStage {
+    fn name(&self) -> &Cow<'static, str> {
+        static NAME: Cow<'static, str> = Cow::Borrowed("nop");
+        &NAME
+    }
+}
+
+impl<E, R, S, W, Z> Stage<E, R, S, W, Z> for NopStage
+where
+    S: CoreState,
+{
+    fn perform_impl(
         &mut self,
         _fuzzer: &mut Z,
         _executor: &mut E,
@@ -26,7 +42,7 @@ impl<E, R, S, W, Z> Stage<E, R, S, W, Z> for NopStage {
         _state: &mut S,
         _rt_handle: &mut RuntimeHandle<S, W>,
         _testcase_id: &TestcaseId,
-    ) -> Result<(), libaflmm_bolts::Error> {
+    ) -> Result<()> {
         Ok(())
     }
 }

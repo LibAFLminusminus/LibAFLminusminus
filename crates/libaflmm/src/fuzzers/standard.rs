@@ -421,6 +421,9 @@ where
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
     ) -> Result<()> {
+        // start the timer for this loop
+        state.perf_stats_mut().iter_begin();
+
         let now = self.clock.now();
         if now - self.last_synced > STATS_UPDATE_INTERVAL {
             rt_handle
@@ -447,6 +450,9 @@ where
 
         self.fuzzer_hooks
             .post_step_all(executor, state, rt_handle)?;
+
+        // timer end
+        state.perf_stats_mut().iter_end();
 
         Ok(())
     }
