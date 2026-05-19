@@ -6,7 +6,7 @@ use libaflmm_bolts::Named;
 
 use super::Stage;
 use crate::{
-    DependencyResolver, Result, corpus::TestcaseId, runtimes::RuntimeHandle, states::CoreState,
+    DependencyResolver, Result, corpus::TestcaseId, runtimes::RuntimeHandle, states::State,
 };
 
 /// A [`Stage`] that does nothing
@@ -32,7 +32,7 @@ impl Named for NopStage {
 
 impl<E, R, S, W, Z> Stage<E, R, S, W, Z> for NopStage
 where
-    S: CoreState,
+    S: State,
 {
     fn perform_impl(
         &mut self,

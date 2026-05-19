@@ -4,15 +4,14 @@ A well-known [`Stage`], for example, is the mutational stage, running multiple [
 Other stages may enrich [`crate::corpus::Testcase`]s with metadata.
 */
 
+use crate::states::State;
 use crate::{
     DependencyResolver, Result, corpus::TestcaseId, mutators::StdMutator, runtimes::RuntimeHandle,
-    states::CoreState,
 };
 use alloc::{boxed::Box, vec::Vec};
 use libaflmm_bolts::tuples::{HasConstLen, IntoVec};
-use tuple_list::NonEmptyTuple;
-
 use libaflmm_bolts::{Named, current_time};
+use tuple_list::NonEmptyTuple;
 
 pub mod tracer;
 pub use tracer::*;
@@ -41,7 +40,7 @@ pub type StdStage<E, I, R, S, W, Z> = StdMutationalStage<E, I, StdMutator, R, S,
 /// Multiple stages will be scheduled one by one for each input.
 pub trait Stage<E, R, S, W, Z>: DependencyResolver + Named
 where
-    S: CoreState,
+    S: State,
 {
     /// The actual stage body. Implementors put their work here.
     fn perform_impl(
@@ -107,7 +106,7 @@ impl<E, R, S, W, Z> StagesTuple<E, R, S, W, Z> for () {
 impl<Head, Tail, E, R, S, W, Z> StagesTuple<E, R, S, W, Z> for (Head, Tail)
 where
     Head: Stage<E, R, S, W, Z>,
-    S: CoreState,
+    S: State,
     Tail: StagesTuple<E, R, S, W, Z> + HasConstLen,
 {
     /// Performs all [`Stages`] in the tuple,
@@ -132,7 +131,7 @@ where
 impl<Head, Tail, E, R, S, W, Z> IntoVec<Box<dyn Stage<E, R, S, W, Z>>> for (Head, Tail)
 where
     Head: Stage<E, R, S, W, Z> + 'static,
-    S: CoreState,
+    S: State,
     Tail: StagesTuple<E, R, S, W, Z> + HasConstLen + IntoVec<Box<dyn Stage<E, R, S, W, Z>>>,
 {
     fn into_vec_reversed(self) -> Vec<Box<dyn Stage<E, R, S, W, Z>>> {
@@ -192,7 +191,7 @@ impl<E, R, S, W, Z> DependencyResolver for Vec<Box<dyn Stage<E, R, S, W, Z>>> {
 
 impl<E, R, S, W, Z> StagesTuple<E, R, S, W, Z> for Vec<Box<dyn Stage<E, R, S, W, Z>>>
 where
-    S: CoreState,
+    S: State,
 {
     /// Performs all stages in the `Vec`
     fn perform_all(

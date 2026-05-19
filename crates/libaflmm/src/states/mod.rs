@@ -316,7 +316,7 @@ pub struct StdState<C, CT, I, OC> {
     stats: Stats,
     /// performance counters used by the introspection macros.
     perf_stats: PerfStats,
-    phantom: PhantomData<(I, SC)>,
+    phantom: PhantomData<I>,
 }
 
 /// The [[`Testcase`]] metadata.
