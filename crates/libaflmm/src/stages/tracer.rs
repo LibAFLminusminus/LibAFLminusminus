@@ -47,7 +47,7 @@ where
     W: Worker,
 {
     #[inline]
-    fn perform(
+    fn perform_impl(
         &mut self,
         _fuzzer: &mut Z,
         _executor: &mut E,

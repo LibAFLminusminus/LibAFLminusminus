@@ -1,38 +1,25 @@
 use core::str;
 #[cfg(any(
-    target_vendor = "apple",
-    feature = "function-logging",
     feature = "cmplog-routines",
     feature = "autotokens",
-    feature = "coverage-accounting",
     feature = "cmplog-instructions",
-    feature = "ctx",
-    feature = "dump-cfg",
 ))]
 use std::path::PathBuf;
 #[cfg(any(
-    feature = "function-logging",
     feature = "cmplog-routines",
     feature = "autotokens",
-    feature = "coverage-accounting",
     feature = "cmplog-instructions",
-    feature = "ctx",
-    feature = "dump-cfg",
 ))]
 use std::process::Command;
 use std::{env, fs::File, io::Write, path::Path};
 
 #[cfg(any(
-    feature = "function-logging",
     feature = "cmplog-routines",
     feature = "autotokens",
-    feature = "coverage-accounting",
     feature = "cmplog-instructions",
-    feature = "ctx",
-    feature = "dump-cfg",
 ))]
 #[expect(clippy::too_many_arguments)]
-fn build_pass(
+pub fn build_pass(
     bindir_path: &Path,
     out_dir: &Path,
     cxxflags: &Vec<String>,

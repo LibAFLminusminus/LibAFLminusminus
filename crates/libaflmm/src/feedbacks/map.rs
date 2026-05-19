@@ -8,9 +8,9 @@ use crate::{
     executors::ExitKind,
     feedbacks::{Feedback, HasObserverHandle},
     observers::MapObserver,
-    states::State,
+    states::{STAT_COVERAGE, State},
 };
-use alloc::{borrow::Cow, vec::Vec};
+use alloc::{borrow::Cow, string::ToString, vec::Vec};
 use core::{
     fmt::Debug,
     marker::PhantomData,
@@ -361,6 +361,8 @@ where
             map_state.history_map.resize(len, observer.initial());
         }
 
+        let map_len = map_state.history_map.len();
+
         let history_map = &mut map_state.history_map;
         for (i, value) in observer
             .as_iter()
@@ -385,6 +387,12 @@ where
                 .iter()
                 .fold(0, |acc, x| acc + usize::from(*x != initial)),
             map_state.num_covered_map_indexes,
+        );
+
+        let covered = map_state.num_covered_map_indexes;
+        state.stats_mut().user_map.insert(
+            STAT_COVERAGE.to_string(),
+            serde_json::json!([covered, map_len]),
         );
 
         Ok(())

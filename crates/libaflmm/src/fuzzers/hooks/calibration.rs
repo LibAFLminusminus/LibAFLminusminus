@@ -11,7 +11,7 @@ use crate::{
     fuzzers::{ExitKind, FuzzerHook},
     inputs::Input,
     observers::{MapObserver, ObserversTuple},
-    states::{State, named_metadata_mut, unnamed_metadata_mut},
+    states::{STAT_CALIBRATION, State, named_metadata_mut, unnamed_metadata_mut},
 };
 use alloc::{borrow::Cow, string::ToString, vec::Vec};
 use core::{marker::PhantomData, time::Duration};
@@ -258,7 +258,7 @@ where
         state
             .stats_mut()
             .user_map
-            .insert("stability", StabilityValue(stability));
+            .insert(STAT_CALIBRATION.to_string(), serde_json::json!(stability));
 
         if state.has_md::<PowerScheduleData>() {
             let current = state.corpus().scheduler().current();

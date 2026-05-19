@@ -14,6 +14,7 @@ use crate::{
     runtimes::RuntimeHandle,
 };
 use alloc::{
+    borrow::Cow,
     string::{String, ToString},
     vec::Vec,
 };
@@ -30,6 +31,7 @@ use libaflmm_bolts::{
 use nix::fcntl::{Flock, FlockArg};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use serde_json::{Map, Value};
 use std::{
     collections::HashMap,
     fs::{self, File},
@@ -37,6 +39,8 @@ use std::{
     path::{Path, PathBuf},
 };
 use typed_builder::TypedBuilder;
+
+use crate::monitors::perf_stats::PerfStats;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 /// The stats the fuzzer produces at intervals.
@@ -52,9 +56,14 @@ pub struct Stats {
     pub(crate) objective: usize,
     /// last time smth was found
     pub(crate) last_found_time: Duration,
-    /// [`NamedSerdeAnyMap`] to hold additional info that users want
-    pub(crate) user_map: NamedSerdeAnyMap,
+    /// [`serde_json::Map`] to hold additional info that users want.
+    pub(crate) user_map: Map<String, Value>,
 }
+
+/// The name used in stats json file for the stability value
+pub static STAT_CALIBRATION: Cow<'static, str> = Cow::Borrowed("stability");
+/// The name used in stats json file for the coverage value
+pub static STAT_COVERAGE: Cow<'static, str> = Cow::Borrowed("coverage");
 
 impl fmt::Display for Stats {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -175,6 +184,10 @@ pub trait State:
 
     /// Get the [`Stats`] (mutable)
     fn stats_mut(&mut self) -> &mut Stats;
+
+    /// Mutable ref to the introspection [`PerfStats`].
+    fn perf_stats_mut(&mut self) -> &mut PerfStats;
+
     /// The maximum size of an [`Input`]
     fn max_size(&self) -> usize;
 
@@ -301,7 +314,9 @@ pub struct StdState<C, CT, I, OC> {
     dont_reenter: Option<Vec<PathBuf>>,
     metadata_initialized: bool,
     stats: Stats,
-    phantom: PhantomData<I>,
+    /// performance counters used by the introspection macros.
+    perf_stats: PerfStats,
+    phantom: PhantomData<(I, SC)>,
 }
 
 /// The [[`Testcase`]] metadata.
@@ -633,6 +648,10 @@ where
 
     fn stats_mut(&mut self) -> &mut Stats {
         &mut self.stats
+    }
+
+    fn perf_stats_mut(&mut self) -> &mut PerfStats {
+        &mut self.perf_stats
     }
 
     /// The max size allowed for this [`Input`]
@@ -1058,7 +1077,7 @@ where
                 objective: 0,
                 last_found_time: libaflmm_bolts::current_time(),
                 start_time: libaflmm_bolts::current_time(),
-                user_map: NamedSerdeAnyMap::new(),
+                user_map: Map::new(),
             },
             named_metadata: NamedSerdeAnyMap::default(),
             corpus,
@@ -1069,6 +1088,7 @@ where
             testcase_metadata: HashMap::new(),
             metadata_initialized: false,
             phantom: PhantomData,
+            perf_stats: PerfStats::new(),
         };
         Ok(state)
     }
