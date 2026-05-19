@@ -76,6 +76,7 @@ runs:
         packages=(
           qemu-utils
           gcc-arm-none-eabi
+          libnewlib-arm-none-eabi
         )
 
         if ! dpkg -s "${packages[@]}" &>/dev/null; then

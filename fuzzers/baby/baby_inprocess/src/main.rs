@@ -1,7 +1,7 @@
 use libaflmm::{
     Result, Worker,
     corpus::{
-        Corpus, InMemoryCorpus, OnDiskCorpus, Scheduler,
+        Corpus, InMemoryCorpus, OnDiskCorpus,
         schedulers::{NopScheduler, QueueScheduler},
     },
     executors::StdExecutor,
@@ -29,14 +29,13 @@ use crate::target::SIGNALS;
 
 mod target;
 
-fn run_fuzzer<C, OC, SC>(
-    rt_handle: &mut RuntimeHandle<StdState<C, BytesContext, BytesInput, OC, SC>, SimpleWorker>,
-    state: &mut StdState<C, BytesContext, BytesInput, OC, SC>,
+fn run_fuzzer<C, OC>(
+    rt_handle: &mut RuntimeHandle<StdState<C, BytesContext, BytesInput, OC>, SimpleWorker>,
+    state: &mut StdState<C, BytesContext, BytesInput, OC>,
 ) -> Result<()>
 where
-    C: Corpus<BytesInput>,
-    OC: Corpus<BytesInput>,
-    SC: Scheduler,
+    C: Corpus<Input = BytesInput>,
+    OC: Corpus<Input = BytesInput>,
 {
     // The source of randomness
     let mut rand = StdRand::with_seed(current_nanos());

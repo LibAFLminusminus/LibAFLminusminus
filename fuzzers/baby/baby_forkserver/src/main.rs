@@ -2,7 +2,7 @@ use clap::Parser;
 use libaflmm::{
     Result, Worker,
     corpus::{
-        Corpus, InMemoryCorpus, OnDiskCorpus, Scheduler,
+        Corpus, InMemoryCorpus, OnDiskCorpus,
         schedulers::{NopScheduler, QueueScheduler},
     },
     executors::{ForkserverExecutor, StdChildArgs},
@@ -71,14 +71,13 @@ struct Opt {
     arguments: Vec<String>,
 }
 
-fn run_fuzzer<C, OC, SC>(
-    rt_handle: &mut RuntimeHandle<StdState<C, BytesContext, BytesInput, OC, SC>, SimpleWorker>,
-    state: &mut StdState<C, BytesContext, BytesInput, OC, SC>,
+fn run_fuzzer<C, OC>(
+    rt_handle: &mut RuntimeHandle<StdState<C, BytesContext, BytesInput, OC>, SimpleWorker>,
+    state: &mut StdState<C, BytesContext, BytesInput, OC>,
 ) -> Result<()>
 where
-    C: Corpus<BytesInput>,
-    OC: Corpus<BytesInput>,
-    SC: Scheduler,
+    C: Corpus<Input = BytesInput>,
+    OC: Corpus<Input = BytesInput>,
 {
     const MAP_SIZE: usize = 65536;
     let opt = Opt::parse();
