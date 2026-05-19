@@ -429,7 +429,14 @@ macro_rules! create_hook_types {
 create_hook_types!(
     Instruction,
     fn(Qemu, &mut EmulatorModules<ET>, &mut <ET as EmulatorModuleTuple>::State, GuestAddr),
-    Box<dyn for<'a> FnMut(Qemu, &'a mut EmulatorModules<ET>, &'a mut <ET as EmulatorModuleTuple>::State, GuestAddr)>,
+    Box<
+        dyn for<'a> FnMut(
+            Qemu,
+            &'a mut EmulatorModules<ET>,
+            &'a mut <ET as EmulatorModuleTuple>::State,
+            GuestAddr,
+        ),
+    >,
     extern "C" fn(*const (), pc: GuestAddr)
 );
 create_hook_id!(Instruction, libafl_qemu_remove_instruction_hook, true);
@@ -438,8 +445,21 @@ create_wrapper!(instruction, (pc: GuestAddr));
 // Backdoor hook wrappers
 create_hook_types!(
     Backdoor,
-    fn(Qemu, &mut EmulatorModules<ET>, &mut <ET as EmulatorModuleTuple>::State, cpu: CPUArchStatePtr, GuestAddr),
-    Box<dyn for<'a> FnMut(Qemu, &'a mut EmulatorModules<ET>, &'a mut <ET as EmulatorModuleTuple>::State, GuestAddr)>,
+    fn(
+        Qemu,
+        &mut EmulatorModules<ET>,
+        &mut <ET as EmulatorModuleTuple>::State,
+        cpu: CPUArchStatePtr,
+        GuestAddr,
+    ),
+    Box<
+        dyn for<'a> FnMut(
+            Qemu,
+            &'a mut EmulatorModules<ET>,
+            &'a mut <ET as EmulatorModuleTuple>::State,
+            GuestAddr,
+        ),
+    >,
     extern "C" fn(libafl_qemu_opaque: *const (), cpu: CPUArchStatePtr, pc: GuestAddr)
 );
 create_hook_id!(Backdoor, libafl_qemu_remove_backdoor_hook, true);
@@ -584,7 +604,12 @@ create_wrapper!(
 // New thread hook wrappers
 create_hook_types!(
     NewThread,
-    fn(&mut EmulatorModules<ET>, &mut <ET as EmulatorModuleTuple>::State, env: CPUArchStatePtr, tid: u32) -> bool,
+    fn(
+        &mut EmulatorModules<ET>,
+        &mut <ET as EmulatorModuleTuple>::State,
+        env: CPUArchStatePtr,
+        tid: u32,
+    ) -> bool,
     Box<
         dyn for<'a> FnMut(
             &'a mut EmulatorModules<ET>,
@@ -602,13 +627,27 @@ create_pre_init_wrapper!(new_thread, (env: CPUArchStatePtr, tid: u32), bool);
 create_hook_types!(
     CpuPreRun,
     fn(Qemu, &mut EmulatorModules<ET>, &mut <ET as EmulatorModuleTuple>::State, cpu: CPUStatePtr),
-    Box<dyn for<'a> FnMut(Qemu, &'a mut EmulatorModules<ET>, &'a mut <ET as EmulatorModuleTuple>::State, CPUStatePtr)>,
+    Box<
+        dyn for<'a> FnMut(
+            Qemu,
+            &'a mut EmulatorModules<ET>,
+            &'a mut <ET as EmulatorModuleTuple>::State,
+            CPUStatePtr,
+        ),
+    >,
     extern "C" fn(libafl_qemu_opaque: *const (), cpu: CPUStatePtr)
 );
 create_hook_types!(
     CpuPostRun,
     fn(Qemu, &mut EmulatorModules<ET>, &mut <ET as EmulatorModuleTuple>::State, cpu: CPUStatePtr),
-    Box<dyn for<'a> FnMut(Qemu, &'a mut EmulatorModules<ET>, &'a mut <ET as EmulatorModuleTuple>::State, CPUStatePtr)>,
+    Box<
+        dyn for<'a> FnMut(
+            Qemu,
+            &'a mut EmulatorModules<ET>,
+            &'a mut <ET as EmulatorModuleTuple>::State,
+            CPUStatePtr,
+        ),
+    >,
     extern "C" fn(libafl_qemu_opaque: *const (), cpu: CPUStatePtr)
 );
 create_hook_id!(CpuRun, libafl_qemu_remove_cpu_run_hook, false);
@@ -640,7 +679,14 @@ create_hook_types!(
 create_hook_types!(
     EdgeExec,
     fn(Qemu, &mut EmulatorModules<ET>, &mut <ET as EmulatorModuleTuple>::State, id: u64),
-    Box<dyn for<'a> FnMut(Qemu, &'a mut EmulatorModules<ET>, &'a mut <ET as EmulatorModuleTuple>::State, u64)>,
+    Box<
+        dyn for<'a> FnMut(
+            Qemu,
+            &'a mut EmulatorModules<ET>,
+            &'a mut <ET as EmulatorModuleTuple>::State,
+            u64,
+        ),
+    >,
     unsafe extern "C" fn(libafl_qemu_opaque: *const (), id: u64)
 );
 create_hook_id!(Edge, libafl_qemu_remove_edge_hook, true);
@@ -650,7 +696,12 @@ create_exec_wrapper!(edge, (id: u64), 0, 1, EdgeHookId);
 // Block hook wrappers
 create_hook_types!(
     BlockGen,
-    fn(Qemu, &mut EmulatorModules<ET>, &mut <ET as EmulatorModuleTuple>::State, pc: GuestAddr) -> Option<u64>,
+    fn(
+        Qemu,
+        &mut EmulatorModules<ET>,
+        &mut <ET as EmulatorModuleTuple>::State,
+        pc: GuestAddr,
+    ) -> Option<u64>,
     Box<
         dyn for<'a> FnMut(
             Qemu,
@@ -663,16 +714,35 @@ create_hook_types!(
 );
 create_hook_types!(
     BlockPostGen,
-    fn(Qemu, &mut EmulatorModules<ET>, &mut <ET as EmulatorModuleTuple>::State, pc: GuestAddr, block_length: GuestUsize),
+    fn(
+        Qemu,
+        &mut EmulatorModules<ET>,
+        &mut <ET as EmulatorModuleTuple>::State,
+        pc: GuestAddr,
+        block_length: GuestUsize,
+    ),
     Box<
-        dyn for<'a> FnMut(Qemu, &'a mut EmulatorModules<ET>, &mut <ET as EmulatorModuleTuple>::State, GuestAddr, GuestUsize),
+        dyn for<'a> FnMut(
+            Qemu,
+            &'a mut EmulatorModules<ET>,
+            &mut <ET as EmulatorModuleTuple>::State,
+            GuestAddr,
+            GuestUsize,
+        ),
     >,
     unsafe extern "C" fn(libafl_qemu_opaque: *const (), pc: GuestAddr, block_length: GuestUsize)
 );
 create_hook_types!(
     BlockExec,
     fn(Qemu, &mut EmulatorModules<ET>, &mut <ET as EmulatorModuleTuple>::State, id: u64),
-    Box<dyn for<'a> FnMut(Qemu, &'a mut EmulatorModules<ET>, &'a mut <ET as EmulatorModuleTuple>::State, u64)>,
+    Box<
+        dyn for<'a> FnMut(
+            Qemu,
+            &'a mut EmulatorModules<ET>,
+            &'a mut <ET as EmulatorModuleTuple>::State,
+            u64,
+        ),
+    >,
     unsafe extern "C" fn(libafl_qemu_opaque: *const (), id: u64)
 );
 
@@ -711,7 +781,14 @@ create_hook_types!(
 );
 create_hook_types!(
     ReadExec,
-    fn(Qemu, &mut EmulatorModules<ET>, &mut <ET as EmulatorModuleTuple>::State, id: u64, pc: GuestAddr, addr: GuestAddr),
+    fn(
+        Qemu,
+        &mut EmulatorModules<ET>,
+        &mut <ET as EmulatorModuleTuple>::State,
+        id: u64,
+        pc: GuestAddr,
+        addr: GuestAddr,
+    ),
     Box<
         dyn for<'a> FnMut(
             Qemu,
@@ -798,7 +875,14 @@ create_hook_types!(
 );
 create_hook_types!(
     WriteExec,
-    fn(Qemu, &mut EmulatorModules<ET>, &mut <ET as EmulatorModuleTuple>::State, id: u64, pc: GuestAddr, addr: GuestAddr),
+    fn(
+        Qemu,
+        &mut EmulatorModules<ET>,
+        &mut <ET as EmulatorModuleTuple>::State,
+        id: u64,
+        pc: GuestAddr,
+        addr: GuestAddr,
+    ),
     Box<
         dyn for<'a> FnMut(
             Qemu,
@@ -858,7 +942,13 @@ create_exec_wrapper!(
 // Cmp hook wrappers
 create_hook_types!(
     CmpGen,
-    fn(Qemu, &mut EmulatorModules<ET>, &mut <ET as EmulatorModuleTuple>::State, pc: GuestAddr, size: usize) -> Option<u64>,
+    fn(
+        Qemu,
+        &mut EmulatorModules<ET>,
+        &mut <ET as EmulatorModuleTuple>::State,
+        pc: GuestAddr,
+        size: usize,
+    ) -> Option<u64>,
     Box<
         dyn for<'a> FnMut(
             Qemu,

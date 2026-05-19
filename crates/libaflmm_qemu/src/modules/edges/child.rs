@@ -1,7 +1,3 @@
-use std::marker::PhantomData;
-
-use libaflmm::states::CoreState;
-
 use super::{
     EdgeCoverageVariant,
     helpers::{gen_hashed_edge_ids, trace_edge_hitcount_ptr, trace_edge_single_ptr},
@@ -14,6 +10,8 @@ use crate::{
         utils::filters::{StdAddressFilter, StdPageFilter},
     },
 };
+use libaflmm::states::State;
+use std::marker::PhantomData;
 
 #[derive(Debug)]
 pub struct EdgeCoverageChildVariant;
@@ -40,7 +38,7 @@ impl<AF, PF, const IS_CONST_MAP: bool, const MAP_SIZE: usize>
         AF: AddressFilter,
         ET: EmulatorModuleTuple,
         ET::Input: 'static,
-        ET::State: CoreState + 'static,
+        ET::State: State + 'static,
         PF: PageFilter,
     {
         emulator_modules.edges(
@@ -54,7 +52,7 @@ impl<AF, PF, const IS_CONST_MAP: bool, const MAP_SIZE: usize>
         AF: AddressFilter,
         ET: EmulatorModuleTuple,
         ET::Input: 'static,
-        ET::State: CoreState + 'static,
+        ET::State: State + 'static,
         PF: PageFilter,
     {
         emulator_modules.edges(

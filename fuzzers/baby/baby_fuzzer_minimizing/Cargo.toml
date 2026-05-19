@@ -20,5 +20,7 @@ debug = true
 
 [dependencies]
 libaflmm = { path = "../../../crates/libaflmm", features = ["prelude"] }
-libaflmm_bolts = { path = "../../../crates/libaflmm_bolts", features = ["prelude"] }
+libaflmm_bolts = { path = "../../../crates/libaflmm_bolts", features = [
+  "prelude",
+] }
 log = { version = "0.4.22", features = ["release_max_level_info"] }

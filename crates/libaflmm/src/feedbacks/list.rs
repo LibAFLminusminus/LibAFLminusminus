@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use crate::{
     common::DependencyResolver, corpus::TestcaseId, executors::ExitKind, feedbacks::Feedback,
-    observers::ListObserver, states::CoreState,
+    observers::ListObserver, states::State,
 };
 
 /// The metadata to remember past observed value
@@ -87,7 +87,7 @@ where
     ) -> bool
     where
         OT: MatchName,
-        S: CoreState,
+        S: State,
     {
         let observer = observers.get(&self.observer_handle).unwrap();
         // TODO register the list content in a testcase metadata
@@ -113,7 +113,7 @@ where
         }
     }
 
-    fn append_list_observer_metadata<S: CoreState>(&mut self, state: &mut S) {
+    fn append_list_observer_metadata<S: State>(&mut self, state: &mut S) {
         let history_set = state
             .metadata_map_mut()
             .get_mut::<ListFeedbackMetadata<T>>(self.name())
@@ -140,7 +140,7 @@ where
 impl<I, OT, S, T> Feedback<I, OT, S> for ListFeedback<T>
 where
     OT: MatchName,
-    S: CoreState,
+    S: State,
     T: Debug
         + Eq
         + Hash

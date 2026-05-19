@@ -11,7 +11,7 @@ use crate::{
     fuzzers::{ExitKind, FuzzerHook},
     inputs::Input,
     observers::{MapObserver, ObserversTuple},
-    states::{CoreState, State, named_metadata_mut, unnamed_metadata_mut},
+    states::{State, named_metadata_mut, unnamed_metadata_mut},
 };
 use alloc::{borrow::Cow, string::ToString, vec::Vec};
 use core::{marker::PhantomData, time::Duration};
@@ -73,7 +73,7 @@ pub fn run_target_measuring_time<E, I, S, W>(
 where
     E: Executor<I, S>,
     I: Input,
-    S: CoreState,
+    S: State,
     W: Worker,
 {
     executor.observers_mut().pre_exec_all(state)?;

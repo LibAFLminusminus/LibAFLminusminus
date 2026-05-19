@@ -122,8 +122,54 @@ pub fn sync_stats(file: File, stats: &Stats) -> Result<()> {
         .map_err(|_| Error::runtime("Failed to dump the stats to a file"))
 }
 
-/// the all-in-one trait for all the data that normal state should contain
-pub trait CoreState {
+/// The trait containing all the stuff that [`StdState`] implements. It's rather a shortcut for typing all the traits
+pub trait State:
+    HasScheduler<Scheduler = <Self::Corpus as HasScheduler>::Scheduler> + DependencyResolver
+{
+    type Input: Input;
+
+    /// The associated [`InputContext`]
+    type Context: InputContext<Input = Self::Input>;
+
+    /// The associated [`Corpus`]
+    type Corpus: Corpus<Input = Self::Input>;
+
+    /// The associated objective [`Corpus`]
+    type ObjectiveCorpus: Corpus<Input = Self::Input>;
+
+    /// Get the reference to the [`InputContext`]
+    fn context(&self) -> &Self::Context;
+
+    /// Get the mutable reference to the [`InputContext`]
+    fn context_mut(&mut self) -> &mut Self::Context;
+
+    /// Get the reference to the [`Corpus`]
+    fn corpus(&self) -> &Self::Corpus;
+
+    /// Get the mutable reference to the [`Corpus`]
+    fn corpus_mut(&mut self) -> &mut Self::Corpus;
+
+    /// Get the reference to the objective [`Corpus`]
+    fn objective_corpus(&self) -> &Self::ObjectiveCorpus;
+
+    /// Get the mutable reference to the objective [`Corpus`]
+    fn objective_corpus_mut(&mut self) -> &mut Self::ObjectiveCorpus;
+
+    /// Get reference to the [`Testcase`] attached to this [`Testcase`]
+    fn testcase_md<'a>(&'a self, tc: &Testcase<Self::Input>) -> Option<&'a TestcaseMetadata>;
+
+    /// Get reference to the [`Testcase`] attached to this [`Testcase`] from [`TestcaseId`]
+    fn testcase_md_from_id<'a>(&'a self, id: &TestcaseId) -> Option<&'a TestcaseMetadata>;
+
+    /// Get mutable reference to the [`Testcase`] attached to this [`Testcase`].
+    fn testcase_md_mut<'a>(&'a mut self, tc: &Testcase<Self::Input>) -> &'a mut TestcaseMetadata;
+
+    /// Get mutable reference to the [`Testcase`] attached to this [`Testcase`] from [`TestcaseId`]
+    fn testcase_md_mut_from_id<'a>(&'a mut self, id: &TestcaseId) -> &'a mut TestcaseMetadata;
+
+    /// Get the [`Testcase`] from [`TestcaseId`]
+    fn testcase(&self, id: &TestcaseId) -> Result<Testcase<Self::Input>>;
+
     /// Get the [`Stats`]
     fn stats(&self) -> &Stats;
 
@@ -195,146 +241,18 @@ pub trait CoreState {
     }
 }
 
-/// The trait containing all the stuff that [`StdState`] implements. It's rather a shortcut for typing all the traits
-pub trait State:
-    CoreState
-    + HasScheduler
-    + HasCorpus<Self::Input>
-    + HasObjectiveCorpus<Self::Input>
-    + HasContext<Self::Input>
-    + HasTestcase<Self::Input>
-    + DependencyResolver
-{
-    type Input: Input;
-}
-
-/// This module has a [`Testcase`]
-pub trait HasTestcase<I> {
-    /// Get reference to the [`Testcase`] attached to this [`Testcase`]
-    fn testcase_md<'a>(&'a self, tc: &Testcase<I>) -> Option<&'a TestcaseMetadata>;
-    /// Get reference to the [`Testcase`] attached to this [`Testcase`] from [`TestcaseId`]
-    fn testcase_md_from_id<'a>(&'a self, id: &TestcaseId) -> Option<&'a TestcaseMetadata>;
-    /// Get mutable reference to the [`Testcase`] attached to this [`Testcase`].
-    fn testcase_md_mut<'a>(&'a mut self, tc: &Testcase<I>) -> &'a mut TestcaseMetadata;
-    /// Get mutable reference to the [`Testcase`] attached to this [`Testcase`] from [`TestcaseId`]
-    fn testcase_md_mut_from_id<'a>(&'a mut self, id: &TestcaseId) -> &'a mut TestcaseMetadata;
-    /// Get the [`Testcase`] from [`TestcaseId`]
-    fn testcase(&self, id: &TestcaseId) -> Result<Testcase<I>>;
-}
-
-impl<C, CT, I, OC> HasTestcase<I> for StdState<C, CT, I, OC>
-where
-    C: Corpus<I>,
-{
-    fn testcase(&self, id: &TestcaseId) -> Result<Testcase<I>> {
-        self.corpus.get(id)
-    }
-
-    fn testcase_md<'a>(&'a self, tc: &Testcase<I>) -> Option<&'a TestcaseMetadata> {
-        self.testcase_metadata.get(tc.id())
-    }
-
-    fn testcase_md_from_id<'a>(&'a self, id: &TestcaseId) -> Option<&'a TestcaseMetadata> {
-        self.testcase_metadata.get(id)
-    }
-
-    fn testcase_md_mut<'a>(&'a mut self, tc: &Testcase<I>) -> &'a mut TestcaseMetadata {
-        self.testcase_metadata.entry(*tc.id()).or_default()
-    }
-
-    fn testcase_md_mut_from_id<'a>(&'a mut self, id: &TestcaseId) -> &'a mut TestcaseMetadata {
-        self.testcase_metadata.entry(*id).or_default()
-    }
-}
-
-/// This module has a [`Corpus`]
-pub trait HasCorpus<I> {
-    /// The associated [`Corpus`]
-    type Corpus: Corpus<I>;
-
-    /// Get the reference to the [`Corpus`]
-    fn corpus(&self) -> &Self::Corpus;
-    /// Get the mutable reference to the [`Corpus`]
-    fn corpus_mut(&mut self) -> &mut Self::Corpus;
-}
-
-impl<C, CT, I, OC> HasCorpus<I> for StdState<C, CT, I, OC>
-where
-    C: Corpus<I>,
-{
-    type Corpus = C;
-
-    fn corpus(&self) -> &Self::Corpus {
-        &self.corpus
-    }
-
-    fn corpus_mut(&mut self) -> &mut Self::Corpus {
-        &mut self.corpus
-    }
-}
-
-/// This module has a `Corpus` for objectives
-pub trait HasObjectiveCorpus<I> {
-    /// The associated objective [`Corpus`]
-    type Corpus: Corpus<I>;
-
-    /// Get the reference to the objective [`Corpus`]
-    fn objective_corpus(&self) -> &Self::Corpus;
-    /// Get the mutable reference to the objective [`Corpus`]
-    fn objective_corpus_mut(&mut self) -> &mut Self::Corpus;
-}
-
-impl<C, CT, I, OC> HasObjectiveCorpus<I> for StdState<C, CT, I, OC>
-where
-    OC: Corpus<I>,
-{
-    type Corpus = OC;
-
-    fn objective_corpus(&self) -> &Self::Corpus {
-        &self.objective_corpus
-    }
-
-    fn objective_corpus_mut(&mut self) -> &mut Self::Corpus {
-        &mut self.objective_corpus
-    }
-}
-
-/// This module has a `InputContext`
-pub trait HasContext<I> {
-    /// The associated [`InputContext`]
-    type Context: InputContext<I>;
-
-    /// Get the reference to the [`InputContext`]
-    fn context(&self) -> &Self::Context;
-    /// Get the mutable reference to the [`InputContext`]
-    fn context_mut(&mut self) -> &mut Self::Context;
-}
-
-impl<C, CT, I, OC> HasContext<I> for StdState<C, CT, I, OC>
-where
-    CT: InputContext<I>,
-{
-    type Context = CT;
-
-    fn context(&self) -> &Self::Context {
-        &self.context
-    }
-
-    fn context_mut(&mut self) -> &mut Self::Context {
-        &mut self.context
-    }
-}
-
 impl<C, CT, I, OC> HasScheduler for StdState<C, CT, I, OC>
 where
-    C: Corpus<I>,
+    C: HasScheduler,
 {
     type Scheduler = C::Scheduler;
 
+    /// Ref to the [`Scheduler`]
     fn scheduler(&self) -> &Self::Scheduler {
         self.corpus.scheduler()
     }
 
+    /// Mutable ref to the `Scheduler`
     fn scheduler_mut(&mut self) -> &mut Self::Scheduler {
         self.corpus.scheduler_mut()
     }
@@ -638,7 +556,77 @@ impl PSMetadata {
 
 libaflmm_bolts::impl_serdeany!(PSMetadata);
 
-impl<C, CT, I, OC> CoreState for StdState<C, CT, I, OC> {
+impl<C, CT, I, OC> DependencyResolver for StdState<C, CT, I, OC>
+where
+    C: DependencyResolver + Corpus<Input = I>,
+    CT: InputContext<Input = I>,
+    I: Input,
+    OC: DependencyResolver + Corpus<Input = I>,
+{
+    fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
+        self.corpus_mut().register(registrator)?;
+        self.objective_corpus_mut().register(registrator)?;
+
+        Ok(())
+    }
+}
+
+impl<C, CT, I, OC> State for StdState<C, CT, I, OC>
+where
+    C: Corpus<Input = I>,
+    CT: InputContext<Input = I>,
+    I: Input,
+    OC: Corpus<Input = I>,
+{
+    type Input = I;
+    type Context = CT;
+    type Corpus = C;
+    type ObjectiveCorpus = OC;
+
+    fn context(&self) -> &Self::Context {
+        &self.context
+    }
+
+    fn context_mut(&mut self) -> &mut Self::Context {
+        &mut self.context
+    }
+
+    fn objective_corpus(&self) -> &Self::ObjectiveCorpus {
+        &self.objective_corpus
+    }
+
+    fn objective_corpus_mut(&mut self) -> &mut Self::ObjectiveCorpus {
+        &mut self.objective_corpus
+    }
+
+    fn corpus(&self) -> &Self::Corpus {
+        &self.corpus
+    }
+
+    fn corpus_mut(&mut self) -> &mut Self::Corpus {
+        &mut self.corpus
+    }
+
+    fn testcase(&self, id: &TestcaseId) -> Result<Testcase<I>> {
+        self.corpus.get(id)
+    }
+
+    fn testcase_md<'a>(&'a self, tc: &Testcase<I>) -> Option<&'a TestcaseMetadata> {
+        self.testcase_metadata.get(tc.id())
+    }
+
+    fn testcase_md_from_id<'a>(&'a self, id: &TestcaseId) -> Option<&'a TestcaseMetadata> {
+        self.testcase_metadata.get(id)
+    }
+
+    fn testcase_md_mut<'a>(&'a mut self, tc: &Testcase<I>) -> &'a mut TestcaseMetadata {
+        self.testcase_metadata.entry(*tc.id()).or_default()
+    }
+
+    fn testcase_md_mut_from_id<'a>(&'a mut self, id: &TestcaseId) -> &'a mut TestcaseMetadata {
+        self.testcase_metadata.entry(*id).or_default()
+    }
+
     fn stats(&self) -> &Stats {
         &self.stats
     }
@@ -694,38 +682,14 @@ impl<C, CT, I, OC> CoreState for StdState<C, CT, I, OC> {
     }
 }
 
-impl<C, CT, I, OC> DependencyResolver for StdState<C, CT, I, OC>
-where
-    C: DependencyResolver + Corpus<I>,
-    CT: InputContext<I>,
-    OC: DependencyResolver + Corpus<I>,
-{
-    fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
-        self.corpus_mut().register(registrator)?;
-        self.objective_corpus_mut().register(registrator)?;
-
-        Ok(())
-    }
-}
-
-impl<C, CT, I, OC> State for StdState<C, CT, I, OC>
-where
-    I: Input,
-    C: Corpus<I>,
-    CT: InputContext<I>,
-    OC: Corpus<I>,
-{
-    type Input = I;
-}
-
 impl<C, CT, I, OC> StdState<C, CT, I, OC>
 where
-    C: Corpus<I>,
+    C: Corpus<Input = I>,
     I: Input,
 {
     /// Decide if the state must load the inputs
     pub fn must_load_initial_inputs(&self) -> bool {
-        self.corpus().count() == 0
+        self.corpus.count() == 0
             || (self.remaining_initial_files.is_some()
                 && !self.remaining_initial_files.as_ref().unwrap().is_empty())
     }
@@ -1041,7 +1005,7 @@ where
 impl<I, C, CT, OC> StdState<I, C, CT, OC>
 where
     I: Input,
-    CT: InputContext<I>,
+    CT: InputContext<Input = I>,
 {
     /// Generate `num` initial inputs, using the passed-in generator.
     pub fn generate_initial_inputs<G, E, R, W, Z>(
@@ -1075,9 +1039,9 @@ where
 impl<C, CT, I, OC> StdState<C, CT, I, OC>
 where
     I: Input,
-    C: Corpus<I>,
-    CT: InputContext<I>,
-    OC: Corpus<I>,
+    C: Corpus<Input = I>,
+    CT: InputContext<Input = I>,
+    OC: Corpus<Input = I>,
 {
     /// Creates a new `StdState`, taking ownership of all of the individual components during fuzzing.
     pub fn new(context: CT, corpus: C, objective_corpus: OC) -> Result<Self>

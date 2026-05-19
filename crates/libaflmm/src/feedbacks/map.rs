@@ -8,7 +8,7 @@ use crate::{
     executors::ExitKind,
     feedbacks::{Feedback, HasObserverHandle},
     observers::MapObserver,
-    states::{CoreState, State},
+    states::State,
 };
 use alloc::{borrow::Cow, vec::Vec};
 use core::{
@@ -445,7 +445,7 @@ where
 {
     fn is_interesting_default<OT, S>(&mut self, state: &mut S, observers: &OT) -> bool
     where
-        S: CoreState,
+        S: State,
         OT: MatchName,
     {
         let mut interesting = false;

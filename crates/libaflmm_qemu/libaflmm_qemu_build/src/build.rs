@@ -484,6 +484,8 @@ pub fn build(
         println!("cargo:rerun-if-changed={}", source_path.display());
     }
 
+    println!("cargo:rustc-link-lib=atomic");
+
     if cfg!(feature = "shared") {
         let qemu_build_dir_str = libafl_qemu_build_dir
             .to_str()

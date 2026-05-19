@@ -1,11 +1,7 @@
 use std::{cell::RefCell, collections::HashMap, fmt::Debug, marker::PhantomData, pin::Pin, result};
 
 use libaflmm::{
-    Result,
-    executors::ExitKind,
-    inputs::Input,
-    observers::ObserversTuple,
-    states::{CoreState, State},
+    Result, executors::ExitKind, inputs::Input, observers::ObserversTuple, states::State,
 };
 use libaflmm_qemu_sys::GuestAddr;
 
@@ -154,7 +150,7 @@ impl<C, I, S> StdEmulator<C, NopCommandManager, NopEmulatorDriver, (), I, S, Nop
 
 impl<C, I, S> StdEmulator<C, StdCommandManager<S>, StdEmulatorDriver, (), I, S, StdSnapshotManager>
 where
-    S: CoreState + Unpin,
+    S: State + Unpin,
     I: Input,
 {
     #[must_use]

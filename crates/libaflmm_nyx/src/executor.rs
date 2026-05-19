@@ -1,9 +1,5 @@
+use crate::{cmplog::CMPLOG_ENABLED, helper::NyxHelper};
 use core::{ops::IndexMut, time::Duration};
-use std::{
-    io::{Read, Seek},
-    os::fd::AsRawFd,
-};
-
 use libaflmm::{
     DependencyResolver, Error,
     executors::{Executor, ExitKind},
@@ -16,8 +12,10 @@ use libaflmm_bolts::{
     tuples::{Handle, RefIndexable},
 };
 use libnyx::NyxReturnValue;
-
-use crate::{cmplog::CMPLOG_ENABLED, helper::NyxHelper};
+use std::{
+    io::{Read, Seek},
+    os::fd::AsRawFd,
+};
 
 /// executor for nyx standalone mode
 pub struct NyxExecutor<OT> {
@@ -75,7 +73,7 @@ where
         input: &I,
     ) -> Result<ExitKind, Error>
     where
-        S: libaflmm::states::CoreState,
+        S: State,
     {
         unsafe { self.execute_impl(state, input) }
     }

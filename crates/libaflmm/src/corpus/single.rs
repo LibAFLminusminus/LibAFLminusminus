@@ -63,12 +63,14 @@ where
     }
 }
 
-impl<I, S, SC> Corpus<I> for SingleCorpus<I, S, SC>
+impl<I, S, SC> Corpus for SingleCorpus<I, S, SC>
 where
     I: Input,
     S: Store<I>,
     SC: Scheduler,
 {
+    type Input = I;
+
     fn count(&self) -> usize {
         self.store.count()
     }

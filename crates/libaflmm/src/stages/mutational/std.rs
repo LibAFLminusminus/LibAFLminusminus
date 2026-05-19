@@ -12,7 +12,7 @@ use libaflmm_core::non_zero;
 
 use crate::{
     DependencyResolver, Error,
-    corpus::{Corpus, HasScheduler, TestcaseId},
+    corpus::{Corpus, TestcaseId},
     fuzzers::Evaluator,
     inputs::Input,
     mutators::{MutationResult, Mutator},
@@ -72,10 +72,10 @@ where
     }
 }
 
-impl<E, I, M, R, S, SC, W, Z> StdMutationalStage<E, I, M, R, S, W, Z>
+impl<E, I, M, R, S, W, Z> StdMutationalStage<E, I, M, R, S, W, Z>
 where
     R: Rand,
-    S: HasScheduler<Scheduler = SC>,
+    S: State,
 {
     /// Gets the number of iterations as a random number
     #[expect(clippy::unnecessary_wraps)]

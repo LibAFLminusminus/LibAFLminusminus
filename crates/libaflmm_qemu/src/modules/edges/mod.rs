@@ -1,11 +1,6 @@
 use std::{fmt::Debug, marker::PhantomData, ptr};
 
-use libaflmm::{
-    Result,
-    inputs::Input,
-    observers::VarLenMapObserver,
-    states::{CoreState, State},
-};
+use libaflmm::{Result, inputs::Input, observers::VarLenMapObserver, states::State};
 use libaflmm_qemu_sys::GuestAddr;
 #[cfg(feature = "systemmode")]
 use libaflmm_qemu_sys::GuestPhysAddr;
@@ -68,7 +63,7 @@ trait EdgeCoverageVariant<AF, PF, const IS_CONST_MAP: bool, const MAP_SIZE: usiz
         AF: AddressFilter,
         ET: EmulatorModuleTuple,
         ET::Input: 'static,
-        ET::State: CoreState + 'static,
+        ET::State: State + 'static,
         PF: PageFilter,
     {
         panic!("JIT hitcount is not supported.")
@@ -79,7 +74,7 @@ trait EdgeCoverageVariant<AF, PF, const IS_CONST_MAP: bool, const MAP_SIZE: usiz
         AF: AddressFilter,
         ET: EmulatorModuleTuple,
         ET::Input: 'static,
-        ET::State: CoreState + 'static,
+        ET::State: State + 'static,
         PF: PageFilter,
     {
         panic!("JIT no hitcount is not supported.")
@@ -90,7 +85,7 @@ trait EdgeCoverageVariant<AF, PF, const IS_CONST_MAP: bool, const MAP_SIZE: usiz
         AF: AddressFilter,
         ET: EmulatorModuleTuple,
         ET::Input: 'static,
-        ET::State: CoreState + 'static,
+        ET::State: State + 'static,
         PF: PageFilter,
     {
         panic!("Func hitcount is not supported.")
@@ -101,7 +96,7 @@ trait EdgeCoverageVariant<AF, PF, const IS_CONST_MAP: bool, const MAP_SIZE: usiz
         AF: AddressFilter,
         ET: EmulatorModuleTuple,
         ET::Input: 'static,
-        ET::State: CoreState + 'static,
+        ET::State: State + 'static,
         PF: PageFilter,
     {
         panic!("Func no hitcount is not supported.")
@@ -374,7 +369,7 @@ where
     where
         ET: EmulatorModuleTuple,
         ET::Input: 'static,
-        ET::State: CoreState + 'static,
+        ET::State: State + 'static,
     {
         if self.use_hitcounts {
             if self.use_jit {

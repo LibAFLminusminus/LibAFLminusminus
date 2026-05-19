@@ -1,15 +1,16 @@
 use core::ptr;
-
-/// Generators, responsible for generating block/edge ids
-pub use generators::{gen_hashed_block_ids, gen_hashed_edge_ids, gen_unique_edge_ids};
 use hashbrown::HashMap;
 use libaflmm_qemu_sys::GuestAddr;
 use serde::{Deserialize, Serialize};
+
 /// Tracers, responsible for propagating an ID in a map.
 pub use tracers::{
     trace_block_transition_hitcount, trace_block_transition_single, trace_edge_hitcount,
     trace_edge_hitcount_ptr, trace_edge_single, trace_edge_single_ptr,
 };
+
+/// Generators, responsible for generating block/edge ids
+pub use generators::{gen_hashed_block_ids, gen_hashed_edge_ids, gen_unique_edge_ids};
 
 // Constants used for variable-length maps
 
@@ -48,7 +49,7 @@ mod generators {
     use std::{cmp::max, ptr};
 
     use hashbrown::hash_map::Entry;
-    use libaflmm::states::CoreState;
+    use libaflmm::states::State;
     use libaflmm_bolts::hash_64_fast;
     use libaflmm_qemu_sys::GuestAddr;
 
@@ -86,7 +87,7 @@ mod generators {
     where
         AF: AddressFilter,
         ET: EmulatorModuleTuple,
-        ET::State: CoreState + 'static,
+        ET::State: State + 'static,
         ET::Input: 'static,
         PF: PageFilter,
         V: EdgeCoverageVariant<AF, PF, IS_CONST_MAP, MAP_SIZE>,
@@ -170,7 +171,7 @@ mod generators {
     where
         AF: AddressFilter,
         ET: EmulatorModuleTuple,
-        ET::State: CoreState + 'static,
+        ET::State: State + 'static,
         ET::Input: 'static,
         PF: PageFilter,
         V: EdgeCoverageVariant<AF, PF, IS_CONST_MAP, MAP_SIZE>,
@@ -230,7 +231,7 @@ mod generators {
     where
         AF: AddressFilter,
         ET: EmulatorModuleTuple,
-        ET::State: CoreState + 'static,
+        ET::State: State + 'static,
         ET::Input: 'static,
         PF: PageFilter,
         V: EdgeCoverageVariant<AF, PF, IS_CONST_MAP, MAP_SIZE>,

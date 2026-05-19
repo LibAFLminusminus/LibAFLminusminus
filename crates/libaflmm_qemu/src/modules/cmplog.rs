@@ -3,11 +3,7 @@ use std::{fmt::Debug, marker::PhantomData};
 #[cfg(feature = "usermode")]
 use capstone::{Capstone, InsnDetail, arch::BuildsCapstone};
 use hashbrown::HashMap;
-use libaflmm::{
-    Result,
-    inputs::Input,
-    states::{CoreState, State},
-};
+use libaflmm::{Result, inputs::Input, states::State};
 use libaflmm_qemu_sys::GuestAddr;
 #[cfg(feature = "usermode")]
 use libaflmm_targets::CMPLOG_ENABLED;
@@ -158,7 +154,7 @@ impl<I, S> HasPageFilter for CmpLogModule<I, S> {
 // impl<I, S> EmulatorModule<I, S> for CmpLogChildModule
 // where
 //     I: Unpin,
-//     S: Unpin + CoreState,
+//     S: Unpin + State,
 // {
 //     const HOOKS_DO_SIDE_EFFECTS: bool = false;
 //
@@ -246,7 +242,7 @@ where
 // where
 //     ET: EmulatorModuleTuple<I, S>,
 //     I: Unpin,
-//     S: CoreState + Unpin,
+//     S: State + Unpin,
 // {
 //     if let Some(h) = emulator_modules.get::<CmpLogChildModule>()
 //         && !h.must_instrument(pc)

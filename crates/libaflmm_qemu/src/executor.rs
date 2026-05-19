@@ -36,7 +36,18 @@ pub struct QemuExecutor<EMU, OT, PRE, POST> {
 pub(crate) static BREAK_ON_TMOUT: AtomicBool = AtomicBool::new(false);
 
 impl<EMU, OT, PRE, POST> QemuExecutor<EMU, OT, PRE, POST> {
-    pub fn new(emulator: EMU, pre_exec: PRE, post_exec: POST, observers: OT) -> Result<Self> {
+    pub fn new(
+        _state: &mut EMU::State, // only used to help the type system infer the real type of S.
+        emulator: EMU,
+        pre_exec: PRE,
+        post_exec: POST,
+        observers: OT,
+    ) -> Result<Self>
+    where
+        EMU: Emulator,
+        PRE: FnMut(&mut EMU::State, &EMU::Input, &mut EMU) -> Result<()>,
+        POST: FnMut(&mut EMU::State, &EMU::Input, &mut EMU, &mut ExitKind) -> Result<()>,
+    {
         Ok(Self {
             emulator,
             pre_exec,

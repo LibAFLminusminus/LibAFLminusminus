@@ -1,7 +1,3 @@
-use std::marker::PhantomData;
-
-use libaflmm::states::CoreState;
-
 use super::{
     EdgeCoverageVariant,
     helpers::{
@@ -16,6 +12,8 @@ use crate::{
         utils::filters::{StdAddressFilter, StdPageFilter},
     },
 };
+use libaflmm::states::State;
+use std::marker::PhantomData;
 
 #[derive(Debug)]
 pub struct EdgeCoverageClassicVariant;
@@ -43,7 +41,7 @@ impl<AF, PF, const IS_CONST_MAP: bool, const MAP_SIZE: usize>
         AF: AddressFilter,
         ET: EmulatorModuleTuple,
         ET::Input: 'static,
-        ET::State: CoreState + 'static,
+        ET::State: State + 'static,
         PF: PageFilter,
     {
         let hook_id = emulator_modules.blocks(
@@ -65,7 +63,7 @@ impl<AF, PF, const IS_CONST_MAP: bool, const MAP_SIZE: usize>
         AF: AddressFilter,
         ET: EmulatorModuleTuple,
         ET::Input: 'static,
-        ET::State: CoreState + 'static,
+        ET::State: State + 'static,
         PF: PageFilter,
     {
         let hook_id = emulator_modules.blocks(
@@ -87,7 +85,7 @@ impl<AF, PF, const IS_CONST_MAP: bool, const MAP_SIZE: usize>
         AF: AddressFilter,
         ET: EmulatorModuleTuple,
         ET::Input: 'static,
-        ET::State: CoreState + 'static,
+        ET::State: State + 'static,
         PF: PageFilter,
     {
         emulator_modules.blocks(
@@ -102,7 +100,7 @@ impl<AF, PF, const IS_CONST_MAP: bool, const MAP_SIZE: usize>
         AF: AddressFilter,
         ET: EmulatorModuleTuple,
         ET::Input: 'static,
-        ET::State: CoreState + 'static,
+        ET::State: State + 'static,
         PF: PageFilter,
     {
         emulator_modules.blocks(
