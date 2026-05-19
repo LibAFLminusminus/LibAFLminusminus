@@ -1,5 +1,6 @@
 //! Module defining [`Controller`]s.
 
+use core::time::Duration;
 use std::{
     fs::{self, File, OpenOptions},
     path::{Path, PathBuf},
@@ -7,12 +8,16 @@ use std::{
 
 use libaflmm_core::{Error, WorkerId, internal_bug};
 use nix::sys::signal::Signal;
+use quanta::{Clock, Instant};
 
 use crate::{
     Result,
     launchers::InstanceId,
     states::{Stats, sync_stats},
 };
+
+/// Default wait time between stats updates.
+const STATS_UPDATE_INTERVAL: Duration = Duration::from_secs(5);
 
 // pub mod aflpp;
 pub mod nop;
@@ -113,6 +118,8 @@ pub struct Workdir {
     stdout: Option<WorkdirFile>,
     stderr: Option<WorkdirFile>,
     stats: Option<WorkdirFile>,
+    clock: Clock,
+    last_stats_sync: Instant,
 }
 
 /// A workdir file is an abstract representation of a file owned by a [`Workir`].
@@ -216,11 +223,16 @@ impl Workdir {
             ));
         }
 
+        let clock = Clock::new();
+        let last_stats_sync = clock.now();
+
         Ok(Self {
             root_dir: root_dir.as_ref().to_path_buf(),
             stdout,
             stderr,
             stats,
+            clock,
+            last_stats_sync,
         })
     }
 
@@ -275,5 +287,17 @@ impl Workdir {
         }
 
         Ok(())
+    }
+
+    /// report stats every once in a while.
+    #[inline]
+    pub fn maybe_report_stats(&mut self, stats: &Stats) -> Result<()> {
+        let now = self.clock.now();
+        if now.duration_since(self.last_stats_sync) > STATS_UPDATE_INTERVAL {
+            self.last_stats_sync = now;
+            self.report_stats(stats)
+        } else {
+            Ok(())
+        }
     }
 }

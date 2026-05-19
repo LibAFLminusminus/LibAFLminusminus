@@ -1,11 +1,9 @@
 //! The standard [`Fuzzer`], for everyday use.
 
 use alloc::rc::Rc;
-use core::time::Duration;
 
 use libaflmm_bolts::current_time;
 use libaflmm_core::Result;
-use quanta::{Clock, Instant};
 use tuple_list::tuple_list;
 
 use crate::{
@@ -25,8 +23,6 @@ use crate::{
     stages::StagesTuple,
     states::State,
 };
-
-const STATS_UPDATE_INTERVAL: Duration = Duration::from_secs(5);
 
 /// Note: this code should not allocate at all.
 /// Any allocation can result in unexpected locks because of concurrency bug with the standard library.
@@ -157,8 +153,6 @@ pub struct StdFuzzer<F, H, OF> {
     objective: OF,
     fuzzer_hooks: H,
     initialized: bool,
-    clock: Clock,
-    last_synced: Instant,
 }
 
 /// The builder for std fuzzer
@@ -445,15 +439,6 @@ where
         // start the timer for this loop
         state.perf_stats_mut().iter_begin();
 
-        let now = self.clock.now();
-        if now - self.last_synced > STATS_UPDATE_INTERVAL {
-            rt_handle
-                .worker_mut()
-                .workdir_mut()
-                .report_stats(state.stats())?;
-            self.last_synced = now;
-        }
-
         self.fuzzer_hooks.pre_step_all(executor, state, rt_handle)?;
 
         // Get the next index from the scheduler
@@ -536,16 +521,11 @@ impl<F, H, OF> StdFuzzerBuilder<F, H, OF> {
 impl<F, H, OF> StdFuzzerBuilder<F, H, OF> {
     /// Build a [`StdFuzzer`] from this builder.
     pub fn build(self) -> StdFuzzer<F, H, OF> {
-        let clock = Clock::new();
-        let now = clock.now();
-
         StdFuzzer {
             feedback: self.feedback,
             objective: self.objective_feedback,
             fuzzer_hooks: self.hooks,
             initialized: false,
-            clock,
-            last_synced: now,
         }
     }
 }
