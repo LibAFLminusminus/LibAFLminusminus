@@ -44,6 +44,7 @@ fn handle_objective_in_termination_handler<E, F, H, I, OF, S, W>(
 where
     E: Executor<I, S>,
     F: Feedback<I, E::Observers, S>,
+    H: FuzzerHooksTuple<E, I, S, W>,
     I: Input,
     OF: Feedback<I, E::Observers, S>,
     S: State<Input = I>,
@@ -51,13 +52,9 @@ where
 {
     executor.observers_mut().post_exec_all(state, &exit_kind)?;
 
-    fuzzer.evaluate_execution(state, input, &*executor.observers_mut(), exit_kind)?;
+    fuzzer.post_execution(state, rt_handle, executor, input, exit_kind)?;
 
-    // update stats before exit
-    rt_handle
-        .worker_mut()
-        .workdir_mut()
-        .report_stats(state.stats())
+    Ok(())
 }
 
 /// Crash signals will end up there, if it happens during a fuzzing run.
@@ -69,6 +66,7 @@ unsafe fn std_on_crash<E, F, H, I, OF, S, W>(
 where
     E: Executor<I, S>,
     F: Feedback<I, E::Observers, S>,
+    H: FuzzerHooksTuple<E, I, S, W>,
     I: Input,
     OF: Feedback<I, E::Observers, S>,
     S: State<Input = I>,
@@ -114,6 +112,7 @@ unsafe fn std_on_timeout<E, F, H, I, OF, S, W>(
 where
     E: Executor<I, S>,
     F: Feedback<I, E::Observers, S>,
+    H: FuzzerHooksTuple<E, I, S, W>,
     I: Input,
     OF: Feedback<I, E::Observers, S>,
     S: State<Input = I>,
@@ -229,29 +228,24 @@ impl<F, H, OF> StdFuzzer<F, H, OF> {
 
         Ok(eval_res)
     }
-}
 
-impl<E, F, H, I, OF, S, W> Evaluator<E, I, S, W> for StdFuzzer<F, H, OF>
-where
-    E: Executor<I, S>,
-    F: Feedback<I, E::Observers, S>,
-    H: FuzzerHooksTuple<E, I, S, W>,
-    OF: Feedback<I, E::Observers, S>,
-    I: Input,
-    S: State<Input = I>,
-    W: Worker,
-{
-    /// Process one input, adding to the respective corpora if needed and firing the right events
-    #[inline]
-    fn evaluate_input(
+    fn post_execution<E, I, S, W>(
         &mut self,
         state: &mut S,
-        executor: &mut E,
         rt_handle: &mut RuntimeHandle<S, W>,
+        executor: &mut E,
         input: &I,
-    ) -> Result<EvaluationResult> {
-        let exit_kind = executor.execute(state, rt_handle, input)?;
-
+        exit_kind: ExitKind,
+    ) -> Result<EvaluationResult>
+    where
+        E: Executor<I, S>,
+        F: Feedback<I, E::Observers, S>,
+        H: FuzzerHooksTuple<E, I, S, W>,
+        I: Input,
+        OF: Feedback<I, E::Observers, S>,
+        S: State<Input = I>,
+        W: Worker,
+    {
         let observers = executor.observers();
         let result =
             self.evaluate_execution::<I, E::Observers, S>(state, input, &*observers, exit_kind)?;
@@ -333,6 +327,31 @@ where
         }
 
         Ok(result)
+    }
+}
+
+impl<E, F, H, I, OF, S, W> Evaluator<E, I, S, W> for StdFuzzer<F, H, OF>
+where
+    E: Executor<I, S>,
+    F: Feedback<I, E::Observers, S>,
+    H: FuzzerHooksTuple<E, I, S, W>,
+    OF: Feedback<I, E::Observers, S>,
+    I: Input,
+    S: State<Input = I>,
+    W: Worker,
+{
+    /// Process one input, adding to the respective corpora if needed and firing the right events
+    #[inline]
+    fn evaluate_input(
+        &mut self,
+        state: &mut S,
+        executor: &mut E,
+        rt_handle: &mut RuntimeHandle<S, W>,
+        input: &I,
+    ) -> Result<EvaluationResult> {
+        let exit_kind = executor.execute(state, rt_handle, input)?;
+
+        self.post_execution(state, rt_handle, executor, input, exit_kind)
     }
 }
 
