@@ -26,7 +26,7 @@ use crate::{
     states::State,
 };
 
-const STATS_UPDATE_INTERVAL: Duration = Duration::from_secs(4);
+const STATS_UPDATE_INTERVAL: Duration = Duration::from_secs(5);
 
 /// Note: this code should not allocate at all.
 /// Any allocation can result in unexpected locks because of concurrency bug with the standard library.
