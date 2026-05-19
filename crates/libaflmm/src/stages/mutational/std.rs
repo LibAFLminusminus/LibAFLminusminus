@@ -104,7 +104,7 @@ where
     Z: Evaluator<E, I, S, W>,
 {
     #[inline]
-    fn perform(
+    fn perform_impl(
         &mut self,
         fuzzer: &mut Z,
         executor: &mut E,

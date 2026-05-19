@@ -8,6 +8,7 @@ pub mod simple;
 pub use simple::SimpleMonitor;
 
 pub type StdMonitor = SimpleMonitor;
+pub mod perfstats;
 
 /// This module can show the fuzzer stats to the user via vairous way. like through the terminal or `WebUI` (WIP!)
 pub trait Monitor {

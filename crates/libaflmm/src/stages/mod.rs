@@ -5,11 +5,16 @@ Other stages may enrich [`crate::corpus::Testcase`]s with metadata.
 */
 
 use crate::{
-    DependencyResolver, Error, corpus::TestcaseId, mutators::StdMutator, runtimes::RuntimeHandle,
+    DependencyResolver, corpus::TestcaseId, mutators::StdMutator, runtimes::RuntimeHandle, states::CoreState, Result
 };
 use alloc::{boxed::Box, vec::Vec};
 use libaflmm_bolts::tuples::{HasConstLen, IntoVec};
 use tuple_list::NonEmptyTuple;
+
+
+use libaflmm_bolts::{
+    Named, current_time,
+};
 
 pub mod tracer;
 pub use tracer::*;
@@ -36,8 +41,25 @@ pub type StdStage<E, I, R, S, W, Z> = StdMutationalStage<E, I, StdMutator, R, S,
 
 /// A stage is one step in the fuzzing loop.
 /// Multiple stages will be scheduled one by one for each input.
-pub trait Stage<E, R, S, W, Z>: DependencyResolver {
-    /// Run the stage.
+pub trait Stage<E, R, S, W, Z>: DependencyResolver + Named
+where
+    S: CoreState,
+{
+    /// The actual stage body. Implementors put their work here.
+    fn perform_impl(
+        &mut self,
+        fuzzer: &mut Z,
+        executor: &mut E,
+        rand: &mut R,
+        state: &mut S,
+        rt_handle: &mut RuntimeHandle<S, W>,
+        testcase_id: &TestcaseId,
+    ) -> Result<()>;
+
+    /// Run the stage. Called from the fuzzer loop. The wrapper makes it
+    /// mandatory to record per-stage time, keyed by [`Named::name`], into
+    /// `state.perf_stats_mut()`. Meta-stages should override to skip the
+    /// recording so their inner stages each get their own bucket.
     fn perform(
         &mut self,
         fuzzer: &mut Z,
@@ -46,7 +68,14 @@ pub trait Stage<E, R, S, W, Z>: DependencyResolver {
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
         testcase_id: &TestcaseId,
-    ) -> Result<(), Error>;
+    ) -> Result<()> {
+        let start = current_time();
+        let res = self.perform_impl(fuzzer, executor, rand, state, rt_handle, testcase_id);
+        let elapsed = current_time().saturating_sub(start);
+        let name = self.name().clone();
+        state.perf_stats_mut().record_stage(&name, elapsed);
+        res
+    }
 }
 
 /// A tuple holding all [`Stages`] used for fuzzing.
@@ -60,7 +89,7 @@ pub trait StagesTuple<E, R, S, W, Z>: DependencyResolver {
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
         testcase_id: &TestcaseId,
-    ) -> Result<(), Error>;
+    ) -> Result<()>;
 }
 
 impl<E, R, S, W, Z> StagesTuple<E, R, S, W, Z> for () {
@@ -72,7 +101,7 @@ impl<E, R, S, W, Z> StagesTuple<E, R, S, W, Z> for () {
         _state: &mut S,
         _rt_handle: &mut RuntimeHandle<S, W>,
         _testcase_id: &TestcaseId,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         Ok(())
     }
 }
@@ -80,6 +109,7 @@ impl<E, R, S, W, Z> StagesTuple<E, R, S, W, Z> for () {
 impl<Head, Tail, E, R, S, W, Z> StagesTuple<E, R, S, W, Z> for (Head, Tail)
 where
     Head: Stage<E, R, S, W, Z>,
+    S: CoreState,
     Tail: StagesTuple<E, R, S, W, Z> + HasConstLen,
 {
     /// Performs all [`Stages`] in the tuple,
@@ -91,7 +121,7 @@ where
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
         testcase_id: &TestcaseId,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         let stage = &mut self.0;
 
         stage.perform(fuzzer, executor, rand, state, rt_handle, testcase_id)?;
@@ -104,6 +134,7 @@ where
 impl<Head, Tail, E, R, S, W, Z> IntoVec<Box<dyn Stage<E, R, S, W, Z>>> for (Head, Tail)
 where
     Head: Stage<E, R, S, W, Z> + 'static,
+    S: CoreState,
     Tail: StagesTuple<E, R, S, W, Z> + HasConstLen + IntoVec<Box<dyn Stage<E, R, S, W, Z>>>,
 {
     fn into_vec_reversed(self) -> Vec<Box<dyn Stage<E, R, S, W, Z>>> {
@@ -136,7 +167,7 @@ impl<E, R, S, W, Z> IntoVec<Box<dyn Stage<E, R, S, W, Z>>> for Vec<Box<dyn Stage
 }
 
 impl<E, R, S, W, Z> DependencyResolver for Vec<Box<dyn Stage<E, R, S, W, Z>>> {
-    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<(), Error> {
+    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<()> {
         for st in self {
             st.register(registrator)?;
         }
@@ -144,7 +175,7 @@ impl<E, R, S, W, Z> DependencyResolver for Vec<Box<dyn Stage<E, R, S, W, Z>>> {
         Ok(())
     }
 
-    fn register_with_ty(&mut self, registrator: &mut crate::Registrator) -> Result<(), Error> {
+    fn register_with_ty(&mut self, registrator: &mut crate::Registrator) -> Result<()> {
         for st in self {
             st.register_with_ty(registrator)?;
         }
@@ -152,7 +183,7 @@ impl<E, R, S, W, Z> DependencyResolver for Vec<Box<dyn Stage<E, R, S, W, Z>>> {
         Ok(())
     }
 
-    fn check(&self, checker: &crate::CompatibilityChecker) -> Result<(), Error> {
+    fn check(&self, checker: &crate::CompatibilityChecker) -> Result<()> {
         for st in self {
             st.check(checker)?;
         }
@@ -161,7 +192,10 @@ impl<E, R, S, W, Z> DependencyResolver for Vec<Box<dyn Stage<E, R, S, W, Z>>> {
     }
 }
 
-impl<E, R, S, W, Z> StagesTuple<E, R, S, W, Z> for Vec<Box<dyn Stage<E, R, S, W, Z>>> {
+impl<E, R, S, W, Z> StagesTuple<E, R, S, W, Z> for Vec<Box<dyn Stage<E, R, S, W, Z>>>
+where
+    S: CoreState,
+{
     /// Performs all stages in the `Vec`
     fn perform_all(
         &mut self,
@@ -171,7 +205,7 @@ impl<E, R, S, W, Z> StagesTuple<E, R, S, W, Z> for Vec<Box<dyn Stage<E, R, S, W,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
         testcase_id: &TestcaseId,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         self.iter_mut().try_for_each(|stage| {
             stage.perform(fuzzer, executor, rand, state, rt_handle, testcase_id)
         })

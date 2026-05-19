@@ -38,6 +38,8 @@ use std::{
 };
 use typed_builder::TypedBuilder;
 
+use crate::monitors::perfstats::PerfStats;
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 /// The stats the fuzzer produces at intervals.
 pub struct Stats {
@@ -129,6 +131,10 @@ pub trait CoreState {
 
     /// Get the [`Stats`] (mutable)
     fn stats_mut(&mut self) -> &mut Stats;
+
+    /// Mutable reference to the introspection [`PerfStats`].
+    fn perf_stats_mut(&mut self) -> &mut PerfStats;
+
     /// The maximum size of an [`Input`]
     fn max_size(&self) -> usize;
 
@@ -290,6 +296,8 @@ pub struct StdState<C, CT, I, OC, SC> {
     dont_reenter: Option<Vec<PathBuf>>,
     metadata_initialized: bool,
     stats: Stats,
+    /// performance counters used by the introspection macros.
+    perf_stats: PerfStats,
     phantom: PhantomData<(I, SC)>,
 }
 
@@ -552,6 +560,10 @@ impl<C, CT, I, OC, SC> CoreState for StdState<C, CT, I, OC, SC> {
 
     fn stats_mut(&mut self) -> &mut Stats {
         &mut self.stats
+    }
+
+    fn perf_stats_mut(&mut self) -> &mut PerfStats {
+        &mut self.perf_stats
     }
 
     /// The max size allowed for this [`Input`]
@@ -1054,6 +1066,7 @@ where
             phantom: PhantomData,
             testcase_metadata: HashMap::new(),
             metadata_initialized: false,
+            perf_stats: PerfStats::new(),
         };
         Ok(state)
     }
