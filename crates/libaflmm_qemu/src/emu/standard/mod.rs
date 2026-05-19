@@ -87,7 +87,7 @@ where
                 match qemu_exit {
                     QemuShutdownCause::GuestPanic
                     | QemuShutdownCause::GuestReset
-                    | QemuShutdownCause::GuestShutdown => return Ok(ExitKind::Crash),
+                    | QemuShutdownCause::GuestShutdown => Ok(ExitKind::Crash),
                     e => panic!("Bug in LibAFL QEMU fuzzer: {e:?}"),
                 }
             }
