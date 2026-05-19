@@ -77,7 +77,6 @@ where
 
         self.emulator.pre_exec(state, input)?;
 
-        eprintln!("execute_impl");
         let mut exit_kind = self.emulator.exec_input(input)?;
 
         (self.post_exec)(state, input, &mut self.emulator, &mut exit_kind)?;

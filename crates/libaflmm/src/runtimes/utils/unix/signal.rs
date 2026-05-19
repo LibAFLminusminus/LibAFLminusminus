@@ -134,7 +134,7 @@ where
                     exit(LIBAFLMM_EXIT_RESTART);
                 }
                 TimeoutStatus::Resume => {
-                    eprintln!("Resume!");
+                    log::info!("Resuming...");
                     // resume the fuzzer on timeout
                 }
             }

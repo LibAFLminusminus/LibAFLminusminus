@@ -3,6 +3,8 @@
 use core::time::Duration;
 use std::{
     fs::{self, File, OpenOptions},
+    io::{stderr, stdout},
+    os::fd::{AsRawFd, FromRawFd},
     path::{Path, PathBuf},
 };
 
@@ -130,6 +132,12 @@ pub enum WorkdirFile {
     Path(PathBuf),
     /// File described as a [`File`].
     File(File),
+    /// Stdout
+    Stdout,
+    /// Stderr
+    Stderr,
+    /// /dev/null
+    Null,
 }
 
 impl Clone for WorkdirFile {
@@ -137,40 +145,60 @@ impl Clone for WorkdirFile {
         match self {
             WorkdirFile::Path(p) => WorkdirFile::Path(p.clone()),
             WorkdirFile::File(f) => WorkdirFile::File(f.try_clone().unwrap()),
+            WorkdirFile::Stdout => WorkdirFile::Stdout,
+            WorkdirFile::Stderr => WorkdirFile::Stderr,
+            WorkdirFile::Null => WorkdirFile::Null,
         }
     }
 }
 
 impl WorkdirFile {
+    fn setup_fd(&mut self, root_dir: impl AsRef<Path>, is_write: bool) -> Result<()> {
+        match self {
+            WorkdirFile::File(_) => {}
+            WorkdirFile::Path(path) => {
+                let full_path = root_dir.as_ref().join(path.as_path());
+
+                let file = if is_write {
+                    OpenOptions::new()
+                        .write(true)
+                        .create(true)
+                        .truncate(true)
+                        .open(full_path)?
+                } else {
+                    if !full_path.exists() {
+                        return Ok(());
+                    }
+
+                    OpenOptions::new().read(true).open(full_path)?
+                };
+
+                *self = WorkdirFile::File(file);
+            }
+            WorkdirFile::Stdout => {
+                *self = WorkdirFile::File(unsafe { File::from_raw_fd(stdout().as_raw_fd()) })
+            }
+            WorkdirFile::Stderr => {
+                *self = WorkdirFile::File(unsafe { File::from_raw_fd(stderr().as_raw_fd()) })
+            }
+            WorkdirFile::Null => {
+                *self =
+                    WorkdirFile::File(File::open("/dev/null").expect("Could not open /dev/null"))
+            }
+        }
+
+        Ok(())
+    }
+
     /// Open a [`File`] in read-only mode from its path.
     ///
     /// Returns [`None`] if the path does not exist.
     pub fn get_file_rd(&mut self, root_dir: impl AsRef<Path>) -> Result<Option<File>> {
-        let path: Option<PathBuf> = if let WorkdirFile::Path(p) = self {
-            Some(p.clone())
-        } else {
-            None
-        };
-
-        if let Some(p) = path {
-            let full_path = root_dir.as_ref().join(p.as_path());
-
-            if !full_path.exists() {
-                return Ok(None);
-            }
-
-            let file = OpenOptions::new().read(true).open(full_path)?;
-
-            *self = WorkdirFile::File(file);
-        }
+        self.setup_fd(root_dir, false)?;
 
         let file: &mut File = match self {
             WorkdirFile::File(file) => file,
-            WorkdirFile::Path(_) => {
-                return Err(internal_bug!(
-                    "The workdir file should be a file at this point"
-                ));
-            }
+            _ => return Ok(None),
         };
 
         Ok(Some(file.try_clone().unwrap()))
@@ -180,25 +208,11 @@ impl WorkdirFile {
     ///
     /// Creates the file if the path does not exist.
     pub fn get_file_wr(&mut self, root_dir: impl AsRef<Path>) -> Result<File> {
-        let path: Option<PathBuf> = if let WorkdirFile::Path(p) = self {
-            Some(p.clone())
-        } else {
-            None
-        };
-
-        if let Some(p) = path {
-            let file = OpenOptions::new()
-                .write(true)
-                .create(true)
-                .truncate(true)
-                .open(root_dir.as_ref().join(p.as_path()))?;
-
-            *self = WorkdirFile::File(file);
-        }
+        self.setup_fd(root_dir, true)?;
 
         let file: &mut File = match self {
             WorkdirFile::File(file) => file,
-            WorkdirFile::Path(_) => {
+            _ => {
                 return Err(internal_bug!(
                     "The workdir file should be a file at this point"
                 ));

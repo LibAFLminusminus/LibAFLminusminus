@@ -40,6 +40,7 @@ pub fn fuzz() -> Result<()> {
     // Hardcoded parameters
     let cores = Cores::from_cmdline("1").unwrap();
     let input_dir = PathBuf::from("./corpus");
+    let timeout = Duration::from_secs(3);
 
     let mut elf_buffer = Vec::new();
     let elf = EasyElf::from_file(
@@ -75,16 +76,12 @@ pub fn fuzz() -> Result<()> {
     let monitor = StdMonitor::new();
 
     // The launcher supervises the fuzzer and communicates with the workers.
-    let controller = StdController::builder()
-        .worker_stdout(None)
-        .worker_stderr(None)
-        .overwrite(true)
-        .build()?;
+    let controller = StdController::builder().overwrite(true).build()?;
 
     // Build and run a Launcher
     StdLauncher::builder()?
         .controller(controller)
-        .timeout(Some(Duration::from_secs(5)))
+        .timeout(Some(timeout))
         .state_builder(|worker| {
             let objective_dir = worker.workdir().create_dir("./crashes")?;
             let scheduler = QueueScheduler::new();

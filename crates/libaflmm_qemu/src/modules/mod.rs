@@ -1,9 +1,7 @@
 #[cfg(feature = "systemmode")]
-use crate::modules::utils::filters::{HasPageFilter, NopPageFilter};
-#[cfg(feature = "systemmode")]
 use crate::modules::utils::filters::HasPageFilterTuple;
 #[cfg(feature = "systemmode")]
-use libaflmm_qemu_sys::GuestPhysAddr;
+use crate::modules::utils::filters::{HasPageFilter, NopPageFilter};
 use crate::{
     GuestAddr, Qemu, QemuParams,
     emu::EmulatorModules,
@@ -11,12 +9,14 @@ use crate::{
         HasAddressFilter, HasAddressFilterTuple, HasStdFiltersTuple, NopAddressFilter,
     },
 };
-use core::ops::Range;
 use core::fmt::Debug;
+use core::ops::Range;
 use libaflmm::{
     Result, executors::ExitKind, inputs::Input, observers::ObserversTuple, states::State,
 };
 use libaflmm_bolts::tuples::{MatchFirstType, SplitBorrowExtractFirstType};
+#[cfg(feature = "systemmode")]
+use libaflmm_qemu_sys::GuestPhysAddr;
 use std::marker::PhantomData;
 
 // #[cfg(feature = "usermode")]

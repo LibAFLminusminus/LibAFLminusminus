@@ -38,11 +38,7 @@ pub fn fuzz() -> Result<()> {
     let monitor = StdMonitor::new();
 
     // The launcher supervises the fuzzer and communicates with the workers.
-    let controller = StdController::builder()
-        .worker_stdout(None)
-        .worker_stderr(None)
-        .overwrite(true)
-        .build()?;
+    let controller = StdController::builder().overwrite(true).build()?;
 
     // Build and run a Launcher
     StdLauncher::builder()?

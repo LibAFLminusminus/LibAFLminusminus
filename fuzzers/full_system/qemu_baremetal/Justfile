@@ -72,13 +72,20 @@ test_flavor flavor="low_level": (target flavor) (build flavor)
         -drive if=none,format=qcow2,file={{ DUMMY_IMG }} \
         -nographic \
         -snapshot \
-        -S | tee "./workdir/fuzz.log" 2>&1
+        -S || true
 
-    if [ -z "$(grep 'Objective' ./workdir/fuzz.log)" ]; then
-        echo "qemu_baremetal ${FEATURE}: Fuzzer did not find the objective in ./workdir/fuzz.log"
+    STATS_FILE="./workdir/worker_0/fuzzer_stats"
+    if [ ! -f "$STATS_FILE" ]; then
+        echo "qemu_baremetal {{ flavor }}: Stats file not found at $STATS_FILE"
+        exit 1
+    fi
+
+    OBJECTIVE=$(jq '.objective' "$STATS_FILE")
+    if [ "$OBJECTIVE" -eq 0 ]; then
+        echo "qemu_baremetal {{ flavor }}: Fuzzer did not find any objective (stats: $STATS_FILE)"
         exit 1
     else
-        echo "qemu_baremetal ${FEATURE}: Objective found."
+        echo "qemu_baremetal {{ flavor }}: Found $OBJECTIVE objective(s)."
     fi
 
 test: (test_flavor "low_level") (test_flavor "breakpoint") (test_flavor "custom_insn")
