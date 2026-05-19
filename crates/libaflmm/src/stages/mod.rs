@@ -71,7 +71,7 @@ where
         let res = self.perform_impl(fuzzer, executor, rand, state, rt_handle, testcase_id);
         let elapsed = current_time().saturating_sub(start);
         let name = self.name().clone();
-        state.perf_stats_mut().record_stage(&name, elapsed);
+        state.perf_stats_mut().record_stage(name, elapsed);
         res
     }
 }
