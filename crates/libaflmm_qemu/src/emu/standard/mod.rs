@@ -130,6 +130,10 @@ where
     fn on_timeout(&mut self) -> Result<()> {
         unsafe { self.modules.modules_mut().on_timeout_all() }
     }
+
+    fn qemu(&self) -> Qemu {
+        self.qemu
+    }
 }
 
 impl<C, I, S> StdEmulator<C, NopCommandManager, NopEmulatorDriver, (), I, S, NopSnapshotManager> {

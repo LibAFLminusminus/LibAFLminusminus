@@ -41,23 +41,28 @@ build-multiarch flavor="low_level": target_dir
         --target-dir {{ TARGET_DIR }}
 
 run flavor="low_level": (target flavor) (build flavor)
-    {{ BUILD_DIR / "qemu_baremetal" }} \
+    #!/bin/bash
+    set -eu
+
+    export KERNEL={{ KERNEL }}
+    export TARGET_DIR={{ TARGET_DIR }}
+
+    {{ FUZZER }} \
         -icount shift=auto,align=off,sleep=off \
         -machine mps2-an385 \
         -monitor null \
-        -kernel {{ KERNEL }} \
+        -kernel {{ KERNEL }} -serial null \
         -drive if=none,format=qcow2,file={{ DUMMY_IMG }} \
-        -serial null \
         -nographic \
         -snapshot \
         -S
 
 test_flavor flavor="low_level": (target flavor) (build flavor)
     #!/bin/bash
+    set -eu
+
     export KERNEL={{ KERNEL }}
     export TARGET_DIR={{ TARGET_DIR }}
-
-    TMP_DIR=$(mktemp -d)
 
     timeout 10s {{ FUZZER }} \
         -icount shift=auto,align=off,sleep=off \
@@ -67,10 +72,10 @@ test_flavor flavor="low_level": (target flavor) (build flavor)
         -drive if=none,format=qcow2,file={{ DUMMY_IMG }} \
         -nographic \
         -snapshot \
-        -S | tee "$TMP_DIR/fuzz.log" 2>&1 || true
+        -S | tee "./workdir/fuzz.log" 2>&1
 
-    if [ -z "$(grep 'Objective' $TMP_DIR/fuzz.log)" ]; then
-        echo "qemu_baremetal ${FEATURE}: Fuzzer did not find the objective in $TMP_DIR/fuzz.log"
+    if [ -z "$(grep 'Objective' ./workdir/fuzz.log)" ]; then
+        echo "qemu_baremetal ${FEATURE}: Fuzzer did not find the objective in ./workdir/fuzz.log"
         exit 1
     else
         echo "qemu_baremetal ${FEATURE}: Objective found."
@@ -80,4 +85,3 @@ test: (test_flavor "low_level") (test_flavor "breakpoint") (test_flavor "custom_
 
 clean:
     cargo clean
-

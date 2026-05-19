@@ -133,9 +133,8 @@ where
 
                                 signal_exit => {
                                     // the child returned with signal exit code
-                                    return Err(Error::runtime(format!(
-                                        "The child exited with code: {signal_exit}"
-                                    )));
+                                    log::error!("The child exited with code: {signal_exit}");
+                                    exit(signal_exit);
                                 }
                             }
                         }

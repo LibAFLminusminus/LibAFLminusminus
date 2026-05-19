@@ -11,7 +11,7 @@ use libaflmm::{
 use libaflmm_qemu_sys::{GuestAddr, GuestPhysAddr, GuestVirtAddr};
 
 use crate::{
-    QemuShutdownCause, breakpoint::Breakpoint, command::CommandError, sync_exit::CustomInsn,
+    Qemu, QemuShutdownCause, breakpoint::Breakpoint, command::CommandError, sync_exit::CustomInsn,
 };
 
 pub mod standard;
@@ -49,6 +49,8 @@ pub trait Emulator {
     fn on_crash(&mut self) -> Result<()>;
 
     fn on_timeout(&mut self) -> Result<()>;
+
+    fn qemu(&self) -> Qemu;
 }
 
 #[derive(Copy, Clone)]

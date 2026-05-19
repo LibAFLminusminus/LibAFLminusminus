@@ -14,7 +14,7 @@ use libaflmm::{
     observers::{HitcountsMapObserver, TimeObserver, VariableMapObserver},
     stages::StdMutationalStage,
     states::{State, StdState},
-    Fuzzer, Result, StdFuzzer, Worker,
+    Fuzzer, Result, StdController, StdFuzzer, Worker,
 };
 use libaflmm_bolts::{
     core_affinity::Cores, ownedref::OwnedMutSlice, rands::StdRand, tuples::tuple_list, AsSlice,
@@ -22,12 +22,11 @@ use libaflmm_bolts::{
 use libaflmm_qemu::{
     config::{self, QemuConfig},
     elf::EasyElf,
-    executor::QemuExecutor,
     modules::{edges::StdEdgeCoverageModuleBuilder, NopModule},
-    GuestAddr, GuestPhysAddr, QemuExitReason, QemuRWError, Regs, StdEmulator,
+    GuestAddr, GuestPhysAddr, QemuExitReason, QemuRWError, Regs, SimpleQemuExecutor, StdEmulator,
 };
 use libaflmm_targets::{edges_map_mut_ptr, EDGES_MAP_DEFAULT_SIZE, MAX_EDGES_FOUND};
-use std::{env, path::PathBuf, process, result};
+use std::{env, path::PathBuf, result, time::Duration};
 
 pub static mut MAX_INPUT_SIZE: usize = 50;
 
@@ -72,15 +71,22 @@ pub fn fuzz() -> Result<()> {
         .expect("Symbol or env BREAKPOINT not found");
     println!("Breakpoint address = {breakpoint:#x}");
 
-    // If not restarting, create a State from scratch
-
     // The monitor
     let monitor = StdMonitor::new();
 
+    // The launcher supervises the fuzzer and communicates with the workers.
+    let controller = StdController::builder()
+        .worker_stdout(None)
+        .worker_stderr(None)
+        .overwrite(true)
+        .build()?;
+
     // Build and run a Launcher
     StdLauncher::builder()?
+        .controller(controller)
+        .timeout(Some(Duration::from_secs(5)))
         .state_builder(|worker| {
-            let objective_dir = worker.workdir().root_dir().join("./crashes");
+            let objective_dir = worker.workdir().create_dir("./crashes")?;
             let scheduler = QueueScheduler::new();
 
             StdState::new(
@@ -95,8 +101,6 @@ pub fn fuzz() -> Result<()> {
         .monitor(monitor)
         .cores(cores)
         .build_inprocess(move |rt_handle, state| {
-            println!("Input count: {}", state.corpus().count());
-
             let target_dir = env::var("TARGET_DIR").expect("TARGET_DIR env not set");
             let mut rand = StdRand::new();
 
@@ -173,10 +177,10 @@ pub fn fuzz() -> Result<()> {
             let objective = feedback_or_fast!(CrashFeedback::new(), TimeoutFeedback::new());
 
             // Create a QEMU in-process executor
-            let mut executor = QemuExecutor::new(
+            let mut executor = SimpleQemuExecutor::new(
                 state,
                 emulator,
-                |state, input, _emulator| {
+                |state, input, qemu| {
                     let target = state.context_mut().to_bytes(input);
                     let mut buf = target.as_slice();
                     let len = buf.len();
@@ -189,9 +193,13 @@ pub fn fuzz() -> Result<()> {
                         qemu.write_phys_mem(input_addr, buf);
                     }
 
-                    Ok(())
-                },
-                |_state, _input, _emu, exit_kind| {
+                    match unsafe { qemu.run().unwrap() } {
+                        QemuExitReason::Timeout => {
+                            return Ok(ExitKind::Timeout);
+                        }
+                        _ => {}
+                    }
+
                     // If the execution stops at any point other than the designated breakpoint (e.g. a breakpoint on a panic method) we consider it a crash
                     let mut pcs = (0..qemu.num_cpus())
                         .map(|i| qemu.cpu_from_index(i).unwrap())
@@ -199,15 +207,11 @@ pub fn fuzz() -> Result<()> {
                             cpu.read_reg(Regs::Pc).map(|res| res as GuestAddr)
                         });
 
-                    match pcs
+                    let exit_kind = match pcs
                         .find(|pc| (breakpoint..breakpoint + 5).contains(pc.as_ref().unwrap_or(&0)))
                     {
-                        Some(_) => {
-                            *exit_kind = ExitKind::Ok;
-                        }
-                        None => {
-                            *exit_kind = ExitKind::Crash;
-                        }
+                        Some(_) => ExitKind::Ok,
+                        None => ExitKind::Crash,
                     };
 
                     // OPTION 1: restore only the CPU state (registers et. al)
@@ -223,14 +227,14 @@ pub fn fuzz() -> Result<()> {
                         qemu.restore_fast_snapshot(snap);
                     }
 
-                    Ok(())
+                    Ok(exit_kind)
                 },
                 tuple_list!(edges_observer, time_observer),
             )
             .expect("Failed to create QemuExecutor");
 
-            // Instead of calling the timeout handler and restart the process, trigger a breakpoint ASAP
-            executor.break_on_timeout();
+            // // Instead of calling the timeout handler and restart the process, trigger a breakpoint ASAP
+            // executor.break_on_timeout();
 
             // Setup an havoc mutator with a mutational stage
             let mutator = HavocScheduledMutator::new(havoc_mutations());
@@ -254,9 +258,8 @@ pub fn fuzz() -> Result<()> {
                         rt_handle,
                         &[input_dir.clone()],
                     )
-                    .unwrap_or_else(|_| {
-                        println!("Failed to load initial corpus at {:?}", &input_dir);
-                        process::exit(0);
+                    .unwrap_or_else(|e| {
+                        panic!("Failed to load initial corpus in {:?}: {e:?}", &input_dir);
                     });
                 println!("We imported {} inputs from disk.", state.corpus().count());
             }
