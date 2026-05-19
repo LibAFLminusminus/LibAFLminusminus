@@ -1,15 +1,13 @@
-use std::{fmt::Debug, marker::PhantomData, ptr};
-
-use libaflmm::{Result, inputs::Input, observers::VarLenMapObserver, states::State};
-use libaflmm_qemu_sys::GuestAddr;
-#[cfg(feature = "systemmode")]
-use libaflmm_qemu_sys::GuestPhysAddr;
-
 use crate::{
     Qemu,
     emu::EmulatorModules,
     modules::{AddressFilter, EmulatorModule, EmulatorModuleTuple, PageFilter},
 };
+use libaflmm::{Result, observers::VarLenMapObserver, states::State};
+use libaflmm_qemu_sys::GuestAddr;
+#[cfg(feature = "systemmode")]
+use libaflmm_qemu_sys::GuestPhysAddr;
+use std::{fmt::Debug, ptr};
 
 mod helpers;
 use helpers::{
@@ -38,19 +36,13 @@ use super::utils::filters::HasAddressFilter;
 use super::utils::filters::HasPageFilter;
 
 /// Standard edge coverage module, adapted to most use cases
-pub type StdEdgeCoverageModule<I, S> = StdEdgeCoverageFullModule<I, S>;
+pub type StdEdgeCoverageModule = StdEdgeCoverageFullModule;
 
 /// Standard edge coverage module builder, adapted to most use cases
-pub type StdEdgeCoverageModuleBuilder<I, S> = StdEdgeCoverageFullModuleBuilder<I, S>;
+pub type StdEdgeCoverageModuleBuilder = StdEdgeCoverageFullModuleBuilder;
 
-pub type CollidingEdgeCoverageModule<
-    AF,
-    I,
-    PF,
-    S,
-    const IS_CONST_MAP: bool,
-    const MAP_SIZE: usize,
-> = EdgeCoverageModule<AF, I, PF, S, EdgeCoverageChildVariant, IS_CONST_MAP, MAP_SIZE>;
+pub type CollidingEdgeCoverageModule<AF, PF, const IS_CONST_MAP: bool, const MAP_SIZE: usize> =
+    EdgeCoverageModule<AF, PF, EdgeCoverageChildVariant, IS_CONST_MAP, MAP_SIZE>;
 
 /// An edge coverage module variant.
 trait EdgeCoverageVariant<AF, PF, const IS_CONST_MAP: bool, const MAP_SIZE: usize>:
@@ -58,46 +50,46 @@ trait EdgeCoverageVariant<AF, PF, const IS_CONST_MAP: bool, const MAP_SIZE: usiz
 {
     const DO_SIDE_EFFECTS: bool = true;
 
-    fn jit_hitcount<ET>(&mut self, _emulator_modules: &mut EmulatorModules<ET>)
+    fn jit_hitcount<ET, I, S>(&mut self, _emulator_modules: &mut EmulatorModules<ET, I, S>)
     where
         AF: AddressFilter,
-        ET: EmulatorModuleTuple,
-        ET::Input: 'static,
-        ET::State: State + 'static,
+        ET: EmulatorModuleTuple<I, S>,
         PF: PageFilter,
+        I: Unpin,
+        S: State + Unpin,
     {
         panic!("JIT hitcount is not supported.")
     }
 
-    fn jit_no_hitcount<ET>(&mut self, _emulator_modules: &mut EmulatorModules<ET>)
+    fn jit_no_hitcount<ET, I, S>(&mut self, _emulator_modules: &mut EmulatorModules<ET, I, S>)
     where
         AF: AddressFilter,
-        ET: EmulatorModuleTuple,
-        ET::Input: 'static,
-        ET::State: State + 'static,
+        ET: EmulatorModuleTuple<I, S>,
         PF: PageFilter,
+        I: Unpin,
+        S: State + Unpin,
     {
         panic!("JIT no hitcount is not supported.")
     }
 
-    fn fn_hitcount<ET>(&mut self, _emulator_modules: &mut EmulatorModules<ET>)
+    fn fn_hitcount<ET, I, S>(&mut self, _emulator_modules: &mut EmulatorModules<ET, I, S>)
     where
         AF: AddressFilter,
-        ET: EmulatorModuleTuple,
-        ET::Input: 'static,
-        ET::State: State + 'static,
+        ET: EmulatorModuleTuple<I, S>,
         PF: PageFilter,
+        I: Unpin,
+        S: State + Unpin,
     {
         panic!("Func hitcount is not supported.")
     }
 
-    fn fn_no_hitcount<ET>(&mut self, _emulator_modules: &mut EmulatorModules<ET>)
+    fn fn_no_hitcount<ET, I, S>(&mut self, _emulator_modules: &mut EmulatorModules<ET, I, S>)
     where
         AF: AddressFilter,
-        ET: EmulatorModuleTuple,
-        ET::Input: 'static,
-        ET::State: State + 'static,
+        ET: EmulatorModuleTuple<I, S>,
         PF: PageFilter,
+        I: Unpin,
+        S: State + Unpin,
     {
         panic!("Func no hitcount is not supported.")
     }
@@ -106,9 +98,7 @@ trait EdgeCoverageVariant<AF, PF, const IS_CONST_MAP: bool, const MAP_SIZE: usiz
 #[derive(Debug)]
 pub struct EdgeCoverageModuleBuilder<
     AF,
-    I,
     PF,
-    S,
     V,
     const IS_INITIALIZED: bool,
     const IS_CONST_MAP: bool,
@@ -119,11 +109,10 @@ pub struct EdgeCoverageModuleBuilder<
     page_filter: PF,
     use_hitcounts: bool,
     use_jit: bool,
-    phantom: PhantomData<(I, S)>,
 }
 
 #[derive(Debug)]
-pub struct EdgeCoverageModule<AF, I, PF, S, V, const IS_CONST_MAP: bool, const MAP_SIZE: usize> {
+pub struct EdgeCoverageModule<AF, PF, V, const IS_CONST_MAP: bool, const MAP_SIZE: usize> {
     variant: V,
     address_filter: AF,
     // we only use it in system mode at the moment.
@@ -131,13 +120,12 @@ pub struct EdgeCoverageModule<AF, I, PF, S, V, const IS_CONST_MAP: bool, const M
     page_filter: PF,
     use_hitcounts: bool,
     use_jit: bool,
-    phantom: PhantomData<(I, S)>,
 }
 
-impl<AF, I, PF, S, V, const IS_INITIALIZED: bool, const IS_CONST_MAP: bool, const MAP_SIZE: usize>
-    EdgeCoverageModuleBuilder<AF, I, PF, S, V, IS_INITIALIZED, IS_CONST_MAP, MAP_SIZE>
+impl<AF, PF, V, const IS_INITIALIZED: bool, const IS_CONST_MAP: bool, const MAP_SIZE: usize>
+    EdgeCoverageModuleBuilder<AF, PF, V, IS_INITIALIZED, IS_CONST_MAP, MAP_SIZE>
 {
-    pub fn build(self) -> Result<EdgeCoverageModule<AF, I, PF, S, V, IS_CONST_MAP, MAP_SIZE>> {
+    pub fn build(self) -> Result<EdgeCoverageModule<AF, PF, V, IS_CONST_MAP, MAP_SIZE>> {
         const {
             assert!(
                 IS_INITIALIZED,
@@ -155,8 +143,8 @@ impl<AF, I, PF, S, V, const IS_INITIALIZED: bool, const IS_CONST_MAP: bool, cons
     }
 }
 
-impl<AF, I, PF, S, V, const IS_INITIALIZED: bool, const IS_CONST_MAP: bool, const MAP_SIZE: usize>
-    EdgeCoverageModuleBuilder<AF, I, PF, S, V, IS_INITIALIZED, IS_CONST_MAP, MAP_SIZE>
+impl<AF, PF, V, const IS_INITIALIZED: bool, const IS_CONST_MAP: bool, const MAP_SIZE: usize>
+    EdgeCoverageModuleBuilder<AF, PF, V, IS_INITIALIZED, IS_CONST_MAP, MAP_SIZE>
 {
     fn new(
         variant: V,
@@ -171,7 +159,6 @@ impl<AF, I, PF, S, V, const IS_INITIALIZED: bool, const IS_CONST_MAP: bool, cons
             page_filter,
             use_hitcounts,
             use_jit,
-            phantom: PhantomData,
         }
     }
 
@@ -179,7 +166,7 @@ impl<AF, I, PF, S, V, const IS_INITIALIZED: bool, const IS_CONST_MAP: bool, cons
     pub fn map_observer<O>(
         self,
         map_observer: &mut O,
-    ) -> EdgeCoverageModuleBuilder<AF, I, PF, S, V, true, false, 0>
+    ) -> EdgeCoverageModuleBuilder<AF, PF, V, true, false, 0>
     where
         O: VarLenMapObserver,
     {
@@ -194,7 +181,7 @@ impl<AF, I, PF, S, V, const IS_INITIALIZED: bool, const IS_CONST_MAP: bool, cons
             LIBAFL_QEMU_EDGES_MAP_MASK_MAX = map_max_size - 1;
         }
 
-        EdgeCoverageModuleBuilder::<AF, I, PF, S, V, true, false, 0>::new(
+        EdgeCoverageModuleBuilder::<AF, PF, V, true, false, 0>::new(
             self.variant,
             self.address_filter,
             self.page_filter,
@@ -207,7 +194,7 @@ impl<AF, I, PF, S, V, const IS_INITIALIZED: bool, const IS_CONST_MAP: bool, cons
     pub fn const_map_observer<O, const NEW_MAP_SIZE: usize>(
         self,
         map_observer: &mut O,
-    ) -> EdgeCoverageModuleBuilder<AF, I, PF, S, V, true, true, NEW_MAP_SIZE>
+    ) -> EdgeCoverageModuleBuilder<AF, PF, V, true, true, NEW_MAP_SIZE>
     where
         O: ConstLenMapObserver<NEW_MAP_SIZE>,
     {
@@ -220,7 +207,7 @@ impl<AF, I, PF, S, V, const IS_INITIALIZED: bool, const IS_CONST_MAP: bool, cons
             LIBAFL_QEMU_EDGES_MAP_MASK_MAX = NEW_MAP_SIZE - 1;
         }
 
-        EdgeCoverageModuleBuilder::<AF, I, PF, S, V, true, true, NEW_MAP_SIZE>::new(
+        EdgeCoverageModuleBuilder::<AF, PF, V, true, true, NEW_MAP_SIZE>::new(
             self.variant,
             self.address_filter,
             self.page_filter,
@@ -232,7 +219,7 @@ impl<AF, I, PF, S, V, const IS_INITIALIZED: bool, const IS_CONST_MAP: bool, cons
     pub fn variant<V2>(
         self,
         variant: V2,
-    ) -> EdgeCoverageModuleBuilder<AF, I, PF, S, V2, IS_INITIALIZED, IS_CONST_MAP, MAP_SIZE> {
+    ) -> EdgeCoverageModuleBuilder<AF, PF, V2, IS_INITIALIZED, IS_CONST_MAP, MAP_SIZE> {
         EdgeCoverageModuleBuilder::new(
             variant,
             self.address_filter,
@@ -245,7 +232,7 @@ impl<AF, I, PF, S, V, const IS_INITIALIZED: bool, const IS_CONST_MAP: bool, cons
     pub fn address_filter<AF2>(
         self,
         address_filter: AF2,
-    ) -> EdgeCoverageModuleBuilder<AF2, I, PF, S, V, IS_INITIALIZED, IS_CONST_MAP, MAP_SIZE> {
+    ) -> EdgeCoverageModuleBuilder<AF2, PF, V, IS_INITIALIZED, IS_CONST_MAP, MAP_SIZE> {
         EdgeCoverageModuleBuilder::new(
             self.variant,
             address_filter,
@@ -258,7 +245,7 @@ impl<AF, I, PF, S, V, const IS_INITIALIZED: bool, const IS_CONST_MAP: bool, cons
     pub fn page_filter<PF2>(
         self,
         page_filter: PF2,
-    ) -> EdgeCoverageModuleBuilder<AF, I, PF2, S, V, IS_INITIALIZED, IS_CONST_MAP, MAP_SIZE> {
+    ) -> EdgeCoverageModuleBuilder<AF, PF2, V, IS_INITIALIZED, IS_CONST_MAP, MAP_SIZE> {
         EdgeCoverageModuleBuilder::new(
             self.variant,
             self.address_filter,
@@ -272,7 +259,7 @@ impl<AF, I, PF, S, V, const IS_INITIALIZED: bool, const IS_CONST_MAP: bool, cons
     pub fn hitcounts(
         self,
         use_hitcounts: bool,
-    ) -> EdgeCoverageModuleBuilder<AF, I, PF, S, V, IS_INITIALIZED, IS_CONST_MAP, MAP_SIZE> {
+    ) -> EdgeCoverageModuleBuilder<AF, PF, V, IS_INITIALIZED, IS_CONST_MAP, MAP_SIZE> {
         EdgeCoverageModuleBuilder::new(
             self.variant,
             self.address_filter,
@@ -286,7 +273,7 @@ impl<AF, I, PF, S, V, const IS_INITIALIZED: bool, const IS_CONST_MAP: bool, cons
     pub fn jit(
         self,
         use_jit: bool,
-    ) -> EdgeCoverageModuleBuilder<AF, I, PF, S, V, IS_INITIALIZED, IS_CONST_MAP, MAP_SIZE> {
+    ) -> EdgeCoverageModuleBuilder<AF, PF, V, IS_INITIALIZED, IS_CONST_MAP, MAP_SIZE> {
         EdgeCoverageModuleBuilder::new(
             self.variant,
             self.address_filter,
@@ -297,8 +284,8 @@ impl<AF, I, PF, S, V, const IS_INITIALIZED: bool, const IS_CONST_MAP: bool, cons
     }
 }
 
-impl<AF, I, PF, S, V, const IS_CONST_MAP: bool, const MAP_SIZE: usize>
-    EdgeCoverageModule<AF, I, PF, S, V, IS_CONST_MAP, MAP_SIZE>
+impl<AF, PF, V, const IS_CONST_MAP: bool, const MAP_SIZE: usize>
+    EdgeCoverageModule<AF, PF, V, IS_CONST_MAP, MAP_SIZE>
 {
     #[must_use]
     pub fn new(
@@ -314,13 +301,12 @@ impl<AF, I, PF, S, V, const IS_CONST_MAP: bool, const MAP_SIZE: usize>
             page_filter,
             use_hitcounts,
             use_jit,
-            phantom: PhantomData,
         }
     }
 }
 
-impl<AF, I, PF, S, V, const IS_CONST_MAP: bool, const MAP_SIZE: usize>
-    EdgeCoverageModule<AF, I, PF, S, V, IS_CONST_MAP, MAP_SIZE>
+impl<AF, PF, V, const IS_CONST_MAP: bool, const MAP_SIZE: usize>
+    EdgeCoverageModule<AF, PF, V, IS_CONST_MAP, MAP_SIZE>
 where
     AF: AddressFilter,
     PF: PageFilter,
@@ -346,30 +332,25 @@ where
     }
 }
 
-impl<I, S, AF, PF, V, const IS_CONST_MAP: bool, const MAP_SIZE: usize> EmulatorModule
-    for EdgeCoverageModule<AF, I, PF, S, V, IS_CONST_MAP, MAP_SIZE>
+impl<I, S, AF, PF, V, const IS_CONST_MAP: bool, const MAP_SIZE: usize> EmulatorModule<I, S>
+    for EdgeCoverageModule<AF, PF, V, IS_CONST_MAP, MAP_SIZE>
 where
     AF: AddressFilter + 'static,
     PF: PageFilter + 'static,
-    I: Input + Unpin + 'static,
-    S: State + Debug + Unpin + 'static,
+    I: Unpin,
+    S: Unpin + State,
     V: EdgeCoverageVariant<AF, PF, IS_CONST_MAP, MAP_SIZE> + 'static,
 {
-    type Input = I;
-    type State = S;
-
     const HOOKS_DO_SIDE_EFFECTS: bool = V::DO_SIDE_EFFECTS;
 
     fn first_exec<ET>(
         &mut self,
         _qemu: Qemu,
-        emulator_modules: &mut EmulatorModules<ET>,
+        emulator_modules: &mut EmulatorModules<ET, I, S>,
         _state: &mut S,
     ) -> Result<()>
     where
-        ET: EmulatorModuleTuple,
-        ET::Input: 'static,
-        ET::State: State + 'static,
+        ET: EmulatorModuleTuple<I, S>,
     {
         if self.use_hitcounts {
             if self.use_jit {
@@ -387,8 +368,8 @@ where
     }
 }
 
-impl<AF, I, PF, S, V, const IS_CONST_MAP: bool, const MAP_SIZE: usize> HasAddressFilter
-    for EdgeCoverageModule<AF, I, PF, S, V, IS_CONST_MAP, MAP_SIZE>
+impl<AF, PF, V, const IS_CONST_MAP: bool, const MAP_SIZE: usize> HasAddressFilter
+    for EdgeCoverageModule<AF, PF, V, IS_CONST_MAP, MAP_SIZE>
 where
     AF: AddressFilter,
 {
@@ -404,8 +385,8 @@ where
 }
 
 #[cfg(feature = "systemmode")]
-impl<AF, I, PF, S, V, const IS_CONST_MAP: bool, const MAP_SIZE: usize> HasPageFilter
-    for EdgeCoverageModule<AF, I, PF, S, V, IS_CONST_MAP, MAP_SIZE>
+impl<AF, PF, V, const IS_CONST_MAP: bool, const MAP_SIZE: usize> HasPageFilter
+    for EdgeCoverageModule<AF, PF, V, IS_CONST_MAP, MAP_SIZE>
 where
     PF: PageFilter,
 {

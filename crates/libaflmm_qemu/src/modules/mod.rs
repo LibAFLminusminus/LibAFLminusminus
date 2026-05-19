@@ -1,23 +1,13 @@
-#[cfg(feature = "systemmode")]
-use crate::modules::utils::filters::HasPageFilterTuple;
-#[cfg(feature = "systemmode")]
-use crate::modules::utils::filters::{HasPageFilter, NopPageFilter};
-use crate::{
-    GuestAddr, Qemu, QemuParams,
-    emu::EmulatorModules,
-    modules::utils::filters::{
-        HasAddressFilter, HasAddressFilterTuple, HasStdFiltersTuple, NopAddressFilter,
-    },
-};
 use core::fmt::Debug;
-use core::ops::Range;
-use libaflmm::{
-    Result, executors::ExitKind, inputs::Input, observers::ObserversTuple, states::State,
-};
+
+use libaflmm::{Result, executors::ExitKind, observers::ObserversTuple};
 use libaflmm_bolts::tuples::{MatchFirstType, SplitBorrowExtractFirstType};
-#[cfg(feature = "systemmode")]
-use libaflmm_qemu_sys::GuestPhysAddr;
-use std::marker::PhantomData;
+
+use crate::{
+    Qemu, QemuParams,
+    emu::EmulatorModules,
+    modules::utils::filters::{AddressFilter, PageFilter},
+};
 
 #[cfg(feature = "usermode")]
 pub mod usermode;
@@ -57,7 +47,6 @@ pub mod logger;
 pub use logger::LoggerModule;
 
 pub mod utils;
-pub use utils::filters::{AddressFilter, PageFilter};
 
 /// [`EmulatorModule`] is a trait designed to define modules that interact with the QEMU emulator
 /// during fuzzing. [`EmulatorModule`] provides a set of interfaces (hooks) that can be invoked at various stages
@@ -83,22 +72,19 @@ pub use utils::filters::{AddressFilter, PageFilter};
 /// Users typically add hooks, monitoring, or other instrumentation to the **fuzzing target** in [`EmulatorModule`]
 /// For example:
 /// ```rust,ignore
-/// fn post_qemu_init<ET>(&mut self, _qemu: Qemu, _emulator_modules: &mut EmulatorModules<ET>)
+/// fn post_qemu_init<ET>(&mut self, _qemu: Qemu, _emulator_modules: &mut EmulatorModules<ET, I, S>)
 /// where
-///     ET: EmulatorModuleTuple,
+///     ET: EmulatorModuleTuple<I, S>,
 /// {
 ///     // Add a hook before the execution of a syscall in the fuzzing target
-///     _emulator_modules.pre_syscalls(Hook::Function(your_syscall_hooks::<ET>))
+///     _emulator_modules.pre_syscalls(Hook::Function(your_syscall_hooks::<ET, I, S>))
 ///     // ...
 /// }
 /// ```
 /// For more details on adding hooks to the **fuzzing target**, including function signatures,
 /// return values, please refer to the [`EmulatorModules`].
 // TODO remove 'static when specialization will be stable
-pub trait EmulatorModule: 'static + Debug {
-    type Input: Input + Unpin;
-    type State: State + Unpin;
-
+pub trait EmulatorModule<I, S>: 'static + Debug {
     const HOOKS_DO_SIDE_EFFECTS: bool = true;
 
     /// Hook run **before** QEMU is initialized.
@@ -109,19 +95,19 @@ pub trait EmulatorModule: 'static + Debug {
     /// Thus, the module can modify options for QEMU just before it gets initialized.
     fn pre_qemu_init<ET>(
         &mut self,
-        _emulator_modules: &mut EmulatorModules<ET>,
+        _emulator_modules: &mut EmulatorModules<ET, I, S>,
         _qemu_params: &mut QemuParams,
     ) where
-        ET: EmulatorModuleTuple<Input = Self::Input, State = Self::State>,
+        ET: EmulatorModuleTuple<I, S>,
     {
     }
 
     /// Hook run **after** QEMU is initialized.
     /// This is always run when Emulator gets initialized, in any case.
     /// Install here hooks that should be alive for the whole execution of the VM, after QEMU gets initialized.
-    fn post_qemu_init<ET>(&mut self, _qemu: Qemu, _emulator_modules: &mut EmulatorModules<ET>)
+    fn post_qemu_init<ET>(&mut self, _qemu: Qemu, _emulator_modules: &mut EmulatorModules<ET, I, S>)
     where
-        ET: EmulatorModuleTuple<Input = Self::Input, State = Self::State>,
+        ET: EmulatorModuleTuple<I, S>,
     {
     }
 
@@ -132,11 +118,11 @@ pub trait EmulatorModule: 'static + Debug {
     fn first_exec<ET>(
         &mut self,
         _qemu: Qemu,
-        _emulator_modules: &mut EmulatorModules<ET>,
-        _state: &mut Self::State,
+        _emulator_modules: &mut EmulatorModules<ET, I, S>,
+        _state: &mut S,
     ) -> Result<()>
     where
-        ET: EmulatorModuleTuple<Input = Self::Input, State = Self::State>,
+        ET: EmulatorModuleTuple<I, S>,
     {
         Ok(())
     }
@@ -146,12 +132,12 @@ pub trait EmulatorModule: 'static + Debug {
     fn pre_exec<ET>(
         &mut self,
         _qemu: Qemu,
-        _emulator_modules: &mut EmulatorModules<ET>,
-        _state: &mut Self::State,
-        _input: &Self::Input,
+        _emulator_modules: &mut EmulatorModules<ET, I, S>,
+        _state: &mut S,
+        _input: &I,
     ) -> Result<()>
     where
-        ET: EmulatorModuleTuple<Input = Self::Input, State = Self::State>,
+        ET: EmulatorModuleTuple<I, S>,
     {
         Ok(())
     }
@@ -160,15 +146,15 @@ pub trait EmulatorModule: 'static + Debug {
     fn post_exec<OT, ET>(
         &mut self,
         _qemu: Qemu,
-        _emulator_modules: &mut EmulatorModules<ET>,
-        _state: &mut Self::State,
-        _input: &Self::Input,
+        _emulator_modules: &mut EmulatorModules<ET, I, S>,
+        _state: &mut S,
+        _input: &I,
         _observers: &mut OT,
         _exit_kind: &mut ExitKind,
     ) -> Result<()>
     where
-        OT: ObserversTuple<Self::State>,
-        ET: EmulatorModuleTuple<Input = Self::Input, State = Self::State>,
+        OT: ObserversTuple<S>,
+        ET: EmulatorModuleTuple<I, S>,
     {
         Ok(())
     }
@@ -188,56 +174,56 @@ pub trait EmulatorModule: 'static + Debug {
     }
 }
 
-pub trait EmulatorModuleTuple:
+pub trait EmulatorModuleTuple<I, S>:
     MatchFirstType + for<'a> SplitBorrowExtractFirstType<'a> + Unpin
 {
-    type Input: Input + Unpin;
-    type State: State + Debug + Unpin;
-
     const HOOKS_DO_SIDE_EFFECTS: bool;
 
     fn pre_qemu_init_all<ET>(
         &mut self,
-        emulator_modules: &mut EmulatorModules<ET>,
+        emulator_modules: &mut EmulatorModules<ET, I, S>,
         qemu_params: &mut QemuParams,
     ) where
-        ET: EmulatorModuleTuple<Input = Self::Input, State = Self::State>;
+        ET: EmulatorModuleTuple<I, S>;
 
-    fn post_qemu_init_all<ET>(&mut self, qemu: Qemu, emulator_modules: &mut EmulatorModules<ET>)
-    where
-        ET: EmulatorModuleTuple<Input = Self::Input, State = Self::State>;
+    fn post_qemu_init_all<ET>(
+        &mut self,
+        qemu: Qemu,
+        emulator_modules: &mut EmulatorModules<ET, I, S>,
+    ) where
+        ET: EmulatorModuleTuple<I, S>;
 
     fn first_exec_all<ET>(
         &mut self,
         qemu: Qemu,
-        emulator_modules: &mut EmulatorModules<ET>,
-        state: &mut Self::State,
+        emulator_modules: &mut EmulatorModules<ET, I, S>,
+        state: &mut S,
     ) -> Result<()>
     where
-        ET: EmulatorModuleTuple<Input = Self::Input, State = Self::State>;
+        ET: EmulatorModuleTuple<I, S>;
 
     fn pre_exec_all<ET>(
         &mut self,
         qemu: Qemu,
-        emulator_modules: &mut EmulatorModules<ET>,
-        state: &mut Self::State,
-        input: &Self::Input,
+        emulator_modules: &mut EmulatorModules<ET, I, S>,
+        state: &mut S,
+        input: &I,
     ) -> Result<()>
     where
-        ET: EmulatorModuleTuple<Input = Self::Input, State = Self::State>;
+        ET: EmulatorModuleTuple<I, S>;
 
     fn post_exec_all<OT, ET>(
         &mut self,
         qemu: Qemu,
-        emulator_modules: &mut EmulatorModules<ET>,
-        state: &mut Self::State,
-        input: &Self::Input,
+        emulator_modules: &mut EmulatorModules<ET, I, S>,
+        state: &mut S,
+        input: &I,
         observers: &mut OT,
         exit_kind: &mut ExitKind,
     ) -> Result<()>
     where
-        OT: ObserversTuple<Self::State>,
-        ET: EmulatorModuleTuple<Input = Self::Input, State = Self::State>;
+        OT: ObserversTuple<S>,
+        ET: EmulatorModuleTuple<I, S>;
 
     /// # Safety
     ///
@@ -250,116 +236,38 @@ pub trait EmulatorModuleTuple:
     unsafe fn on_timeout_all(&mut self) -> Result<()>;
 }
 
-#[derive(Debug)]
-pub struct NopModule<I, S> {
-    phantom: PhantomData<(I, S)>,
-}
-
-impl<I, S> Default for NopModule<I, S> {
-    fn default() -> Self {
-        Self {
-            phantom: PhantomData,
-        }
-    }
-}
-
-impl<'a, I, S> SplitBorrowExtractFirstType<'a> for NopModule<I, S> {
-    type SplitBorrowResult = ();
-    type SplitBorrowMutResult = ();
-
-    fn borrow(&'a self) -> Self::SplitBorrowResult {}
-
-    fn borrow_mut(&'a mut self) -> Self::SplitBorrowMutResult {}
-}
-
-impl<I, S> MatchFirstType for NopModule<I, S> {
-    fn match_first_type<T: 'static>(&self) -> Option<&T> {
-        None
-    }
-    fn match_first_type_mut<T: 'static>(&mut self) -> Option<&mut T> {
-        None
-    }
-}
-
-impl<I, S> HasAddressFilter for NopModule<I, S> {
-    type AddressFilter = NopAddressFilter;
-
-    fn address_filter(&self) -> &Self::AddressFilter {
-        &NopAddressFilter
-    }
-
-    fn address_filter_mut(&mut self) -> &mut Self::AddressFilter {
-        static mut ADDRESS_FILTER: NopAddressFilter = NopAddressFilter;
-        unsafe { &mut *&raw mut ADDRESS_FILTER }
-    }
-}
-
-#[cfg(feature = "systemmode")]
-impl<I, S> HasPageFilter for NopModule<I, S> {
-    type PageFilter = NopPageFilter;
-
-    fn page_filter(&self) -> &Self::PageFilter {
-        &NopPageFilter
-    }
-
-    fn page_filter_mut(&mut self) -> &mut Self::PageFilter {
-        static mut PAGE_FILTER: NopPageFilter = NopPageFilter;
-        unsafe { &mut *&raw mut PAGE_FILTER }
-    }
-}
-
-impl<I, S> HasAddressFilterTuple for NopModule<I, S> {
-    fn allow_address_range_all(&mut self, _address_range: &Range<GuestAddr>) {}
-
-    fn allowed_address_all(&self, _address: &GuestAddr) -> bool {
-        true
-    }
-}
-
-#[cfg(feature = "systemmode")]
-impl<I, S> HasPageFilterTuple for NopModule<I, S> {
-    fn allow_page_id_all(&mut self, _page_id: GuestPhysAddr) {}
-
-    fn allowed_page_id_all(&self, _page_id: &GuestPhysAddr) -> bool {
-        true
-    }
-}
-
-impl<I, S> HasStdFiltersTuple for NopModule<I, S> {}
-
-impl<I, S> EmulatorModuleTuple for NopModule<I, S>
+impl<I, S> EmulatorModuleTuple<I, S> for ()
 where
-    I: Input + Unpin,
-    S: State + Debug + Unpin,
+    S: Unpin,
 {
-    type Input = I;
-    type State = S;
-
     const HOOKS_DO_SIDE_EFFECTS: bool = false;
 
     fn pre_qemu_init_all<ET>(
         &mut self,
-        _emulator_modules: &mut EmulatorModules<ET>,
+        _emulator_modules: &mut EmulatorModules<ET, I, S>,
         _qemu_params: &mut QemuParams,
     ) where
-        ET: EmulatorModuleTuple,
+        ET: EmulatorModuleTuple<I, S>,
     {
     }
 
-    fn post_qemu_init_all<ET>(&mut self, _qemu: Qemu, _emulator_modules: &mut EmulatorModules<ET>)
-    where
-        ET: EmulatorModuleTuple,
+    fn post_qemu_init_all<ET>(
+        &mut self,
+        _qemu: Qemu,
+        _emulator_modules: &mut EmulatorModules<ET, I, S>,
+    ) where
+        ET: EmulatorModuleTuple<I, S>,
     {
     }
 
     fn first_exec_all<ET>(
         &mut self,
         _qemu: Qemu,
-        _emulator_modules: &mut EmulatorModules<ET>,
-        _state: &mut Self::State,
+        _emulator_modules: &mut EmulatorModules<ET, I, S>,
+        _state: &mut S,
     ) -> Result<()>
     where
-        ET: EmulatorModuleTuple<Input = Self::Input, State = Self::State>,
+        ET: EmulatorModuleTuple<I, S>,
     {
         Ok(())
     }
@@ -367,12 +275,12 @@ where
     fn pre_exec_all<ET>(
         &mut self,
         _qemu: Qemu,
-        _emulator_modules: &mut EmulatorModules<ET>,
-        _state: &mut Self::State,
-        _input: &Self::Input,
+        _emulator_modules: &mut EmulatorModules<ET, I, S>,
+        _state: &mut S,
+        _input: &I,
     ) -> Result<()>
     where
-        ET: EmulatorModuleTuple<Input = Self::Input, State = Self::State>,
+        ET: EmulatorModuleTuple<I, S>,
     {
         Ok(())
     }
@@ -380,15 +288,15 @@ where
     fn post_exec_all<OT, ET>(
         &mut self,
         _qemu: Qemu,
-        _emulator_modules: &mut EmulatorModules<ET>,
-        _state: &mut Self::State,
-        _input: &Self::Input,
+        _emulator_modules: &mut EmulatorModules<ET, I, S>,
+        _state: &mut S,
+        _input: &I,
         _observers: &mut OT,
         _exit_kind: &mut ExitKind,
     ) -> Result<()>
     where
-        OT: ObserversTuple<Self::State>,
-        ET: EmulatorModuleTuple<Input = Self::Input, State = Self::State>,
+        OT: ObserversTuple<S>,
+        ET: EmulatorModuleTuple<I, S>,
     {
         Ok(())
     }
@@ -402,31 +310,31 @@ where
     }
 }
 
-impl<Head, Tail> EmulatorModuleTuple for (Head, Tail)
+impl<Head, Tail, I, S> EmulatorModuleTuple<I, S> for (Head, Tail)
 where
-    Head: EmulatorModule + Unpin,
-    Head::State: Debug,
-    Tail: EmulatorModuleTuple<Input = Head::Input, State = Head::State>,
+    Head: EmulatorModule<I, S> + Unpin,
+    Tail: EmulatorModuleTuple<I, S>,
+    S: Unpin,
 {
-    type Input = Head::Input;
-    type State = Head::State;
-
     const HOOKS_DO_SIDE_EFFECTS: bool = Head::HOOKS_DO_SIDE_EFFECTS || Tail::HOOKS_DO_SIDE_EFFECTS;
 
     fn pre_qemu_init_all<ET>(
         &mut self,
-        emulator_modules: &mut EmulatorModules<ET>,
+        emulator_modules: &mut EmulatorModules<ET, I, S>,
         qemu_params: &mut QemuParams,
     ) where
-        ET: EmulatorModuleTuple<Input = Head::Input, State = Head::State>,
+        ET: EmulatorModuleTuple<I, S>,
     {
         self.0.pre_qemu_init(emulator_modules, qemu_params);
         self.1.pre_qemu_init_all(emulator_modules, qemu_params);
     }
 
-    fn post_qemu_init_all<ET>(&mut self, qemu: Qemu, emulator_modules: &mut EmulatorModules<ET>)
-    where
-        ET: EmulatorModuleTuple<Input = Head::Input, State = Head::State>,
+    fn post_qemu_init_all<ET>(
+        &mut self,
+        qemu: Qemu,
+        emulator_modules: &mut EmulatorModules<ET, I, S>,
+    ) where
+        ET: EmulatorModuleTuple<I, S>,
     {
         self.0.post_qemu_init(qemu, emulator_modules);
         self.1.post_qemu_init_all(qemu, emulator_modules);
@@ -435,11 +343,11 @@ where
     fn first_exec_all<ET>(
         &mut self,
         qemu: Qemu,
-        emulator_modules: &mut EmulatorModules<ET>,
-        state: &mut Self::State,
+        emulator_modules: &mut EmulatorModules<ET, I, S>,
+        state: &mut S,
     ) -> Result<()>
     where
-        ET: EmulatorModuleTuple<Input = Head::Input, State = Head::State>,
+        ET: EmulatorModuleTuple<I, S>,
     {
         self.0.first_exec(qemu, emulator_modules, state)?;
         self.1.first_exec_all(qemu, emulator_modules, state)
@@ -448,12 +356,12 @@ where
     fn pre_exec_all<ET>(
         &mut self,
         qemu: Qemu,
-        emulator_modules: &mut EmulatorModules<ET>,
-        state: &mut Self::State,
-        input: &Self::Input,
+        emulator_modules: &mut EmulatorModules<ET, I, S>,
+        state: &mut S,
+        input: &I,
     ) -> Result<()>
     where
-        ET: EmulatorModuleTuple<Input = Head::Input, State = Head::State>,
+        ET: EmulatorModuleTuple<I, S>,
     {
         self.0.pre_exec(qemu, emulator_modules, state, input)?;
         self.1.pre_exec_all(qemu, emulator_modules, state, input)
@@ -462,15 +370,15 @@ where
     fn post_exec_all<OT, ET>(
         &mut self,
         qemu: Qemu,
-        emulator_modules: &mut EmulatorModules<ET>,
-        state: &mut Self::State,
-        input: &Self::Input,
+        emulator_modules: &mut EmulatorModules<ET, I, S>,
+        state: &mut S,
+        input: &I,
         observers: &mut OT,
         exit_kind: &mut ExitKind,
     ) -> Result<()>
     where
-        OT: ObserversTuple<Head::State>,
-        ET: EmulatorModuleTuple<Input = Head::Input, State = Head::State>,
+        OT: ObserversTuple<S>,
+        ET: EmulatorModuleTuple<I, S>,
     {
         self.0
             .post_exec(qemu, emulator_modules, state, input, observers, exit_kind)?;
@@ -493,30 +401,27 @@ where
     }
 }
 
-impl<M> EmulatorModule for Option<M>
+impl<I, S, M> EmulatorModule<I, S> for Option<M>
 where
-    M: EmulatorModule,
+    M: EmulatorModule<I, S>,
 {
-    type Input = M::Input;
-    type State = M::State;
-
     const HOOKS_DO_SIDE_EFFECTS: bool = M::HOOKS_DO_SIDE_EFFECTS;
 
     fn pre_qemu_init<ET>(
         &mut self,
-        emulator_modules: &mut EmulatorModules<ET>,
+        emulator_modules: &mut EmulatorModules<ET, I, S>,
         qemu_params: &mut QemuParams,
     ) where
-        ET: EmulatorModuleTuple<Input = Self::Input, State = Self::State>,
+        ET: EmulatorModuleTuple<I, S>,
     {
         if let Some(m) = self {
             m.pre_qemu_init(emulator_modules, qemu_params);
         }
     }
 
-    fn post_qemu_init<ET>(&mut self, qemu: Qemu, emulator_modules: &mut EmulatorModules<ET>)
+    fn post_qemu_init<ET>(&mut self, qemu: Qemu, emulator_modules: &mut EmulatorModules<ET, I, S>)
     where
-        ET: EmulatorModuleTuple<Input = Self::Input, State = Self::State>,
+        ET: EmulatorModuleTuple<I, S>,
     {
         if let Some(m) = self {
             m.post_qemu_init(qemu, emulator_modules);
@@ -526,11 +431,11 @@ where
     fn first_exec<ET>(
         &mut self,
         qemu: Qemu,
-        emulator_modules: &mut EmulatorModules<ET>,
-        state: &mut Self::State,
+        emulator_modules: &mut EmulatorModules<ET, I, S>,
+        state: &mut S,
     ) -> Result<()>
     where
-        ET: EmulatorModuleTuple<Input = Self::Input, State = Self::State>,
+        ET: EmulatorModuleTuple<I, S>,
     {
         if let Some(m) = self {
             m.first_exec(qemu, emulator_modules, state)
@@ -542,12 +447,12 @@ where
     fn pre_exec<ET>(
         &mut self,
         qemu: Qemu,
-        emulator_modules: &mut EmulatorModules<ET>,
-        state: &mut Self::State,
-        input: &Self::Input,
+        emulator_modules: &mut EmulatorModules<ET, I, S>,
+        state: &mut S,
+        input: &I,
     ) -> Result<()>
     where
-        ET: EmulatorModuleTuple<Input = Self::Input, State = Self::State>,
+        ET: EmulatorModuleTuple<I, S>,
     {
         if let Some(m) = self {
             m.pre_exec(qemu, emulator_modules, state, input)
@@ -559,15 +464,15 @@ where
     fn post_exec<OT, ET>(
         &mut self,
         qemu: Qemu,
-        emulator_modules: &mut EmulatorModules<ET>,
-        state: &mut Self::State,
-        input: &Self::Input,
+        emulator_modules: &mut EmulatorModules<ET, I, S>,
+        state: &mut S,
+        input: &I,
         observers: &mut OT,
         exit_kind: &mut ExitKind,
     ) -> Result<()>
     where
-        OT: ObserversTuple<Self::State>,
-        ET: EmulatorModuleTuple<Input = Self::Input, State = Self::State>,
+        OT: ObserversTuple<S>,
+        ET: EmulatorModuleTuple<I, S>,
     {
         if let Some(m) = self {
             m.post_exec(qemu, emulator_modules, state, input, observers, exit_kind)

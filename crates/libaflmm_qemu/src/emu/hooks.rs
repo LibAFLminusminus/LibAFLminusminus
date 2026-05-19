@@ -74,13 +74,13 @@ static mut EMULATOR_MODULES: *mut () = ptr::null_mut();
 
 /// High-level `Emulator` modules, using `QemuHooks`.
 #[derive(Debug)]
-pub struct EmulatorModules<ET> {
+pub struct EmulatorModules<ET, I, S> {
     modules: Pin<Box<ET>>,
-    hooks: EmulatorHooks<ET>,
+    hooks: EmulatorHooks<ET, I, S>,
 }
 
 #[derive(Debug)]
-struct EmulatorHookCollection<ET> {
+struct EmulatorHookCollection<ET, I, S> {
     instruction_hooks: Vec<Pin<Box<(InstructionHookId, FatPtr)>>>,
     backdoor_hooks: Vec<Pin<Box<(BackdoorHookId, FatPtr)>>>,
     edge_hooks: Vec<Pin<Box<TcgHookState<1, EdgeHookId>>>>,
@@ -102,10 +102,10 @@ struct EmulatorHookCollection<ET> {
     #[cfg(feature = "usermode")]
     crash_hooks: Vec<HookRepr>,
 
-    phantom: PhantomData<ET>,
+    phantom: PhantomData<(ET, I, S)>,
 }
 
-impl<ET> Default for EmulatorHookCollection<ET> {
+impl<ET, I, S> Default for EmulatorHookCollection<ET, I, S> {
     fn default() -> Self {
         Self {
             instruction_hooks: Vec::default(),
@@ -142,14 +142,15 @@ impl<ET> Default for EmulatorHookCollection<ET> {
 /// It integrates with emulator modules to ensure hooks are registered
 /// safely and at the correct time.
 #[derive(Debug)]
-pub struct EmulatorHooks<ET> {
+pub struct EmulatorHooks<ET, I, S> {
     qemu_hooks: QemuHooks,
-    hook_collection: EmulatorHookCollection<ET>,
+    hook_collection: EmulatorHookCollection<ET, I, S>,
 }
 
-impl<ET> EmulatorHooks<ET>
+impl<ET, I, S> EmulatorHooks<ET, I, S>
 where
-    ET: EmulatorModuleTuple,
+    I: Unpin,
+    S: Unpin,
 {
     #[must_use]
     pub fn new(qemu_hooks: QemuHooks) -> Self {
@@ -167,7 +168,7 @@ where
     pub fn instruction_closure(
         &mut self,
         addr: GuestAddr,
-        hook: InstructionHookClosure<ET>,
+        hook: InstructionHookClosure<ET, I, S>,
         invalidate_block: bool,
     ) -> InstructionHookId {
         let fat: FatPtr = unsafe { transmute(hook) };
@@ -189,7 +190,7 @@ where
             let id = self.qemu_hooks.add_instruction_hooks(
                 &mut *hook_state,
                 addr,
-                closure_instruction_hook_wrapper::<ET>,
+                closure_instruction_hook_wrapper::<ET, I, S>,
                 invalidate_block,
             );
             self.hook_collection
@@ -206,7 +207,7 @@ where
     pub fn instructions(
         &mut self,
         addr: GuestAddr,
-        hook: InstructionHook<ET>,
+        hook: InstructionHook<ET, I, S>,
         invalidate_block: bool,
     ) -> Option<InstructionHookId> {
         match hook {
@@ -226,14 +227,14 @@ where
     pub fn instruction_function(
         &mut self,
         addr: GuestAddr,
-        hook: InstructionHookFn<ET>,
+        hook: InstructionHookFn<ET, I, S>,
         invalidate_block: bool,
     ) -> InstructionHookId {
         unsafe {
             self.qemu_hooks.add_instruction_hooks(
                 transmute(hook),
                 addr,
-                func_instruction_hook_wrapper::<ET>,
+                func_instruction_hook_wrapper::<ET, I, S>,
                 invalidate_block,
             )
         }
@@ -241,13 +242,13 @@ where
 
     pub fn edges(
         &mut self,
-        generation_hook: EdgeGenHook<ET>,
-        execution_hook: EdgeExecHook<ET>,
+        generation_hook: EdgeGenHook<ET, I, S>,
+        execution_hook: EdgeExecHook<ET, I, S>,
     ) -> EdgeHookId {
         unsafe {
             let generator = get_raw_hook!(
                 generation_hook,
-                edge_gen_hook_wrapper::<ET>,
+                edge_gen_hook_wrapper::<ET, I, S>,
                 unsafe extern "C" fn(
                     &mut TcgHookState<1, EdgeHookId>,
                     src: GuestAddr,
@@ -257,7 +258,7 @@ where
 
             let exec = get_raw_hook!(
                 execution_hook,
-                edge_0_exec_hook_wrapper::<ET>,
+                edge_0_exec_hook_wrapper::<ET, I, S>,
                 unsafe extern "C" fn(&mut TcgHookState<1, EdgeHookId>, id: u64)
             );
 
@@ -295,20 +296,20 @@ where
 
     pub fn blocks(
         &mut self,
-        generation_hook: BlockGenHook<ET>,
-        post_generation_hook: BlockPostGenHook<ET>,
-        execution_hook: BlockExecHook<ET>,
+        generation_hook: BlockGenHook<ET, I, S>,
+        post_generation_hook: BlockPostGenHook<ET, I, S>,
+        execution_hook: BlockExecHook<ET, I, S>,
     ) -> BlockHookId {
         unsafe {
             let generator = get_raw_hook!(
                 generation_hook,
-                block_gen_hook_wrapper::<ET>,
+                block_gen_hook_wrapper::<ET, I, S>,
                 unsafe extern "C" fn(&mut TcgHookState<1, BlockHookId>, pc: GuestAddr) -> u64
             );
 
             let postgen = get_raw_hook!(
                 post_generation_hook,
-                block_post_gen_hook_wrapper::<ET>,
+                block_post_gen_hook_wrapper::<ET, I, S>,
                 unsafe extern "C" fn(
                     &mut TcgHookState<1, BlockHookId>,
                     pc: GuestAddr,
@@ -318,7 +319,7 @@ where
 
             let exec = get_raw_hook!(
                 execution_hook,
-                block_0_exec_hook_wrapper::<ET>,
+                block_0_exec_hook_wrapper::<ET, I, S>,
                 unsafe extern "C" fn(&mut TcgHookState<1, BlockHookId>, id: u64)
             );
 
@@ -358,19 +359,19 @@ where
 
     pub fn cpu_runs(
         &mut self,
-        pre_exec_hook: CpuPreRunHook<ET>,
-        post_exec_hook: CpuPostRunHook<ET>,
+        pre_exec_hook: CpuPreRunHook<ET, I, S>,
+        post_exec_hook: CpuPostRunHook<ET, I, S>,
     ) -> CpuRunHookId {
         unsafe {
             let pre_run = get_raw_hook!(
                 pre_exec_hook,
-                cpu_run_pre_exec_hook_wrapper::<ET>,
+                cpu_run_pre_exec_hook_wrapper::<ET, I, S>,
                 unsafe extern "C" fn(&mut HookState<CpuRunHookId>, cpu: CPUStatePtr)
             );
 
             let post_run = get_raw_hook!(
                 post_exec_hook,
-                cpu_run_post_exec_hook_wrapper::<ET>,
+                cpu_run_post_exec_hook_wrapper::<ET, I, S>,
                 unsafe extern "C" fn(&mut HookState<CpuRunHookId>, cpu: CPUStatePtr)
             );
 
@@ -410,17 +411,17 @@ where
     #[expect(clippy::similar_names)]
     pub fn reads(
         &mut self,
-        generation_hook: ReadGenHook<ET>,
-        execution_hook_1: ReadExecHook<ET>,
-        execution_hook_2: ReadExecHook<ET>,
-        execution_hook_4: ReadExecHook<ET>,
-        execution_hook_8: ReadExecHook<ET>,
-        execution_hook_n: ReadExecNHook<ET>,
+        generation_hook: ReadGenHook<ET, I, S>,
+        execution_hook_1: ReadExecHook<ET, I, S>,
+        execution_hook_2: ReadExecHook<ET, I, S>,
+        execution_hook_4: ReadExecHook<ET, I, S>,
+        execution_hook_8: ReadExecHook<ET, I, S>,
+        execution_hook_n: ReadExecNHook<ET, I, S>,
     ) -> ReadHookId {
         unsafe {
             let generator = get_raw_hook!(
                 generation_hook,
-                read_gen_hook_wrapper::<ET>,
+                read_gen_hook_wrapper::<ET, I, S>,
                 unsafe extern "C" fn(
                     &mut TcgHookState<5, ReadHookId>,
                     pc: GuestAddr,
@@ -430,7 +431,7 @@ where
             );
             let exec1 = get_raw_hook!(
                 execution_hook_1,
-                read_0_exec_hook_wrapper::<ET>,
+                read_0_exec_hook_wrapper::<ET, I, S>,
                 unsafe extern "C" fn(
                     &mut TcgHookState<5, ReadHookId>,
                     id: u64,
@@ -440,7 +441,7 @@ where
             );
             let exec2 = get_raw_hook!(
                 execution_hook_2,
-                read_1_exec_hook_wrapper::<ET>,
+                read_1_exec_hook_wrapper::<ET, I, S>,
                 unsafe extern "C" fn(
                     &mut TcgHookState<5, ReadHookId>,
                     id: u64,
@@ -450,7 +451,7 @@ where
             );
             let exec4 = get_raw_hook!(
                 execution_hook_4,
-                read_2_exec_hook_wrapper::<ET>,
+                read_2_exec_hook_wrapper::<ET, I, S>,
                 unsafe extern "C" fn(
                     &mut TcgHookState<5, ReadHookId>,
                     id: u64,
@@ -460,7 +461,7 @@ where
             );
             let exec8 = get_raw_hook!(
                 execution_hook_8,
-                read_3_exec_hook_wrapper::<ET>,
+                read_3_exec_hook_wrapper::<ET, I, S>,
                 unsafe extern "C" fn(
                     &mut TcgHookState<5, ReadHookId>,
                     id: u64,
@@ -470,7 +471,7 @@ where
             );
             let execn = get_raw_hook!(
                 execution_hook_n,
-                read_4_exec_hook_wrapper::<ET>,
+                read_4_exec_hook_wrapper::<ET, I, S>,
                 unsafe extern "C" fn(
                     &mut TcgHookState<5, ReadHookId>,
                     id: u64,
@@ -523,17 +524,17 @@ where
     #[expect(clippy::similar_names)]
     pub fn writes(
         &mut self,
-        generation_hook: WriteGenHook<ET>,
-        execution_hook_1: WriteExecHook<ET>,
-        execution_hook_2: WriteExecHook<ET>,
-        execution_hook_4: WriteExecHook<ET>,
-        execution_hook_8: WriteExecHook<ET>,
-        execution_hook_n: WriteExecNHook<ET>,
+        generation_hook: WriteGenHook<ET, I, S>,
+        execution_hook_1: WriteExecHook<ET, I, S>,
+        execution_hook_2: WriteExecHook<ET, I, S>,
+        execution_hook_4: WriteExecHook<ET, I, S>,
+        execution_hook_8: WriteExecHook<ET, I, S>,
+        execution_hook_n: WriteExecNHook<ET, I, S>,
     ) -> WriteHookId {
         unsafe {
             let generator = get_raw_hook!(
                 generation_hook,
-                write_gen_hook_wrapper::<ET>,
+                write_gen_hook_wrapper::<ET, I, S>,
                 unsafe extern "C" fn(
                     &mut TcgHookState<5, WriteHookId>,
                     pc: GuestAddr,
@@ -543,7 +544,7 @@ where
             );
             let exec1 = get_raw_hook!(
                 execution_hook_1,
-                write_0_exec_hook_wrapper::<ET>,
+                write_0_exec_hook_wrapper::<ET, I, S>,
                 unsafe extern "C" fn(
                     &mut TcgHookState<5, WriteHookId>,
                     id: u64,
@@ -553,7 +554,7 @@ where
             );
             let exec2 = get_raw_hook!(
                 execution_hook_2,
-                write_1_exec_hook_wrapper::<ET>,
+                write_1_exec_hook_wrapper::<ET, I, S>,
                 unsafe extern "C" fn(
                     &mut TcgHookState<5, WriteHookId>,
                     id: u64,
@@ -563,7 +564,7 @@ where
             );
             let exec4 = get_raw_hook!(
                 execution_hook_4,
-                write_2_exec_hook_wrapper::<ET>,
+                write_2_exec_hook_wrapper::<ET, I, S>,
                 unsafe extern "C" fn(
                     &mut TcgHookState<5, WriteHookId>,
                     id: u64,
@@ -573,7 +574,7 @@ where
             );
             let exec8 = get_raw_hook!(
                 execution_hook_8,
-                write_3_exec_hook_wrapper::<ET>,
+                write_3_exec_hook_wrapper::<ET, I, S>,
                 unsafe extern "C" fn(
                     &mut TcgHookState<5, WriteHookId>,
                     id: u64,
@@ -583,7 +584,7 @@ where
             );
             let execn = get_raw_hook!(
                 execution_hook_n,
-                write_4_exec_hook_wrapper::<ET>,
+                write_4_exec_hook_wrapper::<ET, I, S>,
                 unsafe extern "C" fn(
                     &mut TcgHookState<5, WriteHookId>,
                     id: u64,
@@ -635,16 +636,16 @@ where
 
     pub fn cmps(
         &mut self,
-        generation_hook: CmpGenHook<ET>,
-        execution_hook_1: CmpExecHook<ET, u8>,
-        execution_hook_2: CmpExecHook<ET, u16>,
-        execution_hook_4: CmpExecHook<ET, u32>,
-        execution_hook_8: CmpExecHook<ET, u64>,
+        generation_hook: CmpGenHook<ET, I, S>,
+        execution_hook_1: CmpExecHook<ET, I, S, u8>,
+        execution_hook_2: CmpExecHook<ET, I, S, u16>,
+        execution_hook_4: CmpExecHook<ET, I, S, u32>,
+        execution_hook_8: CmpExecHook<ET, I, S, u64>,
     ) -> CmpHookId {
         unsafe {
             let generator = get_raw_hook!(
                 generation_hook,
-                cmp_gen_hook_wrapper::<ET>,
+                cmp_gen_hook_wrapper::<ET, I, S>,
                 unsafe extern "C" fn(
                     &mut TcgHookState<4, CmpHookId>,
                     pc: GuestAddr,
@@ -653,22 +654,22 @@ where
             );
             let exec1 = get_raw_hook!(
                 execution_hook_1,
-                cmp_0_exec_hook_wrapper::<ET>,
+                cmp_0_exec_hook_wrapper::<ET, I, S>,
                 unsafe extern "C" fn(&mut TcgHookState<4, CmpHookId>, id: u64, v0: u8, v1: u8)
             );
             let exec2 = get_raw_hook!(
                 execution_hook_2,
-                cmp_1_exec_hook_wrapper::<ET>,
+                cmp_1_exec_hook_wrapper::<ET, I, S>,
                 unsafe extern "C" fn(&mut TcgHookState<4, CmpHookId>, id: u64, v0: u16, v1: u16)
             );
             let exec4 = get_raw_hook!(
                 execution_hook_4,
-                cmp_2_exec_hook_wrapper::<ET>,
+                cmp_2_exec_hook_wrapper::<ET, I, S>,
                 unsafe extern "C" fn(&mut TcgHookState<4, CmpHookId>, id: u64, v0: u32, v1: u32)
             );
             let exec8 = get_raw_hook!(
                 execution_hook_8,
-                cmp_3_exec_hook_wrapper::<ET>,
+                cmp_3_exec_hook_wrapper::<ET, I, S>,
                 unsafe extern "C" fn(&mut TcgHookState<4, CmpHookId>, id: u64, v0: u64, v1: u64)
             );
 
@@ -713,7 +714,10 @@ where
 
     /// # Safety
     /// Will dereference the hook as [`FatPtr`].
-    pub unsafe fn backdoor_closure(&mut self, hook: BackdoorHookClosure<ET>) -> BackdoorHookId {
+    pub unsafe fn backdoor_closure(
+        &mut self,
+        hook: BackdoorHookClosure<ET, I, S>,
+    ) -> BackdoorHookId {
         unsafe {
             let fat: FatPtr = transmute(hook);
             self.hook_collection
@@ -731,7 +735,7 @@ where
 
             let id = self
                 .qemu_hooks
-                .add_backdoor_hook(&mut *hook_state, closure_backdoor_hook_wrapper::<ET>);
+                .add_backdoor_hook(&mut *hook_state, closure_backdoor_hook_wrapper::<ET, I, S>);
 
             self.hook_collection
                 .backdoor_hooks
@@ -745,16 +749,16 @@ where
         }
     }
 
-    pub fn backdoor_function(&self, hook: BackdoorHookFn<ET>) -> BackdoorHookId {
+    pub fn backdoor_function(&self, hook: BackdoorHookFn<ET, I, S>) -> BackdoorHookId {
         unsafe {
             self.qemu_hooks
-                .add_backdoor_hook(transmute(hook), func_backdoor_hook_wrapper::<ET>)
+                .add_backdoor_hook(transmute(hook), func_backdoor_hook_wrapper::<ET, I, S>)
         }
     }
 
     /// # Safety
     /// This can call through to a potentialy unsafe [`Self::backdoor_function`]
-    pub unsafe fn backdoor(&mut self, hook: BackdoorHook<ET>) -> Option<BackdoorHookId> {
+    pub unsafe fn backdoor(&mut self, hook: BackdoorHook<ET, I, S>) -> Option<BackdoorHookId> {
         match hook {
             Hook::Function(f) => Some(self.backdoor_function(f)),
             Hook::Closure(c) => Some(unsafe { self.backdoor_closure(c) }),
@@ -766,7 +770,7 @@ where
         }
     }
 
-    pub fn thread_creation(&mut self, hook: NewThreadHook<ET>) -> Option<NewThreadHookId> {
+    pub fn thread_creation(&mut self, hook: NewThreadHook<ET, I, S>) -> Option<NewThreadHookId> {
         match hook {
             Hook::Function(f) => Some(self.thread_creation_function(f)),
             Hook::Closure(c) => Some(self.thread_creation_closure(c)),
@@ -778,14 +782,17 @@ where
         }
     }
 
-    pub fn thread_creation_function(&mut self, hook: NewThreadHookFn<ET>) -> NewThreadHookId {
+    pub fn thread_creation_function(&mut self, hook: NewThreadHookFn<ET, I, S>) -> NewThreadHookId {
         unsafe {
             self.qemu_hooks
-                .add_new_thread_hook(transmute(hook), func_new_thread_hook_wrapper::<ET>)
+                .add_new_thread_hook(transmute(hook), func_new_thread_hook_wrapper::<ET, I, S>)
         }
     }
 
-    pub fn thread_creation_closure(&mut self, hook: NewThreadHookClosure<ET>) -> NewThreadHookId {
+    pub fn thread_creation_closure(
+        &mut self,
+        hook: NewThreadHookClosure<ET, I, S>,
+    ) -> NewThreadHookId {
         unsafe {
             let fat: FatPtr = transmute(hook);
             self.hook_collection
@@ -801,9 +808,10 @@ where
                 .get_unchecked_mut()
                 .1;
 
-            let id = self
-                .qemu_hooks
-                .add_new_thread_hook(&mut *hook_state, closure_new_thread_hook_wrapper::<ET>);
+            let id = self.qemu_hooks.add_new_thread_hook(
+                &mut *hook_state,
+                closure_new_thread_hook_wrapper::<ET, I, S>,
+            );
             self.hook_collection
                 .new_thread_hooks
                 .last_mut()
@@ -817,11 +825,13 @@ where
 }
 
 #[cfg(feature = "usermode")]
-impl<ET> EmulatorHooks<ET>
+impl<ET, I, S> EmulatorHooks<ET, I, S>
 where
-    ET: EmulatorModuleTuple,
+    ET: EmulatorModuleTuple<I, S>,
+    I: Unpin,
+    S: Unpin,
 {
-    pub fn pre_syscalls(&mut self, hook: PreSyscallHook<ET>) -> Option<PreSyscallHookId> {
+    pub fn pre_syscalls(&mut self, hook: PreSyscallHook<ET, I, S>) -> Option<PreSyscallHookId> {
         match hook {
             Hook::Function(f) => Some(self.pre_syscalls_function(f)),
             Hook::Closure(c) => Some(self.pre_syscalls_closure(c)),
@@ -833,16 +843,19 @@ where
         }
     }
 
-    pub fn pre_syscalls_function(&mut self, hook: PreSyscallHookFn<ET>) -> PreSyscallHookId {
+    pub fn pre_syscalls_function(&mut self, hook: PreSyscallHookFn<ET, I, S>) -> PreSyscallHookId {
         // # Safety
         // Will dereference the hook as [`FatPtr`].
         unsafe {
             self.qemu_hooks
-                .add_pre_syscall_hook(transmute(hook), func_pre_syscall_hook_wrapper::<ET>)
+                .add_pre_syscall_hook(transmute(hook), func_pre_syscall_hook_wrapper::<ET, I, S>)
         }
     }
 
-    pub fn pre_syscalls_closure(&mut self, hook: PreSyscallHookClosure<ET>) -> PreSyscallHookId {
+    pub fn pre_syscalls_closure(
+        &mut self,
+        hook: PreSyscallHookClosure<ET, I, S>,
+    ) -> PreSyscallHookId {
         // # Safety
         // Will dereference the hook as [`FatPtr`].
         unsafe {
@@ -861,9 +874,10 @@ where
                 .get_unchecked_mut()
                 .1;
 
-            let id = self
-                .qemu_hooks
-                .add_pre_syscall_hook(&mut *hook_state, closure_pre_syscall_hook_wrapper::<ET>);
+            let id = self.qemu_hooks.add_pre_syscall_hook(
+                &mut *hook_state,
+                closure_pre_syscall_hook_wrapper::<ET, I, S>,
+            );
 
             self.hook_collection
                 .pre_syscall_hooks
@@ -876,7 +890,7 @@ where
         }
     }
 
-    pub fn post_syscalls(&mut self, hook: PostSyscallHook<ET>) -> Option<PostSyscallHookId> {
+    pub fn post_syscalls(&mut self, hook: PostSyscallHook<ET, I, S>) -> Option<PostSyscallHookId> {
         match hook {
             Hook::Function(f) => Some(self.post_syscalls_function(f)),
             Hook::Closure(c) => Some(self.post_syscalls_closure(c)),
@@ -888,16 +902,22 @@ where
         }
     }
 
-    pub fn post_syscalls_function(&mut self, hook: PostSyscallHookFn<ET>) -> PostSyscallHookId {
+    pub fn post_syscalls_function(
+        &mut self,
+        hook: PostSyscallHookFn<ET, I, S>,
+    ) -> PostSyscallHookId {
         // # Safety
         // Will dereference the hook as [`FatPtr`]. This should be ok.
         unsafe {
             self.qemu_hooks
-                .add_post_syscall_hook(transmute(hook), func_post_syscall_hook_wrapper::<ET>)
+                .add_post_syscall_hook(transmute(hook), func_post_syscall_hook_wrapper::<ET, I, S>)
         }
     }
 
-    pub fn post_syscalls_closure(&mut self, hook: PostSyscallHookClosure<ET>) -> PostSyscallHookId {
+    pub fn post_syscalls_closure(
+        &mut self,
+        hook: PostSyscallHookClosure<ET, I, S>,
+    ) -> PostSyscallHookId {
         unsafe {
             let fat: FatPtr = transmute(hook);
             self.hook_collection
@@ -913,9 +933,10 @@ where
                 .get_unchecked_mut()
                 .1;
 
-            let id = self
-                .qemu_hooks
-                .add_post_syscall_hook(&mut *hooks_state, closure_post_syscall_hook_wrapper::<ET>);
+            let id = self.qemu_hooks.add_post_syscall_hook(
+                &mut *hooks_state,
+                closure_post_syscall_hook_wrapper::<ET, I, S>,
+            );
             self.hook_collection
                 .post_syscall_hooks
                 .last_mut()
@@ -927,7 +948,7 @@ where
         }
     }
 
-    pub fn crash_function(&mut self, hook: CrashHookFn<ET>) {
+    pub fn crash_function(&mut self, hook: CrashHookFn<ET, I, S>) {
         // # Safety
         // Will cast the valid hook to a ptr.
         self.hook_collection
@@ -935,7 +956,7 @@ where
             .push(HookRepr::Function(hook as *const libc::c_void));
     }
 
-    pub fn crash_closure(&mut self, hook: CrashHookClosure<ET>) {
+    pub fn crash_closure(&mut self, hook: CrashHookClosure<ET, I, S>) {
         // # Safety
         // Will cast the hook to a [`FatPtr`].
         unsafe {
@@ -946,7 +967,7 @@ where
     }
 }
 
-impl<ET> EmulatorModules<ET> {
+impl<ET, I, S> EmulatorModules<ET, I, S> {
     /// Get a mutable reference to `EmulatorModules` (supposedly initialized beforehand).
     ///
     /// # Safety
@@ -956,17 +977,17 @@ impl<ET> EmulatorModules<ET> {
     /// The user should also be consistent with the generic use (it will suppose they are the same
     /// as the ones used at initialization time).
     #[must_use]
-    pub unsafe fn emulator_modules_mut_unchecked<'a>() -> &'a mut EmulatorModules<ET> {
+    pub unsafe fn emulator_modules_mut_unchecked<'a>() -> &'a mut EmulatorModules<ET, I, S> {
         #[cfg(debug_assertions)]
         unsafe {
-            (EMULATOR_MODULES as *mut EmulatorModules<ET>)
+            (EMULATOR_MODULES as *mut EmulatorModules<ET, I, S>)
                 .as_mut()
                 .unwrap()
         }
 
         #[cfg(not(debug_assertions))]
         unsafe {
-            &mut *(EMULATOR_MODULES as *mut EmulatorModules<ET>)
+            &mut *(EMULATOR_MODULES as *mut EmulatorModules<ET, I, S>)
         }
     }
 
@@ -979,14 +1000,16 @@ impl<ET> EmulatorModules<ET> {
     /// This version still presents some unsafeness: The user should be consistent with the
     /// generic use (it will suppose they are the same as the ones used at initialization time).
     #[must_use]
-    pub unsafe fn emulator_modules_mut<'a>() -> Option<&'a mut EmulatorModules<ET>> {
-        unsafe { (EMULATOR_MODULES as *mut EmulatorModules<ET>).as_mut() }
+    pub unsafe fn emulator_modules_mut<'a>() -> Option<&'a mut EmulatorModules<ET, I, S>> {
+        unsafe { (EMULATOR_MODULES as *mut EmulatorModules<ET, I, S>).as_mut() }
     }
 }
 
-impl<ET> EmulatorModules<ET>
+impl<ET, I, S> EmulatorModules<ET, I, S>
 where
-    ET: EmulatorModuleTuple,
+    ET: Unpin,
+    I: Unpin,
+    S: Unpin,
 {
     pub fn modules_mut(&mut self) -> &mut ET {
         self.modules.as_mut().get_mut()
@@ -995,7 +1018,7 @@ where
     pub fn instructions(
         &mut self,
         addr: GuestAddr,
-        hook: InstructionHook<ET>,
+        hook: InstructionHook<ET, I, S>,
         invalidate_block: bool,
     ) -> Option<InstructionHookId> {
         self.hooks.instructions(addr, hook, invalidate_block)
@@ -1004,7 +1027,7 @@ where
     pub fn instruction_function(
         &mut self,
         addr: GuestAddr,
-        hook: InstructionHookFn<ET>,
+        hook: InstructionHookFn<ET, I, S>,
         invalidate_block: bool,
     ) -> InstructionHookId {
         self.hooks
@@ -1014,7 +1037,7 @@ where
     pub fn instruction_closure(
         &mut self,
         addr: GuestAddr,
-        hook: InstructionHookClosure<ET>,
+        hook: InstructionHookClosure<ET, I, S>,
         invalidate_block: bool,
     ) -> InstructionHookId {
         self.hooks.instruction_closure(addr, hook, invalidate_block)
@@ -1022,17 +1045,17 @@ where
 
     pub fn edges(
         &mut self,
-        generation_hook: EdgeGenHook<ET>,
-        execution_hook: EdgeExecHook<ET>,
+        generation_hook: EdgeGenHook<ET, I, S>,
+        execution_hook: EdgeExecHook<ET, I, S>,
     ) -> EdgeHookId {
         self.hooks.edges(generation_hook, execution_hook)
     }
 
     pub fn blocks(
         &mut self,
-        generation_hook: BlockGenHook<ET>,
-        post_generation_hook: BlockPostGenHook<ET>,
-        execution_hook: BlockExecHook<ET>,
+        generation_hook: BlockGenHook<ET, I, S>,
+        post_generation_hook: BlockPostGenHook<ET, I, S>,
+        execution_hook: BlockExecHook<ET, I, S>,
     ) -> BlockHookId {
         self.hooks
             .blocks(generation_hook, post_generation_hook, execution_hook)
@@ -1040,12 +1063,12 @@ where
 
     pub fn reads(
         &mut self,
-        generation_hook: ReadGenHook<ET>,
-        execution_hook_1: ReadExecHook<ET>,
-        execution_hook_2: ReadExecHook<ET>,
-        execution_hook_4: ReadExecHook<ET>,
-        execution_hook_8: ReadExecHook<ET>,
-        execution_hook_n: ReadExecNHook<ET>,
+        generation_hook: ReadGenHook<ET, I, S>,
+        execution_hook_1: ReadExecHook<ET, I, S>,
+        execution_hook_2: ReadExecHook<ET, I, S>,
+        execution_hook_4: ReadExecHook<ET, I, S>,
+        execution_hook_8: ReadExecHook<ET, I, S>,
+        execution_hook_n: ReadExecNHook<ET, I, S>,
     ) -> ReadHookId {
         self.hooks.reads(
             generation_hook,
@@ -1059,12 +1082,12 @@ where
 
     pub fn writes(
         &mut self,
-        generation_hook: WriteGenHook<ET>,
-        execution_hook_1: WriteExecHook<ET>,
-        execution_hook_2: WriteExecHook<ET>,
-        execution_hook_4: WriteExecHook<ET>,
-        execution_hook_8: WriteExecHook<ET>,
-        execution_hook_n: WriteExecNHook<ET>,
+        generation_hook: WriteGenHook<ET, I, S>,
+        execution_hook_1: WriteExecHook<ET, I, S>,
+        execution_hook_2: WriteExecHook<ET, I, S>,
+        execution_hook_4: WriteExecHook<ET, I, S>,
+        execution_hook_8: WriteExecHook<ET, I, S>,
+        execution_hook_n: WriteExecNHook<ET, I, S>,
     ) -> WriteHookId {
         self.hooks.writes(
             generation_hook,
@@ -1078,11 +1101,11 @@ where
 
     pub fn cmps(
         &mut self,
-        generation_hook: CmpGenHook<ET>,
-        execution_hook_1: CmpExecHook<ET, u8>,
-        execution_hook_2: CmpExecHook<ET, u16>,
-        execution_hook_4: CmpExecHook<ET, u32>,
-        execution_hook_8: CmpExecHook<ET, u64>,
+        generation_hook: CmpGenHook<ET, I, S>,
+        execution_hook_1: CmpExecHook<ET, I, S, u8>,
+        execution_hook_2: CmpExecHook<ET, I, S, u16>,
+        execution_hook_4: CmpExecHook<ET, I, S, u32>,
+        execution_hook_8: CmpExecHook<ET, I, S, u64>,
     ) -> CmpHookId {
         self.hooks.cmps(
             generation_hook,
@@ -1095,43 +1118,54 @@ where
 
     /// # Safety
     /// This will potentially call an unsafe backdoor hook
-    pub unsafe fn backdoor(&mut self, hook: BackdoorHook<ET>) -> Option<BackdoorHookId> {
+    pub unsafe fn backdoor(&mut self, hook: BackdoorHook<ET, I, S>) -> Option<BackdoorHookId> {
         unsafe { self.hooks.backdoor(hook) }
     }
 
-    pub fn backdoor_function(&mut self, hook: BackdoorHookFn<ET>) -> BackdoorHookId {
+    pub fn backdoor_function(&mut self, hook: BackdoorHookFn<ET, I, S>) -> BackdoorHookId {
         self.hooks.backdoor_function(hook)
     }
 
     /// # Safety
     /// Calls through to the potentially unsafe `backdoor_closure`
-    pub unsafe fn backdoor_closure(&mut self, hook: BackdoorHookClosure<ET>) -> BackdoorHookId {
+    pub unsafe fn backdoor_closure(
+        &mut self,
+        hook: BackdoorHookClosure<ET, I, S>,
+    ) -> BackdoorHookId {
         unsafe { self.hooks.backdoor_closure(hook) }
     }
 
-    pub fn thread_creation(&mut self, hook: NewThreadHook<ET>) -> Option<NewThreadHookId> {
+    pub fn thread_creation(&mut self, hook: NewThreadHook<ET, I, S>) -> Option<NewThreadHookId> {
         self.hooks.thread_creation(hook)
     }
 
-    pub fn thread_creation_function(&mut self, hook: NewThreadHookFn<ET>) -> NewThreadHookId {
+    pub fn thread_creation_function(&mut self, hook: NewThreadHookFn<ET, I, S>) -> NewThreadHookId {
         self.hooks.thread_creation_function(hook)
     }
 
-    pub fn thread_creation_closure(&mut self, hook: NewThreadHookClosure<ET>) -> NewThreadHookId {
+    pub fn thread_creation_closure(
+        &mut self,
+        hook: NewThreadHookClosure<ET, I, S>,
+    ) -> NewThreadHookId {
         self.hooks.thread_creation_closure(hook)
     }
 }
 
-impl<ET> EmulatorModules<ET>
+impl<ET, I, S> EmulatorModules<ET, I, S>
 where
-    ET: EmulatorModuleTuple,
+    ET: EmulatorModuleTuple<I, S>,
+    I: Unpin,
+    S: Unpin,
 {
     /// Create a new [`EmulatorModules`]
     ///
     /// # Safety
     ///
     /// Only one such struct should be ever created.
-    pub(super) unsafe fn new(emulator_hooks: EmulatorHooks<ET>, modules: ET) -> Pin<Box<Self>> {
+    pub(super) unsafe fn new(
+        emulator_hooks: EmulatorHooks<ET, I, S>,
+        modules: ET,
+    ) -> Pin<Box<Self>> {
         let mut modules = Box::pin(Self {
             modules: Box::pin(modules),
             hooks: emulator_hooks,
@@ -1157,7 +1191,7 @@ where
     }
 
     pub fn post_qemu_init_all(&mut self, qemu: Qemu) {
-        // We give access to EmulatorModuleTuple<ET::State> during init, the compiler complains (for good reasons)
+        // We give access to EmulatorModuleTuple<S> during init, the compiler complains (for good reasons)
         // TODO: We should find a way to be able to check for a module without giving full access to the tuple.
         unsafe {
             self.modules_mut()
@@ -1165,7 +1199,7 @@ where
         }
     }
 
-    pub fn first_exec_all(&mut self, qemu: Qemu, state: &mut ET::State) -> Result<()> {
+    pub fn first_exec_all(&mut self, qemu: Qemu, state: &mut S) -> Result<()> {
         // # Safety
         // We assume that the emulator was initialized correctly
         unsafe {
@@ -1174,12 +1208,7 @@ where
         }
     }
 
-    pub fn pre_exec_all(
-        &mut self,
-        qemu: Qemu,
-        state: &mut ET::State,
-        input: &ET::Input,
-    ) -> Result<()> {
+    pub fn pre_exec_all(&mut self, qemu: Qemu, state: &mut S, input: &I) -> Result<()> {
         // # Safety
         // We assume that the emulator was initialized correctly
         unsafe {
@@ -1195,13 +1224,13 @@ where
     pub fn post_exec_all<OT>(
         &mut self,
         qemu: Qemu,
-        state: &mut ET::State,
-        input: &ET::Input,
+        state: &mut S,
+        input: &I,
         observers: &mut OT,
         exit_kind: &mut ExitKind,
     ) -> Result<()>
     where
-        OT: ObserversTuple<ET::State>,
+        OT: ObserversTuple<S>,
     {
         unsafe {
             self.modules_mut().post_exec_all(
@@ -1219,7 +1248,7 @@ where
     #[must_use]
     pub fn get<T>(&self) -> Option<&T>
     where
-        T: EmulatorModule<Input = ET::Input, State = ET::State>,
+        T: EmulatorModule<I, S>,
     {
         self.modules.match_first_type::<T>()
     }
@@ -1227,41 +1256,46 @@ where
     /// Get a mutable reference to the first (type) matching member of the tuple.
     pub fn get_mut<T>(&mut self) -> Option<&mut T>
     where
-        T: EmulatorModule<Input = ET::Input, State = ET::State>,
+        T: EmulatorModule<I, S>,
     {
         self.modules.match_first_type_mut::<T>()
     }
 }
 
-impl<ET> EmulatorModules<ET> {
+impl<ET, I, S> EmulatorModules<ET, I, S> {
     #[must_use]
     pub fn modules(&self) -> &ET {
         self.modules.as_ref().get_ref()
     }
 
-    pub fn hooks(&mut self) -> &EmulatorHooks<ET> {
+    pub fn hooks(&mut self) -> &EmulatorHooks<ET, I, S> {
         &self.hooks
     }
 
-    pub fn hooks_mut(&mut self) -> &mut EmulatorHooks<ET> {
+    pub fn hooks_mut(&mut self) -> &mut EmulatorHooks<ET, I, S> {
         &mut self.hooks
     }
 }
 
 /// Usermode-only high-level functions
 #[cfg(feature = "usermode")]
-impl<ET> EmulatorModules<ET>
+impl<ET, I, S> EmulatorModules<ET, I, S>
 where
-    ET: EmulatorModuleTuple,
+    ET: EmulatorModuleTuple<I, S>,
+    I: Unpin,
+    S: Unpin,
 {
-    pub fn pre_syscalls(&mut self, hook: PreSyscallHook<ET>) -> Option<PreSyscallHookId> {
+    pub fn pre_syscalls(&mut self, hook: PreSyscallHook<ET, I, S>) -> Option<PreSyscallHookId> {
         self.hooks.pre_syscalls(hook)
     }
 
     /// # Safety
     /// Calls through to the, potentially unsafe, `syscalls_function`
     #[allow(clippy::type_complexity)]
-    pub unsafe fn pre_syscalls_function(&mut self, hook: PreSyscallHookFn<ET>) -> PreSyscallHookId {
+    pub unsafe fn pre_syscalls_function(
+        &mut self,
+        hook: PreSyscallHookFn<ET, I, S>,
+    ) -> PreSyscallHookId {
         self.hooks.pre_syscalls_function(hook)
     }
 
@@ -1270,12 +1304,12 @@ where
     #[allow(clippy::type_complexity)]
     pub unsafe fn pre_syscalls_closure(
         &mut self,
-        hook: PreSyscallHookClosure<ET>,
+        hook: PreSyscallHookClosure<ET, I, S>,
     ) -> PreSyscallHookId {
         self.hooks.pre_syscalls_closure(hook)
     }
 
-    pub fn post_syscalls(&mut self, hook: PostSyscallHook<ET>) -> Option<PostSyscallHookId> {
+    pub fn post_syscalls(&mut self, hook: PostSyscallHook<ET, I, S>) -> Option<PostSyscallHookId> {
         self.hooks.post_syscalls(hook)
     }
 
@@ -1284,28 +1318,31 @@ where
     #[allow(clippy::type_complexity)]
     pub unsafe fn post_syscalls_function(
         &mut self,
-        hook: PostSyscallHookFn<ET>,
+        hook: PostSyscallHookFn<ET, I, S>,
     ) -> PostSyscallHookId {
         self.hooks.post_syscalls_function(hook)
     }
 
     #[allow(clippy::type_complexity)]
-    pub fn post_syscalls_closure(&mut self, hook: PostSyscallHookClosure<ET>) -> PostSyscallHookId {
+    pub fn post_syscalls_closure(
+        &mut self,
+        hook: PostSyscallHookClosure<ET, I, S>,
+    ) -> PostSyscallHookId {
         self.hooks.post_syscalls_closure(hook)
     }
 
-    pub fn crash_function(&mut self, hook: CrashHookFn<ET>) {
+    pub fn crash_function(&mut self, hook: CrashHookFn<ET, I, S>) {
         self.hooks.crash_function(hook);
     }
 
     /// # Safety
     /// Calls through to the, potentially unsafe, registered `crash_closure`
-    pub unsafe fn crash_closure(&mut self, hook: CrashHookClosure<ET>) {
+    pub unsafe fn crash_closure(&mut self, hook: CrashHookClosure<ET, I, S>) {
         self.hooks.crash_closure(hook);
     }
 }
 
-impl<ET> Drop for EmulatorModules<ET> {
+impl<ET, I, S> Drop for EmulatorModules<ET, I, S> {
     fn drop(&mut self) {
         // Make the global pointer null at drop time
         // # Safety

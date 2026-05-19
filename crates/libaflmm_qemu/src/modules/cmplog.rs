@@ -1,9 +1,8 @@
-use std::{fmt::Debug, marker::PhantomData};
-
 #[cfg(feature = "usermode")]
 use capstone::{Capstone, InsnDetail, arch::BuildsCapstone};
 use hashbrown::HashMap;
-use libaflmm::{Result, inputs::Input, states::State};
+use libaflmm::{Result, states::State};
+use libaflmm_bolts::hash_64_fast;
 use libaflmm_qemu_sys::GuestAddr;
 #[cfg(feature = "usermode")]
 use libaflmm_targets::CMPLOG_ENABLED;
@@ -47,18 +46,14 @@ impl QemuCmpsMapMetadata {
 libaflmm_bolts::impl_serdeany!(QemuCmpsMapMetadata);
 
 #[derive(Debug)]
-pub struct CmpLogModule<I, S> {
+pub struct CmpLogModule {
     address_filter: StdAddressFilter,
-    phantom: PhantomData<(I, S)>,
 }
 
-impl<I, S> CmpLogModule<I, S> {
+impl CmpLogModule {
     #[must_use]
     pub fn new(address_filter: StdAddressFilter) -> Self {
-        Self {
-            address_filter,
-            phantom: PhantomData,
-        }
+        Self { address_filter }
     }
 
     #[must_use]
@@ -67,32 +62,28 @@ impl<I, S> CmpLogModule<I, S> {
     }
 }
 
-impl<I, S> Default for CmpLogModule<I, S> {
+impl Default for CmpLogModule {
     fn default() -> Self {
         Self::new(StdAddressFilter::default())
     }
 }
 
-impl<I, S> EmulatorModule for CmpLogModule<I, S>
+impl<I, S> EmulatorModule<I, S> for CmpLogModule
 where
-    I: Input + Unpin + 'static,
-    S: State + Unpin + Debug + 'static,
+    I: Unpin,
+    S: Unpin + State,
 {
-    type Input = I;
-    type State = S;
-
     fn first_exec<ET>(
         &mut self,
         _qemu: Qemu,
-        emulator_modules: &mut EmulatorModules<ET>,
+        emulator_modules: &mut EmulatorModules<ET, I, S>,
         _state: &mut S,
     ) -> Result<()>
     where
-        ET: EmulatorModuleTuple<Input = I, State = S>,
-        ET::State: Debug,
+        ET: EmulatorModuleTuple<I, S>,
     {
         emulator_modules.cmps(
-            Hook::Function(gen_unique_cmp_ids::<ET>),
+            Hook::Function(gen_unique_cmp_ids::<ET, I, S>),
             Hook::Raw(trace_cmp1_cmplog),
             Hook::Raw(trace_cmp2_cmplog),
             Hook::Raw(trace_cmp4_cmplog),
@@ -103,7 +94,7 @@ where
     }
 }
 
-impl<I, S> HasAddressFilter for CmpLogModule<I, S> {
+impl HasAddressFilter for CmpLogModule {
     type AddressFilter = StdAddressFilter;
 
     fn address_filter(&self) -> &Self::AddressFilter {
@@ -116,7 +107,7 @@ impl<I, S> HasAddressFilter for CmpLogModule<I, S> {
 }
 
 #[cfg(feature = "systemmode")]
-impl<I, S> HasPageFilter for CmpLogModule<I, S> {
+impl HasPageFilter for CmpLogModule {
     type PageFilter = NopPageFilter;
 
     fn page_filter(&self) -> &Self::PageFilter {
@@ -128,95 +119,95 @@ impl<I, S> HasPageFilter for CmpLogModule<I, S> {
     }
 }
 
-// #[derive(Debug)]
-// pub struct CmpLogChildModule {
-//     address_filter: StdAddressFilter,
-// }
-//
-// impl CmpLogChildModule {
-//     #[must_use]
-//     pub fn new(address_filter: StdAddressFilter) -> Self {
-//         Self { address_filter }
-//     }
-//
-//     #[must_use]
-//     pub fn must_instrument(&self, addr: GuestAddr) -> bool {
-//         self.address_filter.allowed(&addr)
-//     }
-// }
-//
-// impl Default for CmpLogChildModule {
-//     fn default() -> Self {
-//         Self::new(StdAddressFilter::default())
-//     }
-// }
-//
-// impl<I, S> EmulatorModule<I, S> for CmpLogChildModule
-// where
-//     I: Unpin,
-//     S: Unpin + State,
-// {
-//     const HOOKS_DO_SIDE_EFFECTS: bool = false;
-//
-//     fn first_exec<ET>(
-//         &mut self,
-//         _qemu: Qemu,
-//         emulator_modules: &mut EmulatorModules<ET, I, S>,
-//         _state: &mut S,
-//     ) -> Result<()>
-//     where
-//         ET: EmulatorModuleTuple<I, S>,
-//     {
-//         emulator_modules.cmps(
-//             Hook::Function(gen_hashed_cmp_ids::<ET, I, S>),
-//             Hook::Raw(trace_cmp1_cmplog),
-//             Hook::Raw(trace_cmp2_cmplog),
-//             Hook::Raw(trace_cmp4_cmplog),
-//             Hook::Raw(trace_cmp8_cmplog),
-//         );
-//
-//         Ok(())
-//     }
-// }
-//
-// impl HasAddressFilter for CmpLogChildModule {
-//     type AddressFilter = StdAddressFilter;
-//
-//     fn address_filter(&self) -> &Self::AddressFilter {
-//         &self.address_filter
-//     }
-//
-//     fn address_filter_mut(&mut self) -> &mut Self::AddressFilter {
-//         &mut self.address_filter
-//     }
-// }
-//
-// #[cfg(feature = "systemmode")]
-// impl HasPageFilter for CmpLogChildModule {
-//     type PageFilter = NopPageFilter;
-//
-//     fn page_filter(&self) -> &Self::PageFilter {
-//         &NopPageFilter
-//     }
-//
-//     fn page_filter_mut(&mut self) -> &mut Self::PageFilter {
-//         unsafe { (&raw mut NOP_PAGE_FILTER).as_mut().unwrap().get_mut() }
-//     }
-// }
+#[derive(Debug)]
+pub struct CmpLogChildModule {
+    address_filter: StdAddressFilter,
+}
 
-pub fn gen_unique_cmp_ids<ET>(
+impl CmpLogChildModule {
+    #[must_use]
+    pub fn new(address_filter: StdAddressFilter) -> Self {
+        Self { address_filter }
+    }
+
+    #[must_use]
+    pub fn must_instrument(&self, addr: GuestAddr) -> bool {
+        self.address_filter.allowed(&addr)
+    }
+}
+
+impl Default for CmpLogChildModule {
+    fn default() -> Self {
+        Self::new(StdAddressFilter::default())
+    }
+}
+
+impl<I, S> EmulatorModule<I, S> for CmpLogChildModule
+where
+    I: Unpin,
+    S: Unpin + State,
+{
+    const HOOKS_DO_SIDE_EFFECTS: bool = false;
+
+    fn first_exec<ET>(
+        &mut self,
+        _qemu: Qemu,
+        emulator_modules: &mut EmulatorModules<ET, I, S>,
+        _state: &mut S,
+    ) -> Result<()>
+    where
+        ET: EmulatorModuleTuple<I, S>,
+    {
+        emulator_modules.cmps(
+            Hook::Function(gen_hashed_cmp_ids::<ET, I, S>),
+            Hook::Raw(trace_cmp1_cmplog),
+            Hook::Raw(trace_cmp2_cmplog),
+            Hook::Raw(trace_cmp4_cmplog),
+            Hook::Raw(trace_cmp8_cmplog),
+        );
+
+        Ok(())
+    }
+}
+
+impl HasAddressFilter for CmpLogChildModule {
+    type AddressFilter = StdAddressFilter;
+
+    fn address_filter(&self) -> &Self::AddressFilter {
+        &self.address_filter
+    }
+
+    fn address_filter_mut(&mut self) -> &mut Self::AddressFilter {
+        &mut self.address_filter
+    }
+}
+
+#[cfg(feature = "systemmode")]
+impl HasPageFilter for CmpLogChildModule {
+    type PageFilter = NopPageFilter;
+
+    fn page_filter(&self) -> &Self::PageFilter {
+        &NopPageFilter
+    }
+
+    fn page_filter_mut(&mut self) -> &mut Self::PageFilter {
+        unsafe { (&raw mut NOP_PAGE_FILTER).as_mut().unwrap().get_mut() }
+    }
+}
+
+pub fn gen_unique_cmp_ids<ET, I, S>(
     _qemu: Qemu,
-    emulator_modules: &mut EmulatorModules<ET>,
-    state: &mut ET::State,
+    emulator_modules: &mut EmulatorModules<ET, I, S>,
+    state: &mut S,
     pc: GuestAddr,
     _size: usize,
 ) -> Option<u64>
 where
-    ET: EmulatorModuleTuple,
-    ET::Input: 'static,
-    ET::State: Debug + 'static,
+    ET: EmulatorModuleTuple<I, S>,
+    I: Unpin,
+    S: Unpin + State,
 {
-    if let Some(h) = emulator_modules.get::<CmpLogModule<ET::Input, ET::State>>()
+    if let Some(h) = emulator_modules.get::<CmpLogModule>()
         && !h.must_instrument(pc)
     {
         return None;
@@ -231,27 +222,27 @@ where
     }))
 }
 
-// #[allow(clippy::needless_pass_by_value)] // no longer a problem with nightly
-// pub fn gen_hashed_cmp_ids<ET, I, S>(
-//     _qemu: Qemu,
-//     emulator_modules: &mut EmulatorModules<ET, I, S>,
-//     _state: &mut S,
-//     pc: GuestAddr,
-//     _size: usize,
-// ) -> Option<u64>
-// where
-//     ET: EmulatorModuleTuple<I, S>,
-//     I: Unpin,
-//     S: State + Unpin,
-// {
-//     if let Some(h) = emulator_modules.get::<CmpLogChildModule>()
-//         && !h.must_instrument(pc)
-//     {
-//         return None;
-//     }
-//
-//     Some(hash_64_fast(pc as u64) & (CMPLOG_MAP_W as u64 - 1))
-// }
+#[allow(clippy::needless_pass_by_value)] // no longer a problem with nightly
+pub fn gen_hashed_cmp_ids<ET, I, S>(
+    _qemu: Qemu,
+    emulator_modules: &mut EmulatorModules<ET, I, S>,
+    _state: &mut S,
+    pc: GuestAddr,
+    _size: usize,
+) -> Option<u64>
+where
+    ET: EmulatorModuleTuple<I, S>,
+    I: Unpin,
+    S: State + Unpin,
+{
+    if let Some(h) = emulator_modules.get::<CmpLogChildModule>()
+        && !h.must_instrument(pc)
+    {
+        return None;
+    }
+
+    Some(hash_64_fast(pc as u64) & (CMPLOG_MAP_W as u64 - 1))
+}
 
 pub extern "C" fn trace_cmp1_cmplog(_: *const (), id: u64, v0: u8, v1: u8) {
     unsafe {

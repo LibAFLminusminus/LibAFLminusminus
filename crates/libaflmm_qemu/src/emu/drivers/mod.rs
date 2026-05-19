@@ -127,7 +127,7 @@ impl<I, S> InputSetter<I, S> for NopInputSetter {
 pub trait EmulatorDriver<C, CM, ET, I, S, SM>: 'static + Sized
 where
     C: Clone,
-    ET: EmulatorModuleTuple<Input = I, State = S>,
+    ET: EmulatorModuleTuple<I, S>,
     I: Unpin,
     S: Unpin,
 {
@@ -186,7 +186,7 @@ pub struct NopEmulatorDriver;
 impl<C, CM, ET, I, S, SM> EmulatorDriver<C, CM, ET, I, S, SM> for NopEmulatorDriver
 where
     C: Clone,
-    ET: EmulatorModuleTuple<Input = I, State = S>,
+    ET: EmulatorModuleTuple<I, S>,
     I: Unpin,
     S: Unpin,
 {
@@ -420,7 +420,7 @@ impl<C, CM, ET, I, IS, S, SM> EmulatorDriver<C, CM, ET, I, S, SM> for GenericEmu
 where
     C: IsCommand<CM::Commands, CM, Self, ET, I, S, SM>,
     CM: CommandManager<C, Self, ET, I, S, SM, Commands = C>,
-    ET: EmulatorModuleTuple<Input = I, State = S>,
+    ET: EmulatorModuleTuple<I, S>,
     I: Input + Unpin,
     IS: InputSetter<I, S> + 'static,
     S: Unpin,

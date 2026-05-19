@@ -24,7 +24,7 @@ use libaflmm_qemu::{
     breakpoint::Breakpoint,
     command::{EndCommand, StartCommand},
     elf::EasyElf,
-    modules::{NopModule, StdEdgeCoverageModule},
+    modules::StdEdgeCoverageModule,
     standard::QemuSnapshotManager,
     GuestPhysAddr, GuestReg, InputLocation, QemuMemoryChunk, StdEmulator, StdQemuExecutor,
 };
@@ -108,12 +108,9 @@ pub fn fuzz() -> Result<()> {
             };
 
             // Choose modules to use
-            let modules = (
-                StdEdgeCoverageModule::builder()
-                    .map_observer(edges_observer.as_mut())
-                    .build()?,
-                NopModule::default(),
-            );
+            let modules = tuple_list!(StdEdgeCoverageModule::builder()
+                .map_observer(edges_observer.as_mut())
+                .build()?);
 
             let mut emu = StdEmulator::builder()
                 .qemu_parameters(args)

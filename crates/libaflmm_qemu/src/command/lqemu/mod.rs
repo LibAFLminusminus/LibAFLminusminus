@@ -1,16 +1,16 @@
-use enum_map::Enum;
-use libaflmm::executors::ExitKind;
-use libaflmm::inputs::Input;
-use libaflmm_qemu_sys::GuestAddr;
-#[cfg(feature = "systemmode")]
-use libaflmm_qemu_sys::GuestPhysAddr;
-use num_enum::TryFromPrimitive;
-use paste::paste;
 use std::{
     fmt,
     fmt::{Debug, Display, Formatter},
     ops::Range,
 };
+
+use enum_map::Enum;
+use libaflmm::{executors::ExitKind, inputs::Input};
+use libaflmm_qemu_sys::GuestAddr;
+#[cfg(feature = "systemmode")]
+use libaflmm_qemu_sys::GuestPhysAddr;
+use num_enum::TryFromPrimitive;
+use paste::paste;
 
 pub mod parser;
 use parser::{
@@ -106,7 +106,7 @@ pub struct SaveCommand;
 impl<C, CM, ET, I, IS, S, SM> IsCommand<C, CM, GenericEmulatorDriver<IS>, ET, I, S, SM>
     for SaveCommand
 where
-    ET: EmulatorModuleTuple<Input = I, State = S>,
+    ET: EmulatorModuleTuple<I, S>,
     I: Unpin,
     S: Unpin,
     SM: IsSnapshotManager,
@@ -173,7 +173,7 @@ impl<C, CM, ET, I, IS, S, SM> IsCommand<C, CM, GenericEmulatorDriver<IS>, ET, I,
     for StartCommand
 where
     CM: IsStdCommandManager,
-    ET: EmulatorModuleTuple<Input = I, State = S> + HasStdFiltersTuple,
+    ET: EmulatorModuleTuple<I, S> + HasStdFiltersTuple,
     I: Input + Unpin,
     IS: InputSetter<I, S>,
     S: Unpin,
@@ -235,7 +235,7 @@ pub struct EndCommand {
 impl<C, ET, I, IS, S, SM>
     IsCommand<C, LqemuCommandManager<S>, GenericEmulatorDriver<IS>, ET, I, S, SM> for EndCommand
 where
-    ET: EmulatorModuleTuple<Input = I, State = S>,
+    ET: EmulatorModuleTuple<I, S>,
     I: Input + Unpin,
     S: Unpin,
     SM: IsSnapshotManager,
@@ -313,7 +313,7 @@ pub struct PageAllowCommand {
 #[cfg(feature = "systemmode")]
 impl<C, CM, ED, ET, I, S, SM> IsCommand<C, CM, ED, ET, I, S, SM> for PageAllowCommand
 where
-    ET: EmulatorModuleTuple<Input = I, State = S> + HasStdFiltersTuple,
+    ET: EmulatorModuleTuple<I, S> + HasStdFiltersTuple,
     I: Unpin,
     S: Unpin,
 {
@@ -339,7 +339,7 @@ pub struct AddressAllowCommand {
 }
 impl<C, CM, ED, ET, I, S, SM> IsCommand<C, CM, ED, ET, I, S, SM> for AddressAllowCommand
 where
-    ET: EmulatorModuleTuple<Input = I, State = S> + HasStdFiltersTuple,
+    ET: EmulatorModuleTuple<I, S> + HasStdFiltersTuple,
     I: Unpin,
     S: Unpin,
 {
@@ -365,7 +365,7 @@ pub struct LqprintfCommand {
 }
 impl<C, CM, ED, ET, I, S, SM> IsCommand<C, CM, ED, ET, I, S, SM> for LqprintfCommand
 where
-    ET: EmulatorModuleTuple<Input = I, State = S>,
+    ET: EmulatorModuleTuple<I, S>,
     I: Unpin,
     S: Unpin,
 {
@@ -390,7 +390,7 @@ pub struct TestCommand {
 }
 impl<C, CM, ED, ET, I, S, SM> IsCommand<C, CM, ED, ET, I, S, SM> for TestCommand
 where
-    ET: EmulatorModuleTuple<Input = I, State = S>,
+    ET: EmulatorModuleTuple<I, S>,
     I: Unpin,
     S: Unpin,
 {
@@ -424,7 +424,7 @@ pub struct SetMapCommand {
 impl<C, CM, ET, I, IS, S, SM> IsCommand<C, CM, GenericEmulatorDriver<IS>, ET, I, S, SM>
     for SetMapCommand
 where
-    ET: EmulatorModuleTuple<Input = I, State = S>,
+    ET: EmulatorModuleTuple<I, S>,
     I: Unpin,
     S: Unpin,
 {

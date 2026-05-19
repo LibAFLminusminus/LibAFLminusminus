@@ -22,7 +22,7 @@ use libaflmm_bolts::{
 use libaflmm_qemu::{
     config::{self, QemuConfig},
     elf::EasyElf,
-    modules::{edges::StdEdgeCoverageModuleBuilder, NopModule},
+    modules::edges::StdEdgeCoverageModuleBuilder,
     GuestAddr, GuestPhysAddr, QemuExitReason, QemuRWError, Regs, SimpleQemuExecutor, StdEmulator,
 };
 use libaflmm_targets::{edges_map_mut_ptr, EDGES_MAP_DEFAULT_SIZE, MAX_EDGES_FOUND};
@@ -126,12 +126,9 @@ pub fn fuzz() -> Result<()> {
                 .start_cpu(false)
                 .build();
 
-            let emulator_modules = (
-                StdEdgeCoverageModuleBuilder::default()
-                    .map_observer(edges_observer.as_mut())
-                    .build()?,
-                NopModule::default(),
-            );
+            let emulator_modules = tuple_list!(StdEdgeCoverageModuleBuilder::default()
+                .map_observer(edges_observer.as_mut())
+                .build()?);
 
             let emulator = StdEmulator::empty()
                 .qemu_parameters(qemu_config)

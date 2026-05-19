@@ -11,18 +11,15 @@ use crate::{
     },
 };
 use libaflmm::states::State;
-use std::marker::PhantomData;
 
 #[derive(Debug)]
 pub struct EdgeCoverageFullVariant;
 
-pub type StdEdgeCoverageFullModule<I, S> =
-    EdgeCoverageModule<StdAddressFilter, I, StdPageFilter, S, EdgeCoverageFullVariant, false, 0>;
-pub type StdEdgeCoverageFullModuleBuilder<I, S> = EdgeCoverageModuleBuilder<
+pub type StdEdgeCoverageFullModule =
+    EdgeCoverageModule<StdAddressFilter, StdPageFilter, EdgeCoverageFullVariant, false, 0>;
+pub type StdEdgeCoverageFullModuleBuilder = EdgeCoverageModuleBuilder<
     StdAddressFilter,
-    I,
     StdPageFilter,
-    S,
     EdgeCoverageFullVariant,
     false,
     false,
@@ -32,16 +29,16 @@ pub type StdEdgeCoverageFullModuleBuilder<I, S> = EdgeCoverageModuleBuilder<
 impl<AF, PF, const IS_CONST_MAP: bool, const MAP_SIZE: usize>
     EdgeCoverageVariant<AF, PF, IS_CONST_MAP, MAP_SIZE> for EdgeCoverageFullVariant
 {
-    fn jit_hitcount<ET>(&mut self, emulator_modules: &mut EmulatorModules<ET>)
+    fn jit_hitcount<ET, I, S>(&mut self, emulator_modules: &mut EmulatorModules<ET, I, S>)
     where
         AF: AddressFilter,
-        ET: EmulatorModuleTuple,
-        ET::Input: 'static,
-        ET::State: State + 'static,
+        ET: EmulatorModuleTuple<I, S>,
         PF: PageFilter,
+        I: Unpin,
+        S: State + Unpin,
     {
         let hook_id = emulator_modules.edges(
-            Hook::Function(gen_unique_edge_ids::<AF, ET, PF, Self, IS_CONST_MAP, MAP_SIZE>),
+            Hook::Function(gen_unique_edge_ids::<AF, ET, PF, I, S, Self, IS_CONST_MAP, MAP_SIZE>),
             Hook::Empty,
         );
         unsafe {
@@ -52,16 +49,16 @@ impl<AF, PF, const IS_CONST_MAP: bool, const MAP_SIZE: usize>
         }
     }
 
-    fn jit_no_hitcount<ET>(&mut self, emulator_modules: &mut EmulatorModules<ET>)
+    fn jit_no_hitcount<ET, I, S>(&mut self, emulator_modules: &mut EmulatorModules<ET, I, S>)
     where
         AF: AddressFilter,
-        ET: EmulatorModuleTuple,
-        ET::Input: 'static,
-        ET::State: State + 'static,
+        ET: EmulatorModuleTuple<I, S>,
         PF: PageFilter,
+        I: Unpin,
+        S: State + Unpin,
     {
         let hook_id = emulator_modules.edges(
-            Hook::Function(gen_unique_edge_ids::<AF, ET, PF, Self, IS_CONST_MAP, MAP_SIZE>),
+            Hook::Function(gen_unique_edge_ids::<AF, ET, PF, I, S, Self, IS_CONST_MAP, MAP_SIZE>),
             Hook::Empty,
         );
         unsafe {
@@ -72,36 +69,36 @@ impl<AF, PF, const IS_CONST_MAP: bool, const MAP_SIZE: usize>
         }
     }
 
-    fn fn_hitcount<ET>(&mut self, emulator_modules: &mut EmulatorModules<ET>)
+    fn fn_hitcount<ET, I, S>(&mut self, emulator_modules: &mut EmulatorModules<ET, I, S>)
     where
         AF: AddressFilter,
-        ET: EmulatorModuleTuple,
-        ET::Input: 'static,
-        ET::State: State + 'static,
+        ET: EmulatorModuleTuple<I, S>,
         PF: PageFilter,
+        I: Unpin,
+        S: State + Unpin,
     {
         emulator_modules.edges(
-            Hook::Function(gen_unique_edge_ids::<AF, ET, PF, Self, IS_CONST_MAP, MAP_SIZE>),
+            Hook::Function(gen_unique_edge_ids::<AF, ET, PF, I, S, Self, IS_CONST_MAP, MAP_SIZE>),
             Hook::Raw(trace_edge_hitcount),
         );
     }
 
-    fn fn_no_hitcount<ET>(&mut self, emulator_modules: &mut EmulatorModules<ET>)
+    fn fn_no_hitcount<ET, I, S>(&mut self, emulator_modules: &mut EmulatorModules<ET, I, S>)
     where
         AF: AddressFilter,
-        ET: EmulatorModuleTuple,
-        ET::Input: 'static,
-        ET::State: State + 'static,
+        ET: EmulatorModuleTuple<I, S>,
         PF: PageFilter,
+        I: Unpin,
+        S: State + Unpin,
     {
         emulator_modules.edges(
-            Hook::Function(gen_unique_edge_ids::<AF, ET, PF, Self, IS_CONST_MAP, MAP_SIZE>),
+            Hook::Function(gen_unique_edge_ids::<AF, ET, PF, I, S, Self, IS_CONST_MAP, MAP_SIZE>),
             Hook::Raw(trace_edge_single),
         );
     }
 }
 
-impl<I, S> Default for StdEdgeCoverageFullModuleBuilder<I, S> {
+impl Default for StdEdgeCoverageFullModuleBuilder {
     fn default() -> Self {
         Self {
             variant: EdgeCoverageFullVariant,
@@ -109,14 +106,13 @@ impl<I, S> Default for StdEdgeCoverageFullModuleBuilder<I, S> {
             page_filter: StdPageFilter::default(),
             use_hitcounts: true,
             use_jit: true,
-            phantom: PhantomData,
         }
     }
 }
 
-impl<I, S> StdEdgeCoverageFullModule<I, S> {
+impl StdEdgeCoverageFullModule {
     #[must_use]
-    pub fn builder() -> StdEdgeCoverageFullModuleBuilder<I, S> {
+    pub fn builder() -> StdEdgeCoverageFullModuleBuilder {
         EdgeCoverageModuleBuilder::default()
     }
 }

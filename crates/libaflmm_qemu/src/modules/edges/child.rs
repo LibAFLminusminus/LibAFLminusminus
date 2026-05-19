@@ -1,3 +1,5 @@
+use libaflmm::states::State;
+
 use super::{
     EdgeCoverageVariant,
     helpers::{gen_hashed_edge_ids, trace_edge_hitcount_ptr, trace_edge_single_ptr},
@@ -10,18 +12,14 @@ use crate::{
         utils::filters::{StdAddressFilter, StdPageFilter},
     },
 };
-use libaflmm::states::State;
-use std::marker::PhantomData;
 
 #[derive(Debug)]
 pub struct EdgeCoverageChildVariant;
-pub type StdEdgeCoverageChildModule<I, S> =
-    EdgeCoverageModule<StdAddressFilter, I, StdPageFilter, S, EdgeCoverageChildVariant, false, 0>;
-pub type StdEdgeCoverageChildModuleBuilder<I, S> = EdgeCoverageModuleBuilder<
+pub type StdEdgeCoverageChildModule =
+    EdgeCoverageModule<StdAddressFilter, StdPageFilter, EdgeCoverageChildVariant, false, 0>;
+pub type StdEdgeCoverageChildModuleBuilder = EdgeCoverageModuleBuilder<
     StdAddressFilter,
-    I,
     StdPageFilter,
-    S,
     EdgeCoverageChildVariant,
     false,
     false,
@@ -33,36 +31,36 @@ impl<AF, PF, const IS_CONST_MAP: bool, const MAP_SIZE: usize>
 {
     const DO_SIDE_EFFECTS: bool = false;
 
-    fn fn_hitcount<ET>(&mut self, emulator_modules: &mut EmulatorModules<ET>)
+    fn fn_hitcount<ET, I, S>(&mut self, emulator_modules: &mut EmulatorModules<ET, I, S>)
     where
         AF: AddressFilter,
-        ET: EmulatorModuleTuple,
-        ET::Input: 'static,
-        ET::State: State + 'static,
+        ET: EmulatorModuleTuple<I, S>,
         PF: PageFilter,
+        I: Unpin,
+        S: State + Unpin,
     {
         emulator_modules.edges(
-            Hook::Function(gen_hashed_edge_ids::<AF, ET, PF, Self, IS_CONST_MAP, MAP_SIZE>),
+            Hook::Function(gen_hashed_edge_ids::<AF, ET, PF, I, S, Self, IS_CONST_MAP, MAP_SIZE>),
             Hook::Raw(trace_edge_hitcount_ptr),
         );
     }
 
-    fn fn_no_hitcount<ET>(&mut self, emulator_modules: &mut EmulatorModules<ET>)
+    fn fn_no_hitcount<ET, I, S>(&mut self, emulator_modules: &mut EmulatorModules<ET, I, S>)
     where
         AF: AddressFilter,
-        ET: EmulatorModuleTuple,
-        ET::Input: 'static,
-        ET::State: State + 'static,
+        ET: EmulatorModuleTuple<I, S>,
         PF: PageFilter,
+        I: Unpin,
+        S: State + Unpin,
     {
         emulator_modules.edges(
-            Hook::Function(gen_hashed_edge_ids::<AF, ET, PF, Self, IS_CONST_MAP, MAP_SIZE>),
+            Hook::Function(gen_hashed_edge_ids::<AF, ET, PF, I, S, Self, IS_CONST_MAP, MAP_SIZE>),
             Hook::Raw(trace_edge_single_ptr),
         );
     }
 }
 
-impl<I, S> Default for StdEdgeCoverageChildModuleBuilder<I, S> {
+impl Default for StdEdgeCoverageChildModuleBuilder {
     fn default() -> Self {
         Self {
             variant: EdgeCoverageChildVariant,
@@ -70,14 +68,13 @@ impl<I, S> Default for StdEdgeCoverageChildModuleBuilder<I, S> {
             page_filter: StdPageFilter::default(),
             use_hitcounts: true,
             use_jit: true,
-            phantom: PhantomData,
         }
     }
 }
 
-impl<I, S> StdEdgeCoverageChildModule<I, S> {
+impl StdEdgeCoverageChildModule {
     #[must_use]
-    pub fn builder() -> StdEdgeCoverageChildModuleBuilder<I, S> {
+    pub fn builder() -> StdEdgeCoverageChildModuleBuilder {
         EdgeCoverageModuleBuilder::default().jit(false)
     }
 }
