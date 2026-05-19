@@ -1,5 +1,3 @@
-use libaflmm::states::CoreState;
-
 use super::{
     EdgeCoverageVariant,
     helpers::{gen_unique_edge_ids, trace_edge_hitcount, trace_edge_single},
@@ -12,6 +10,7 @@ use crate::{
         utils::filters::{StdAddressFilter, StdPageFilter},
     },
 };
+use libaflmm::states::State;
 
 #[derive(Debug)]
 pub struct EdgeCoverageFullVariant;
@@ -36,7 +35,7 @@ impl<AF, PF, const IS_CONST_MAP: bool, const MAP_SIZE: usize>
         ET: EmulatorModuleTuple<I, S>,
         PF: PageFilter,
         I: Unpin,
-        S: CoreState + Unpin,
+        S: State + Unpin,
     {
         let hook_id = emulator_modules.edges(
             Hook::Function(gen_unique_edge_ids::<AF, ET, PF, I, S, Self, IS_CONST_MAP, MAP_SIZE>),
@@ -56,7 +55,7 @@ impl<AF, PF, const IS_CONST_MAP: bool, const MAP_SIZE: usize>
         ET: EmulatorModuleTuple<I, S>,
         PF: PageFilter,
         I: Unpin,
-        S: CoreState + Unpin,
+        S: State + Unpin,
     {
         let hook_id = emulator_modules.edges(
             Hook::Function(gen_unique_edge_ids::<AF, ET, PF, I, S, Self, IS_CONST_MAP, MAP_SIZE>),
@@ -76,7 +75,7 @@ impl<AF, PF, const IS_CONST_MAP: bool, const MAP_SIZE: usize>
         ET: EmulatorModuleTuple<I, S>,
         PF: PageFilter,
         I: Unpin,
-        S: CoreState + Unpin,
+        S: State + Unpin,
     {
         emulator_modules.edges(
             Hook::Function(gen_unique_edge_ids::<AF, ET, PF, I, S, Self, IS_CONST_MAP, MAP_SIZE>),
@@ -90,7 +89,7 @@ impl<AF, PF, const IS_CONST_MAP: bool, const MAP_SIZE: usize>
         ET: EmulatorModuleTuple<I, S>,
         PF: PageFilter,
         I: Unpin,
-        S: CoreState + Unpin,
+        S: State + Unpin,
     {
         emulator_modules.edges(
             Hook::Function(gen_unique_edge_ids::<AF, ET, PF, I, S, Self, IS_CONST_MAP, MAP_SIZE>),

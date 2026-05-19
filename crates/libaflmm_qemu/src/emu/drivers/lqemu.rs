@@ -1,7 +1,7 @@
 #[cfg(not(feature = "systemmode"))]
 use crate::InputLocation;
 #[cfg(feature = "systemmode")]
-use crate::emu::systemmode::SystemInputLocation as InputLocation;
+use crate::emu::standard::systemmode::SystemInputLocation as InputLocation;
 use crate::{EmulatorDriverError, GuestReg, InputSetter, Qemu};
 use libaflmm::{
     inputs::{Input, InputContext},
@@ -18,7 +18,7 @@ pub struct LqemuInputSetter {
 impl<I, S> InputSetter<I, S> for LqemuInputSetter
 where
     I: Input,
-    S: State<I>,
+    S: State<Input = I>,
 {
     fn write_input(
         &mut self,

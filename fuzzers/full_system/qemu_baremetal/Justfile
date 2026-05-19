@@ -1,0 +1,94 @@
+import "../../../just/libafl-qemu.just"
+
+set allow-duplicate-variables
+
+ARCH := env("ARCH", "arm")
+FUZZER_NAME := "qemu_baremetal"
+VHARNESS := BUILD_DIR / "vharness_out"
+KERNEL := TARGET_DIR / "example.elf"
+DUMMY_IMG := TARGET_DIR / "dummy.qcow2"
+
+target_dir:
+    mkdir -p "{{ TARGET_DIR }}"
+
+image: target_dir
+    qemu-img create -f qcow2 {{ DUMMY_IMG }} 32M
+
+target flavor="low_level": image target_dir (build flavor)
+    arm-none-eabi-gcc -ggdb -ffreestanding -nostartfiles -lgcc \
+        -T example/mps2_m3.ld \
+        -mcpu=cortex-m3 \
+        -D "TARGET_{{ uppercase(flavor) }}" \
+        -I {{ VHARNESS / "include" }} \
+        example/main.c \
+        example/startup.c \
+        {{ VHARNESS / "src" / "calls.c" }} \
+        {{ VHARNESS / "src" / "lqemu.c" }} \
+        -o {{ TARGET_DIR }}/example.elf
+
+build flavor="low_level": target_dir
+    cargo build \
+        --profile {{ PROFILE }} \
+        --no-default-features \
+        --features std,{{ flavor }},{{ ARCH }}  \
+        --target-dir {{ TARGET_DIR }}
+
+build-multiarch flavor="low_level": target_dir
+    cargo build \
+        --profile {{ PROFILE }} \
+        --no-default-features \
+        --features std,{{ flavor }},{{ ARCH }} \
+        --target-dir {{ TARGET_DIR }}
+
+run flavor="low_level": (target flavor) (build flavor)
+    #!/bin/bash
+    set -eu
+
+    export KERNEL={{ KERNEL }}
+    export TARGET_DIR={{ TARGET_DIR }}
+
+    {{ FUZZER }} \
+        -icount shift=auto,align=off,sleep=off \
+        -machine mps2-an385 \
+        -monitor null \
+        -kernel {{ KERNEL }} -serial null \
+        -drive if=none,format=qcow2,file={{ DUMMY_IMG }} \
+        -nographic \
+        -snapshot \
+        -S
+
+test_flavor flavor="low_level": (target flavor) (build flavor)
+    #!/bin/bash
+    set -eu
+
+    export KERNEL={{ KERNEL }}
+    export TARGET_DIR={{ TARGET_DIR }}
+
+    timeout 10s {{ FUZZER }} \
+        -icount shift=auto,align=off,sleep=off \
+        -machine mps2-an385 \
+        -monitor null \
+        -kernel {{ KERNEL }} -serial null \
+        -drive if=none,format=qcow2,file={{ DUMMY_IMG }} \
+        -nographic \
+        -snapshot \
+        -S || true
+
+    STATS_FILE="./workdir/worker_0/fuzzer_stats"
+    if [ ! -f "$STATS_FILE" ]; then
+        echo "qemu_baremetal {{ flavor }}: Stats file not found at $STATS_FILE"
+        exit 1
+    fi
+
+    OBJECTIVE=$(jq '.objective' "$STATS_FILE")
+    if [ "$OBJECTIVE" -eq 0 ]; then
+        echo "qemu_baremetal {{ flavor }}: Fuzzer did not find any objective (stats: $STATS_FILE)"
+        exit 1
+    else
+        echo "qemu_baremetal {{ flavor }}: Found $OBJECTIVE objective(s)."
+    fi
+
+test: (test_flavor "low_level") (test_flavor "breakpoint") (test_flavor "custom_insn")
+
+clean:
+    cargo clean

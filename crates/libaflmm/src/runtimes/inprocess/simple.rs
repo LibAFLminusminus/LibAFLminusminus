@@ -76,7 +76,7 @@ where
     T: FnMut(&mut RuntimeHandle<S, W>, &mut S) -> Result<()>,
     TM: Timer,
 {
-    unsafe fn run_impl(self, state: S, rt_handle: &mut RuntimeHandle<S, W>) -> Result<()> {
+    unsafe fn run_impl(&mut self, state: S, rt_handle: &mut RuntimeHandle<S, W>) -> Result<()> {
         unsafe { self.0.run_impl(state, rt_handle) }
     }
 

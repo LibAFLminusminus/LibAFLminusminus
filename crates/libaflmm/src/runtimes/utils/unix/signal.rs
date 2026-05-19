@@ -1,20 +1,5 @@
 //! Unix signal handling
 
-use alloc::{boxed::Box, vec::Vec};
-use core::pin::Pin;
-use std::{
-    backtrace::Backtrace,
-    io::Write,
-    panic::{self, PanicHookInfo},
-};
-
-use libaflmm_bolts::os::{
-    exit,
-    unix_signals::{Signal, SignalHandler, setup_signal_handler},
-};
-use libaflmm_core::Result;
-use libc::{SIGABRT, siginfo_t, ucontext_t};
-
 use crate::{
     executors::common_signals,
     runtimes::{
@@ -22,6 +7,19 @@ use crate::{
         restarting::{LIBAFLMM_EXIT_RESTART, LIBAFLMM_EXIT_TERMINATION_INFINITE_RECURSION},
         utils::{IntoTerminationHandlerData, PinnedPtr, TerminationHandler},
     },
+};
+use alloc::{boxed::Box, vec::Vec};
+use core::pin::Pin;
+use libaflmm_bolts::os::{
+    exit,
+    unix_signals::{Signal, SignalHandler, setup_signal_handler},
+};
+use libaflmm_core::Result;
+use libc::{SIGABRT, siginfo_t, ucontext_t};
+use std::{
+    backtrace::Backtrace,
+    io::Write,
+    panic::{self, PanicHookInfo},
 };
 
 /// Unix termination (signal) handler.
@@ -136,6 +134,7 @@ where
                     exit(LIBAFLMM_EXIT_RESTART);
                 }
                 TimeoutStatus::Resume => {
+                    log::info!("Resuming...");
                     // resume the fuzzer on timeout
                 }
             }
@@ -145,6 +144,8 @@ where
             // offset by 128 to signal a fuzzer crash
             exit(128 + (signal as i32));
         }
+
+        self.exit();
     }
 
     /// Crash-Handler for in-process fuzzing.
@@ -201,9 +202,7 @@ where
                 // not in fuzzing loop, this is a fuzzer bug.
                 let si_addr = { siginfo.si_addr() as usize };
 
-                log::error!(
-                    "Fuzzer crashed at addr 0x{si_addr:x}, but not in target. This is a fuzzer bug. Exiting."
-                );
+                log::error!("Fuzzer crashed at 0x{si_addr:x}. This is a fuzzer bug.");
 
                 {
                     let mut bsod = Vec::new();
@@ -267,8 +266,8 @@ where
                 exit(LIBAFLMM_EXIT_TERMINATION_INFINITE_RECURSION);
             }
 
-            if !D::termination_handler_data(Pin::new(&mut signal_handler.inner.termination_data))
-                .is_some_and(|p| p.in_fuzzing())
+            if D::termination_handler_data(Pin::new(&mut signal_handler.inner.termination_data))
+                .is_some_and(|p| !p.in_fuzzing())
             {
                 // not in a fuzzing run: use the default hook (includes RUST_BACKTRACE output)
                 old_hook(panic_info);

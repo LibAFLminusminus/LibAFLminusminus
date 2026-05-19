@@ -33,8 +33,8 @@ pub mod elf;
 
 pub mod modules;
 
-pub mod executor;
-pub use executor::QemuExecutor;
+pub mod executors;
+pub use executors::{SimpleQemuExecutor, StdQemuExecutor};
 
 pub mod qemu;
 pub use qemu::*;

@@ -15,7 +15,7 @@ use crate::{
     fuzzers::Evaluator,
     generators::Generator,
     stages::{RuntimeHandle, Stage},
-    states::CoreState,
+    states::State,
 };
 
 /// A [`Stage`] that generates a single input via a [`Generator`] and evaluates
@@ -44,7 +44,7 @@ impl<G, I> Named for GenStage<G, I> {
 impl<E, G, I, R, S, W, Z> Stage<E, R, S, W, Z> for GenStage<G, I>
 where
     G: Generator<I, R, S>,
-    S: CoreState,
+    S: State,
     Z: Evaluator<E, I, S, W>,
 {
     #[inline]

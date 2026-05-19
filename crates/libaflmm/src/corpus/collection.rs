@@ -214,11 +214,13 @@ where
     }
 }
 
-impl<I, SC> Corpus<I> for InMemoryCorpus<I, SC>
+impl<I, SC> Corpus for InMemoryCorpus<I, SC>
 where
     I: Input,
     SC: Scheduler,
 {
+    type Input = I;
+
     fn count(&self) -> usize {
         self.0.count()
     }
@@ -320,11 +322,13 @@ where
     }
 }
 
-impl<I, SC> Corpus<I> for OnDiskCorpus<I, SC>
+impl<I, SC> Corpus for OnDiskCorpus<I, SC>
 where
     I: Input,
     SC: Scheduler,
 {
+    type Input = I;
+
     fn count(&self) -> usize {
         self.0.count()
     }
@@ -369,11 +373,13 @@ where
 
 impl<I, SC> DependencyResolver for InMemoryOnDiskCorpus<I, SC> {}
 
-impl<I, SC> Corpus<I> for InMemoryOnDiskCorpus<I, SC>
+impl<I, SC> Corpus for InMemoryOnDiskCorpus<I, SC>
 where
     I: Input,
     SC: Scheduler,
 {
+    type Input = I;
+
     fn count(&self) -> usize {
         self.0.count()
     }
@@ -412,11 +418,13 @@ where
 
 impl<I, SC> DependencyResolver for CachedOnDiskCorpus<I, SC> {}
 
-impl<I, SC> Corpus<I> for CachedOnDiskCorpus<I, SC>
+impl<I, SC> Corpus for CachedOnDiskCorpus<I, SC>
 where
     I: Input,
     SC: Scheduler,
 {
+    type Input = I;
+
     fn count(&self) -> usize {
         self.0.count()
     }

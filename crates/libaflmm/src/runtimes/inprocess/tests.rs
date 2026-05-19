@@ -31,7 +31,7 @@ rusty_fork_test! {
 
         let std_timer = StdTimer::new();
 
-        let runtime = InProcessRuntime::new(task, crash_handler, TerminationHandlerData::new(), timeout_handler, std_timer);
+        let mut runtime = InProcessRuntime::new(task, crash_handler, TerminationHandlerData::new(), timeout_handler, std_timer);
 
         match runtime.run(state, worker).err() {
             Some(Error::ShuttingDown) => {}

@@ -1,7 +1,7 @@
 use libaflmm::{
     Fuzzer, Result, StdFuzzer, Worker,
     corpus::{
-        Corpus, InMemoryCorpus, OnDiskCorpus, Scheduler,
+        Corpus, InMemoryCorpus, OnDiskCorpus,
         schedulers::{NopScheduler, QueueScheduler},
     },
     feedbacks::{CrashFeedback, MaxMapFeedback},
@@ -19,14 +19,13 @@ use libaflmm::{
 use libaflmm_bolts::{non_zero, rands::StdRand, tuples::tuple_list};
 use libaflmm_nyx::{executor::NyxExecutor, helper::NyxHelper, settings::NyxSettings};
 
-fn run_fuzzer<C, OC, SC>(
-    rt_handle: &mut RuntimeHandle<StdState<C, BytesContext, BytesInput, OC, SC>, SimpleWorker>,
-    state: &mut StdState<C, BytesContext, BytesInput, OC, SC>,
+fn run_fuzzer<C, OC>(
+    rt_handle: &mut RuntimeHandle<StdState<C, BytesContext, BytesInput, OC>, SimpleWorker>,
+    state: &mut StdState<C, BytesContext, BytesInput, OC>,
 ) -> Result<()>
 where
-    C: Corpus<BytesInput>,
-    OC: Corpus<BytesInput>,
-    SC: Scheduler,
+    C: Corpus<Input = BytesInput>,
+    OC: Corpus<Input = BytesInput>,
 {
     // nyx stuff
     let settings = NyxSettings::builder().cpu_id(0).parent_cpu_id(None).build();

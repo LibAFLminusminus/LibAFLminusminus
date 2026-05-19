@@ -11,7 +11,7 @@ use nix::{
     time::ClockId,
 };
 
-/// The strcut about all the internals of the timer.
+/// The struct about all the internals of the timer.
 /// This struct absorb all platform specific differences about timer.
 #[derive(Debug)]
 pub struct StdTimer {

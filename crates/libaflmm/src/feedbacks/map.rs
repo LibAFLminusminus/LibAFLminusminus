@@ -8,7 +8,7 @@ use crate::{
     executors::ExitKind,
     feedbacks::{Feedback, HasObserverHandle},
     observers::MapObserver,
-    states::{CoreState, STAT_COVERAGE, State},
+    states::{STAT_COVERAGE, State},
 };
 use alloc::{borrow::Cow, string::ToString, vec::Vec};
 use core::{
@@ -330,7 +330,7 @@ where
     O::Entry: 'static + Default + Debug + DeserializeOwned + Serialize,
     OT: MatchName,
     R: Reducer<O::Entry>,
-    S: State<I>,
+    S: State<Input = I>,
 {
     fn is_interesting(
         &mut self,
@@ -390,10 +390,12 @@ where
         );
 
         let covered = map_state.num_covered_map_indexes;
-        state.stats_mut().user_map.insert(
-            STAT_COVERAGE.to_string(),
-            serde_json::json!([covered, map_len]),
-        );
+        let stat_json = serde_json::json!([covered, map_len]).to_string();
+
+        state
+            .stats_mut()
+            .user_map
+            .insert(STAT_COVERAGE.to_string(), stat_json);
 
         Ok(())
     }
@@ -453,7 +455,7 @@ where
 {
     fn is_interesting_default<OT, S>(&mut self, state: &mut S, observers: &OT) -> bool
     where
-        S: CoreState,
+        S: State,
         OT: MatchName,
     {
         let mut interesting = false;

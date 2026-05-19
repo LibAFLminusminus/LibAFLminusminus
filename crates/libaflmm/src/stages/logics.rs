@@ -8,7 +8,7 @@ use crate::{
     DependencyResolver, Result,
     corpus::testcase::TestcaseId,
     stages::{RuntimeHandle, Stage, StagesTuple},
-    states::CoreState,
+    states::State,
 };
 
 #[derive(Debug)]
@@ -44,7 +44,7 @@ impl<CB, ST> Named for WhileStage<CB, ST> {
 impl<CB, E, R, ST, S, W, Z> Stage<E, R, S, W, Z> for WhileStage<CB, ST>
 where
     CB: FnMut(&mut RuntimeHandle<S, W>, &mut E, &mut R, &mut S, &mut Z) -> Result<bool>,
-    S: CoreState,
+    S: State,
     ST: StagesTuple<E, R, S, W, Z>,
 {
     fn perform_impl(
@@ -112,7 +112,7 @@ impl<CB, ST> IfStage<CB, ST> {
 impl<CB, E, R, ST, S, W, Z> Stage<E, R, S, W, Z> for IfStage<CB, ST>
 where
     CB: FnMut(&mut RuntimeHandle<S, W>, &mut E, &mut R, &mut S, &mut Z) -> Result<bool>,
-    S: CoreState,
+    S: State,
     ST: StagesTuple<E, R, S, W, Z>,
 {
     fn perform_impl(
@@ -185,7 +185,7 @@ impl<CB, ST1, ST2> IfElseStage<CB, ST1, ST2> {
 impl<CB, E, R, ST1, ST2, S, W, Z> Stage<E, R, S, W, Z> for IfElseStage<CB, ST1, ST2>
 where
     CB: FnMut(&mut RuntimeHandle<S, W>, &mut E, &mut R, &mut S, &mut Z) -> Result<bool>,
-    S: CoreState,
+    S: State,
     ST1: StagesTuple<E, R, S, W, Z>,
     ST2: StagesTuple<E, R, S, W, Z>,
 {
