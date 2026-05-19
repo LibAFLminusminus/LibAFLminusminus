@@ -40,7 +40,7 @@ struct SharedState {
     history: Vec<Value>,
 }
 
-pub static WEBUI_HISTORY: &str = "history.json";
+pub static WEBUI_PREFIX: &str = "libaflmm-webui";
 /// `WebUI` gathers data from fuzzers and show stats to users through a web interface
 #[derive(Debug)]
 pub struct WebMonitor {
@@ -59,7 +59,8 @@ impl WebMonitor {
     #[must_use]
     pub fn with_port(name: &str, port: u16) -> Self {
         let cwd = std::env::current_dir().unwrap();
-        let history_path = cwd.join(WEBUI_HISTORY);
+        let filename = format!("{}-{}.json", WEBUI_PREFIX, std::process::id());
+        let history_path = cwd.join(filename);
         let _ = std::fs::remove_file(&history_path);
         let shared = Arc::new(RwLock::new(SharedState {
             history: Vec::new(),
