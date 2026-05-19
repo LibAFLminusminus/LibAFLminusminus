@@ -132,7 +132,7 @@ pub trait CoreState {
     /// Get the [`Stats`] (mutable)
     fn stats_mut(&mut self) -> &mut Stats;
 
-    /// Mutable reference to the introspection [`PerfStats`].
+    /// Mutable ref to the introspection [`PerfStats`].
     fn perf_stats_mut(&mut self) -> &mut PerfStats;
 
     /// The maximum size of an [`Input`]
