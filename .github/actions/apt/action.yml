@@ -68,3 +68,17 @@ runs:
           sudo mkdir -p "$(dirname "$sentinel")"
           sudo touch "$sentinel"
         fi
+
+    - name: Install QEMU runtime packages
+      if: ${{ inputs.qemu == 'true' }}
+      shell: bash
+      run: |
+        packages=(
+          qemu-utils
+          gcc-arm-none-eabi
+        )
+
+        if ! dpkg -s "${packages[@]}" &>/dev/null; then
+          sudo flock --timeout 300 /var/lock/github-apt.lock \
+            apt-get install -y --no-install-recommends "${packages[@]}"
+        fi
