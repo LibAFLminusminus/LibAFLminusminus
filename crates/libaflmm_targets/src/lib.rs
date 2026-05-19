@@ -21,23 +21,6 @@ pub use libfuzzer::*;
 pub mod exports;
 pub use exports::*;
 
-/// Module containing bindings to the various sanitizer interface headers
-#[cfg(feature = "sanitizer_interfaces")]
-pub mod sanitizer_ifaces {
-    #![allow(non_snake_case)]
-    #![allow(non_camel_case_types)]
-    #![allow(non_upper_case_globals)]
-    #![allow(unused)]
-    #![allow(improper_ctypes)]
-    #![allow(clippy::unreadable_literal)]
-    #![allow(missing_docs)]
-    #![allow(missing_debug_implementations)]
-    #![allow(unused_qualifications)]
-    #![allow(clippy::pub_underscore_fields)]
-
-    include!(concat!(env!("OUT_DIR"), "/sanitizer_interfaces.rs"));
-}
-
 #[cfg(feature = "coverage")]
 pub mod coverage;
 #[cfg(feature = "coverage")]
