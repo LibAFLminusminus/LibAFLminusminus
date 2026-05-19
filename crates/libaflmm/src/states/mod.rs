@@ -31,7 +31,6 @@ use libaflmm_bolts::{
 use nix::fcntl::{Flock, FlockArg};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
-use serde_json::{Map, Value};
 use std::{
     collections::HashMap,
     fs::{self, File},
@@ -56,8 +55,9 @@ pub struct Stats {
     pub(crate) objective: usize,
     /// last time smth was found
     pub(crate) last_found_time: Duration,
-    /// [`serde_json::Map`] to hold additional info that users want.
-    pub(crate) user_map: Map<String, Value>,
+    /// hold additional info that users want, in JSON format.
+    /// Key is the info name, value is the info in JSON.
+    pub(crate) user_map: HashMap<String, String>,
 }
 
 /// The name used in stats json file for the stability value
@@ -1077,7 +1077,7 @@ where
                 objective: 0,
                 last_found_time: libaflmm_bolts::current_time(),
                 start_time: libaflmm_bolts::current_time(),
-                user_map: Map::new(),
+                user_map: HashMap::new(),
             },
             named_metadata: NamedSerdeAnyMap::default(),
             corpus,

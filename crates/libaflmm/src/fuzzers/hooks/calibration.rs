@@ -255,10 +255,10 @@ where
             100.0f64
         };
 
-        state
-            .stats_mut()
-            .user_map
-            .insert(STAT_CALIBRATION.to_string(), serde_json::json!(stability));
+        state.stats_mut().user_map.insert(
+            STAT_CALIBRATION.to_string(),
+            serde_json::json!(stability).to_string(),
+        );
 
         if state.has_md::<PowerScheduleData>() {
             let current = state.corpus().scheduler().current();

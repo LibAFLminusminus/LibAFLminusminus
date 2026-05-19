@@ -1,511 +1,990 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <title>__MONITOR_NAME__</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <style>
-    :root {
-      --bg:      #111;    --bg2:     #1e1e1e; --bg3:    #181818;
-      --border:  #333;    --border2: #444;
-      --text:    #ccc;    --text2:   #aaa;    --text3:  #666;   --text4: #555;
-      --accent:  #4fc3f7;
-    }
-    body.light {
-      --bg:      #f4f4f4; --bg2:     #ffffff; --bg3:    #e8e8e8;
-      --border:  #ddd;    --border2: #ccc;
-      --text:    #222;    --text2:   #555;    --text3:  #888;   --text4: #999;
-      --accent:  #0277bd;
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    :root { --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; --font-mono: "JetBrains Mono", "Fira Code", "SF Mono", Menlo, Consolas, ui-monospace, monospace; }
-    body { font-family: var(--font-ui); background: var(--bg); color: var(--text); padding: 1.5rem; display: flex; flex-direction: column; gap: 1.5rem; height: 100vh; }
-    .topbar { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
-    h1 { font-size: 1.6rem; color: var(--text2); }
-    .workers-badge { display: inline-flex; align-items: baseline; gap: 0.6rem; padding: 0.45rem 1.1rem; border: 1px solid var(--border2); border-radius: 999px; background: var(--bg2); white-space: nowrap; }
-    .workers-badge-label { font-size: 1rem; color: var(--text3); text-transform: uppercase; letter-spacing: 0.05em; }
-    .workers-badge-value { font-size: 1.4rem; color: var(--accent); font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
-    #themeBtn { margin-left: auto; background: transparent; border: 1px solid var(--border2); color: var(--text3); font-family: var(--font-ui); font-size: 0.8rem; padding: 0.3rem 0.8rem; border-radius: 3px; cursor: pointer; }
-    #themeBtn:hover { border-color: var(--accent); color: var(--accent); }
-    .summary { display: flex; gap: 0.6rem; flex-wrap: wrap; }
-    .stat { background: var(--bg2); border: 1px solid var(--border); padding: 0.5rem 0.7rem; border-radius: 4px; flex: 1 1 max-content; min-width: 0; overflow: hidden; }
-    .stat-label { font-size: 1rem; color: var(--text3); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.2rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .stat-value { font-size: 1.3rem; color: var(--accent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
-    .panes { display: grid; grid-template-columns: 1fr 2fr; gap: 1.5rem; flex: 1; min-height: 0; }
-    .pane { display: flex; flex-direction: column; gap: 1rem; min-height: 0; min-width: 0; }
-    .pane-label { font-size: 1rem; color: var(--text4); text-transform: uppercase; letter-spacing: 0.1em; }
-    .panel { display: flex; flex-direction: column; min-height: 0; min-width: 0; border: 1px solid var(--border2); border-radius: 6px; overflow: hidden; }
-    .panel-header { display: flex; align-items: center; gap: 1rem; padding: 0.6rem 1rem; min-height: 3.00rem; background: var(--bg3); border-bottom: 1px solid var(--border2); flex-shrink: 0; }
-    .panel-title { font-size: 0.9rem; color: var(--text2); text-transform: uppercase; letter-spacing: 0.08em; }
-    .panel-body { display: flex; flex-direction: column; gap: 1rem; padding: 1rem; flex: 1; min-height: 0; }
-    .tabs { display: flex; gap: 0.4rem; flex-wrap: wrap; min-width: 0; }
-    #userMapTabs { max-height: 6rem; overflow-y: auto; align-content: flex-start; }
-    .tab { background: transparent; border: 1px solid var(--border2); padding: 0.3rem 0.9rem; border-radius: 3px; cursor: pointer; font-size: 0.85rem; color: var(--text3); font-family: var(--font-ui); flex-shrink: 0; }
-    .tab.active { border-color: var(--accent); color: var(--accent); }
-    .chart-wrap { background: var(--bg2); border: 1px solid var(--border); border-radius: 4px; padding: 1rem; flex: 1; min-height: 0; min-width: 0; position: relative; }
-  </style>
-</head>
-<body>
-  <div class="topbar">
-    <h1>LibAFL--: __MONITOR_NAME__</h1>
-    <div class="workers-badge">
-      <span class="workers-badge-label">Workers</span>
-      <span class="workers-badge-value" id="workers">—</span>
-    </div>
-    <button id="themeBtn" onclick="toggleTheme()">☀️</button>
-  </div>
-  <div class="panes">
-    <div class="panel">
-      <div class="panel-header">
-        <span class="panel-title">Global</span>
-      </div>
-      <div class="panel-body">
-        <div class="summary">
-          <div class="stat"><div class="stat-label">Total Execs</div><div class="stat-value" id="total_execs">—</div></div>
-          <div class="stat"><div class="stat-label">Elapsed</div><div class="stat-value" id="elapsed">—</div></div>
-          <div class="stat"><div class="stat-label">Last Find</div><div class="stat-value" id="last_find">—</div></div>
-          <div class="stat"><div class="stat-label">Execs/s</div><div class="stat-value" id="execs_per_sec">—</div></div>
+    <head>
+        <meta charset="utf-8" />
+        <title>__MONITOR_NAME__</title>
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        <style>
+            :root {
+                --bg: #111;
+                --bg2: #1e1e1e;
+                --bg3: #181818;
+                --border: #333;
+                --border2: #444;
+                --text: #ccc;
+                --text2: #aaa;
+                --text3: #666;
+                --text4: #555;
+                --accent: #4fc3f7;
+            }
+            body.light {
+                --bg: #f4f4f4;
+                --bg2: #ffffff;
+                --bg3: #e8e8e8;
+                --border: #ddd;
+                --border2: #ccc;
+                --text: #222;
+                --text2: #555;
+                --text3: #888;
+                --text4: #999;
+                --accent: #0277bd;
+            }
+            * {
+                box-sizing: border-box;
+                margin: 0;
+                padding: 0;
+            }
+            :root {
+                --font-ui:
+                    system-ui, -apple-system, "Segoe UI", Roboto,
+                    "Helvetica Neue", Arial, sans-serif;
+                --font-mono:
+                    "JetBrains Mono", "Fira Code", "SF Mono", Menlo, Consolas,
+                    ui-monospace, monospace;
+            }
+            body {
+                font-family: var(--font-ui);
+                background: var(--bg);
+                color: var(--text);
+                padding: 1.5rem;
+                display: flex;
+                flex-direction: column;
+                gap: 1.5rem;
+                height: 100vh;
+            }
+            .topbar {
+                display: flex;
+                align-items: center;
+                gap: 1rem;
+                flex-wrap: wrap;
+            }
+            h1 {
+                font-size: 1.6rem;
+                color: var(--text2);
+            }
+            .workers-badge {
+                display: inline-flex;
+                align-items: baseline;
+                gap: 0.6rem;
+                padding: 0.45rem 1.1rem;
+                border: 1px solid var(--border2);
+                border-radius: 999px;
+                background: var(--bg2);
+                white-space: nowrap;
+            }
+            .workers-badge-label {
+                font-size: 1rem;
+                color: var(--text3);
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+            }
+            .workers-badge-value {
+                font-size: 1.4rem;
+                color: var(--accent);
+                font-family: var(--font-mono);
+                font-variant-numeric: tabular-nums;
+            }
+            #themeBtn {
+                margin-left: auto;
+                background: transparent;
+                border: 1px solid var(--border2);
+                color: var(--text3);
+                font-family: var(--font-ui);
+                font-size: 0.8rem;
+                padding: 0.3rem 0.8rem;
+                border-radius: 3px;
+                cursor: pointer;
+            }
+            #themeBtn:hover {
+                border-color: var(--accent);
+                color: var(--accent);
+            }
+            .summary {
+                display: flex;
+                gap: 0.6rem;
+                flex-wrap: wrap;
+            }
+            .stat {
+                background: var(--bg2);
+                border: 1px solid var(--border);
+                padding: 0.5rem 0.7rem;
+                border-radius: 4px;
+                flex: 1 1 max-content;
+                min-width: 0;
+                overflow: hidden;
+            }
+            .stat-label {
+                font-size: 1rem;
+                color: var(--text3);
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+                margin-bottom: 0.2rem;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            .stat-value {
+                font-size: 1.3rem;
+                color: var(--accent);
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                font-family: var(--font-mono);
+                font-variant-numeric: tabular-nums;
+            }
+            .panes {
+                display: grid;
+                grid-template-columns: 1fr 2fr;
+                gap: 1.5rem;
+                flex: 1;
+                min-height: 0;
+            }
+            .pane {
+                display: flex;
+                flex-direction: column;
+                gap: 1rem;
+                min-height: 0;
+                min-width: 0;
+            }
+            .pane-label {
+                font-size: 1rem;
+                color: var(--text4);
+                text-transform: uppercase;
+                letter-spacing: 0.1em;
+            }
+            .panel {
+                display: flex;
+                flex-direction: column;
+                min-height: 0;
+                min-width: 0;
+                border: 1px solid var(--border2);
+                border-radius: 6px;
+                overflow: hidden;
+            }
+            .panel-header {
+                display: flex;
+                align-items: center;
+                gap: 1rem;
+                padding: 0.6rem 1rem;
+                min-height: 3rem;
+                background: var(--bg3);
+                border-bottom: 1px solid var(--border2);
+                flex-shrink: 0;
+            }
+            .panel-title {
+                font-size: 0.9rem;
+                color: var(--text2);
+                text-transform: uppercase;
+                letter-spacing: 0.08em;
+            }
+            .panel-body {
+                display: flex;
+                flex-direction: column;
+                gap: 1rem;
+                padding: 1rem;
+                flex: 1;
+                min-height: 0;
+            }
+            .tabs {
+                display: flex;
+                gap: 0.4rem;
+                flex-wrap: wrap;
+                min-width: 0;
+            }
+            #userMapTabs {
+                max-height: 6rem;
+                overflow-y: auto;
+                align-content: flex-start;
+            }
+            .tab {
+                background: transparent;
+                border: 1px solid var(--border2);
+                padding: 0.3rem 0.9rem;
+                border-radius: 3px;
+                cursor: pointer;
+                font-size: 0.85rem;
+                color: var(--text3);
+                font-family: var(--font-ui);
+                flex-shrink: 0;
+            }
+            .tab.active {
+                border-color: var(--accent);
+                color: var(--accent);
+            }
+            .chart-wrap {
+                background: var(--bg2);
+                border: 1px solid var(--border);
+                border-radius: 4px;
+                padding: 1rem;
+                flex: 1;
+                min-height: 0;
+                min-width: 0;
+                position: relative;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="topbar">
+            <h1>LibAFL--: __MONITOR_NAME__</h1>
+            <div class="workers-badge">
+                <span class="workers-badge-label">Workers</span>
+                <span class="workers-badge-value" id="workers">—</span>
+            </div>
+            <button id="themeBtn" onclick="toggleTheme()">☀️</button>
         </div>
-        <div class="chart-wrap"><canvas id="gCorpusObj"></canvas></div>
-        <div class="chart-wrap"><canvas id="gExecs"></canvas></div>
-      </div>
-    </div>
-    <div class="panel" style="min-height:0;">
-      <div class="panel-header">
-        <span class="panel-title">Per Worker</span>
-        <div class="tabs" id="workerTabs"></div>
-      </div>
-      <div class="panel-body" style="flex-direction:row;">
-        <div style="display:flex;flex-direction:column;gap:1rem;flex:1 1 0;min-height:0;min-width:0;overflow:hidden;">
-          <div class="summary">
-            <div class="stat"><div class="stat-label">Total Execs</div><div class="stat-value" id="w-total-execs">—</div></div>
-            <div class="stat"><div class="stat-label">Elapsed</div><div class="stat-value" id="w-elapsed">—</div></div>
-            <div class="stat"><div class="stat-label">Last Find</div><div class="stat-value" id="w-last-find">—</div></div>
-            <div class="stat"><div class="stat-label">Execs/s</div><div class="stat-value" id="w-execs-per-sec">—</div></div>
-            <div class="stat"><div class="stat-label">Last Reported</div><div class="stat-value" id="w-last-reported">—</div></div>
-          </div>
-          <div class="chart-wrap"><canvas id="wCorpusObj"></canvas></div>
-          <div class="chart-wrap"><canvas id="wExecs"></canvas></div>
+        <div class="panes">
+            <div class="panel">
+                <div class="panel-header">
+                    <span class="panel-title">Global</span>
+                </div>
+                <div class="panel-body">
+                    <div class="summary">
+                        <div class="stat">
+                            <div class="stat-label">Total Execs</div>
+                            <div class="stat-value" id="total_execs">—</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-label">Elapsed</div>
+                            <div class="stat-value" id="elapsed">—</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-label">Last Find</div>
+                            <div class="stat-value" id="last_find">—</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-label">Execs/s</div>
+                            <div class="stat-value" id="execs_per_sec">—</div>
+                        </div>
+                    </div>
+                    <div class="chart-wrap">
+                        <canvas id="gCorpusObj"></canvas>
+                    </div>
+                    <div class="chart-wrap"><canvas id="gExecs"></canvas></div>
+                </div>
+            </div>
+            <div class="panel" style="min-height: 0">
+                <div class="panel-header">
+                    <span class="panel-title">Per Worker</span>
+                    <div class="tabs" id="workerTabs"></div>
+                </div>
+                <div class="panel-body" style="flex-direction: row">
+                    <div
+                        style="
+                            display: flex;
+                            flex-direction: column;
+                            gap: 1rem;
+                            flex: 1 1 0;
+                            min-height: 0;
+                            min-width: 0;
+                            overflow: hidden;
+                        "
+                    >
+                        <div class="summary">
+                            <div class="stat">
+                                <div class="stat-label">Total Execs</div>
+                                <div class="stat-value" id="w-total-execs">
+                                    —
+                                </div>
+                            </div>
+                            <div class="stat">
+                                <div class="stat-label">Elapsed</div>
+                                <div class="stat-value" id="w-elapsed">—</div>
+                            </div>
+                            <div class="stat">
+                                <div class="stat-label">Last Find</div>
+                                <div class="stat-value" id="w-last-find">—</div>
+                            </div>
+                            <div class="stat">
+                                <div class="stat-label">Execs/s</div>
+                                <div class="stat-value" id="w-execs-per-sec">
+                                    —
+                                </div>
+                            </div>
+                            <div class="stat">
+                                <div class="stat-label">Last Reported</div>
+                                <div class="stat-value" id="w-last-reported">
+                                    —
+                                </div>
+                            </div>
+                        </div>
+                        <div class="chart-wrap">
+                            <canvas id="wCorpusObj"></canvas>
+                        </div>
+                        <div class="chart-wrap">
+                            <canvas id="wExecs"></canvas>
+                        </div>
+                    </div>
+                    <div
+                        style="
+                            display: flex;
+                            flex-direction: column;
+                            gap: 1rem;
+                            flex: 1 1 0;
+                            min-height: 0;
+                            min-width: 0;
+                            overflow: hidden;
+                            border-left: 1px solid var(--border2);
+                            padding-left: 1rem;
+                        "
+                    >
+                        <div
+                            style="
+                                display: flex;
+                                align-items: center;
+                                gap: 1rem;
+                                flex-shrink: 0;
+                                flex-wrap: wrap;
+                                min-width: 0;
+                            "
+                        >
+                            <span class="panel-title">User Data</span>
+                            <div class="tabs" id="userMapTabs"></div>
+                        </div>
+                        <div
+                            id="userMapBody"
+                            style="
+                                flex: 1;
+                                min-height: 0;
+                                min-width: 0;
+                                overflow-y: auto;
+                                overflow-x: hidden;
+                                display: flex;
+                                flex-direction: column;
+                                gap: 1rem;
+                            "
+                        >
+                            <div
+                                style="
+                                    color: var(--text4);
+                                    font-size: 0.8rem;
+                                    margin: auto;
+                                "
+                            >
+                                No numeric data in user_map
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div style="display:flex;flex-direction:column;gap:1rem;flex:1 1 0;min-height:0;min-width:0;overflow:hidden;border-left:1px solid var(--border2);padding-left:1rem;">
-          <div style="display:flex;align-items:center;gap:1rem;flex-shrink:0;flex-wrap:wrap;min-width:0;">
-            <span class="panel-title">User Data</span>
-            <div class="tabs" id="userMapTabs"></div>
-          </div>
-          <div id="userMapBody" style="flex:1;min-height:0;min-width:0;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;gap:1rem;">
-            <div style="color:var(--text4);font-size:0.8rem;margin:auto;">No numeric data in user_map</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-  <script>
-    function rgba(color, alpha) {
-      return color.replace('rgb(', 'rgba(').replace(')', `, ${alpha})`);
-    }
+        <script>
+            function rgba(color, alpha) {
+                return color
+                    .replace("rgb(", "rgba(")
+                    .replace(")", `, ${alpha})`);
+            }
 
-    function hhmmss(secs) {
-      const h = Math.floor(secs / 3600);
-      const m = Math.floor((secs % 3600) / 60);
-      const s = secs % 60;
-      return [h, m, s].map(v => String(v).padStart(2, '0')).join(':');
-    }
+            function hhmmss(secs) {
+                const h = Math.floor(secs / 3600);
+                const m = Math.floor((secs % 3600) / 60);
+                const s = secs % 60;
+                return [h, m, s]
+                    .map((v) => String(v).padStart(2, "0"))
+                    .join(":");
+            }
 
-    function si(n) {
-      if (n >= 1e12) return (n / 1e12).toFixed(1) + 'T';
-      if (n >= 1e9)  return (n / 1e9).toFixed(1)  + 'G';
-      if (n >= 1e6)  return (n / 1e6).toFixed(1)  + 'M';
-      if (n >= 1e3)  return (n / 1e3).toFixed(1)  + 'k';
-      return String(n);
-    }
+            function si(n) {
+                if (n >= 1e12) return (n / 1e12).toFixed(1) + "T";
+                if (n >= 1e9) return (n / 1e9).toFixed(1) + "G";
+                if (n >= 1e6) return (n / 1e6).toFixed(1) + "M";
+                if (n >= 1e3) return (n / 1e3).toFixed(1) + "k";
+                return String(n);
+            }
 
-    // --- Theme ---
-    const CHART_THEMES = {
-      dark:  { tick: '#666', grid: '#222',    legend: '#aaa' },
-      light: { tick: '#888', grid: '#e0e0e0', legend: '#555' },
-    };
-    let currentTheme = 'dark';
+            // --- Theme ---
+            const CHART_THEMES = {
+                dark: { tick: "#666", grid: "#222", legend: "#aaa" },
+                light: { tick: "#888", grid: "#e0e0e0", legend: "#555" },
+            };
+            let currentTheme = "dark";
 
-    function applyChartTheme(chart) {
-      const t = CHART_THEMES[currentTheme];
-      chart.options.plugins.legend.labels.color = t.legend;
-      Object.values(chart.options.scales).forEach(scale => {
-        if (scale.ticks) scale.ticks.color = t.tick;
-        if (scale.grid)  scale.grid.color  = t.grid;
-        if (scale.title) scale.title.color  = t.tick;
-      });
-      chart.update();
-    }
+            function applyChartTheme(chart) {
+                const t = CHART_THEMES[currentTheme];
+                chart.options.plugins.legend.labels.color = t.legend;
+                Object.values(chart.options.scales).forEach((scale) => {
+                    if (scale.ticks) scale.ticks.color = t.tick;
+                    if (scale.grid) scale.grid.color = t.grid;
+                    if (scale.title) scale.title.color = t.tick;
+                });
+                chart.update();
+            }
 
-    function applyThemeToAllCharts() {
-      [gCorpusObj, gExecs, wCorpusObj, wExecs, ...Object.values(userMapCharts)]
-        .filter(Boolean)
-        .forEach(applyChartTheme);
-    }
+            function applyThemeToAllCharts() {
+                [
+                    gCorpusObj,
+                    gExecs,
+                    wCorpusObj,
+                    wExecs,
+                    ...Object.values(userMapCharts),
+                ]
+                    .filter(Boolean)
+                    .forEach(applyChartTheme);
+            }
 
-    function toggleTheme() {
-      currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
-      document.body.classList.toggle('light', currentTheme === 'light');
-      document.getElementById('themeBtn').textContent = currentTheme === 'dark' ? '☀️' : '🌙';
-      applyThemeToAllCharts();
-    }
+            function toggleTheme() {
+                currentTheme = currentTheme === "dark" ? "light" : "dark";
+                document.body.classList.toggle(
+                    "light",
+                    currentTheme === "light",
+                );
+                document.getElementById("themeBtn").textContent =
+                    currentTheme === "dark" ? "☀️" : "🌙";
+                applyThemeToAllCharts();
+            }
 
-    const xAxis = {
-      ticks: { color: '#666', maxTicksLimit: 8, font: { size: 13 } },
-      grid: { color: '#222' },
-    };
+            const xAxis = {
+                ticks: { color: "#666", maxTicksLimit: 8, font: { size: 13 } },
+                grid: { color: "#222" },
+            };
 
-    const commonOpts = {
-      animation: false,
-      plugins: { legend: { labels: { color: '#aaa', boxWidth: 14, font: { size: 14 } } } },
-      maintainAspectRatio: false,
-    };
+            const commonOpts = {
+                animation: false,
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: "#aaa",
+                            boxWidth: 14,
+                            font: { size: 14 },
+                        },
+                    },
+                },
+                maintainAspectRatio: false,
+            };
 
-    // Drop tick labels that aren't whole numbers (corpus counts, exec counts, etc.
-     // are inherently integer-valued — fractional ticks just look wrong).
-    const intTick = (v) => (Number.isInteger(v) ? v : null);
+            // Drop tick labels that aren't whole numbers (corpus counts, exec counts, etc.
+            // are inherently integer-valued — fractional ticks just look wrong).
+            const intTick = (v) => (Number.isInteger(v) ? v : null);
 
-    function dualYScales(leftColor, leftLabel, rightColor, rightLabel) {
-      return {
-        x: xAxis,
-        yLeft: {
-          position: 'left',
-          beginAtZero: true,
-          ticks: { color: leftColor, font: { size: 13 }, precision: 0, callback: intTick },
-          grid: { color: '#222' },
-          title: { display: true, text: leftLabel, color: leftColor, font: { size: 13 } },
-        },
-        yRight: {
-          position: 'right',
-          beginAtZero: true,
-          ticks: { color: rightColor, font: { size: 13 }, precision: 0, callback: intTick },
-          grid: { drawOnChartArea: false },
-          title: { display: true, text: rightLabel, color: rightColor, font: { size: 13 } },
-        },
-      };
-    }
+            function dualYScales(leftColor, leftLabel, rightColor, rightLabel) {
+                return {
+                    x: xAxis,
+                    yLeft: {
+                        position: "left",
+                        beginAtZero: true,
+                        ticks: {
+                            color: leftColor,
+                            font: { size: 13 },
+                            precision: 0,
+                            callback: intTick,
+                        },
+                        grid: { color: "#222" },
+                        title: {
+                            display: true,
+                            text: leftLabel,
+                            color: leftColor,
+                            font: { size: 13 },
+                        },
+                    },
+                    yRight: {
+                        position: "right",
+                        beginAtZero: true,
+                        ticks: {
+                            color: rightColor,
+                            font: { size: 13 },
+                            precision: 0,
+                            callback: intTick,
+                        },
+                        grid: { drawOnChartArea: false },
+                        title: {
+                            display: true,
+                            text: rightLabel,
+                            color: rightColor,
+                            font: { size: 13 },
+                        },
+                    },
+                };
+            }
 
-    function singleYScale(color, label) {
-      return {
-        x: xAxis,
-        y: {
-          beginAtZero: true,
-          ticks: { color, font: { size: 13 }, precision: 0, callback: intTick },
-          grid: { color: '#222' },
-          title: { display: true, text: label, color, font: { size: 13 } },
-        },
-      };
-    }
+            function singleYScale(color, label) {
+                return {
+                    x: xAxis,
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            color,
+                            font: { size: 13 },
+                            precision: 0,
+                            callback: intTick,
+                        },
+                        grid: { color: "#222" },
+                        title: {
+                            display: true,
+                            text: label,
+                            color,
+                            font: { size: 13 },
+                        },
+                    },
+                };
+            }
 
-    // --- Global charts ---
-    const gCorpusObj = new Chart(document.getElementById('gCorpusObj'), {
-      type: 'line',
-      data: {
-        labels: [],
-        datasets: [
-          { label: 'Corpus', data: [], borderColor: 'rgb(79,195,247)', backgroundColor: rgba('rgb(79,195,247)', 0.08), fill: true, tension: 0.3, pointRadius: 2, yAxisID: 'yLeft' },
-          { label: 'Objectives', data: [], borderColor: 'rgb(255,138,101)', backgroundColor: rgba('rgb(255,138,101)', 0.08), fill: true, tension: 0.3, pointRadius: 2, yAxisID: 'yRight' },
-        ],
-      },
-      options: { ...commonOpts, scales: dualYScales('rgb(79,195,247)', 'Corpus', 'rgb(255,138,101)', 'Objectives') },
-    });
+            // --- Global charts ---
+            const gCorpusObj = new Chart(
+                document.getElementById("gCorpusObj"),
+                {
+                    type: "line",
+                    data: {
+                        labels: [],
+                        datasets: [
+                            {
+                                label: "Corpus",
+                                data: [],
+                                borderColor: "rgb(79,195,247)",
+                                backgroundColor: rgba("rgb(79,195,247)", 0.08),
+                                fill: true,
+                                tension: 0.3,
+                                pointRadius: 2,
+                                yAxisID: "yLeft",
+                            },
+                            {
+                                label: "Objectives",
+                                data: [],
+                                borderColor: "rgb(255,138,101)",
+                                backgroundColor: rgba("rgb(255,138,101)", 0.08),
+                                fill: true,
+                                tension: 0.3,
+                                pointRadius: 2,
+                                yAxisID: "yRight",
+                            },
+                        ],
+                    },
+                    options: {
+                        ...commonOpts,
+                        scales: dualYScales(
+                            "rgb(79,195,247)",
+                            "Corpus",
+                            "rgb(255,138,101)",
+                            "Objectives",
+                        ),
+                    },
+                },
+            );
 
-    const gExecs = new Chart(document.getElementById('gExecs'), {
-      type: 'line',
-      data: {
-        labels: [],
-        datasets: [
-          { label: 'Execs/s', data: [], borderColor: 'rgb(129,199,132)', backgroundColor: rgba('rgb(129,199,132)', 0.08), fill: true, tension: 0.3, pointRadius: 2 },
-        ],
-      },
-      options: { ...commonOpts, scales: singleYScale('rgb(129,199,132)', 'Execs/s') },
-    });
-
-    // --- Per-worker charts (lazy init) ---
-    let wCorpusObj = null;
-    let wExecs = null;
-    let selectedWorker = 0;
-    let prevWorkerCount = 0;
-    let cachedHistory = null;
-
-    // --- User-map charts ---
-    const USER_MAP_COLORS = [
-      'rgb(206,147,216)',
-      'rgb(255,213,79)',
-      'rgb(77,208,225)',
-      'rgb(174,213,129)',
-      'rgb(255,171,145)',
-      'rgb(240,98,146)',
-      'rgb(128,203,196)',
-      'rgb(255,245,157)',
-    ];
-    // Keys whose value is [covered, len] — plotted as two series on one chart.
-    const STAT_COVERAGE = 'coverage';
-    const COVERAGE_SERIES = ['covered', 'max'];
-    const COVERAGE_COLORS = ['rgb(79,195,247)', 'rgb(255,138,101)'];
-
-    function isCoveragePair(v) {
-      return Array.isArray(v) && v.length === 2 && v.every(x => typeof x === 'number');
-    }
-
-    let userMapCharts = {};
-    let userMapKeys = [];
-    let selectedUserMapKey = null;
-
-    function selectUserMapTab(key) {
-      selectedUserMapKey = key;
-      const tabsEl = document.getElementById('userMapTabs');
-      tabsEl.querySelectorAll('.tab').forEach(t => {
-        const active = t.dataset.key === key;
-        t.classList.toggle('active', active);
-        if (active) t.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-      });
-      Object.entries(userMapCharts).forEach(([k, c]) => {
-        c.canvas.parentElement.style.display = k === key ? '' : 'none';
-      });
-    }
-
-    function rebuildUserMapCharts(keys) {
-      Object.values(userMapCharts).forEach(c => c.destroy());
-      userMapCharts = {};
-      const body = document.getElementById('userMapBody');
-      const tabsEl = document.getElementById('userMapTabs');
-      body.innerHTML = '';
-      tabsEl.innerHTML = '';
-      if (!keys.length) {
-        body.innerHTML = '<div style="color:#555;font-size:0.8rem;margin:auto;">No numeric data in user_map</div>';
-        selectedUserMapKey = null;
-        return;
-      }
-      if (!keys.includes(selectedUserMapKey)) selectedUserMapKey = keys[0];
-      keys.forEach((key, idx) => {
-        const tab = document.createElement('button');
-        tab.className = 'tab' + (key === selectedUserMapKey ? ' active' : '');
-        tab.textContent = key;
-        tab.dataset.key = key;
-        tab.onclick = () => selectUserMapTab(key);
-        tabsEl.appendChild(tab);
-
-        const wrap = document.createElement('div');
-        wrap.className = 'chart-wrap';
-        wrap.style.display = key === selectedUserMapKey ? '' : 'none';
-        const canvas = document.createElement('canvas');
-        wrap.appendChild(canvas);
-        body.appendChild(wrap);
-
-        let datasets, scales;
-        if (key === STAT_COVERAGE) {
-          datasets = COVERAGE_SERIES.map((label, j) => ({
-            label,
-            data: [],
-            borderColor: COVERAGE_COLORS[j],
-            backgroundColor: rgba(COVERAGE_COLORS[j], 0.08),
-            fill: true,
-            tension: 0.3,
-            pointRadius: 2,
-          }));
-          scales = singleYScale(COVERAGE_COLORS[0], key);
-        } else {
-          const color = USER_MAP_COLORS[idx % USER_MAP_COLORS.length];
-          datasets = [{
-            label: key,
-            data: [],
-            borderColor: color,
-            backgroundColor: rgba(color, 0.08),
-            fill: true,
-            tension: 0.3,
-            pointRadius: 2,
-          }];
-          scales = singleYScale(color, key);
-        }
-        userMapCharts[key] = new Chart(canvas, {
-          type: 'line',
-          data: { labels: [], datasets },
-          options: { ...commonOpts, scales },
-        });
-      });
-      applyThemeToAllCharts();
-    }
-
-    function updateUserMapPanel(history) {
-      const i = selectedWorker;
-      const plottableKeys = new Set();
-      history.forEach(s => {
-        const w = s.stats[i];
-        if (w?.user_map) {
-          Object.entries(w.user_map).forEach(([k, v]) => {
-            if (typeof v === 'number') plottableKeys.add(k);
-            else if (k === STAT_COVERAGE && isCoveragePair(v)) plottableKeys.add(k);
-          });
-        }
-      });
-      const keysArr = Array.from(plottableKeys).sort();
-      if (JSON.stringify(keysArr) !== JSON.stringify(userMapKeys)) {
-        userMapKeys = keysArr;
-        rebuildUserMapCharts(keysArr);
-      }
-      if (!keysArr.length) return;
-      const startTs = history[0].timestamp_secs;
-      const labels = history.map(s => hhmmss(s.timestamp_secs - startTs));
-      keysArr.forEach(key => {
-        const chart = userMapCharts[key];
-        if (!chart) return;
-        chart.data.labels = labels;
-        if (key === STAT_COVERAGE) {
-          COVERAGE_SERIES.forEach((_, j) => {
-            chart.data.datasets[j].data = history.map(s => {
-              const v = s.stats[i]?.user_map?.[key];
-              return isCoveragePair(v) ? v[j] : null;
+            const gExecs = new Chart(document.getElementById("gExecs"), {
+                type: "line",
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: "Execs/s",
+                            data: [],
+                            borderColor: "rgb(129,199,132)",
+                            backgroundColor: rgba("rgb(129,199,132)", 0.08),
+                            fill: true,
+                            tension: 0.3,
+                            pointRadius: 2,
+                        },
+                    ],
+                },
+                options: {
+                    ...commonOpts,
+                    scales: singleYScale("rgb(129,199,132)", "Execs/s"),
+                },
             });
-          });
-        } else {
-          chart.data.datasets[0].data = history.map(s => {
-            const v = s.stats[i]?.user_map?.[key];
-            return typeof v === 'number' ? v : null;
-          });
-        }
-        chart.update();
-      });
-    }
 
-    function initWorkerCharts(n) {
-      if (wCorpusObj) wCorpusObj.destroy();
-      if (wExecs) wExecs.destroy();
-      Object.values(userMapCharts).forEach(c => c.destroy());
-      userMapCharts = {};
-      userMapKeys = [];
-      rebuildUserMapCharts([]);
+            // --- Per-worker charts (lazy init) ---
+            let wCorpusObj = null;
+            let wExecs = null;
+            let selectedWorker = 0;
+            let prevWorkerCount = 0;
+            let cachedHistory = null;
 
-      // Build tabs
-      const tabsEl = document.getElementById('workerTabs');
-      tabsEl.innerHTML = '';
-      for (let i = 0; i < n; i++) {
-        const tab = document.createElement('button');
-        tab.className = 'tab' + (i === selectedWorker ? ' active' : '');
-        tab.textContent = `W${i}`;
-        tab.onclick = () => {
-          selectedWorker = i;
-          tabsEl.querySelectorAll('.tab').forEach((t, j) => t.classList.toggle('active', j === i));
-          if (cachedHistory) { updateWorkerCharts(cachedHistory); updateUserMapPanel(cachedHistory); }
-        };
-        tabsEl.appendChild(tab);
-      }
+            // --- User-map charts ---
+            const USER_MAP_COLORS = [
+                "rgb(206,147,216)",
+                "rgb(255,213,79)",
+                "rgb(77,208,225)",
+                "rgb(174,213,129)",
+                "rgb(255,171,145)",
+                "rgb(240,98,146)",
+                "rgb(128,203,196)",
+                "rgb(255,245,157)",
+            ];
+            // Keys whose value is [covered, len] — plotted as two series on one chart.
+            const STAT_COVERAGE = "coverage";
+            const COVERAGE_SERIES = ["covered", "max"];
+            const COVERAGE_COLORS = ["rgb(79,195,247)", "rgb(255,138,101)"];
 
-      wCorpusObj = new Chart(document.getElementById('wCorpusObj'), {
-        type: 'line',
-        data: {
-          labels: [],
-          datasets: [
-            { label: 'Corpus', data: [], borderColor: 'rgb(79,195,247)', backgroundColor: rgba('rgb(79,195,247)', 0.08), fill: true, tension: 0.3, pointRadius: 2, yAxisID: 'yLeft' },
-            { label: 'Objectives', data: [], borderColor: 'rgb(255,138,101)', backgroundColor: rgba('rgb(255,138,101)', 0.08), fill: true, tension: 0.3, pointRadius: 2, yAxisID: 'yRight' },
-          ],
-        },
-        options: { ...commonOpts, scales: dualYScales('rgb(79,195,247)', 'Corpus', 'rgb(255,138,101)', 'Objectives') },
-      });
+            function isCoveragePair(v) {
+                return (
+                    Array.isArray(v) &&
+                    v.length === 2 &&
+                    v.every((x) => typeof x === "number")
+                );
+            }
 
-      wExecs = new Chart(document.getElementById('wExecs'), {
-        type: 'line',
-        data: {
-          labels: [],
-          datasets: [
-            { label: 'Execs/s', data: [], borderColor: 'rgb(129,199,132)', backgroundColor: rgba('rgb(129,199,132)', 0.08), fill: true, tension: 0.3, pointRadius: 2 },
-          ],
-        },
-        options: { ...commonOpts, scales: singleYScale('rgb(129,199,132)', 'Execs/s') },
-      });
-      applyThemeToAllCharts();
-    }
+            // convert HashMap<String, String> into a json map.
+            function parseUserMapValue(v) {
+                if (typeof v !== "string") return undefined;
+                try {
+                    return JSON.parse(v);
+                } catch (_) {
+                    return undefined;
+                }
+            }
 
-    function updateWorkerCharts(history) {
-      const i = selectedWorker;
-      const startTs = history[0].timestamp_secs;
-      const labels = history.map(s => hhmmss(s.timestamp_secs - startTs));
+            let userMapCharts = {};
+            let userMapKeys = [];
+            let selectedUserMapKey = null;
 
-      const latest = history[history.length - 1];
-      const w = latest.stats[i];
-      if (w) {
-        const elapsed = latest.timestamp_secs - w.start_time.secs;
-        const execsPerSec = elapsed > 0 ? Math.round(w.executions / elapsed) : 0;
-        const lastFindAge = latest.timestamp_secs - w.last_found_time.secs;
-        const lastReported = [...history].reverse().find(s => s.stats[i] != null);
-        document.getElementById('w-total-execs').textContent = si(w.executions);
-        document.getElementById('w-elapsed').textContent = hhmmss(elapsed);
-        document.getElementById('w-last-find').textContent = hhmmss(lastFindAge) + ' ago';
-        document.getElementById('w-execs-per-sec').textContent = si(execsPerSec) + '/s';
-        document.getElementById('w-last-reported').textContent = new Date(lastReported.timestamp_secs * 1000).toLocaleTimeString();
-      }
+            function selectUserMapTab(key) {
+                selectedUserMapKey = key;
+                const tabsEl = document.getElementById("userMapTabs");
+                tabsEl.querySelectorAll(".tab").forEach((t) => {
+                    const active = t.dataset.key === key;
+                    t.classList.toggle("active", active);
+                    if (active)
+                        t.scrollIntoView({
+                            block: "nearest",
+                            inline: "nearest",
+                        });
+                });
+                Object.entries(userMapCharts).forEach(([k, c]) => {
+                    c.canvas.parentElement.style.display =
+                        k === key ? "" : "none";
+                });
+            }
 
-      wCorpusObj.data.labels = labels;
-      wCorpusObj.data.datasets[0].data = history.map(s => s.stats[i]?.corpus    ?? 0);
-      wCorpusObj.data.datasets[1].data = history.map(s => s.stats[i]?.objective ?? 0);
-      wCorpusObj.update();
+            function rebuildUserMapCharts(keys) {
+                Object.values(userMapCharts).forEach((c) => c.destroy());
+                userMapCharts = {};
+                const body = document.getElementById("userMapBody");
+                const tabsEl = document.getElementById("userMapTabs");
+                body.innerHTML = "";
+                tabsEl.innerHTML = "";
+                if (!keys.length) {
+                    body.innerHTML =
+                        '<div style="color:#555;font-size:0.8rem;margin:auto;">No numeric data in user_map</div>';
+                    selectedUserMapKey = null;
+                    return;
+                }
+                if (!keys.includes(selectedUserMapKey))
+                    selectedUserMapKey = keys[0];
+                keys.forEach((key, idx) => {
+                    const tab = document.createElement("button");
+                    tab.className =
+                        "tab" + (key === selectedUserMapKey ? " active" : "");
+                    tab.textContent = key;
+                    tab.dataset.key = key;
+                    tab.onclick = () => selectUserMapTab(key);
+                    tabsEl.appendChild(tab);
 
-      wExecs.data.labels = labels;
-      wExecs.data.datasets[0].data = history.map(s => {
-        const w = s.stats[i];
-        if (!w) return 0;
-        const dt = s.timestamp_secs - w.start_time.secs;
-        return dt > 0 ? Math.round(w.executions / dt) : 0;
-      });
-      wExecs.update();
-    }
+                    const wrap = document.createElement("div");
+                    wrap.className = "chart-wrap";
+                    wrap.style.display =
+                        key === selectedUserMapKey ? "" : "none";
+                    const canvas = document.createElement("canvas");
+                    wrap.appendChild(canvas);
+                    body.appendChild(wrap);
 
-    async function refresh() {
-      let history;
-      try {
-        const resp = await fetch('/api/history');
-        history = await resp.json();
-      } catch (_) { return; }
-      if (!history.length) return;
+                    let datasets, scales;
+                    if (key === STAT_COVERAGE) {
+                        datasets = COVERAGE_SERIES.map((label, j) => ({
+                            label,
+                            data: [],
+                            borderColor: COVERAGE_COLORS[j],
+                            backgroundColor: rgba(COVERAGE_COLORS[j], 0.08),
+                            fill: true,
+                            tension: 0.3,
+                            pointRadius: 2,
+                        }));
+                        scales = singleYScale(COVERAGE_COLORS[0], key);
+                    } else {
+                        const color =
+                            USER_MAP_COLORS[idx % USER_MAP_COLORS.length];
+                        datasets = [
+                            {
+                                label: key,
+                                data: [],
+                                borderColor: color,
+                                backgroundColor: rgba(color, 0.08),
+                                fill: true,
+                                tension: 0.3,
+                                pointRadius: 2,
+                            },
+                        ];
+                        scales = singleYScale(color, key);
+                    }
+                    userMapCharts[key] = new Chart(canvas, {
+                        type: "line",
+                        data: { labels: [], datasets },
+                        options: { ...commonOpts, scales },
+                    });
+                });
+                applyThemeToAllCharts();
+            }
 
-      cachedHistory = history;
+            function updateUserMapPanel(history) {
+                const i = selectedWorker;
+                const plottableKeys = new Set();
+                history.forEach((s) => {
+                    const w = s.stats[i];
+                    if (w?.user_map) {
+                        Object.entries(w.user_map).forEach(([k, raw]) => {
+                            const v = parseUserMapValue(raw);
+                            if (typeof v === "number") plottableKeys.add(k);
+                            else if (k === STAT_COVERAGE && isCoveragePair(v))
+                                plottableKeys.add(k);
+                        });
+                    }
+                });
+                const keysArr = Array.from(plottableKeys).sort();
+                if (JSON.stringify(keysArr) !== JSON.stringify(userMapKeys)) {
+                    userMapKeys = keysArr;
+                    rebuildUserMapCharts(keysArr);
+                }
+                if (!keysArr.length) return;
+                const startTs = history[0].timestamp_secs;
+                const labels = history.map((s) =>
+                    hhmmss(s.timestamp_secs - startTs),
+                );
+                keysArr.forEach((key) => {
+                    const chart = userMapCharts[key];
+                    if (!chart) return;
+                    chart.data.labels = labels;
+                    if (key === STAT_COVERAGE) {
+                        COVERAGE_SERIES.forEach((_, j) => {
+                            chart.data.datasets[j].data = history.map((s) => {
+                                const v = parseUserMapValue(
+                                    s.stats[i]?.user_map?.[key],
+                                );
+                                return isCoveragePair(v) ? v[j] : null;
+                            });
+                        });
+                    } else {
+                        chart.data.datasets[0].data = history.map((s) => {
+                            const v = parseUserMapValue(
+                                s.stats[i]?.user_map?.[key],
+                            );
+                            return typeof v === "number" ? v : null;
+                        });
+                    }
+                    chart.update();
+                });
+            }
 
-      const n = history[0].stats.length;
-      if (n !== prevWorkerCount) {
-        selectedWorker = 0;
-        initWorkerCharts(n);
-        prevWorkerCount = n;
-      }
+            function initWorkerCharts(n) {
+                if (wCorpusObj) wCorpusObj.destroy();
+                if (wExecs) wExecs.destroy();
+                Object.values(userMapCharts).forEach((c) => c.destroy());
+                userMapCharts = {};
+                userMapKeys = [];
+                rebuildUserMapCharts([]);
 
-      const startTs = history[0].timestamp_secs;
-      const latest = history[history.length - 1];
+                // Build tabs
+                const tabsEl = document.getElementById("workerTabs");
+                tabsEl.innerHTML = "";
+                for (let i = 0; i < n; i++) {
+                    const tab = document.createElement("button");
+                    tab.className =
+                        "tab" + (i === selectedWorker ? " active" : "");
+                    tab.textContent = `W${i}`;
+                    tab.onclick = () => {
+                        selectedWorker = i;
+                        tabsEl
+                            .querySelectorAll(".tab")
+                            .forEach((t, j) =>
+                                t.classList.toggle("active", j === i),
+                            );
+                        if (cachedHistory) {
+                            updateWorkerCharts(cachedHistory);
+                            updateUserMapPanel(cachedHistory);
+                        }
+                    };
+                    tabsEl.appendChild(tab);
+                }
 
-      // Summary
-      const workerStart = Math.min(...latest.stats.map(w => w.start_time.secs));
-      const elapsed = latest.timestamp_secs - workerStart;
-      const totalExecs = latest.stats.reduce((s, w) => s + w.executions, 0);
-      const execsPerSec = elapsed > 0 ? Math.round(totalExecs / elapsed) : 0;
-      const lastFoundSecs = Math.max(...latest.stats.map(w => w.last_found_time.secs));
+                wCorpusObj = new Chart(document.getElementById("wCorpusObj"), {
+                    type: "line",
+                    data: {
+                        labels: [],
+                        datasets: [
+                            {
+                                label: "Corpus",
+                                data: [],
+                                borderColor: "rgb(79,195,247)",
+                                backgroundColor: rgba("rgb(79,195,247)", 0.08),
+                                fill: true,
+                                tension: 0.3,
+                                pointRadius: 2,
+                                yAxisID: "yLeft",
+                            },
+                            {
+                                label: "Objectives",
+                                data: [],
+                                borderColor: "rgb(255,138,101)",
+                                backgroundColor: rgba("rgb(255,138,101)", 0.08),
+                                fill: true,
+                                tension: 0.3,
+                                pointRadius: 2,
+                                yAxisID: "yRight",
+                            },
+                        ],
+                    },
+                    options: {
+                        ...commonOpts,
+                        scales: dualYScales(
+                            "rgb(79,195,247)",
+                            "Corpus",
+                            "rgb(255,138,101)",
+                            "Objectives",
+                        ),
+                    },
+                });
 
-      document.getElementById('workers').textContent = n;
-      document.getElementById('total_execs').textContent = si(totalExecs);
-      document.getElementById('elapsed').textContent = hhmmss(elapsed);
-      document.getElementById('last_find').textContent = hhmmss(latest.timestamp_secs - lastFoundSecs) + ' ago';
-      document.getElementById('execs_per_sec').textContent = si(execsPerSec) + '/s';
+                wExecs = new Chart(document.getElementById("wExecs"), {
+                    type: "line",
+                    data: {
+                        labels: [],
+                        datasets: [
+                            {
+                                label: "Execs/s",
+                                data: [],
+                                borderColor: "rgb(129,199,132)",
+                                backgroundColor: rgba("rgb(129,199,132)", 0.08),
+                                fill: true,
+                                tension: 0.3,
+                                pointRadius: 2,
+                            },
+                        ],
+                    },
+                    options: {
+                        ...commonOpts,
+                        scales: singleYScale("rgb(129,199,132)", "Execs/s"),
+                    },
+                });
+                applyThemeToAllCharts();
+            }
 
-      // Global corpus/obj
-      const labels = history.map(s => hhmmss(s.timestamp_secs - startTs));
-      gCorpusObj.data.labels = labels;
-      gCorpusObj.data.datasets[0].data = history.map(s => Math.max(...s.stats.map(w => w.corpus)));
-      gCorpusObj.data.datasets[1].data = history.map(s => s.stats.reduce((a, w) => a + w.objective, 0));
-      gCorpusObj.update();
+            function updateWorkerCharts(history) {
+                const i = selectedWorker;
+                const startTs = history[0].timestamp_secs;
+                const labels = history.map((s) =>
+                    hhmmss(s.timestamp_secs - startTs),
+                );
 
-      // Global execs/s
-      gExecs.data.labels = labels;
-      gExecs.data.datasets[0].data = history.map(s => {
-        const execs = s.stats.reduce((a, w) => a + w.executions, 0);
-        const start = Math.min(...s.stats.map(w => w.start_time.secs));
-        const dt = s.timestamp_secs - start;
-        return dt > 0 ? Math.round(execs / dt) : 0;
-      });
-      gExecs.update();
+                const latest = history[history.length - 1];
+                const w = latest.stats[i];
+                if (w) {
+                    const elapsed = latest.timestamp_secs - w.start_time.secs;
+                    const execsPerSec =
+                        elapsed > 0 ? Math.round(w.executions / elapsed) : 0;
+                    const lastFindAge =
+                        latest.timestamp_secs - w.last_found_time.secs;
+                    const lastReported = [...history]
+                        .reverse()
+                        .find((s) => s.stats[i] != null);
+                    document.getElementById("w-total-execs").textContent = si(
+                        w.executions,
+                    );
+                    document.getElementById("w-elapsed").textContent =
+                        hhmmss(elapsed);
+                    document.getElementById("w-last-find").textContent =
+                        hhmmss(lastFindAge) + " ago";
+                    document.getElementById("w-execs-per-sec").textContent =
+                        si(execsPerSec) + "/s";
+                    document.getElementById("w-last-reported").textContent =
+                        new Date(
+                            lastReported.timestamp_secs * 1000,
+                        ).toLocaleTimeString();
+                }
 
-      updateWorkerCharts(history);
-      updateUserMapPanel(history);
-    }
+                wCorpusObj.data.labels = labels;
+                wCorpusObj.data.datasets[0].data = history.map(
+                    (s) => s.stats[i]?.corpus ?? 0,
+                );
+                wCorpusObj.data.datasets[1].data = history.map(
+                    (s) => s.stats[i]?.objective ?? 0,
+                );
+                wCorpusObj.update();
 
-    refresh();
-    setInterval(refresh, 5000);
-  </script>
-</body>
+                wExecs.data.labels = labels;
+                wExecs.data.datasets[0].data = history.map((s) => {
+                    const w = s.stats[i];
+                    if (!w) return 0;
+                    const dt = s.timestamp_secs - w.start_time.secs;
+                    return dt > 0 ? Math.round(w.executions / dt) : 0;
+                });
+                wExecs.update();
+            }
+
+            async function refresh() {
+                let history;
+                try {
+                    const resp = await fetch("/api/history");
+                    history = await resp.json();
+                } catch (_) {
+                    return;
+                }
+                if (!history.length) return;
+
+                cachedHistory = history;
+
+                const n = history[0].stats.length;
+                if (n !== prevWorkerCount) {
+                    selectedWorker = 0;
+                    initWorkerCharts(n);
+                    prevWorkerCount = n;
+                }
+
+                const startTs = history[0].timestamp_secs;
+                const latest = history[history.length - 1];
+
+                // Summary
+                const workerStart = Math.min(
+                    ...latest.stats.map((w) => w.start_time.secs),
+                );
+                const elapsed = latest.timestamp_secs - workerStart;
+                const totalExecs = latest.stats.reduce(
+                    (s, w) => s + w.executions,
+                    0,
+                );
+                const execsPerSec =
+                    elapsed > 0 ? Math.round(totalExecs / elapsed) : 0;
+                const lastFoundSecs = Math.max(
+                    ...latest.stats.map((w) => w.last_found_time.secs),
+                );
+
+                document.getElementById("workers").textContent = n;
+                document.getElementById("total_execs").textContent =
+                    si(totalExecs);
+                document.getElementById("elapsed").textContent =
+                    hhmmss(elapsed);
+                document.getElementById("last_find").textContent =
+                    hhmmss(latest.timestamp_secs - lastFoundSecs) + " ago";
+                document.getElementById("execs_per_sec").textContent =
+                    si(execsPerSec) + "/s";
+
+                // Global corpus/obj
+                const labels = history.map((s) =>
+                    hhmmss(s.timestamp_secs - startTs),
+                );
+                gCorpusObj.data.labels = labels;
+                gCorpusObj.data.datasets[0].data = history.map((s) =>
+                    Math.max(...s.stats.map((w) => w.corpus)),
+                );
+                gCorpusObj.data.datasets[1].data = history.map((s) =>
+                    s.stats.reduce((a, w) => a + w.objective, 0),
+                );
+                gCorpusObj.update();
+
+                // Global execs/s
+                gExecs.data.labels = labels;
+                gExecs.data.datasets[0].data = history.map((s) => {
+                    const execs = s.stats.reduce((a, w) => a + w.executions, 0);
+                    const start = Math.min(
+                        ...s.stats.map((w) => w.start_time.secs),
+                    );
+                    const dt = s.timestamp_secs - start;
+                    return dt > 0 ? Math.round(execs / dt) : 0;
+                });
+                gExecs.update();
+
+                updateWorkerCharts(history);
+                updateUserMapPanel(history);
+            }
+
+            refresh();
+            setInterval(refresh, 5000);
+        </script>
+    </body>
 </html>

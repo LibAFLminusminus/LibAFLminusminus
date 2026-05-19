@@ -390,10 +390,12 @@ where
         );
 
         let covered = map_state.num_covered_map_indexes;
-        state.stats_mut().user_map.insert(
-            STAT_COVERAGE.to_string(),
-            serde_json::json!([covered, map_len]),
-        );
+        let stat_json = serde_json::json!([covered, map_len]).to_string();
+
+        state
+            .stats_mut()
+            .user_map
+            .insert(STAT_COVERAGE.to_string(), stat_json);
 
         Ok(())
     }
