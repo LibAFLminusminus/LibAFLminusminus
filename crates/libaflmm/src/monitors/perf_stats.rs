@@ -38,7 +38,7 @@ impl PerfStats {
 
     /// Add `elapsed` to the bucket for the stage named `name`.
     #[inline]
-    pub fn record_stage(&mut self, name: &Cow<'static, str>, elapsed: Duration) {
+    pub fn record_stage(&mut self, name: &str, elapsed: Duration) {
         let bucket = self.stages.entry(name.clone()).or_insert(Duration::ZERO);
         *bucket = bucket.saturating_add(elapsed);
     }
