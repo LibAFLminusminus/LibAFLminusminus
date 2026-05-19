@@ -181,6 +181,7 @@ jobs:
           - baby/baby_cmplog
           - baby/baby_forkserver
           - baby/baby_inprocess
+          - inprocess/sqlite
     env:
       PROFILE: dev # build in debug mode to speed up the tests
     steps:

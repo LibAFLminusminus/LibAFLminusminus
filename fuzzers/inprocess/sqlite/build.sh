@@ -6,10 +6,10 @@ if [ ! -d "sqlite3" ]; then
     find ./sqlite3 -name "*.test" -exec cp {} corpus/ \;
 fi
 
-if [ "$1" = "d" ]; then
-  cargo build
-else
+if [ "$1" = "release" ]; then
   cargo build --release
+else
+  cargo build
 fi
 
 export CC=`pwd`/target/release/libafl_cc
@@ -29,7 +29,7 @@ if [ ! -f "Makefile" ]; then
     ./configure
 fi
 make -j$(nproc)
-make sqlite3.c
+make -B sqlite3.c
 popd
 
 if [ "$1" = "release" ]; then
