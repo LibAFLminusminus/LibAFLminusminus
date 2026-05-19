@@ -2,6 +2,10 @@
 
 For bugs, feel free to open issues or contact us directly. Thank you for your support. <3
 
+## Licensing
+
+Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in this project shall be licensed as MPL-2.0, without any additional terms or conditions.
+
 ## On AI Assistance
 
 We do NOT accept contributions with any form of AI assistance from first-time contributors.

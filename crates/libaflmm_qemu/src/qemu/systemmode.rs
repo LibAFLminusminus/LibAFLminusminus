@@ -1,0 +1,609 @@
+use libaflmm_qemu_sys::{
+    GuestAddr, GuestPhysAddr, GuestVirtAddr, libafl_load_qemu_snapshot, libafl_page_from_addr,
+    libafl_qemu_current_paging_id, libafl_qemu_run, libafl_save_qemu_snapshot, qemu_cleanup,
+};
+use libc::EXIT_SUCCESS;
+use num_traits::Zero;
+use std::{
+    cmp::min,
+    ffi::{CStr, CString, c_void},
+    mem::MaybeUninit,
+    ptr::{NonNull, copy_nonoverlapping, null_mut},
+    slice,
+};
+
+use crate::{
+    CPU, GuestAddrKind, MemAccessInfo, Qemu, QemuMemoryChunk, QemuSnapshotCheckResult,
+    standard::FastSnapshotPtr,
+};
+
+pub(super) extern "C" fn qemu_cleanup_atexit() {
+    unsafe {
+        qemu_cleanup(EXIT_SUCCESS);
+    }
+}
+
+pub enum DeviceSnapshotFilter {
+    All,
+    AllowList(Vec<String>),
+    DenyList(Vec<String>),
+}
+
+#[derive(Debug, Clone)]
+#[expect(dead_code)]
+pub struct PhysMemoryChunk {
+    addr: GuestPhysAddr,
+    size: usize,
+    qemu: Qemu,
+    cpu: CPU,
+}
+
+/// A contiguous chunk of host memory.
+/// We need a different type than normal slices because all the rules for slices are not enforced.
+/// The memory region is shared with QEMU (and so, the underlying VM), so we must make sure the
+/// write is correctly handled (it must be totally issued before returning to QEMU).
+#[derive(Debug, Clone)]
+pub struct HostMemoryChunk {
+    addr: *mut u8,
+    size: usize,
+}
+
+/// A segmented chunk of host memory.
+/// It contains all the host memory chunks representing the whole memory location.
+///
+/// This structure is only valid for the lifetime of the underlying memory.
+/// Since we cannot know when the VM memory will be invalidated, the user is
+/// responsible for making sure the segments are still valid.
+#[derive(Debug, Clone)]
+pub struct HostMemorySegments {
+    segments: Vec<HostMemoryChunk>,
+}
+
+pub struct PhysMemoryIter {
+    addr: GuestAddrKind, // This address is correct when the iterator enters next, except if the remaining len is 0
+    remaining_len: usize,
+    qemu: Qemu,
+    cpu: CPU,
+}
+//
+#[expect(dead_code)]
+pub struct HostMemoryIter {
+    addr: GuestPhysAddr, // This address is correct when the iterator enters next, except if the remaining len is 0
+    remaining_len: usize,
+    qemu: Qemu,
+    cpu: CPU,
+}
+
+impl DeviceSnapshotFilter {
+    fn enum_id(&self) -> libaflmm_qemu_sys::DeviceSnapshotKind {
+        match self {
+            DeviceSnapshotFilter::All => libaflmm_qemu_sys::DeviceSnapshotKind_DEVICE_SNAPSHOT_ALL,
+            DeviceSnapshotFilter::AllowList(_) => {
+                libaflmm_qemu_sys::DeviceSnapshotKind_DEVICE_SNAPSHOT_ALLOWLIST
+            }
+            DeviceSnapshotFilter::DenyList(_) => {
+                libaflmm_qemu_sys::DeviceSnapshotKind_DEVICE_SNAPSHOT_DENYLIST
+            }
+        }
+    }
+
+    fn devices(&self, v: &mut Vec<*mut i8>) -> *mut *mut i8 {
+        v.clear();
+        match self {
+            DeviceSnapshotFilter::All => null_mut(),
+            DeviceSnapshotFilter::AllowList(l) | DeviceSnapshotFilter::DenyList(l) => {
+                for name in l {
+                    v.push(name.as_bytes().as_ptr() as *mut i8);
+                }
+                v.push(core::ptr::null_mut());
+                v.as_mut_ptr()
+            }
+        }
+    }
+}
+
+impl CPU {
+    #[must_use]
+    pub fn get_phys_addr(&self, vaddr: GuestVirtAddr) -> Option<GuestPhysAddr> {
+        unsafe {
+            let page = libafl_page_from_addr(vaddr);
+            let mut attrs = MaybeUninit::<libaflmm_qemu_sys::MemTxAttrs>::uninit();
+            let paddr = libaflmm_qemu_sys::cpu_get_phys_page_attrs_debug(
+                self.cpu_ptr,
+                page as GuestVirtAddr,
+                attrs.as_mut_ptr(),
+            );
+            let mask = Qemu::get_unchecked().target_page_offset_mask();
+            let offset = (vaddr & (mask as GuestVirtAddr)) as GuestPhysAddr;
+
+            if paddr == u64::MAX {
+                None
+            } else {
+                Some(paddr + offset)
+            }
+        }
+    }
+
+    #[must_use]
+    pub fn get_phys_addr_tlb(
+        &self,
+        vaddr: GuestVirtAddr,
+        info: MemAccessInfo,
+        is_store: bool,
+    ) -> Option<GuestPhysAddr> {
+        unsafe {
+            let pminfo = libaflmm_qemu_sys::make_plugin_meminfo(
+                info.oi,
+                if is_store {
+                    libaflmm_qemu_sys::qemu_plugin_mem_rw_QEMU_PLUGIN_MEM_W
+                } else {
+                    libaflmm_qemu_sys::qemu_plugin_mem_rw_QEMU_PLUGIN_MEM_R
+                },
+            );
+            let phwaddr = libaflmm_qemu_sys::qemu_plugin_get_hwaddr(pminfo, vaddr as u64);
+            if phwaddr.is_null() {
+                None
+            } else {
+                Some(libaflmm_qemu_sys::qemu_plugin_hwaddr_phys_addr(phwaddr) as GuestPhysAddr)
+            }
+        }
+    }
+
+    #[must_use]
+    pub fn current_paging_id(&self) -> Option<GuestPhysAddr> {
+        let paging_id = unsafe { libafl_qemu_current_paging_id(self.cpu_ptr) };
+
+        if paging_id == 0 {
+            None
+        } else {
+            Some(paging_id)
+        }
+    }
+
+    /// Read a value from a guest address, taking into account the potential MMU / MPU.
+    ///
+    /// # Safety
+    /// no check is done on the correctness of the operation.
+    /// if a problem occurred during the operation, there will be no feedback
+    pub unsafe fn read_mem_unchecked(&self, addr: GuestAddr, buf: &mut [u8]) {
+        unsafe {
+            // TODO use gdbstub's target_cpu_memory_rw_debug
+            libaflmm_qemu_sys::cpu_memory_rw_debug(
+                self.cpu_ptr,
+                addr as GuestVirtAddr,
+                buf.as_mut_ptr() as *mut _,
+                buf.len(),
+                false,
+            );
+        }
+    }
+
+    /// Write a value to a guest address, taking into account the potential MMU / MPU.
+    ///
+    /// # Safety
+    /// no check is done on the correctness of the operation.
+    /// if a problem occurred during the operation, there will be no feedback
+    pub unsafe fn write_mem_unchecked(&self, addr: GuestAddr, buf: &[u8]) {
+        unsafe {
+            // TODO use gdbstub's target_cpu_memory_rw_debug
+            libaflmm_qemu_sys::cpu_memory_rw_debug(
+                self.cpu_ptr,
+                addr as GuestVirtAddr,
+                buf.as_ptr() as *mut _,
+                buf.len(),
+                true,
+            );
+        }
+    }
+
+    #[must_use]
+    pub fn host_addr(&self, addr: GuestPhysAddr) -> *const u8 {
+        unsafe { libaflmm_qemu_sys::libafl_paddr2host(self.cpu_ptr, addr, false) }
+    }
+}
+
+#[expect(clippy::unused_self)]
+impl Qemu {
+    /// Write a value to a physical guest address, including ROM areas.
+    ///
+    /// # Safety
+    ///
+    /// No check is done on the correctness of the operation at the moment.
+    /// Nothing bad will happen if the operation is incorrect, but it will be silently skipped.
+    // TODO: use address_space_rw and check for the result MemTxResult
+    pub unsafe fn write_phys_mem(&self, paddr: GuestPhysAddr, buf: &[u8]) {
+        unsafe {
+            libaflmm_qemu_sys::cpu_physical_memory_write(
+                paddr,
+                buf.as_ptr() as *mut _,
+                buf.len() as u64,
+            );
+        }
+    }
+
+    /// Read a value from a physical guest address, including ROM areas.
+    ///
+    /// # Safety
+    ///
+    /// No check is done on the correctness of the operation at the moment.
+    /// Nothing bad will happen if the operation is incorrect, but it will be silently skipped.
+    // TODO: use address_space_rw and check for the result MemTxResult
+    pub unsafe fn read_phys_mem(&self, paddr: GuestPhysAddr, buf: &mut [u8]) {
+        unsafe {
+            libaflmm_qemu_sys::cpu_physical_memory_read(
+                paddr,
+                buf.as_mut_ptr() as *mut _,
+                buf.len() as u64,
+            );
+        }
+    }
+
+    #[expect(clippy::trivially_copy_pass_by_ref)]
+    pub(super) unsafe fn run_inner(&self) {
+        unsafe {
+            libafl_qemu_run();
+        }
+    }
+
+    pub fn save_snapshot(&self, name: &str, sync: bool) {
+        let s = CString::new(name).expect("Invalid snapshot name");
+        unsafe { libafl_save_qemu_snapshot(s.as_ptr().cast_mut(), sync) };
+    }
+
+    pub fn load_snapshot(&self, name: &str, sync: bool) {
+        let s = CString::new(name).expect("Invalid snapshot name");
+        unsafe { libafl_load_qemu_snapshot(s.as_ptr().cast_mut(), sync) };
+    }
+
+    #[must_use]
+    pub fn create_fast_snapshot(&self, track: bool) -> FastSnapshotPtr {
+        unsafe {
+            libaflmm_qemu_sys::syx_snapshot_new(
+                track,
+                true,
+                libaflmm_qemu_sys::DeviceSnapshotKind_DEVICE_SNAPSHOT_ALL,
+                null_mut(),
+            )
+        }
+    }
+
+    #[must_use]
+    pub fn create_fast_snapshot_filter(
+        &self,
+        track: bool,
+        device_filter: &DeviceSnapshotFilter,
+    ) -> FastSnapshotPtr {
+        let mut v = vec![];
+        unsafe {
+            libaflmm_qemu_sys::syx_snapshot_new(
+                track,
+                true,
+                device_filter.enum_id(),
+                device_filter.devices(&mut v),
+            )
+        }
+    }
+
+    #[expect(clippy::missing_safety_doc)]
+    pub unsafe fn restore_fast_snapshot(&self, snapshot: FastSnapshotPtr) {
+        unsafe {
+            libaflmm_qemu_sys::syx_snapshot_root_restore(snapshot);
+        }
+    }
+
+    #[must_use]
+    #[expect(clippy::missing_safety_doc)]
+    pub unsafe fn check_fast_snapshot(
+        &self,
+        ref_snapshot: FastSnapshotPtr,
+    ) -> QemuSnapshotCheckResult {
+        let check_result = unsafe { libaflmm_qemu_sys::syx_snapshot_check(ref_snapshot) };
+
+        QemuSnapshotCheckResult::new(check_result.nb_inconsistencies)
+    }
+
+    #[must_use]
+    pub fn list_devices(&self) -> Vec<String> {
+        let mut r = vec![];
+        unsafe {
+            let devices = libaflmm_qemu_sys::device_list_all();
+            if devices.is_null() {
+                return r;
+            }
+
+            let mut ptr = devices;
+            while !(*ptr).is_null() {
+                let c_str: &CStr = CStr::from_ptr(*ptr);
+                let name = c_str.to_str().unwrap().to_string();
+                r.push(name);
+
+                ptr = ptr.add(1);
+            }
+
+            libc::free(devices as *mut c_void);
+            r
+        }
+    }
+
+    /// Get the size in bytes of a guest page.
+    #[must_use]
+    pub fn target_page_size(&self) -> usize {
+        unsafe { libaflmm_qemu_sys::libafl_target_page_size() }
+    }
+
+    /// Get the mask of a guest page.
+    /// This will return the mask for the page part of the address,
+    /// not the offset.
+    #[must_use]
+    pub fn target_page_mask(&self) -> usize {
+        #[expect(clippy::cast_sign_loss)]
+        unsafe {
+            libaflmm_qemu_sys::libafl_target_page_mask() as usize
+        }
+    }
+
+    /// Get the mask of a guest page's offset.
+    /// This will return the mask for the offset part of the address.
+    #[must_use]
+    pub fn target_page_offset_mask(&self) -> usize {
+        #[expect(clippy::cast_sign_loss)]
+        unsafe {
+            libaflmm_qemu_sys::libafl_target_page_offset_mask() as usize
+        }
+    }
+}
+
+impl QemuMemoryChunk {
+    pub fn phys_iter(&self, qemu: Qemu) -> impl Iterator<Item = PhysMemoryChunk> {
+        PhysMemoryIter {
+            addr: self.addr,
+            remaining_len: self.size as usize,
+            qemu,
+            cpu: self.cpu,
+        }
+    }
+
+    #[expect(clippy::map_flatten)]
+    pub fn host_iter(&self, qemu: Qemu) -> impl Iterator<Item = HostMemoryChunk> {
+        Box::new(
+            self.phys_iter(qemu)
+                .map(move |phys_mem_chunk| HostMemoryIter {
+                    addr: phys_mem_chunk.addr,
+                    remaining_len: phys_mem_chunk.size,
+                    qemu,
+                    cpu: phys_mem_chunk.cpu,
+                })
+                .flatten(),
+        )
+    }
+
+    /// Interpret the VM memory chunk as multiple host memory segments.
+    ///
+    /// This will take into account possible physical memory fragmentation.
+    #[must_use]
+    pub fn to_host_segments(&self, qemu: Qemu) -> HostMemorySegments {
+        let segments: Vec<HostMemoryChunk> = self.host_iter(qemu).collect();
+
+        HostMemorySegments::new(segments)
+    }
+}
+
+impl HostMemoryChunk {
+    #[must_use]
+    pub fn write(&self, buf: &[u8]) -> usize {
+        let write_len = min(buf.len(), self.size);
+
+        unsafe {
+            // TODO: replace with volatile_copy_nonoverlapping when stabilized.
+            // check if write_volatile can generate something as efficient as that.
+            copy_nonoverlapping(buf.as_ptr(), self.addr, write_len);
+        }
+
+        write_len
+    }
+}
+
+impl HostMemorySegments {
+    #[must_use]
+    pub fn new(segments: Vec<HostMemoryChunk>) -> Self {
+        Self { segments }
+    }
+
+    /// Write a buffer into the VM memory segments.
+    ///
+    /// # Safety
+    ///
+    /// The memory location must be valid when calling this function.
+    /// In particular, the VM must not have invalidated the memory location.
+    /// Also, the VM must not assume the memory location is "private" (meaning
+    /// is can only be touched by the program itself). In most cases it means
+    /// the memory must be considered as *volatile*, as if it was a DMA region.
+    #[must_use]
+    pub unsafe fn write(&self, buf: &[u8]) -> usize {
+        let mut total_written = 0;
+
+        for segment in &self.segments {
+            total_written += segment.write(&buf[total_written..]);
+            if total_written == buf.len() {
+                return total_written;
+            }
+        }
+
+        total_written
+    }
+}
+
+impl PhysMemoryChunk {
+    #[must_use]
+    pub fn new(addr: GuestPhysAddr, size: usize, qemu: Qemu, cpu: CPU) -> Self {
+        Self {
+            addr,
+            size,
+            qemu,
+            cpu,
+        }
+    }
+
+    /// Convert a physical memory chunk into a host memory chunk.
+    // TODO: allow multiple host chunks
+    #[must_use]
+    pub fn to_host_chunk(&self) -> Option<HostMemoryChunk> {
+        let addr = self.addr_host_ptr_mut()?;
+
+        Some(HostMemoryChunk {
+            addr: addr.as_ptr(),
+            size: self.size,
+        })
+    }
+
+    #[must_use]
+    pub fn addr_host_ptr(&self) -> Option<*const u8> {
+        let host_addr: *const u8 =
+            unsafe { libaflmm_qemu_sys::libafl_paddr2host(self.cpu.cpu_ptr, self.addr, false) };
+
+        Some(host_addr)
+    }
+
+    #[must_use]
+    pub fn addr_host_ptr_mut(&self) -> Option<NonNull<u8>> {
+        let host_addr: *mut u8 =
+            unsafe { libaflmm_qemu_sys::libafl_paddr2host(self.cpu.cpu_ptr, self.addr, true) };
+
+        NonNull::new(host_addr)
+    }
+
+    #[must_use]
+    pub fn as_host_slice(&self) -> Option<&[u8]> {
+        let host_ptr = self.addr_host_ptr()?;
+        Some(unsafe { slice::from_raw_parts(host_ptr, self.size) })
+    }
+
+    #[must_use]
+    #[allow(clippy::mut_from_ref)]
+    pub fn as_host_slice_mut(&self) -> Option<&mut [u8]> {
+        let mut host_ptr = self.addr_host_ptr_mut()?;
+        Some(unsafe { slice::from_raw_parts_mut(host_ptr.as_mut(), self.size) })
+    }
+
+    #[must_use]
+    pub fn size(&self) -> usize {
+        self.size
+    }
+}
+
+impl Iterator for HostMemoryIter {
+    type Item = HostMemoryChunk;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.remaining_len.is_zero() {
+            None
+        } else {
+            // Host memory allocation is always host-page aligned, so we can freely go from host page to host page.
+            let start_host_addr: *mut u8 =
+                unsafe { libaflmm_qemu_sys::libafl_paddr2host(self.cpu.cpu_ptr, self.addr, false) };
+            let host_page_size = Qemu::get().unwrap().host_page_size();
+            let mut size_taken: usize = std::cmp::min(
+                (start_host_addr as usize).next_multiple_of(host_page_size),
+                self.remaining_len,
+            );
+
+            self.remaining_len -= size_taken;
+            self.addr += size_taken as GuestPhysAddr;
+
+            // Now self.addr is host-page aligned
+            while self.remaining_len > 0 {
+                let next_page_host_addr: *const u8 = unsafe {
+                    libaflmm_qemu_sys::libafl_paddr2host(self.cpu.cpu_ptr, self.addr, false)
+                };
+
+                // Non-contiguous, we stop here for the slice
+                if next_page_host_addr != start_host_addr {
+                    return Some(HostMemoryChunk {
+                        addr: start_host_addr,
+                        size: size_taken,
+                    });
+                }
+
+                // The host memory is contiguous, we can widen the slice up to the next host page
+                size_taken += std::cmp::min(self.remaining_len, host_page_size);
+
+                self.remaining_len -= size_taken;
+                self.addr += size_taken as GuestPhysAddr;
+            }
+
+            // We finished to explore the memory, return the last slice.
+            assert_eq!(self.remaining_len, 0);
+
+            Some(HostMemoryChunk {
+                addr: start_host_addr,
+                size: size_taken,
+            })
+        }
+    }
+}
+
+impl Iterator for PhysMemoryIter {
+    type Item = PhysMemoryChunk;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.remaining_len.is_zero() {
+            None
+        } else {
+            // Physical memory allocation is always physical-page aligned, so we can freely go from host page to host page.
+            let vaddr = match &mut self.addr {
+                GuestAddrKind::Virtual(vaddr) => vaddr,
+                GuestAddrKind::Physical(paddr) => {
+                    let sz = self.remaining_len;
+                    self.remaining_len = 0;
+                    return Some(PhysMemoryChunk::new(*paddr, sz, self.qemu, self.cpu));
+                }
+            };
+            let start_phys_addr: GuestPhysAddr = self.cpu.get_phys_addr(*vaddr).unwrap_or_else(|| panic!(
+                "Could not translate the virtual address {vaddr:#x} into a valid physical address."
+            ));
+            let phys_page_size = self.qemu.target_page_size();
+
+            // TODO: Turn this into a generic function
+            let mut size_taken: usize = std::cmp::min(
+                (start_phys_addr as usize).next_multiple_of(phys_page_size),
+                self.remaining_len,
+            );
+
+            self.remaining_len -= size_taken;
+            *vaddr += size_taken as GuestVirtAddr;
+
+            // Now self.addr is host-page aligned
+            while self.remaining_len > 0 {
+                let next_page_phys_addr: GuestPhysAddr = self.cpu.get_phys_addr(*vaddr).unwrap_or_else(|| panic!(
+                    "Could not translate the virtual address {vaddr:#x} into a valid physical address."
+                ));
+
+                // Non-contiguous, we stop here for the slice
+                if next_page_phys_addr != start_phys_addr {
+                    return Some(PhysMemoryChunk::new(
+                        start_phys_addr,
+                        size_taken,
+                        self.qemu,
+                        self.cpu,
+                    ));
+                }
+
+                // The host memory is contiguous, we can widen the slice up to the next host page
+                size_taken += std::cmp::min(self.remaining_len, phys_page_size);
+
+                self.remaining_len -= size_taken;
+                *vaddr += size_taken as GuestVirtAddr;
+            }
+
+            // We finished to explore the memory, return the last slice.
+            assert_eq!(self.remaining_len, 0);
+
+            Some(PhysMemoryChunk::new(
+                start_phys_addr,
+                size_taken,
+                self.qemu,
+                self.cpu,
+            ))
+        }
+    }
+}

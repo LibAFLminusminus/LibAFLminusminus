@@ -55,13 +55,21 @@ fn main() -> Result<(), Box<dyn Error>> {
         .collect();
     let lqemu_exclude_features_str = lqemu_exclude_features.join(",");
 
-    // Exclude libafl_asan_libc since it is only a dummy library without any implementation anyway, but also because it needs to be built for `no_std`
+    // libaflmm_asan_libc needs no_std; qemu crates are checked separately below;
+    // frida, linters, and pylibafl require special build environments
     let the_command = format!(
         "DOCS_RS=1 cargo hack check --workspace --each-feature --clean-per-run \
             --exclude-features={exclude_features_str} \
-            --no-dev-deps --exclude libafl_libfuzzer --exclude libafl_qemu --exclude libafl_qemu_sys --exclude libafl_asan_libc --print-command-list; "
+            --no-dev-deps \
+            --exclude libaflmm_qemu --exclude libaflmm_qemu_sys --exclude libaflmm_qemu_build \
+            --exclude libaflmm_qemu_runner --exclude libvharness_sys \
+            --exclude libaflmm_asan_libc --exclude libaflmm_asan_fuzz \
+            --exclude libaflmm_frida \
+            --exclude args_reorder --exclude generics_reorder --exclude use_after_mod \
+            --exclude pylibafl \
+            --print-command-list; "
     ) + &format!(
-        "DOCS_RS=1 cargo hack check -p libafl_qemu -p libafl_qemu_sys --each-feature --clean-per-run \
+        "DOCS_RS=1 cargo hack check -p libaflmm_qemu -p libaflmm_qemu_sys --each-feature --clean-per-run \
             --exclude-features={lqemu_exclude_features_str} \
             --no-dev-deps --features usermode --print-command-list"
     );
@@ -79,15 +87,15 @@ fn main() -> Result<(), Box<dyn Error>> {
     for &task in &lines[start..end] {
         println!("Running {task}");
 
-        // skip the libafl_jumper no-std case
+        // skip no_std crates that have no features (checking them requires panic=abort)
         if task.contains("--no-default-features") && !task.contains("--features") {
             continue;
         }
 
-        // run each task, with DOCS_RS override for libafl_frida
+        // run each task, with DOCS_RS override for libaflmm_frida
         let mut cmd = Command::new("bash");
         cmd.arg("-c");
-        if task.contains("libafl_frida") {
+        if task.contains("libaflmm_frida") {
             cmd.env("DOCS_RS", "1");
             let task = task.replace("cargo ", "cargo +nightly ");
             cmd.arg(task);

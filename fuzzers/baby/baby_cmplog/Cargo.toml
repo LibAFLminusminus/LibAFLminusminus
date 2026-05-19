@@ -1,0 +1,23 @@
+[package]
+name = "baby_cmplog"
+version = "0.14.1"
+authors = ["Dongjia Zhang <tokazerkje@outlook.jp>"]
+edition = "2024"
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
+lto = true
+codegen-units = 1
+opt-level = 3
+debug = true
+
+[dependencies]
+env_logger = "0.11.7"
+libaflmm = { path = "../../../crates/libaflmm" }
+libaflmm_bolts = { path = "../../../crates/libaflmm_bolts" }
+libaflmm_core = { path = "../../../crates/libaflmm_core" }
+libaflmm_targets = { path = "../../../crates/libaflmm_targets" }
+clap = { version = "4.5.18", features = ["derive"] }

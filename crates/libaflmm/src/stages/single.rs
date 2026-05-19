@@ -1,0 +1,146 @@
+//! The single run stage can run the harness for once coupled with the configurable pre/post hooks. This can be used for example for `CmpLog`.
+
+use alloc::{
+    borrow::{Cow, ToOwned},
+    string::ToString,
+};
+use core::{fmt::Debug, marker::PhantomData};
+
+use libaflmm_bolts::Named;
+
+use crate::{
+    DependencyResolver, Evaluator, Result,
+    corpus::{Corpus, testcase::TestcaseId},
+    stages::{RuntimeHandle, Stage},
+    states::State,
+};
+
+/// A [`Stage`] that runs the unmutated input for only one time.
+/// also runs the pre and post hooks (this is configurable by user)
+#[derive(Debug, Clone)]
+pub struct SingleRunStage<I, Pre, Post> {
+    name: Cow<'static, str>,
+    pre: Pre,
+    post: Post,
+    phantom: PhantomData<I>,
+}
+
+impl<I, Pre, Post> DependencyResolver for SingleRunStage<I, Pre, Post> {}
+
+impl<E, I, Pre, Post, R, S, W, Z> Stage<E, R, S, W, Z> for SingleRunStage<I, Pre, Post>
+where
+    S: State<I>,
+    Z: Evaluator<E, I, S, W>,
+    Pre: FnMut(&mut RuntimeHandle<S, W>, &mut E, &mut R, &mut S, &mut Z) -> Result<()>,
+    Post: FnMut(&mut RuntimeHandle<S, W>, &mut E, &mut R, &mut S, &mut Z) -> Result<()>,
+{
+    #[inline]
+    fn perform_impl(
+        &mut self,
+        fuzzer: &mut Z,
+        executor: &mut E,
+        rand: &mut R,
+        state: &mut S,
+        rt_handle: &mut RuntimeHandle<S, W>,
+        testcase_id: &TestcaseId,
+    ) -> Result<()> {
+        (self.pre)(rt_handle, executor, rand, state, fuzzer)?;
+
+        let input = state.corpus().get(testcase_id)?.input();
+        fuzzer.evaluate_input(state, executor, rt_handle, &input)?;
+
+        (self.post)(rt_handle, executor, rand, state, fuzzer)?;
+
+        Ok(())
+    }
+}
+
+impl<I, Pre, Post> Named for SingleRunStage<I, Pre, Post> {
+    fn name(&self) -> &Cow<'static, str> {
+        &self.name
+    }
+}
+
+/// The counter for giving this stage unique id
+static mut SINGLE_RUN_STAGE_ID: usize = 0;
+/// The name prefix for this stage
+pub static SINGLE_RUN_STAGE_NAME: &str = "single";
+
+/// short type for the hook type
+pub type RunHookFn<E, R, S, W, Z> =
+    fn(&mut RuntimeHandle<S, W>, &mut E, &mut R, &mut S, &mut Z) -> Result<()>;
+
+#[expect(clippy::unnecessary_wraps)]
+fn noop_hook<E, R, S, W, Z>(
+    _: &mut RuntimeHandle<S, W>,
+    _: &mut E,
+    _: &mut R,
+    _: &mut S,
+    _: &mut Z,
+) -> Result<()> {
+    Ok(())
+}
+
+impl<I, E, R, S, W, Z> Default
+    for SingleRunStage<I, RunHookFn<E, R, S, W, Z>, RunHookFn<E, R, S, W, Z>>
+{
+    fn default() -> Self {
+        Self::new(noop_hook, noop_hook)
+    }
+}
+
+/// The hook for cmplog where you toggles [`CMPLOG_ENABLED`] for turning on the instrumentation.
+pub fn cmplog_pre_hook<E, R, S, W, Z>(
+    _: &mut RuntimeHandle<S, W>,
+    _: &mut E,
+    _: &mut R,
+    _: &mut S,
+    _: &mut Z,
+) -> Result<()> {
+    unsafe {
+        libaflmm_targets::CMPLOG_ENABLED = 1;
+    }
+    Ok(())
+}
+
+/// The hook for cmplog where you toggles [`CMPLOG_ENABLED`] for disabling the instrumentation
+pub fn cmplog_post_hook<E, R, S, W, Z>(
+    _: &mut RuntimeHandle<S, W>,
+    _: &mut E,
+    _: &mut R,
+    _: &mut S,
+    _: &mut Z,
+) -> Result<()> {
+    unsafe {
+        libaflmm_targets::CMPLOG_ENABLED = 0;
+    }
+    Ok(())
+}
+
+impl<I, E, R, S, W, Z> SingleRunStage<I, RunHookFn<E, R, S, W, Z>, RunHookFn<E, R, S, W, Z>> {
+    /// Construct the [`struct@SingleRunStage`] with cmplog hooks
+    pub fn cmplog() -> Self {
+        Self::new(cmplog_pre_hook, cmplog_post_hook)
+    }
+}
+
+impl<I, Pre, Post> SingleRunStage<I, Pre, Post> {
+    /// Constructor for this [`struct@SingleRunStage`]. You can add hooks to `pre` and `post`. Or... use `default()` instead if you have absolutely nothing to hook
+    pub fn new(pre: Pre, post: Post) -> Self {
+        // unsafe but impossible that you create two threads both instantiating this instance
+        let stage_id = unsafe {
+            let ret = SINGLE_RUN_STAGE_ID;
+            SINGLE_RUN_STAGE_ID += 1;
+            ret
+        };
+
+        Self {
+            name: Cow::Owned(
+                SINGLE_RUN_STAGE_NAME.to_owned() + ":" + stage_id.to_string().as_ref(),
+            ),
+            pre,
+            post,
+            phantom: PhantomData,
+        }
+    }
+}

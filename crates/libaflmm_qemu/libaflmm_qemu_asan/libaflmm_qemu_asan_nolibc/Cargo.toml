@@ -1,0 +1,37 @@
+[package]
+name = "libaflmm_qemu_asan_nolibc"
+
+documentation.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+readme.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[lib]
+name = "afl_qemu_asan_nolibc"
+crate-type = ["staticlib"]
+
+[features]
+default = []
+test = ["libaflmm_asan/test"]
+
+[dependencies]
+libaflmm_asan = { path = "../../../libaflmm_asan", default-features = false, features = [
+  "dlmalloc",
+  "global_allocator",
+  "guest",
+  "hooks",
+  "host",
+  "syscalls",
+  "tracking",
+] }
+log = { version = "0.4.22", default-features = false, features = [
+  "release_max_level_info",
+] }
+spin = { version = "0.9.8", default-features = false, features = [
+  "lazy",
+  "mutex",
+  "spin_mutex",
+] }

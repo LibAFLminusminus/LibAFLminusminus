@@ -1,0 +1,26 @@
+[workspace]
+members = [
+  "libaflmm_qemu_asan_guest",
+  "libaflmm_qemu_asan_host",
+  "libaflmm_qemu_asan_nolibc",
+]
+resolver = "2"
+
+[workspace.package]
+documentation = "https://docs.rs/libaflmm"
+edition = "2024"
+version = "0.16.0"
+license = "MPL-2.0"
+repository = "https://github.com/LibAFLminusminus/LibAFLminusminus"
+readme = "./README.md"
+rust-version = "1.89"
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
+lto = true
+codegen-units = 1
+opt-level = 3
+debug = true

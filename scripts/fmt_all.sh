@@ -6,9 +6,9 @@ LIBAFL_DIR=$(realpath "$SCRIPT_DIR/..")
 cd "${LIBAFL_DIR}" || exit 1
 
 if [ "$1" = "check" ]; then
-  cargo run --manifest-path "$LIBAFL_DIR/utils/libafl_repo_tools/Cargo.toml" --release -- -c --verbose || exit 1
+  cargo run --manifest-path "$LIBAFL_DIR/utils/libaflmm_repo_tools/Cargo.toml" --release -- -c --verbose || exit 1
 elif [ -z "$1" ]; then
-  cargo run --manifest-path "$LIBAFL_DIR/utils/libafl_repo_tools/Cargo.toml" --release -- --verbose || exit 1
+  cargo run --manifest-path "$LIBAFL_DIR/utils/libaflmm_repo_tools/Cargo.toml" --release -- --verbose || exit 1
 else
   >&2 echo "Error: invalid command."
   >&2 echo "Usage:"
@@ -25,9 +25,9 @@ fi
 if [ -n "$BLACK_COMMAND" ]; then
   echo "[*] Formatting python files"
   if [ "$1" = "check" ]; then
-    $BLACK_COMMAND --check --diff "$LIBAFL_DIR" || exit 1
+    $BLACK_COMMAND --extend-exclude '^/AFLplusplus/' --check --diff "$LIBAFL_DIR" || exit 1
   else
-    $BLACK_COMMAND "$LIBAFL_DIR" || exit 1
+    $BLACK_COMMAND --extend-exclude '^/AFLplusplus/' "$LIBAFL_DIR" || exit 1
   fi
 else
   echo -e "\n\033[1;33mWarning\033[0m: python black not found. Formatting skipped for python.\n"

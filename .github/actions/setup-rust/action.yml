@@ -1,0 +1,90 @@
+name: setup-rust
+description: Setup Rust
+
+inputs:
+  toolchain:
+    description: Choose the toolchain version (stable, nightly, specific version, etc.)
+    required: false
+    default: stable
+  components:
+    description: Choose the toolchain components to integrate (clippy, rustfmt, etc.)
+    required: false
+    default: clippy,rustfmt
+  cache-key:
+    description: Shared cache key
+    required: true
+  save-cache:
+    description: write to the cache
+    required: false
+    default: true
+  cache:
+    description: >
+      Enable Swatinem/rust-cache. Set to false on persistent self-hosted runners.
+    required: false
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    - name: Install Rust toolchain
+      shell: bash
+      env:
+        TOOLCHAIN: ${{ inputs.toolchain }}
+        COMPONENTS: ${{ inputs.components }}
+      run: |
+        CARGO_BIN="${CARGO_HOME:-$HOME/.cargo}/bin"
+
+        # install rustup if not already present. locked for concurrent access.
+        if [[ ! -x "$CARGO_BIN/rustup" ]]; then
+          flock --timeout 300 /var/lock/github-rust.lock bash -c '
+            [[ -x "'"$CARGO_BIN"'/rustup" ]] && exit 0
+            curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs \
+              | sh -s -- -y --no-modify-path --default-toolchain none
+          '
+        fi
+
+        # make rustup available for the commands below.
+        export PATH="$CARGO_BIN:$PATH"
+
+        if ! rustup toolchain list 2>/dev/null | grep -q "^${TOOLCHAIN}-"; then
+          flock --timeout 300 /var/lock/github-rust.lock \
+            bash -c 'rustup toolchain list 2>/dev/null | grep -q "^'"$TOOLCHAIN"'-" ||
+                     rustup toolchain install "'"$TOOLCHAIN"'" --no-self-update'
+        fi
+
+        # install components. this is fast, so not dangerous.
+        for component in $(echo "$COMPONENTS" | tr ',' ' '); do
+          rustup component add --toolchain "$TOOLCHAIN" "$component"
+        done
+
+        # set the rustup toolchain through the env.
+        # do NOT use rustup default <toolchain> as it would race with other jobs.
+        # use the toolchain directory to avoid any issue.
+        TOOLCHAIN_FULL=$(rustup toolchain list 2>/dev/null \
+          | grep "^${TOOLCHAIN}-" | awk '{print $1}' | head -1)
+        TOOLCHAIN_BIN="$HOME/.rustup/toolchains/${TOOLCHAIN_FULL}/bin"
+        {
+          echo "$TOOLCHAIN_BIN"  # direct toolchain binaries (cargo, rustc, …)
+          echo "$CARGO_BIN"      # rustup itself + cargo-installed tools
+        } >> "$GITHUB_PATH"
+        export PATH="$TOOLCHAIN_BIN:$PATH"
+
+        echo "RUSTUP_TOOLCHAIN=$TOOLCHAIN" >> "$GITHUB_ENV"
+
+    - name: Use mold linker if available
+      shell: bash
+      run: |
+        if command -v mold &>/dev/null; then
+          echo "RUSTFLAGS=${RUSTFLAGS:+$RUSTFLAGS }-C link-arg=-fuse-ld=mold" >> "$GITHUB_ENV"
+        fi
+
+    - name: Install Just
+      uses: extractions/setup-just@v4
+
+    - name: Rust cache
+      if: inputs.cache == 'true'
+      uses: Swatinem/rust-cache@v2
+      with:
+        shared-key: ${{ inputs.cache-key }}
+        save-if: ${{ inputs.save-cache }}
+        cache-all-crates: true

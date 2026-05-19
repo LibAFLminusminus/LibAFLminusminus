@@ -1,53 +1,50 @@
 [workspace]
 resolver = "2"
 members = [
-  "crates/build_id2",
-  "crates/core_affinity2",
-  "crates/exceptional",
-  "crates/fast_rands",
-  "crates/libafl_asan",
-  "crates/libafl_asan/libafl_asan_fuzz",
-  "crates/libafl_asan/libafl_asan_libc",
-  "crates/libafl_bolts",
-  "crates/libafl_build",
-  "crates/libafl_cc",
-  "crates/libafl_core",
-  "crates/libafl_derive",
-  "crates/libafl_frida",
-  "crates/libafl_intelpt",
-  "crates/libafl_nyx",
-  "crates/libafl_qemu",
-  "crates/libafl_qemu/libafl_qemu_build",
-  "crates/libafl_qemu/libafl_qemu_runner",
-  "crates/libafl_qemu/libafl_qemu_sys",
-  "crates/libafl_qemu/libvharness_sys",
-  "crates/libafl_targets",
-  "crates/libafl",
-  "crates/minibsod",
-  "crates/nonzero_macros",
-  "crates/ownedref",
-  "crates/serde_anymap",
-  "crates/tuple_list_ex",
+  # LibAFLmm
+  "crates/libaflmm_asan",
+  "crates/libaflmm_asan/libaflmm_asan_fuzz",
+  "crates/libaflmm_bolts",
+  "crates/libaflmm_build",
+  "crates/libaflmm_cc",
+  "crates/libaflmm_core",
+  "crates/libaflmm_derive",
+  "crates/libaflmm_frida",
+  "crates/libaflmm_intelpt",
+  "crates/libaflmm_nyx",
+  "crates/libaflmm_qemu",
+  "crates/libaflmm_qemu/libaflmm_qemu_build",
+  "crates/libaflmm_qemu/libaflmm_qemu_runner",
+  "crates/libaflmm_qemu/libaflmm_qemu_sys",
+  "crates/libaflmm_qemu/libvharness_sys",
+  "crates/libaflmm_targets",
+  "crates/libaflmm",
+
+  # utils
   "utils/build_and_test_fuzzers",
   "utils/ci_runner",
   "utils/ci_splitter",
   "utils/deexit",
   "utils/drcov_utils",
-  "utils/libafl_benches",
+  "utils/libaflmm_benches",
   "utils/find_llvm_config",
+  "utils/libaflmm_repo_tools",
 
   # linters
   "mmlint/generics_reorder",
   "mmlint/args_reorder",
   "mmlint/use_after_mod",
+
+  # bindings
+  "bindings/pylibafl",
 ]
 
 default-members = [
-  "crates/libafl_bolts",
-  "crates/libafl_cc",
-  "crates/libafl_derive",
-  "crates/libafl_targets",
-  "crates/libafl",
+  "crates/libaflmm_bolts",
+  "crates/libaflmm_cc",
+  "crates/libaflmm_derive",
+  "crates/libaflmm_targets",
+  "crates/libaflmm",
 ]
 
 exclude = [
@@ -56,73 +53,64 @@ exclude = [
   "fuzzers",
   "scripts",
   "utils/gdb_qemu",
-  "utils/libafl_repo_tools",
   "utils/multi_machine_generator",
   "utils/noaslr",
 ]
 
 [workspace.package]
+documentation = "https://docs.rs/libaflmm"
+edition = "2024"
 version = "0.16.0"
-license = "MIT OR Apache-2.0"
-repository = "https://github.com/AFLplusplus/LibAFL/"
+license = "MPL-2.0"
+repository = "https://github.com/LibAFLminusminus/LibAFLminusminus"
 readme = "./README.md"
+rust-version = "1.89"
 
 [workspace.dependencies]
 # Internal deps
-build_id2 = { path = "./crates/build_id2", version = "0.16.0", default-features = false }
-core_affinity2 = { path = "./crates/core_affinity2", version = "0.16.0", default-features = false }
-exceptional = { path = "./crates/exceptional", version = "0.16.0", default-features = false }
-fast_rands = { path = "./crates/fast_rands", version = "0.16.0", default-features = false }
-libafl = { path = "./crates/libafl", version = "0.16.0", default-features = false }
-libafl_bolts = { path = "./crates/libafl_bolts", version = "0.16.0", default-features = false }
-libafl_build = { path = "./crates/libafl_build", version = "0.16.0", default-features = false }
-libafl_cc = { path = "./crates/libafl_cc", version = "0.16.0", default-features = false }
-libafl_core = { path = "./crates/libafl_core", version = "0.16.0", default-features = false }
-libafl_derive = { path = "./crates/libafl_derive", version = "0.16.0", default-features = false }
-libafl_frida = { path = "./crates/libafl_frida", version = "0.16.0", default-features = false }
-libafl_intelpt = { path = "./crates/libafl_intelpt", version = "0.16.0", default-features = false }
-libafl_nyx = { path = "./crates/libafl_nyx", version = "0.16.0", default-features = false }
-libafl_qemu = { path = "./crates/libafl_qemu", version = "0.16.0", default-features = false }
-libafl_qemu_build = { path = "./crates/libafl_qemu/libafl_qemu_build", version = "0.16.0", default-features = false }
-libafl_qemu_sys = { path = "./crates/libafl_qemu/libafl_qemu_sys", version = "0.16.0", default-features = false }
-libafl_targets = { path = "./crates/libafl_targets", version = "0.16.0", default-features = false }
-minibsod = { path = "./crates/minibsod", version = "0.16.0", default-features = false }
-nonzero_macros = { path = "./crates/nonzero_macros", version = "0.16.0", default-features = false }
-ownedref = { path = "./crates/ownedref", version = "0.16.0", default-features = false }
-serde_anymap = { path = "./crates/serde_anymap", version = "0.16.0", default-features = false }
-tuple_list_ex = { path = "./crates/tuple_list_ex", version = "0.16.0", default-features = false }
+libaflmm = { path = "./crates/libaflmm", version = "0.16.0", default-features = false }
+libaflmm_bolts = { path = "./crates/libaflmm_bolts", version = "0.16.0", default-features = false }
+libaflmm_build = { path = "./crates/libaflmm_build", version = "0.16.0", default-features = false }
+libaflmm_cc = { path = "./crates/libaflmm_cc", version = "0.16.0", default-features = false }
+libaflmm_core = { path = "./crates/libaflmm_core", version = "0.16.0", default-features = false }
+libaflmm_derive = { path = "./crates/libaflmm_derive", version = "0.16.0", default-features = false }
+libaflmm_frida = { path = "./crates/libaflmm_frida", version = "0.16.0", default-features = false }
+libaflmm_intelpt = { path = "./crates/libaflmm_intelpt", version = "0.16.0", default-features = false }
+libaflmm_nyx = { path = "./crates/libaflmm_nyx", version = "0.16.0", default-features = false }
+libaflmm_qemu = { path = "./crates/libaflmm_qemu", version = "0.16.0", default-features = false }
+libaflmm_qemu_build = { path = "./crates/libaflmm_qemu/libaflmm_qemu_build", version = "0.16.0", default-features = false }
+libaflmm_qemu_sys = { path = "./crates/libaflmm_qemu/libaflmm_qemu_sys", version = "0.16.0", default-features = false }
+libaflmm_targets = { path = "./crates/libaflmm_targets", version = "0.16.0", default-features = false }
 
 # Utils
 build_and_test_fuzzers = { path = "./utils/build_and_test_fuzzers", version = "0.16.0", default-features = false }
 deexit = { path = "./utils/deexit", version = "0.16.0", default-features = false }
 drcov_utils = { path = "./utils/drcov_utils", version = "0.16.0", default-features = false }
-libafl_benches = { path = "./utils/libafl_benches", version = "0.16.0", default-features = false }
+libaflmm_benches = { path = "./utils/libaflmm_benches", version = "0.16.0", default-features = false }
 
 # External deps
 ahash = { version = "0.8.12", default-features = false } # The hash function already used in hashbrown
-arbitrary-int = "2.0.0" # arbitrary sized integers, useful in combination with bitfields (bitbybit crate)
-backtrace = { version = "0.3.74", default-features = false } # Used to get the stacktrace in StacktraceObserver
+arbitrary-int = "2.1.1" # arbitrary sized integers, useful in combination with bitfields (bitbybit crate)
+backtrace = { version = "0.3.76", default-features = false } # Used to get the stacktrace in StacktraceObserver
 bindgen = "0.72.1"
 bitbybit = "1.4.0" # bitfields, use this for bit fields and bit enums
-clap = "4.5.52"
-cc = "1.2.53"
-cmake = "0.1.57"
+clap = "4.6.1"
+cc = "1.2.62"
+cmake = "0.1.58"
 ctor = "0.6.3"
-document-features = "0.2.11"
-erased-serde = { version = "0.4.5", default-features = false } # erased serde
-fastbloom = { version = "0.14.1", default-features = false }
-fs2 = "0.4.3" # Used by OnDisk Corpus for file locking
+document-features = "0.2.12"
+erased-serde = { version = "0.4.10", default-features = false } # erased serde
 glob = "0.3"
 hashbrown = { version = "0.16.1", default-features = false } # A faster hashmap, nostd compatible
-just = "1.46.0"
-libc = "0.2.178" # For (*nix) libc
+just = "1.51.0"
+libc = "0.2.186" # For (*nix) libc
 libipt = { version = "0.4.0", features = ["libipt_master"] }
-libvharness_sys = { path = "./crates/libafl_qemu/libvharness_sys", version = "0.16.0", default-features = false }
+libvharness_sys = { path = "./crates/libaflmm_qemu/libvharness_sys", version = "0.16.0", default-features = false }
 log = "0.4.29"
 meminterval = "0.4.2"
-mimalloc = { version = "0.1.48", default-features = false }
+mimalloc = { version = "0.1.50", default-features = false }
 nix = { version = "0.30.1", default-features = false }
-num_enum = { version = "0.7.4", default-features = false }
+num_enum = { version = "0.7.6", default-features = false }
 num-traits = { version = "0.2.19", default-features = false }
 paste = "1.0.15"
 postcard = { version = "1.1.3", features = [
@@ -130,25 +118,26 @@ postcard = { version = "1.1.3", features = [
 ], default-features = false } # no_std compatible serde serialization format
 pyo3 = { version = "0.28.3", features = ["auto-initialize"] }
 pyo3-build-config = "0.28.3"
+pyo3-log = "0.13.3"
+rand_core = "0.9.5"
 rangemap = "1.7.1"
-regex = "1.12.2"
+regex = "1.12.3"
 rustversion = "1.0.22"
 serde = { version = "1.0.228", default-features = false } # serialization lib
 serde_json = { version = "1.0.149", default-features = false }
 serde_yaml = { version = "0.9.34" } # For parsing the injections yaml file
-serial_test = { version = "3.2.0", default-features = false }
+serial_test = { version = "3.4.0", default-features = false }
 static_assertions = "1.1.0"
 strum = "0.27.2"
 strum_macros = "0.27.2"
-toml = "0.9.10" # For parsing the injections toml file
+toml = "1.1.2" # For parsing the injections toml file
 tuple_list = { version = "0.1.3" }
 typed-builder = "0.23.2" # Implement the builder pattern at compiletime
 typeid = "1.0.3" # Safe type_eq that doesn't rely on std specialization
-uuid = { version = "1.19.0", features = ["serde", "v4"] }
-which = "8.0.0"
-windows = "0.62.1"
-windows-core = "0.62.1"
-z3 = { version = "0.19.7", default-features = false }
+uuid = { version = "1.23.1", features = ["serde", "v4"] }
+which = "8.0.2"
+windows = "0.62.2"
+windows-core = "0.62.2"
 
 [workspace.lints.rust]
 # Deny

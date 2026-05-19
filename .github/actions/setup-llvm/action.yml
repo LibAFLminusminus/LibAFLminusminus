@@ -1,0 +1,52 @@
+name: setup-llvm
+description: Setup LLVM
+
+inputs:
+  version:
+    description: LLVM version to install
+    required: false
+    default: "22"
+
+runs:
+  using: composite
+  steps:
+    - name: Install LLVM ${{ inputs.version }}
+      shell: bash
+      run: |
+        if command -v "clang-${{ inputs.version }}" &>/dev/null; then
+          echo "clang-${{ inputs.version }} already present, skipping install."
+          exit 0
+        fi
+        wget https://apt.llvm.org/llvm.sh
+        chmod +x llvm.sh
+        sudo flock --timeout 300 /var/lock/github-apt.lock bash -c '
+          if command -v "clang-${{ inputs.version }}" &>/dev/null; then
+            echo "clang-${{ inputs.version }} installed by concurrent job, skipping."
+          else
+            ./llvm.sh "${{ inputs.version }}" all
+          fi
+        '
+
+    - name: Export LLVM env
+      shell: bash
+      run: |
+        # add llvm version to github path.
+        # do not use update-alternative, as it is racey and would fail with concurrent jobs
+        # requiring different llvm versions.
+        {
+          echo "/usr/lib/llvm-${{ inputs.version }}/bin"
+        } >> "$GITHUB_PATH"
+
+        # now, set the compiler-related env variables.
+        {
+          echo "LLVM_CONFIG=llvm-config-${{ inputs.version }}"
+          echo "LLVM_CONFIG_PATH=/usr/lib/llvm-${{ inputs.version }}/bin/llvm-config"
+          echo "LIBCLANG_PATH=/usr/lib/llvm-${{ inputs.version }}/lib"
+        } >> "$GITHUB_ENV"
+
+    - name: Symlink ASM headers
+      shell: bash
+      run: |
+        if [ ! -e /usr/include/asm ]; then
+          sudo ln -s /usr/include/asm-generic /usr/include/asm
+        fi

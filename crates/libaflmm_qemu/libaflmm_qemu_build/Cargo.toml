@@ -1,0 +1,49 @@
+[package]
+name = "libaflmm_qemu_build"
+authors = [
+  "Andrea Fioraldi <andreafioraldi@gmail.com>",
+  "Romain Malmain <rmalmain@pm.me>",
+]
+description = "Builder for LibAFL QEMU"
+keywords = ["fuzzing", "qemu", "instrumentation"]
+categories = [
+  "development-tools::testing",
+  "emulators",
+  "embedded",
+  "os",
+  "no-std",
+]
+
+documentation.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+readme.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[package.metadata.docs.rs]
+all-features = true
+
+[features]
+shared = []
+slirp = []  # build qemu with host libslirp (for user networking)
+
+clippy = [] # special feature for clippy, don't use in normal projects§
+
+qemu_sanitizers = [] # Enable QEMU sanitizers
+
+paranoid_debug = [
+] # Will perform as many checks as possible. The target will be greatly slowed down.
+
+[dependencies]
+bindgen = { workspace = true }
+which = { workspace = true }
+json = "0.12.4"
+shell-words = "1.1.1"
+cc = { workspace = true }
+rustversion = { workspace = true }
+rustc_version = "0.4.1"
+
+[lints]
+workspace = true

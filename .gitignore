@@ -63,8 +63,8 @@ __pycache__
 **/corpus_discovered
 **/libxml2-*.tar.gz
 
-**/libafl_nyx/QEMU-Nyx
-**/libafl_nyx/packer
+**/libaflmm_nyx/QEMU-Nyx
+**/libaflmm_nyx/packer
 
 # No gdb history
 .gdb_history

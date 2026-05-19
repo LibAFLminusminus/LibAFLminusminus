@@ -1,7 +1,6 @@
-use std::path::PathBuf;
-
 use clap::Parser;
-use libafl_targets::drcov::DrCovReader;
+use libaflmm_bolts::drcov::DrCovReader;
+use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]

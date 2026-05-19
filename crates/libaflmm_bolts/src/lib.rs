@@ -1,0 +1,721 @@
+/*!
+ * Welcome to `LibAFLmm_bolts`
+ */
+#![doc = include_str!("../README.md")]
+/*! */
+#![cfg_attr(feature = "document-features", doc = document_features::document_features!())]
+
+#[cfg(feature = "xxh3")]
+use core::hash::{Hash, Hasher};
+use core::mem;
+#[cfg(unix)]
+use std::{
+    fs::File,
+    io::Write,
+    os::fd::{FromRawFd, RawFd},
+    panic,
+    time::SystemTime,
+};
+
+// There's a bug in ahash that doesn't let it build in `alloc` without once_cell right now.
+// TODO: re-enable once <https://github.com/tkaitchuck/aHash/issues/155> is resolved.
+#[cfg(feature = "derive")]
+pub use libaflmm_derive::SerdeAny;
+
+#[cfg(unix)]
+use log::{Metadata, Record};
+#[cfg(feature = "xxh3")]
+use xxhash_rust::xxh3::xxh3_64;
+
+pub extern crate alloc;
+
+pub use libaflmm_core::{
+    AsIter, AsIterMut, AsSlice, AsSliceMut, Error, HasLen, HasRefCnt, Named, Result, Truncate,
+    WorkerId, non_zero, non_zero_const, non_zero_unchecked, nonnull_raw_mut,
+};
+
+pub mod shm;
+pub use shm::{
+    AnonShmBuilder, AnonShmReceiver, AnonShmSender, EmptyShmHeader, SharedMemory, ShmHeader,
+    SysVShm,
+};
+
+#[cfg(any(feature = "cli", feature = "frida_cli", feature = "qemu_cli"))]
+pub mod cli;
+
+pub mod fs;
+
+pub mod math;
+
+pub mod minibsod;
+
+pub mod os;
+
+#[cfg(unix)]
+pub mod argparse;
+#[cfg(unix)]
+pub use argparse::*;
+
+pub mod target_args;
+pub use target_args::*;
+
+pub mod anymap;
+pub use anymap::{NamedSerdeAnyMap, SerdeAny, SerdeAnyMap};
+
+pub mod drcov;
+pub mod simd;
+
+pub mod time;
+pub use time::{current_milliseconds, current_nanos, current_time};
+
+pub mod timers;
+pub use timers::StdTimer;
+
+pub mod pipes;
+pub use pipes::Pipe;
+
+pub mod core_affinity;
+pub use core_affinity::{CoreId, Cores};
+
+pub mod build_id;
+
+pub mod exceptions;
+
+pub mod rands;
+pub use rands::{
+    Lehmer64Rand, LoadedDiceSampler, Rand, RomuDuoJrRand, RomuTrioRand, Sfc64Rand, StdRand,
+    XkcdRand, XorShift64Rand, Xoshiro256PlusPlusRand, choose, fast_bound, random_seed,
+};
+
+pub mod tuples;
+pub use tuples::{tuple_list, tuple_list_type, type_eq};
+
+pub mod ownedref;
+pub use ownedref::{
+    OwnedMutPtr, OwnedMutSizedSlice, OwnedMutSizedSliceInner, OwnedMutSlice, OwnedMutSliceInner,
+    OwnedPtr, OwnedRef, OwnedRefMut, OwnedSlice, UnsafeMarker, subrange,
+};
+
+pub use ctor;
+
+/// The purpose of this module is to alleviate imports of the bolts by adding a glob import.
+#[cfg(feature = "prelude")]
+pub mod bolts_prelude {
+    pub use super::build_id::*;
+    #[cfg(any(feature = "cli", feature = "frida_cli", feature = "qemu_cli"))]
+    pub use super::cli::*;
+    pub use super::core_affinity::*;
+    pub use super::fs::*;
+    pub use super::minibsod::*;
+    pub use super::os::*;
+    pub use super::{anymap::*, ownedref::*, rands::*, shm::*, tuples::*};
+}
+
+/// Unwrap a type (most likely an [`Option`]),
+/// and check the inner object is present only in `Debug` mode.
+pub trait DebugUnwrap {
+    /// The inner object type
+    type Output;
+
+    /// Unwrap the inner object, and check it is present only in `Debug` mode.
+    /// In `Release` mode, the inner object gets accessed without any check.
+    ///
+    /// # Safety
+    ///
+    /// In release mode, no check is done on the inner object.
+    unsafe fn unwrap_debug(self) -> Self::Output;
+}
+
+impl<T> DebugUnwrap for Option<T> {
+    type Output = T;
+
+    unsafe fn unwrap_debug(self) -> Self::Output {
+        debug_assert!(self.is_some());
+        unsafe { self.unwrap_unchecked() }
+    }
+}
+
+/// Returns the standard input [`Hasher`]
+///
+/// Returns the hasher for the input with a given hash, depending on features:
+/// [`xxh3_64`](https://docs.rs/xxhash-rust/latest/xxhash_rust/xxh3/fn.xxh3_64.html)
+/// if the `xxh3` feature is used, /// else [`ahash`](https://docs.rs/ahash/latest/ahash/).
+#[cfg(feature = "xxh3")]
+#[must_use]
+pub fn hasher_std() -> impl Hasher + Clone {
+    #[cfg(feature = "xxh3")]
+    return xxhash_rust::xxh3::Xxh3::new();
+    #[cfg(not(feature = "xxh3"))]
+    RandomState::with_seeds(0, 0, 0, 0).build_hasher()
+}
+
+/// Hashes the input with a given hash
+///
+/// Hashes the input with a given hash, depending on features:
+/// [`xxh3_64`](https://docs.rs/xxhash-rust/latest/xxhash_rust/xxh3/fn.xxh3_64.html)
+/// if the `xxh3` feature is used, /// else [`ahash`](https://docs.rs/ahash/latest/ahash/).
+#[cfg(feature = "xxh3")]
+#[must_use]
+pub fn hash_std(input: &[u8]) -> u64 {
+    #[cfg(feature = "xxh3")]
+    return xxh3_64(input);
+    #[cfg(not(feature = "xxh3"))]
+    {
+        let mut hasher = hasher_std();
+        hasher.write(input);
+        hasher.finish()
+    }
+}
+
+/// Fast hash function for 64 bits integers minimizing collisions.
+/// Adapted from <https://xorshift.di.unimi.it/splitmix64.c>
+#[must_use]
+pub fn hash_64_fast(mut x: u64) -> u64 {
+    x = (x ^ (x >> 30)).wrapping_mul(0xbf58476d1ce4e5b9);
+    x = (x ^ (x >> 27)).wrapping_mul(0x94d049bb133111eb);
+    x ^ (x >> 31)
+}
+
+/// Hashes the input with a given hash
+///
+/// Hashes the input with a given hash, depending on features:
+/// [`xxh3_64`](https://docs.rs/xxhash-rust/latest/xxhash_rust/xxh3/fn.xxh3_64.html)
+/// if the `xxh3` feature is used, /// else [`ahash`](https://docs.rs/ahash/latest/ahash/).
+///
+/// If you have access to a `&[u8]` directly, [`hash_std`] may provide better performance
+#[cfg(feature = "xxh3")]
+#[must_use]
+pub fn generic_hash_std<I: Hash>(input: &I) -> u64 {
+    let mut hasher = hasher_std();
+    input.hash(&mut hasher);
+    hasher.finish()
+}
+
+/// The purpose of this module is to alleviate imports of many components by adding a glob import.
+#[cfg(feature = "prelude")]
+pub mod prelude {
+    #![allow(ambiguous_glob_reexports)]
+
+    pub use super::{bolts_prelude::*, *};
+}
+
+/// Format a number with thousands separators
+#[must_use]
+pub fn format_big_number(val: u64) -> String {
+    let short = {
+        let (num, unit) = match val {
+            0..=999 => return format!("{val}"),
+            1_000..=999_999 => (1000, "K"),
+            1_000_000..=999_999_999 => (1_000_000, "M"),
+            1_000_000_000..=999_999_999_999 => (1_000_000_000, "G"),
+            _ => (1_000_000_000_000, "T"),
+        };
+        let main = val / num;
+        let frac = (val % num) / (num / 100);
+        format!(
+            "{}.{}{}",
+            main,
+            format!("{frac:02}").trim_end_matches('0'),
+            unit
+        )
+    };
+    let long = val
+        .to_string()
+        .chars()
+        .rev()
+        .enumerate()
+        .fold(String::new(), |mut acc, (i, c)| {
+            if i > 0 && i % 3 == 0 {
+                acc.push(',');
+            }
+            acc.push(c);
+            acc
+        })
+        .chars()
+        .rev()
+        .collect::<String>();
+    format!("{short} ({long})")
+}
+
+/// Stdout logger
+pub static LIBAFLMM_STDOUT_LOGGER: SimpleStdoutLogger = SimpleStdoutLogger::new();
+
+/// Stderr logger
+pub static LIBAFLMM_STDERR_LOGGER: SimpleStderrLogger = SimpleStderrLogger::new();
+
+/// A logger we can use log to raw fds.
+static mut LIBAFLMM_RAWFD_LOGGER: SimpleFdLogger = unsafe { SimpleFdLogger::new(1) };
+
+/// A simple logger struct that logs to stdout when used with [`log::set_logger`].
+#[derive(Debug)]
+pub struct SimpleStdoutLogger {}
+
+impl Default for SimpleStdoutLogger {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl SimpleStdoutLogger {
+    /// Create a new [`log::Log`] logger that will write log to stdout
+    #[must_use]
+    pub const fn new() -> Self {
+        Self {}
+    }
+
+    /// register stdout logger
+    pub fn set_logger() -> Result<()> {
+        log::set_logger(&LIBAFLMM_STDOUT_LOGGER)
+            .map_err(|err| Error::illegal_state(format!("Failed to set logger: {err:?}")))
+    }
+}
+
+#[cfg(target_os = "windows")]
+#[allow(clippy::cast_ptr_alignment)]
+#[must_use]
+/// Return thread ID without using TLS
+pub fn get_thread_id() -> u64 {
+    use core::arch::asm;
+    #[cfg(target_arch = "x86_64")]
+    unsafe {
+        let teb: *const u8;
+        asm!("mov {}, gs:[0x30]", out(reg) teb);
+        let thread_id_ptr = teb.add(0x48) as *const u32;
+        u64::from(*thread_id_ptr)
+    }
+
+    #[cfg(target_arch = "x86")]
+    unsafe {
+        let teb: *const u8;
+        asm!("mov {}, fs:[0x18]", out(reg) teb);
+        let thread_id_ptr = teb.add(0x24) as *const u32;
+        *thread_id_ptr as u64
+    }
+}
+
+#[cfg(target_os = "linux")]
+#[must_use]
+#[allow(clippy::cast_sign_loss)]
+/// Return thread ID without using TLS
+pub fn get_thread_id() -> u64 {
+    use libc::{SYS_gettid, syscall};
+
+    unsafe { syscall(SYS_gettid) as u64 }
+}
+
+#[cfg(not(any(target_os = "windows", target_os = "linux")))]
+#[must_use]
+/// Return thread ID using Rust's `std::thread`
+pub fn get_thread_id() -> u64 {
+    // Fallback for other platforms
+    let thread_id = std::thread::current().id();
+    unsafe { mem::transmute::<_, u64>(thread_id) }
+}
+
+#[cfg(target_os = "windows")]
+mod windows_logging {
+    use core::ptr;
+    use std::sync::OnceLock;
+
+    use winapi::um::{
+        fileapi::WriteFile, handleapi::INVALID_HANDLE_VALUE, processenv::GetStdHandle,
+        winbase::STD_OUTPUT_HANDLE, winnt::HANDLE,
+    };
+
+    // Safe wrapper around HANDLE
+    struct StdOutHandle(HANDLE);
+
+    // Implement Send and Sync for StdOutHandle, assuming it's safe to share
+    unsafe impl Send for StdOutHandle {}
+    unsafe impl Sync for StdOutHandle {}
+
+    static H_STDOUT: OnceLock<StdOutHandle> = OnceLock::new();
+
+    fn get_stdout_handle() -> HANDLE {
+        H_STDOUT
+            .get_or_init(|| {
+                let handle = unsafe { GetStdHandle(STD_OUTPUT_HANDLE) };
+                StdOutHandle(handle)
+            })
+            .0
+    }
+    /// A function that writes directly to stdout using `WinAPI`.
+    /// Works much faster than println and does not need TLS
+    pub fn direct_log(message: &str) {
+        // Get the handle to standard output
+        let h_stdout: HANDLE = get_stdout_handle();
+
+        if ptr::addr_eq(h_stdout, INVALID_HANDLE_VALUE) {
+            eprintln!("Failed to get standard output handle");
+            return;
+        }
+
+        let bytes = message.as_bytes();
+        let mut bytes_written = 0;
+
+        // Write the message to standard output
+        let result = unsafe {
+            WriteFile(
+                h_stdout,
+                bytes.as_ptr() as *const _,
+                bytes.len() as u32,
+                &raw mut bytes_written,
+                ptr::null_mut(),
+            )
+        };
+
+        if result == 0 {
+            eprintln!("Failed to write to standard output");
+        }
+    }
+}
+
+impl log::Log for SimpleStdoutLogger {
+    #[inline]
+    fn enabled(&self, _metadata: &Metadata) -> bool {
+        true
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    fn log(&self, record: &Record) {
+        println!(
+            "[{:?}, {:?}:{:?}] {}: {}",
+            SystemTime::now(),
+            std::process::id(),
+            get_thread_id(),
+            record.level(),
+            record.args()
+        );
+    }
+
+    #[cfg(target_os = "windows")]
+    fn log(&self, record: &Record) {
+        // println is not safe in TLS-less environment
+        let msg = format!(
+            "[{:?}, {:?}:{:?}] {}: {}\n",
+            current_time(),
+            std::process::id(),
+            get_thread_id(),
+            record.level(),
+            record.args()
+        );
+        windows_logging::direct_log(msg.as_str());
+    }
+
+    fn flush(&self) {}
+}
+
+/// A simple logger struct that logs to stderr when used with [`log::set_logger`].
+#[derive(Debug)]
+pub struct SimpleStderrLogger {}
+
+impl Default for SimpleStderrLogger {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl SimpleStderrLogger {
+    /// Create a new [`log::Log`] logger that will write log to stdout
+    #[must_use]
+    pub const fn new() -> Self {
+        Self {}
+    }
+
+    /// register stderr logger
+    pub fn set_logger() -> Result<()> {
+        log::set_logger(&LIBAFLMM_STDERR_LOGGER)
+            .map_err(|err| Error::illegal_state(format!("Could not set logger: {err:?}")))
+    }
+}
+
+impl log::Log for SimpleStderrLogger {
+    #[inline]
+    fn enabled(&self, _metadata: &Metadata) -> bool {
+        true
+    }
+
+    fn log(&self, record: &Record) {
+        eprintln!(
+            "[{:?}, {:?}] {}: {}",
+            SystemTime::now(),
+            std::process::id(),
+            record.level(),
+            record.args()
+        );
+    }
+
+    fn flush(&self) {}
+}
+
+/// A simple logger struct that logs to a `RawFd` when used with [`log::set_logger`].
+#[cfg(unix)]
+#[derive(Debug)]
+pub struct SimpleFdLogger {
+    fd: RawFd,
+}
+
+#[cfg(unix)]
+impl SimpleFdLogger {
+    /// Create a new [`log::Log`] logger that will write the log to the given `fd`
+    ///
+    /// # Safety
+    /// Needs a valid raw file descriptor opened for writing.
+    #[must_use]
+    pub const unsafe fn new(fd: RawFd) -> Self {
+        Self { fd }
+    }
+
+    /// Sets the `fd` this logger will write to
+    ///
+    /// # Safety
+    /// Needs a valid raw file descriptor opened for writing.
+    pub unsafe fn set_fd(&mut self, fd: RawFd) {
+        self.fd = fd;
+    }
+
+    /// Register this logger, logging to the given `fd`
+    ///
+    /// # Safety
+    /// This function may not be called multiple times concurrently.
+    /// The passed-in `fd` has to be a legal file descriptor to log to.
+    pub unsafe fn set_logger(log_fd: RawFd) -> Result<()> {
+        // # Safety
+        // The passed-in `fd` has to be a legal file descriptor to log to.
+        // We also access a shared variable here.
+        let logger = &raw mut LIBAFLMM_RAWFD_LOGGER;
+        unsafe {
+            let logger = &mut *logger;
+            logger.set_fd(log_fd);
+            log::set_logger(logger)
+                .map_err(|err| Error::illegal_state(format!("Could not set logger: {err:?}")))
+        }
+    }
+}
+
+#[cfg(unix)]
+impl log::Log for SimpleFdLogger {
+    #[inline]
+    fn enabled(&self, _metadata: &Metadata) -> bool {
+        true
+    }
+
+    fn log(&self, record: &Record) {
+        let mut f = unsafe { File::from_raw_fd(self.fd) };
+        writeln!(
+            f,
+            "[{:?}, {:#?}] {}: {}",
+            SystemTime::now(),
+            std::process::id(),
+            record.level(),
+            record.args()
+        )
+        .unwrap_or_else(|err| println!("Failed to log to fd {}: {err}", self.fd));
+        mem::forget(f);
+    }
+
+    fn flush(&self) {}
+}
+
+/// Set up an error print hook that will
+///
+/// # Safety
+/// Will fail if `new_stderr` is not a valid file descriptor.
+/// May not be called multiple times concurrently.
+#[cfg(unix)]
+pub unsafe fn set_error_print_panic_hook(new_stderr: RawFd) {
+    // Make sure potential errors get printed to the correct (non-closed) stderr
+    panic::set_hook(Box::new(move |panic_info| {
+        let mut f = unsafe { File::from_raw_fd(new_stderr) };
+        writeln!(f, "{panic_info}")
+            .unwrap_or_else(|err| println!("Failed to log to fd {new_stderr}: {err}"));
+        mem::forget(f);
+    }));
+}
+
+#[cfg(target_os = "windows")]
+#[repr(C)]
+#[allow(clippy::upper_case_acronyms)]
+struct TEB {
+    reserved1: [u8; 0x58],
+    tls_pointer: *mut *mut u8,
+    reserved2: [u8; 0xC0],
+}
+
+#[cfg(target_arch = "x86_64")]
+#[inline(always)]
+#[cfg(target_os = "windows")]
+fn nt_current_teb() -> *mut TEB {
+    use core::arch::asm;
+    let teb: *mut TEB;
+    unsafe {
+        asm!("mov {}, gs:0x30", out(reg) teb);
+    }
+    teb
+}
+
+/// Some of our hooks can be invoked from threads that do not have TLS yet.
+/// Many Rust and Frida functions require TLS to be set up, so we need to check if we have TLS.
+/// This was observed on Windows, so for now for other platforms we assume that we have TLS.
+#[inline]
+#[allow(unreachable_code)]
+#[must_use]
+pub fn has_tls() -> bool {
+    #[cfg(target_os = "windows")]
+    unsafe {
+        let teb = nt_current_teb();
+        if teb.is_null() {
+            return false;
+        }
+
+        let tls_array = (*teb).tls_pointer;
+        if tls_array.is_null() {
+            return false;
+        }
+        return true;
+    }
+    #[cfg(target_arch = "aarch64")]
+    unsafe {
+        let mut tid: u64;
+        std::arch::asm!(
+            "mrs {tid}, TPIDRRO_EL0",
+            tid = out(reg) tid,
+        );
+        tid &= 0xffff_ffff_ffff_fff8;
+        let tlsptr = tid as *const u64;
+        return tlsptr.add(0x102).read() != 0u64;
+    }
+    // Default
+    true
+}
+
+#[cfg(feature = "python")]
+#[allow(missing_docs)] // expect somehow breaks here
+pub mod pybind {
+
+    use pyo3::{Bound, PyResult, pymodule, types::PyModule};
+
+    #[macro_export]
+    macro_rules! unwrap_me_body {
+        ($wrapper:expr, $name:ident, $body:block, $wrapper_type:ident, { $($wrapper_option:tt),* }) => {
+            match &$wrapper {
+                $(
+                    $wrapper_type::$wrapper_option(py_wrapper) => {
+                        Python::attach(|py| -> PyResult<_> {
+                            let borrowed = py_wrapper.borrow(py);
+                            let $name = &borrowed.inner;
+                            Ok($body)
+                        })
+                        .unwrap()
+                    }
+                )*
+            }
+        };
+        ($wrapper:expr, $name:ident, $body:block, $wrapper_type:ident, { $($wrapper_option:tt),* }, { $($wrapper_optional:tt($pw:ident) => $code_block:block)* }) => {
+            match &$wrapper {
+                $(
+                    $wrapper_type::$wrapper_option(py_wrapper) => {
+                        Python::attach(|py| -> PyResult<_> {
+                            let borrowed = py_wrapper.borrow(py);
+                            let $name = &borrowed.inner;
+                            Ok($body)
+                        })
+                        .unwrap()
+                    }
+                )*
+                $($wrapper_type::$wrapper_optional($pw) => { $code_block })*
+            }
+        };
+    }
+
+    #[macro_export]
+    macro_rules! impl_serde_pyobjectwrapper {
+        ($struct_name:ident, $inner:tt) => {
+            const _: () = {
+                use alloc::vec::Vec;
+
+                use pyo3::prelude::*;
+                use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+                impl Serialize for $struct_name {
+                    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+                    where
+                        S: Serializer,
+                    {
+                        let buf = Python::attach(|py| -> PyResult<Vec<u8>> {
+                            let pickle = PyModule::import(py, "pickle")?;
+                            let buf: Vec<u8> =
+                                pickle.getattr("dumps")?.call1((&self.$inner,))?.extract()?;
+                            Ok(buf)
+                        })
+                        .unwrap();
+                        serializer.serialize_bytes(&buf)
+                    }
+                }
+
+                struct PyObjectVisitor;
+
+                impl<'de> serde::de::Visitor<'de> for PyObjectVisitor {
+                    type Value = $struct_name;
+
+                    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                        formatter
+                            .write_str("Expecting some bytes to deserialize from the Python side")
+                    }
+
+                    fn visit_byte_buf<E>(self, v: Vec<u8>) -> Result<Self::Value, E>
+                    where
+                        E: serde::de::Error,
+                    {
+                        let obj = Python::attach(|py| -> PyResult<PyObject> {
+                            let pickle = PyModule::import(py, "pickle")?;
+                            let obj = pickle.getattr("loads")?.call1((v,))?.unbind();
+                            Ok(obj)
+                        })
+                        .unwrap();
+                        Ok($struct_name::new(obj))
+                    }
+                }
+
+                impl<'de> Deserialize<'de> for $struct_name {
+                    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+                    where
+                        D: Deserializer<'de>,
+                    {
+                        deserializer.deserialize_byte_buf(PyObjectVisitor)
+                    }
+                }
+            };
+        };
+    }
+
+    #[pymodule]
+    #[pyo3(name = "libafl_bolts")]
+    /// Register the classes to the python module
+    pub fn python_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
+        crate::rands::pybind::register(m)?;
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    #[cfg(unix)]
+    use crate::LIBAFLMM_RAWFD_LOGGER;
+
+    #[test]
+    #[cfg(unix)]
+    fn test_logger() {
+        use std::{io::stdout, os::fd::AsRawFd};
+
+        unsafe { LIBAFLMM_RAWFD_LOGGER.fd = stdout().as_raw_fd() };
+
+        let libafl_rawfd_logger_fd = &raw const LIBAFLMM_RAWFD_LOGGER;
+        unsafe {
+            log::set_logger(&*libafl_rawfd_logger_fd).unwrap();
+        }
+        log::set_max_level(log::LevelFilter::Debug);
+        log::info!("Test");
+    }
+}

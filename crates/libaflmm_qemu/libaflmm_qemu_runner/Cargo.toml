@@ -1,0 +1,78 @@
+[package]
+name = "libaflmm_qemu_runner"
+description = "Tool for running targets using LibAFL's libaflmm_qemu library"
+keywords = [
+  "fuzzing",
+  "address",
+  "sanitizer",
+  "asan",
+  "runner",
+  "libaflmm_qemu",
+]
+categories = [
+  "development-tools::testing",
+  "emulators",
+  "embedded",
+  "os",
+  "no-std",
+]
+
+documentation.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+readme.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[[bin]]
+name = "runner-arm"
+path = "src/arm.rs"
+required-features = ["arm"]
+
+[[bin]]
+name = "runner-x86_64"
+path = "src/x86_64.rs"
+required-features = ["x86_64"]
+
+[[bin]]
+name = "runner-i386"
+path = "src/i386.rs"
+required-features = ["i386"]
+
+[[bin]]
+name = "runner-aarch64"
+path = "src/aarch64.rs"
+required-features = ["aarch64"]
+
+[[bin]]
+name = "runner-ppc"
+path = "src/ppc.rs"
+required-features = ["ppc"]
+
+[features]
+clippy = []
+## Set emulator to big endian
+be = ["libaflmm_qemu/be"]
+
+#! ## Mutually exclusive architectures
+arm = ["libaflmm_qemu/arm"]
+x86_64 = ["libaflmm_qemu/x86_64"]
+i386 = ["libaflmm_qemu/i386"]
+aarch64 = ["libaflmm_qemu/aarch64"]
+mips = ["libaflmm_qemu/mips"]
+ppc = ["libaflmm_qemu/ppc", "be"]
+hexagon = ["libaflmm_qemu/hexagon"]
+
+[build-dependencies]
+vergen = { version = "9.1.0", features = ["build", "cargo", "rustc", "si"] }
+vergen-git2 = "9.1.0"
+
+[dependencies]
+clap = { version = "4.6.1", features = ["derive", "string"] }
+env_logger = { version = "0.11.10" }
+log = { version = "0.4.29", features = ["release_max_level_info"] }
+readonly = { version = "0.2.13" }
+libaflmm_bolts = { path = "../../libaflmm_bolts" }
+libaflmm_qemu = { path = "../" }
+thiserror = { version = "2.0.18" }

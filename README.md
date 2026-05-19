@@ -13,7 +13,7 @@ Add temp stuff to `IDEAS.md`, this is useless atm.
 
 `LibAFL--`, contrarily to `LibAFL`, exposes `AFL++` as a submodule.
 We only use it to maintain compabitility and compare with target-side code like `forkserver` or LLVM passes.
-Thus, only `libafl_targets` depends on `AFL++`, there is no shared code for the fuzzing part.
+Thus, only `libaflmm_targets` depends on `AFL++`, there is no shared code for the fuzzing part.
 
 ## Building and installing
 
@@ -75,20 +75,28 @@ It is written and maintained by
 - [Romain Malmain](https://github.com/rmalmain) <rmalmain@pm.me>
 - [Dongjia Zhang](https://github.com/tokatoka) <tokazerkje@outlook.jp>
 
+The original contributors working on `LibAFL` are:
+- [Andrea Fioraldi](https://twitter.com/andreafioraldi) <andrea@aflplus.plus>
+- [Dominik Maier](https://bsky.app/profile/dmnk.bsky.social) <dominik@aflplus.plus>
+- [s1341](https://twitter.com/srubenst1341) <github@shmarya.net>
+- [Dongjia Zhang](https://github.com/tokatoka) <toka@aflplus.plus>
+- [Addison Crump](https://github.com/addisoncrump) <me@addisoncrump.info>
+- [Romain Malmain](https://github.com/rmalmain) <rmalmain@pm.me>
+
 ## Contributing
 
 Please check out **[CONTRIBUTING.md](CONTRIBUTING.md)** for the contributing guideline.
 
 ## Debugging
 
-Your fuzzer doesn't work as expected? Try reading [DEBUGGING.md](./docs/src/DEBUGGING.md) to understand how to debug your problems.
+Your fuzzer doesn't work as expected? Try reading [DEBUGGING.md](./docs/DEBUGGING.md) to understand how to debug your problems.
 
 ## License
 
-`LibAFL--` is licensed under the [GNU Affero General Public License v3.0](LICENSE).
+`LibAFL--` is licensed under the [Mozilla Public License Version 2.0](LICENSE-MPL).
 
 This project is a fork of [LibAFL](https://github.com/AFLplusplus/LibAFL),
 which is dual-licensed under [Apache-2.0](LICENSE-APACHE) and [MIT](LICENSE-MIT).
 The original LibAFL code remains available under those terms from the upstream
 project. The combined work in this repository, including all modifications and
-additions, is distributed under AGPL-3.0.
+additions, is distributed under MPL-2.0.
