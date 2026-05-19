@@ -1,17 +1,19 @@
-//! WebUI gathers data from fuzzers and show stats to users through a web interface
+//! `WebUI` gathers data from fuzzers and show stats to users through a web interface
 //!
 //! Vibe-coding WARNING!! I fully vibe coded the frontend part with claude code Opus 4.7 since I know nothing about js and css.
 //! But we are always looking for somebody who can help us design a better & maintainable beautiful web UI!
+use alloc::{
+    string::{String, ToString},
+    sync::Arc,
+    vec::Vec,
+};
+use core::net::SocketAddr;
 use std::{
     fs::OpenOptions,
     io::Write,
-    net::SocketAddr,
     path::{Path, PathBuf},
-    sync::{Arc, RwLock},
-    vec::Vec,
+    sync::RwLock,
 };
-
-use alloc::string::{String, ToString};
 
 use libaflmm_bolts::current_time;
 use serde::{Deserialize, Serialize};
@@ -38,7 +40,7 @@ struct SharedState {
     history: Vec<Value>,
 }
 
-/// WebUI gathers data from fuzzers and show stats to users through a web interface
+/// `WebUI` gathers data from fuzzers and show stats to users through a web interface
 #[derive(Debug)]
 pub struct WebMonitor {
     history_path: PathBuf,
@@ -47,11 +49,13 @@ pub struct WebMonitor {
 
 impl WebMonitor {
     /// constructor for [`struct@WebMonitor`]; `name` is displayed as the page title.
+    #[must_use]
     pub fn new(name: &str, history_path: PathBuf) -> Self {
         Self::with_port(name, history_path, 13337)
     }
 
     /// constructor for [`struct@WebMonitor`] specifying an opening port
+    #[must_use]
     pub fn with_port(name: &str, history_path: PathBuf, port: u16) -> Self {
         let _ = std::fs::remove_file(&history_path);
         let shared = Arc::new(RwLock::new(SharedState {

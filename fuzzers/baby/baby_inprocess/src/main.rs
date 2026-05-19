@@ -10,7 +10,7 @@ use libaflmm::{
     fuzzers::{CalibrationHook, Fuzzer, StdFuzzer},
     generators::RandPrintablesGenerator,
     inputs::{BytesInput, bytes::BytesContext},
-    launchers::{DEFAULT_MAX_STATE_SIZE_PER_CLIENT, StdLauncher},
+    launchers::{DEFAULT_MAX_STATE_SIZE_PER_WORKER, StdLauncher},
     monitors::SimpleMonitor,
     mutators::{HavocScheduledMutator, havoc_mutations},
     non_zero,
@@ -121,7 +121,7 @@ pub fn main() -> Result<()> {
     let fast_timer = FastTimer::new();
     let runtime = StdInProcessRuntime::new(
         run_fuzzer,
-        DEFAULT_MAX_STATE_SIZE_PER_CLIENT,
+        DEFAULT_MAX_STATE_SIZE_PER_WORKER,
         fast_timer,
         Some(Duration::from_secs(3)),
     );
