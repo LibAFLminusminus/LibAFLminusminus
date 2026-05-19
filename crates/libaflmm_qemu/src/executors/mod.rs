@@ -147,6 +147,7 @@ where
     #[cfg(feature = "systemmode")]
     unsafe {
         if BREAK_ON_TMOUT.load(Ordering::Acquire) {
+            eprintln!("libafl_exit_request_timeout");
             libaflmm_qemu_sys::libafl_exit_request_timeout();
             return Ok(TimeoutStatus::Resume);
         }

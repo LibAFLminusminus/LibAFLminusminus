@@ -264,11 +264,7 @@ pub fn fuzz() -> Result<()> {
                 println!("We imported {} inputs from disk.", state.corpus().count());
             }
 
-            fuzzer
-                .fuzz_loop(&mut stages, &mut executor, &mut rand, state, rt_handle)
-                .unwrap();
-
-            Ok(())
+            fuzzer.fuzz_loop(&mut stages, &mut executor, &mut rand, state, rt_handle)
         })?
         .launch()
 }

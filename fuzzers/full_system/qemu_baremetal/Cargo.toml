@@ -9,7 +9,7 @@ authors = [
 edition = "2021"
 
 [features]
-default = ["std", "low_level", "arm"]
+default = ["std", "custom_insn", "arm"]
 std = []
 
 arm = ["libaflmm_qemu/arm"]

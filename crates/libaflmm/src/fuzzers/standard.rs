@@ -143,6 +143,8 @@ where
         ExitKind::Timeout,
     )?;
 
+    eprintln!("Timeout status: {status:?}");
+
     Ok(status)
 }
 

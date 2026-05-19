@@ -134,6 +134,7 @@ where
                     exit(LIBAFLMM_EXIT_RESTART);
                 }
                 TimeoutStatus::Resume => {
+                    eprintln!("Resume!");
                     // resume the fuzzer on timeout
                 }
             }
@@ -143,6 +144,8 @@ where
             // offset by 128 to signal a fuzzer crash
             exit(128 + (signal as i32));
         }
+
+        self.exit();
     }
 
     /// Crash-Handler for in-process fuzzing.

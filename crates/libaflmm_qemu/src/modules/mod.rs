@@ -1,4 +1,17 @@
-use crate::{Qemu, QemuParams, emu::EmulatorModules};
+#[cfg(feature = "systemmode")]
+use crate::modules::utils::filters::{HasPageFilter, NopPageFilter};
+#[cfg(feature = "systemmode")]
+use crate::modules::utils::filters::HasPageFilterTuple;
+#[cfg(feature = "systemmode")]
+use libaflmm_qemu_sys::GuestPhysAddr;
+use crate::{
+    GuestAddr, Qemu, QemuParams,
+    emu::EmulatorModules,
+    modules::utils::filters::{
+        HasAddressFilter, HasAddressFilterTuple, HasStdFiltersTuple, NopAddressFilter,
+    },
+};
+use core::ops::Range;
 use core::fmt::Debug;
 use libaflmm::{
     Result, executors::ExitKind, inputs::Input, observers::ObserversTuple, states::State,
@@ -267,6 +280,52 @@ impl<I, S> MatchFirstType for NopModule<I, S> {
         None
     }
 }
+
+impl<I, S> HasAddressFilter for NopModule<I, S> {
+    type AddressFilter = NopAddressFilter;
+
+    fn address_filter(&self) -> &Self::AddressFilter {
+        &NopAddressFilter
+    }
+
+    fn address_filter_mut(&mut self) -> &mut Self::AddressFilter {
+        static mut ADDRESS_FILTER: NopAddressFilter = NopAddressFilter;
+        unsafe { &mut *&raw mut ADDRESS_FILTER }
+    }
+}
+
+#[cfg(feature = "systemmode")]
+impl<I, S> HasPageFilter for NopModule<I, S> {
+    type PageFilter = NopPageFilter;
+
+    fn page_filter(&self) -> &Self::PageFilter {
+        &NopPageFilter
+    }
+
+    fn page_filter_mut(&mut self) -> &mut Self::PageFilter {
+        static mut PAGE_FILTER: NopPageFilter = NopPageFilter;
+        unsafe { &mut *&raw mut PAGE_FILTER }
+    }
+}
+
+impl<I, S> HasAddressFilterTuple for NopModule<I, S> {
+    fn allow_address_range_all(&mut self, _address_range: &Range<GuestAddr>) {}
+
+    fn allowed_address_all(&self, _address: &GuestAddr) -> bool {
+        true
+    }
+}
+
+#[cfg(feature = "systemmode")]
+impl<I, S> HasPageFilterTuple for NopModule<I, S> {
+    fn allow_page_id_all(&mut self, _page_id: GuestPhysAddr) {}
+
+    fn allowed_page_id_all(&self, _page_id: &GuestPhysAddr) -> bool {
+        true
+    }
+}
+
+impl<I, S> HasStdFiltersTuple for NopModule<I, S> {}
 
 impl<I, S> EmulatorModuleTuple for NopModule<I, S>
 where
