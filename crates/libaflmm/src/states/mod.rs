@@ -38,7 +38,7 @@ use std::{
 };
 use typed_builder::TypedBuilder;
 
-use crate::monitors::perfstats::PerfStats;
+use crate::monitors::perf_stats::PerfStats;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 /// The stats the fuzzer produces at intervals.

@@ -5,11 +5,10 @@ use alloc::borrow::Cow;
 use libaflmm_bolts::Named;
 
 use crate::{
-    DependencyResolver,
+    DependencyResolver, Result,
     corpus::testcase::TestcaseId,
     stages::{RuntimeHandle, Stage, StagesTuple},
     states::CoreState,
-    Result,
 };
 
 #[derive(Debug)]

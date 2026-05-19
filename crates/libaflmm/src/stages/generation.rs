@@ -10,13 +10,12 @@ use core::marker::PhantomData;
 use libaflmm_bolts::Named;
 
 use crate::{
-    DependencyResolver, 
+    DependencyResolver, Result,
     corpus::testcase::TestcaseId,
     fuzzers::Evaluator,
     generators::Generator,
     stages::{RuntimeHandle, Stage},
     states::CoreState,
-    Result,
 };
 
 /// A [`Stage`] that generates a single input via a [`Generator`] and evaluates

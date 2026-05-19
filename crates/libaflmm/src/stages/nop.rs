@@ -5,7 +5,9 @@ use alloc::borrow::Cow;
 use libaflmm_bolts::Named;
 
 use super::Stage;
-use crate::{DependencyResolver, corpus::TestcaseId, runtimes::RuntimeHandle, states::CoreState, Result};
+use crate::{
+    DependencyResolver, Result, corpus::TestcaseId, runtimes::RuntimeHandle, states::CoreState,
+};
 
 /// A [`Stage`] that does nothing
 #[derive(Debug, Copy, Clone, Default)]

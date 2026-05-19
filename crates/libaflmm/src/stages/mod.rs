@@ -5,16 +5,14 @@ Other stages may enrich [`crate::corpus::Testcase`]s with metadata.
 */
 
 use crate::{
-    DependencyResolver, corpus::TestcaseId, mutators::StdMutator, runtimes::RuntimeHandle, states::CoreState, Result
+    DependencyResolver, Result, corpus::TestcaseId, mutators::StdMutator, runtimes::RuntimeHandle,
+    states::CoreState,
 };
 use alloc::{boxed::Box, vec::Vec};
 use libaflmm_bolts::tuples::{HasConstLen, IntoVec};
 use tuple_list::NonEmptyTuple;
 
-
-use libaflmm_bolts::{
-    Named, current_time,
-};
+use libaflmm_bolts::{Named, current_time};
 
 pub mod tracer;
 pub use tracer::*;
