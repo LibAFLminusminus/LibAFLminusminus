@@ -2,7 +2,7 @@ use alloc::{borrow::Cow, vec::Vec};
 use core::{fmt, time::Duration};
 
 use hashbrown::HashMap;
-use libafl_bolts::current_time;
+use libaflmm_bolts::current_time;
 use serde::{Deserialize, Serialize};
 
 /// class for performance analytics
