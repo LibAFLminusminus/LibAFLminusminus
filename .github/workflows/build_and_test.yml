@@ -121,7 +121,7 @@ jobs:
       - name: Check each feature
         env:
           # check instance_idx if you change that to match
-          CI_INSTANCES: 2
+          CI_INSTANCES: 4
           LLVM_VERSION: ${{ env.MAIN_LLVM_VERSION }}
         run: cargo run --manifest-path utils/ci_splitter/Cargo.toml -- ${{ matrix.instance_idx }}
 
