@@ -176,14 +176,14 @@ impl WorkdirFile {
                 *self = WorkdirFile::File(file);
             }
             WorkdirFile::Stdout => {
-                *self = WorkdirFile::File(unsafe { File::from_raw_fd(stdout().as_raw_fd()) })
+                *self = WorkdirFile::File(unsafe { File::from_raw_fd(stdout().as_raw_fd()) });
             }
             WorkdirFile::Stderr => {
-                *self = WorkdirFile::File(unsafe { File::from_raw_fd(stderr().as_raw_fd()) })
+                *self = WorkdirFile::File(unsafe { File::from_raw_fd(stderr().as_raw_fd()) });
             }
             WorkdirFile::Null => {
                 *self =
-                    WorkdirFile::File(File::open("/dev/null").expect("Could not open /dev/null"))
+                    WorkdirFile::File(File::open("/dev/null").expect("Could not open /dev/null"));
             }
         }
 

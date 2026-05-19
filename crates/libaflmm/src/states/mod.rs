@@ -1021,7 +1021,7 @@ where
     }
 }
 
-impl<I, C, CT, OC> StdState<I, C, CT, OC>
+impl<C, CT, I, OC> StdState<C, CT, I, OC>
 where
     I: Input,
     CT: InputContext<Input = I>,

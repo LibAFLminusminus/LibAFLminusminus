@@ -266,7 +266,7 @@ where
                 exit(LIBAFLMM_EXIT_TERMINATION_INFINITE_RECURSION);
             }
 
-            if !D::termination_handler_data(Pin::new(&mut signal_handler.inner.termination_data))
+            if D::termination_handler_data(Pin::new(&mut signal_handler.inner.termination_data))
                 .is_some_and(|p| !p.in_fuzzing())
             {
                 // not in a fuzzing run: use the default hook (includes RUST_BACKTRACE output)
