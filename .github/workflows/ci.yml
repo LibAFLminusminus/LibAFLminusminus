@@ -1,0 +1,35 @@
+# Main CI file, decomposed in many ci_*.yml jobs
+
+name: CI
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [main, "pr/**"]
+  pull_request:
+    branches: [main]
+    types: ["labeled", "opened", "synchronize", "reopened"]
+  workflow_dispatch:
+  merge_group:
+  schedule:
+    - cron: "0 6 * * 1" # Re-run every mondays at 06:00 UTC in case a new lint break everything
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    uses: ./.github/workflows/ci_build.yml
+
+  miri:
+    if: contains( github.event.pull_request.labels.*.name, 'pre-release')
+    uses: ./.github/workflows/ci_miri.yml
+
+  lints:
+    uses: ./.github/workflows/ci_lints.yml
+
+  fuzzers:
+    uses: ./.github/workflows/ci_fuzzers.yml

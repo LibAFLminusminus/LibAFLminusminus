@@ -26,6 +26,11 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Cargo defaults
+      shell: bash
+      run: |
+        echo "CARGO_TERM_COLOR=always" >> $GITHUB_ENV
+        echo "CARGO_NET_GIT_FETCH_WITH_CLI=true" >> $GITHUB_ENV
     - name: Install Rust toolchain
       shell: bash
       env:

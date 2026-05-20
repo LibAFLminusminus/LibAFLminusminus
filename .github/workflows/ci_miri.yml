@@ -1,0 +1,22 @@
+name: "CI - miri"
+on:
+  workflow_call: {}
+
+jobs:
+  ubuntu-miri:
+    runs-on: ${{ fromJSON(vars.RUNS_ON || '["self-hosted","linux"]') }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: true
+      - uses: ./.github/actions/apt
+      - uses: ./.github/actions/setup-llvm
+        with:
+          version: ${{ env.MAIN_LLVM_VERSION }}
+      - uses: ./.github/actions/setup-rust
+        with:
+          components: miri
+          cache-key: ubuntu-miri
+          cache: ${{ vars.RUNS_ON != '' }}
+      - name: Run miri tests
+        run: RUST_BACKTRACE=1 MIRIFLAGS="-Zmiri-disable-isolation" cargo miri test
