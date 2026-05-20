@@ -6,14 +6,15 @@ if [ ! -d "sqlite3" ]; then
     find ./sqlite3 -name "*.test" -exec cp {} corpus/ \;
 fi
 
-if [ "$1" = "d" ]; then
-  cargo build
-else
+if [ "$1" = "release" ]; then
   cargo build --release
+  export CC=`pwd`/target/release/libafl_cc
+  export CXX=`pwd`/target/release/libafl_cxx
+else
+  cargo build
+  export CC=`pwd`/target/debug/libafl_cc
+  export CXX=`pwd`/target/debug/libafl_cxx
 fi
-
-export CC=`pwd`/target/release/libafl_cc
-export CXX=`pwd`/target/release/libafl_cxx
 export CFLAGS='--libafl'
 export CXXFLAGS='--libafl'
 export CFLAGS="$CFLAGS -DSQLITE_MAX_LENGTH=128000000 \
@@ -29,7 +30,7 @@ if [ ! -f "Makefile" ]; then
     ./configure
 fi
 make -j$(nproc)
-make sqlite3.c
+make -B sqlite3.c
 popd
 
 if [ "$1" = "release" ]; then
