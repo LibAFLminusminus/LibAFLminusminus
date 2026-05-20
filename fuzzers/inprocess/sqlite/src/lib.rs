@@ -4,7 +4,7 @@ use std::{env, net::SocketAddr, path::PathBuf};
 use clap::{self, Parser};
 use libaflmm::{
     corpus::{
-        schedulers::{NopScheduler, QueueScheduler, Scheduler},
+        schedulers::{NopScheduler, QueueScheduler},
         Corpus, InMemoryCorpus, OnDiskCorpus,
     },
     executors::{ExitKind, StdExecutor},
@@ -153,17 +153,15 @@ pub extern "C" fn libafl_main() {
 }
 
 /// The actual fuzzer
-fn run_fuzzer<C, OC, SC>(
-    rt_handle: &mut RuntimeHandle<StdState<C, BytesContext, BytesInput, OC, SC>, SimpleWorker>,
-    state: &mut StdState<C, BytesContext, BytesInput, OC, SC>,
+fn run_fuzzer<C, OC>(
+    rt_handle: &mut RuntimeHandle<StdState<C, BytesContext, BytesInput, OC>, SimpleWorker>,
+    state: &mut StdState<C, BytesContext, BytesInput, OC>,
 ) -> Result<()>
 where
-    C: Corpus<BytesInput>,
-    OC: Corpus<BytesInput>,
-    SC: Scheduler,
+    C: Corpus<Input = BytesInput>,
+    OC: Corpus<Input = BytesInput>,
 {
-    let mut harness = |state: &mut StdState<_, BytesContext, BytesInput, _, _>,
-                       input: &BytesInput| {
+    let mut harness = |state: &mut StdState<_, BytesContext, BytesInput, _>, input: &BytesInput| {
         let context: &mut BytesContext = state.context_mut();
         let buf = context.to_bytes(input);
         unsafe {
