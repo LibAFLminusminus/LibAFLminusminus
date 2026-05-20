@@ -314,4 +314,14 @@ impl Workdir {
             Ok(())
         }
     }
+
+    /// The default objective directory
+    pub fn objective_dir(&self) -> Result<PathBuf> {
+        self.create_dir("crashes")
+    }
+
+    /// The default corpus directory
+    pub fn corpus_dir(&self) -> Result<PathBuf> {
+        self.create_dir("corpus")
+    }
 }

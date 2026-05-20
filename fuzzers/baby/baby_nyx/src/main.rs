@@ -1,21 +1,4 @@
-use libaflmm::{
-    Fuzzer, Result, StdFuzzer, Worker,
-    corpus::{
-        Corpus, InMemoryCorpus, OnDiskCorpus,
-        schedulers::{NopScheduler, QueueScheduler},
-    },
-    feedbacks::{CrashFeedback, MaxMapFeedback},
-    generators::RandPrintablesGenerator,
-    inputs::{BytesInput, bytes::BytesContext},
-    launchers::StdLauncher,
-    monitors::SimpleMonitor,
-    mutators::{HavocScheduledMutator, havoc_mutations},
-    observers::StdMapObserver,
-    runtimes::RuntimeHandle,
-    simple::{SimpleController, SimpleWorker},
-    stages::StdMutationalStage,
-    states::StdState,
-};
+use libaflmm::prelude::*;
 use libaflmm_bolts::{non_zero, rands::StdRand, tuples::tuple_list};
 use libaflmm_nyx::{executor::NyxExecutor, helper::NyxHelper, settings::NyxSettings};
 
@@ -43,8 +26,7 @@ where
     // let monitor = SimpleMonitor::new(|x|-> () {println!("{}",x)});
     let mut executor = NyxExecutor::builder().build(helper, tuple_list!(observer));
 
-    let mutator = HavocScheduledMutator::new(havoc_mutations());
-    let mut stages = tuple_list!(StdMutationalStage::new(mutator));
+    let mut stages = tuple_list!(StdStage::default());
     let mut fuzzer = StdFuzzer::new(
         feedback,
         objective,
@@ -74,16 +56,16 @@ pub fn main() -> Result<()> {
     let state_builder = |worker: &SimpleWorker| {
         // A queue policy to get testcasess from the corpus
         let scheduler = QueueScheduler::new();
-        let crash_dir = worker.workdir().create_dir("crashes")?;
+        let crash_dir = worker.workdir().objective_dir()?;
 
         // create a State from scratch
         StdState::new(
             BytesContext,
             // Corpus that will be evolved, we keep it in memory for performance
-            InMemoryCorpus::new(scheduler),
+            InMemoryCorpus::with_scheduler(scheduler),
             // Corpus in which we store solutions (crashes in this example),
             // on disk so the user can get them after stopping the fuzzer
-            OnDiskCorpus::new(crash_dir, NopScheduler).unwrap(),
+            OnDiskCorpus::builder().root_dir(crash_dir).build()?,
         )
     };
 

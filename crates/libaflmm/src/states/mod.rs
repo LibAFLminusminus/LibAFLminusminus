@@ -2,11 +2,11 @@
 
 use crate::{
     Error, Result,
+    common::{DependencyResolver, Registrator},
     corpus::{
         Corpus, HasScheduler, InMemoryCorpus, Testcase, TestcaseFilenameFormat,
         schedulers::NopScheduler, testcase::TestcaseId,
     },
-    dependency::{DependencyResolver, Registrator},
     fuzzers::{EvaluationResult, Evaluator},
     generators::Generator,
     inputs::{Input, InputContext, NopContext, NopInput},
@@ -1107,8 +1107,8 @@ impl
     pub fn nop() -> Result<Self> {
         StdState::new(
             NopContext,
-            InMemoryCorpus::<NopInput, NopScheduler>::new(NopScheduler),
-            InMemoryCorpus::new(NopScheduler),
+            InMemoryCorpus::<NopInput, NopScheduler>::new(),
+            InMemoryCorpus::new(),
         )
     }
 }

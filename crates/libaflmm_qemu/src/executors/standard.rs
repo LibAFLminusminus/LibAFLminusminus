@@ -2,7 +2,9 @@
 
 use crate::Emulator;
 use libaflmm::{
-    DependencyResolver, Result, Worker,
+    Result,
+    common::DependencyResolver,
+    controllers::Worker,
     executors::{Executor, ExitKind},
     observers::ObserversTuple,
     runtimes::{

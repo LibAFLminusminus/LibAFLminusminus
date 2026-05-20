@@ -1,18 +1,14 @@
 //! The standard [`Fuzzer`], for everyday use.
 
-use alloc::rc::Rc;
-
-use libaflmm_bolts::current_time;
-use libaflmm_core::Result;
-use tuple_list::tuple_list;
-
 use crate::{
-    FuzzerHooksTuple, Worker,
+    common::Registrator,
+    controllers::Worker,
     corpus::{Corpus, Scheduler, Testcase},
-    dependency::Registrator,
     executors::{Executor, ExitKind},
     feedbacks::Feedback,
-    fuzzers::{EvaluationResult, Evaluator, Fuzzer, HasFeedback, HasObjective, Verdict},
+    fuzzers::{
+        EvaluationResult, Evaluator, Fuzzer, FuzzerHooksTuple, HasFeedback, HasObjective, Verdict,
+    },
     inputs::Input,
     observers::ObserversTuple,
     runtimes::{
@@ -23,6 +19,10 @@ use crate::{
     stages::StagesTuple,
     states::State,
 };
+use alloc::rc::Rc;
+use libaflmm_bolts::current_time;
+use libaflmm_core::Result;
+use tuple_list::tuple_list;
 
 /// Note: this code should not allocate at all.
 /// Any allocation can result in unexpected locks because of concurrency bug with the standard library.

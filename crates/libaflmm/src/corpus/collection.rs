@@ -1,22 +1,22 @@
 //! A collection of various [`Corpus`].
 
-use std::path::Path;
-
-use libaflmm_core::Result;
-use serde::{Deserialize, Serialize};
-
 use crate::{
-    DependencyResolver,
+    common::DependencyResolver,
     corpus::{
         Corpus, FifoCache, HasScheduler, IdentityCache, InMemoryStore, OnDiskStore, Scheduler,
         SingleCorpus, Testcase, TestcaseFilenameFormat,
         combined::CombinedCorpus,
         maps::{self, InMemoryCorpusMap},
+        schedulers::NopScheduler,
         store::{StorageResult, Store, ondisk::OnDiskStoreBuilder},
         testcase::TestcaseId,
     },
     inputs::Input,
 };
+use core::marker::PhantomData;
+use libaflmm_core::Result;
+use serde::{Deserialize, Serialize};
+use std::path::Path;
 
 const DEFAULT_CACHE_LEN: usize = 32;
 
@@ -69,13 +69,25 @@ pub struct InMemoryCorpus<I, SC>(InnerInMemoryCorpus<I, SC>);
 pub struct OnDiskCorpus<I, SC>(InnerOnDiskCorpus<I, SC>);
 
 /// The on-disk corpus builder
-#[derive(Debug, Clone, Default)]
-pub struct OnDiskCorpusBuilder(OnDiskStoreBuilder);
+#[derive(Debug, Clone)]
+pub struct OnDiskCorpusBuilder<I, SC> {
+    store_builder: OnDiskStoreBuilder,
+    scheduler: SC,
+    _phantom: PhantomData<I>,
+}
 
 /// The standard corpus for storing on disk and in-memory.
 #[repr(transparent)]
 #[derive(Debug, Serialize)]
 pub struct InMemoryOnDiskCorpus<I, SC>(InnerInMemoryOnDiskCorpus<I, SC>);
+
+/// The in-memory + on-disk corpus builder
+#[derive(Debug, Clone)]
+pub struct InMemoryOnDiskCorpusBuilder<I, SC> {
+    store_builder: OnDiskStoreBuilder,
+    scheduler: SC,
+    _phantom: PhantomData<I>,
+}
 
 /// The standard corpus for storing on disk and in-memory with a cache.
 /// Useful for very large corpuses.
@@ -85,10 +97,11 @@ pub struct CachedOnDiskCorpus<I, SC>(InnerCachedOnDiskCorpus<I, SC>);
 
 /// The cached on-disk corpus builder
 #[derive(Debug, Clone)]
-pub struct CachedOnDiskCorpusBuilder<SC> {
+pub struct CachedOnDiskCorpusBuilder<I, SC> {
     store_builder: OnDiskStoreBuilder,
     cache_max_len: usize,
-    scheduler: Option<SC>,
+    scheduler: SC,
+    _phantom: PhantomData<I>,
 }
 
 impl<I> InMemoryCorpusMap<Testcase<I>> for StdInMemoryCorpusMap<I>
@@ -187,13 +200,27 @@ where
 }
 
 impl<I, SC> InMemoryCorpus<I, SC> {
-    /// Create a new [`InMemoryCorpus`].
+    /// Create a new [`InMemoryCorpus`] with a given scheduler.
     #[must_use]
-    pub fn new(scheduler: SC) -> Self {
+    pub fn with_scheduler(scheduler: SC) -> Self {
         InMemoryCorpus(InnerInMemoryCorpus::new(
             InnerStdInMemoryStore::default(),
             scheduler,
         ))
+    }
+}
+
+impl<I> Default for InMemoryCorpus<I, NopScheduler> {
+    fn default() -> Self {
+        Self::with_scheduler(NopScheduler)
+    }
+}
+
+impl<I> InMemoryCorpus<I, NopScheduler> {
+    /// Create a new [`InMemoryCorpus`] without a scheduler.
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
     }
 }
 
@@ -242,52 +269,54 @@ where
     }
 }
 
-// impl<I, SC> DisableEntry for InMemoryCorpus<I, SC>
-// where
-//     SC: RemovableScheduler<I, S>,
-// {
-//     fn disable(&mut self, id: TestcaseId) -> Result<()> {
-//         self.0.disable(id)
-//     }
-// }
+impl<I> Default for OnDiskCorpusBuilder<I, NopScheduler> {
+    fn default() -> Self {
+        Self {
+            store_builder: OnDiskStoreBuilder::default(),
+            scheduler: NopScheduler,
+            _phantom: PhantomData,
+        }
+    }
+}
 
-impl OnDiskCorpusBuilder {
-    /// Create a new [`OnDiskCorpusBuilder`].
+impl<I, SC> OnDiskCorpusBuilder<I, SC> {
+    /// Set the [`Scheduler`].
     #[must_use]
-    pub fn new() -> Self {
-        Self::default()
+    pub fn scheduler<SC2>(self, scheduler: SC2) -> OnDiskCorpusBuilder<I, SC2> {
+        OnDiskCorpusBuilder {
+            scheduler,
+            store_builder: self.store_builder,
+            _phantom: PhantomData,
+        }
     }
 
     /// Set the root directory, where the testcases will be stored.
-    pub fn root_dir(&mut self, root: &Path) -> &mut Self {
-        self.0.root_dir(root);
+    #[must_use]
+    pub fn root_dir<P: AsRef<Path>>(mut self, root_dir: P) -> Self {
+        self.store_builder.root_dir(root_dir);
         self
     }
 
     /// Set the on-disk filename format
-    pub fn filename_format(&mut self, filename_format: TestcaseFilenameFormat) -> &mut Self {
-        self.0.filename_format(filename_format);
+    #[must_use]
+    pub fn filename_format(mut self, filename_format: TestcaseFilenameFormat) -> Self {
+        self.store_builder.filename_format(filename_format);
         self
     }
 
     /// Build an [`OnDiskStore`].
     /// The root directory must be set.
-    pub fn build<I, SC>(&self, scheduler: SC) -> Result<OnDiskCorpus<I, SC>> {
-        Ok(OnDiskCorpus(SingleCorpus::new(self.0.build()?, scheduler)))
+    pub fn build(self) -> Result<OnDiskCorpus<I, SC>> {
+        Ok(OnDiskCorpus(SingleCorpus::new(
+            self.store_builder.build()?,
+            self.scheduler,
+        )))
     }
 }
 
-impl<I, SC> OnDiskCorpus<I, SC>
-where
-    I: Input,
-{
+impl<I, SC> OnDiskCorpus<I, SC> {
     /// Create a new [`OnDiskCorpus`]
-    pub fn new<P: AsRef<Path>>(root: P, scheduler: SC) -> Result<Self> {
-        Self::new_with_format(root, TestcaseFilenameFormat::Id, scheduler)
-    }
-
-    /// Create a new [`OnDiskCorpus`]
-    pub fn new_with_format<P: AsRef<Path>>(
+    pub fn new<P: AsRef<Path>>(
         root: P,
         filename_format: TestcaseFilenameFormat,
         scheduler: SC,
@@ -297,10 +326,12 @@ where
             scheduler,
         )))
     }
+}
 
+impl<I> OnDiskCorpus<I, NopScheduler> {
     /// Get a [`OnDiskCorpus`] builder.
     #[must_use]
-    pub fn builder() -> OnDiskCorpusBuilder {
+    pub fn builder() -> OnDiskCorpusBuilder<I, NopScheduler> {
         OnDiskCorpusBuilder::default()
     }
 }
@@ -350,12 +381,6 @@ where
     }
 }
 
-// impl<I, SC> DisableEntry for OnDiskCorpus<I, SC> {
-//     fn disable(&mut self, id: TestcaseId) -> Result<()> {
-//         self.0.disable(id)
-//     }
-// }
-
 impl<I, SC> HasScheduler for InMemoryOnDiskCorpus<I, SC>
 where
     SC: Scheduler,
@@ -398,6 +423,58 @@ where
 
     fn get_from<const ENABLED: bool>(&self, id: &TestcaseId) -> Result<Testcase<I>> {
         self.0.get_from::<ENABLED>(id)
+    }
+}
+
+impl<I> InMemoryOnDiskCorpus<I, NopScheduler> {
+    /// Get a [`InMemoryOnDiskCorpus`] builder.
+    #[must_use]
+    pub fn builder() -> InMemoryOnDiskCorpusBuilder<I, NopScheduler> {
+        InMemoryOnDiskCorpusBuilder::default()
+    }
+}
+
+impl<I> Default for InMemoryOnDiskCorpusBuilder<I, NopScheduler> {
+    fn default() -> Self {
+        Self {
+            store_builder: OnDiskStoreBuilder::default(),
+            scheduler: NopScheduler,
+            _phantom: PhantomData,
+        }
+    }
+}
+
+impl<I, SC> InMemoryOnDiskCorpusBuilder<I, SC> {
+    /// Set the [`Scheduler`].
+    #[must_use]
+    pub fn scheduler(mut self, scheduler: SC) -> Self {
+        self.scheduler = scheduler;
+        self
+    }
+
+    /// Set the root directory, where the testcases will be stored.
+    #[must_use]
+    pub fn root_dir<P: AsRef<Path>>(mut self, root_dir: P) -> Self {
+        self.store_builder.root_dir(root_dir);
+        self
+    }
+
+    /// Set the on-disk filename format
+    #[must_use]
+    pub fn filename_format(mut self, filename_format: TestcaseFilenameFormat) -> Self {
+        self.store_builder.filename_format(filename_format);
+        self
+    }
+
+    /// Build an [`InMemoryOnDiskCorpus`].
+    /// The root directory must be set.
+    pub fn build(self) -> Result<InMemoryOnDiskCorpus<I, SC>> {
+        Ok(InMemoryOnDiskCorpus(CombinedCorpus::new(
+            self.scheduler,
+            IdentityCache,
+            InnerStdInMemoryStore::default(),
+            self.store_builder.build()?,
+        )))
     }
 }
 
@@ -447,39 +524,36 @@ where
 }
 
 impl<I, SC> CachedOnDiskCorpus<I, SC> {
-    /// Get a [`CachedOnDiskCorpus`] builder.
-    #[must_use]
-    pub fn builder() -> CachedOnDiskCorpusBuilder<SC> {
-        CachedOnDiskCorpusBuilder::new()
-    }
-
     /// Get the fallback store
     pub fn fallback_store(&self) -> &InnerStdOnDiskStore<I> {
         self.0.fallback_store()
     }
 }
 
-impl<SC> Default for CachedOnDiskCorpusBuilder<SC> {
+impl<I> CachedOnDiskCorpus<I, NopScheduler> {
+    /// Get a [`CachedOnDiskCorpus`] builder.
+    #[must_use]
+    pub fn builder() -> CachedOnDiskCorpusBuilder<I, NopScheduler> {
+        CachedOnDiskCorpusBuilder::default()
+    }
+}
+
+impl<I> Default for CachedOnDiskCorpusBuilder<I, NopScheduler> {
     fn default() -> Self {
         Self {
             store_builder: OnDiskStoreBuilder::new(),
             cache_max_len: DEFAULT_CACHE_LEN,
-            scheduler: None,
+            scheduler: NopScheduler,
+            _phantom: PhantomData,
         }
     }
 }
 
-impl<SC> CachedOnDiskCorpusBuilder<SC> {
-    /// Create a new [`CachedOnDiskCorpusBuilder`].
-    #[must_use]
-    pub fn new() -> Self {
-        Self::default()
-    }
-
+impl<I, SC> CachedOnDiskCorpusBuilder<I, SC> {
     /// Set the [`Scheduler`].
     #[must_use]
     pub fn scheduler(mut self, scheduler: SC) -> Self {
-        self.scheduler = Some(scheduler);
+        self.scheduler = scheduler;
         self
     }
 
@@ -506,9 +580,9 @@ impl<SC> CachedOnDiskCorpusBuilder<SC> {
 
     /// Build an [`OnDiskStore`].
     /// The root directory must be set.
-    pub fn build<I: Input>(self) -> Result<CachedOnDiskCorpus<I, SC>> {
+    pub fn build(self) -> Result<CachedOnDiskCorpus<I, SC>> {
         Ok(CachedOnDiskCorpus(CombinedCorpus::new(
-            self.scheduler.unwrap(),
+            self.scheduler,
             FifoCache::new(self.cache_max_len),
             InnerStdInMemoryStore::default(),
             self.store_builder.build()?,

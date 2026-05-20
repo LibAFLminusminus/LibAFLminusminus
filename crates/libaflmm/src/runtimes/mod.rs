@@ -4,8 +4,10 @@ use core::{pin::Pin, ptr::NonNull, time::Duration};
 use std::process::exit;
 
 use crate::{
-    DependencyResolver, Fuzzer, Result,
+    Result,
+    common::{CompatibilityChecker, DependencyResolver, Registrator},
     executors::Executor,
+    fuzzers::Fuzzer,
     inputs::Input,
     runtimes::{
         inprocess::{CrashStatus, TimeoutStatus},
@@ -235,11 +237,11 @@ impl<S, W> RuntimeHandle<S, W> {
 }
 
 impl<S, W> DependencyResolver for RuntimeHandle<S, W> {
-    fn check(&self, checker: &crate::CompatibilityChecker) -> Result<()> {
+    fn check(&self, checker: &CompatibilityChecker) -> Result<()> {
         unsafe { self.runtime().check(checker) }
     }
 
-    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<()> {
+    fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
         unsafe { self.runtime_mut().register(registrator) }
     }
 }

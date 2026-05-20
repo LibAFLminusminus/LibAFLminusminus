@@ -15,7 +15,7 @@ use nix::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    DependencyResolver,
+    common::{CompatibilityChecker, DependencyResolver, Registrator},
     runtimes::{Runtime, RuntimeHandle, SimpleInProcessRuntime, utils::unix::OsShmBuilder},
 };
 
@@ -49,11 +49,11 @@ impl<RT> DependencyResolver for RestartingRuntime<RT>
 where
     RT: DependencyResolver,
 {
-    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<()> {
+    fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
         self.inner.register(registrator)
     }
 
-    fn check(&self, checker: &crate::CompatibilityChecker) -> Result<()> {
+    fn check(&self, checker: &CompatibilityChecker) -> Result<()> {
         self.inner.check(checker)
     }
 }

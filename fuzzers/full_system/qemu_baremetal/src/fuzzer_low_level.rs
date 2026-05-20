@@ -1,21 +1,6 @@
 //! A fuzzer using qemu in systemmode for binary-only coverage of kernels
-use libaflmm::{
-    corpus::{
-        schedulers::{NopScheduler, QueueScheduler},
-        Corpus, InMemoryCorpus, OnDiskCorpus,
-    },
-    executors::ExitKind,
-    feedback_or, feedback_or_fast,
-    feedbacks::{CrashFeedback, MaxMapFeedback, TimeFeedback, TimeoutFeedback},
-    inputs::{InputContext, StdContext},
-    launchers::StdLauncher,
-    monitors::StdMonitor,
-    mutators::{havoc_mutations::havoc_mutations, scheduled::HavocScheduledMutator},
-    observers::{HitcountsMapObserver, TimeObserver, VariableMapObserver},
-    stages::StdMutationalStage,
-    states::{State, StdState},
-    Fuzzer, Result, StdController, StdFuzzer, Worker,
-};
+
+use libaflmm::prelude::*;
 use libaflmm_bolts::{
     core_affinity::Cores, ownedref::OwnedMutSlice, rands::StdRand, tuples::tuple_list, AsSlice,
 };
@@ -89,10 +74,10 @@ pub fn fuzz() -> Result<()> {
             StdState::new(
                 StdContext::default(),
                 // Corpus that will be evolved, we keep it in memory for performance
-                InMemoryCorpus::new(scheduler),
+                InMemoryCorpus::with_scheduler(scheduler),
                 // Corpus in which we store solutions (crashes in this example),
                 // on disk so the user can get them after stopping the fuzzer
-                OnDiskCorpus::new(objective_dir, NopScheduler)?,
+                OnDiskCorpus::builder().root_dir(objective_dir).build()?,
             )
         })
         .monitor(monitor)
@@ -231,8 +216,7 @@ pub fn fuzz() -> Result<()> {
             // executor.break_on_timeout();
 
             // Setup an havoc mutator with a mutational stage
-            let mutator = HavocScheduledMutator::new(havoc_mutations());
-            let mut stages = tuple_list!(StdMutationalStage::new(mutator));
+            let mut stages = tuple_list!(StdStage::default());
 
             // A fuzzer with feedbacks and a corpus scheduler
             let mut fuzzer = StdFuzzer::new(

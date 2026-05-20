@@ -9,6 +9,7 @@ use libaflmm_bolts::{HasLen, Named, rands::Rand, tuples::IntoVec};
 use libaflmm_core::Error;
 use serde::{Deserialize, Serialize};
 use tuple_list::NonEmptyTuple;
+
 pub mod scheduled;
 pub use scheduled::{
     ComposedByMutations, HavocScheduledMutator, ScheduledMutator, SingleChoiceScheduledMutator,

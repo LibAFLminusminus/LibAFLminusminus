@@ -20,7 +20,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::{
-    Controller, Descriptor, Result,
+    Result,
+    controllers::Controller,
+    controllers::Descriptor,
     monitors::Monitor,
     states::{Stats, read_stats_json},
 };

@@ -5,7 +5,7 @@ use core::fmt::Debug;
 use libaflmm_bolts::{Error, Named, ownedref::OwnedMutPtr};
 use serde::{Deserialize, Serialize};
 
-use crate::{DependencyResolver, observers::Observer};
+use crate::{common::DependencyResolver, observers::Observer};
 
 /// A simple observer with a list of things.
 #[derive(Serialize, Deserialize, Debug)]

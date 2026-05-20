@@ -15,7 +15,8 @@ use libaflmm_targets::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    DependencyResolver, Error,
+    Error,
+    common::{DependencyResolver, Registrator},
     executors::ExitKind,
     observers::{CmpObserver, CmpValues, CmplogBytes, Observer},
     states::{State, named_metadata_mut},
@@ -54,7 +55,7 @@ where
 }
 
 impl<H, V> DependencyResolver for CmpLogObserver<H, V> {
-    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<(), Error> {
+    fn register(&mut self, registrator: &mut Registrator) -> Result<(), Error> {
         registrator.register_md_default::<CmpLogMetadata>(self.name());
         Ok(())
     }

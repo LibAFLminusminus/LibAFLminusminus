@@ -3,7 +3,7 @@
 use libaflmm_core::Result;
 
 use crate::{
-    DependencyResolver,
+    common::DependencyResolver,
     runtimes::{Runtime, RuntimeHandle},
 };
 

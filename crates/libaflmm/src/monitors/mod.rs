@@ -1,13 +1,11 @@
 //! Module defining [`Monitor`]s.
 
+use crate::controllers::Controller;
 use libaflmm_bolts::Result;
-
-use crate::Controller;
 
 pub mod simple;
 pub use simple::SimpleMonitor;
 
-pub type StdMonitor = SimpleMonitor;
 pub mod perf_stats;
 pub use perf_stats::PerfStats;
 
@@ -15,6 +13,8 @@ pub use perf_stats::PerfStats;
 pub mod web;
 #[cfg(feature = "web_monitor")]
 pub use web::WebMonitor;
+
+pub type StdMonitor = SimpleMonitor;
 
 /// This module can show the fuzzer stats to the user via vairous way. like through the terminal or `WebUI` (WIP!)
 pub trait Monitor {

@@ -13,8 +13,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     Error,
+    common::{DependencyResolver, Registrator},
     corpus::TestcaseId,
-    dependency::{DependencyResolver, Registrator},
     executors::ExitKind,
     observers::TimeObserver,
     states::State,

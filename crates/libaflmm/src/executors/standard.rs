@@ -1,7 +1,8 @@
 //! Standard [`Executor`].
 
 use crate::{
-    CompatibilityChecker, DependencyResolver, Registrator, Worker,
+    common::{CompatibilityChecker, DependencyResolver, Registrator},
+    controllers::Worker,
     executors::{Executor, ExitKind, hooks::ExecutorHooksTuple},
     observers::ObserversTuple,
     runtimes::RuntimeHandle,

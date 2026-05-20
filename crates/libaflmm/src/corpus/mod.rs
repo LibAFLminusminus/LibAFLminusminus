@@ -1,6 +1,6 @@
 //! Corpuses contain the testcases, either in memory, on disk, or somewhere else.
 
-use crate::DependencyResolver;
+use crate::common::DependencyResolver;
 use core::fmt;
 use libaflmm_core::Result;
 
@@ -20,11 +20,15 @@ pub mod store;
 pub use store::{InMemoryStore, OnDiskStore, Store, maps};
 
 pub mod schedulers;
-pub use schedulers::Scheduler;
+pub use schedulers::{
+    NopScheduler, QueueScheduler, RandScheduler, RemovableScheduler, Scheduler, StdScheduler,
+};
 
 pub mod collection;
 pub use collection::{
-    InMemoryCorpus, OnDiskCorpus, StdInMemoryCorpusMap, StdInMemoryStore, StdOnDiskStore,
+    CachedOnDiskCorpus, CachedOnDiskCorpusBuilder, InMemoryCorpus, InMemoryOnDiskCorpus,
+    InMemoryOnDiskCorpusBuilder, OnDiskCorpus, OnDiskCorpusBuilder, StdInMemoryCorpusMap,
+    StdInMemoryStore, StdOnDiskStore,
 };
 
 pub mod combined;

@@ -1,18 +1,20 @@
 //! Mutational stages and friends take one [`Input`] from the [`Corpus`] and apply mutations for a bunch of times then run against the targets
 
-pub mod std;
-pub use std::*;
-
-pub mod power;
-use libaflmm_core::illegal_state;
-pub use power::*;
-
 use crate::{
     Result,
     common::PowerScheduleData,
     corpus::TestcaseId,
     states::{State, unnamed_metadata_mut},
 };
+use libaflmm_core::illegal_state;
+
+pub mod standard;
+pub use standard::{
+    DEFAULT_MUTATIONAL_MAX_ITERATIONS, MUTATIONAL_STAGE_NAME, MutationalStage, StdMutationalStage,
+};
+
+pub mod power;
+pub use power::{AFLPowerScheduleStage, POWER_MUTATIONAL_STAGE_NAME, PowerScheduleStage};
 
 /// This is for power scheduling. It returns a "score" to decide how many times you want to mutate and test the [`Input`](crate::inputs::Input)  during one [`Stage`](crate::stages::Stage) .
 pub trait Power<S> {

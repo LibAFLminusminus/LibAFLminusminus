@@ -12,7 +12,7 @@
   - [Execution modes](./concepts/execution_modes/execution_modes.md)
     - [Forkserver](./concepts/execution_modes/forkserver.md)
     - [In-process](./concepts/execution_modes/in_process.md)
-  - [Fuzzer Archictecture](./concepts/architecture.md)
+  - [Fuzzer Architecture](./concepts/architecture.md)
   - [Metadata](./concepts/metadata.md)
   - [Tuples](./concepts/tuples.md)
   - [Errors](./concepts/errors.md)

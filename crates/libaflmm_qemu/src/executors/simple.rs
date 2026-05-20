@@ -1,7 +1,9 @@
 use crate::{Emulator, Qemu};
 use libaflmm::runtimes::{OsTerminationParams, inprocess::CrashStatus};
 use libaflmm::{
-    DependencyResolver, Result, Worker,
+    Result,
+    common::DependencyResolver,
+    controllers::Worker,
     executors::{Executor, ExitKind},
     observers::ObserversTuple,
     runtimes::{RuntimeHandle, inprocess::TimeoutStatus},

@@ -47,9 +47,6 @@ document-features = ["dep:document-features"]
 #! # Feature Flags
 #! ### General Features
 
-## Expose `libaflmm::prelude` for access without additional using directives
-prelude = ["libaflmm_bolts/prelude"]
-
 ## Stores the backtraces of all generated `Error`s. Good for debugging, but may come with a slight performance hit.
 errors_backtrace = ["libaflmm_bolts/errors_backtrace"]
 
@@ -75,15 +72,6 @@ derive = [
   "libaflmm_derive",
   "libaflmm_bolts/derive",
 ] # provide `derive(SerdeAny) macro.
-
-## Expose `libaflmm_bolts::cli` for easy commandline parsing of common fuzzer settings
-cli = ["libaflmm_bolts/cli"]
-
-## Enables extra commandline flags for qemu-based fuzzers in `cli`
-qemu_cli = ["cli", "libaflmm_bolts/qemu_cli"]
-
-## Enables extra commandline flags for frida-based fuzzers in `cli`
-frida_cli = ["cli", "libaflmm_bolts/frida_cli"]
 
 ## If set, libaflmm_bolt's `rand` implementations will implement `rand::Rng`
 rand_trait = ["libaflmm_bolts/rand_trait"]

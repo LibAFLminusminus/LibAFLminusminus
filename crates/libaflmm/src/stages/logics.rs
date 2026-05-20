@@ -5,7 +5,8 @@ use alloc::borrow::Cow;
 use libaflmm_bolts::Named;
 
 use crate::{
-    DependencyResolver, Result,
+    Result,
+    common::{DependencyResolver, Registrator},
     corpus::testcase::TestcaseId,
     stages::{RuntimeHandle, Stage, StagesTuple},
     states::State,
@@ -29,7 +30,7 @@ impl<CB, ST> DependencyResolver for WhileStage<CB, ST>
 where
     ST: DependencyResolver,
 {
-    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<()> {
+    fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
         self.stages.register(registrator)
     }
 }
@@ -90,7 +91,7 @@ impl<CB, ST> DependencyResolver for IfStage<CB, ST>
 where
     ST: DependencyResolver,
 {
-    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<()> {
+    fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
         self.if_stages.register(registrator)
     }
 }
@@ -158,7 +159,7 @@ where
     ST1: DependencyResolver,
     ST2: DependencyResolver,
 {
-    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<()> {
+    fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
         self.if_stages.register(registrator)?;
         self.else_stages.register(registrator)
     }

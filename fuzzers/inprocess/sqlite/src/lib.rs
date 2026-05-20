@@ -1,29 +1,6 @@
-use core::time::Duration;
-use std::{env, net::SocketAddr, path::PathBuf};
-
 use clap::{self, Parser};
-use libaflmm::{
-    corpus::{
-        schedulers::{NopScheduler, QueueScheduler},
-        Corpus, InMemoryCorpus, OnDiskCorpus,
-    },
-    executors::{ExitKind, StdExecutor},
-    feedback_or, feedback_or_fast,
-    feedbacks::{CrashFeedback, MaxMapFeedback, TimeFeedback, TimeoutFeedback},
-    fuzzers::{Fuzzer, StdFuzzer},
-    inputs::{bytes::BytesContext, BytesInput, InputContext},
-    launchers::{StdLauncher, DEFAULT_MAX_STATE_SIZE_PER_WORKER},
-    monitors::WebMonitor,
-    mutators::{
-        havoc_mutations::havoc_mutations,
-        scheduled::{tokens_mutations, HavocScheduledMutator},
-    },
-    observers::{HitcountsMapObserver, StdMapObserver, TimeObserver},
-    runtimes::{RuntimeHandle, StdInProcessRuntime},
-    stages::mutational::StdMutationalStage,
-    states::{State, StdState},
-    Result, SimpleController, SimpleWorker, Worker,
-};
+use core::time::Duration;
+use libaflmm::prelude::*;
 use libaflmm_bolts::{
     core_affinity::Cores,
     rands::StdRand,
@@ -32,6 +9,7 @@ use libaflmm_bolts::{
 };
 use libaflmm_targets::{edges_map_mut_slice, libfuzzer_initialize, libfuzzer_test_one_input};
 use mimalloc::MiMalloc;
+use std::{env, net::SocketAddr, path::PathBuf};
 
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
@@ -52,18 +30,6 @@ struct Opt {
     name = "CORES"
     )]
     cores: Cores,
-
-    #[arg(
-        short = 'p',
-        long,
-        help = "Choose the broker TCP port, default is 1337",
-        name = "PORT",
-        default_value = "1337"
-    )]
-    broker_port: u16,
-
-    #[arg(short = 'a', long, help = "Specify a remote broker", name = "REMOTE")]
-    remote_broker_addr: Option<SocketAddr>,
 
     #[arg(
         short,
@@ -115,10 +81,10 @@ pub extern "C" fn libafl_main() {
         StdState::new(
             context,
             // Corpus that will be evolved, we keep it in memory for performance
-            InMemoryCorpus::new(scheduler),
+            InMemoryCorpus::with_scheduler(scheduler),
             // Corpus in which we store solutions (crashes in this example),
             // on disk so the user can get them after stopping the fuzzer
-            OnDiskCorpus::new(crash_dir, NopScheduler {}).unwrap(),
+            OnDiskCorpus::builder().root_dir(crash_dir).build()?,
         )
     };
 
@@ -215,7 +181,7 @@ where
     )?;
 
     // The actual target run starts here.
-    // Call LLVMFUzzerInitialize() if present.
+    // Call LLVMFuzzerInitialize() if present.
     let args: Vec<String> = env::args().collect();
     if unsafe { libfuzzer_initialize(&args) } == -1 {
         println!("Warning: LLVMFuzzerInitialize failed with -1");
@@ -223,7 +189,7 @@ where
 
     // This fuzzer restarts after 1 mio `fuzz_one` executions.
     // Each fuzz_one will internally do many executions of the target.
-    // If your target is very instable, setting a low count here may help.
+    // If your target is very unstable, setting a low count here may help.
     // However, you will lose a lot of performance that way.
     let iters = 1_000_000;
     let mut rand = StdRand::new();

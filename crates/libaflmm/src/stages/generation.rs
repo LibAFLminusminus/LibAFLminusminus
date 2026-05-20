@@ -10,7 +10,8 @@ use core::marker::PhantomData;
 use libaflmm_bolts::Named;
 
 use crate::{
-    DependencyResolver, Result,
+    Result,
+    common::DependencyResolver,
     corpus::testcase::TestcaseId,
     fuzzers::Evaluator,
     generators::Generator,

@@ -1,23 +1,20 @@
 //! Generators for the [`Nautilus`](https://github.com/RUB-SysSec/nautilus) grammar fuzzer
+#[cfg(feature = "nautilus_py")]
+use crate::common::nautilus::grammartec::python_grammar_loader;
+use crate::{
+    Error,
+    common::{NTermId, nautilus::grammartec::context::Context},
+    generators::Generator,
+    inputs::{InputContext, nautilus::NautilusInput},
+};
 use alloc::{
     string::{String, ToString},
     vec::Vec,
 };
 use core::fmt::Debug;
-use std::{fs, io::BufReader, path::Path};
-
 use libaflmm_bolts::{ownedref::OwnedSlice, rands::Rand};
 use serde::{Deserialize, Serialize};
-
-pub use crate::common::nautilus::grammartec::newtypes::NTermId;
-#[cfg(feature = "nautilus_py")]
-use crate::nautilus::grammartec::python_grammar_loader;
-use crate::{
-    Error,
-    common::nautilus::grammartec::context::Context,
-    generators::Generator,
-    inputs::{InputContext, nautilus::NautilusInput},
-};
+use std::{fs, io::BufReader, path::Path};
 
 /// The nautilus context for a generator
 #[derive(Default, Clone, Serialize, Deserialize)]

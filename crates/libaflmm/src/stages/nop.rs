@@ -6,7 +6,7 @@ use libaflmm_bolts::Named;
 
 use super::Stage;
 use crate::{
-    DependencyResolver, Result, corpus::TestcaseId, runtimes::RuntimeHandle, states::State,
+    Result, common::DependencyResolver, corpus::TestcaseId, runtimes::RuntimeHandle, states::State,
 };
 
 /// A [`Stage`] that does nothing

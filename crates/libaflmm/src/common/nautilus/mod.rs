@@ -3,5 +3,12 @@
 
 /// Grammartec module
 pub mod grammartec;
+pub use grammartec::{
+    ChunkStore, ChunkStoreWrapper, Context, GrammarMutator, NTermId, NodeId, PlainRule,
+    RecursionInfo, RegExpRule, Rule, RuleChild, RuleId, RuleIdOrCustom, Tree, TreeLike,
+    TreeMutation,
+};
+
 /// Regex mutator module
 pub mod regex_mutator;
+pub use regex_mutator::RegexScript;

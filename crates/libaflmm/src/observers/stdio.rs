@@ -6,17 +6,15 @@
     doc = r"For example, they are supported on the [`crate::executors::ForkserverExecutor`]."
 )]
 
+use crate::{Error, common::DependencyResolver, observers::Observer};
 use alloc::{borrow::Cow, vec::Vec};
 use core::marker::PhantomData;
+use libaflmm_bolts::Named;
+use serde::{Deserialize, Deserializer, Serialize};
 use std::{
     fs::File,
     io::{Read, Seek, SeekFrom},
 };
-
-use libaflmm_bolts::Named;
-use serde::{Deserialize, Deserializer, Serialize};
-
-use crate::{DependencyResolver, Error, observers::Observer};
 
 /// An observer that captures stdout of a target.
 /// Only works for supported executors.

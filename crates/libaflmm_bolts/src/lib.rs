@@ -9,6 +9,8 @@
 use core::hash::{Hash, Hasher};
 use core::mem;
 #[cfg(unix)]
+use log::{Metadata, Record};
+#[cfg(unix)]
 use std::{
     fs::File,
     io::Write,
@@ -16,18 +18,20 @@ use std::{
     panic,
     time::SystemTime,
 };
-
-// There's a bug in ahash that doesn't let it build in `alloc` without once_cell right now.
-// TODO: re-enable once <https://github.com/tkaitchuck/aHash/issues/155> is resolved.
-#[cfg(feature = "derive")]
-pub use libaflmm_derive::SerdeAny;
-
-#[cfg(unix)]
-use log::{Metadata, Record};
 #[cfg(feature = "xxh3")]
 use xxhash_rust::xxh3::xxh3_64;
 
 pub extern crate alloc;
+
+/// The purpose of this module is to alleviate imports of many components by adding a glob import.
+pub mod prelude {
+    pub use super::build_id::*;
+    pub use super::core_affinity::*;
+    pub use super::fs::*;
+    pub use super::minibsod::*;
+    pub use super::os::*;
+    pub use super::{anymap::*, ownedref::*, rands::*, shm::*, tuples::*};
+}
 
 pub use libaflmm_core::{
     AsIter, AsIterMut, AsSlice, AsSliceMut, Error, HasLen, HasRefCnt, Named, Result, Truncate,
@@ -39,9 +43,6 @@ pub use shm::{
     AnonShmBuilder, AnonShmReceiver, AnonShmSender, EmptyShmHeader, SharedMemory, ShmHeader,
     SysVShm,
 };
-
-#[cfg(any(feature = "cli", feature = "frida_cli", feature = "qemu_cli"))]
-pub mod cli;
 
 pub mod fs;
 
@@ -97,19 +98,6 @@ pub use ownedref::{
 };
 
 pub use ctor;
-
-/// The purpose of this module is to alleviate imports of the bolts by adding a glob import.
-#[cfg(feature = "prelude")]
-pub mod bolts_prelude {
-    pub use super::build_id::*;
-    #[cfg(any(feature = "cli", feature = "frida_cli", feature = "qemu_cli"))]
-    pub use super::cli::*;
-    pub use super::core_affinity::*;
-    pub use super::fs::*;
-    pub use super::minibsod::*;
-    pub use super::os::*;
-    pub use super::{anymap::*, ownedref::*, rands::*, shm::*, tuples::*};
-}
 
 /// Unwrap a type (most likely an [`Option`]),
 /// and check the inner object is present only in `Debug` mode.
@@ -191,14 +179,6 @@ pub fn generic_hash_std<I: Hash>(input: &I) -> u64 {
     hasher.finish()
 }
 
-/// The purpose of this module is to alleviate imports of many components by adding a glob import.
-#[cfg(feature = "prelude")]
-pub mod prelude {
-    #![allow(ambiguous_glob_reexports)]
-
-    pub use super::{bolts_prelude::*, *};
-}
-
 /// Format a number with thousands separators
 #[must_use]
 pub fn format_big_number(val: u64) -> String {
@@ -248,7 +228,7 @@ static mut LIBAFLMM_RAWFD_LOGGER: SimpleFdLogger = unsafe { SimpleFdLogger::new(
 
 /// A simple logger struct that logs to stdout when used with [`log::set_logger`].
 #[derive(Debug)]
-pub struct SimpleStdoutLogger {}
+pub struct SimpleStdoutLogger;
 
 impl Default for SimpleStdoutLogger {
     fn default() -> Self {

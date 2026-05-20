@@ -12,7 +12,7 @@ use crate::{
     Error,
     common::nautilus::grammartec::{
         context::Context,
-        mutator::Mutator as BackingMutator,
+        mutator::GrammarMutator as BackingMutator,
         tree::{Tree, TreeMutation},
     },
     feedbacks::NautilusChunksMetadata,

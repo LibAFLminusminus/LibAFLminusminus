@@ -1,5 +1,5 @@
 //! Observers give insights about runs of a target, such as coverage, timing, stack depth, and more.
-use crate::{DependencyResolver, Error, executors::ExitKind};
+use crate::{Error, common::DependencyResolver, executors::ExitKind};
 use alloc::borrow::Cow;
 use core::{fmt::Debug, time::Duration};
 use libaflmm_bolts::Named;

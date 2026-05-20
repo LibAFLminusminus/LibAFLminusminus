@@ -1,6 +1,9 @@
 //! Unix instance
 
-use crate::{Controller, Error, Result, Worker, monitors::Monitor, runtimes::Runtime};
+use crate::{
+    Error, Result, controllers::Controller, controllers::Worker, monitors::Monitor,
+    runtimes::Runtime,
+};
 use alloc::vec::Vec;
 use core::{borrow::Borrow, hash::Hash, time::Duration};
 use libaflmm_bolts::core_affinity::CoreId;

@@ -10,7 +10,8 @@ use core::marker::PhantomData;
 use libaflmm_bolts::{Named, rands::Rand};
 
 use crate::{
-    DependencyResolver, PowerScheduleData, Result,
+    Result,
+    common::{DependencyResolver, PowerScheduleData, Registrator},
     corpus::{Corpus, TestcaseId},
     fuzzers::Evaluator,
     inputs::Input,
@@ -21,7 +22,7 @@ use crate::{
 };
 
 impl<E, F, I, M, R, S, W, Z> DependencyResolver for PowerScheduleStage<E, F, I, M, R, S, W, Z> {
-    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<()> {
+    fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
         registrator.register_md_default::<PowerScheduleData>("");
         Ok(())
     }

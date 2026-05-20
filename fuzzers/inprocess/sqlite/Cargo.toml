@@ -26,14 +26,14 @@ which = "6.0.3"
 libaflmm = { path = "../../../crates/libaflmm", default-features = false, features = [
   "derive",
   "rand_trait",
-  "prelude",
   "derive",
   "rand_trait",
-  "prelude",
   "errors_backtrace",
   "web_monitor",
 ] }
-libaflmm_bolts = { path = "../../../crates/libaflmm_bolts", features = ["xxh3"] }
+libaflmm_bolts = { path = "../../../crates/libaflmm_bolts", features = [
+  "xxh3",
+] }
 libaflmm_targets = { path = "../../../crates/libaflmm_targets", features = [
   "sancov_pcguard_hitcounts",
   "libfuzzer",

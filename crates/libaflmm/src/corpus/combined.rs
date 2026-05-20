@@ -2,7 +2,7 @@
 
 use super::{Corpus, HasScheduler, Testcase, store::Store};
 use crate::{
-    DependencyResolver,
+    common::DependencyResolver,
     corpus::{Cache, Scheduler, TestcaseId, store::StorageResult},
 };
 use alloc::{rc::Rc, vec::Vec};

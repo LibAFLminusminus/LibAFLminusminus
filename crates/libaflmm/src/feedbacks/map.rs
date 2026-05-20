@@ -3,7 +3,8 @@
 #[cfg(feature = "simd")]
 use super::simd::SimdMapFeedback;
 use crate::{
-    DependencyResolver,
+    common::DependencyResolver,
+    common::Registrator,
     corpus::TestcaseId,
     executors::ExitKind,
     feedbacks::{Feedback, HasObserverHandle},
@@ -316,7 +317,7 @@ where
     O: MapObserver,
     O::Entry: 'static + Default + Debug + DeserializeOwned + Serialize,
 {
-    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<()> {
+    fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
         registrator.register_md_default::<MapFeedbackMetadata<O::Entry>>(self.name());
         Ok(())
     }

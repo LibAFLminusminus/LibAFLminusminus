@@ -6,7 +6,9 @@ use core::time::Duration;
 use libaflmm_bolts::current_time;
 
 use crate::{
-    Controller, Descriptor, Result,
+    Result,
+    controllers::Controller,
+    controllers::Descriptor,
     monitors::Monitor,
     states::{Stats, read_stats_json},
 };
