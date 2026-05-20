@@ -110,11 +110,9 @@ pub mod prelude {
     pub use crate::monitors::{Monitor, PerfStats, SimpleMonitor, StdMonitor};
 
     pub use crate::mutators::{
-        ComposedByMutations, HavocCrossoverType, HavocMutationsNoCrossoverType, HavocMutationsType,
-        HavocScheduledMutator, MappedHavocCrossoverType, Mutator, MutatorsTuple, NopMutator,
-        QwordAddMutator, ScheduledMutator, SingleChoiceScheduledMutator, SpliceMutator, StdMutator,
-        TokenInsert, TokenReplace, Tokens, WordAddMutator, WordInterestingMutator, havoc_mutations,
-        havoc_mutations_no_crossover, int_mutators, mutations::*, tokens_mutations,
+        ComposedByMutations, HavocScheduledMutator, Mutator, MutatorsTuple, NopMutator,
+        ScheduledMutator, StdMutator, Tokens, havoc_mutations, havoc_mutations_no_crossover,
+        int_mutators, mutations::*, tokens_mutations,
     };
 
     #[cfg(feature = "nautilus")]
@@ -136,9 +134,9 @@ pub mod prelude {
     };
 
     pub use crate::stages::{
-        AFLPower, AFLPowerScheduleStage, DynamicStage, GenStage, IfElseStage, IfStage,
-        MutationalStage, NopStage, Power, PowerScheduleStage, RunHookFn, SingleRunStage, Stage,
-        StagesTuple, StdMutationalStage, StdStage, TracerStage, WhileStage,
+        DynamicStage, GenStage, IfElseStage, IfStage, MutationalStage, NopStage,
+        PowerScheduleStage, RunHookFn, SingleRunStage, Stage, StagesTuple, StdMutationalStage,
+        StdStage, TracerStage, WhileStage,
     };
 
     pub use crate::states::{NopState, State, StdState};
