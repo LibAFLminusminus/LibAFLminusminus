@@ -251,7 +251,7 @@ pub struct CrossoverMutator;
 impl<I, R, S> Mutator<I, R, S> for CrossoverMutator
 where
     R: Rand,
-    S: State<I>,
+    S: State<Input = I>,
     I: Copy,
 {
     fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
@@ -299,7 +299,7 @@ impl<F, I> MappedCrossoverMutator<F, I> {
 impl<I, O, R, S, F> Mutator<O, R, S> for MappedCrossoverMutator<F, I>
 where
     R: Rand,
-    S: State<I>,
+    S: State<Input = I>,
     for<'b> F: Fn(&'b I) -> &'b O,
     O: Clone,
 {

@@ -11,7 +11,7 @@ use crate::{
     fuzzers::{ExitKind, FuzzerHook},
     inputs::Input,
     observers::{MapObserver, ObserversTuple},
-    states::{CoreState, STAT_CALIBRATION, State, named_metadata_mut, unnamed_metadata_mut},
+    states::{STAT_CALIBRATION, State, named_metadata_mut, unnamed_metadata_mut},
 };
 use alloc::{borrow::Cow, string::ToString, vec::Vec};
 use core::{marker::PhantomData, time::Duration};
@@ -73,7 +73,7 @@ pub fn run_target_measuring_time<E, I, S, W>(
 where
     E: Executor<I, S>,
     I: Input,
-    S: CoreState,
+    S: State,
     W: Worker,
 {
     executor.observers_mut().pre_exec_all(state)?;
@@ -146,7 +146,7 @@ where
     O: MapObserver,
     O::Entry: Serialize,
     for<'de> O::Entry: Deserialize<'de> + 'static + Default + Bounded,
-    S: State<I>,
+    S: State<Input = I>,
     W: Worker,
 {
     #[expect(clippy::cast_precision_loss)]
@@ -255,10 +255,10 @@ where
             100.0f64
         };
 
-        state
-            .stats_mut()
-            .user_map
-            .insert(STAT_CALIBRATION.to_string(), serde_json::json!(stability));
+        state.stats_mut().user_map.insert(
+            STAT_CALIBRATION.to_string(),
+            serde_json::json!(stability).to_string(),
+        );
 
         if state.has_md::<PowerScheduleData>() {
             let current = state.corpus().scheduler().current();

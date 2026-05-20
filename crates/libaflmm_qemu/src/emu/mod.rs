@@ -5,11 +5,13 @@
 use core::fmt::{self, Debug, Display, Formatter};
 use std::ops::Add;
 
-use libaflmm::{Result, executors::ExitKind, observers::ObserversTuple};
+use libaflmm::{
+    Result, executors::ExitKind, inputs::Input, observers::ObserversTuple, states::State,
+};
 use libaflmm_qemu_sys::{GuestAddr, GuestPhysAddr, GuestVirtAddr};
 
 use crate::{
-    QemuShutdownCause, breakpoint::Breakpoint, command::CommandError, sync_exit::CustomInsn,
+    Qemu, QemuShutdownCause, breakpoint::Breakpoint, command::CommandError, sync_exit::CustomInsn,
 };
 
 pub mod standard;
@@ -24,21 +26,31 @@ pub use drivers::*;
 pub mod snapshot;
 pub use snapshot::*;
 
-pub trait Emulator<I, S> {
-    fn first_exec(&mut self, state: &mut S) -> Result<()>;
-    fn pre_exec(&mut self, state: &mut S, input: &I) -> Result<()>;
-    fn exec_input(&mut self, input: &I) -> Result<ExitKind>;
+pub trait Emulator {
+    type Input: Input;
+    type State: State;
+
+    fn first_exec(&mut self, state: &mut Self::State) -> Result<()>;
+
+    fn pre_exec(&mut self, state: &mut Self::State, input: &Self::Input) -> Result<()>;
+
+    fn exec_input(&mut self, input: &Self::Input) -> Result<ExitKind>;
+
     fn post_exec<OT>(
         &mut self,
-        input: &I,
+        state: &mut Self::State,
+        input: &Self::Input,
         observers: &mut OT,
-        state: &mut S,
         exit_kind: &mut ExitKind,
     ) -> Result<()>
     where
-        OT: ObserversTuple<S>;
+        OT: ObserversTuple<Self::State>;
+
     fn on_crash(&mut self) -> Result<()>;
+
     fn on_timeout(&mut self) -> Result<()>;
+
+    fn qemu(&self) -> Qemu;
 }
 
 #[derive(Copy, Clone)]

@@ -5,9 +5,7 @@ use std::{
 };
 
 use enum_map::Enum;
-use libaflmm::executors::ExitKind;
-#[cfg(feature = "usermode")]
-use libaflmm::inputs::Input;
+use libaflmm::{executors::ExitKind, inputs::Input};
 use libaflmm_qemu_sys::GuestAddr;
 #[cfg(feature = "systemmode")]
 use libaflmm_qemu_sys::GuestPhysAddr;
@@ -27,7 +25,7 @@ use super::{CommandError, IsCommand, IsStdCommandManager};
 #[cfg(not(feature = "systemmode"))]
 use crate::InputLocation;
 #[cfg(feature = "systemmode")]
-use crate::emu::systemmode::SystemInputLocation as InputLocation;
+use crate::emu::standard::systemmode::SystemInputLocation as InputLocation;
 use crate::{
     EmulatorDriverError, EmulatorDriverResult, EmulatorExitResult, GenericEmulatorDriver, GuestReg,
     InputSetter, IsSnapshotManager, Regs, StdEmulator, define_std_command_manager_bound,

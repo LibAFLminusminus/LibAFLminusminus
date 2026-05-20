@@ -1,15 +1,13 @@
-use std::{fmt::Debug, ptr};
-
-use libaflmm::{Result, observers::VarLenMapObserver, states::CoreState};
-use libaflmm_qemu_sys::GuestAddr;
-#[cfg(feature = "systemmode")]
-use libaflmm_qemu_sys::GuestPhysAddr;
-
 use crate::{
     Qemu,
     emu::EmulatorModules,
     modules::{AddressFilter, EmulatorModule, EmulatorModuleTuple, PageFilter},
 };
+use libaflmm::{Result, observers::VarLenMapObserver, states::State};
+use libaflmm_qemu_sys::GuestAddr;
+#[cfg(feature = "systemmode")]
+use libaflmm_qemu_sys::GuestPhysAddr;
+use std::{fmt::Debug, ptr};
 
 mod helpers;
 use helpers::{
@@ -58,7 +56,7 @@ trait EdgeCoverageVariant<AF, PF, const IS_CONST_MAP: bool, const MAP_SIZE: usiz
         ET: EmulatorModuleTuple<I, S>,
         PF: PageFilter,
         I: Unpin,
-        S: CoreState + Unpin,
+        S: State + Unpin,
     {
         panic!("JIT hitcount is not supported.")
     }
@@ -69,7 +67,7 @@ trait EdgeCoverageVariant<AF, PF, const IS_CONST_MAP: bool, const MAP_SIZE: usiz
         ET: EmulatorModuleTuple<I, S>,
         PF: PageFilter,
         I: Unpin,
-        S: CoreState + Unpin,
+        S: State + Unpin,
     {
         panic!("JIT no hitcount is not supported.")
     }
@@ -80,7 +78,7 @@ trait EdgeCoverageVariant<AF, PF, const IS_CONST_MAP: bool, const MAP_SIZE: usiz
         ET: EmulatorModuleTuple<I, S>,
         PF: PageFilter,
         I: Unpin,
-        S: CoreState + Unpin,
+        S: State + Unpin,
     {
         panic!("Func hitcount is not supported.")
     }
@@ -91,7 +89,7 @@ trait EdgeCoverageVariant<AF, PF, const IS_CONST_MAP: bool, const MAP_SIZE: usiz
         ET: EmulatorModuleTuple<I, S>,
         PF: PageFilter,
         I: Unpin,
-        S: CoreState + Unpin,
+        S: State + Unpin,
     {
         panic!("Func no hitcount is not supported.")
     }
@@ -340,7 +338,7 @@ where
     AF: AddressFilter + 'static,
     PF: PageFilter + 'static,
     I: Unpin,
-    S: Unpin + CoreState,
+    S: Unpin + State,
     V: EdgeCoverageVariant<AF, PF, IS_CONST_MAP, MAP_SIZE> + 'static,
 {
     const HOOKS_DO_SIDE_EFFECTS: bool = V::DO_SIDE_EFFECTS;

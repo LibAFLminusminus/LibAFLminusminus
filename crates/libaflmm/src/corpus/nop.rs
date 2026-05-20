@@ -31,7 +31,9 @@ impl<I, S> HasScheduler for NopCorpus<I, S> {
     }
 }
 
-impl<I, S> Corpus<I> for NopCorpus<I, S> {
+impl<I, S> Corpus for NopCorpus<I, S> {
+    type Input = I;
+
     /// Returns the number of all enabled entries
     #[inline]
     fn count(&self) -> usize {

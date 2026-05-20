@@ -627,7 +627,7 @@ impl DependencyResolver for TimeFeedback {}
 impl<I, OT, S> Feedback<I, OT, S> for TimeFeedback
 where
     OT: MatchName,
-    S: State<I>,
+    S: State<Input = I>,
 {
     /// Append to the testcase the generated metadata in case of a new corpus item
     #[inline]

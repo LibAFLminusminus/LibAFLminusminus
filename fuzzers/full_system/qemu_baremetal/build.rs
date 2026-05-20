@@ -1,4 +1,4 @@
-use libafl_qemu_build::build_libafl_qemu;
+use libaflmm_qemu_build::build_libafl_qemu;
 
 #[macro_export]
 macro_rules! assert_unique_feature {

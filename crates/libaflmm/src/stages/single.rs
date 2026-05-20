@@ -29,7 +29,7 @@ impl<I, Pre, Post> DependencyResolver for SingleRunStage<I, Pre, Post> {}
 
 impl<E, I, Pre, Post, R, S, W, Z> Stage<E, R, S, W, Z> for SingleRunStage<I, Pre, Post>
 where
-    S: State<I>,
+    S: State<Input = I>,
     Z: Evaluator<E, I, S, W>,
     Pre: FnMut(&mut RuntimeHandle<S, W>, &mut E, &mut R, &mut S, &mut Z) -> Result<()>,
     Post: FnMut(&mut RuntimeHandle<S, W>, &mut E, &mut R, &mut S, &mut Z) -> Result<()>,

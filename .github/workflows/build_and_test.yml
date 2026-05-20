@@ -211,6 +211,9 @@ jobs:
         fuzzer:
           # Tutorial
           - baby/baby_nyx
+
+          # Full-system
+          - full_system/qemu_baremetal
     env:
       PROFILE: dev # build in debug mode to speed up the tests
     steps:

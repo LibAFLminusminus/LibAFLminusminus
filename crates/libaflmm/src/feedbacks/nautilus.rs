@@ -77,7 +77,7 @@ impl DependencyResolver for NautilusFeedback<'_> {
 
 impl<OT, S> Feedback<NautilusInput, OT, S> for NautilusFeedback<'_>
 where
-    S: State<NautilusInput>,
+    S: State<Input = NautilusInput>,
 {
     fn append_metadata(
         &mut self,

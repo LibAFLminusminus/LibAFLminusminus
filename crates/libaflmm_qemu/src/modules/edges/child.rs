@@ -1,4 +1,4 @@
-use libaflmm::states::CoreState;
+use libaflmm::states::State;
 
 use super::{
     EdgeCoverageVariant,
@@ -37,7 +37,7 @@ impl<AF, PF, const IS_CONST_MAP: bool, const MAP_SIZE: usize>
         ET: EmulatorModuleTuple<I, S>,
         PF: PageFilter,
         I: Unpin,
-        S: CoreState + Unpin,
+        S: State + Unpin,
     {
         emulator_modules.edges(
             Hook::Function(gen_hashed_edge_ids::<AF, ET, PF, I, S, Self, IS_CONST_MAP, MAP_SIZE>),
@@ -51,7 +51,7 @@ impl<AF, PF, const IS_CONST_MAP: bool, const MAP_SIZE: usize>
         ET: EmulatorModuleTuple<I, S>,
         PF: PageFilter,
         I: Unpin,
-        S: CoreState + Unpin,
+        S: State + Unpin,
     {
         emulator_modules.edges(
             Hook::Function(gen_hashed_edge_ids::<AF, ET, PF, I, S, Self, IS_CONST_MAP, MAP_SIZE>),

@@ -6,8 +6,7 @@ use libaflmm_bolts::Named;
 
 use super::Stage;
 use crate::{
-    DependencyResolver, Result, corpus::testcase::TestcaseId, stages::RuntimeHandle,
-    states::CoreState,
+    DependencyResolver, Result, corpus::testcase::TestcaseId, stages::RuntimeHandle, states::State,
 };
 
 /// A dynamic stage implementation. This explicity uses enum so that rustc can better
@@ -42,7 +41,7 @@ where
 
 impl<E, R, S, T1, T2, W, Z> Stage<E, R, S, W, Z> for DynamicStage<T1, T2>
 where
-    S: CoreState,
+    S: State,
     T1: Stage<E, R, S, W, Z>,
     T2: Stage<E, R, S, W, Z>,
 {

@@ -65,7 +65,7 @@ where
     }
 }
 
-impl<C, CS, FS, I, SC> Corpus<I> for CombinedCorpus<C, CS, FS, I, SC>
+impl<C, CS, FS, I, SC> Corpus for CombinedCorpus<C, CS, FS, I, SC>
 where
     C: Cache<CS, FS, I>,
     CS: Store<I>,
@@ -73,6 +73,8 @@ where
     I: Clone,
     SC: Scheduler,
 {
+    type Input = I;
+
     fn count(&self) -> usize {
         self.fallback_store.count()
     }

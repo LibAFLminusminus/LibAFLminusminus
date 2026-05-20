@@ -49,7 +49,9 @@ pub trait HasScheduler {
 }
 
 /// Corpus with all current [`Testcase`]s, or solutions
-pub trait Corpus<I>: HasScheduler + Sized + DependencyResolver {
+pub trait Corpus: HasScheduler + Sized + DependencyResolver {
+    type Input;
+
     /// Returns the number of all enabled entries
     fn count(&self) -> usize;
 
@@ -69,7 +71,7 @@ pub trait Corpus<I>: HasScheduler + Sized + DependencyResolver {
     /// The corpus is responsible to handle that case without erroring out.
     ///
     /// The default [`TestcaseMetadata`] will be instantiated.
-    fn add(&mut self, testcase: Testcase<I>) -> Result<TestcaseId> {
+    fn add(&mut self, testcase: Testcase<Self::Input>) -> Result<TestcaseId> {
         self.add_shared::<true>(testcase)
     }
 
@@ -78,7 +80,7 @@ pub trait Corpus<I>: HasScheduler + Sized + DependencyResolver {
     /// The corpus is responsible to handle that case without erroring out.
     ///
     /// The default [`TestcaseMetadata`] will be instantiated.
-    fn add_disabled(&mut self, testcase: Testcase<I>) -> Result<TestcaseId> {
+    fn add_disabled(&mut self, testcase: Testcase<Self::Input>) -> Result<TestcaseId> {
         self.add_shared::<false>(testcase)
     }
 
@@ -88,20 +90,23 @@ pub trait Corpus<I>: HasScheduler + Sized + DependencyResolver {
     /// The corpus is responsible to handle that case without erroring out.
     ///
     /// The input can be shared through [`Rc`].
-    fn add_shared<const ENABLED: bool>(&mut self, testcase: Testcase<I>) -> Result<TestcaseId>;
+    fn add_shared<const ENABLED: bool>(
+        &mut self,
+        testcase: Testcase<Self::Input>,
+    ) -> Result<TestcaseId>;
 
     /// Get testcase by id; considers only enabled testcases
-    fn get(&self, id: &TestcaseId) -> Result<Testcase<I>> {
+    fn get(&self, id: &TestcaseId) -> Result<Testcase<Self::Input>> {
         Self::get_from::<true>(self, id)
     }
 
     /// Get testcase by id, looking at the enabled and disabled stores.
-    fn get_from_all(&self, id: &TestcaseId) -> Result<Testcase<I>> {
+    fn get_from_all(&self, id: &TestcaseId) -> Result<Testcase<Self::Input>> {
         Self::get_from::<false>(self, id)
     }
 
     /// Get testcase by id
-    fn get_from<const ENABLED: bool>(&self, id: &TestcaseId) -> Result<Testcase<I>>;
+    fn get_from<const ENABLED: bool>(&self, id: &TestcaseId) -> Result<Testcase<Self::Input>>;
 }
 
 /// Trait implemented by [`Corpus`]es able to disable an entry.

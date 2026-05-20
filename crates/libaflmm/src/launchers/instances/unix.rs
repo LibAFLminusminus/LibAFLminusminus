@@ -1,9 +1,8 @@
 //! Unix instance
 
+use crate::{Controller, Error, Result, Worker, monitors::Monitor, runtimes::Runtime};
 use alloc::vec::Vec;
 use core::{borrow::Borrow, hash::Hash, time::Duration};
-use std::{collections::HashSet, os::fd::AsFd, process::exit};
-
 use libaflmm_bolts::core_affinity::CoreId;
 use nix::{
     poll::{PollFd, PollFlags, PollTimeout, poll},
@@ -15,8 +14,7 @@ use nix::{
     },
     unistd::{ForkResult, Pid, fork, getpid, getppid},
 };
-
-use crate::{Controller, Error, Result, Worker, monitors::Monitor, runtimes::Runtime};
+use std::{collections::HashSet, os::fd::AsFd, process::exit};
 
 /// An Instance ID, unique for each [`Instance`].
 pub type InstanceId = u32;
@@ -218,6 +216,8 @@ where
                         .unwrap_or_else(|| panic!("Removed a PID ({pid}) not in the active PID list. This is a fuzzer bug."));
 
                     controller.on_worker_exit(&instance_repr.descriptor, exit_code)?;
+
+                    exit(exit_code);
                 }
                 Ok(WaitStatus::Signaled(pid, signal, _)) => {
                     log::info!("Worker with PID {pid} exited because of signal {signal}");

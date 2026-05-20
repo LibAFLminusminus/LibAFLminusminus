@@ -49,7 +49,7 @@ runs:
         packages=(
           curl lsb-release wget software-properties-common gnupg
           shellcheck libc6-dev gcc g++ build-essential libfile-mimeinfo-perl
-          python3-pip cmake python3 libpython3-dev mold
+          python3-pip cmake python3 libpython3-dev mold yq
         )
 
         if ! dpkg -s "${packages[@]}" &>/dev/null; then
@@ -67,4 +67,19 @@ runs:
           sudo flock --timeout 300 /var/lock/github-apt.lock apt-get build-dep -y qemu
           sudo mkdir -p "$(dirname "$sentinel")"
           sudo touch "$sentinel"
+        fi
+
+    - name: Install QEMU runtime packages
+      if: ${{ inputs.qemu == 'true' }}
+      shell: bash
+      run: |
+        packages=(
+          qemu-utils
+          gcc-arm-none-eabi
+          libnewlib-arm-none-eabi
+        )
+
+        if ! dpkg -s "${packages[@]}" &>/dev/null; then
+          sudo flock --timeout 300 /var/lock/github-apt.lock \
+            apt-get install -y --no-install-recommends "${packages[@]}"
         fi

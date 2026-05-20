@@ -1,9 +1,3 @@
-use std::marker::PhantomData;
-
-#[cfg(all(feature = "usermode", not(feature = "systemmode")))]
-use libaflmm::{inputs::Input, states::CoreState};
-use libaflmm_bolts::tuples::{Append, Prepend, tuple_list};
-
 #[cfg(doc)]
 use crate::config::QemuConfig;
 #[cfg(feature = "systemmode")]
@@ -15,6 +9,9 @@ use crate::{
     config::QemuConfigBuilder,
     modules::{EmulatorModule, EmulatorModuleTuple},
 };
+use libaflmm::{inputs::Input, states::State};
+use libaflmm_bolts::tuples::{Append, Prepend, tuple_list};
+use std::marker::PhantomData;
 
 /// An [`Emulator`] Builder.
 ///
@@ -72,7 +69,7 @@ impl<C, I, S>
         super::StdSnapshotManager,
     >
 where
-    S: CoreState + Unpin,
+    S: State + Unpin,
     I: Input,
 {
     #[must_use]
@@ -102,7 +99,7 @@ impl<C, I, S>
         super::systemmode::StdSnapshotManager,
     >
 where
-    S: CoreState + Unpin,
+    S: State + Unpin,
     I: Input,
 {
     #[expect(clippy::should_implement_trait)]
