@@ -27,12 +27,12 @@ It resulted in large, tightly coupled types like `GenericInProcessExecutor` that
 ### `Workdir`
 
 Another significant change is the introduction of `Workdir`.
-In `LibAFL`, the wordir layout was unspecified: directories could be created in arbitrary locations relative to where the fuzzer was launched, and the library did not prescribe a standard structure.
+In `LibAFL`, the workdir layout was unspecified: directories could be created in arbitrary locations relative to where the fuzzer was launched, and the library did not prescribe a standard structure.
 As a result, users either shared directories across clients or had a to implement pre-client separation themselves.
 Creating a proper working directory structure is tedious, and required to re-implement the same basic blocs for each fuzzer.
 `LibAFL--` provides `Workdir`, a structure for managing on-disk working directories.
 It provides a convenient interface to create directories in the right place, without having to remember where the client root directory is.
-By default, `LibAFL--` is organized as follow:
+By default, `LibAFL--` is organized as follows:
 ```
 workdir/
   worker_0/
@@ -163,6 +163,6 @@ In other words, `build_*` are convenient short hands for `runtime(*).build()`.
 Now that the launcher is properly configured, we can configure the fuzzer as usual.
 The most notable difference is that state is now provided as an argument of the task, instead of being created in the task.
 This is necessary because of the separation between `Runtime` and `Executor`.
-The rest of the setup should be very familiar if you already wrote `LibAFL` fuzzers.
+The rest of the setup should be familiar if you already wrote `LibAFL` fuzzers.
 Please refer to `fuzzers/baby/baby_inprocess` to check the full minimal code.
 It slightly differs from the code showed here, but ultimately fills the same mission.
