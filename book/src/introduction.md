@@ -11,28 +11,30 @@ In any case, researchers end up with tons of fuzzers, all of which are incompati
 Their outstanding features cannot just be combined for new projects.
 By reinventing the wheel over and over, we may completely miss out on features that are complex to reimplement.
 
-To tackle this, LibAFL was built as a collection of reusable pieces for individual fuzzers.
+To tackle this, `LibAFL` was built as a collection of reusable pieces for individual fuzzers.
 Written in Rust, it helped develop fuzzers tailored for specific needs.
 
-However, LibAFL suffered from multiple problems that made it difficult to maintain over time.
-The project included many different features that kept accumulating, resulting in a massive codebase with many modules few people were actually using.
-Soon enough, LibAFL got heavily bloated, making it hardly maintainable.
-We also identified core architectural issues, requiring to rewrite a large portion of the code.
-This is how the idea of LibAFL-- was born.
+Over time, `LibAFL` accumulated a broad set of features in a single codebase.
+Many modules ended up rarely used in practice, and the resulting surface area became difficult to maintain.
+We also identified core architectural limitations that called for rewriting significant parts of the code.
+This is how the idea of `LibAFL--` was born.
 
 ## Why LibAFL--?
 
-LibAFL-- keeps the main benefits of LibAFL, while exposing a saner API for users.
+`LibAFL--` keeps the main benefits of `LibAFL`, while exposing a saner API for users.
 Some highlight features currently include:
 
-- **Consistent API**: LibAFL was forcing users to change the way their fuzzers was built depending on the actual use case without any good reason.
-For example, some fuzzers required a launcher, others did not. 
-- **Clear defaults**: LibAFL-- provides a default for every main bloc, through the `Std...` naming convention.
-You do not have to guess anymore what is the best general mutators to plug, or which stages should actually be used for everyday fuzzing.
-- **Adaptable**: Although LiBAFL provided fair adaptability, architectural quirks made is awkward to perform some tasks.
-For example, `Executor`s were uselessly complex and have been rebuilt from scratch.
-Some anti-patterns were also necessary to perform specific tasks: for example, `Feedback` were sometimes used to hook into interesting test cases, even though it had nothing to do with a proper feedback.
-LibAFL-- solves that by exposing many more hooks for the fuzzer and friends.
+- **Consistent API**: In `LibAFL`, the way a fuzzer was assembled varied between use cases.
+Some required a launcher, others did not.
+`LibAFL--` unifies these into one single general shape.
+That way, fuzzers can be easily modified and extended with minimal efforts.
+- **Clear defaults**:
+`LibAFL--` provides a default for every main block, through the `Std...` naming convention.
+The standard set of mutators, stages, and other components is documented and usable out of the box.
+- **Adaptable**: `LibAFL` offered fair adaptability, but some architectural decisions resulted in an awkward API for end user.
+`Executor`s, for example, carried more responsibilities than they needed to, and have been rebuilt from scratch.
+Other tasks had to be expressed through unrelated abstractions.
+`LibAFL--` addresses this by exposing many more hooks.
 - **Fast**: We do everything we can at compile time so that the runtime overhead is as minimal as it can get.
 - **Bring your own target**: We support binary-only modes, like (full-system) QEMU-Mode and Frida-Mode with ASan and CmpLog, as well as multiple compilation passes for sourced-based instrumentation.
 Of course, we also support custom instrumentation, as you can see in the Python example based on Google's Atheris.

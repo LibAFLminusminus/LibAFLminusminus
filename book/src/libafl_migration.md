@@ -11,24 +11,24 @@ For `Executor`s, the port should be moderately difficult, and often results in d
 
 ## What did actually change
 
-### `llmp` removal
+### `llmp` dependency removal
 
-The biggest change of `LibAFL--` with respect to `LibALF` is the removal of the `llmp` dependency.
-In short, fuzzers do not need to rely on shared memory and `llmp` anymore, largely simplifying the overall design.
-Through experiments, we have observed embedding `llmp` at the core of the library did not offer any performance or coverage gain in practice, while drastically increased `LibAFl`'s code complexity.
-Worse, `llmp` could be used as it was before, without needing to make it a mandatory building block.
+The biggest change of `LibAFL--` with respect to `LibAFL` is the removal of `llmp` from the core.
+Fuzzers no longer need to rely on shared memory and `llmp` by default, which significantly simplifies the overall design.
+Our experiments showed that embedding `llmp` at the core did not offer measurable performance or coverage gains in practice, while adding substantial code complexity.
+Where users still want `llmp`, it can be opted into without being a mandatory building block.
 
 ### Introduction of `Runtime`
 
 The other important difference with `LibAFL` is the split of `Executor` into `Executor` and `Runtime`.
 `Executor` used to carry two different roles: setup the environment in which the fuzzer would run (in-process, forkserver, etc...), and feed the input to the target.
-It resulted in over-bloated objects (like `GenericInProcessExecutor`) and heavy spaghetti code.
+It resulted in large, tightly coupled types like `GenericInProcessExecutor` that were hard to extend without touching unrelated paths.
 
 ### `Workdir`
 
 Another significant change is the introduction of `Workdir`.
-In `LibAFL` the way a workdir was organized was quite messy: some directories were randomly created where the fuzzer was run, and no real stardard structure was provided by the library.
-As a result, users had to share directories for each client at best, and manually implement some logic for separating clients at worst.
+In `LibAFL`, the wordir layout was unspecified: directories could be created in arbitrary locations relative to where the fuzzer was launched, and the library did not prescribe a standard structure.
+As a result, users either shared directories across clients or had a to implement pre-client separation themselves.
 Creating a proper working directory structure is tedious, and required to re-implement the same basic blocs for each fuzzer.
 `LibAFL--` provides `Workdir`, a structure for managing on-disk working directories.
 It provides a convenient interface to create directories in the right place, without having to remember where the client root directory is.
@@ -49,7 +49,7 @@ workdir/
 ```
 Simple, yet effective.
 Note how `LibAFL--` does not share the same directories for `crashes` and `corpus` anymore.
-No more concurrency issues when saving your precious crashes on disk.
+Crashes and corpus entries are stored in separate directories, avoiding the concurrency issues that came with sharing them.
 
 ### Summary
 
