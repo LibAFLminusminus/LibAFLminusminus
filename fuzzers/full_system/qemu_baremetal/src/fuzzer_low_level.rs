@@ -106,7 +106,7 @@ pub fn fuzz() -> Result<()> {
                 .start_cpu(false)
                 .build();
 
-            let emulator_modules = tuple_list!(StdEdgeCoverageModuleBuilder::default()
+            let emulator_modules = tuple_list!(StdEdgeCoverageModule::builder()
                 .map_observer(edges_observer.as_mut())
                 .build()?);
 

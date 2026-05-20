@@ -47,8 +47,10 @@ pub use libaflmm_qemu_sys::{GuestAddr, GuestUlong, GuestUsize, MmapPerms};
 pub mod prelude {
     #[cfg(feature = "usermode")]
     pub use crate::GuestAbiUlong;
+
     #[cfg(feature = "systemmode")]
     pub use crate::{CPUArchState, GuestPhysAddr, GuestVirtAddr};
+
     pub use crate::{GuestAddr, GuestUlong, GuestUsize, MmapPerms};
 
     #[cfg(feature = "usermode")]
@@ -60,10 +62,13 @@ pub mod prelude {
         NopCommand, NopCommandManager, StdCommandManager,
     };
 
-    #[cfg(not(feature = "nyx"))]
-    pub use crate::command::LqemuCommandManager;
     #[cfg(feature = "nyx")]
     pub use crate::command::NyxCommandManager;
+    #[cfg(not(feature = "nyx"))]
+    pub use crate::command::{
+        AddressAllowCommand, EndCommand, LoadCommand, LqemuCommandManager, LqprintfCommand,
+        SaveCommand, SetMapCommand, StartCommand, TestCommand, VersionCommand,
+    };
 
     pub use crate::emu::{
         Emulator, EmulatorDriver, EmulatorDriverError, EmulatorDriverResult, EmulatorExitError,
@@ -91,6 +96,19 @@ pub mod prelude {
     pub use crate::modules::{
         AsanGuestModule, AsanHostModule, RedirectStdinModule, RedirectStdoutModule, SnapshotModule,
     };
+
+    pub use crate::qemu::{
+        ArchExtras, CPU, CallingConvention, DeviceSnapshotFilter, HostMemoryChunk, HostMemoryIter,
+        HostMemorySegments, MemAccessInfo, PhysMemoryChunk, PhysMemoryIter, Qemu, QemuConfig,
+        QemuError, QemuExitError, QemuExitReason, QemuHooks, QemuInitError, QemuMemoryChunk,
+        QemuParams, QemuRWError, QemuRWErrorCause, QemuRWErrorKind, QemuShutdownCause, config,
+    };
+
+    pub use crate::breakpoint::{Breakpoint, BreakpointId};
+
+    pub use crate::elf::EasyElf;
+
+    pub use crate::sync_exit::{CustomInsn, ExitArgs};
 }
 
 #[must_use]
