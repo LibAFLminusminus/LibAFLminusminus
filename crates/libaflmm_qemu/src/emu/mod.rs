@@ -34,6 +34,9 @@ pub use snapshots::{
     SnapshotManagerCheckError, SnapshotManagerError,
 };
 
+#[cfg(feature = "systemmode")]
+pub use snapshots::{FastSnapshotManager, FastSnapshotPtr, QemuSnapshotManager};
+
 #[cfg(feature = "usermode")]
 pub mod usermode;
 #[cfg(feature = "usermode")]

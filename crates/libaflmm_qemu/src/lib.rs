@@ -74,6 +74,9 @@ pub mod prelude {
         StdEmulatorDriverBuilder, StdInputSetter,
     };
 
+    #[cfg(feature = "systemmode")]
+    pub use crate::emu::{FastSnapshotManager, FastSnapshotPtr, QemuSnapshotManager};
+
     pub use crate::executors::{SimpleQemuExecutor, StdQemuExecutor};
 
     pub use crate::modules::{
