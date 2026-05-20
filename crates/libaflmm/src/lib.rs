@@ -37,15 +37,16 @@ pub mod states;
 
 /// The purpose of this module is to alleviate imports of many components by adding a glob import.
 pub mod prelude {
-    pub use crate::{
-        Error, Result, feedback_and, feedback_and_fast, feedback_not, feedback_or,
-        feedback_or_fast, non_zero, non_zero_const,
+    pub use libaflmm_bolts::{
+        current_milliseconds, current_nanos, current_time, non_zero, non_zero_const,
+        non_zero_unchecked, rands::StdRand, tuples::tuple_list,
     };
 
-    pub use crate::common::{
-        CompatibilityChecker, DependencyResolver, PowerScheduleData, Registrator,
-        TestcasePowerScheduleData,
+    pub use crate::{
+        Error, Result, feedback_and, feedback_and_fast, feedback_not, feedback_or, feedback_or_fast,
     };
+
+    pub use crate::common::{CompatibilityChecker, DependencyResolver, Registrator};
 
     #[cfg(feature = "nautilus")]
     pub use crate::common::{
@@ -56,47 +57,39 @@ pub mod prelude {
 
     pub use crate::controllers::{
         Controller, Descriptor, NopController, NopDescriptor, NopWorker, SimpleController,
-        SimpleControllerBuilder, SimpleDescriptor, SimpleWorker, SimpleWorkerRepr, StdController,
-        StdDescriptor, StdWorker, Workdir, WorkdirFile, Worker,
+        SimpleDescriptor, SimpleWorker, StdController, StdDescriptor, StdWorker, Workdir,
+        WorkdirFile, Worker,
     };
 
     pub use crate::corpus::{
-        Cache, CachedOnDiskCorpus, CachedOnDiskCorpusBuilder, CombinedCorpus, Corpus, DisableEntry,
-        EnableDisableCorpus, FifoCache, HasScheduler, IdentityCache, InMemoryCorpus,
-        InMemoryOnDiskCorpus, InMemoryOnDiskCorpusBuilder, InMemoryStore, NopCorpus, NopScheduler,
-        OnDiskCorpus, OnDiskCorpusBuilder, OnDiskStore, QueueScheduler, RandScheduler,
-        RemovableScheduler, Scheduler, SingleCorpus, StdCorpus, StdInMemoryCorpusMap,
-        StdInMemoryStore, StdObjectiveCorpus, StdOnDiskStore, StdScheduler, Store, Testcase,
-        TestcaseFilenameFormat, TestcaseId,
+        Cache, CachedOnDiskCorpus, CombinedCorpus, Corpus, DisableEntry, EnableDisableCorpus,
+        FifoCache, IdentityCache, InMemoryCorpus, InMemoryOnDiskCorpus, InMemoryStore, NopCorpus,
+        NopScheduler, OnDiskCorpus, OnDiskStore, QueueScheduler, RandScheduler, RemovableScheduler,
+        Scheduler, SingleCorpus, StdCorpus, StdInMemoryCorpusMap, StdInMemoryStore,
+        StdObjectiveCorpus, StdOnDiskStore, StdScheduler, Store, Testcase, TestcaseFilenameFormat,
+        TestcaseId,
     };
 
     pub use crate::executors::{
         BuiltForkserver, DiffExitKind, Executor, ExecutorsTuple, ExitKind, Forkserver,
-        ForkserverExecutor, ForkserverExecutorBuilder, NopExecutor, StdChildArgs,
-        StdChildArgsInner, StdExecutor, common_signals,
+        ForkserverExecutor, NopExecutor, StdChildArgs, StdExecutor, common_signals,
     };
 
     pub use crate::feedbacks::{
-        AflMapFeedback, AllIsNovel, AlwaysInterestingMapFeedback, BoolValueFeedback,
-        CRASH_FEEDBACK_NAME, CombinedFeedback, ConstFeedback, CrashFeedback, CrashLogic,
-        DiffExitKindFeedback, DifferentIsNovel, EagerAndFeedback, EagerOrFeedback,
-        ExitKindFeedback, ExitKindLogic, FastAndFeedback, FastOrFeedback, Feedback,
-        FeedbackFactory, FeedbackLogic, GenericDiffLogic, HasObserverHandle, IsNovel, ListFeedback,
-        ListFeedbackMetadata, LogicEagerAnd, LogicEagerOr, LogicFastAnd, LogicFastOr, MapFeedback,
-        MapFeedbackMetadata, MapIndexes, MapIndexesMetadata, MapNoveltiesMetadata, MaxMapFeedback,
+        AflMapFeedback, AlwaysInterestingMapFeedback, BoolValueFeedback, ConstFeedback,
+        CrashFeedback, DiffExitKindFeedback, EagerAndFeedback, EagerOrFeedback, ExitKindFeedback,
+        Feedback, FeedbackFactory, ListFeedback, MapFeedback, MaxMapFeedback,
         MaxMapOneOrFilledFeedback, MaxMapPow2Feedback, MinMapFeedback, NewHashFeedback,
-        NewHashFeedbackMetadata, NextPow2IsNovel, NotFeedback, OneOrFilledIsNovel, StdFeedback,
-        StdMapFeedback, StdObjectiveFeedback, TIMEOUT_FEEDBACK_NAME, TimeFeedback, TimeoutFeedback,
-        TimeoutLogic,
+        NotFeedback, StdFeedback, StdMapFeedback, StdObjectiveFeedback, TimeFeedback,
+        TimeoutFeedback,
     };
 
     #[cfg(feature = "nautilus")]
-    pub use crate::feedbacks::{NautilusChunksMetadata, NautilusFeedback};
+    pub use crate::feedbacks::NautilusFeedback;
 
     pub use crate::fuzzers::{
-        CalibrationHook, CustomNameHook, EvaluationResult, Evaluator, ExecutionProcessor, Fuzzer,
-        FuzzerHook, FuzzerHooksTuple, HasFeedback, HasObjective, NopFuzzer, StdFuzzer,
-        StdFuzzerBuilder, Verdict,
+        CalibrationHook, CustomNameHook, Evaluator, ExecutionProcessor, Fuzzer, FuzzerHook,
+        FuzzerHooksTuple, NopFuzzer, StdFuzzer,
     };
 
     pub use crate::generators::{Generator, RandBytesGenerator, RandPrintablesGenerator};
@@ -112,22 +105,16 @@ pub mod prelude {
     #[cfg(feature = "nautilus")]
     pub use crate::inputs::NautilusInput;
 
-    pub use crate::launchers::{
-        DEFAULT_MAX_STATE_SIZE_PER_WORKER, DEFAULT_MONITOR_REFRESH, DEFAULT_TIMEOUT, Instance,
-        InstanceId, InstanceRepr, Instances, StdLauncher, StdLauncherBuilder,
-    };
+    pub use crate::launchers::{Instance, InstanceId, Instances, StdLauncher};
 
     pub use crate::monitors::{Monitor, PerfStats, SimpleMonitor, StdMonitor};
 
     pub use crate::mutators::{
         ComposedByMutations, HavocCrossoverType, HavocMutationsNoCrossoverType, HavocMutationsType,
-        HavocScheduledMutator, MappedHavocCrossoverType, MutationChecker, MutationId,
-        MutationResult, Mutator, MutatorsTuple, NopMutator, QwordAddMutator, ScheduledMutator,
-        SingleChoiceScheduledMutator, SpliceMutator, StdMutator, TokenInsert, TokenReplace, Tokens,
-        WordAddMutator, WordInterestingMutator, havoc_crossover,
-        havoc_crossover_with_corpus_mapper, havoc_crossover_with_corpus_mapper_optional,
-        havoc_mutations, havoc_mutations_no_crossover, int_mutators, mutations::*, rand_range,
-        tokens_mutations,
+        HavocScheduledMutator, MappedHavocCrossoverType, Mutator, MutatorsTuple, NopMutator,
+        QwordAddMutator, ScheduledMutator, SingleChoiceScheduledMutator, SpliceMutator, StdMutator,
+        TokenInsert, TokenReplace, Tokens, WordAddMutator, WordInterestingMutator, havoc_mutations,
+        havoc_mutations_no_crossover, int_mutators, mutations::*, tokens_mutations,
     };
 
     #[cfg(feature = "nautilus")]
@@ -136,34 +123,25 @@ pub mod prelude {
     };
 
     pub use crate::observers::{
-        CmpLogMetadata, CmpLogObserver, CmpObserver, CmpValues, CmplogBytes, ConstLenMapObserver,
-        ConstMapObserver, HitcountsIterableMapObserver, HitcountsMapObserver, ListObserver,
-        MapObserver, MultiMapObserver, Observer, ObserverWithHashField, ObserversTuple,
-        OutputObserver, RefCellValueObserver, RefCellValueObserverIter,
-        RefCellValueObserverIterMut, StdErrObserver, StdMapObserver, StdObserver, StdOutObserver,
-        TimeObserver, ValueObserver, VarLenMapObserver, VariableMapObserver, parse_cmplog_map,
+        CmpLogObserver, ConstLenMapObserver, ConstMapObserver, HitcountsIterableMapObserver,
+        HitcountsMapObserver, ListObserver, MapObserver, MultiMapObserver, Observer,
+        ObserverWithHashField, ObserversTuple, OutputObserver, StdErrObserver, StdMapObserver,
+        StdObserver, StdOutObserver, TimeObserver, ValueObserver, VarLenMapObserver,
+        VariableMapObserver,
     };
 
     pub use crate::runtimes::{
-        InProcessRuntime, IntoTerminationHandlerData, NopRuntime, OsTerminationHandler,
-        OsTerminationParams, RestartingRuntime, Runtime, RuntimeHandle, SimpleInProcessRuntime,
-        SimpleRuntime, StdForkserverRuntime, StdInProcessRuntime, TerminationHandler,
-        TerminationHandlerData,
+        InProcessRuntime, NopRuntime, RestartingRuntime, Runtime, RuntimeHandle,
+        SimpleInProcessRuntime, SimpleRuntime, StdForkserverRuntime, StdInProcessRuntime,
     };
 
     pub use crate::stages::{
-        AFLPower, AFLPowerScheduleStage, DEFAULT_MUTATIONAL_MAX_ITERATIONS, DynamicStage, GenStage,
-        IfElseStage, IfStage, MUTATIONAL_STAGE_NAME, MutationalStage, NopStage,
-        POWER_MUTATIONAL_STAGE_NAME, Power, PowerScheduleStage, RunHookFn, SINGLE_RUN_STAGE_NAME,
-        SingleRunStage, Stage, StagesTuple, StdMutationalStage, StdStage, TRACER_STAGE_NAME,
-        TracerStage, WhileStage, cmplog_post_hook, cmplog_pre_hook,
+        AFLPower, AFLPowerScheduleStage, DynamicStage, GenStage, IfElseStage, IfStage,
+        MutationalStage, NopStage, Power, PowerScheduleStage, RunHookFn, SingleRunStage, Stage,
+        StagesTuple, StdMutationalStage, StdStage, TracerStage, WhileStage,
     };
 
-    pub use crate::states::{
-        LoadConfig, NopState, PSMetadata, STAT_CALIBRATION, STAT_COVERAGE, State, Stats, StdState,
-        TestcaseMetadata, TestcaseMetadataBuilder, add_named_metadata, named_metadata,
-        named_metadata_mut, read_stats_json, sync_stats, unnamed_metadata, unnamed_metadata_mut,
-    };
+    pub use crate::states::{NopState, State, StdState};
 }
 
 // TODO: adapt this test...

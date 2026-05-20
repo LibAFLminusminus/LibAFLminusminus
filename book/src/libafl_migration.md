@@ -29,7 +29,7 @@ It resulted in large, tightly coupled types like `GenericInProcessExecutor` that
 Another significant change is the introduction of `Workdir`.
 In `LibAFL`, the workdir layout was unspecified: directories could be created in arbitrary locations relative to where the fuzzer was launched, and the library did not prescribe a standard structure.
 As a result, users either shared directories across clients or had a to implement pre-client separation themselves.
-Creating a proper working directory structure is tedious, and required to re-implement the same basic blocs for each fuzzer.
+Creating a proper working directory structure is tedious, and required to re-implement the same basic block for each fuzzer.
 `LibAFL--` provides `Workdir`, a structure for managing on-disk working directories.
 It provides a convenient interface to create directories in the right place, without having to remember where the client root directory is.
 By default, `LibAFL--` is organized as follows:
@@ -48,7 +48,8 @@ workdir/
   ...
 ```
 Simple, yet effective.
-Note how `LibAFL--` does not share the same directories for `crashes` and `corpus` anymore.
+
+Note how `LibAFL--` does not share the same directories between workers for both `crashes` and `corpus` anymore.
 Crashes and corpus entries are stored in separate directories, avoiding the concurrency issues that came with sharing them.
 
 ### Summary
