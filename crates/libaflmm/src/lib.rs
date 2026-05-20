@@ -112,7 +112,7 @@ pub mod prelude {
     pub use crate::mutators::{
         ComposedByMutations, HavocScheduledMutator, Mutator, MutatorsTuple, NopMutator,
         ScheduledMutator, StdMutator, Tokens, havoc_mutations, havoc_mutations_no_crossover,
-        int_mutators, mutations::*, tokens_mutations,
+        int_mutators, tokens_mutations,
     };
 
     #[cfg(feature = "nautilus")]
