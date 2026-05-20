@@ -23,7 +23,7 @@ jobs:
       - uses: ./.github/actions/apt
       - uses: ./.github/actions/setup-llvm
         with:
-          version: ${{ env.MAIN_LLVM_VERSION }}
+          version: ${{ vars.MAIN_LLVM_VERSION }}
       - uses: ./.github/actions/setup-rust
         with:
           cache-key: ubuntu
@@ -57,7 +57,7 @@ jobs:
           qemu: true
       - uses: ./.github/actions/setup-llvm
         with:
-          version: ${{ env.MAIN_LLVM_VERSION }}
+          version: ${{ vars.MAIN_LLVM_VERSION }}
       - uses: ./.github/actions/setup-rust
         with:
           cache-key: ubuntu

@@ -14,7 +14,7 @@ jobs:
           qemu: true
       - uses: ./.github/actions/setup-llvm
         with:
-          version: ${{ env.MAIN_LLVM_VERSION }}
+          version: ${{ vars.MAIN_LLVM_VERSION }}
       - uses: ./.github/actions/setup-rust
         with:
           cache-key: ubuntu
@@ -39,7 +39,7 @@ jobs:
           qemu: true
       - uses: ./.github/actions/setup-llvm
         with:
-          version: ${{ env.MAIN_LLVM_VERSION }}
+          version: ${{ vars.MAIN_LLVM_VERSION }}
       - uses: ./.github/actions/setup-rust
         with:
           components: clippy, rustfmt
@@ -50,7 +50,7 @@ jobs:
         env:
           # check instance_idx if you change that to match
           CI_INSTANCES: 4
-          LLVM_VERSION: ${{ env.MAIN_LLVM_VERSION }}
+          LLVM_VERSION: ${{ vars.MAIN_LLVM_VERSION }}
         run: cargo run --manifest-path utils/ci_splitter/Cargo.toml -- ${{ matrix.instance_idx }}
 
   cargo-fmt:
@@ -62,7 +62,7 @@ jobs:
       - uses: ./.github/actions/apt
       - uses: ./.github/actions/setup-llvm
         with:
-          version: ${{ env.MAIN_LLVM_VERSION }}
+          version: ${{ vars.MAIN_LLVM_VERSION }}
       - uses: ./.github/actions/setup-rust
         with:
           cache-key: ubuntu
