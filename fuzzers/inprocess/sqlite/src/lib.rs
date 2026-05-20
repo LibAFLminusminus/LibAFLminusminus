@@ -33,18 +33,6 @@ struct Opt {
     cores: Cores,
 
     #[arg(
-        short = 'p',
-        long,
-        help = "Choose the broker TCP port, default is 1337",
-        name = "PORT",
-        default_value = "1337"
-    )]
-    broker_port: u16,
-
-    #[arg(short = 'a', long, help = "Specify a remote broker", name = "REMOTE")]
-    remote_broker_addr: Option<SocketAddr>,
-
-    #[arg(
         short,
         long,
         help = "Set an initial corpus directory",
@@ -194,7 +182,7 @@ where
     )?;
 
     // The actual target run starts here.
-    // Call LLVMFUzzerInitialize() if present.
+    // Call LLVMFuzzerInitialize() if present.
     let args: Vec<String> = env::args().collect();
     if unsafe { libfuzzer_initialize(&args) } == -1 {
         println!("Warning: LLVMFuzzerInitialize failed with -1");
@@ -202,7 +190,7 @@ where
 
     // This fuzzer restarts after 1 mio `fuzz_one` executions.
     // Each fuzz_one will internally do many executions of the target.
-    // If your target is very instable, setting a low count here may help.
+    // If your target is very unstable, setting a low count here may help.
     // However, you will lose a lot of performance that way.
     let iters = 1_000_000;
     let mut rand = StdRand::new();
