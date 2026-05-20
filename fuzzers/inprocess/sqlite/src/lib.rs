@@ -2,28 +2,7 @@ use core::time::Duration;
 use std::{env, net::SocketAddr, path::PathBuf};
 
 use clap::{self, Parser};
-use libaflmm::{
-    corpus::{
-        schedulers::{NopScheduler, QueueScheduler},
-        Corpus, InMemoryCorpus, OnDiskCorpus,
-    },
-    executors::{ExitKind, StdExecutor},
-    feedback_or, feedback_or_fast,
-    feedbacks::{CrashFeedback, MaxMapFeedback, TimeFeedback, TimeoutFeedback},
-    fuzzers::{Fuzzer, StdFuzzer},
-    inputs::{bytes::BytesContext, BytesInput, InputContext},
-    launchers::{StdLauncher, DEFAULT_MAX_STATE_SIZE_PER_WORKER},
-    monitors::WebMonitor,
-    mutators::{
-        havoc_mutations::havoc_mutations,
-        scheduled::{tokens_mutations, HavocScheduledMutator},
-    },
-    observers::{HitcountsMapObserver, StdMapObserver, TimeObserver},
-    runtimes::{RuntimeHandle, StdInProcessRuntime},
-    stages::mutational::StdMutationalStage,
-    states::{State, StdState},
-    Result, SimpleController, SimpleWorker, Worker,
-};
+use libaflmm::prelude::*;
 use libaflmm_bolts::{
     core_affinity::Cores,
     rands::StdRand,
@@ -115,10 +94,10 @@ pub extern "C" fn libafl_main() {
         StdState::new(
             context,
             // Corpus that will be evolved, we keep it in memory for performance
-            InMemoryCorpus::new(scheduler),
+            InMemoryCorpus::with_scheduler(scheduler),
             // Corpus in which we store solutions (crashes in this example),
             // on disk so the user can get them after stopping the fuzzer
-            OnDiskCorpus::new(crash_dir, NopScheduler {}).unwrap(),
+            OnDiskCorpus::builder().root_dir(crash_dir).build()?,
         )
     };
 
