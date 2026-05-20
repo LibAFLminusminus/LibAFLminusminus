@@ -1,4 +1,5 @@
 use crate::{CoverageEntry, IntelPT, IntelPTBuilder};
+use core::fmt::Debug;
 use libaflmm::observers::ObserversTuple;
 use libaflmm::{Result, executors::ExitKind, runtime};
 use libaflmm_qemu::{
@@ -7,7 +8,6 @@ use libaflmm_qemu::{
     qemu::{NewThreadHook, Qemu, QemuParams},
     sys,
 };
-use std::fmt::Debug;
 use typed_builder::TypedBuilder;
 
 #[derive(Debug, TypedBuilder)]
@@ -64,10 +64,10 @@ where
     where
         ET: EmulatorModuleTuple<I, S>,
     {
-        if !self.pt.is_some() {
-            Err(runtime!("Intel PT module not initialized."))
-        } else {
+        if self.pt.is_some() {
             Ok(())
+        } else {
+            Err(runtime!("Intel PT module not initialized."))
         }
     }
 
