@@ -63,7 +63,7 @@ macro_rules! define_std_command_manager_inner {
                     marker::PhantomData,
                 };
                 use enum_map::EnumMap;
-                use crate::{
+                use $crate::{
                     command::{IsStdCommandManager, CommandManager, CommandError, NativeCommandParser, IsCommand},
                     arch::get_exit_arch_regs,
                     modules::{utils::filters::HasStdFiltersTuple, EmulatorModuleTuple},
