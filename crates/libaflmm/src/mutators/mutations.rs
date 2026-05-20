@@ -1703,10 +1703,7 @@ mod tests {
 
     use super::*;
     use crate::{
-        corpus::{
-            InMemoryCorpus, Testcase,
-            schedulers::{NopScheduler, QueueScheduler},
-        },
+        corpus::{InMemoryCorpus, Testcase, schedulers::QueueScheduler},
         inputs::{BytesInput, bytes::BytesContext},
         mutators::MutatorsTuple,
         states::StdState,
@@ -1769,18 +1766,13 @@ mod tests {
     }
 
     fn test_state() -> impl State<Input = BytesInput> {
-        let mut corpus = InMemoryCorpus::<BytesInput, QueueScheduler>::new(QueueScheduler::new());
+        let mut corpus = InMemoryCorpus::with_scheduler(QueueScheduler::new());
 
         corpus
             .add(Testcase::new(Rc::new(BytesInput::new(vec![0x42; 0x1337]))))
             .unwrap();
 
-        StdState::new(
-            BytesContext,
-            corpus,
-            InMemoryCorpus::<BytesInput, NopScheduler>::new(NopScheduler),
-        )
-        .unwrap()
+        StdState::new(BytesContext, corpus, InMemoryCorpus::new()).unwrap()
     }
 
     #[test]

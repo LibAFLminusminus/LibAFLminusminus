@@ -262,7 +262,7 @@ mod tests {
     #[test]
     fn test_mut_scheduled() {
         let mut rand = XkcdRand::with_seed(0);
-        let mut corpus = InMemoryCorpus::new(QueueScheduler::new());
+        let mut corpus = InMemoryCorpus::with_scheduler(QueueScheduler::new());
         let id1 = corpus
             .add(Testcase::new(Rc::new(BytesInput::new(vec![
                 b'a', b'b', b'c',
@@ -279,7 +279,7 @@ mod tests {
         let state = StdState::new(
             BytesContext,
             corpus,
-            InMemoryCorpus::new(QueueScheduler::new()),
+            InMemoryCorpus::with_scheduler(QueueScheduler::new()),
         )
         .unwrap();
 
@@ -295,7 +295,7 @@ mod tests {
     #[test]
     fn test_havoc() {
         let mut rand = StdRand::with_seed(0x1337);
-        let mut corpus = InMemoryCorpus::new(QueueScheduler::new());
+        let mut corpus = InMemoryCorpus::with_scheduler(QueueScheduler::new());
         let id1 = corpus
             .add(Testcase::new(Rc::new(BytesInput::new(b"abc".to_vec()))))
             .unwrap();
@@ -306,7 +306,7 @@ mod tests {
         let state = StdState::new(
             BytesContext,
             corpus,
-            InMemoryCorpus::new(QueueScheduler::new()),
+            InMemoryCorpus::with_scheduler(QueueScheduler::new()),
         )
         .unwrap();
 
@@ -332,7 +332,7 @@ mod tests {
     #[test]
     fn test_single_choice() {
         let mut rand = StdRand::with_seed(0x1337);
-        let mut corpus = InMemoryCorpus::new(QueueScheduler::new());
+        let mut corpus = InMemoryCorpus::with_scheduler(QueueScheduler::new());
         let id1 = corpus
             .add(Testcase::new(Rc::new(BytesInput::new(b"abc".to_vec()))))
             .unwrap();
@@ -343,7 +343,7 @@ mod tests {
         let state = StdState::new(
             BytesContext,
             corpus,
-            InMemoryCorpus::new(QueueScheduler::new()),
+            InMemoryCorpus::with_scheduler(QueueScheduler::new()),
         )
         .unwrap();
 

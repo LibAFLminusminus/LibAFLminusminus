@@ -379,7 +379,7 @@ mod tests {
 
     #[test]
     fn all_mutate_owned() {
-        let mut corpus = InMemoryCorpus::new(QueueScheduler::new());
+        let mut corpus = InMemoryCorpus::with_scheduler(QueueScheduler::new());
         corpus
             .add(Testcase::new(Rc::new(I16Input::new(42_i16))))
             .unwrap();
@@ -387,7 +387,7 @@ mod tests {
         let state = StdState::new(
             primitive_context,
             corpus,
-            InMemoryCorpus::new(QueueScheduler::new()),
+            InMemoryCorpus::with_scheduler(QueueScheduler::new()),
         )
         .unwrap();
         let mut rand = XkcdRand::new();

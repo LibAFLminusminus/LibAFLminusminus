@@ -1,10 +1,5 @@
 //! A collection of various [`Corpus`].
 
-use std::{marker::PhantomData, path::Path};
-
-use libaflmm_core::Result;
-use serde::{Deserialize, Serialize};
-
 use crate::{
     DependencyResolver,
     corpus::{
@@ -18,6 +13,10 @@ use crate::{
     },
     inputs::Input,
 };
+use core::marker::PhantomData;
+use libaflmm_core::Result;
+use serde::{Deserialize, Serialize};
+use std::path::Path;
 
 const DEFAULT_CACHE_LEN: usize = 32;
 
@@ -211,11 +210,17 @@ impl<I, SC> InMemoryCorpus<I, SC> {
     }
 }
 
+impl<I> Default for InMemoryCorpus<I, NopScheduler> {
+    fn default() -> Self {
+        Self::with_scheduler(NopScheduler)
+    }
+}
+
 impl<I> InMemoryCorpus<I, NopScheduler> {
     /// Create a new [`InMemoryCorpus`] without a scheduler.
     #[must_use]
     pub fn new() -> Self {
-        Self::with_scheduler(NopScheduler)
+        Self::default()
     }
 }
 
@@ -286,12 +291,14 @@ impl<I, SC> OnDiskCorpusBuilder<I, SC> {
     }
 
     /// Set the root directory, where the testcases will be stored.
+    #[must_use]
     pub fn root_dir<P: AsRef<Path>>(mut self, root_dir: P) -> Self {
         self.store_builder.root_dir(root_dir);
         self
     }
 
     /// Set the on-disk filename format
+    #[must_use]
     pub fn filename_format(mut self, filename_format: TestcaseFilenameFormat) -> Self {
         self.store_builder.filename_format(filename_format);
         self
@@ -446,12 +453,14 @@ impl<I, SC> InMemoryOnDiskCorpusBuilder<I, SC> {
     }
 
     /// Set the root directory, where the testcases will be stored.
+    #[must_use]
     pub fn root_dir<P: AsRef<Path>>(mut self, root_dir: P) -> Self {
         self.store_builder.root_dir(root_dir);
         self
     }
 
     /// Set the on-disk filename format
+    #[must_use]
     pub fn filename_format(mut self, filename_format: TestcaseFilenameFormat) -> Self {
         self.store_builder.filename_format(filename_format);
         self
