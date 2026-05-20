@@ -84,11 +84,14 @@ pub mod prelude {
         FeedbackFactory, FeedbackLogic, GenericDiffLogic, HasObserverHandle, IsNovel, ListFeedback,
         ListFeedbackMetadata, LogicEagerAnd, LogicEagerOr, LogicFastAnd, LogicFastOr, MapFeedback,
         MapFeedbackMetadata, MapIndexes, MapIndexesMetadata, MapNoveltiesMetadata, MaxMapFeedback,
-        MaxMapOneOrFilledFeedback, MaxMapPow2Feedback, MinMapFeedback, NautilusChunksMetadata,
-        NautilusFeedback, NewHashFeedback, NewHashFeedbackMetadata, NextPow2IsNovel, NotFeedback,
-        OneOrFilledIsNovel, StdFeedback, StdMapFeedback, StdObjectiveFeedback,
-        TIMEOUT_FEEDBACK_NAME, TimeFeedback, TimeoutFeedback, TimeoutLogic,
+        MaxMapOneOrFilledFeedback, MaxMapPow2Feedback, MinMapFeedback, NewHashFeedback,
+        NewHashFeedbackMetadata, NextPow2IsNovel, NotFeedback, OneOrFilledIsNovel, StdFeedback,
+        StdMapFeedback, StdObjectiveFeedback, TIMEOUT_FEEDBACK_NAME, TimeFeedback, TimeoutFeedback,
+        TimeoutLogic,
     };
+
+    #[cfg(feature = "nautilus")]
+    pub use crate::feedbacks::{NautilusChunksMetadata, NautilusFeedback};
 
     pub use crate::fuzzers::{
         CalibrationHook, CustomNameHook, EvaluationResult, Evaluator, ExecutionProcessor, Fuzzer,
@@ -96,14 +99,18 @@ pub mod prelude {
         StdFuzzerBuilder, Verdict,
     };
 
-    pub use crate::generators::{
-        Generator, NautilusContext, NautilusGenerator, RandBytesGenerator, RandPrintablesGenerator,
-    };
+    pub use crate::generators::{Generator, RandBytesGenerator, RandPrintablesGenerator};
+
+    #[cfg(feature = "nautilus")]
+    pub use crate::generators::{NautilusContext, NautilusGenerator};
 
     pub use crate::inputs::{
-        BytesContext, BytesInput, BytesSubInput, HasMutatorBytes, Input, InputContext,
-        NautilusInput, NopContext, NopInput, ResizableMutator, StdContext, StdInput, ValueInput,
+        BytesContext, BytesInput, BytesSubInput, HasMutatorBytes, Input, InputContext, NopContext,
+        NopInput, ResizableMutator, StdContext, StdInput, ValueInput,
     };
+
+    #[cfg(feature = "nautilus")]
+    pub use crate::inputs::NautilusInput;
 
     pub use crate::launchers::{
         DEFAULT_MAX_STATE_SIZE_PER_WORKER, DEFAULT_MONITOR_REFRESH, DEFAULT_TIMEOUT, Instance,
@@ -115,13 +122,17 @@ pub mod prelude {
     pub use crate::mutators::{
         ComposedByMutations, HavocCrossoverType, HavocMutationsNoCrossoverType, HavocMutationsType,
         HavocScheduledMutator, MappedHavocCrossoverType, MutationChecker, MutationId,
-        MutationResult, Mutator, MutatorsTuple, NautilusRandomMutator, NautilusRecursionMutator,
-        NautilusSpliceMutator, NopMutator, QwordAddMutator, ScheduledMutator,
+        MutationResult, Mutator, MutatorsTuple, NopMutator, QwordAddMutator, ScheduledMutator,
         SingleChoiceScheduledMutator, SpliceMutator, StdMutator, TokenInsert, TokenReplace, Tokens,
         WordAddMutator, WordInterestingMutator, havoc_crossover,
         havoc_crossover_with_corpus_mapper, havoc_crossover_with_corpus_mapper_optional,
         havoc_mutations, havoc_mutations_no_crossover, int_mutators, mutations::*, rand_range,
         tokens_mutations,
+    };
+
+    #[cfg(feature = "nautilus")]
+    pub use crate::mutators::{
+        NautilusRandomMutator, NautilusRecursionMutator, NautilusSpliceMutator,
     };
 
     pub use crate::observers::{

@@ -1,6 +1,6 @@
 //! Generators for the [`Nautilus`](https://github.com/RUB-SysSec/nautilus) grammar fuzzer
 #[cfg(feature = "nautilus_py")]
-use crate::nautilus::grammartec::python_grammar_loader;
+use crate::common::nautilus::grammartec::python_grammar_loader;
 use crate::{
     Error,
     common::{NTermId, nautilus::grammartec::context::Context},

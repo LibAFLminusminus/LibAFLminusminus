@@ -99,8 +99,6 @@ pub use ctor;
 #[cfg(feature = "prelude")]
 pub mod bolts_prelude {
     pub use super::build_id::*;
-    #[cfg(any(feature = "cli", feature = "frida_cli", feature = "qemu_cli"))]
-    pub use super::cli::*;
     pub use super::core_affinity::*;
     pub use super::fs::*;
     pub use super::minibsod::*;
