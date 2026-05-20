@@ -1,10 +1,9 @@
 [package]
-name = "libfuzzer_libpng_launcher_centralized_multi_machine"
+name = "sqlite"
 version = "0.16.0"
 authors = [
   "Romain Malmain <romain.malmain@pm.me>",
-  "Andrea Fioraldi <andreafioraldi@gmail.com>",
-  "Dominik Maier <domenukk@gmail.com>",
+  "Dongjia Zhang <tokazerkje@outlook.com>",
 ]
 edition = "2021"
 
@@ -24,34 +23,23 @@ which = "6.0.3"
 
 [dependencies]
 # no llmp compression for now, better perfs.
-libafl = { path = "../../../crates/libafl", default-features = false, features = [
-  "std",
-  "derive",
-  "llmp_small_maps",
-  "llmp_broker_timeouts",
-  "rand_trait",
-  "fork",
-  "prelude",
-  "gzip",
-  "regex",
-  "tui_monitor",
-  "std",
+libaflmm = { path = "../../../crates/libaflmm", default-features = false, features = [
   "derive",
   "rand_trait",
-  "fork",
   "prelude",
-  "gzip",
-  "regex",
-  "multi_machine",
+  "derive",
+  "rand_trait",
+  "prelude",
   "errors_backtrace",
+  "web_monitor",
 ] }
-libafl_bolts = { path = "../../../crates/libafl_bolts", features = ["xxh3"] }
-libafl_targets = { path = "../../../crates/libafl_targets", features = [
+libaflmm_bolts = { path = "../../../crates/libaflmm_bolts", features = ["xxh3"] }
+libaflmm_targets = { path = "../../../crates/libaflmm_targets", features = [
   "sancov_pcguard_hitcounts",
   "libfuzzer",
 ] }
 # TODO Include it only when building cc
-libafl_cc = { path = "../../../crates/libafl_cc" }
+libaflmm_cc = { path = "../../../crates/libaflmm_cc" }
 
 clap = { version = "4.5.18", features = ["derive"] }
 log = { version = "0.4.22", features = ["release_max_level_info"] }

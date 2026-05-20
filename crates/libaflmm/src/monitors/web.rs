@@ -42,6 +42,7 @@ struct SharedState {
     history: Vec<Value>,
 }
 
+pub static WEBUI_PREFIX: &str = "libaflmm-webui";
 /// `WebUI` gathers data from fuzzers and show stats to users through a web interface
 #[derive(Debug)]
 pub struct WebMonitor {
@@ -52,13 +53,16 @@ pub struct WebMonitor {
 impl WebMonitor {
     /// constructor for [`struct@WebMonitor`]; `name` is displayed as the page title.
     #[must_use]
-    pub fn new(name: &str, history_path: PathBuf) -> Self {
-        Self::with_port(name, history_path, 13337)
+    pub fn new(name: &str) -> Self {
+        Self::with_port(name, 13337)
     }
 
     /// constructor for [`struct@WebMonitor`] specifying an opening port
     #[must_use]
-    pub fn with_port(name: &str, history_path: PathBuf, port: u16) -> Self {
+    pub fn with_port(name: &str, port: u16) -> Self {
+        let cwd = std::env::current_dir().unwrap();
+        let filename = format!("{}-{}.json", WEBUI_PREFIX, std::process::id());
+        let history_path = cwd.join(filename);
         let _ = std::fs::remove_file(&history_path);
         let shared = Arc::new(RwLock::new(SharedState {
             history: Vec::new(),
