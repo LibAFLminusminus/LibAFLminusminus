@@ -154,7 +154,7 @@ StdLauncher::builder()?
 For completeness, we commented out the other possible ways to build the launcher, to adapt to your use case:
 - `build_inprocess(task)` will fire the task wrapped into a default `StdInProcessRuntime` and build the `StdLauncher`.
 - `build_forkserver(task)` will similarly spawn the task with a default `StdForkserverRuntime` and build the `StdLauncher`.
-- `runtime(rt).build()` will finally set the runtime you configured beforehand (which will most likely embed the task) and build the `StdLauncher.
+- `runtime(rt).build()` will finally set the runtime you configured beforehand (which will most likely embed the task) and build the `StdLauncher`.
 
 In other words, `build_*` are convenient short hands for `runtime(*).build()`.
 
