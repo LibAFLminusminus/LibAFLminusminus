@@ -1,10 +1,7 @@
 use clap::Parser;
 use libaflmm::{
     Result, Worker,
-    corpus::{
-        Corpus, InMemoryCorpus, OnDiskCorpus,
-        schedulers::{NopScheduler, QueueScheduler},
-    },
+    corpus::{Corpus, InMemoryCorpus, OnDiskCorpus, schedulers::QueueScheduler},
     executors::{ForkserverExecutor, StdChildArgs},
     feedback_or_fast,
     feedbacks::{CrashFeedback, MaxMapFeedback, TimeoutFeedback},
@@ -189,10 +186,10 @@ pub fn main() -> Result<()> {
         StdState::new(
             BytesContext,
             // Corpus that will be evolved, we keep it in memory for performance
-            InMemoryCorpus::new(scheduler),
+            InMemoryCorpus::with_scheduler(scheduler),
             // Corpus in which we store solutions (crashes in this example),
             // on disk so the user can get them after stopping the fuzzer
-            OnDiskCorpus::new(crash_dir, NopScheduler).unwrap(),
+            OnDiskCorpus::builder().root_dir(crash_dir).build()?,
         )
     };
 

@@ -85,10 +85,10 @@ pub fn fuzz() -> Result<()> {
             StdState::new(
                 StdContext::default(),
                 // Corpus that will be evolved, we keep it in memory for performance
-                InMemoryCorpus::new(scheduler),
+                InMemoryCorpus::with_scheduler(scheduler),
                 // Corpus in which we store solutions (crashes in this example),
                 // on disk so the user can get them after stopping the fuzzer
-                OnDiskCorpus::new(objective_dir, NopScheduler)?,
+                OnDiskCorpus::builder().root_dir(objective_dir).build()?,
             )
         })
         .monitor(monitor)

@@ -1,7 +1,7 @@
-# syntax=docker/dockerfile:1.2
+# syntax=docker/dockerfile:1
 FROM rust:1.91.0 AS libafl
-LABEL "maintainer"="afl++ team <afl@aflplus.plus>"
-LABEL "about"="LibAFL Docker image"
+LABEL "maintainer"="Romain Malmain <rmalmain@pm.me>"
+LABEL "about"="LibAFL-- Docker image"
 
 # Install cargo-binstall
 RUN curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
@@ -65,6 +65,7 @@ RUN apt-get update && \
     python3-venv \
     ca-certificates \
     wget
+
 RUN set -ex &&\
   wget https://apt.llvm.org/llvm.sh &&\
   chmod +x llvm.sh &&\
@@ -76,7 +77,7 @@ RUN apt-get update && \
 
 # Install a modern version of QEMU
 WORKDIR /root
-ENV QEMU_VER=10.2.0
+ENV QEMU_VER=10.2.2
 RUN wget https://download.qemu.org/qemu-${QEMU_VER}.tar.xz && \
     tar xvJf qemu-${QEMU_VER}.tar.xz && \
     cd /root/qemu-${QEMU_VER} && \

@@ -1,10 +1,7 @@
 //! A fuzzer using qemu in systemmode for binary-only coverage of kernels
 
 use libaflmm::{
-    corpus::{
-        schedulers::{NopScheduler, QueueScheduler},
-        Corpus, InMemoryCorpus, OnDiskCorpus,
-    },
+    corpus::{schedulers::QueueScheduler, Corpus, InMemoryCorpus, OnDiskCorpus},
     feedback_or, feedback_or_fast,
     feedbacks::{CrashFeedback, MaxMapFeedback, TimeFeedback, TimeoutFeedback},
     inputs::StdContext,
@@ -49,10 +46,10 @@ pub fn fuzz() -> Result<()> {
             StdState::new(
                 StdContext::default(),
                 // Corpus that will be evolved, we keep it in memory for performance
-                InMemoryCorpus::new(scheduler),
+                InMemoryCorpus::with_scheduler(scheduler),
                 // Corpus in which we store solutions (crashes in this example),
                 // on disk so the user can get them after stopping the fuzzer
-                OnDiskCorpus::new(objective_dir, NopScheduler)?,
+                OnDiskCorpus::builder().root_dir(objective_dir).build()?,
             )
         })
         .monitor(monitor)
