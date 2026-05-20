@@ -67,8 +67,11 @@ pub mod prelude {
     #[cfg(not(feature = "nyx"))]
     pub use crate::command::{
         AddressAllowCommand, EndCommand, LoadCommand, LqemuCommandManager, LqprintfCommand,
-        SaveCommand, SetMapCommand, StartCommand, TestCommand, VersionCommand,
+        SaveCommand, StartCommand, TestCommand, VersionCommand,
     };
+
+    #[cfg(all(feature = "systemmode", not(feature = "nyx")))]
+    pub use crate::command::SetMapCommand;
 
     pub use crate::emu::{
         Emulator, EmulatorDriver, EmulatorDriverError, EmulatorDriverResult, EmulatorExitError,
@@ -98,10 +101,15 @@ pub mod prelude {
     };
 
     pub use crate::qemu::{
-        ArchExtras, CPU, CallingConvention, DeviceSnapshotFilter, HostMemoryChunk, HostMemoryIter,
-        HostMemorySegments, MemAccessInfo, PhysMemoryChunk, PhysMemoryIter, Qemu, QemuConfig,
-        QemuError, QemuExitError, QemuExitReason, QemuHooks, QemuInitError, QemuMemoryChunk,
-        QemuParams, QemuRWError, QemuRWErrorCause, QemuRWErrorKind, QemuShutdownCause, config,
+        ArchExtras, CPU, CallingConvention, MemAccessInfo, Qemu, QemuConfig, QemuError,
+        QemuExitError, QemuExitReason, QemuHooks, QemuInitError, QemuMemoryChunk, QemuParams,
+        QemuRWError, QemuRWErrorCause, QemuRWErrorKind, QemuShutdownCause, config,
+    };
+
+    #[cfg(feature = "systemmode")]
+    pub use crate::qemu::{
+        DeviceSnapshotFilter, HostMemoryChunk, HostMemoryIter, HostMemorySegments, PhysMemoryChunk,
+        PhysMemoryIter,
     };
 
     pub use crate::breakpoint::{Breakpoint, BreakpointId};
