@@ -153,7 +153,7 @@ pub extern "C" fn libafl_main() {
     let state_builder = |worker: &SimpleWorker| {
         // A queue policy to get testcasess from the corpus
         let scheduler = QueueScheduler::new();
-        let crash_dir = worker.workdir().create_dir("crashes")?;
+        let crash_dir = worker.workdir().objective_dir()?;
         let context = PacketDataContext::default();
 
         // create a State from scratch
