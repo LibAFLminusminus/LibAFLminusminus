@@ -24,7 +24,9 @@ pub use schedulers::Scheduler;
 
 pub mod collection;
 pub use collection::{
-    InMemoryCorpus, OnDiskCorpus, StdInMemoryCorpusMap, StdInMemoryStore, StdOnDiskStore,
+    CachedOnDiskCorpus, CachedOnDiskCorpusBuilder, InMemoryCorpus, InMemoryOnDiskCorpus,
+    InMemoryOnDiskCorpusBuilder, OnDiskCorpus, OnDiskCorpusBuilder, StdInMemoryCorpusMap,
+    StdInMemoryStore, StdOnDiskStore,
 };
 
 pub mod combined;

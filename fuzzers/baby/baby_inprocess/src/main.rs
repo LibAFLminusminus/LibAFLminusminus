@@ -1,31 +1,26 @@
+use crate::target::SIGNALS;
 use libaflmm::{
-    Result, Worker,
-    corpus::{
-        Corpus, InMemoryCorpus, OnDiskCorpus,
-        schedulers::{NopScheduler, QueueScheduler},
-    },
+    Result, StdController, Worker,
+    corpus::{Corpus, InMemoryCorpus, OnDiskCorpus, schedulers::QueueScheduler},
     executors::StdExecutor,
     feedback_or_fast,
-    feedbacks::{CrashFeedback, MaxMapFeedback, TimeoutFeedback},
+    feedbacks::{CrashFeedback, StdFeedback, TimeoutFeedback},
     fuzzers::{CalibrationHook, Fuzzer, StdFuzzer},
     generators::RandPrintablesGenerator,
     inputs::{BytesInput, bytes::BytesContext},
     launchers::{DEFAULT_MAX_STATE_SIZE_PER_WORKER, StdLauncher},
     monitors::SimpleMonitor,
-    mutators::{HavocScheduledMutator, havoc_mutations},
     non_zero,
     observers::ConstMapObserver,
     runtimes::{RuntimeHandle, StdInProcessRuntime},
-    simple::{SimpleController, SimpleWorker},
-    stages::StdMutationalStage,
+    simple::SimpleWorker,
+    stages::StdStage,
     states::StdState,
 };
 use libaflmm_bolts::{
     current_nanos, nonnull_raw_mut, rands::StdRand, timers::FastTimer, tuples::tuple_list,
 };
 use std::time::Duration;
-
-use crate::target::SIGNALS;
 
 mod target;
 
@@ -44,15 +39,13 @@ where
     let observer = unsafe { ConstMapObserver::from_mut_ptr("signals", nonnull_raw_mut!(SIGNALS)) };
 
     // Feedback to rate the interestingness of an input
-    let feedback = MaxMapFeedback::new(&observer);
+    let feedback = StdFeedback::new(&observer);
 
     // A feedback to choose if an input is a solution or not
-    // let objective_feedback = CrashFeedback::new();
     let objective_feedback = feedback_or_fast!(CrashFeedback::new(), TimeoutFeedback::new());
 
     // Setup a mutational stage with a basic bytes mutator
-    let mutator = HavocScheduledMutator::new(havoc_mutations());
-    let mut stages = tuple_list!(StdMutationalStage::new(mutator));
+    let mut stages = tuple_list!(StdStage::default());
 
     // Create the executor for an in-process function with just one observer
     let mut executor = StdExecutor::new(target::target, tuple_list!(observer), None);
@@ -92,31 +85,30 @@ pub fn main() -> Result<()> {
 
     // The state creation closure.
     let state_builder = |worker: &SimpleWorker| {
-        // A queue policy to get testcasess from the corpus
+        // A scheduler following the queue policy
         let scheduler = QueueScheduler::new();
-        let crash_dir = worker.workdir().create_dir("crashes")?;
+        // The default objective directory
+        let crash_dir = worker.workdir().objective_dir()?;
 
         // create a State from scratch
         StdState::new(
             BytesContext,
             // Corpus that will be evolved, we keep it in memory for performance
-            InMemoryCorpus::new(scheduler),
+            // It must have a scheduler
+            InMemoryCorpus::with_scheduler(scheduler),
             // Corpus in which we store solutions (crashes in this example),
             // on disk so the user can get them after stopping the fuzzer
-            OnDiskCorpus::new(crash_dir, NopScheduler).unwrap(),
+            OnDiskCorpus::builder().root_dir(crash_dir).build()?,
         )
     };
 
     // The launcher supervises the fuzzer and communicates with the workers.
-    let controller = SimpleController::builder()
-        .worker_stdout(None)
-        .worker_stderr(None)
-        .overwrite(true)
-        .build()?;
+    let controller = StdController::builder().overwrite(true).build()?;
 
     // The monitor tracks the fuzzing current status.
     let monitor = SimpleMonitor::new();
 
+    // A fast timer, much faster than classic OS timers.
     let fast_timer = FastTimer::new();
     let runtime = StdInProcessRuntime::new(
         run_fuzzer,
@@ -131,7 +123,6 @@ pub fn main() -> Result<()> {
         .monitor(monitor)
         .state_builder(state_builder)
         .runtime(runtime)
-        // .build_with_task(run_fuzzer)?
         .build()?
         .launch()
 }

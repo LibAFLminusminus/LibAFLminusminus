@@ -1,0 +1,6 @@
+extends: existence
+message: "Start each sentence on a new line (semantic line breaks)."
+level: error
+scope: raw
+raw:
+  - '[a-z][.!?]["'')\]]* +[A-Z]'

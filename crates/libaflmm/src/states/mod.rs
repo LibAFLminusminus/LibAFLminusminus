@@ -1107,8 +1107,8 @@ impl
     pub fn nop() -> Result<Self> {
         StdState::new(
             NopContext,
-            InMemoryCorpus::<NopInput, NopScheduler>::new(NopScheduler),
-            InMemoryCorpus::new(NopScheduler),
+            InMemoryCorpus::<NopInput, NopScheduler>::new(),
+            InMemoryCorpus::new(),
         )
     }
 }

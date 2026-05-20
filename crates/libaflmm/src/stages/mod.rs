@@ -4,6 +4,7 @@ A well-known [`Stage`], for example, is the mutational stage, running multiple [
 Other stages may enrich [`crate::corpus::Testcase`]s with metadata.
 */
 
+use crate::mutators::{HavocScheduledMutator, havoc_mutations};
 use crate::states::State;
 use crate::{
     DependencyResolver, Result, corpus::TestcaseId, mutators::StdMutator, runtimes::RuntimeHandle,
@@ -206,5 +207,11 @@ where
         self.iter_mut().try_for_each(|stage| {
             stage.perform(fuzzer, executor, rand, state, rt_handle, testcase_id)
         })
+    }
+}
+
+impl<E, I, R, S, W, Z> Default for StdStage<E, I, R, S, W, Z> {
+    fn default() -> Self {
+        StdStage::new(HavocScheduledMutator::new(havoc_mutations()))
     }
 }

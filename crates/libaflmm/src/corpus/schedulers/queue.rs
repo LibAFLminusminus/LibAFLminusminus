@@ -91,11 +91,11 @@ mod tests {
         let scheduler: QueueScheduler = QueueScheduler::new();
         let context = BytesContext;
 
-        let corpus =
-            OnDiskCorpus::<BytesInput, QueueScheduler>::new(PathBuf::from("/tmp"), scheduler)
-                .unwrap();
-        // let t = Testcase::with_filename(BytesInput::new(vec![0_u8; 4]), "fancyfile".into());
-        // q.add(t).unwrap();
+        let corpus = OnDiskCorpus::builder()
+            .scheduler(scheduler)
+            .root_dir(PathBuf::from("/tmp"))
+            .build()
+            .unwrap();
 
         let objective =
             OnDiskCorpus::<BytesInput, NopScheduler>::new(PathBuf::from("/tmp"), NopScheduler)
