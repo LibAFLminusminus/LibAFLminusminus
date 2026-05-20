@@ -37,8 +37,6 @@ libaflmm_qemu = { path = "../../../crates/libaflmm_qemu", features = [
 ], default-features = false }
 
 env_logger = "0.11.5"
-log = { version = "0.4.22", features = ["release_max_level_info"] }
-serde = { version = "1.0", default-features = false }
 
 [build-dependencies]
 libaflmm_qemu_build = { path = "../../../crates/libaflmm_qemu/libaflmm_qemu_build" }
