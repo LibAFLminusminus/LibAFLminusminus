@@ -39,9 +39,6 @@ rand_trait = []
 ## Will build the `pyo3` bindings
 python = ["pyo3", "libaflmm_core/python"]
 
-## Expose `libaflmm::prelude` for direct access to all types without additional `use` directives
-prelude = []
-
 ## Stores the backtraces of all generated `Error`s. Good for debugging, but may come with a slight performance hit.
 errors_backtrace = ["libaflmm_core/errors_backtrace"]
 
