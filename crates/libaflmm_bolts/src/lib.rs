@@ -33,8 +33,6 @@ pub mod prelude {
     pub use super::{anymap::*, ownedref::*, rands::*, shm::*, tuples::*};
 }
 
-pub use libaflmm_derive::SerdeAny;
-
 pub use libaflmm_core::{
     AsIter, AsIterMut, AsSlice, AsSliceMut, Error, HasLen, HasRefCnt, Named, Result, Truncate,
     WorkerId, non_zero, non_zero_const, non_zero_unchecked, nonnull_raw_mut,

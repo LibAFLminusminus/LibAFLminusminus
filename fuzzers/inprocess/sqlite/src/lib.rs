@@ -1,7 +1,5 @@
-use core::time::Duration;
-use std::{env, net::SocketAddr, path::PathBuf};
-
 use clap::{self, Parser};
+use core::time::Duration;
 use libaflmm::prelude::*;
 use libaflmm_bolts::{
     core_affinity::Cores,
@@ -11,6 +9,7 @@ use libaflmm_bolts::{
 };
 use libaflmm_targets::{edges_map_mut_slice, libfuzzer_initialize, libfuzzer_test_one_input};
 use mimalloc::MiMalloc;
+use std::{env, net::SocketAddr, path::PathBuf};
 
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
