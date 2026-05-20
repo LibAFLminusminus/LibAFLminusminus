@@ -20,6 +20,7 @@ use which::which;
 
 mod bindings;
 mod build;
+mod profile;
 
 pub use build::build;
 

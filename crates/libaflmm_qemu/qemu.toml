@@ -1,0 +1,11 @@
+# The default profile for `libaflmm_qemu`
+#
+# By default, extends = ["libaflmm_qemu:default"]
+
+[target]
+
+# The execution mode: usermode or systemmode
+mode = "usermode"
+
+# The target architecture
+arch = "x86_64"

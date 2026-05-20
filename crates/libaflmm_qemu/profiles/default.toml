@@ -1,0 +1,20 @@
+# Import the given profiles in the same order
+# 2 possible formats:
+#   - libaflmm_qemu:<profile_name> -> loads profile under `liabflmm_qemu/profiles/<profile_name>.toml
+#   - path to the profile
+#
+# Here, we only import the base profile, containing the default source
+extends = ["libaflmm_qemu:base"]
+
+# global config, applies to all architectures.
+[configure]
+
+# extra-args is a special value that will copy verbatim its content in the configure command line.
+extra-args = ["--as-shared-lib"]
+
+kvm = false
+slirp = false
+audio-drv-list = []
+
+# x86_64 config, overwrites global `configure`.
+[configure.x86_64]

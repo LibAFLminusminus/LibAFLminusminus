@@ -7,7 +7,7 @@ use std::{
 
 use which::which;
 
-use crate::cargo_add_rpath;
+use crate::{cargo_add_rpath, profile};
 
 pub const LIBAFL_QEMU_GIT_URL: &str = "https://github.com/AFLplusplus/qemu-libafl-bridge";
 pub const LIBAFL_QEMU_DIRNAME: &str = "qemu-libafl-bridge";
@@ -68,6 +68,10 @@ fn configure_qemu(
     cpu_target: &String,
     target_suffix: &String,
 ) -> Command {
+    let user_profile = profile::find_user_profile().unwrap();
+
+    println!("cargo:warning=Found user profile at: {:?}", user_profile);
+
     let mut cmd = Command::new("./configure");
 
     let linker_interceptor = qemu_path.join("linker_interceptor.py");

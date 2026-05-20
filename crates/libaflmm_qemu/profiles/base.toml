@@ -1,0 +1,14 @@
+# root profile, do not import anything from there.
+extends = []
+
+[source]
+
+# source kind, either "git" or "local"
+kind = "git"
+
+# URL of the QEMU fork
+url = "https://github.com/AFLplusplus/qemu-libafl-bridge"
+# revision of the QEMU fork
+rev = "c9c6db9127509e1eeaf10daad8fa6bc12cc54f56"
+# target directory name, usually in `target/<dirname>`
+dirname = "qemu-libafl-bridge"

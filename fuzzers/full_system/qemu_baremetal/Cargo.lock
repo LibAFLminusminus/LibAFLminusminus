@@ -1134,6 +1134,7 @@ dependencies = [
  "bindgen",
  "cc",
  "json",
+ "regex",
  "rustc_version",
  "rustversion",
  "shell-words",

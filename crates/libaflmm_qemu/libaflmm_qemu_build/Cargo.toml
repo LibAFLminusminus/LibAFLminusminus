@@ -44,6 +44,7 @@ shell-words = "1.1.1"
 cc = { workspace = true }
 rustversion = { workspace = true }
 rustc_version = "0.4.1"
+regex = { workspace = true }
 
 [lints]
 workspace = true

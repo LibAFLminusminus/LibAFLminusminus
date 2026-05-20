@@ -1,2 +1,5 @@
+[env]
+LIBAFL_QEMU_PROFILE = { value = "crates/libaflmm_qemu/qemu.toml", relative = true }
+
 [target.x86_64-pc-windows-gnu]
 rustflags = ["-C", "panic=abort"]
