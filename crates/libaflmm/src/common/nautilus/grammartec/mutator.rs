@@ -15,15 +15,15 @@ use crate::common::nautilus::grammartec::{
 
 /// A mutator for grammar-based fuzzing
 #[derive(Debug)]
-pub struct Mutator {
+pub struct GrammarMutator {
     scratchpad: Tree,
 }
 
-impl Mutator {
+impl GrammarMutator {
     /// Create a new [`Mutator`]
     #[must_use]
     pub fn new(ctx: &Context) -> Self {
-        Mutator {
+        GrammarMutator {
             scratchpad: Tree::from_rule_vec(vec![], ctx),
         }
     }
@@ -52,7 +52,7 @@ impl Mutator {
             if tree.subtree_size(n) > ctx.get_min_len_for_nt(nt) {
                 self.scratchpad
                     .generate_from_nt(rand, nt, ctx.get_min_len_for_nt(nt), ctx);
-                if let Some(t) = Mutator::test_and_convert(
+                if let Some(t) = GrammarMutator::test_and_convert(
                     tree,
                     n,
                     &self.scratchpad,
@@ -90,9 +90,9 @@ impl Mutator {
         let mut i = start_index;
         while i < tree.size() {
             let n = NodeId::from(i);
-            if let Some(parent) = Mutator::find_parent_with_nt(tree, n, ctx)
+            if let Some(parent) = GrammarMutator::find_parent_with_nt(tree, n, ctx)
                 && let Some(t) =
-                    Mutator::test_and_convert(tree, parent, tree, n, ctx, bits, tester)?
+                    GrammarMutator::test_and_convert(tree, parent, tree, n, ctx, bits, tester)?
             {
                 let _ = mem::replace(tree, t);
                 i = parent.into();
@@ -334,7 +334,7 @@ mod tests {
     use crate::common::nautilus::grammartec::{
         chunkstore::ChunkStore,
         context::Context,
-        mutator::Mutator,
+        mutator::GrammarMutator,
         newtypes::RuleId,
         rule::RuleIdOrCustom,
         tree::{Tree, TreeLike, TreeMutation},
@@ -363,7 +363,7 @@ mod tests {
         let tree = Tree::from_rule_vec(rules, &ctx);
 
         println!("tree: {tree:?}");
-        let mut mutator = Mutator::new(&ctx);
+        let mut mutator = GrammarMutator::new(&ctx);
         let mut tester = |tree_mut: &TreeMutation, _ctx: &Context| {
             println!("prefix: {:?}", tree_mut.prefix);
             println!("repl: {:?}", tree_mut.repl);
@@ -423,7 +423,7 @@ mod tests {
                     .collect::<Vec<_>>(),
                 &ctx,
             );
-            let mut mutator = Mutator::new(&ctx);
+            let mut mutator = GrammarMutator::new(&ctx);
             {
                 let mut tester =
                     |tree_mut: &TreeMutation, _bits: &HashSet<usize>, ctx: &Context| {
@@ -479,7 +479,7 @@ mod tests {
                     .collect::<Vec<_>>(),
                 &ctx,
             );
-            let mut mutator = Mutator::new(&ctx);
+            let mut mutator = GrammarMutator::new(&ctx);
             {
                 let mut tester =
                     |tree_mut: &TreeMutation, _bits: &HashSet<usize>, ctx: &Context| {
@@ -517,7 +517,7 @@ mod tests {
         ctx.initialize(101);
         for _ in 0..100 {
             let tree = ctx.generate_tree_from_rule(&mut rand, r1, 100);
-            let mut mutator = Mutator::new(&ctx);
+            let mut mutator = GrammarMutator::new(&ctx);
             let unparse = tree.unparse_to_vec(&ctx);
             let mut count = 0;
             {
@@ -548,7 +548,7 @@ mod tests {
         cks.add_tree(tree, &ctx);
         for _ in 0..100 {
             let tree = ctx.generate_tree_from_rule(&mut rand, r1, 100);
-            let mut mutator = Mutator::new(&ctx);
+            let mut mutator = GrammarMutator::new(&ctx);
             let unparse = tree.unparse_to_vec(&ctx);
             let mut tester = |tree_mut: &TreeMutation, ctx: &Context| {
                 assert_ne!(tree_mut.unparse_to_vec(ctx), unparse);
@@ -579,7 +579,7 @@ mod tests {
                     .collect::<Vec<_>>(),
                 &ctx,
             );
-            let mut mutator = Mutator::new(&ctx);
+            let mut mutator = GrammarMutator::new(&ctx);
             let mut unparses = HashSet::new();
             {
                 let mut tester = |tree_mut: &TreeMutation, ctx: &Context| {

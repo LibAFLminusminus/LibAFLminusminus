@@ -1,24 +1,5 @@
 use clap::Parser;
-use libaflmm::{
-    Result,
-    controllers::Worker,
-    controllers::{SimpleController, SimpleWorker},
-    corpus::{Corpus, InMemoryCorpus, OnDiskCorpus, schedulers::QueueScheduler},
-    executors::{ForkserverExecutor, StdChildArgs},
-    feedback_or_fast,
-    feedbacks::{CrashFeedback, MaxMapFeedback, TimeoutFeedback},
-    fuzzers::{Fuzzer, StdFuzzer},
-    generators::RandPrintablesGenerator,
-    inputs::{BytesInput, bytes::BytesContext},
-    launchers::StdLauncher,
-    monitors::SimpleMonitor,
-    mutators::Tokens,
-    non_zero,
-    observers::{CmpLogObserver, HitcountsMapObserver, StdMapObserver},
-    runtimes::RuntimeHandle,
-    stages::{StdStage, TracerStage},
-    states::StdState,
-};
+use libaflmm::prelude::*;
 use libaflmm_bolts::{StdTargetArgs, SysVShm, current_nanos, rands::StdRand, tuples::tuple_list};
 use libaflmm_core::forkserver::{AFLPP_CMPLOG_MAP, SHM_CMPLOG_ENV_VAR, SHM_ENV_VAR};
 use libaflmm_targets::{AFLppCmplogVals, AFLppLibAFLCmpLogHeader};

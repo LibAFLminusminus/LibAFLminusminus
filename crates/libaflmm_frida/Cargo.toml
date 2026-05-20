@@ -36,9 +36,7 @@ auto-download = ["frida-gum-sys/auto-download", "frida-gum/auto-download"]
 cc = { workspace = true, features = ["parallel"] }
 
 [dependencies]
-libaflmm = { workspace = true, features = [
-  "derive",
-], default-features = false }
+libaflmm = { workspace = true, features = ["derive"], default-features = false }
 libaflmm_bolts = { workspace = true, features = ["derive"] }
 libaflmm_targets = { workspace = true, default-features = true, features = [
   "sancov_cmplog",

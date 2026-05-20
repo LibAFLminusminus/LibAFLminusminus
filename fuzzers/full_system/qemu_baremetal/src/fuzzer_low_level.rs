@@ -1,17 +1,6 @@
 //! A fuzzer using qemu in systemmode for binary-only coverage of kernels
-use libaflmm::{
-    corpus::{schedulers::QueueScheduler, Corpus, InMemoryCorpus, OnDiskCorpus},
-    executors::ExitKind,
-    feedback_or, feedback_or_fast,
-    feedbacks::{CrashFeedback, MaxMapFeedback, TimeFeedback, TimeoutFeedback},
-    inputs::{InputContext, StdContext},
-    launchers::StdLauncher,
-    monitors::StdMonitor,
-    observers::{HitcountsMapObserver, TimeObserver, VariableMapObserver},
-    stages::StdStage,
-    states::{State, StdState},
-    Fuzzer, Result, StdController, StdFuzzer, Worker,
-};
+
+use libaflmm::prelude::*;
 use libaflmm_bolts::{
     core_affinity::Cores, ownedref::OwnedMutSlice, rands::StdRand, tuples::tuple_list, AsSlice,
 };

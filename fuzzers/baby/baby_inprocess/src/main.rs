@@ -1,22 +1,5 @@
 use crate::target::SIGNALS;
-use libaflmm::{
-    Result, StdController, Worker,
-    corpus::{Corpus, InMemoryCorpus, OnDiskCorpus, schedulers::QueueScheduler},
-    executors::StdExecutor,
-    feedback_or_fast,
-    feedbacks::{CrashFeedback, StdFeedback, TimeoutFeedback},
-    fuzzers::{CalibrationHook, Fuzzer, StdFuzzer},
-    generators::RandPrintablesGenerator,
-    inputs::{BytesInput, bytes::BytesContext},
-    launchers::{DEFAULT_MAX_STATE_SIZE_PER_WORKER, StdLauncher},
-    monitors::SimpleMonitor,
-    non_zero,
-    observers::ConstMapObserver,
-    runtimes::{RuntimeHandle, StdInProcessRuntime},
-    simple::SimpleWorker,
-    stages::StdStage,
-    states::StdState,
-};
+use libaflmm::prelude::*;
 use libaflmm_bolts::{
     current_nanos, nonnull_raw_mut, rands::StdRand, timers::FastTimer, tuples::tuple_list,
 };

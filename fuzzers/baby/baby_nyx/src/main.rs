@@ -1,17 +1,4 @@
-use libaflmm::{
-    Fuzzer, Result, StdFuzzer, Worker,
-    corpus::{Corpus, InMemoryCorpus, OnDiskCorpus, schedulers::QueueScheduler},
-    feedbacks::{CrashFeedback, MaxMapFeedback},
-    generators::RandPrintablesGenerator,
-    inputs::{BytesInput, bytes::BytesContext},
-    launchers::StdLauncher,
-    monitors::SimpleMonitor,
-    observers::StdMapObserver,
-    runtimes::RuntimeHandle,
-    simple::{SimpleController, SimpleWorker},
-    stages::StdStage,
-    states::StdState,
-};
+use libaflmm::prelude::*;
 use libaflmm_bolts::{non_zero, rands::StdRand, tuples::tuple_list};
 use libaflmm_nyx::{executor::NyxExecutor, helper::NyxHelper, settings::NyxSettings};
 

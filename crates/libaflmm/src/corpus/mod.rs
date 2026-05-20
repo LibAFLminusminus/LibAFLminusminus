@@ -20,7 +20,9 @@ pub mod store;
 pub use store::{InMemoryStore, OnDiskStore, Store, maps};
 
 pub mod schedulers;
-pub use schedulers::Scheduler;
+pub use schedulers::{
+    NopScheduler, QueueScheduler, RandScheduler, RemovableScheduler, Scheduler, StdScheduler,
+};
 
 pub mod collection;
 pub use collection::{

@@ -1,23 +1,5 @@
 use clap::Parser;
-use libaflmm::{
-    Result, Worker,
-    corpus::{Corpus, InMemoryCorpus, OnDiskCorpus, schedulers::QueueScheduler},
-    executors::{ForkserverExecutor, StdChildArgs},
-    feedback_or_fast,
-    feedbacks::{CrashFeedback, MaxMapFeedback, TimeoutFeedback},
-    fuzzers::{Fuzzer, StdFuzzer},
-    generators::RandPrintablesGenerator,
-    inputs::{BytesInput, bytes::BytesContext},
-    launchers::StdLauncher,
-    monitors::SimpleMonitor,
-    mutators::{HavocScheduledMutator, Tokens, havoc_mutations},
-    non_zero,
-    observers::{HitcountsMapObserver, StdMapObserver},
-    runtimes::RuntimeHandle,
-    simple::{SimpleController, SimpleWorker},
-    stages::StdMutationalStage,
-    states::StdState,
-};
+use libaflmm::prelude::*;
 use libaflmm_bolts::{StdTargetArgs, SysVShm, current_nanos, rands::StdRand, tuples::tuple_list};
 use std::{ops::DerefMut, path::PathBuf, time::Duration};
 
