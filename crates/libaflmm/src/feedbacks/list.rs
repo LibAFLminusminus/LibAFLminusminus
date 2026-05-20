@@ -1,12 +1,18 @@
 //! A list of [`Feedback`]s.
 
+use crate::{
+    common::{DependencyResolver, Registrator},
+    corpus::TestcaseId,
+    executors::ExitKind,
+    feedbacks::Feedback,
+    observers::ListObserver,
+    states::State,
+};
 use alloc::borrow::Cow;
 use core::{
     fmt::{Debug, LowerHex},
     hash::Hash,
 };
-use std::{fs::File, io::Write, path::Path};
-
 use hashbrown::HashSet;
 use libaflmm_bolts::{
     HasRefCnt, Named,
@@ -14,11 +20,7 @@ use libaflmm_bolts::{
 };
 use libaflmm_core::Result;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
-
-use crate::{
-    common::DependencyResolver, corpus::TestcaseId, executors::ExitKind, feedbacks::Feedback,
-    observers::ListObserver, states::State,
-};
+use std::{fs::File, io::Write, path::Path};
 
 /// The metadata to remember past observed value
 #[derive(Debug, Serialize, Deserialize)]
@@ -131,7 +133,7 @@ impl<T> DependencyResolver for ListFeedback<T>
 where
     T: Debug + Eq + Hash + for<'a> Deserialize<'a> + Serialize + Default + Copy + 'static,
 {
-    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<()> {
+    fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
         registrator.register_md_default::<ListFeedbackMetadata<T>>(self.name());
         Ok(())
     }

@@ -1,14 +1,13 @@
 //! The queue corpus scheduler implements an AFL-like queue mechanism
 
-use alloc::{borrow::ToOwned, vec::Vec};
-
-use libaflmm_core::Result;
-use serde::{Deserialize, Serialize};
-
+use crate::common::DependencyResolver;
 use crate::{
-    DependencyResolver, Error,
+    Error,
     corpus::{Scheduler, testcase::TestcaseId},
 };
+use alloc::{borrow::ToOwned, vec::Vec};
+use libaflmm_core::Result;
+use serde::{Deserialize, Serialize};
 
 /// Walk the corpus in a queue-like fashion
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -73,10 +72,6 @@ impl Default for QueueScheduler {
 
 #[cfg(test)]
 mod tests {
-
-    use alloc::rc::Rc;
-    use std::path::PathBuf;
-
     use crate::{
         corpus::{
             Corpus, HasScheduler, InMemoryCorpus, OnDiskCorpus, Testcase,
@@ -85,6 +80,8 @@ mod tests {
         inputs::bytes::{BytesContext, BytesInput},
         states::{State, StdState},
     };
+    use alloc::rc::Rc;
+    use std::path::PathBuf;
 
     #[test]
     fn test_queue_corpus() {

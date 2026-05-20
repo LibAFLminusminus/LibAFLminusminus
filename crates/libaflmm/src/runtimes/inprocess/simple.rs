@@ -1,19 +1,17 @@
 //! A simple in-process [`Runtime`].
 
-use core::time::Duration;
-
-use libaflmm_bolts::timers::Timer;
-use libaflmm_core::Result;
-use serde::Serialize;
-
 use crate::{
-    DependencyResolver,
+    common::{CompatibilityChecker, DependencyResolver, Registrator},
     runtimes::{
         Runtime, RuntimeHandle, TerminationHandlerData,
         inprocess::{CrashStatus, InProcessRuntime, TimeoutStatus},
         utils::OsTerminationParams,
     },
 };
+use core::time::Duration;
+use libaflmm_bolts::timers::Timer;
+use libaflmm_core::Result;
+use serde::Serialize;
 
 type InnerRuntime<S, T, TM> = InProcessRuntime<
     fn(&mut TerminationHandlerData, &OsTerminationParams) -> Result<CrashStatus>,
@@ -55,18 +53,18 @@ where
 }
 
 impl<S, T, TM> DependencyResolver for SimpleInProcessRuntime<S, T, TM> {
-    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<()> {
+    fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
         self.0.register(registrator)
     }
 
-    fn register_with_ty(&mut self, registrator: &mut crate::Registrator) -> Result<()> {
+    fn register_with_ty(&mut self, registrator: &mut Registrator) -> Result<()> {
         registrator.register_ty::<Self>();
         registrator.register_ty::<InnerRuntime<S, T, TM>>();
 
         self.register(registrator)
     }
 
-    fn check(&self, checker: &crate::CompatibilityChecker) -> Result<()> {
+    fn check(&self, checker: &CompatibilityChecker) -> Result<()> {
         self.0.check(checker)
     }
 }

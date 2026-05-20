@@ -1,6 +1,6 @@
 use crate::{
+    controllers::NopWorker,
     inputs::NopInput,
-    nop::NopWorker,
     runtimes::{
         Runtime, RuntimeHandle, TerminationHandlerData,
         inprocess::{CrashStatus, InProcessRuntime, TimeoutStatus},

@@ -1,18 +1,14 @@
 //! A fuzzer using qemu in systemmode for binary-only coverage of kernels
 use libaflmm::{
-    corpus::{
-        schedulers::{NopScheduler, QueueScheduler},
-        Corpus, InMemoryCorpus, OnDiskCorpus,
-    },
+    corpus::{schedulers::QueueScheduler, Corpus, InMemoryCorpus, OnDiskCorpus},
     executors::ExitKind,
     feedback_or, feedback_or_fast,
     feedbacks::{CrashFeedback, MaxMapFeedback, TimeFeedback, TimeoutFeedback},
     inputs::{InputContext, StdContext},
     launchers::StdLauncher,
     monitors::StdMonitor,
-    mutators::{havoc_mutations::havoc_mutations, scheduled::HavocScheduledMutator},
     observers::{HitcountsMapObserver, TimeObserver, VariableMapObserver},
-    stages::StdMutationalStage,
+    stages::StdStage,
     states::{State, StdState},
     Fuzzer, Result, StdController, StdFuzzer, Worker,
 };
@@ -231,8 +227,7 @@ pub fn fuzz() -> Result<()> {
             // executor.break_on_timeout();
 
             // Setup an havoc mutator with a mutational stage
-            let mutator = HavocScheduledMutator::new(havoc_mutations());
-            let mut stages = tuple_list!(StdMutationalStage::new(mutator));
+            let mut stages = tuple_list!(StdStage::default());
 
             // A fuzzer with feedbacks and a corpus scheduler
             let mut fuzzer = StdFuzzer::new(

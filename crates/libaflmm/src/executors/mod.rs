@@ -12,7 +12,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::observers::{StdErrObserver, StdOutObserver};
 use crate::{
-    DependencyResolver, Error, Worker,
+    Error,
+    common::DependencyResolver,
+    controllers::Worker,
     observers::ObserversTuple,
     runtimes::{
         RuntimeHandle,

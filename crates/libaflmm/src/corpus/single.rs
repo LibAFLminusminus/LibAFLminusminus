@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{Corpus, Testcase, store::Store};
 use crate::{
-    DependencyResolver,
+    common::DependencyResolver,
     corpus::{
         DisableEntry, HasScheduler, Scheduler, schedulers::RemovableScheduler,
         store::StorageResult, testcase::TestcaseId,

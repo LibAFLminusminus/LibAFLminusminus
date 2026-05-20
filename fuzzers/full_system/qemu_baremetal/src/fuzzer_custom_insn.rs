@@ -7,9 +7,8 @@ use libaflmm::{
     inputs::StdContext,
     launchers::StdLauncher,
     monitors::StdMonitor,
-    mutators::{havoc_mutations::havoc_mutations, scheduled::HavocScheduledMutator},
     observers::{HitcountsMapObserver, TimeObserver, VariableMapObserver},
-    stages::StdMutationalStage,
+    stages::StdStage,
     states::{State, StdState},
     Fuzzer, Result, StdController, StdFuzzer, Worker,
 };
@@ -102,8 +101,7 @@ pub fn fuzz() -> Result<()> {
             let objective = feedback_or_fast!(CrashFeedback::new(), TimeoutFeedback::new());
 
             // Setup an havoc mutator with a mutational stage
-            let mutator = HavocScheduledMutator::new(havoc_mutations());
-            let mut stages = tuple_list!(StdMutationalStage::new(mutator));
+            let mut stages = tuple_list!(StdStage::default());
 
             // Create a QEMU in-process executor
             let mut executor = StdQemuExecutor::new(

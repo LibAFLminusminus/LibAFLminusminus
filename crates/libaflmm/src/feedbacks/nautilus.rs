@@ -1,8 +1,10 @@
 //! Nautilus grammar mutator, see <https://github.com/nautilus-fuzz/nautilus>
 
 use crate::{
-    DependencyResolver,
-    common::nautilus::grammartec::{chunkstore::ChunkStore, context::Context},
+    common::{
+        DependencyResolver, Registrator,
+        nautilus::grammartec::{chunkstore::ChunkStore, context::Context},
+    },
     corpus::{Corpus, TestcaseId},
     feedbacks::Feedback,
     generators::NautilusContext,
@@ -69,7 +71,7 @@ impl Named for NautilusFeedback<'_> {
 }
 
 impl DependencyResolver for NautilusFeedback<'_> {
-    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<()> {
+    fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
         registrator.register_md_default::<NautilusChunksMetadata>(self.name());
         Ok(())
     }

@@ -4,8 +4,10 @@ use alloc::string::String;
 use core::marker::PhantomData;
 
 use crate::{
-    DependencyResolver, FuzzerHook, Result, Verdict,
+    Result,
+    common::DependencyResolver,
     corpus::testcase::{Testcase, TestcaseFilenameFormat},
+    fuzzers::{FuzzerHook, Verdict},
     runtimes::RuntimeHandle,
 };
 

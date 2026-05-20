@@ -1,7 +1,9 @@
 use crate::{cmplog::CMPLOG_ENABLED, helper::NyxHelper};
 use core::{ops::IndexMut, time::Duration};
 use libaflmm::{
-    DependencyResolver, Error,
+    Error,
+    common::DependencyResolver,
+    controllers::Worker,
     executors::{Executor, ExitKind},
     inputs::InputContext,
     observers::{ObserversTuple, StdOutObserver},
@@ -47,7 +49,7 @@ where
 {
     type Observers = OT;
 
-    fn init<W: libaflmm::Worker>(
+    fn init<W: Worker>(
         &mut self,
         _state: &mut S,
         _rt_handle: &mut libaflmm::runtimes::RuntimeHandle<S, W>,
@@ -66,7 +68,7 @@ where
         RefIndexable::from(&mut self.observers)
     }
 
-    fn execute<W: libaflmm::Worker>(
+    fn execute<W: Worker>(
         &mut self,
         state: &mut S,
         _rt_handle: &mut libaflmm::runtimes::RuntimeHandle<S, W>,

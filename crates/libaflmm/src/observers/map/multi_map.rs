@@ -15,7 +15,8 @@ use meminterval::IntervalTree;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use crate::{
-    DependencyResolver, Error,
+    Error,
+    common::DependencyResolver,
     observers::{Observer, map::MapObserver},
 };
 

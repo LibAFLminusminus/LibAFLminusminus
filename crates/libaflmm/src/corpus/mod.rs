@@ -1,6 +1,6 @@
 //! Corpuses contain the testcases, either in memory, on disk, or somewhere else.
 
-use crate::DependencyResolver;
+use crate::common::DependencyResolver;
 use core::fmt;
 use libaflmm_core::Result;
 

@@ -17,8 +17,12 @@ use serde::{Serialize, de::DeserializeOwned};
 
 use super::{DifferentIsNovel, Feedback, HasObserverHandle, MapFeedback};
 use crate::{
-    common::DependencyResolver, corpus::TestcaseId, executors::ExitKind,
-    feedbacks::MapFeedbackMetadata, observers::MapObserver, states::State,
+    common::{DependencyResolver, Registrator},
+    corpus::TestcaseId,
+    executors::ExitKind,
+    feedbacks::MapFeedbackMetadata,
+    observers::MapObserver,
+    states::State,
 };
 
 /// Stable Rust wrapper for SIMD accelerated map feedback. Unfortunately, we have to
@@ -140,7 +144,7 @@ where
     O::Entry: 'static + Default + Debug + DeserializeOwned + Serialize,
     R: SimdReducer<V>,
 {
-    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<()> {
+    fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
         registrator.register_md_default::<MapFeedbackMetadata<u8>>("MapFeedback");
 
         self.map.register(registrator)

@@ -16,15 +16,15 @@ extern crate libaflmm_derive;
 #[doc(hidden)]
 pub use libaflmm_derive::*;
 
+pub use libaflmm_core::{Error, Result};
+pub use libaflmm_core::{non_zero, non_zero_const};
+
 pub mod common;
-pub use common::*;
 pub mod controllers;
-pub use controllers::*;
 pub mod corpus;
 pub mod executors;
 pub mod feedbacks;
 pub mod fuzzers;
-pub use fuzzers::*;
 pub mod generators;
 pub mod inputs;
 pub mod launchers;
@@ -35,17 +35,14 @@ pub mod runtimes;
 pub mod stages;
 pub mod states;
 
-pub use libaflmm_core::{Error, Result};
-pub use libaflmm_core::{non_zero, non_zero_const};
-
 /// The purpose of this module is to alleviate imports of many components by adding a glob import.
-#[cfg(feature = "prelude")]
 pub mod prelude {
     #![expect(ambiguous_glob_reexports)]
 
     pub use super::{
-        corpus::*, executors::*, feedbacks::*, fuzzers::*, generators::*, inputs::*, monitors::*,
-        mutators::*, observers::*, runtimes::*, stages::*, states::*,
+        common::*, controllers::*, corpus::*, executors::*, feedbacks::*, fuzzers::*,
+        generators::*, inputs::*, launchers::*, monitors::*, mutators::*, observers::*,
+        runtimes::*, stages::*, states::*,
     };
 }
 

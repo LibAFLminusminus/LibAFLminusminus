@@ -1,7 +1,7 @@
 //! A collection of various [`Corpus`].
 
 use crate::{
-    DependencyResolver,
+    common::DependencyResolver,
     corpus::{
         Corpus, FifoCache, HasScheduler, IdentityCache, InMemoryStore, OnDiskStore, Scheduler,
         SingleCorpus, Testcase, TestcaseFilenameFormat,

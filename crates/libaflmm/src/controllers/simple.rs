@@ -1,15 +1,14 @@
 //! Simple controller and worker.
 
+use crate::controllers::{Controller, Descriptor, Result, Workdir, WorkdirFile, Worker};
+use crate::launchers::InstanceId;
 use alloc::vec::Vec;
+use libaflmm_core::{WorkerId, illegal_argument, internal_bug};
+use nix::unistd::{dup2_stderr, dup2_stdout};
 use std::{
     fs,
     path::{Path, PathBuf},
 };
-
-use libaflmm_core::{WorkerId, illegal_argument, internal_bug};
-use nix::unistd::{dup2_stderr, dup2_stdout};
-
-use crate::{Controller, Descriptor, Result, Workdir, WorkdirFile, Worker, launchers::InstanceId};
 
 /// Builder for the [`SimpleController`].
 #[derive(Debug)]

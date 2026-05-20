@@ -1,5 +1,14 @@
 //! Termination is a generic term to talk about an abnormal program end, i.e. crash and timeout.
 
+use crate::{
+    executors::Executor,
+    fuzzers::Fuzzer,
+    runtimes::{
+        RuntimeHandle,
+        inprocess::{CrashStatus, TimeoutStatus},
+        utils::{OsTerminationParams, unix::OsShmSender},
+    },
+};
 use core::{
     ffi::c_void,
     pin::Pin,
@@ -7,19 +16,8 @@ use core::{
     ptr::NonNull,
     sync::atomic::{AtomicPtr, Ordering},
 };
-
 use libaflmm_bolts::DebugUnwrap;
 use libaflmm_core::Result;
-
-use crate::{
-    Fuzzer,
-    executors::Executor,
-    runtimes::{
-        RuntimeHandle,
-        inprocess::{CrashStatus, TimeoutStatus},
-        utils::{OsTerminationParams, unix::OsShmSender},
-    },
-};
 
 /// Convertible into [`TerminationHandlerData`].
 pub trait IntoTerminationHandlerData {

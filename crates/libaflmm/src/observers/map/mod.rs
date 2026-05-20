@@ -1,6 +1,6 @@
 //! All the map observer variants
 
-use crate::{DependencyResolver, Error, observers::Observer};
+use crate::{Error, common::DependencyResolver, observers::Observer};
 use alloc::{borrow::Cow, vec::Vec};
 use core::{
     fmt::Debug,

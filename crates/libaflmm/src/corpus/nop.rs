@@ -6,7 +6,8 @@ use libaflmm_core::Result;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    DependencyResolver, Error,
+    Error,
+    common::DependencyResolver,
     corpus::{Corpus, HasScheduler, Testcase, TestcaseId, schedulers::NopScheduler},
     inputs::NopContext,
 };

@@ -3,14 +3,16 @@
 //! This is useful in a couple of scenarios, such as when you want to measure the target unstability or you want to use power schedules.
 
 use crate::{
-    DependencyResolver, Error, Result, TestcasePowerScheduleData, Verdict, Worker,
-    common::PowerScheduleData,
-    corpus::{Corpus, HasScheduler, Scheduler, Testcase},
+    Error, Result,
+    common::{DependencyResolver, PowerScheduleData, Registrator, TestcasePowerScheduleData},
+    controllers::Worker,
+    corpus::{Corpus, HasScheduler, Scheduler, Testcase, TestcaseId},
     executors::Executor,
     feedbacks::{HasObserverHandle, MapFeedbackMetadata},
-    fuzzers::{ExitKind, FuzzerHook},
+    fuzzers::{ExitKind, FuzzerHook, Verdict},
     inputs::Input,
     observers::{MapObserver, ObserversTuple},
+    runtimes::RuntimeHandle,
     states::{STAT_CALIBRATION, State, named_metadata_mut, unnamed_metadata_mut},
 };
 use alloc::{borrow::Cow, string::ToString, vec::Vec};
@@ -103,7 +105,7 @@ pub struct CalibrationHook<C, O> {
 }
 
 impl<C, O> DependencyResolver for CalibrationHook<C, O> {
-    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<()> {
+    fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
         registrator.register_md_default::<UnstableEntriesMetadata>(self.name());
         Ok(())
     }
@@ -154,8 +156,8 @@ where
         &mut self,
         executor: &mut E,
         state: &mut S,
-        rt_handle: &mut crate::runtimes::RuntimeHandle<S, W>,
-        testcase_id: crate::corpus::TestcaseId,
+        rt_handle: &mut RuntimeHandle<S, W>,
+        testcase_id: TestcaseId,
         _verdict: Verdict,
     ) -> Result<()> {
         let testcase = state.corpus().get(&testcase_id)?;

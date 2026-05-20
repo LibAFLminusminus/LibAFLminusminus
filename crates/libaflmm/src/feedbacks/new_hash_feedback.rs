@@ -1,8 +1,14 @@
 //! The [`NewHashFeedback`] uses the backtrace hash and a hashset to only keep novel cases
 
+use crate::{
+    common::{DependencyResolver, Registrator},
+    executors::ExitKind,
+    feedbacks::{Feedback, HasObserverHandle},
+    observers::ObserverWithHashField,
+    states::State,
+};
 use alloc::{borrow::Cow, string::ToString};
 use core::fmt::Debug;
-
 use hashbrown::HashSet;
 use libaflmm_bolts::{
     Named,
@@ -10,14 +16,6 @@ use libaflmm_bolts::{
 };
 use libaflmm_core::Result;
 use serde::{Deserialize, Serialize};
-
-use crate::{
-    DependencyResolver,
-    executors::ExitKind,
-    feedbacks::{Feedback, HasObserverHandle},
-    observers::ObserverWithHashField,
-    states::State,
-};
 
 /// The prefix of the metadata names
 pub const NEWHASHFEEDBACK_PREFIX: &str = "newhashfeedback_metadata_";
@@ -128,7 +126,7 @@ where
 }
 
 impl<O> DependencyResolver for NewHashFeedback<O> {
-    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<()> {
+    fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
         registrator.register_md_default::<NewHashFeedbackMetadata>(self.name());
         Ok(())
     }

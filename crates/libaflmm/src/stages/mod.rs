@@ -4,10 +4,12 @@ A well-known [`Stage`], for example, is the mutational stage, running multiple [
 Other stages may enrich [`crate::corpus::Testcase`]s with metadata.
 */
 
+use crate::common::{CompatibilityChecker, Registrator};
 use crate::mutators::{HavocScheduledMutator, havoc_mutations};
 use crate::states::State;
 use crate::{
-    DependencyResolver, Result, corpus::TestcaseId, mutators::StdMutator, runtimes::RuntimeHandle,
+    Result, common::DependencyResolver, corpus::TestcaseId, mutators::StdMutator,
+    runtimes::RuntimeHandle,
 };
 use alloc::{boxed::Box, vec::Vec};
 use libaflmm_bolts::tuples::{HasConstLen, IntoVec};
@@ -165,7 +167,7 @@ impl<E, R, S, W, Z> IntoVec<Box<dyn Stage<E, R, S, W, Z>>> for Vec<Box<dyn Stage
 }
 
 impl<E, R, S, W, Z> DependencyResolver for Vec<Box<dyn Stage<E, R, S, W, Z>>> {
-    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<()> {
+    fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
         for st in self {
             st.register(registrator)?;
         }
@@ -173,7 +175,7 @@ impl<E, R, S, W, Z> DependencyResolver for Vec<Box<dyn Stage<E, R, S, W, Z>>> {
         Ok(())
     }
 
-    fn register_with_ty(&mut self, registrator: &mut crate::Registrator) -> Result<()> {
+    fn register_with_ty(&mut self, registrator: &mut Registrator) -> Result<()> {
         for st in self {
             st.register_with_ty(registrator)?;
         }
@@ -181,7 +183,7 @@ impl<E, R, S, W, Z> DependencyResolver for Vec<Box<dyn Stage<E, R, S, W, Z>>> {
         Ok(())
     }
 
-    fn check(&self, checker: &crate::CompatibilityChecker) -> Result<()> {
+    fn check(&self, checker: &CompatibilityChecker) -> Result<()> {
         for st in self {
             st.check(checker)?;
         }

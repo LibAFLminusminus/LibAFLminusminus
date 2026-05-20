@@ -1,6 +1,8 @@
 use clap::Parser;
 use libaflmm::{
-    Result, Worker,
+    Result,
+    controllers::Worker,
+    controllers::{SimpleController, SimpleWorker},
     corpus::{Corpus, InMemoryCorpus, OnDiskCorpus, schedulers::QueueScheduler},
     executors::{ForkserverExecutor, StdChildArgs},
     feedback_or_fast,
@@ -10,12 +12,11 @@ use libaflmm::{
     inputs::{BytesInput, bytes::BytesContext},
     launchers::StdLauncher,
     monitors::SimpleMonitor,
-    mutators::{HavocScheduledMutator, Tokens, havoc_mutations},
+    mutators::Tokens,
     non_zero,
     observers::{CmpLogObserver, HitcountsMapObserver, StdMapObserver},
     runtimes::RuntimeHandle,
-    simple::{SimpleController, SimpleWorker},
-    stages::{StdMutationalStage, TracerStage},
+    stages::{StdStage, TracerStage},
     states::StdState,
 };
 use libaflmm_bolts::{StdTargetArgs, SysVShm, current_nanos, rands::StdRand, tuples::tuple_list};
@@ -141,10 +142,9 @@ where
         .unwrap();
 
     // Setup a mutational stage with a basic bytes mutator
-    let mutator = HavocScheduledMutator::new(havoc_mutations());
     let tracer = TracerStage::new(secondary);
 
-    let mut stages = tuple_list!(StdMutationalStage::new(mutator), tracer);
+    let mut stages = tuple_list!(StdStage::default(), tracer);
 
     // Generator of printable bytearrays of max size 32
     let mut generator = RandPrintablesGenerator::new(non_zero!(32));

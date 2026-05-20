@@ -6,11 +6,10 @@ use libaflmm::{
     inputs::{BytesInput, bytes::BytesContext},
     launchers::StdLauncher,
     monitors::SimpleMonitor,
-    mutators::{HavocScheduledMutator, havoc_mutations},
     observers::StdMapObserver,
     runtimes::RuntimeHandle,
     simple::{SimpleController, SimpleWorker},
-    stages::StdMutationalStage,
+    stages::StdStage,
     states::StdState,
 };
 use libaflmm_bolts::{non_zero, rands::StdRand, tuples::tuple_list};
@@ -40,8 +39,7 @@ where
     // let monitor = SimpleMonitor::new(|x|-> () {println!("{}",x)});
     let mut executor = NyxExecutor::builder().build(helper, tuple_list!(observer));
 
-    let mutator = HavocScheduledMutator::new(havoc_mutations());
-    let mut stages = tuple_list!(StdMutationalStage::new(mutator));
+    let mut stages = tuple_list!(StdStage::default());
     let mut fuzzer = StdFuzzer::new(
         feedback,
         objective,

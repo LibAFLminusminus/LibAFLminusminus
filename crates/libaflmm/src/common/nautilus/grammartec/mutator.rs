@@ -331,15 +331,13 @@ mod tests {
     use hashbrown::HashSet;
     use libaflmm_bolts::rands::StdRand;
 
-    use crate::{
-        common::nautilus::grammartec::{
-            chunkstore::ChunkStore,
-            context::Context,
-            newtypes::RuleId,
-            rule::RuleIdOrCustom,
-            tree::{Tree, TreeLike, TreeMutation},
-        },
-        nautilus::grammartec::mutator::Mutator,
+    use crate::common::nautilus::grammartec::{
+        chunkstore::ChunkStore,
+        context::Context,
+        mutator::Mutator,
+        newtypes::RuleId,
+        rule::RuleIdOrCustom,
+        tree::{Tree, TreeLike, TreeMutation},
     };
 
     #[test]

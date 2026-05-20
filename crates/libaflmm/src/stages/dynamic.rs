@@ -6,7 +6,11 @@ use libaflmm_bolts::Named;
 
 use super::Stage;
 use crate::{
-    DependencyResolver, Result, corpus::testcase::TestcaseId, stages::RuntimeHandle, states::State,
+    Result,
+    common::{DependencyResolver, Registrator},
+    corpus::testcase::TestcaseId,
+    stages::RuntimeHandle,
+    states::State,
 };
 
 /// A dynamic stage implementation. This explicity uses enum so that rustc can better
@@ -31,7 +35,7 @@ where
     T1: DependencyResolver,
     T2: DependencyResolver,
 {
-    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<()> {
+    fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
         match self {
             Self::Stage1(st1) => st1.register(registrator),
             Self::Stage2(st2) => st2.register(registrator),

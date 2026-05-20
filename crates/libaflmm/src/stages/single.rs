@@ -9,8 +9,10 @@ use core::{fmt::Debug, marker::PhantomData};
 use libaflmm_bolts::Named;
 
 use crate::{
-    DependencyResolver, Evaluator, Result,
+    Result,
+    common::DependencyResolver,
     corpus::{Corpus, testcase::TestcaseId},
+    fuzzers::Evaluator,
     stages::{RuntimeHandle, Stage},
     states::State,
 };

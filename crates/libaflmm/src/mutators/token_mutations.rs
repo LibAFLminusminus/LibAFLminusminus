@@ -19,13 +19,13 @@ use hashbrown::HashSet;
 use libaflmm_bolts::{AsSlice, rands::Rand};
 use serde::{Deserialize, Serialize};
 
-use crate::mutators::str_decode;
 use crate::{
-    Error, EvaluationResult,
+    Error,
     inputs::{HasMutatorBytes, ResizableMutator},
     mutators::{MutationResult, Mutator, Named, buffer_self_copy, mutations::buffer_copy},
     states::State,
 };
+use crate::{fuzzers::EvaluationResult, mutators::str_decode};
 
 /// A state metadata holding a list of tokens
 #[expect(clippy::unsafe_derive_deserialize)]

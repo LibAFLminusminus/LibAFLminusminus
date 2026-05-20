@@ -38,9 +38,8 @@ cc = { workspace = true, features = ["parallel"] }
 [dependencies]
 libaflmm = { workspace = true, features = [
   "derive",
-  "frida_cli",
 ], default-features = false }
-libaflmm_bolts = { workspace = true, features = ["derive", "frida_cli"] }
+libaflmm_bolts = { workspace = true, features = ["derive"] }
 libaflmm_targets = { workspace = true, default-features = true, features = [
   "sancov_cmplog",
 ] }

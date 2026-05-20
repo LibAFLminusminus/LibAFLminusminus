@@ -2,8 +2,10 @@
 //! hook is a specific sub-routine that you can inject into serveral points of the the fuzzing loops
 
 use crate::{
-    DependencyResolver, Result, Verdict,
+    Result,
+    common::DependencyResolver,
     corpus::{TestcaseId, testcase::Testcase},
+    fuzzers::Verdict,
     runtimes::RuntimeHandle,
 };
 

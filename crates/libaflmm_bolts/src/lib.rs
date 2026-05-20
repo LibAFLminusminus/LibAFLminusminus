@@ -40,9 +40,6 @@ pub use shm::{
     SysVShm,
 };
 
-#[cfg(any(feature = "cli", feature = "frida_cli", feature = "qemu_cli"))]
-pub mod cli;
-
 pub mod fs;
 
 pub mod math;

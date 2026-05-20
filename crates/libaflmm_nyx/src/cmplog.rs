@@ -4,7 +4,8 @@
 
 use alloc::borrow::Cow;
 use libaflmm::{
-    DependencyResolver, Error,
+    Error,
+    common::{DependencyResolver, Registrator},
     executors::ExitKind,
     observers::{CmpLogMetadata, CmpValues, Observer},
     states::{State, named_metadata_mut},
@@ -42,7 +43,7 @@ impl NyxCmpObserver {
 }
 
 impl DependencyResolver for NyxCmpObserver {
-    fn register(&mut self, registrator: &mut libaflmm::Registrator) -> Result<(), Error> {
+    fn register(&mut self, registrator: &mut Registrator) -> Result<(), Error> {
         registrator.register_md_default::<CmpLogMetadata>(self.name());
         Ok(())
     }

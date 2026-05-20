@@ -1,16 +1,12 @@
 //! Schedule the access to the Corpus.
 
-use alloc::{borrow::ToOwned, vec::Vec};
+use crate::common::DependencyResolver;
+use crate::corpus::{Testcase, testcase::TestcaseId};
+use alloc::vec::Vec;
 use core::fmt::Debug;
-
 use libaflmm_bolts::rands::{Rand, StdRand};
-use libaflmm_core::{Result, non_zero};
+use libaflmm_core::{Result, empty, non_zero};
 use serde::{Deserialize, Serialize};
-
-use crate::{
-    DependencyResolver, Error,
-    corpus::{Testcase, testcase::TestcaseId},
-};
 
 pub mod queue;
 pub use queue::QueueScheduler;
@@ -77,9 +73,8 @@ where
     /// Gets the next entry at random
     fn next(&mut self) -> Result<TestcaseId> {
         if self.ids.is_empty() {
-            Err(Error::empty(
+            Err(empty!(
                 "No entries in corpus. This often implies the target is not properly instrumented."
-                    .to_owned(),
             ))
         } else {
             let idx = self.rand.below(non_zero!(self.ids.len()));

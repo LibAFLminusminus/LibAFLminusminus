@@ -11,7 +11,8 @@ use libaflmm_bolts::{Named, rands::Rand};
 use libaflmm_core::non_zero;
 
 use crate::{
-    DependencyResolver, Error,
+    Error,
+    common::DependencyResolver,
     corpus::{Corpus, TestcaseId},
     fuzzers::Evaluator,
     inputs::Input,

@@ -12,7 +12,8 @@ use libaflmm_bolts::{AsIter, AsIterMut, AsSlice, AsSliceMut, HasLen, Named, Trun
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    DependencyResolver, Error,
+    Error,
+    common::DependencyResolver,
     executors::ExitKind,
     observers::{ConstLenMapObserver, Observer, VarLenMapObserver, map::MapObserver},
 };
