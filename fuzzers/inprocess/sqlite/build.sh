@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -eu
+
 if [ ! -d "sqlite3" ]; then
     curl 'https://sqlite.org/src/tarball/sqlite.tar.gz?r=c78cbf2e86850cc6' -o sqlite3.tar.gz && mkdir sqlite3 && pushd sqlite3 && tar xzf ../sqlite3.tar.gz --strip-components 1 && popd
     mkdir corpus
@@ -40,4 +42,3 @@ else
   ./target/debug/libafl_cc --libafl -I ./sqlite3 -c ./sqlite3/test/ossfuzz.c -o ./sqlite3/test/ossfuzz.o
   ./target/debug/libafl_cxx --libafl -o ossfuzz ./sqlite3/test/ossfuzz.o ./sqlite3/sqlite3.o -pthread -ldl -lz
 fi
-
