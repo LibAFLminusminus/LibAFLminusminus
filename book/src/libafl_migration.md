@@ -38,7 +38,7 @@ workdir/
   worker_0/
     crashes/ <-- the default objective directory
     corpus/ <-- the default evolving corpus directory
-    logs.out <-- `stdout` logs
+    logs.out <-- `stdout` logs (you can give any name to it through `Launcher`)
     logs.err <-- `stderr` logs
     fuzzer_stats <-- stats of the fuzzer, updated every few seconds
   worker_1/
