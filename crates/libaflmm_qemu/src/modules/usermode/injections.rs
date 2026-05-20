@@ -11,25 +11,24 @@
  *
  */
 
-use std::{ffi::CStr, fmt::Display, fs, os::raw::c_char, path::Path};
-
-use hashbrown::HashMap;
-use libaflmm::{Error, Result};
-use libaflmm_qemu_sys::{GuestAddr, GuestUlong};
-use serde::{Deserialize, Serialize};
-
 #[cfg(not(cpu_target = "hexagon"))]
-use crate::SYS_execve;
+use crate::arch::syscalls::SYS_execve;
 use crate::{
-    CallingConvention, Qemu,
     elf::EasyElf,
     emu::EmulatorModules,
     modules::{
         EmulatorModule, EmulatorModuleTuple,
         utils::filters::{HasAddressFilter, NOP_ADDRESS_FILTER, NopAddressFilter},
     },
+    qemu::CallingConvention,
+    qemu::Qemu,
     qemu::{ArchExtras, Hook, SyscallHookResult},
 };
+use hashbrown::HashMap;
+use libaflmm::{Error, Result};
+use libaflmm_qemu_sys::{GuestAddr, GuestUlong};
+use serde::{Deserialize, Serialize};
+use std::{ffi::CStr, fmt::Display, fs, os::raw::c_char, path::Path};
 #[cfg(cpu_target = "hexagon")]
 /// Hexagon syscalls are not currently supported by the `syscalls` crate, so we just paste this here for now.
 /// <https://github.com/qemu/qemu/blob/11be70677c70fdccd452a3233653949b79e97908/linux-user/hexagon/syscall_nr.h#L230>

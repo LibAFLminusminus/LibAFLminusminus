@@ -1,3 +1,10 @@
+use hashbrown::{HashMap, hash_map::Entry};
+use libaflmm::Result;
+use libaflmm::{executors::ExitKind, observers::ObserversTuple, states::State};
+use libaflmm_bolts::drcov::{DrCovBasicBlock, DrCovWriter};
+use libaflmm_qemu_sys::{GuestAddr, GuestUsize};
+use rangemap::RangeMap;
+use serde::{Deserialize, Serialize};
 #[cfg(feature = "usermode")]
 use std::{
     cmp::{max, min},
@@ -8,24 +15,16 @@ use std::{
     sync::Mutex,
 };
 
-use hashbrown::{HashMap, hash_map::Entry};
-use libaflmm::Result;
-use libaflmm::{executors::ExitKind, observers::ObserversTuple, states::State};
-use libaflmm_bolts::drcov::{DrCovBasicBlock, DrCovWriter};
-use libaflmm_qemu_sys::{GuestAddr, GuestUsize};
-use rangemap::RangeMap;
-use serde::{Deserialize, Serialize};
-
 use super::utils::filters::HasAddressFilter;
 #[cfg(feature = "systemmode")]
 use crate::modules::utils::filters::{HasPageFilter, NOP_PAGE_FILTER, NopPageFilter};
 use crate::{
-    Qemu,
     emu::EmulatorModules,
     modules::{
         AddressFilter, EmulatorModule, EmulatorModuleTuple, utils::filters::NopAddressFilter,
     },
     qemu::Hook,
+    qemu::Qemu,
 };
 
 /// Trace of `block_id`s met at runtime

@@ -24,8 +24,8 @@ use crate::{
     states::State,
 };
 
-/// The module for all the executor hooks
 pub mod hooks;
+pub use hooks::{ExecutorHook, ExecutorHooksTuple};
 
 pub mod nop;
 pub use nop::NopExecutor;

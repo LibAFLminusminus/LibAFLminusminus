@@ -3,12 +3,13 @@ use super::{
     helpers::{gen_unique_edge_ids, trace_edge_hitcount, trace_edge_single},
 };
 use crate::{
-    EmulatorModules, Hook,
+    emu::EmulatorModules,
     modules::{
         AddressFilter, EdgeCoverageModule, EdgeCoverageModuleBuilder, EmulatorModuleTuple,
         PageFilter,
         utils::filters::{StdAddressFilter, StdPageFilter},
     },
+    qemu::Hook,
 };
 use libaflmm::states::State;
 

@@ -2,17 +2,22 @@
 #![allow(clippy::needless_pass_by_value)] // default compiler complains about Option<&mut T> otherwise, and this is used extensively.
 #![allow(clippy::unnecessary_cast)]
 
-use core::{fmt, slice};
-use std::{
-    env,
-    fmt::{Debug, Display},
-    fs,
-    path::PathBuf,
-    pin::Pin,
-    result,
-    sync::Mutex,
+use crate::{
+    arch::GuestReg,
+    arch::Regs,
+    emu::EmulatorModules,
+    modules::{
+        AddressFilter, EmulatorModule, EmulatorModuleTuple,
+        calls::FullBacktraceCollector,
+        snapshot::{SnapshotModule, get_snapshot_module_mut},
+        utils::filters::{HasAddressFilter, StdAddressFilter},
+    },
+    qemu::Qemu,
+    qemu::QemuParams,
+    qemu::{Hook, MemAccessInfo, QemuHooks, SyscallHookResult},
+    sys::TCGTemp,
 };
-
+use core::{fmt, slice};
 use hashbrown::{HashMap, HashSet};
 use libaflmm::{Result, executors::ExitKind, observers::ObserversTuple};
 use libaflmm_bolts::os::unix_signals::Signal;
@@ -22,18 +27,14 @@ use libc::{
 };
 use meminterval::{Interval, IntervalTree};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
-
-use crate::{
-    GuestReg, Qemu, QemuParams, Regs,
-    emu::EmulatorModules,
-    modules::{
-        AddressFilter, EmulatorModule, EmulatorModuleTuple,
-        calls::FullBacktraceCollector,
-        snapshot::{SnapshotModule, get_snapshot_module_mut},
-        utils::filters::{HasAddressFilter, StdAddressFilter},
-    },
-    qemu::{Hook, MemAccessInfo, QemuHooks, SyscallHookResult},
-    sys::TCGTemp,
+use std::{
+    env,
+    fmt::{Debug, Display},
+    fs,
+    path::PathBuf,
+    pin::Pin,
+    result,
+    sync::Mutex,
 };
 
 // TODO at some point, merge parts with libaflmm_frida

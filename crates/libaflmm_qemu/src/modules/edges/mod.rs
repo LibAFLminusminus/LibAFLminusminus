@@ -1,7 +1,7 @@
 use crate::{
-    Qemu,
     emu::EmulatorModules,
     modules::{AddressFilter, EmulatorModule, EmulatorModuleTuple, PageFilter},
+    qemu::Qemu,
 };
 use libaflmm::{Result, observers::VarLenMapObserver, states::State};
 use libaflmm_qemu_sys::GuestAddr;

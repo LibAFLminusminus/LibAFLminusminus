@@ -17,7 +17,12 @@ extern crate libaflmm_derive;
 pub use libaflmm_derive::*;
 
 pub use libaflmm_core::{Error, Result};
-pub use libaflmm_core::{non_zero, non_zero_const};
+pub use libaflmm_core::{
+    empty, empty_optional, illegal_argument, illegal_state, internal_bug, invalid_corpus,
+    invalid_input, iterator_end, key_exists, key_not_found, last_os_error, non_zero,
+    non_zero_const, non_zero_unchecked, nonnull_raw_mut, not_implemented, os_error, runtime,
+    unknown, unsupported,
+};
 
 pub mod common;
 pub mod controllers;

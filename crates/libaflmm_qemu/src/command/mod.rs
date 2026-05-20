@@ -1,13 +1,13 @@
+use crate::{
+    arch::{GuestReg, Regs},
+    emu::{EmulatorDriverError, EmulatorDriverResult, StdEmulator},
+    qemu::{Qemu, QemuRWError},
+    sync_exit::ExitArgs,
+};
+use enum_map::EnumMap;
 use std::{
     ffi::c_uint,
     fmt::{self, Debug, Display, Formatter},
-};
-
-use enum_map::EnumMap;
-
-use crate::{
-    EmulatorDriverError, EmulatorDriverResult, GuestReg, Qemu, QemuRWError, Regs, StdEmulator,
-    sync_exit::ExitArgs,
 };
 
 #[cfg(not(feature = "nyx"))]
@@ -63,8 +63,15 @@ macro_rules! define_std_command_manager_inner {
                     marker::PhantomData,
                 };
                 use enum_map::EnumMap;
-                use $crate::{
-                    command::{IsStdCommandManager, CommandManager, CommandError, NativeCommandParser, IsCommand}, get_exit_arch_regs, modules::{utils::filters::HasStdFiltersTuple, EmulatorModuleTuple}, sync_exit::ExitArgs, StdEmulator, EmulatorDriverError, EmulatorDriverResult, IsSnapshotManager, Qemu, Regs, GenericEmulatorDriver, InputSetter,
+                use crate::{
+                    command::{IsStdCommandManager, CommandManager, CommandError, NativeCommandParser, IsCommand},
+                    arch::get_exit_arch_regs,
+                    modules::{utils::filters::HasStdFiltersTuple, EmulatorModuleTuple},
+                    sync_exit::ExitArgs,
+                    emu::{StdEmulator, InputSetter, EmulatorDriverError, EmulatorDriverResult, IsSnapshotManager, GenericEmulatorDriver},
+                    qemu::Qemu,
+                    arch::Regs,
+
                 };
                 use std::ffi::c_uint;
 

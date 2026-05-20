@@ -10,13 +10,12 @@ use super::IntervalSnapshotFilter;
 #[cfg(not(feature = "clippy"))]
 use crate::sys::libafl_tcg_gen_asan;
 use crate::{
-    QemuParams,
     emu::EmulatorModules,
     modules::{
-        AddressFilter, EmulatorModule, EmulatorModuleTuple,
-        snapshot::IntervalSnapshotFilters,
+        AddressFilter, EmulatorModule, EmulatorModuleTuple, IntervalSnapshotFilters,
         utils::filters::{HasAddressFilter, StdAddressFilter},
     },
+    qemu::QemuParams,
     qemu::{Hook, MemAccessInfo, Qemu},
     sys::TCGTemp,
 };

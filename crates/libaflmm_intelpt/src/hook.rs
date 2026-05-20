@@ -1,10 +1,8 @@
+use crate::{CoverageEntry, IntelPT};
 use core::fmt::Debug;
-
-pub use libaflmm_intelpt::{CoverageEntry, IntelPT, PAGE_SIZE, PtImage};
+use libaflmm::executors::ExecutorHook;
 use serde::Serialize;
 use typed_builder::TypedBuilder;
-
-use crate::executors::hooks::ExecutorHook;
 
 /// Hook to enable Intel Processor Trace (PT) tracing
 #[derive(Debug, TypedBuilder)]
@@ -32,7 +30,8 @@ where
         let _ = pt
             .decode_traces_into_map(self.map_ptr, self.map_len)
             .inspect_err(|e| log::warn!("Intel PT trace decoding failed: {e}"));
-        #[cfg(feature = "intel_pt_export_raw")]
+
+        #[cfg(feature = "export_raw")]
         {
             let _ = pt
                 .dump_last_trace_to_file()

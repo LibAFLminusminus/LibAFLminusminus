@@ -1,12 +1,12 @@
-use crate::{
-    EmulatorModules, NewThreadHook, Qemu, QemuParams,
-    modules::{EmulatorModule, EmulatorModuleTuple, ExitKind},
-};
-use libaflmm::Result;
+use crate::{CoverageEntry, IntelPT, IntelPTBuilder};
 use libaflmm::observers::ObserversTuple;
-pub use libaflmm_intelpt::PtImage;
-use libaflmm_intelpt::{CoverageEntry, IntelPT, IntelPTBuilder};
-use libaflmm_qemu_sys::CPUArchStatePtr;
+use libaflmm::{Result, executors::ExitKind, runtime};
+use libaflmm_qemu::{
+    emu::EmulatorModules,
+    modules::{EmulatorModule, EmulatorModuleTuple},
+    qemu::{NewThreadHook, Qemu, QemuParams},
+    sys,
+};
 use std::fmt::Debug;
 use typed_builder::TypedBuilder;
 
@@ -64,7 +64,11 @@ where
     where
         ET: EmulatorModuleTuple<I, S>,
     {
-        assert!(self.pt.is_some(), "Intel PT module not initialized.");
+        if !self.pt.is_some() {
+            Err(runtime!("Intel PT module not initialized."))
+        } else {
+            Ok(())
+        }
     }
 
     fn post_exec<OT, ET>(
@@ -87,19 +91,21 @@ where
             .decode_traces_into_map(self.map_ptr, self.map_len)
             .inspect_err(|e| log::warn!("Intel PT trace decode failed: {e}"));
 
-        #[cfg(feature = "intel_pt_export_raw")]
+        #[cfg(feature = "export_raw")]
         {
             let _ = pt
                 .dump_last_trace_to_file()
                 .inspect_err(|e| log::warn!("Intel PT trace save to file failed: {e}"));
         }
+
+        Ok(())
     }
 }
 
 pub fn intel_pt_new_thread<ET, I, S, T>(
     emulator_modules: &mut EmulatorModules<ET, I, S>,
-    _state: Option<&mut S>,
-    _env: CPUArchStatePtr,
+    _state: &mut S,
+    _env: sys::CPUArchStatePtr,
     tid: u32,
 ) -> bool
 where

@@ -1,9 +1,7 @@
+use crate::qemu::CallingConvention;
 use core::fmt;
-use std::{convert::Infallible, fmt::Display};
-
 use libaflmm_qemu_sys::{CPUStatePtr, GuestAddr};
-
-use crate::CallingConvention;
+use std::{convert::Infallible, fmt::Display};
 
 #[derive(Debug, Clone)]
 pub enum QemuError {

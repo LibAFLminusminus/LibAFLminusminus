@@ -1,12 +1,16 @@
-use std::{mem::size_of, sync::OnceLock};
-
+use crate::{
+    GuestAddr,
+    qemu::{ArchExtras, CPU, CallingConvention, QemuRWError, QemuRWErrorKind},
+    sync_exit::ExitArgs,
+};
 use capstone::arch::BuildsCapstone;
 use enum_map::{EnumMap, enum_map};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
-pub use strum_macros::EnumIter;
-pub use syscall_numbers::x86_64::*;
+use std::{mem::size_of, sync::OnceLock};
+use strum_macros::EnumIter;
 
-use crate::{CallingConvention, GuestAddr, QemuRWError, QemuRWErrorKind, sync_exit::ExitArgs};
+#[cfg(feature = "usermode")]
+pub use syscall_numbers::x86_64 as syscalls;
 
 #[expect(non_upper_case_globals)]
 impl CallingConvention {
@@ -70,7 +74,7 @@ pub fn capstone() -> capstone::arch::x86::ArchCapstoneBuilder {
 
 pub type GuestReg = u64;
 
-impl crate::ArchExtras for crate::CPU {
+impl ArchExtras for CPU {
     fn read_return_address(&self) -> Result<GuestAddr, QemuRWError> {
         let stack_ptr: GuestAddr = self.read_reg(Regs::Rsp)? as GuestAddr;
         let mut ret_addr = [0; size_of::<GuestReg>()];

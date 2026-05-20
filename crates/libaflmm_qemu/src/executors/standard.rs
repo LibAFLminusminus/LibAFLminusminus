@@ -1,6 +1,6 @@
 //! A `QEMU`-based executor for binary-only instrumentation in `LibAFL`
 
-use crate::Emulator;
+use crate::emu::Emulator;
 use libaflmm::{
     Result,
     common::DependencyResolver,

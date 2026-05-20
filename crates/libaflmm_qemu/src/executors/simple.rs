@@ -1,4 +1,4 @@
-use crate::{Emulator, Qemu};
+use crate::{emu::Emulator, qemu::Qemu};
 use libaflmm::runtimes::{OsTerminationParams, inprocess::CrashStatus};
 use libaflmm::{
     Result,

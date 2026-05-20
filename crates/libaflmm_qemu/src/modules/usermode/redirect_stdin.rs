@@ -5,11 +5,11 @@ use libaflmm_bolts::HasLen;
 use libaflmm_qemu_sys::GuestUlong;
 
 #[cfg(not(cpu_target = "hexagon"))]
-use crate::SYS_read;
+use crate::arch::syscalls::SYS_read;
 use crate::{
-    Qemu,
     emu::EmulatorModules,
     modules::{EmulatorModule, EmulatorModuleTuple},
+    qemu::Qemu,
     qemu::{Hook, SyscallHookResult},
 };
 

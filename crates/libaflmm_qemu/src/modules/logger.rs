@@ -3,19 +3,20 @@
 //! It's a simple module logging selected events to the logger with the `info` level.
 //! It must be built through [`LoggerModuleBuilder`].
 
-use std::fmt::Debug;
-
-use libaflmm::Result;
-use libaflmm_qemu_sys::TCGTemp;
-
 use crate::{
-    EmulatorModules, GuestAddr, Hook, MemAccessInfo,
+    GuestAddr,
+    emu::EmulatorModules,
     modules::{
         EmulatorModule, EmulatorModuleTuple,
         utils::filters::{AddressFilter, NopAddressFilter, NopPageFilter},
     },
+    qemu::Hook,
+    qemu::MemAccessInfo,
     qemu::Qemu,
 };
+use libaflmm::Result;
+use libaflmm_qemu_sys::TCGTemp;
+use std::fmt::Debug;
 
 /// A builder for [`LoggerModule`].
 ///

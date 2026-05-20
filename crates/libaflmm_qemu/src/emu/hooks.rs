@@ -1,10 +1,9 @@
 #![allow(clippy::missing_transmute_annotations)]
 
-use std::{fmt::Debug, marker::PhantomData, mem::transmute, pin::Pin, ptr};
-
-use libaflmm::{Result, executors::ExitKind, observers::ObserversTuple};
-use libaflmm_qemu_sys::{CPUStatePtr, FatPtr, GuestAddr, TCGTemp};
-
+use crate::qemu::{
+    CpuPostRunHook, CpuPreRunHook, CpuRunHookId, HookState, MemAccessInfo, NewThreadHookFn, Qemu,
+    cpu_run_post_exec_hook_wrapper, cpu_run_pre_exec_hook_wrapper,
+};
 #[cfg(feature = "usermode")]
 use crate::qemu::{
     CrashHookClosure, CrashHookFn, PostSyscallHookClosure, PostSyscallHookFn,
@@ -17,8 +16,6 @@ use crate::qemu::{
     func_post_syscall_hook_wrapper, func_pre_syscall_hook_wrapper,
 };
 use crate::{
-    CpuPostRunHook, CpuPreRunHook, CpuRunHookId, HookState, MemAccessInfo, NewThreadHookFn, Qemu,
-    cpu_run_post_exec_hook_wrapper, cpu_run_pre_exec_hook_wrapper,
     modules::{EmulatorModule, EmulatorModuleTuple},
     qemu::{
         BackdoorHook, BackdoorHookClosure, BackdoorHookFn, BackdoorHookId, BlockExecHook,
@@ -39,6 +36,9 @@ use crate::{
         write_4_exec_hook_wrapper, write_gen_hook_wrapper,
     },
 };
+use libaflmm::{Result, executors::ExitKind, observers::ObserversTuple};
+use libaflmm_qemu_sys::{CPUStatePtr, FatPtr, GuestAddr, TCGTemp};
+use std::{fmt::Debug, marker::PhantomData, mem::transmute, pin::Pin, ptr};
 
 /// Get a C-compatible function pointer from the input hook.
 /// If the hook was already a c function, nothing is done.
