@@ -8,6 +8,13 @@ pub use strum_macros::EnumIter;
 
 use crate::{CallingConvention, GuestAddr, QemuRWError, QemuRWErrorKind, sync_exit::ExitArgs};
 
+/// Hexagon syscalls are not currently supported by the `syscall_numbers` crate, so we just paste this here for now.
+/// <https://github.com/qemu/qemu/blob/11be70677c70fdccd452a3233653949b79e97908/linux-user/hexagon/syscall_nr.h#L230>
+pub mod syscalls {
+    #![expect(non_upper_case_globals)]
+    const SYS_execve: u8 = 221;
+}
+
 #[expect(non_upper_case_globals)]
 impl CallingConvention {
     pub const Default: CallingConvention = CallingConvention::Hexagon;

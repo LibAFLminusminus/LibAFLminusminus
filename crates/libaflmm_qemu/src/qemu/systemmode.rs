@@ -2,10 +2,12 @@ use crate::{
     emu::{GuestAddrKind, QemuSnapshotCheckResult, snapshots::FastSnapshotPtr},
     qemu::{CPU, MemAccessInfo, Qemu, QemuMemoryChunk},
 };
+use libaflmm_bolts::Error;
 use libaflmm_qemu_sys::{
     GuestAddr, GuestPhysAddr, GuestVirtAddr, libafl_load_qemu_snapshot, libafl_page_from_addr,
     libafl_qemu_current_paging_id, libafl_qemu_run, libafl_save_qemu_snapshot, qemu_cleanup,
 };
+use libaflmm_qemu_sys::{libafl_qemu_remove_hw_breakpoint, libafl_qemu_set_hw_breakpoint};
 use libc::EXIT_SUCCESS;
 use num_traits::Zero;
 use std::{
@@ -348,6 +350,26 @@ impl Qemu {
         #[expect(clippy::cast_sign_loss)]
         unsafe {
             libaflmm_qemu_sys::libafl_target_page_offset_mask() as usize
+        }
+    }
+
+    pub fn set_hw_breakpoint(&self, addr: GuestAddr) -> libaflmm::Result<()> {
+        let ret = unsafe { libafl_qemu_set_hw_breakpoint(addr as GuestVirtAddr) };
+        match ret {
+            0 => Ok(()),
+            errno => Err(Error::unsupported(format!(
+                "Failed to set hw breakpoint errno: {errno}"
+            ))),
+        }
+    }
+
+    pub fn remove_hw_breakpoint(&self, addr: GuestAddr) -> libaflmm::Result<()> {
+        let ret = unsafe { libafl_qemu_remove_hw_breakpoint(addr as GuestVirtAddr) };
+        match ret {
+            0 => Ok(()),
+            errno => Err(Error::unsupported(format!(
+                "Failed to set hw breakpoint errno: {errno}"
+            ))),
         }
     }
 }

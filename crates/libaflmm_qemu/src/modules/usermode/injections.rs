@@ -28,23 +28,26 @@ use hashbrown::HashMap;
 use libaflmm::{Error, Result};
 use libaflmm_qemu_sys::{GuestAddr, GuestUlong};
 use serde::{Deserialize, Serialize};
-use std::{ffi::CStr, fmt::Display, fs, os::raw::c_char, path::Path};
-#[cfg(cpu_target = "hexagon")]
-/// Hexagon syscalls are not currently supported by the `syscalls` crate, so we just paste this here for now.
-/// <https://github.com/qemu/qemu/blob/11be70677c70fdccd452a3233653949b79e97908/linux-user/hexagon/syscall_nr.h#L230>
-#[expect(non_upper_case_globals)]
-const SYS_execve: u8 = 221;
+use std::{ffi::CStr, fs, os::raw::c_char, path::Path};
 
 /// Parses `injections.yaml`
-fn parse_yaml<P: AsRef<Path> + Display>(path: P) -> Result<Vec<YamlInjectionEntry>> {
-    serde_yaml::from_str(&fs::read_to_string(&path)?)
-        .map_err(|e| Error::serialize(format!("Failed to deserialize yaml at {path}: {e}")))
+fn parse_yaml(path: impl AsRef<Path>) -> Result<Vec<YamlInjectionEntry>> {
+    serde_yaml::from_str(&fs::read_to_string(&path)?).map_err(|e| {
+        Error::serialize(format!(
+            "Failed to deserialize yaml at {}: {e}",
+            path.as_ref().display()
+        ))
+    })
 }
 
 /// Parses `injections.toml`
-fn parse_toml<P: AsRef<Path> + Display>(path: P) -> Result<HashMap<String, InjectionDefinition>> {
-    toml::from_str(&fs::read_to_string(&path)?)
-        .map_err(|e| Error::serialize(format!("Failed to deserialize toml at {path}: {e}")))
+fn parse_toml(path: impl AsRef<Path>) -> Result<HashMap<String, InjectionDefinition>> {
+    toml::from_str(&fs::read_to_string(&path)?).map_err(|e| {
+        Error::serialize(format!(
+            "Failed to deserialize toml at {}: {e}",
+            path.as_ref().display()
+        ))
+    })
 }
 
 /// Converts the injects.yaml format to the internal toml-like format
@@ -159,7 +162,7 @@ pub struct InjectionModule {
 impl InjectionModule {
     /// `configure_injections` is the main function to activate the injection
     /// vulnerability detection feature.
-    pub fn from_yaml<P: AsRef<Path> + Display>(yaml_file: P) -> Result<Self> {
+    pub fn from_yaml(yaml_file: impl AsRef<Path>) -> Result<Self> {
         let yaml_entries = parse_yaml(yaml_file)?;
         let definition = yaml_entries_to_definition(&yaml_entries)?;
         Self::new(definition)
@@ -167,7 +170,7 @@ impl InjectionModule {
 
     /// `configure_injections` is the main function to activate the injection
     /// vulnerability detection feature.
-    pub fn from_toml<P: AsRef<Path> + Display>(toml_file: P) -> Result<Self> {
+    pub fn from_toml(toml_file: impl AsRef<Path>) -> Result<Self> {
         let definition = parse_toml(toml_file)?;
         Self::new(definition)
     }

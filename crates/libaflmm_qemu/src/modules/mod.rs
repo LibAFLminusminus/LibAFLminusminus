@@ -1,14 +1,7 @@
+use crate::{emu::EmulatorModules, qemu::Qemu, qemu::QemuParams};
 use core::fmt::Debug;
-
 use libaflmm::{Result, executors::ExitKind, observers::ObserversTuple};
 use libaflmm_bolts::tuples::{MatchFirstType, SplitBorrowExtractFirstType};
-
-use crate::{
-    emu::EmulatorModules,
-    modules::utils::filters::{AddressFilter, PageFilter},
-    qemu::Qemu,
-    qemu::QemuParams,
-};
 
 #[cfg(feature = "usermode")]
 pub mod usermode;
@@ -50,6 +43,11 @@ pub mod logger;
 pub use logger::LoggerModule;
 
 pub mod utils;
+pub use utils::{
+    AddressFilter, AddressFilterVec, FilterList, HasAddressFilter, HasAddressFilterTuple,
+    HasPageFilter, HasStdFilters, HasStdFiltersTuple, NopAddressFilter, NopPageFilter, PageFilter,
+    PageFilterVec, StdAddressFilter, StdPageFilter,
+};
 
 /// [`EmulatorModule`] is a trait designed to define modules that interact with the QEMU emulator
 /// during fuzzing. [`EmulatorModule`] provides a set of interfaces (hooks) that can be invoked at various stages

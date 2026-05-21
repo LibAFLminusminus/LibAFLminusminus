@@ -8,8 +8,7 @@ use core::{
     cmp::{Ordering, PartialOrd},
     fmt, ptr, slice,
 };
-#[cfg(feature = "systemmode")]
-use libaflmm_bolts::Error;
+use libaflmm::runtime;
 use libaflmm_bolts::os::unix_signals::Signal;
 use libaflmm_qemu_sys::{
     CPUArchState, CPUStatePtr, FatPtr, GuestAddr, GuestPhysAddr, GuestVirtAddr, libafl_flush_jit,
@@ -19,9 +18,6 @@ use libaflmm_qemu_sys::{
     libafl_qemu_remove_breakpoint, libafl_qemu_set_breakpoint, libafl_qemu_trigger_breakpoint,
     libafl_qemu_write_reg,
 };
-#[cfg(feature = "systemmode")]
-use libaflmm_qemu_sys::{libafl_qemu_remove_hw_breakpoint, libafl_qemu_set_hw_breakpoint};
-use num_traits::Num;
 use std::{
     ffi::{CString, c_void},
     fmt::{Display, Formatter, Write},
@@ -319,18 +315,17 @@ impl CPU {
         unsafe { libafl_qemu_num_regs(self.cpu_ptr) }
     }
 
-    pub fn read_reg<R>(&self, reg: R) -> Result<GuestReg, QemuRWError>
-    where
-        R: Into<i32> + Clone,
-    {
+    pub fn read_reg(&self, reg: impl Into<i32>) -> Result<GuestReg, QemuRWError> {
         unsafe {
-            let reg_id = reg.clone().into();
+            let reg_id: i32 = reg.into();
+
             let mut val = MaybeUninit::uninit();
+
             let success = libafl_qemu_read_reg(self.cpu_ptr, reg_id, val.as_mut_ptr() as *mut u8);
             if success == 0 {
                 Err(QemuRWError::wrong_reg(
                     QemuRWErrorKind::Write,
-                    reg,
+                    reg_id,
                     Some(self.cpu_ptr),
                 ))
             } else {
@@ -343,15 +338,15 @@ impl CPU {
         }
     }
 
-    pub fn write_reg<R, T>(&self, reg: R, val: T) -> Result<(), QemuRWError>
-    where
-        R: Into<i32> + Clone,
-        T: Into<GuestReg>,
-    {
-        let reg_id = reg.clone().into();
+    pub fn write_reg(
+        &self,
+        reg: impl Into<i32>,
+        val: impl Into<GuestReg>,
+    ) -> Result<(), QemuRWError> {
+        let reg_id: i32 = reg.into();
+
         #[cfg(feature = "be")]
         let val = GuestReg::to_be(val.into());
-
         #[cfg(not(feature = "be"))]
         let val = GuestReg::to_le(val.into());
 
@@ -360,7 +355,7 @@ impl CPU {
         if success == 0 {
             Err(QemuRWError::wrong_reg(
                 QemuRWErrorKind::Write,
-                reg,
+                reg_id,
                 Some(self.cpu_ptr),
             ))
         } else {
@@ -870,20 +865,17 @@ impl Qemu {
         self.current_cpu().unwrap().num_regs()
     }
 
-    pub fn write_reg<R, T>(&self, reg: R, val: T) -> Result<(), QemuRWError>
-    where
-        T: Num + PartialOrd + Copy + Into<GuestReg>,
-        R: Into<i32> + Clone,
-    {
+    pub fn write_reg(
+        &self,
+        reg: impl Into<i32>,
+        val: impl Into<GuestReg>,
+    ) -> Result<(), QemuRWError> {
         self.current_cpu()
             .ok_or(QemuRWError::current_cpu_not_found(QemuRWErrorKind::Write))?
             .write_reg(reg, val)
     }
 
-    pub fn read_reg<R>(&self, reg: R) -> Result<GuestReg, QemuRWError>
-    where
-        R: Into<i32> + Clone,
-    {
+    pub fn read_reg(&self, reg: impl Into<i32>) -> Result<GuestReg, QemuRWError> {
         self.current_cpu()
             .ok_or(QemuRWError::current_cpu_not_found(QemuRWErrorKind::Read))?
             .read_reg(reg)
@@ -915,37 +907,27 @@ impl Qemu {
         }
     }
 
-    #[cfg(feature = "systemmode")]
-    pub fn set_hw_breakpoint(&self, addr: GuestAddr) -> Result<(), Error> {
-        let ret = unsafe { libafl_qemu_set_hw_breakpoint(addr as GuestVirtAddr) };
-        match ret {
-            0 => Ok(()),
-            errno => Err(Error::unsupported(format!(
-                "Failed to set hw breakpoint errno: {errno}"
-            ))),
-        }
-    }
-
-    #[cfg(feature = "systemmode")]
-    pub fn remove_hw_breakpoint(&self, addr: GuestAddr) -> Result<(), Error> {
-        let ret = unsafe { libafl_qemu_remove_hw_breakpoint(addr as GuestVirtAddr) };
-        match ret {
-            0 => Ok(()),
-            errno => Err(Error::unsupported(format!(
-                "Failed to set hw breakpoint errno: {errno}"
-            ))),
-        }
-    }
-
-    pub fn entry_break(&self, addr: GuestAddr) {
+    pub fn entry_break(&self, addr: GuestAddr) -> libaflmm::Result<()> {
         self.set_breakpoint(addr);
+
         unsafe {
             match self.run() {
-                Ok(QemuExitReason::Breakpoint(_)) => {}
-                _ => panic!("Unexpected QEMU exit."),
+                Ok(QemuExitReason::Breakpoint(bp_addr)) => {
+                    if bp_addr != addr {
+                        return Err(runtime!(
+                            "Entry break was expected to stop at address {addr}, but stopped at address {bp_addr} instead."
+                        ));
+                    }
+                }
+                _ => {
+                    return Err(runtime!("Unexpected QEMU exit."));
+                }
             }
         }
+
         self.remove_breakpoint(addr);
+
+        Ok(())
     }
 
     pub fn flush_jit(&self) {
@@ -996,10 +978,10 @@ impl Qemu {
     /// of the called function, in case the argument is written in the stack.
     /// Support downward-growing stack only.
     /// If you need to specify a calling convention, use [`Self::write_function_arguments_with_cc`].
-    pub fn write_function_arguments<T>(&mut self, val: &[T]) -> Result<(), QemuRWError>
-    where
-        T: Into<GuestReg> + Copy,
-    {
+    pub fn write_function_arguments(
+        &mut self,
+        val: &[impl Into<GuestReg> + Clone],
+    ) -> Result<(), QemuRWError> {
         self.write_function_arguments_with_cc(val, &CallingConvention::Default)
     }
 
@@ -1009,14 +991,11 @@ impl Qemu {
     /// Note that the stack pointer register must point the top of the stack at the start
     /// of the called function, in case the argument is written in the stack.
     /// Support downward-growing stack only.
-    pub fn write_function_arguments_with_cc<T>(
+    pub fn write_function_arguments_with_cc(
         &mut self,
-        val: &[T],
+        val: &[impl Into<GuestReg> + Clone],
         conv: &CallingConvention,
-    ) -> Result<(), QemuRWError>
-    where
-        T: Into<GuestReg> + Copy,
-    {
+    ) -> Result<(), QemuRWError> {
         for (idx, elem) in val.iter().enumerate() {
             self.write_function_argument_with_cc(idx as u8, elem.to_owned(), conv.clone())?;
         }
@@ -1041,10 +1020,11 @@ impl Qemu {
     /// of the called function, in case the argument is written in the stack.
     /// Support downward-growing stack only.
     /// If you need to specify a calling convention, use [`Self::write_function_argument_with_cc`].
-    pub fn write_function_argument<T>(&self, idx: u8, val: T) -> Result<(), QemuRWError>
-    where
-        T: Into<GuestReg>,
-    {
+    pub fn write_function_argument(
+        &self,
+        idx: u8,
+        val: impl Into<GuestReg>,
+    ) -> Result<(), QemuRWError> {
         self.write_function_argument_with_cc(idx, val, CallingConvention::Default)
     }
 }
@@ -1376,7 +1356,7 @@ pub mod pybind {
         }
 
         fn entry_break(&self, addr: GuestAddr) {
-            self.qemu.entry_break(addr);
+            self.qemu.entry_break(addr).unwrap();
         }
 
         fn remove_breakpoint(&self, addr: GuestAddr) {

@@ -184,7 +184,6 @@ impl CPU {
     /// This will read from a translated guest address (using `g2h`).
     /// It just adds `guest_base` and writes to that location, without checking the bounds.
     /// This may only be safely used for valid guest addresses!
-    #[cfg(not(feature = "systemmode"))]
     pub unsafe fn read_mem_unchecked(&self, addr: GuestAddr, buf: &mut [u8]) {
         let host_addr = self.g2h::<u8>(addr);
         unsafe {
@@ -199,7 +198,6 @@ impl CPU {
     /// This will write to a translated guest address (using `g2h`).
     /// It just adds `guest_base` and writes to that location, without checking the bounds.
     /// This may only be safely used for valid guest addresses!
-    #[cfg(not(feature = "systemmode"))]
     pub unsafe fn write_mem_unchecked(&self, addr: GuestAddr, buf: &[u8]) {
         let host_addr = self.g2h::<u8>(addr);
         unsafe {
@@ -229,6 +227,7 @@ impl CPU {
 
 #[expect(clippy::unused_self)]
 impl Qemu {
+    /// This function gets the memory mappings from the emulator.
     #[must_use]
     pub fn mappings(&self) -> GuestMaps {
         GuestMaps::new()
@@ -290,7 +289,6 @@ impl Qemu {
         }
     }
 
-    #[cfg(not(feature = "systemmode"))]
     pub(super) unsafe fn run_inner(self) {
         unsafe {
             libafl_qemu_run();
@@ -337,11 +335,11 @@ impl Qemu {
 
     #[expect(clippy::cast_sign_loss)]
     pub fn mmap(
-        self,
+        &self,
         addr: GuestAddr,
         size: usize,
         perms: MmapPerms,
-        flags: c_int,
+        flags: i32,
         fd: i32,
     ) -> Result<GuestAddr, Error> {
         let res = unsafe {

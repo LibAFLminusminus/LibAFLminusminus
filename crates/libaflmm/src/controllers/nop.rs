@@ -1,6 +1,7 @@
 //! Nop controller and workers.
 
 use crate::controllers::{Controller, Descriptor, Workdir, Worker};
+use libaflmm_bolts::CoreId;
 use libaflmm_core::{Result, WorkerId};
 
 /// Nop [`Controller`]
@@ -27,13 +28,17 @@ impl Descriptor for NopDescriptor {
     fn worker_id(&self) -> WorkerId {
         panic!("No descriptor for NopDescriptor.");
     }
+
+    fn core_id(&self) -> CoreId {
+        panic!("No descriptor for NopDescriptor.");
+    }
 }
 
 impl Controller for NopController {
     type Worker = NopWorker;
     type Descriptor = NopDescriptor;
 
-    fn create_worker(&mut self) -> Result<Self::Worker> {
+    fn create_worker(&mut self, _core_id: CoreId) -> Result<Self::Worker> {
         Ok(NopWorker)
     }
 
@@ -51,20 +56,12 @@ impl Controller for NopController {
 impl Worker for NopWorker {
     type Controller = NopController;
 
-    fn id(&self) -> WorkerId {
-        unimplemented!("nop controller has no id");
-    }
-
     fn descriptor(&self) -> &NopDescriptor {
-        &NopDescriptor
+        unimplemented!("nop controller has no descriptor");
     }
 
-    fn workdir(&self) -> &Workdir {
-        unimplemented!("nop controller has no workdir");
-    }
-
-    fn workdir_mut(&mut self) -> &mut Workdir {
-        unimplemented!("nop controller has no workdir");
+    fn descriptor_mut(&mut self) -> &mut NopDescriptor {
+        unimplemented!("nop controller has no descriptor");
     }
 
     fn reconcile(&self) -> Result<()> {

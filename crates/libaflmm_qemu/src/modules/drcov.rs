@@ -395,9 +395,9 @@ impl DrCovModule<NopAddressFilter> {
 
 impl<F> DrCovModule<F> {
     #[must_use]
-    pub fn new<P: Into<PathBuf>>(
+    pub fn new(
         filter: F,
-        path: P,
+        path: impl AsRef<Path>,
         module_mapping: Option<RangeMap<u64, (u16, String)>>,
         full_trace: bool,
         clean_on_flush: bool,
@@ -412,15 +412,15 @@ impl<F> DrCovModule<F> {
         Self {
             filter,
             module_mapping,
-            path: path.into(),
+            path: path.as_ref().to_path_buf(),
             full_trace,
             clean_on_flush,
             drcov_len: 0,
         }
     }
 
-    pub fn set_path<P: Into<PathBuf>>(&mut self, path: P) {
-        self.path = path.into();
+    pub fn set_path(&mut self, path: impl AsRef<Path>) {
+        self.path = path.as_ref().to_path_buf();
     }
 
     pub fn path(&self) -> &Path {

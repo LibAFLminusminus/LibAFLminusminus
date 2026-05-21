@@ -93,10 +93,7 @@ impl QemuRWError {
         Self { kind, cause, cpu }
     }
 
-    pub fn wrong_reg<R>(kind: QemuRWErrorKind, reg: R, cpu: Option<CPUStatePtr>) -> Self
-    where
-        R: Into<i32> + Clone,
-    {
+    pub fn wrong_reg(kind: QemuRWErrorKind, reg: i32, cpu: Option<CPUStatePtr>) -> Self {
         Self::new(kind, QemuRWErrorCause::Reg(reg.into()), cpu)
     }
 

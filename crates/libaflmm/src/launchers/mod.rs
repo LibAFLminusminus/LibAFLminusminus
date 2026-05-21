@@ -342,8 +342,6 @@ where
         task: T,
     ) -> Result<StdLauncher<CT::Descriptor, CT, MT, StdInProcessRuntime<S, T, TM>, S, CT::Worker>>
     where
-        // this bound is needed to help rust link the state output by the state builder and
-        // the one used by the task. otherwise, the compiler needs explicit typing.
         T: FnMut(&mut RuntimeHandle<S, CT::Worker>, &mut S) -> Result<()> + Clone,
     {
         if self.cores.is_empty() {
@@ -398,7 +396,7 @@ where
         // create an instance per core, ready to run.
         for core in self.cores {
             // spawn a controller for the instance
-            let worker = controller.create_worker()?;
+            let worker = controller.create_worker(core)?;
 
             // create the state for the instance
             let state: S = (self.state_builder)(&worker)?;

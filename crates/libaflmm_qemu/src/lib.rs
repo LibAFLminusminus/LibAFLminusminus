@@ -88,9 +88,12 @@ pub mod prelude {
     pub use crate::executors::{SimpleQemuExecutor, StdQemuExecutor};
 
     pub use crate::modules::{
-        CallTracerModule, CmpLogModule, DrCovModule, DrCovModuleBuilder, EdgeCoverageModule,
-        EmulatorModule, EmulatorModuleTuple, LoggerModule, StdEdgeCoverageChildModule,
-        StdEdgeCoverageClassicModule, StdEdgeCoverageFullModule, StdEdgeCoverageModule,
+        AddressFilter, AddressFilterVec, CallTracerModule, CmpLogModule, DrCovModule,
+        DrCovModuleBuilder, EdgeCoverageModule, EmulatorModule, EmulatorModuleTuple, FilterList,
+        HasAddressFilter, HasAddressFilterTuple, HasPageFilter, HasStdFilters, HasStdFiltersTuple,
+        LoggerModule, NopAddressFilter, NopPageFilter, PageFilter, PageFilterVec, StdAddressFilter,
+        StdEdgeCoverageChildModule, StdEdgeCoverageClassicModule, StdEdgeCoverageFullModule,
+        StdEdgeCoverageModule, StdPageFilter,
     };
 
     #[cfg(feature = "injections")]

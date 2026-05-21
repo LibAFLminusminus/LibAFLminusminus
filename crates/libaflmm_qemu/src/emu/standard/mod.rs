@@ -23,12 +23,6 @@ use std::{cell::RefCell, collections::HashMap, fmt::Debug, marker::PhantomData, 
 pub mod builder;
 pub use builder::StdEmulatorBuilder;
 
-#[cfg(feature = "usermode")]
-pub(crate) mod usermode;
-
-#[cfg(feature = "systemmode")]
-pub(crate) mod systemmode;
-
 /// The high-level interface to [`Qemu`].
 ///
 /// It embeds multiple structures aiming at making QEMU usage easier:

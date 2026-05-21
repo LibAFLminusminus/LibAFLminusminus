@@ -292,7 +292,7 @@ impl<I, SC> OnDiskCorpusBuilder<I, SC> {
 
     /// Set the root directory, where the testcases will be stored.
     #[must_use]
-    pub fn root_dir<P: AsRef<Path>>(mut self, root_dir: P) -> Self {
+    pub fn root_dir(mut self, root_dir: impl AsRef<Path>) -> Self {
         self.store_builder.root_dir(root_dir);
         self
     }
@@ -316,8 +316,8 @@ impl<I, SC> OnDiskCorpusBuilder<I, SC> {
 
 impl<I, SC> OnDiskCorpus<I, SC> {
     /// Create a new [`OnDiskCorpus`]
-    pub fn new<P: AsRef<Path>>(
-        root: P,
+    pub fn new(
+        root: impl AsRef<Path>,
         filename_format: TestcaseFilenameFormat,
         scheduler: SC,
     ) -> Result<Self> {
@@ -447,14 +447,17 @@ impl<I> Default for InMemoryOnDiskCorpusBuilder<I, NopScheduler> {
 impl<I, SC> InMemoryOnDiskCorpusBuilder<I, SC> {
     /// Set the [`Scheduler`].
     #[must_use]
-    pub fn scheduler(mut self, scheduler: SC) -> Self {
-        self.scheduler = scheduler;
-        self
+    pub fn scheduler<SC2>(self, scheduler: SC2) -> InMemoryOnDiskCorpusBuilder<I, SC2> {
+        InMemoryOnDiskCorpusBuilder {
+            scheduler,
+            store_builder: self.store_builder,
+            _phantom: PhantomData,
+        }
     }
 
     /// Set the root directory, where the testcases will be stored.
     #[must_use]
-    pub fn root_dir<P: AsRef<Path>>(mut self, root_dir: P) -> Self {
+    pub fn root_dir(mut self, root_dir: impl AsRef<Path>) -> Self {
         self.store_builder.root_dir(root_dir);
         self
     }

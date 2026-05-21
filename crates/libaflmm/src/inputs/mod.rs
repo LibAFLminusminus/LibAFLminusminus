@@ -44,18 +44,12 @@ pub type MutVecInput<'a> = &'a mut Vec<u8>;
 /// An input for the target
 pub trait Input: Clone + Serialize + serde::de::DeserializeOwned + Debug + Hash {
     /// Write this input to the file
-    fn to_file<P>(&self, path: P) -> Result<(), Error>
-    where
-        P: AsRef<Path>,
-    {
+    fn to_file(&self, path: impl AsRef<Path>) -> Result<(), Error> {
         write_file_atomic(path, &postcard::to_allocvec(self)?)
     }
 
     /// Load the content of this input from a file
-    fn from_file<P>(path: P) -> Result<Self, Error>
-    where
-        P: AsRef<Path>,
-    {
+    fn from_file(path: impl AsRef<Path>) -> Result<Self, Error> {
         let mut file = File::open(path)?;
         let mut bytes = vec![];
         file.read_to_end(&mut bytes)?;

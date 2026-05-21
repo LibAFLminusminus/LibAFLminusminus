@@ -1,9 +1,10 @@
 //! This modules are for all observers that observe the cmplog values
 
-pub mod cmplog_observer;
-pub use cmplog_observer::*;
 use libaflmm_core::{AsSlice, HasLen};
 use serde::{Deserialize, Serialize};
+
+pub mod observer;
+pub use observer::{CmpLogObserver, StdCmpLogObserver};
 
 /// A bytes string for cmplog with up to 32 elements.
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, Eq, PartialEq)]

@@ -1,5 +1,5 @@
 use crate::version::Version;
-use clap::{Parser, error::ErrorKind};
+use clap::{CommandFactory, Parser, error::ErrorKind};
 use core::time::Duration;
 use libaflmm::{Result, illegal_argument};
 use libaflmm_bolts::core_affinity::{CoreId, Cores};
@@ -29,16 +29,16 @@ pub enum Mode {
 
 #[derive(clap::Args, Debug, Clone)]
 pub struct CommonOptions {
-    #[arg(long, help = "Timeout in milliseconds", default_value = "1000", value_parser = FuzzOptions::parse_timeout)]
-    pub timeout: Duration,
+    #[arg(short, long, help = "Input directory")]
+    pub input: PathBuf,
 
     #[clap(short, long, help = "Enable output from the fuzzer clients")]
     pub verbose: bool,
 
-    #[arg(long = "include", help="Include coverage address ranges", value_parser = FuzzOptions::parse_ranges)]
+    #[arg(long = "include", help="Include coverage address ranges", value_parser = Cli::parse_ranges)]
     pub include: Option<Vec<Range<GuestAddr>>>,
 
-    #[arg(long = "exclude", help="Exclude coverage address ranges", value_parser = FuzzOptions::parse_ranges, conflicts_with="include")]
+    #[arg(long = "exclude", help="Exclude coverage address ranges", value_parser = Cli::parse_ranges, conflicts_with="include")]
     pub exclude: Option<Vec<Range<GuestAddr>>>,
 
     #[arg(last = true, help = "Arguments passed to the target")]
@@ -61,8 +61,8 @@ pub struct CommonOptions {
 
 #[derive(clap::Args, Debug, Clone)]
 pub struct FuzzOptions {
-    #[arg(short, long, help = "Input directory")]
-    pub input: PathBuf,
+    #[arg(long, help = "Timeout in milliseconds", default_value = "1000", value_parser = Cli::parse_timeout)]
+    pub timeout: Duration,
 
     #[arg(short = 'x', long, help = "Tokens file")]
     pub tokens: Option<String>,
@@ -85,10 +85,10 @@ pub struct FuzzOptions {
     #[arg(long = "iterations", help = "Maximum number of iterations")]
     pub iterations: Option<u64>,
 
-    #[arg(long = "include-asan", help="Include asan address ranges", value_parser = FuzzOptions::parse_ranges)]
+    #[arg(long = "include-asan", help="Include asan address ranges", value_parser = Cli::parse_ranges)]
     pub include_asan: Option<Vec<Range<GuestAddr>>>,
 
-    #[arg(long = "exclude-asan", help="Exclude asan address ranges", value_parser = FuzzOptions::parse_ranges, conflicts_with="include_asan")]
+    #[arg(long = "exclude-asan", help="Exclude asan address ranges", value_parser = Cli::parse_ranges, conflicts_with="include_asan")]
     pub exclude_asan: Option<Vec<Range<GuestAddr>>>,
 }
 
@@ -99,23 +99,6 @@ pub struct ReplayOptions {
 }
 
 impl FuzzOptions {
-    fn parse_timeout(src: &str) -> Result<Duration> {
-        Ok(Duration::from_millis(src.parse()?))
-    }
-
-    fn parse_ranges(src: &str) -> Result<Range<GuestAddr>> {
-        let parts = src.split('-').collect::<Vec<&str>>();
-        if parts.len() == 2 {
-            let start = GuestAddr::from_str_radix(parts[0].trim_start_matches("0x"), 16)
-                .map_err(|e| illegal_argument!("Invalid start address: {} ({e:})", parts[0]))?;
-            let end = GuestAddr::from_str_radix(parts[1].trim_start_matches("0x"), 16)
-                .map_err(|e| illegal_argument!("Invalid end address: {} ({e:})", parts[1]))?;
-            Ok(Range { start, end })
-        } else {
-            Err(illegal_argument!("Invalid range provided: {src:}"))
-        }
-    }
-
     pub fn is_asan_host_core(&self, core_id: CoreId) -> bool {
         self.asan_host_cores
             .as_ref()
@@ -138,12 +121,12 @@ impl FuzzOptions {
         if let Some(asan_host_cores) = &self.asan_host_cores {
             for id in &asan_host_cores.ids {
                 if !self.cores.contains(*id) {
-                    let mut cmd = FuzzOptions::command();
+                    let mut cmd = Cli::command();
                     cmd.error(
                         ErrorKind::ValueValidation,
                         format!(
-                            "Cmplog cores ({}) must be a subset of total cores ({})",
-                            asan_host_cores.cmdline, self.cores.cmdline
+                            "Cmplog cores ({:?}) must be a subset of total cores ({:?})",
+                            asan_host_cores, self.cores
                         ),
                     )
                     .exit();
@@ -154,17 +137,42 @@ impl FuzzOptions {
         if let Some(cmplog_cores) = &self.cmplog_cores {
             for id in &cmplog_cores.ids {
                 if !self.cores.contains(*id) {
-                    let mut cmd = FuzzerOptions::command();
+                    let mut cmd = Cli::command();
                     cmd.error(
                         ErrorKind::ValueValidation,
                         format!(
-                            "Cmplog cores ({}) must be a subset of total cores ({})",
-                            cmplog_cores.cmdline, self.cores.cmdline
+                            "Cmplog cores ({:?}) must be a subset of total cores ({:?})",
+                            cmplog_cores, self.cores
                         ),
                     )
                     .exit();
                 }
             }
+        }
+    }
+}
+
+impl Cli {
+    fn parse_timeout(src: &str) -> Result<Duration> {
+        Ok(Duration::from_millis(src.parse()?))
+    }
+
+    fn parse_ranges(src: &str) -> Result<Range<GuestAddr>> {
+        let parts = src.split('-').collect::<Vec<&str>>();
+        if parts.len() == 2 {
+            let start = GuestAddr::from_str_radix(parts[0].trim_start_matches("0x"), 16)
+                .map_err(|e| illegal_argument!("Invalid start address: {} ({e:})", parts[0]))?;
+            let end = GuestAddr::from_str_radix(parts[1].trim_start_matches("0x"), 16)
+                .map_err(|e| illegal_argument!("Invalid end address: {} ({e:})", parts[1]))?;
+            Ok(Range { start, end })
+        } else {
+            Err(illegal_argument!("Invalid range provided: {src:}"))
+        }
+    }
+
+    pub fn validate(&self) {
+        if let Mode::Fuzz(fuzz_options) = &self.mode {
+            fuzz_options.validate();
         }
     }
 }

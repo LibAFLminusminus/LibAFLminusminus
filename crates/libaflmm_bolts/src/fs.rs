@@ -40,10 +40,7 @@ pub fn get_unique_std_input_file() -> String {
 ///
 /// # Errors
 /// Can error if the file doesn't exist, or if the `.{file-name}.tmp` file already exists.
-pub fn write_file_atomic<P>(path: P, bytes: &[u8]) -> Result<(), Error>
-where
-    P: AsRef<Path>,
-{
+pub fn write_file_atomic(path: impl AsRef<Path>, bytes: &[u8]) -> Result<(), Error> {
     let path = path.as_ref();
     let mut tmpfile_name = path.to_path_buf();
     tmpfile_name.set_file_name(format!(
@@ -94,11 +91,8 @@ impl Clone for InputFile {
 
 impl InputFile {
     /// Creates a new [`InputFile`], or truncates if it already exists
-    pub fn create<P>(filename: P) -> Result<Self, Error>
-    where
-        P: Into<PathBuf>,
-    {
-        let filename = filename.into();
+    pub fn create(filename: impl AsRef<Path>) -> Result<Self, Error> {
+        let filename = filename.as_ref().to_path_buf();
         let f = OpenOptions::new()
             .create(true)
             .read(true)
@@ -142,8 +136,8 @@ impl InputFile {
 /// Finds new files in the given directory, taking the last time we looked at this path as parameter.
 /// This method works recursively.
 /// If `last` is `None`, it'll load all file.
-pub fn find_new_files_rec<P: AsRef<Path>>(
-    dir_path: P,
+pub fn find_new_files_rec(
+    dir_path: impl AsRef<Path>,
     last_check: &Option<Duration>,
 ) -> Result<Vec<PathBuf>, Error> {
     let mut new_files = Vec::<PathBuf>::new();

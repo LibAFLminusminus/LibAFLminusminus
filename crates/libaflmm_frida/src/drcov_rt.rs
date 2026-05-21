@@ -76,9 +76,9 @@ impl DrCovRuntime {
     }
 
     /// Create a new [`DrCovRuntime`] that writes coverage to the specified directory
-    pub fn with_path<P: Into<PathBuf>>(path: P) -> Self {
+    pub fn with_path(path: impl AsRef<Path>) -> Self {
         Self {
-            coverage_directory: path.into(),
+            coverage_directory: path.as_ref().to_path_buf(),
             ..Self::default()
         }
     }

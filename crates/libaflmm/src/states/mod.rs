@@ -765,10 +765,7 @@ where
     }
 
     /// Sets canonical paths for provided inputs
-    fn canonicalize_input_dirs<P>(&mut self, in_dirs: &[P]) -> Result<()>
-    where
-        P: AsRef<Path>,
-    {
+    fn canonicalize_input_dirs(&mut self, in_dirs: &[impl AsRef<Path>]) -> Result<()> {
         if let Some(remaining) = self.remaining_initial_files.as_ref() {
             // everything was loaded
             if remaining.is_empty() {
@@ -790,16 +787,15 @@ where
     /// Loads initial inputs from the passed-in `in_dirs`.
     /// If `forced` is true, will add all testcases, no matter what.
     /// This method takes a list of files.
-    fn load_initial_inputs_custom_by_filenames<E, P, W, Z>(
+    fn load_initial_inputs_custom_by_filenames<E, W, Z>(
         &mut self,
         fuzzer: &mut Z,
         executor: &mut E,
         rt_handle: &mut RuntimeHandle<Self, W>,
-        file_list: &[P],
+        file_list: &[impl AsRef<Path>],
         load_config: LoadConfig<I, Self, Z>,
     ) -> Result<()>
     where
-        P: AsRef<Path>,
         Z: Evaluator<E, I, Self, W>,
     {
         if let Some(remaining) = self.remaining_initial_files.as_ref() {
@@ -874,10 +870,13 @@ where
     }
 
     /// Recursively walk supplied corpus directories
-    pub fn walk_initial_inputs<F, P>(&mut self, in_dirs: &[P], mut closure: F) -> Result<()>
+    pub fn walk_initial_inputs<F>(
+        &mut self,
+        in_dirs: &[impl AsRef<Path>],
+        mut closure: F,
+    ) -> Result<()>
     where
         F: FnMut(&Path) -> Result<()>,
-        P: AsRef<Path>,
     {
         self.canonicalize_input_dirs(in_dirs)?;
         loop {
@@ -897,15 +896,14 @@ where
     /// This is rarely the right method, use `load_initial_inputs`,
     /// and potentially fix your `Feedback`, instead.
     /// This method takes a list of files, instead of folders.
-    pub fn load_initial_inputs_by_filenames<E, P, W, Z>(
+    pub fn load_initial_inputs_by_filenames<E, W, Z>(
         &mut self,
         fuzzer: &mut Z,
         executor: &mut E,
         rt_handle: &mut RuntimeHandle<Self, W>,
-        file_list: &[P],
+        file_list: &[impl AsRef<Path>],
     ) -> Result<()>
     where
-        P: AsRef<Path>,
         Z: Evaluator<E, I, Self, W>,
     {
         self.load_initial_inputs_custom_by_filenames(
@@ -923,15 +921,14 @@ where
     /// Loads all intial inputs, even if they are not considered `interesting`.
     /// This is rarely the right method, use `load_initial_inputs`,
     /// and potentially fix your `Feedback`, instead.
-    pub fn load_initial_inputs_forced<E, P, W, Z>(
+    pub fn load_initial_inputs_forced<E, W, Z>(
         &mut self,
         fuzzer: &mut Z,
         executor: &mut E,
         rt_handle: &mut RuntimeHandle<Self, W>,
-        in_dirs: &[P],
+        in_dirs: &[impl AsRef<Path>],
     ) -> Result<()>
     where
-        P: AsRef<Path>,
         Z: Evaluator<E, I, Self, W>,
     {
         self.canonicalize_input_dirs(in_dirs)?;
@@ -948,15 +945,14 @@ where
     /// Loads initial inputs from the passed-in `in_dirs`.
     /// If `forced` is true, will add all testcases, no matter what.
     /// This method takes a list of files, instead of folders.
-    pub fn load_initial_inputs_by_filenames_forced<E, P, W, Z>(
+    pub fn load_initial_inputs_by_filenames_forced<E, W, Z>(
         &mut self,
         fuzzer: &mut Z,
         executor: &mut E,
         rt_handle: &mut RuntimeHandle<Self, W>,
-        file_list: &[P],
+        file_list: &[impl AsRef<Path>],
     ) -> Result<()>
     where
-        P: AsRef<Path>,
         Z: Evaluator<E, I, Self, W>,
     {
         self.load_initial_inputs_custom_by_filenames(
@@ -972,15 +968,14 @@ where
     }
 
     /// Loads initial inputs from the passed-in `in_dirs`.
-    pub fn load_initial_inputs<E, P, W, Z>(
+    pub fn load_initial_inputs<E, W, Z>(
         &mut self,
         fuzzer: &mut Z,
         executor: &mut E,
         rt_handle: &mut RuntimeHandle<Self, W>,
-        in_dirs: &[P],
+        in_dirs: &[impl AsRef<Path>],
     ) -> Result<()>
     where
-        P: AsRef<Path>,
         Z: Evaluator<E, I, Self, W>,
     {
         self.canonicalize_input_dirs(in_dirs)?;
@@ -997,15 +992,14 @@ where
 
     /// Loads initial inputs from the passed-in `in_dirs`.
     /// Will return a `CorpusError` if a solution is found
-    pub fn load_initial_inputs_disallow_solution<E, P, W, Z>(
+    pub fn load_initial_inputs_disallow_solution<E, W, Z>(
         &mut self,
         fuzzer: &mut Z,
         executor: &mut E,
         rt_handle: &mut RuntimeHandle<Self, W>,
-        in_dirs: &[P],
+        in_dirs: &[impl AsRef<Path>],
     ) -> Result<()>
     where
-        P: AsRef<Path>,
         Z: Evaluator<E, I, Self, W>,
     {
         self.canonicalize_input_dirs(in_dirs)?;

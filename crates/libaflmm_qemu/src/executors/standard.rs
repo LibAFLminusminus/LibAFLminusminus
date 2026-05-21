@@ -5,7 +5,7 @@ use libaflmm::{
     Result,
     common::DependencyResolver,
     controllers::Worker,
-    executors::{Executor, ExitKind},
+    executors::{Executor, ExitKind, HasShadowObservers},
     observers::ObserversTuple,
     runtimes::{
         OsTerminationParams, RuntimeHandle,
@@ -14,20 +14,39 @@ use libaflmm::{
 };
 use libaflmm_bolts::tuples::RefIndexable;
 
-pub struct StdQemuExecutor<EMU, OT, PRE, POST> {
+pub struct StdQemuExecutor<EMU, OT, PRE, POST, SOT> {
     emulator: EMU,
     pre_exec: PRE,
     post_exec: POST,
     observers: OT,
+    shadow_observers: SOT,
 }
 
-impl<EMU, OT, PRE, POST> StdQemuExecutor<EMU, OT, PRE, POST> {
+impl<EMU, OT, PRE, POST> StdQemuExecutor<EMU, OT, PRE, POST, ()> {
     pub fn new(
-        _state: &mut EMU::State, // only used to help the type system infer the real type of S.
+        state: &EMU::State,
         emulator: EMU,
         pre_exec: PRE,
         post_exec: POST,
         observers: OT,
+    ) -> Result<Self>
+    where
+        EMU: Emulator,
+        PRE: FnMut(&mut EMU::State, &EMU::Input, &mut EMU) -> Result<()>,
+        POST: FnMut(&mut EMU::State, &EMU::Input, &mut EMU, &mut ExitKind) -> Result<()>,
+    {
+        Self::with_shadow_observers(state, emulator, pre_exec, post_exec, observers, ())
+    }
+}
+
+impl<EMU, OT, PRE, POST, SOT> StdQemuExecutor<EMU, OT, PRE, POST, SOT> {
+    pub fn with_shadow_observers(
+        _state: &EMU::State, // only used to help the type system infer the real type of S.
+        emulator: EMU,
+        pre_exec: PRE,
+        post_exec: POST,
+        observers: OT,
+        shadow_observers: SOT,
     ) -> Result<Self>
     where
         EMU: Emulator,
@@ -39,6 +58,7 @@ impl<EMU, OT, PRE, POST> StdQemuExecutor<EMU, OT, PRE, POST> {
             pre_exec,
             post_exec,
             observers,
+            shadow_observers,
         })
     }
 
@@ -55,9 +75,26 @@ impl<EMU, OT, PRE, POST> StdQemuExecutor<EMU, OT, PRE, POST> {
     }
 }
 
-impl<EMU, OT, PRE, POST> DependencyResolver for StdQemuExecutor<EMU, OT, PRE, POST> {}
+impl<EMU, OT, PRE, POST, SOT> DependencyResolver for StdQemuExecutor<EMU, OT, PRE, POST, SOT> {}
 
-impl<EMU, I, OT, PRE, POST, S> Executor<I, S> for StdQemuExecutor<EMU, OT, PRE, POST>
+impl<EMU, OT, PRE, POST, S, SOT> HasShadowObservers<S> for StdQemuExecutor<EMU, OT, PRE, POST, SOT>
+where
+    SOT: ObserversTuple<S>,
+{
+    type ShadowObservers = SOT;
+
+    fn shadow_observers(&self) -> RefIndexable<&Self::ShadowObservers, Self::ShadowObservers> {
+        RefIndexable::from(&self.shadow_observers)
+    }
+
+    fn shadow_observers_mut(
+        &mut self,
+    ) -> RefIndexable<&mut Self::ShadowObservers, Self::ShadowObservers> {
+        RefIndexable::from(&mut self.shadow_observers)
+    }
+}
+
+impl<EMU, I, OT, PRE, POST, S, SOT> Executor<I, S> for StdQemuExecutor<EMU, OT, PRE, POST, SOT>
 where
     EMU: Emulator<Input = I, State = S>,
     OT: ObserversTuple<S>,

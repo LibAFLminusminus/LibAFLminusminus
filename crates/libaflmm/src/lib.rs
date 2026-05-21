@@ -42,14 +42,19 @@ pub mod states;
 
 /// The purpose of this module is to alleviate imports of many components by adding a glob import.
 pub mod prelude {
-    pub use libaflmm_bolts::{
-        current_milliseconds, current_nanos, current_time, non_zero, non_zero_const,
-        non_zero_unchecked, rands::StdRand, tuples::tuple_list,
+    pub use libaflmm_core::{Error, Result};
+    pub use libaflmm_core::{
+        empty, empty_optional, illegal_argument, illegal_state, internal_bug, invalid_corpus,
+        invalid_input, iterator_end, key_exists, key_not_found, last_os_error, non_zero,
+        non_zero_const, non_zero_unchecked, nonnull_raw_mut, not_implemented, os_error, runtime,
+        unknown, unsupported,
     };
 
-    pub use crate::{
-        Error, Result, feedback_and, feedback_and_fast, feedback_not, feedback_or, feedback_or_fast,
+    pub use libaflmm_bolts::{
+        current_milliseconds, current_nanos, current_time, rands::StdRand, tuples::tuple_list,
     };
+
+    pub use crate::{feedback_and, feedback_and_fast, feedback_not, feedback_or, feedback_or_fast};
 
     pub use crate::common::{CompatibilityChecker, DependencyResolver, Registrator};
 
@@ -133,9 +138,9 @@ pub mod prelude {
     pub use crate::observers::{
         CmpLogObserver, ConstLenMapObserver, ConstMapObserver, HitcountsIterableMapObserver,
         HitcountsMapObserver, ListObserver, MapObserver, MultiMapObserver, Observer,
-        ObserverWithHashField, ObserversTuple, OutputObserver, StdErrObserver, StdMapObserver,
-        StdObserver, StdOutObserver, TimeObserver, ValueObserver, VarLenMapObserver,
-        VariableMapObserver,
+        ObserverWithHashField, ObserversTuple, OutputObserver, StdCmpLogObserver, StdErrObserver,
+        StdMapObserver, StdObserver, StdOutObserver, TimeObserver, ValueObserver,
+        VarLenMapObserver, VariableMapObserver,
     };
 
     pub use crate::runtimes::{

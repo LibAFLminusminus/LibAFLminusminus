@@ -14,7 +14,7 @@ pub mod stdio;
 pub use stdio::{OutputObserver, StdErrObserver, StdOutObserver};
 
 pub mod cmplog;
-pub use cmplog::{CmpLogMetadata, CmpLogObserver, CmpValues, CmplogBytes, parse_cmplog_map};
+pub use cmplog::{CmpLogObserver, CmpValues, CmplogBytes, StdCmpLogObserver};
 
 pub mod map;
 pub use map::{

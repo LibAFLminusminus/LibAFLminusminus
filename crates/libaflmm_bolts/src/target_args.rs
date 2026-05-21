@@ -3,7 +3,7 @@
 use alloc::{borrow::ToOwned, vec::Vec};
 use std::{
     ffi::{OsStr, OsString},
-    path::PathBuf,
+    path::Path,
 };
 
 use crate::fs::{InputFile, get_unique_std_input_file};
@@ -120,8 +120,8 @@ pub trait StdTargetArgs: Sized {
     /// Note: If you use this, you should ensure that there is only one instance using this
     /// file at any given time.
     #[must_use]
-    fn arg_input_file<P: Into<PathBuf>>(self, path: P) -> Self {
-        let path = path.into();
+    fn arg_input_file(self, path: impl AsRef<Path>) -> Self {
+        let path = path.as_ref().to_path_buf();
         let mut moved = self.arg(&path);
         assert!(
             match &moved.inner().input_location {
