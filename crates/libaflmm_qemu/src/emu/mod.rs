@@ -12,14 +12,8 @@ use core::fmt::{self, Debug, Display, Formatter};
 use libaflmm::{
     Result, executors::ExitKind, inputs::Input, observers::ObserversTuple, states::State,
 };
-use libaflmm::{Result, executors::ExitKind, observers::ObserversTuple};
-use libaflmm_qemu_sys::{GuestAddr, GuestPhysAddr, GuestVirtAddr};
 use libaflmm_qemu_sys::{GuestAddr, GuestPhysAddr, GuestVirtAddr};
 use std::ops::Add;
-
-use crate::{
-    Qemu, QemuShutdownCause, breakpoint::Breakpoint, command::CommandError, sync_exit::CustomInsn,
-};
 
 pub mod standard;
 pub use standard::{StdEmulator, StdEmulatorBuilder};

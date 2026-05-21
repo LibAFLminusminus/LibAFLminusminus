@@ -241,28 +241,6 @@ fn main() {
         }
     }
 
-    // NOTE: Sanitizer interfaces doesn't require common
-    #[cfg(feature = "sanitizer_interfaces")]
-    if env::var("CARGO_CFG_TARGET_POINTER_WIDTH").unwrap() == "64" {
-        println!("cargo:rerun-if-changed=src/sanitizer_interfaces.h");
-
-        let build = bindgen::builder()
-            .header("src/static/sanitizer_interfaces.h")
-            .use_core()
-            .generate_comments(true)
-            .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
-            .generate()
-            .expect("Couldn't generate the sanitizer headers!");
-
-        build
-            .write_to_file(Path::new(&out_dir).join("sanitizer_interfaces.rs"))
-            .expect("Couldn't write the sanitizer headers!");
-    } else {
-        let mut file = File::create(Path::new(&out_dir).join("sanitizer_interfaces.rs"))
-            .expect("Could not create file");
-        write!(file, "").unwrap();
-    }
-
     println!("cargo:rustc-link-search=native={}", &out_dir);
 
     println!("cargo:rerun-if-changed=build.rs");

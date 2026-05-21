@@ -381,54 +381,6 @@ where
     }
 }
 
-// impl<I, SC> DisableEntry for OnDiskCorpus<I, SC> {
-//     fn disable(&mut self, id: TestcaseId) -> Result<()> {
-//         self.0.disable(id)
-//     }
-// }
-
-impl InMemoryOnDiskCorpusBuilder {
-    /// Create a new [`InMemoryOnDiskCorpusBuilder`].
-    #[must_use]
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Set the root directory, where the testcases will be stored.
-    pub fn root_dir(&mut self, root: &Path) -> &mut Self {
-        self.0.root_dir(root);
-        self
-    }
-
-    /// Set the on-disk filename format
-    pub fn filename_format(&mut self, filename_format: TestcaseFilenameFormat) -> &mut Self {
-        self.0.filename_format(filename_format);
-        self
-    }
-
-    /// Build an [`InMemoryOnDiskStore`].
-    /// The root directory must be set.
-    pub fn build<I, SC>(&self, scheduler: SC) -> Result<InMemoryOnDiskCorpus<I, SC>> {
-        Ok(InMemoryOnDiskCorpus(InnerInMemoryOnDiskCorpus::new(
-            scheduler,
-            IdentityCache,
-            InMemoryStore::default(),
-            self.0.build()?,
-        )))
-    }
-}
-
-impl<I, SC> InMemoryOnDiskCorpus<I, SC>
-where
-    I: Input,
-{
-    /// Get a [`InMemoryOnDiskCorpus`] builder.
-    #[must_use]
-    pub fn builder() -> InMemoryOnDiskCorpusBuilder {
-        InMemoryOnDiskCorpusBuilder::default()
-    }
-}
-
 impl<I, SC> HasScheduler for InMemoryOnDiskCorpus<I, SC>
 where
     SC: Scheduler,
