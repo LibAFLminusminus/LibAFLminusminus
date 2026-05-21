@@ -1,26 +1,25 @@
 //! Emulator Drivers, as the name suggests, drive QEMU execution
 //! They are used to perform specific actions on the emulator before and / or after QEMU runs.
 
+use crate::emu::InputLocation;
 #[cfg(feature = "systemmode")]
-use std::collections::HashMap;
-use std::{cell::OnceCell, fmt::Debug, result};
-
+use crate::qemu::PhysMemoryChunk;
+use crate::{
+    arch::Regs,
+    command::{CommandError, CommandManager, IsCommand},
+    emu::{
+        EmulatorExitError, EmulatorExitResult, IsSnapshotManager, SnapshotId,
+        SnapshotManagerCheckError, SnapshotManagerError, StdEmulator,
+    },
+    modules::EmulatorModuleTuple,
+    qemu::{Qemu, QemuError, QemuShutdownCause},
+};
 use libaflmm::{Result, executors::ExitKind, inputs::Input, observers::ObserversTuple};
 use libaflmm_bolts::os::unix_signals::Signal;
 use libaflmm_core::runtime;
-
-#[cfg(not(feature = "systemmode"))]
-use crate::InputLocation;
 #[cfg(feature = "systemmode")]
-use crate::PhysMemoryChunk;
-#[cfg(feature = "systemmode")]
-use crate::emu::standard::systemmode::SystemInputLocation as InputLocation;
-use crate::{
-    EmulatorExitError, EmulatorExitResult, IsSnapshotManager, Qemu, QemuError, QemuShutdownCause,
-    Regs, SnapshotId, SnapshotManagerCheckError, SnapshotManagerError, StdEmulator,
-    command::{CommandError, CommandManager, IsCommand},
-    modules::EmulatorModuleTuple,
-};
+use std::collections::HashMap;
+use std::{cell::OnceCell, fmt::Debug, result};
 
 #[cfg(not(feature = "nyx"))]
 pub mod lqemu;

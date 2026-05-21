@@ -16,6 +16,8 @@ version.workspace = true
 [features]
 ## Export raw Intel PT traces on decode, useful for debug, disabled by default for best performance
 export_raw = []
+## Expose LibAFL QEMU module
+qemu = ["dep:libaflmm_qemu"]
 
 [dev-dependencies]
 static_assertions = { workspace = true }
@@ -25,6 +27,11 @@ nix = { workspace = true }
 proc-maps = "0.4.0"
 
 [dependencies]
+libaflmm = { workspace = true, default-features = false }
+libaflmm_qemu = { workspace = true, default-features = false, features = [
+  "systemmode",
+], optional = true }
+
 arbitrary-int = { workspace = true }
 bitbybit = { workspace = true }
 libaflmm_bolts = { workspace = true }
@@ -34,6 +41,8 @@ num_enum = { workspace = true, default-features = false }
 num-traits = { workspace = true, default-features = false }
 ptcov = { version = "0.0.6" }
 raw-cpuid = { version = "11.6.0" }
+serde = { workspace = true }
+typed-builder = { workspace = true }
 
 [target.'cfg(target_os = "linux" )'.dependencies]
 caps = { version = "0.5.6" }

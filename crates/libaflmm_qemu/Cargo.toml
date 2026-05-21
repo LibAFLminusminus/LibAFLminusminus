@@ -84,9 +84,6 @@ slirp = [
   "libaflmm_qemu_sys/slirp",
 ] # build qemu with host libslirp (for user networking)
 
-intel_pt = ["systemmode", "x86_64", "dep:libaflmm_intelpt"]
-intel_pt_export_raw = ["intel_pt", "libaflmm_intelpt/export_raw"]
-
 nyx = ["systemmode", "x86_64", "libvharness_sys/nyx"]
 
 # Requires the binary's build.rs to call `build_libaflmm_qemu`
@@ -103,7 +100,6 @@ libaflmm_core = { workspace = true }
 libaflmm_targets = { workspace = true, default-features = true }
 libaflmm_qemu_sys = { workspace = true }
 libaflmm_derive = { workspace = true, default-features = true }
-libaflmm_intelpt = { workspace = true, default-features = true, optional = true }
 
 serde = { workspace = true, default-features = false, features = [
   "alloc",

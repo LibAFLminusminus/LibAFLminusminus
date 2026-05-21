@@ -1,10 +1,10 @@
 use core::ptr;
-
-/// Generators, responsible for generating block/edge ids
-pub use generators::{gen_hashed_block_ids, gen_hashed_edge_ids, gen_unique_edge_ids};
 use hashbrown::HashMap;
 use libaflmm_qemu_sys::GuestAddr;
 use serde::{Deserialize, Serialize};
+
+/// Generators, responsible for generating block/edge ids
+pub use generators::{gen_hashed_block_ids, gen_hashed_edge_ids, gen_unique_edge_ids};
 /// Tracers, responsible for propagating an ID in a map.
 pub use tracers::{
     trace_block_transition_hitcount, trace_block_transition_single, trace_edge_hitcount,
@@ -57,8 +57,9 @@ mod generators {
         QemuEdgesMapMetadata,
     };
     use crate::{
-        EmulatorModules, Qemu,
+        emu::EmulatorModules,
         modules::{AddressFilter, EdgeCoverageModule, EmulatorModuleTuple, PageFilter},
+        qemu::Qemu,
     };
 
     fn get_mask<const IS_CONST_MAP: bool, const MAP_SIZE: usize>() -> usize {

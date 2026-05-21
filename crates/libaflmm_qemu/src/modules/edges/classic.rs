@@ -5,12 +5,13 @@ use super::{
     },
 };
 use crate::{
-    EmulatorModules, Hook,
+    emu::EmulatorModules,
     modules::{
         AddressFilter, EdgeCoverageModule, EdgeCoverageModuleBuilder, EmulatorModuleTuple,
         PageFilter,
         utils::filters::{StdAddressFilter, StdPageFilter},
     },
+    qemu::Hook,
 };
 use libaflmm::states::State;
 

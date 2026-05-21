@@ -12,7 +12,7 @@
     any(cpu_target = "x86_64", cpu_target = "aarch64"),
     allow(clippy::useless_conversion)
 )]
-// libafl_qemu_sys export types with empty struct markers (e.g. struct {} start_init_save)
+// libafl_qemu_sys export types with empty struct markers (e.g. struct {} start_init_save).
 // This causes bindgen to generate empty Rust struct that are generally not FFI-safe due to C++ having empty structs with size 1
 // As the QEMU codebase is C, it is FFI-safe and we just ignore the warning
 #![allow(improper_ctypes)]
@@ -21,36 +21,103 @@
 // same
 #![allow(clippy::std_instead_of_alloc)]
 
+#[cfg(feature = "python")]
+use pyo3::prelude::*;
 use std::env;
-
-pub use libaflmm_qemu_sys as sys;
-pub use strum::IntoEnumIterator;
+#[cfg(feature = "python")]
+use strum::IntoEnumIterator;
 
 pub mod arch;
-pub use arch::*;
-
-pub mod elf;
-
-pub mod modules;
-
-pub mod executors;
-pub use executors::{SimpleQemuExecutor, StdQemuExecutor};
-
-pub mod qemu;
-pub use qemu::*;
-
-pub mod emu;
-pub use emu::*;
-
 pub mod breakpoint;
 pub mod command;
+pub mod elf;
+pub mod emu;
+pub mod executors;
+pub mod modules;
+pub mod qemu;
 pub mod sync_exit;
+pub use libaflmm_qemu_sys as sys;
 
 #[cfg(feature = "usermode")]
 pub use libaflmm_qemu_sys::GuestAbiUlong;
-pub use libaflmm_qemu_sys::{GuestAddr, GuestUlong, GuestUsize, MmapPerms};
 #[cfg(feature = "systemmode")]
-pub use libaflmm_qemu_sys::{GuestPhysAddr, GuestVirtAddr};
+pub use libaflmm_qemu_sys::{CPUArchState, GuestPhysAddr, GuestVirtAddr};
+pub use libaflmm_qemu_sys::{GuestAddr, GuestUlong, GuestUsize, MmapPerms};
+
+pub mod prelude {
+    #[cfg(feature = "usermode")]
+    pub use crate::GuestAbiUlong;
+
+    #[cfg(feature = "systemmode")]
+    pub use crate::{CPUArchState, GuestPhysAddr, GuestVirtAddr};
+
+    pub use crate::{GuestAddr, GuestUlong, GuestUsize, MmapPerms};
+
+    #[cfg(feature = "usermode")]
+    pub use crate::arch::syscalls;
+    pub use crate::arch::{GuestReg, Regs, capstone, get_exit_arch_regs};
+
+    pub use crate::command::{
+        CommandError, CommandManager, IsCommand, IsStdCommandManager, NativeCommandParser,
+        NopCommand, NopCommandManager, StdCommandManager,
+    };
+
+    #[cfg(feature = "nyx")]
+    pub use crate::command::NyxCommandManager;
+    #[cfg(not(feature = "nyx"))]
+    pub use crate::command::{
+        AddressAllowCommand, EndCommand, LoadCommand, LqemuCommandManager, LqprintfCommand,
+        SaveCommand, StartCommand, TestCommand, VersionCommand,
+    };
+
+    #[cfg(all(feature = "systemmode", not(feature = "nyx")))]
+    pub use crate::command::SetMapCommand;
+
+    pub use crate::emu::{
+        Emulator, EmulatorDriver, EmulatorDriverError, EmulatorDriverResult, EmulatorExitError,
+        EmulatorExitResult, EmulatorHooks, EmulatorModules, GenericEmulatorDriver, GuestAddrKind,
+        InputLocation, InputSetter, IsSnapshotManager, MapKind, NopEmulatorDriver, NopInputSetter,
+        NopSnapshotManager, QemuSnapshotCheckResult, SnapshotId, SnapshotManagerCheckError,
+        SnapshotManagerError, StdEmulator, StdEmulatorBuilder, StdEmulatorDriver,
+        StdEmulatorDriverBuilder, StdInputSetter,
+    };
+
+    #[cfg(feature = "systemmode")]
+    pub use crate::emu::{FastSnapshotManager, FastSnapshotPtr, QemuSnapshotManager};
+
+    pub use crate::executors::{SimpleQemuExecutor, StdQemuExecutor};
+
+    pub use crate::modules::{
+        CallTracerModule, CmpLogModule, DrCovModule, DrCovModuleBuilder, EdgeCoverageModule,
+        EmulatorModule, EmulatorModuleTuple, LoggerModule, StdEdgeCoverageChildModule,
+        StdEdgeCoverageClassicModule, StdEdgeCoverageFullModule, StdEdgeCoverageModule,
+    };
+
+    #[cfg(feature = "injections")]
+    pub use crate::modules::InjectionModule;
+    #[cfg(feature = "usermode")]
+    pub use crate::modules::{
+        AsanGuestModule, AsanHostModule, RedirectStdinModule, RedirectStdoutModule, SnapshotModule,
+    };
+
+    pub use crate::qemu::{
+        ArchExtras, CPU, CallingConvention, MemAccessInfo, Qemu, QemuConfig, QemuError,
+        QemuExitError, QemuExitReason, QemuHooks, QemuInitError, QemuMemoryChunk, QemuParams,
+        QemuRWError, QemuRWErrorCause, QemuRWErrorKind, QemuShutdownCause, config,
+    };
+
+    #[cfg(feature = "systemmode")]
+    pub use crate::qemu::{
+        DeviceSnapshotFilter, HostMemoryChunk, HostMemoryIter, HostMemorySegments, PhysMemoryChunk,
+        PhysMemoryIter,
+    };
+
+    pub use crate::breakpoint::{Breakpoint, BreakpointId};
+
+    pub use crate::elf::EasyElf;
+
+    pub use crate::sync_exit::{CustomInsn, ExitArgs};
+}
 
 #[must_use]
 pub fn filter_qemu_args() -> Vec<String> {
@@ -70,16 +137,13 @@ pub fn filter_qemu_args() -> Vec<String> {
 }
 
 #[cfg(feature = "python")]
-use pyo3::prelude::*;
-
-#[cfg(feature = "python")]
 #[pymodule]
 #[pyo3(name = "libafl_qemu")]
 pub fn python_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
     use pyo3::types::PyString;
 
     let regsm = PyModule::new(m.py(), "regs")?;
-    for r in Regs::iter() {
+    for r in arch::Regs::iter() {
         let v: i32 = r.into();
         regsm.add(PyString::new(m.py(), &format!("{r:?}")), v)?;
     }
@@ -96,10 +160,10 @@ pub fn python_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<sys::MapInfo>()?;
 
     #[cfg(feature = "usermode")]
-    m.add_class::<GuestMaps>()?;
+    m.add_class::<qemu::GuestMaps>()?;
 
-    m.add_class::<pybind::SyscallHookResult>()?;
-    m.add_class::<pybind::Qemu>()?;
+    m.add_class::<qemu::pybind::SyscallHookResult>()?;
+    m.add_class::<qemu::pybind::Qemu>()?;
 
     Ok(())
 }

@@ -1,9 +1,23 @@
+use crate::qemu::Qemu;
 use std::{
     fmt::Debug,
     sync::atomic::{AtomicU64, Ordering},
 };
 
-use crate::Qemu;
+#[cfg(feature = "systemmode")]
+pub mod fast;
+#[cfg(feature = "systemmode")]
+pub use fast::{FastSnapshotManager, FastSnapshotPtr};
+
+#[cfg(feature = "systemmode")]
+pub mod qemu;
+#[cfg(feature = "systemmode")]
+pub use qemu::QemuSnapshotManager;
+
+#[cfg(feature = "usermode")]
+pub type StdSnapshotManager = NopSnapshotManager;
+#[cfg(feature = "systemmode")]
+pub type StdSnapshotManager = FastSnapshotManager;
 
 pub trait IsSnapshotManager: Clone + Debug {
     fn init(&mut self, _qemu: Qemu) {}
@@ -30,6 +44,45 @@ pub trait IsSnapshotManager: Clone + Debug {
             Ok(())
         } else {
             Err(SnapshotManagerCheckError::SnapshotCheckError(check_result))
+        }
+    }
+}
+
+#[cfg(feature = "systemmode")]
+#[derive(Debug, Clone)]
+pub enum SnapshotManager {
+    Qemu(QemuSnapshotManager),
+    Fast(FastSnapshotManager),
+}
+
+#[cfg(feature = "systemmode")]
+impl IsSnapshotManager for SnapshotManager {
+    fn save(&mut self, qemu: Qemu) -> SnapshotId {
+        match self {
+            SnapshotManager::Qemu(qemu_sm) => qemu_sm.save(qemu),
+            SnapshotManager::Fast(fast_sm) => fast_sm.save(qemu),
+        }
+    }
+
+    fn restore(
+        &mut self,
+        qemu: Qemu,
+        snapshot_id: &SnapshotId,
+    ) -> Result<(), SnapshotManagerError> {
+        match self {
+            SnapshotManager::Qemu(qemu_sm) => qemu_sm.restore(qemu, snapshot_id),
+            SnapshotManager::Fast(fast_sm) => fast_sm.restore(qemu, snapshot_id),
+        }
+    }
+
+    fn do_check(
+        &self,
+        qemu: Qemu,
+        reference_snapshot_id: &SnapshotId,
+    ) -> Result<QemuSnapshotCheckResult, SnapshotManagerError> {
+        match self {
+            SnapshotManager::Qemu(qemu_sm) => qemu_sm.do_check(qemu, reference_snapshot_id),
+            SnapshotManager::Fast(fast_sm) => fast_sm.do_check(qemu, reference_snapshot_id),
         }
     }
 }

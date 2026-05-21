@@ -3,20 +3,11 @@
 //! This module exposes the low-level QEMU library through [`Qemu`].
 //! To access higher-level features of QEMU, it is recommended to use [`crate::Emulator`] instead.
 
+use crate::{arch::GuestReg, arch::Regs, emu::GuestAddrKind};
 use core::{
     cmp::{Ordering, PartialOrd},
     fmt, ptr, slice,
 };
-use std::{
-    ffi::{CString, c_void},
-    fmt::{Display, Formatter, Write},
-    mem::{MaybeUninit, transmute},
-    ops::{Deref, Range},
-    pin::Pin,
-    ptr::copy_nonoverlapping,
-    sync::OnceLock,
-};
-
 #[cfg(feature = "systemmode")]
 use libaflmm_bolts::Error;
 use libaflmm_bolts::os::unix_signals::Signal;
@@ -31,12 +22,19 @@ use libaflmm_qemu_sys::{
 #[cfg(feature = "systemmode")]
 use libaflmm_qemu_sys::{libafl_qemu_remove_hw_breakpoint, libafl_qemu_set_hw_breakpoint};
 use num_traits::Num;
+use std::{
+    ffi::{CString, c_void},
+    fmt::{Display, Formatter, Write},
+    mem::{MaybeUninit, transmute},
+    ops::{Deref, Range},
+    pin::Pin,
+    ptr::copy_nonoverlapping,
+    sync::OnceLock,
+};
 use strum::IntoEnumIterator;
 
-use crate::{GuestAddrKind, GuestReg, Regs};
-
 pub mod config;
-use config::QemuConfig;
+pub use config::QemuConfig;
 
 pub mod error;
 pub use error::{

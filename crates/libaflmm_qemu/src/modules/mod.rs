@@ -4,21 +4,24 @@ use libaflmm::{Result, executors::ExitKind, observers::ObserversTuple};
 use libaflmm_bolts::tuples::{MatchFirstType, SplitBorrowExtractFirstType};
 
 use crate::{
-    Qemu, QemuParams,
     emu::EmulatorModules,
     modules::utils::filters::{AddressFilter, PageFilter},
+    qemu::Qemu,
+    qemu::QemuParams,
 };
 
 #[cfg(feature = "usermode")]
 pub mod usermode;
+#[cfg(feature = "injections")]
+pub use usermode::InjectionModule;
 #[cfg(feature = "usermode")]
-#[cfg_attr(feature = "hexagon", allow(unused_imports))]
-pub use usermode::*;
+pub use usermode::{
+    AsanGuestModule, AsanHostModule, IntervalSnapshotFilter, IntervalSnapshotFilters,
+    RedirectStdinModule, RedirectStdoutModule, SnapshotModule, get_snapshot_module_mut, snapshot,
+};
 
 #[cfg(feature = "systemmode")]
 pub mod systemmode;
-#[cfg(all(feature = "systemmode", feature = "intel_pt"))]
-pub use systemmode::*;
 
 pub mod edges;
 pub use edges::{

@@ -1,34 +1,33 @@
-use std::{cell::RefCell, collections::HashMap, fmt::Debug, marker::PhantomData, pin::Pin, result};
-
+use crate::emu::snapshots::StdSnapshotManager;
+use crate::{
+    breakpoint::{Breakpoint, BreakpointId},
+    command::{CommandManager, NopCommandManager, StdCommandManager},
+    emu::{
+        Emulator, EmulatorDriver, EmulatorDriverError, EmulatorDriverResult, EmulatorExitError,
+        EmulatorExitResult, EmulatorHooks, EmulatorModules, NopEmulatorDriver, NopSnapshotManager,
+        StdEmulatorDriver,
+    },
+    modules::EmulatorModuleTuple,
+    qemu::{
+        Qemu, QemuExitError, QemuExitReason, QemuHooks, QemuInitError, QemuParams,
+        QemuShutdownCause, config::QemuConfigBuilder,
+    },
+    sync_exit::CustomInsn,
+};
 use libaflmm::{
     Result, executors::ExitKind, inputs::Input, observers::ObserversTuple, states::State,
 };
 use libaflmm_qemu_sys::GuestAddr;
-
-use crate::{
-    Emulator, EmulatorDriver, EmulatorDriverError, EmulatorDriverResult, EmulatorExitError,
-    EmulatorExitResult, EmulatorHooks, EmulatorModules, NopEmulatorDriver, NopSnapshotManager,
-    Qemu, QemuExitError, QemuExitReason, QemuHooks, QemuInitError, QemuParams, QemuShutdownCause,
-    StdEmulatorDriver,
-    breakpoint::{Breakpoint, BreakpointId},
-    command::{CommandManager, NopCommandManager, StdCommandManager},
-    config::QemuConfigBuilder,
-    modules::EmulatorModuleTuple,
-    sync_exit::CustomInsn,
-};
+use std::{cell::RefCell, collections::HashMap, fmt::Debug, marker::PhantomData, pin::Pin, result};
 
 pub mod builder;
 pub use builder::StdEmulatorBuilder;
 
 #[cfg(feature = "usermode")]
 pub(crate) mod usermode;
-#[cfg(feature = "usermode")]
-pub use usermode::{InputLocation, StdSnapshotManager};
 
 #[cfg(feature = "systemmode")]
 pub(crate) mod systemmode;
-#[cfg(feature = "systemmode")]
-pub use systemmode::*;
 
 /// The high-level interface to [`Qemu`].
 ///

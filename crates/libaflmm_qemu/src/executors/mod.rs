@@ -1,6 +1,6 @@
-use crate::Emulator;
+use crate::emu::Emulator;
 #[cfg(feature = "usermode")]
-use crate::{Qemu, QemuSignalContext};
+use crate::qemu::{Qemu, QemuSignalContext};
 #[cfg(feature = "usermode")]
 use libaflmm::runtimes::OsTerminationParams;
 #[cfg(feature = "usermode")]

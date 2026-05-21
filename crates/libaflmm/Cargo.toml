@@ -58,10 +58,6 @@ handle_sigpipe = []
 
 #! ## Additional Components
 
-## Intel Processor Trace
-intel_pt = ["dep:libaflmm_intelpt"]
-## Save all the Intel PT raw traces to files, use only for debug
-intel_pt_export_raw = ["intel_pt", "libaflmm_intelpt/export_raw"]
 ## Enables `WebMonitor`, an axum-based HTTP server exposing fuzzing stats and historical data
 web_monitor = ["dep:axum", "dep:tokio"]
 
@@ -99,7 +95,6 @@ rusty-fork = "0.3.1"
 libaflmm_bolts = { workspace = true }
 libaflmm_core = { workspace = true }
 libaflmm_derive = { workspace = true, default-features = true, optional = true }
-libaflmm_intelpt = { workspace = true, default-features = true, optional = true }
 libaflmm_targets = { workspace = true, default-features = true }
 
 quanta = "0.12.6"

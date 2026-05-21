@@ -4,9 +4,7 @@ use libaflmm::prelude::*;
 use libaflmm_bolts::{
     core_affinity::Cores, ownedref::OwnedMutSlice, rands::StdRand, tuples::tuple_list,
 };
-use libaflmm_qemu::{
-    modules::StdEdgeCoverageModule, standard::QemuSnapshotManager, StdEmulator, StdQemuExecutor,
-};
+use libaflmm_qemu::prelude::*;
 use libaflmm_targets::{edges_map_mut_ptr, EDGES_MAP_DEFAULT_SIZE, MAX_EDGES_FOUND};
 use std::{env, path::PathBuf, time::Duration};
 

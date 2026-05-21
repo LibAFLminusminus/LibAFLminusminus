@@ -1,8 +1,8 @@
-#[cfg(not(feature = "systemmode"))]
-use crate::InputLocation;
-#[cfg(feature = "systemmode")]
-use crate::emu::standard::systemmode::SystemInputLocation as InputLocation;
-use crate::{EmulatorDriverError, GuestReg, InputSetter, Qemu};
+use crate::{
+    arch::GuestReg,
+    emu::{EmulatorDriverError, InputLocation, InputSetter},
+    qemu::Qemu,
+};
 use libaflmm::{
     inputs::{Input, InputContext},
     states::State,

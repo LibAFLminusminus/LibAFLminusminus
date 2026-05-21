@@ -6,7 +6,9 @@ pub use injections::InjectionModule;
 #[cfg(not(cpu_target = "hexagon"))]
 pub mod snapshot;
 #[cfg(not(cpu_target = "hexagon"))]
-pub use snapshot::{IntervalSnapshotFilter, SnapshotModule};
+pub use snapshot::{
+    IntervalSnapshotFilter, IntervalSnapshotFilters, SnapshotModule, get_snapshot_module_mut,
+};
 
 #[cfg(not(cpu_target = "hexagon"))]
 pub mod asan_host;
@@ -17,8 +19,9 @@ pub use asan_host::AsanHostModule;
 pub mod asan_guest;
 #[cfg(not(cpu_target = "hexagon"))]
 pub use asan_guest::AsanGuestModule;
+
 pub mod redirect_stdin;
-pub use redirect_stdin::*;
+pub use redirect_stdin::RedirectStdinModule;
 
 pub mod redirect_stdout;
-pub use redirect_stdout::*;
+pub use redirect_stdout::RedirectStdoutModule;

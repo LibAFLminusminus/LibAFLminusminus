@@ -4,12 +4,7 @@ use libaflmm::prelude::*;
 use libaflmm_bolts::{
     core_affinity::Cores, ownedref::OwnedMutSlice, rands::StdRand, tuples::tuple_list, AsSlice,
 };
-use libaflmm_qemu::{
-    config::{self, QemuConfig},
-    elf::EasyElf,
-    modules::edges::StdEdgeCoverageModuleBuilder,
-    GuestAddr, GuestPhysAddr, QemuExitReason, QemuRWError, Regs, SimpleQemuExecutor, StdEmulator,
-};
+use libaflmm_qemu::prelude::*;
 use libaflmm_targets::{edges_map_mut_ptr, EDGES_MAP_DEFAULT_SIZE, MAX_EDGES_FOUND};
 use std::{env, path::PathBuf, result, time::Duration};
 
@@ -111,7 +106,7 @@ pub fn fuzz() -> Result<()> {
                 .start_cpu(false)
                 .build();
 
-            let emulator_modules = tuple_list!(StdEdgeCoverageModuleBuilder::default()
+            let emulator_modules = tuple_list!(StdEdgeCoverageModule::builder()
                 .map_observer(edges_observer.as_mut())
                 .build()?);
 

@@ -1,18 +1,21 @@
-use std::{
-    fmt,
-    fmt::{Debug, Display, Formatter},
-    ops::Range,
+use super::{CommandError, IsCommand, IsStdCommandManager};
+use crate::{
+    arch::{GuestReg, Regs},
+    emu::{
+        EmulatorDriverError, EmulatorDriverResult, EmulatorExitResult, GenericEmulatorDriver,
+        InputLocation, InputSetter, IsSnapshotManager, StdEmulator,
+    },
+    modules::{EmulatorModuleTuple, utils::filters::HasStdFiltersTuple},
 };
-
+use crate::{define_std_command_manager_bound, define_std_command_manager_inner};
+#[cfg(feature = "systemmode")]
+use crate::{emu::MapKind, qemu::QemuMemoryChunk};
 use enum_map::Enum;
 use libaflmm::{executors::ExitKind, inputs::Input};
 use libaflmm_qemu_sys::GuestAddr;
 #[cfg(feature = "systemmode")]
 use libaflmm_qemu_sys::GuestPhysAddr;
 use num_enum::TryFromPrimitive;
-use paste::paste;
-
-pub mod parser;
 use parser::{
     EndCommandParser, LoadCommandParser, LqprintfCommandParser, SaveCommandParser,
     StartVirtCommandParser, TestCommandParser, VaddrFilterAllowRangeCommandParser,
@@ -20,20 +23,14 @@ use parser::{
 };
 #[cfg(feature = "systemmode")]
 use parser::{SetMapCommandParser, StartPhysCommandParser};
-
-use super::{CommandError, IsCommand, IsStdCommandManager};
-#[cfg(not(feature = "systemmode"))]
-use crate::InputLocation;
-#[cfg(feature = "systemmode")]
-use crate::emu::standard::systemmode::SystemInputLocation as InputLocation;
-use crate::{
-    EmulatorDriverError, EmulatorDriverResult, EmulatorExitResult, GenericEmulatorDriver, GuestReg,
-    InputSetter, IsSnapshotManager, Regs, StdEmulator, define_std_command_manager_bound,
-    define_std_command_manager_inner,
-    modules::{EmulatorModuleTuple, utils::filters::HasStdFiltersTuple},
+use paste::paste;
+use std::{
+    fmt,
+    fmt::{Debug, Display, Formatter},
+    ops::Range,
 };
-#[cfg(feature = "systemmode")]
-use crate::{MapKind, QemuMemoryChunk};
+
+pub mod parser;
 
 pub const VERSION_MAJOR: u64 = libvharness_sys::LQEMU_VERSION_MAJOR as u64;
 pub const VERSION_MINOR: u64 = libvharness_sys::LQEMU_VERSION_MINOR as u64;

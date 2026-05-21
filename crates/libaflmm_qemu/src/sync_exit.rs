@@ -1,8 +1,9 @@
-use std::fmt::Debug;
-
+use crate::{
+    arch::{GuestReg, Regs, get_exit_arch_regs},
+    qemu::CPU,
+};
 use enum_map::Enum;
-
-use crate::{CPU, GuestReg, Regs, get_exit_arch_regs};
+use std::fmt::Debug;
 
 #[derive(Debug, Clone, Enum)]
 pub enum ExitArgs {

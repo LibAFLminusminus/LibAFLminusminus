@@ -1,17 +1,17 @@
-use libaflmm::states::State;
-
 use super::{
     EdgeCoverageVariant,
     helpers::{gen_hashed_edge_ids, trace_edge_hitcount_ptr, trace_edge_single_ptr},
 };
 use crate::{
-    EmulatorModules, Hook,
+    emu::EmulatorModules,
     modules::{
         AddressFilter, EdgeCoverageModule, EdgeCoverageModuleBuilder, EmulatorModuleTuple,
         PageFilter,
         utils::filters::{StdAddressFilter, StdPageFilter},
     },
+    qemu::Hook,
 };
+use libaflmm::states::State;
 
 #[derive(Debug)]
 pub struct EdgeCoverageChildVariant;

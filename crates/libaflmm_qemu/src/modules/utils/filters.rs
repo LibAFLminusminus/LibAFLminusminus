@@ -3,14 +3,12 @@
 //! It is not a module by itself, but instead used as helper to have filters
 //! in other modules.
 
+use crate::qemu::Qemu;
+use hashbrown::HashSet;
+use libaflmm_qemu_sys::{GuestAddr, GuestPhysAddr};
 #[cfg(any(feature = "injections", not(cpu_target = "hexagon")))]
 use std::cell::UnsafeCell;
 use std::{fmt::Debug, ops::Range};
-
-use hashbrown::HashSet;
-use libaflmm_qemu_sys::{GuestAddr, GuestPhysAddr};
-
-use crate::Qemu;
 
 // TODO: make a better arch-specific / os-specific system. only works for x86_64 for now.
 #[cfg(feature = "x86_64")]
