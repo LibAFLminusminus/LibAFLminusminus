@@ -19,13 +19,13 @@ use hashbrown::HashSet;
 use libaflmm_bolts::{AsSlice, rands::Rand};
 use serde::{Deserialize, Serialize};
 
-use crate::mutators::str_decode;
 use crate::{
-    Error, EvaluationResult,
+    Error,
     inputs::{HasMutatorBytes, ResizableMutator},
     mutators::{MutationResult, Mutator, Named, buffer_self_copy, mutations::buffer_copy},
-    states::FlatState,
+    states::State,
 };
+use crate::{fuzzers::EvaluationResult, mutators::str_decode};
 
 /// A state metadata holding a list of tokens
 #[expect(clippy::unsafe_derive_deserialize)]
@@ -300,7 +300,7 @@ pub struct TokenInsert;
 impl<I, R, S> Mutator<I, R, S> for TokenInsert
 where
     R: Rand,
-    S: FlatState,
+    S: State,
     I: ResizableMutator<u8> + HasMutatorBytes,
 {
     fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {
@@ -375,7 +375,7 @@ pub struct TokenReplace;
 impl<I, R, S> Mutator<I, R, S> for TokenReplace
 where
     R: Rand,
-    S: FlatState,
+    S: State,
     I: ResizableMutator<u8> + HasMutatorBytes,
 {
     fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error> {

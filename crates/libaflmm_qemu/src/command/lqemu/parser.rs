@@ -14,14 +14,15 @@ use super::{
     StartCommand, TestCommand, VersionCommand,
 };
 use crate::{
-    GenericEmulatorDriver, GuestReg, InputLocation, InputSetter, IsSnapshotManager, Qemu,
-    QemuMemoryChunk, Regs,
+    arch::{GuestReg, Regs},
     command::{CommandError, CommandManager, NativeCommandParser, lqemu::LqemuCommandManager},
+    emu::{GenericEmulatorDriver, InputLocation, InputSetter, IsSnapshotManager},
     modules::{EmulatorModuleTuple, utils::filters::HasStdFiltersTuple},
+    qemu::{Qemu, QemuMemoryChunk},
     sync_exit::ExitArgs,
 };
 #[cfg(feature = "systemmode")]
-use crate::{MapKind, command::lqemu::SetMapCommand};
+use crate::{command::lqemu::SetMapCommand, emu::MapKind};
 
 pub static EMU_EXIT_KIND_MAP: OnceLock<EnumMap<NativeExitKind, Option<ExitKind>>> = OnceLock::new();
 

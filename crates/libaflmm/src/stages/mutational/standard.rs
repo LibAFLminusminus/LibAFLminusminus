@@ -11,14 +11,15 @@ use libaflmm_bolts::{Named, rands::Rand};
 use libaflmm_core::non_zero;
 
 use crate::{
-    DependencyResolver, Error,
+    Error,
+    common::DependencyResolver,
     corpus::{Corpus, TestcaseId},
     fuzzers::Evaluator,
     inputs::Input,
     mutators::{MutationResult, Mutator},
     runtimes::RuntimeHandle,
     stages::Stage,
-    states::{HasScheduler, State},
+    states::State,
 };
 
 /// A Mutational stage is the stage in a fuzzing run that mutates inputs.
@@ -72,10 +73,10 @@ where
     }
 }
 
-impl<E, I, M, R, S, SC, W, Z> StdMutationalStage<E, I, M, R, S, W, Z>
+impl<E, I, M, R, S, W, Z> StdMutationalStage<E, I, M, R, S, W, Z>
 where
     R: Rand,
-    S: HasScheduler<Scheduler = SC>,
+    S: State,
 {
     /// Gets the number of iterations as a random number
     #[expect(clippy::unnecessary_wraps)]
@@ -100,11 +101,11 @@ where
     I: Input,
     M: Mutator<I, R, S>,
     R: Rand,
-    S: State<I>,
+    S: State<Input = I>,
     Z: Evaluator<E, I, S, W>,
 {
     #[inline]
-    fn perform(
+    fn perform_impl(
         &mut self,
         fuzzer: &mut Z,
         executor: &mut E,
@@ -147,7 +148,7 @@ where
     I: Clone,
     M: Mutator<I, R, S>,
     R: Rand,
-    S: State<I>,
+    S: State<Input = I>,
     Z: Evaluator<E, I, S, W>,
 {
     /// Runs this [`StdMutationalStage`] stage for the given testcase

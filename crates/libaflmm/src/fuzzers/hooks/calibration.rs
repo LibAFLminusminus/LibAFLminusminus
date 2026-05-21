@@ -2,26 +2,26 @@
 //!
 //! This is useful in a couple of scenarios, such as when you want to measure the target unstability or you want to use power schedules.
 
+use crate::{
+    Error, Result,
+    common::{DependencyResolver, PowerScheduleData, Registrator, TestcasePowerScheduleData},
+    controllers::Worker,
+    corpus::{Corpus, HasScheduler, Scheduler, Testcase, TestcaseId},
+    executors::Executor,
+    feedbacks::{HasObserverHandle, MapFeedbackMetadata},
+    fuzzers::{ExitKind, FuzzerHook, Verdict},
+    inputs::Input,
+    observers::{MapObserver, ObserversTuple},
+    runtimes::RuntimeHandle,
+    states::{STAT_CALIBRATION, State, named_metadata_mut, unnamed_metadata_mut},
+};
 use alloc::{borrow::Cow, string::ToString, vec::Vec};
 use core::{marker::PhantomData, time::Duration};
-
 use hashbrown::HashSet;
 use libaflmm_bolts::{Named, current_time, impl_serdeany, tuples::Handle};
 use libaflmm_core::illegal_state;
 use num_traits::Bounded;
 use serde::{Deserialize, Serialize};
-
-use crate::{
-    DependencyResolver, Error, Result, TestcasePowerScheduleData, Verdict, Worker,
-    common::PowerScheduleData,
-    corpus::{Corpus, Scheduler, Testcase},
-    executors::Executor,
-    feedbacks::{HasObserverHandle, MapFeedbackMetadata},
-    fuzzers::{ExitKind, FuzzerHook},
-    inputs::Input,
-    observers::{MapObserver, ObserversTuple},
-    states::{FlatState, HasCorpus, HasScheduler, named_metadata_mut, unnamed_metadata_mut},
-};
 
 /// AFL++'s `CAL_CYCLES` + 1
 const CAL_STAGE_MAX: usize = 8;
@@ -75,7 +75,7 @@ pub fn run_target_measuring_time<E, I, S, W>(
 where
     E: Executor<I, S>,
     I: Input,
-    S: FlatState,
+    S: State,
     W: Worker,
 {
     executor.observers_mut().pre_exec_all(state)?;
@@ -105,7 +105,7 @@ pub struct CalibrationHook<C, O> {
 }
 
 impl<C, O> DependencyResolver for CalibrationHook<C, O> {
-    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<()> {
+    fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
         registrator.register_md_default::<UnstableEntriesMetadata>(self.name());
         Ok(())
     }
@@ -148,7 +148,7 @@ where
     O: MapObserver,
     O::Entry: Serialize,
     for<'de> O::Entry: Deserialize<'de> + 'static + Default + Bounded,
-    S: HasCorpus<I> + FlatState,
+    S: State<Input = I>,
     W: Worker,
 {
     #[expect(clippy::cast_precision_loss)]
@@ -156,8 +156,8 @@ where
         &mut self,
         executor: &mut E,
         state: &mut S,
-        rt_handle: &mut crate::runtimes::RuntimeHandle<S, W>,
-        testcase_id: crate::corpus::TestcaseId,
+        rt_handle: &mut RuntimeHandle<S, W>,
+        testcase_id: TestcaseId,
         _verdict: Verdict,
     ) -> Result<()> {
         let testcase = state.corpus().get(&testcase_id)?;
@@ -257,10 +257,10 @@ where
             100.0f64
         };
 
-        state
-            .stats_mut()
-            .user_map
-            .insert("stability", StabilityValue(stability));
+        state.stats_mut().user_map.insert(
+            STAT_CALIBRATION.to_string(),
+            serde_json::json!(stability).to_string(),
+        );
 
         if state.has_md::<PowerScheduleData>() {
             let current = state.corpus().scheduler().current();

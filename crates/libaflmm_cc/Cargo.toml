@@ -22,19 +22,11 @@ version.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default = [
-  "function-logging",
-  "cmplog-routines",
-  "autotokens",
-  "coverage-accounting",
-  "cmplog-instructions",
-]
+default = ["cmplog-routines", "autotokens", "cmplog-instructions"]
 
 # llvm passes
-function-logging = []
 cmplog-routines = []
 autotokens = []
-coverage-accounting = []
 cmplog-instructions = []
 
 [build-dependencies]

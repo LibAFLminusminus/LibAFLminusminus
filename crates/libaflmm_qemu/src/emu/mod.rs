@@ -2,44 +2,82 @@
 //!
 //! [`Emulator`] is built above [`Qemu`] and provides convenient abstractions.
 
+use crate::{
+    breakpoint::Breakpoint,
+    command::CommandError,
+    qemu::{Qemu, QemuShutdownCause},
+    sync_exit::CustomInsn,
+};
 use core::fmt::{self, Debug, Display, Formatter};
-use std::ops::Add;
-
+use libaflmm::{
+    Result, executors::ExitKind, inputs::Input, observers::ObserversTuple, states::State,
+};
 use libaflmm::{Result, executors::ExitKind, observers::ObserversTuple};
 use libaflmm_qemu_sys::{GuestAddr, GuestPhysAddr, GuestVirtAddr};
+use libaflmm_qemu_sys::{GuestAddr, GuestPhysAddr, GuestVirtAddr};
+use std::ops::Add;
 
 use crate::{
     Qemu, QemuShutdownCause, breakpoint::Breakpoint, command::CommandError, sync_exit::CustomInsn,
 };
 
 pub mod standard;
-pub use standard::{InputLocation, StdEmulator, StdEmulatorBuilder, StdSnapshotManager};
+pub use standard::{StdEmulator, StdEmulatorBuilder};
 
 pub mod hooks;
-pub use hooks::*;
+pub use hooks::{EmulatorHooks, EmulatorModules};
 
 pub mod drivers;
-pub use drivers::*;
+pub use drivers::{
+    EmulatorDriver, EmulatorDriverError, EmulatorDriverResult, GenericEmulatorDriver, InputSetter,
+    LqemuInputSetter, MapKind, NopEmulatorDriver, NopInputSetter, StdEmulatorDriver,
+    StdEmulatorDriverBuilder, StdInputSetter,
+};
 
-pub mod snapshot;
-pub use snapshot::*;
+pub mod snapshots;
+pub use snapshots::{
+    IsSnapshotManager, NopSnapshotManager, QemuSnapshotCheckResult, SnapshotId,
+    SnapshotManagerCheckError, SnapshotManagerError,
+};
 
-pub trait Emulator<I, S> {
-    fn qemu(&self) -> Qemu;
-    fn first_exec(&mut self, state: &mut S) -> Result<()>;
-    fn pre_exec(&mut self, state: &mut S, input: &I) -> Result<()>;
-    fn exec_input(&mut self, input: &I) -> Result<ExitKind>;
+#[cfg(feature = "systemmode")]
+pub use snapshots::{FastSnapshotManager, FastSnapshotPtr, QemuSnapshotManager};
+
+#[cfg(feature = "usermode")]
+pub mod usermode;
+#[cfg(feature = "usermode")]
+pub use usermode::InputLocation;
+
+#[cfg(feature = "systemmode")]
+pub mod systemmode;
+#[cfg(feature = "systemmode")]
+pub use systemmode::InputLocation;
+
+pub trait Emulator {
+    type Input: Input;
+    type State: State;
+
+    fn first_exec(&mut self, state: &mut Self::State) -> Result<()>;
+
+    fn pre_exec(&mut self, state: &mut Self::State, input: &Self::Input) -> Result<()>;
+
+    fn exec_input(&mut self, input: &Self::Input) -> Result<ExitKind>;
+
     fn post_exec<OT>(
         &mut self,
-        input: &I,
+        state: &mut Self::State,
+        input: &Self::Input,
         observers: &mut OT,
-        state: &mut S,
         exit_kind: &mut ExitKind,
     ) -> Result<()>
     where
-        OT: ObserversTuple<S>;
+        OT: ObserversTuple<Self::State>;
+
     fn on_crash(&mut self) -> Result<()>;
+
     fn on_timeout(&mut self) -> Result<()>;
+
+    fn qemu(&self) -> Qemu;
 }
 
 #[derive(Copy, Clone)]

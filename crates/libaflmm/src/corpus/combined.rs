@@ -1,17 +1,14 @@
 //! A cached corpus, using a given [`Cache`] policy and two [`Store`]s.
 
+use super::{Corpus, HasScheduler, Testcase, store::Store};
+use crate::{
+    common::DependencyResolver,
+    corpus::{Cache, Scheduler, TestcaseId, store::StorageResult},
+};
 use alloc::{rc::Rc, vec::Vec};
 use core::{cell::RefCell, marker::PhantomData};
-
 use libaflmm_core::Result;
 use serde::{Deserialize, Serialize};
-
-use super::{Corpus, Testcase, store::Store};
-use crate::{
-    DependencyResolver,
-    corpus::{Cache, Scheduler, TestcaseId, store::StorageResult},
-    states::HasScheduler,
-};
 
 /// A [`CombinedCorpus`] tries first to use the main store according to some policy.
 /// If it fails, it falls back to the secondary store.
@@ -68,7 +65,7 @@ where
     }
 }
 
-impl<C, CS, FS, I, SC> Corpus<I> for CombinedCorpus<C, CS, FS, I, SC>
+impl<C, CS, FS, I, SC> Corpus for CombinedCorpus<C, CS, FS, I, SC>
 where
     C: Cache<CS, FS, I>,
     CS: Store<I>,
@@ -76,6 +73,8 @@ where
     I: Clone,
     SC: Scheduler,
 {
+    type Input = I;
+
     fn count(&self) -> usize {
         self.fallback_store.count()
     }

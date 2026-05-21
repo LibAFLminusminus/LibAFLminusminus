@@ -12,15 +12,24 @@ extern crate std;
 extern crate alloc;
 
 use alloc::{borrow::ToOwned, string::String, vec::Vec};
+use raw_cpuid::CpuId;
 #[cfg(target_os = "linux")]
 use std::fs;
-
-use raw_cpuid::CpuId;
 
 #[cfg(target_os = "linux")]
 mod linux;
 #[cfg(target_os = "linux")]
 pub use linux::*;
+
+#[cfg(target_os = "linux")]
+pub mod hook;
+#[cfg(target_os = "linux")]
+pub use hook::IntelPTHook;
+
+#[cfg(all(target_os = "linux", feature = "qemu"))]
+pub mod qemu;
+#[cfg(all(target_os = "linux", feature = "qemu"))]
+pub use qemu::IntelPTModule;
 
 /// Size of a memory page
 pub const PAGE_SIZE: usize = 4096;

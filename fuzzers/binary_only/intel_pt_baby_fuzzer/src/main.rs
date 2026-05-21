@@ -146,8 +146,7 @@ pub fn main() {
         .expect("Failed to generate the initial corpus");
 
     // Set up a mutational stage with a basic bytes mutator
-    let mutator = HavocScheduledMutator::new(havoc_mutations());
-    let mut stages = tuple_list!(StdMutationalStage::new(mutator));
+    let mut stages = tuple_list!(StdStage::default());
 
     fuzzer
         .fuzz_loop(&mut stages, &mut executor, &mut state, &mut mgr)

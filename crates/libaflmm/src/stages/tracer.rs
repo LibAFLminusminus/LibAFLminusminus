@@ -1,23 +1,23 @@
 //! The [`TracerStage`] can trace the target with an alternate [`Executor`] and enrich a testcase with metadata, for example for `CmpLog`.
 
-use alloc::{
-    borrow::{Cow, ToOwned},
-    string::ToString,
-};
-use core::{fmt::Debug, marker::PhantomData};
-
-use libaflmm_bolts::Named;
-
 use crate::{
-    DependencyResolver, Error, Worker,
+    Error,
+    common::{DependencyResolver, Registrator},
+    controllers::Worker,
     corpus::{Corpus, testcase::TestcaseId},
     executors::Executor,
     inputs::Input,
     observers::ObserversTuple,
     runtimes::RuntimeHandle,
     stages::Stage,
-    states::{FlatState, HasCorpus},
+    states::State,
 };
+use alloc::{
+    borrow::{Cow, ToOwned},
+    string::ToString,
+};
+use core::{fmt::Debug, marker::PhantomData};
+use libaflmm_bolts::Named;
 
 /// A stage that runs a tracer executor
 /// This should *NOT* be used with inprocess executor because usually you should never have more than one inprocess executors inside one process.
@@ -32,7 +32,7 @@ impl<I, TE> DependencyResolver for TracerStage<I, TE>
 where
     TE: DependencyResolver,
 {
-    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<(), Error> {
+    fn register(&mut self, registrator: &mut Registrator) -> Result<(), Error> {
         self.tracer_executor.register_with_ty(registrator)?;
 
         Ok(())
@@ -42,12 +42,12 @@ where
 impl<E, I, R, S, TE, W, Z> Stage<E, R, S, W, Z> for TracerStage<I, TE>
 where
     TE: Executor<I, S>,
-    S: FlatState + HasCorpus<I>,
+    S: State<Input = I>,
     I: Input,
     W: Worker,
 {
     #[inline]
-    fn perform(
+    fn perform_impl(
         &mut self,
         _fuzzer: &mut Z,
         _executor: &mut E,

@@ -484,7 +484,7 @@ impl Display for Error {
                 writeln!(f, "LibAFL internal bug: {0}", &s)?;
                 write!(
                     f,
-                    "This is a LibAFLmm bug, please open an issue at https://github.com/rmalmain/LibAFLminusminus.",
+                    "This is a LibAFLmm bug, please open an issue at https://github.com/LibAFLminusminus/LibAFLminusminus.",
                 )?;
                 display_error_backtrace(f, b)
             }

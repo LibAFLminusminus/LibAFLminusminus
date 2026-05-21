@@ -113,7 +113,7 @@ fn configure_qemu(
         } else {
             "--disable-slirp"
         })
-        .arg("--enable-fdt=internal")
+        // .arg("--enable-fdt=internal")
         .arg("--audio-drv-list=")
         .arg("--disable-af-xdp")
         .arg("--disable-alsa")
@@ -483,6 +483,8 @@ pub fn build(
 
         println!("cargo:rerun-if-changed={}", source_path.display());
     }
+
+    println!("cargo:rustc-link-lib=atomic");
 
     if cfg!(feature = "shared") {
         let qemu_build_dir_str = libafl_qemu_build_dir

@@ -1,12 +1,22 @@
 //! Map feedback, maximizing or minimizing maps, for example the afl-style map observer.
 
-use alloc::{borrow::Cow, vec::Vec};
+#[cfg(feature = "simd")]
+use super::simd::SimdMapFeedback;
+use crate::{
+    common::DependencyResolver,
+    common::Registrator,
+    corpus::TestcaseId,
+    executors::ExitKind,
+    feedbacks::{Feedback, HasObserverHandle},
+    observers::MapObserver,
+    states::{STAT_COVERAGE, State},
+};
+use alloc::{borrow::Cow, string::ToString, vec::Vec};
 use core::{
     fmt::Debug,
     marker::PhantomData,
     ops::{Deref, DerefMut},
 };
-
 use hashbrown::HashMap;
 #[cfg(all(feature = "simd", target_arch = "x86_64"))]
 use libaflmm_bolts::simd::vector::u8x16;
@@ -23,16 +33,7 @@ use libaflmm_core::Result;
 use num_traits::PrimInt;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
-#[cfg(feature = "simd")]
-use super::simd::SimdMapFeedback;
-use crate::{
-    DependencyResolver,
-    corpus::TestcaseId,
-    executors::ExitKind,
-    feedbacks::{Feedback, HasObserverHandle},
-    observers::MapObserver,
-    states::{FlatState, HasTestcase},
-};
+pub type StdMapFeedback<C, O> = MaxMapFeedback<C, O>;
 
 #[cfg(feature = "simd")]
 /// A [`SimdMapFeedback`] that implements the AFL algorithm using an [`SimdOrReducer`] combining the bits for the history map and the bit from (`HitcountsMapObserver`)[`crate::observers::HitcountsMapObserver`].
@@ -316,7 +317,7 @@ where
     O: MapObserver,
     O::Entry: 'static + Default + Debug + DeserializeOwned + Serialize,
 {
-    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<()> {
+    fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
         registrator.register_md_default::<MapFeedbackMetadata<O::Entry>>(self.name());
         Ok(())
     }
@@ -330,7 +331,7 @@ where
     O::Entry: 'static + Default + Debug + DeserializeOwned + Serialize,
     OT: MatchName,
     R: Reducer<O::Entry>,
-    S: FlatState + HasTestcase<I>,
+    S: State<Input = I>,
 {
     fn is_interesting(
         &mut self,
@@ -361,6 +362,8 @@ where
             map_state.history_map.resize(len, observer.initial());
         }
 
+        let map_len = map_state.history_map.len();
+
         let history_map = &mut map_state.history_map;
         for (i, value) in observer
             .as_iter()
@@ -386,6 +389,14 @@ where
                 .fold(0, |acc, x| acc + usize::from(*x != initial)),
             map_state.num_covered_map_indexes,
         );
+
+        let covered = map_state.num_covered_map_indexes;
+        let stat_json = serde_json::json!([covered, map_len]).to_string();
+
+        state
+            .stats_mut()
+            .user_map
+            .insert(STAT_COVERAGE.to_string(), stat_json);
 
         Ok(())
     }
@@ -445,7 +456,7 @@ where
 {
     fn is_interesting_default<OT, S>(&mut self, state: &mut S, observers: &OT) -> bool
     where
-        S: FlatState,
+        S: State,
         OT: MatchName,
     {
         let mut interesting = false;

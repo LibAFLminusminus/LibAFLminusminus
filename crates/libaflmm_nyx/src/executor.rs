@@ -1,23 +1,23 @@
+use crate::{cmplog::CMPLOG_ENABLED, helper::NyxHelper};
 use core::{ops::IndexMut, time::Duration};
-use std::{
-    io::{Read, Seek},
-    os::fd::AsRawFd,
-};
-
 use libaflmm::{
-    DependencyResolver, Error,
+    Error,
+    common::DependencyResolver,
+    controllers::Worker,
     executors::{Executor, ExitKind},
     inputs::InputContext,
     observers::{ObserversTuple, StdOutObserver},
-    states::{FlatState, HasContext},
+    states::State,
 };
 use libaflmm_bolts::{
     AsSlice,
     tuples::{Handle, RefIndexable},
 };
 use libnyx::NyxReturnValue;
-
-use crate::{cmplog::CMPLOG_ENABLED, helper::NyxHelper};
+use std::{
+    io::{Read, Seek},
+    os::fd::AsRawFd,
+};
 
 /// executor for nyx standalone mode
 pub struct NyxExecutor<OT> {
@@ -44,12 +44,12 @@ impl<OT> DependencyResolver for NyxExecutor<OT> {}
 
 impl<I, OT, S> Executor<I, S> for NyxExecutor<OT>
 where
-    S: FlatState + HasContext<I>,
+    S: State<Input = I>,
     OT: ObserversTuple<S>,
 {
     type Observers = OT;
 
-    fn init<W: libaflmm::Worker>(
+    fn init<W: Worker>(
         &mut self,
         _state: &mut S,
         _rt_handle: &mut libaflmm::runtimes::RuntimeHandle<S, W>,
@@ -68,14 +68,14 @@ where
         RefIndexable::from(&mut self.observers)
     }
 
-    fn execute<W: libaflmm::Worker>(
+    fn execute<W: Worker>(
         &mut self,
         state: &mut S,
         _rt_handle: &mut libaflmm::runtimes::RuntimeHandle<S, W>,
         input: &I,
     ) -> Result<ExitKind, Error>
     where
-        S: libaflmm::states::FlatState,
+        S: State,
     {
         unsafe { self.execute_impl(state, input) }
     }

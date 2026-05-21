@@ -1,26 +1,5 @@
 use clap::Parser;
-use libaflmm::{
-    Result, Worker,
-    corpus::{
-        Corpus, InMemoryCorpus, OnDiskCorpus, Scheduler,
-        schedulers::{NopScheduler, QueueScheduler},
-    },
-    executors::{ForkserverExecutor, StdChildArgs},
-    feedback_or_fast,
-    feedbacks::{CrashFeedback, MaxMapFeedback, TimeoutFeedback},
-    fuzzers::{Fuzzer, StdFuzzer},
-    generators::RandPrintablesGenerator,
-    inputs::{BytesInput, bytes::BytesContext},
-    launchers::StdLauncher,
-    monitors::SimpleMonitor,
-    mutators::{HavocScheduledMutator, Tokens, havoc_mutations},
-    non_zero,
-    observers::{HitcountsMapObserver, StdMapObserver},
-    runtimes::RuntimeHandle,
-    simple::{SimpleController, SimpleWorker},
-    stages::StdMutationalStage,
-    states::StdState,
-};
+use libaflmm::prelude::*;
 use libaflmm_bolts::{StdTargetArgs, SysVShm, current_nanos, rands::StdRand, tuples::tuple_list};
 use std::{ops::DerefMut, path::PathBuf, time::Duration};
 
@@ -71,14 +50,13 @@ struct Opt {
     arguments: Vec<String>,
 }
 
-fn run_fuzzer<C, OC, SC>(
-    rt_handle: &mut RuntimeHandle<StdState<C, BytesContext, BytesInput, OC, SC>, SimpleWorker>,
-    state: &mut StdState<C, BytesContext, BytesInput, OC, SC>,
+fn run_fuzzer<C, OC>(
+    rt_handle: &mut RuntimeHandle<StdState<C, BytesContext, BytesInput, OC>, SimpleWorker>,
+    state: &mut StdState<C, BytesContext, BytesInput, OC>,
 ) -> Result<()>
 where
-    C: Corpus<BytesInput>,
-    OC: Corpus<BytesInput>,
-    SC: Scheduler,
+    C: Corpus<Input = BytesInput>,
+    OC: Corpus<Input = BytesInput>,
 {
     const MAP_SIZE: usize = 65536;
     let opt = Opt::parse();
@@ -152,16 +130,16 @@ pub fn main() -> Result<()> {
     let state_builder = |worker: &SimpleWorker| {
         // A queue policy to get testcasess from the corpus
         let scheduler = QueueScheduler::new();
-        let crash_dir = worker.workdir().create_dir("crashes")?;
+        let crash_dir = worker.workdir().objective_dir()?;
 
         // create a State from scratch
         StdState::new(
             BytesContext,
             // Corpus that will be evolved, we keep it in memory for performance
-            InMemoryCorpus::new(scheduler),
+            InMemoryCorpus::with_scheduler(scheduler),
             // Corpus in which we store solutions (crashes in this example),
             // on disk so the user can get them after stopping the fuzzer
-            OnDiskCorpus::new(crash_dir, NopScheduler).unwrap(),
+            OnDiskCorpus::builder().root_dir(crash_dir).build()?,
         )
     };
 

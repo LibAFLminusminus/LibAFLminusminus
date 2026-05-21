@@ -6,7 +6,8 @@ use libaflmm_core::Result;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    DependencyResolver, Error,
+    Error,
+    common::DependencyResolver,
     corpus::{Corpus, HasScheduler, Testcase, TestcaseId, schedulers::NopScheduler},
     inputs::NopContext,
 };
@@ -31,7 +32,9 @@ impl<I, S> HasScheduler for NopCorpus<I, S> {
     }
 }
 
-impl<I, S> Corpus<I> for NopCorpus<I, S> {
+impl<I, S> Corpus for NopCorpus<I, S> {
+    type Input = I;
+
     /// Returns the number of all enabled entries
     #[inline]
     fn count(&self) -> usize {

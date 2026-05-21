@@ -1,10 +1,8 @@
 #![allow(clippy::useless_conversion)] // This seems to be a false-positive(?)
 
+use crate::common::nautilus::grammartec::context::Context;
 use alloc::{ffi::CString, string::String, vec::Vec};
-
 use pyo3::{prelude::*, pyclass, types::IntoPyDict};
-
-use crate::nautilus::grammartec::context::Context;
 
 #[pyclass]
 struct PyContext {

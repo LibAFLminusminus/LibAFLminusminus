@@ -1,3 +1,5 @@
+use crate::qemu::Qemu;
+use libaflmm_qemu_sys::GuestAddr;
 use std::{
     borrow::Borrow,
     fmt::{Debug, Display, Formatter},
@@ -7,10 +9,6 @@ use std::{
         atomic::{AtomicU64, Ordering},
     },
 };
-
-use libaflmm_qemu_sys::GuestAddr;
-
-use crate::Qemu;
 
 #[repr(transparent)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]

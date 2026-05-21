@@ -1,9 +1,15 @@
 //! Stage wrappers that add logics to stage list
 
+use alloc::borrow::Cow;
+
+use libaflmm_bolts::Named;
+
 use crate::{
-    DependencyResolver, Error,
+    Result,
+    common::{DependencyResolver, Registrator},
     corpus::testcase::TestcaseId,
     stages::{RuntimeHandle, Stage, StagesTuple},
+    states::State,
 };
 
 #[derive(Debug)]
@@ -24,16 +30,42 @@ impl<CB, ST> DependencyResolver for WhileStage<CB, ST>
 where
     ST: DependencyResolver,
 {
-    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<(), Error> {
+    fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
         self.stages.register(registrator)
+    }
+}
+
+impl<CB, ST> Named for WhileStage<CB, ST> {
+    fn name(&self) -> &Cow<'static, str> {
+        static NAME: Cow<'static, str> = Cow::Borrowed("while");
+        &NAME
     }
 }
 
 impl<CB, E, R, ST, S, W, Z> Stage<E, R, S, W, Z> for WhileStage<CB, ST>
 where
-    CB: FnMut(&mut RuntimeHandle<S, W>, &mut E, &mut R, &mut S, &mut Z) -> Result<bool, Error>,
+    CB: FnMut(&mut RuntimeHandle<S, W>, &mut E, &mut R, &mut S, &mut Z) -> Result<bool>,
+    S: State,
     ST: StagesTuple<E, R, S, W, Z>,
 {
+    fn perform_impl(
+        &mut self,
+        fuzzer: &mut Z,
+        executor: &mut E,
+        rand: &mut R,
+        state: &mut S,
+        rt_handle: &mut RuntimeHandle<S, W>,
+        testcase_id: &TestcaseId,
+    ) -> Result<()> {
+        while (self.closure)(rt_handle, executor, rand, state, fuzzer)? {
+            self.stages
+                .perform_all(fuzzer, executor, rand, state, rt_handle, testcase_id)?;
+        }
+
+        Ok(())
+    }
+
+    // don't register into timer; inner stages record themselves.
     fn perform(
         &mut self,
         fuzzer: &mut Z,
@@ -42,13 +74,8 @@ where
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
         testcase_id: &TestcaseId,
-    ) -> Result<(), Error> {
-        while (self.closure)(rt_handle, executor, rand, state, fuzzer)? {
-            self.stages
-                .perform_all(fuzzer, executor, rand, state, rt_handle, testcase_id)?;
-        }
-
-        Ok(())
+    ) -> Result<()> {
+        self.perform_impl(fuzzer, executor, rand, state, rt_handle, testcase_id)
     }
 }
 
@@ -64,8 +91,15 @@ impl<CB, ST> DependencyResolver for IfStage<CB, ST>
 where
     ST: DependencyResolver,
 {
-    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<(), Error> {
+    fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
         self.if_stages.register(registrator)
+    }
+}
+
+impl<CB, ST> Named for IfStage<CB, ST> {
+    fn name(&self) -> &Cow<'static, str> {
+        static NAME: Cow<'static, str> = Cow::Borrowed("if");
+        &NAME
     }
 }
 
@@ -78,9 +112,27 @@ impl<CB, ST> IfStage<CB, ST> {
 
 impl<CB, E, R, ST, S, W, Z> Stage<E, R, S, W, Z> for IfStage<CB, ST>
 where
-    CB: FnMut(&mut RuntimeHandle<S, W>, &mut E, &mut R, &mut S, &mut Z) -> Result<bool, Error>,
+    CB: FnMut(&mut RuntimeHandle<S, W>, &mut E, &mut R, &mut S, &mut Z) -> Result<bool>,
+    S: State,
     ST: StagesTuple<E, R, S, W, Z>,
 {
+    fn perform_impl(
+        &mut self,
+        fuzzer: &mut Z,
+        executor: &mut E,
+        rand: &mut R,
+        state: &mut S,
+        rt_handle: &mut RuntimeHandle<S, W>,
+        testcase_id: &TestcaseId,
+    ) -> Result<()> {
+        if (self.closure)(rt_handle, executor, rand, state, fuzzer)? {
+            self.if_stages
+                .perform_all(fuzzer, executor, rand, state, rt_handle, testcase_id)?;
+        }
+        Ok(())
+    }
+
+    // don't register into timer; inner stages record themselves.
     fn perform(
         &mut self,
         fuzzer: &mut Z,
@@ -89,12 +141,8 @@ where
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
         testcase_id: &TestcaseId,
-    ) -> Result<(), Error> {
-        if (self.closure)(rt_handle, executor, rand, state, fuzzer)? {
-            self.if_stages
-                .perform_all(fuzzer, executor, rand, state, rt_handle, testcase_id)?;
-        }
-        Ok(())
+    ) -> Result<()> {
+        self.perform_impl(fuzzer, executor, rand, state, rt_handle, testcase_id)
     }
 }
 
@@ -111,9 +159,16 @@ where
     ST1: DependencyResolver,
     ST2: DependencyResolver,
 {
-    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<(), Error> {
+    fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
         self.if_stages.register(registrator)?;
         self.else_stages.register(registrator)
+    }
+}
+
+impl<CB, ST1, ST2> Named for IfElseStage<CB, ST1, ST2> {
+    fn name(&self) -> &Cow<'static, str> {
+        static NAME: Cow<'static, str> = Cow::Borrowed("ifelse");
+        &NAME
     }
 }
 
@@ -130,11 +185,12 @@ impl<CB, ST1, ST2> IfElseStage<CB, ST1, ST2> {
 
 impl<CB, E, R, ST1, ST2, S, W, Z> Stage<E, R, S, W, Z> for IfElseStage<CB, ST1, ST2>
 where
-    CB: FnMut(&mut RuntimeHandle<S, W>, &mut E, &mut R, &mut S, &mut Z) -> Result<bool, Error>,
+    CB: FnMut(&mut RuntimeHandle<S, W>, &mut E, &mut R, &mut S, &mut Z) -> Result<bool>,
+    S: State,
     ST1: StagesTuple<E, R, S, W, Z>,
     ST2: StagesTuple<E, R, S, W, Z>,
 {
-    fn perform(
+    fn perform_impl(
         &mut self,
         fuzzer: &mut Z,
         executor: &mut E,
@@ -142,7 +198,7 @@ where
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
         testcase_id: &TestcaseId,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         if (self.closure)(rt_handle, executor, rand, state, fuzzer)? {
             self.if_stages
                 .perform_all(fuzzer, executor, rand, state, rt_handle, testcase_id)?;
@@ -151,5 +207,18 @@ where
                 .perform_all(fuzzer, executor, rand, state, rt_handle, testcase_id)?;
         }
         Ok(())
+    }
+
+    // don't register into timer; inner stages record themselves.
+    fn perform(
+        &mut self,
+        fuzzer: &mut Z,
+        executor: &mut E,
+        rand: &mut R,
+        state: &mut S,
+        rt_handle: &mut RuntimeHandle<S, W>,
+        testcase_id: &TestcaseId,
+    ) -> Result<()> {
+        self.perform_impl(fuzzer, executor, rand, state, rt_handle, testcase_id)
     }
 }

@@ -1,20 +1,16 @@
-use std::marker::PhantomData;
-
-#[cfg(all(feature = "usermode", not(feature = "systemmode")))]
-use libaflmm::{inputs::Input, states::FlatState};
-use libaflmm_bolts::tuples::{Append, Prepend, tuple_list};
-
 #[cfg(doc)]
 use crate::config::QemuConfig;
-#[cfg(feature = "systemmode")]
-use crate::standard::FastSnapshotManager;
+use crate::emu::StdEmulatorDriver;
+use crate::emu::snapshots::StdSnapshotManager;
 use crate::{
-    NopEmulatorDriver, NopSnapshotManager, Qemu, QemuInitError, QemuParams, StdEmulator,
-    StdEmulatorDriver,
     command::{NopCommandManager, StdCommandManager},
-    config::QemuConfigBuilder,
+    emu::{NopEmulatorDriver, NopSnapshotManager, StdEmulator},
     modules::{EmulatorModule, EmulatorModuleTuple},
+    qemu::{Qemu, QemuHooks, QemuInitError, QemuParams, config::QemuConfigBuilder},
 };
+use libaflmm::{inputs::Input, states::State};
+use libaflmm_bolts::tuples::{Append, Prepend, tuple_list};
+use std::marker::PhantomData;
 
 /// An [`Emulator`] Builder.
 ///
@@ -69,10 +65,10 @@ impl<C, I, S>
         QemuConfigBuilder,
         I,
         S,
-        super::StdSnapshotManager,
+        StdSnapshotManager,
     >
 where
-    S: FlatState + Unpin,
+    S: State + Unpin,
     I: Input,
 {
     #[must_use]
@@ -81,7 +77,7 @@ where
         Self {
             modules: tuple_list!(),
             command_manager: StdCommandManager::default(),
-            snapshot_manager: super::StdSnapshotManager::default(),
+            snapshot_manager: StdSnapshotManager::default(),
             driver: StdEmulatorDriver::builder().build(),
             qemu_parameters: None,
             phantom: PhantomData,
@@ -99,10 +95,10 @@ impl<C, I, S>
         QemuConfigBuilder,
         I,
         S,
-        super::systemmode::StdSnapshotManager,
+        StdSnapshotManager,
     >
 where
-    S: FlatState + Unpin,
+    S: State + Unpin,
     I: Input,
 {
     #[expect(clippy::should_implement_trait)]
@@ -111,7 +107,7 @@ where
         Self {
             modules: (),
             command_manager: StdCommandManager::default(),
-            snapshot_manager: FastSnapshotManager::default(),
+            snapshot_manager: StdSnapshotManager::default(),
             driver: StdEmulatorDriver::builder().build(),
             qemu_parameters: None,
             phantom: PhantomData,
@@ -172,8 +168,7 @@ where
     {
         // The logic from Emulator::new needs to be duplicated here because of type mismatch on modules
         //  between Emulator::new and Emulator::new_wit_qemu
-        let emulator_hooks =
-            unsafe { super::EmulatorHooks::new(crate::QemuHooks::get_unchecked()) };
+        let emulator_hooks = unsafe { super::EmulatorHooks::new(QemuHooks::get_unchecked()) };
         let emulator_modules = unsafe { super::EmulatorModules::new(emulator_hooks, self.modules) };
 
         unsafe {

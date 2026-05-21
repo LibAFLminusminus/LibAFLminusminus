@@ -1,3 +1,10 @@
+use hashbrown::{HashMap, hash_map::Entry};
+use libaflmm::Result;
+use libaflmm::{executors::ExitKind, observers::ObserversTuple, states::State};
+use libaflmm_bolts::drcov::{DrCovBasicBlock, DrCovWriter};
+use libaflmm_qemu_sys::{GuestAddr, GuestUsize};
+use rangemap::RangeMap;
+use serde::{Deserialize, Serialize};
 #[cfg(feature = "usermode")]
 use std::{
     cmp::{max, min},
@@ -8,25 +15,16 @@ use std::{
     sync::Mutex,
 };
 
-use hashbrown::{HashMap, hash_map::Entry};
-#[cfg(feature = "usermode")]
-use libaflmm::Result;
-use libaflmm::{executors::ExitKind, observers::ObserversTuple, states::FlatState};
-use libaflmm_bolts::drcov::{DrCovBasicBlock, DrCovWriter};
-use libaflmm_qemu_sys::{GuestAddr, GuestUsize};
-use rangemap::RangeMap;
-use serde::{Deserialize, Serialize};
-
 use super::utils::filters::HasAddressFilter;
 #[cfg(feature = "systemmode")]
 use crate::modules::utils::filters::{HasPageFilter, NOP_PAGE_FILTER, NopPageFilter};
 use crate::{
-    Qemu,
     emu::EmulatorModules,
     modules::{
         AddressFilter, EmulatorModule, EmulatorModuleTuple, utils::filters::NopAddressFilter,
     },
     qemu::Hook,
+    qemu::Qemu,
 };
 
 /// Trace of `block_id`s met at runtime
@@ -152,7 +150,7 @@ where
     ET: EmulatorModuleTuple<I, S>,
     F: AddressFilter,
     I: Unpin,
-    S: Unpin + FlatState,
+    S: Unpin + State,
 {
     let drcov_module = emulator_modules.get::<DrCovModule<F>>().unwrap();
     if !drcov_module.must_instrument(pc) {
@@ -189,7 +187,7 @@ pub fn gen_block_lengths<ET, F, I, S>(
     ET: EmulatorModuleTuple<I, S>,
     F: AddressFilter,
     I: Unpin,
-    S: Unpin + FlatState,
+    S: Unpin + State,
 {
     let drcov_module = emulator_modules.get::<DrCovModule<F>>().unwrap();
     if !drcov_module.must_instrument(pc) {
@@ -213,7 +211,7 @@ pub fn exec_trace_block<ET, F, I, S>(
     ET: EmulatorModuleTuple<I, S>,
     F: AddressFilter,
     I: Unpin,
-    S: Unpin + FlatState,
+    S: Unpin + State,
 {
     DRCOV_IDS.lock().unwrap().as_mut().unwrap().push(id);
 }
@@ -222,7 +220,7 @@ impl<F, I, S> EmulatorModule<I, S> for DrCovModule<F>
 where
     F: AddressFilter,
     I: Unpin,
-    S: Unpin + FlatState,
+    S: Unpin + State,
 {
     #[cfg(feature = "usermode")]
     fn first_exec<ET>(
@@ -331,7 +329,8 @@ where
         _qemu: Qemu,
         emulator_modules: &mut EmulatorModules<ET, I, S>,
         _state: &mut S,
-    ) where
+    ) -> Result<()>
+    where
         ET: EmulatorModuleTuple<I, S>,
     {
         assert!(
@@ -352,6 +351,8 @@ where
                 Hook::Empty,
             );
         }
+
+        Ok(())
     }
 
     fn post_exec<OT, ET>(

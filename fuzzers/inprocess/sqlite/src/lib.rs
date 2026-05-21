@@ -1,43 +1,15 @@
-//! A libfuzzer-like fuzzer with llmp-multithreading support and restarts
-//! The example harness is built for libpng.
-//! In this example, you will see the use of the `launcher` feature.
-//! The `launcher` will spawn new processes for each cpu core.
-use core::time::Duration;
-use std::{env, net::SocketAddr, path::PathBuf, str::FromStr};
-
 use clap::{self, Parser};
-use libafl::{
-    corpus::{Corpus, InMemoryCorpus, OnDiskCorpus},
-    events::{
-        centralized::CentralizedEventManager, launcher::CentralizedLauncher,
-        multi_machine::NodeDescriptor, ClientDescription, EventConfig,
-    },
-    executors::{inprocess::InProcessExecutor, ExitKind},
-    feedback_or, feedback_or_fast,
-    feedbacks::{CrashFeedback, MaxMapFeedback, TimeFeedback, TimeoutFeedback},
-    fuzzer::{Fuzzer, StdFuzzer},
-    inputs::{BytesInput, HasTargetBytes},
-    monitors::MultiMonitor,
-    mutators::{
-        havoc_mutations::havoc_mutations,
-        scheduled::{tokens_mutations, HavocScheduledMutator},
-        token_mutations::Tokens,
-    },
-    observers::{CanTrack, HitcountsMapObserver, TimeObserver},
-    schedulers::{IndexesLenTimeMinimizerScheduler, QueueScheduler},
-    stages::mutational::StdMutationalStage,
-    state::{HasCorpus, StdState},
-    Error, HasMetadata,
-};
-use libafl_bolts::{
+use core::time::Duration;
+use libaflmm::prelude::*;
+use libaflmm_bolts::{
     core_affinity::Cores,
     rands::StdRand,
-    shmem::{ShMemProvider, StdShMemProvider},
+    timers::FastTimer,
     tuples::{tuple_list, Merge},
-    AsSlice,
 };
-use libafl_targets::{libfuzzer_initialize, libfuzzer_test_one_input, std_edges_map_observer};
+use libaflmm_targets::{edges_map_mut_slice, libfuzzer_initialize, libfuzzer_test_one_input};
 use mimalloc::MiMalloc;
+use std::{env, net::SocketAddr, path::PathBuf};
 
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
@@ -58,18 +30,6 @@ struct Opt {
     name = "CORES"
     )]
     cores: Cores,
-
-    #[arg(
-        short = 'p',
-        long,
-        help = "Choose the broker TCP port, default is 1337",
-        name = "PORT",
-        default_value = "1337"
-    )]
-    broker_port: u16,
-
-    #[arg(short = 'a', long, help = "Specify a remote broker", name = "REMOTE")]
-    remote_broker_addr: Option<SocketAddr>,
 
     #[arg(
         short,
@@ -98,38 +58,10 @@ struct Opt {
     default_value = "10000"
     )]
     timeout: Duration,
-
-    /*
-    /// This fuzzer has hard-coded tokens
-    #[arg(
-
-        short = "x",
-        long,
-        help = "Feed the fuzzer with an user-specified list of tokens (often called \"dictionary\"",
-        name = "TOKENS",
-        multiple = true
-    )]
-    tokens: Vec<PathBuf>,
-    */
-    #[arg(
-        long,
-        help = "The address of the parent node to connect to, if any",
-        name = "PARENT_ADDR",
-        default_value = None
-    )]
-    parent_addr: Option<String>,
-
-    #[arg(
-        long,
-        help = "The port on which the node will listen on, if children are to be expected",
-        name = "NODE_LISTENING_PORT",
-        default_value = None
-    )]
-    node_listening_port: Option<u16>,
 }
 
 /// Parse a millis string to a [`Duration`]. Used for arg parsing.
-fn timeout_from_millis_str(time: &str) -> Result<Duration, Error> {
+fn timeout_from_millis_str(time: &str) -> Result<Duration> {
     Ok(Duration::from_millis(time.parse()?))
 }
 
@@ -138,163 +70,148 @@ fn timeout_from_millis_str(time: &str) -> Result<Duration, Error> {
 pub extern "C" fn libafl_main() {
     env_logger::init();
 
-    // Registry the metadata types used in this fuzzer
-    // Needed only on no_std
-    // unsafe { RegistryBuilder::register::<Tokens>(); }
-    let opt = Opt::parse();
+    // The state creation closure.
+    let state_builder = |worker: &SimpleWorker| {
+        // A queue policy to get testcasess from the corpus
+        let scheduler = QueueScheduler::new();
+        let crash_dir = worker.workdir().create_dir("crashes")?;
+        let context = BytesContext::default();
 
-    let broker_port = opt.broker_port;
-    let cores = opt.cores;
+        // create a State from scratch
+        StdState::new(
+            context,
+            // Corpus that will be evolved, we keep it in memory for performance
+            InMemoryCorpus::with_scheduler(scheduler),
+            // Corpus in which we store solutions (crashes in this example),
+            // on disk so the user can get them after stopping the fuzzer
+            OnDiskCorpus::builder().root_dir(crash_dir).build()?,
+        )
+    };
 
-    println!(
-        "Workdir: {:?}",
-        env::current_dir().unwrap().to_string_lossy().to_string()
+    let controller = SimpleController::builder()
+        .worker_stdout(None)
+        .worker_stderr(None)
+        .overwrite(true)
+        .build()
+        .expect("Failed to build the SimpleController");
+
+    // The monitor tracks the fuzzing current status.
+    let monitor = WebMonitor::new("sqlite3");
+
+    let fast_timer = FastTimer::new();
+    let runtime = StdInProcessRuntime::new(
+        run_fuzzer,
+        DEFAULT_MAX_STATE_SIZE_PER_WORKER,
+        fast_timer,
+        Some(Duration::from_secs(3)),
     );
 
-    let shmem_provider = StdShMemProvider::new().expect("Failed to init shared memory");
-
-    let monitor = MultiMonitor::new(|s| println!("{s}"));
-
-    let mut secondary_run_client =
-        |state: Option<_>,
-         mut mgr: CentralizedEventManager<_, _, _, _, _>,
-         _client_description: ClientDescription| {
-            // Create an observation channel using the coverage map
-            let edges_observer =
-                HitcountsMapObserver::new(unsafe { std_edges_map_observer("edges") })
-                    .track_indices();
-
-            // Create an observation channel to keep track of the execution time
-            let time_observer = TimeObserver::new("time");
-
-            // Feedback to rate the interestingness of an input
-            // This one is composed by two Feedbacks in OR
-            let mut feedback = feedback_or!(
-                // New maximization map feedback linked to the edges observer and the feedback state
-                MaxMapFeedback::new(&edges_observer),
-                // Time feedback, this one does not need a feedback state
-                TimeFeedback::new(&time_observer)
-            );
-
-            // A feedback to choose if an input is a solution or not
-            let mut objective = feedback_or_fast!(CrashFeedback::new(), TimeoutFeedback::new());
-
-            // If not restarting, create a State from scratch
-            let mut state = state.unwrap_or_else(|| {
-                StdState::new(
-                    // RNG
-                    StdRand::new(),
-                    // Corpus that will be evolved, we keep it in memory for performance
-                    InMemoryCorpus::new(),
-                    // Corpus in which we store solutions (crashes in this example),
-                    // on disk so the user can get them after stopping the fuzzer
-                    OnDiskCorpus::new(&opt.output).unwrap(),
-                    // States of the feedbacks.
-                    // The feedbacks can report the data that should persist in the State.
-                    &mut feedback,
-                    // Same for objective feedbacks
-                    &mut objective,
-                )
-                .unwrap()
-            });
-
-            println!("We're a client, let's fuzz :)");
-
-            // Create a PNG dictionary if not existing
-            if state.metadata_map().get::<Tokens>().is_none() {
-                state.add_metadata(Tokens::from([
-                    vec![137, 80, 78, 71, 13, 10, 26, 10], // PNG header
-                    "IHDR".as_bytes().to_vec(),
-                    "IDAT".as_bytes().to_vec(),
-                    "PLTE".as_bytes().to_vec(),
-                    "IEND".as_bytes().to_vec(),
-                ]));
-            }
-
-            // Setup a basic mutator with a mutational stage
-            let mutator = HavocScheduledMutator::new(havoc_mutations().merge(tokens_mutations()));
-            let mut stages = tuple_list!(StdMutationalStage::new(mutator));
-
-            // A minimization+queue policy to get testcasess from the corpus
-            let scheduler =
-                IndexesLenTimeMinimizerScheduler::new(&edges_observer, QueueScheduler::new());
-
-            // A fuzzer with feedbacks and a corpus scheduler
-            let mut fuzzer = StdFuzzer::new(scheduler, feedback, objective);
-
-            // The wrapped harness function, calling out to the LLVM-style harness
-            let mut harness = |input: &BytesInput| {
-                let target = input.target_bytes();
-                let buf = target.as_slice();
-                unsafe {
-                    libfuzzer_test_one_input(buf);
-                }
-                ExitKind::Ok
-            };
-
-            let mut executor = InProcessExecutor::with_timeout(
-                &mut harness,
-                tuple_list!(edges_observer, time_observer),
-                &mut fuzzer,
-                &mut state,
-                &mut mgr,
-                opt.timeout,
-            )?;
-
-            // The actual target run starts here.
-            // Call LLVMFUzzerInitialize() if present.
-            let args: Vec<String> = env::args().collect();
-            if unsafe { libfuzzer_initialize(&args) } == -1 {
-                println!("Warning: LLVMFuzzerInitialize failed with -1");
-            }
-
-            // In case the corpus is empty (on first run), reset
-            if state.must_load_initial_inputs() {
-                state
-                    .load_initial_inputs(&mut fuzzer, &mut executor, &mut mgr, &opt.input)
-                    .unwrap_or_else(|_| {
-                        panic!("Failed to load initial corpus at {:?}", &opt.input)
-                    });
-                println!("We imported {} inputs from disk.", state.corpus().count());
-            }
-            if !mgr.is_main() {
-                fuzzer.fuzz_loop(&mut stages, &mut executor, &mut state, &mut mgr)?;
-            } else {
-                let mut empty_stages = tuple_list!();
-                fuzzer.fuzz_loop(&mut empty_stages, &mut executor, &mut state, &mut mgr)?;
-            }
-            Ok(())
-        };
-
-    let mut main_run_client = secondary_run_client; // clone it just for borrow checker
-
-    let parent_addr: Option<SocketAddr> = opt
-        .parent_addr
-        .map(|parent_str| SocketAddr::from_str(parent_str.as_str()).expect("Wrong parent address"));
-
-    let mut node_description = NodeDescriptor::builder().parent_addr(parent_addr).build();
-
-    if opt.node_listening_port.is_some() {
-        node_description.node_listening_port = opt.node_listening_port;
-    }
-
-    match CentralizedLauncher::builder()
-        .shmem_provider(shmem_provider)
-        .configuration(EventConfig::from_name("default"))
+    // Launch the fuzzer
+    let _ = StdLauncher::builder()
+        .expect("Failed to instantiate the builder for StdLauncher")
+        .controller(controller)
         .monitor(monitor)
-        .secondary_run_client(&mut secondary_run_client)
-        .main_run_client(&mut main_run_client)
-        .cores(&cores)
-        .broker_port(broker_port)
-        .centralized_broker_port(broker_port + 1)
-        .remote_broker_addr(opt.remote_broker_addr)
-        .multi_machine_node_descriptor(node_description)
-        // .stdout_file(Some("/dev/null"))
+        .state_builder(state_builder)
+        .runtime(runtime)
         .build()
-        .launch()
-    {
-        Ok(()) => (),
-        Err(Error::ShuttingDown) => println!("Fuzzing stopped by user. Good bye."),
-        Err(err) => panic!("Failed to run launcher: {err:?}"),
+        .expect("Failed to build the StdLauncher")
+        .launch();
+}
+
+/// The actual fuzzer
+fn run_fuzzer<C, OC>(
+    rt_handle: &mut RuntimeHandle<StdState<C, BytesContext, BytesInput, OC>, SimpleWorker>,
+    state: &mut StdState<C, BytesContext, BytesInput, OC>,
+) -> Result<()>
+where
+    C: Corpus<Input = BytesInput>,
+    OC: Corpus<Input = BytesInput>,
+{
+    let mut harness = |state: &mut StdState<_, BytesContext, BytesInput, _>, input: &BytesInput| {
+        let context: &mut BytesContext = state.context_mut();
+        let buf = context.to_bytes(input);
+        unsafe {
+            libfuzzer_test_one_input(&buf);
+        }
+        Ok(ExitKind::Ok)
+    };
+
+    let map = unsafe { StdMapObserver::from_mut_slice("edges", edges_map_mut_slice()) };
+
+    // Create an observation channel using the coverage map
+    let edges_observer = HitcountsMapObserver::new(map);
+
+    // Create an observation channel to keep track of the execution time
+    let time_observer = TimeObserver::new("time");
+
+    let map_feedback = MaxMapFeedback::new(&edges_observer);
+
+    // Feedback to rate the interestingness of an input
+    // This one is composed by two Feedbacks in OR
+    let feedback = feedback_or!(
+        // New maximization map feedback linked to the edges observer and the feedback state
+        map_feedback,
+        // Time feedback, this one does not need a feedback state
+        TimeFeedback::new(&time_observer),
+    );
+
+    // A feedback to choose if an input is a solution or not
+    let objective = feedback_or_fast!(CrashFeedback::new(), TimeoutFeedback::new());
+
+    println!("We're a client, let's fuzz :)");
+    // Setup a basic mutator with a mutational stage
+    let mutator = HavocScheduledMutator::new(havoc_mutations().merge(tokens_mutations()));
+    let mut stages = tuple_list!(StdMutationalStage::new(mutator));
+
+    // Create the executor for an in-process function with one observer for edge coverage and one for the execution time
+    let mut executor = StdExecutor::new(
+        &mut harness,
+        tuple_list!(edges_observer, time_observer),
+        Some(Duration::new(10, 0)),
+    );
+
+    // A fuzzer with feedbacks and a corpus scheduler
+    let mut fuzzer = StdFuzzer::new(
+        feedback,
+        objective,
+        &mut stages,
+        &mut executor,
+        state,
+        rt_handle,
+    )?;
+
+    // The actual target run starts here.
+    // Call LLVMFuzzerInitialize() if present.
+    let args: Vec<String> = env::args().collect();
+    if unsafe { libfuzzer_initialize(&args) } == -1 {
+        println!("Warning: LLVMFuzzerInitialize failed with -1");
     }
+
+    // This fuzzer restarts after 1 mio `fuzz_one` executions.
+    // Each fuzz_one will internally do many executions of the target.
+    // If your target is very unstable, setting a low count here may help.
+    // However, you will lose a lot of performance that way.
+    let iters = 1_000_000;
+    let mut rand = StdRand::new();
+    // Generator of printable bytearrays of max size 32
+    // In case the corpus is empty (on first run), reset
+    if state.must_load_initial_inputs() {
+        let mut in_dirs = env::current_dir()?;
+        in_dirs.push("corpus");
+        state
+            .load_initial_inputs(&mut fuzzer, &mut executor, rt_handle, &[in_dirs.clone()])
+            .unwrap_or_else(|_| panic!("Failed to load initial corpus at {:?}", &in_dirs));
+        println!("We imported {} inputs from disk.", state.corpus().count());
+    }
+
+    fuzzer.fuzz_loop_for(
+        &mut stages,
+        &mut executor,
+        &mut rand,
+        state,
+        rt_handle,
+        iters,
+    )?;
+
+    Ok(())
 }

@@ -9,10 +9,12 @@ use core::{fmt::Debug, marker::PhantomData};
 use libaflmm_bolts::Named;
 
 use crate::{
-    DependencyResolver, Error, Evaluator,
+    Result,
+    common::DependencyResolver,
     corpus::{Corpus, testcase::TestcaseId},
+    fuzzers::Evaluator,
     stages::{RuntimeHandle, Stage},
-    states::HasCorpus,
+    states::State,
 };
 
 /// A [`Stage`] that runs the unmutated input for only one time.
@@ -29,13 +31,13 @@ impl<I, Pre, Post> DependencyResolver for SingleRunStage<I, Pre, Post> {}
 
 impl<E, I, Pre, Post, R, S, W, Z> Stage<E, R, S, W, Z> for SingleRunStage<I, Pre, Post>
 where
-    S: HasCorpus<I>,
+    S: State<Input = I>,
     Z: Evaluator<E, I, S, W>,
-    Pre: FnMut(&mut RuntimeHandle<S, W>, &mut E, &mut R, &mut S, &mut Z) -> Result<(), Error>,
-    Post: FnMut(&mut RuntimeHandle<S, W>, &mut E, &mut R, &mut S, &mut Z) -> Result<(), Error>,
+    Pre: FnMut(&mut RuntimeHandle<S, W>, &mut E, &mut R, &mut S, &mut Z) -> Result<()>,
+    Post: FnMut(&mut RuntimeHandle<S, W>, &mut E, &mut R, &mut S, &mut Z) -> Result<()>,
 {
     #[inline]
-    fn perform(
+    fn perform_impl(
         &mut self,
         fuzzer: &mut Z,
         executor: &mut E,
@@ -43,7 +45,7 @@ where
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
         testcase_id: &TestcaseId,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         (self.pre)(rt_handle, executor, rand, state, fuzzer)?;
 
         let input = state.corpus().get(testcase_id)?.input();
@@ -68,7 +70,7 @@ pub static SINGLE_RUN_STAGE_NAME: &str = "single";
 
 /// short type for the hook type
 pub type RunHookFn<E, R, S, W, Z> =
-    fn(&mut RuntimeHandle<S, W>, &mut E, &mut R, &mut S, &mut Z) -> Result<(), Error>;
+    fn(&mut RuntimeHandle<S, W>, &mut E, &mut R, &mut S, &mut Z) -> Result<()>;
 
 #[expect(clippy::unnecessary_wraps)]
 fn noop_hook<E, R, S, W, Z>(
@@ -77,7 +79,7 @@ fn noop_hook<E, R, S, W, Z>(
     _: &mut R,
     _: &mut S,
     _: &mut Z,
-) -> Result<(), Error> {
+) -> Result<()> {
     Ok(())
 }
 
@@ -96,7 +98,7 @@ pub fn cmplog_pre_hook<E, R, S, W, Z>(
     _: &mut R,
     _: &mut S,
     _: &mut Z,
-) -> Result<(), Error> {
+) -> Result<()> {
     unsafe {
         libaflmm_targets::CMPLOG_ENABLED = 1;
     }
@@ -110,7 +112,7 @@ pub fn cmplog_post_hook<E, R, S, W, Z>(
     _: &mut R,
     _: &mut S,
     _: &mut Z,
-) -> Result<(), Error> {
+) -> Result<()> {
     unsafe {
         libaflmm_targets::CMPLOG_ENABLED = 0;
     }

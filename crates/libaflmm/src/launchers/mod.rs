@@ -7,14 +7,16 @@ use libaflmm_bolts::{StdTimer, core_affinity::Cores};
 use serde::Serialize;
 
 use crate::{
-    Controller, Error, Result, Worker,
+    Error, Result,
+    controllers::Controller,
+    controllers::SimpleController,
+    controllers::Worker,
+    controllers::{NopDescriptor, NopWorker},
     inputs::NopInput,
     monitors::{Monitor, SimpleMonitor},
-    nop::{NopDescriptor, NopWorker},
     runtimes::{
         Runtime, RuntimeHandle, StdForkserverRuntime, StdInProcessRuntime, nop::NopRuntime,
     },
-    simple::SimpleController,
     states::NopState,
 };
 

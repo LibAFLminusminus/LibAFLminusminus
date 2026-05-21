@@ -1,19 +1,12 @@
 #![allow(clippy::needless_pass_by_value)] // default compiler complains about Option<&mut T> otherwise, and this is used extensively.
 #![allow(clippy::unnecessary_cast)]
-use std::{cell::UnsafeCell, mem::MaybeUninit, ops::Range, sync::Mutex};
-
-use hashbrown::{HashMap, HashSet};
-use libaflmm::Result;
-use libaflmm_qemu_sys::{GuestAddr, GuestUlong, MmapPerms};
-use meminterval::{Interval, IntervalTree};
-use thread_local::ThreadLocal;
 
 #[cfg(any(cpu_target = "arm", cpu_target = "i386", cpu_target = "mips"))]
-use crate::SYS_fstatat64;
+use crate::arch::syscalls::SYS_fstatat64;
 #[cfg(not(any(cpu_target = "arm", cpu_target = "riscv32")))]
-use crate::SYS_mmap;
+use crate::arch::syscalls::SYS_mmap;
 #[cfg(any(cpu_target = "arm", cpu_target = "mips", cpu_target = "riscv32"))]
-use crate::SYS_mmap2;
+use crate::arch::syscalls::SYS_mmap2;
 #[cfg(not(any(
     cpu_target = "arm",
     cpu_target = "mips",
@@ -21,19 +14,27 @@ use crate::SYS_mmap2;
     cpu_target = "ppc",
     cpu_target = "riscv32",
 )))]
-use crate::SYS_newfstatat;
+use crate::arch::syscalls::SYS_newfstatat;
+#[cfg(not(cpu_target = "riscv32"))]
+use crate::arch::syscalls::{SYS_fstat, SYS_fstatfs, SYS_futex, SYS_getrandom, SYS_statfs};
 use crate::{
-    Qemu, SYS_brk, SYS_mprotect, SYS_mremap, SYS_munmap, SYS_pread64, SYS_read, SYS_readlinkat,
+    arch::syscalls::{
+        SYS_brk, SYS_mprotect, SYS_mremap, SYS_munmap, SYS_pread64, SYS_read, SYS_readlinkat,
+    },
     emu::EmulatorModules,
     modules::{
-        EmulatorModule, EmulatorModuleTuple,
-        asan_host::AsanHostModule,
+        AsanHostModule, EmulatorModule, EmulatorModuleTuple,
         utils::filters::{HasAddressFilter, NOP_ADDRESS_FILTER, NopAddressFilter},
     },
+    qemu::Qemu,
     qemu::{Hook, SyscallHookResult},
 };
-#[cfg(not(cpu_target = "riscv32"))]
-use crate::{SYS_fstat, SYS_fstatfs, SYS_futex, SYS_getrandom, SYS_statfs};
+use hashbrown::{HashMap, HashSet};
+use libaflmm::Result;
+use libaflmm_qemu_sys::{GuestAddr, GuestUlong, MmapPerms};
+use meminterval::{Interval, IntervalTree};
+use std::{cell::UnsafeCell, mem::MaybeUninit, ops::Range, sync::Mutex};
+use thread_local::ThreadLocal;
 
 // TODO use the functions provided by Qemu
 pub const SNAPSHOT_PAGE_SIZE: usize = 4096;

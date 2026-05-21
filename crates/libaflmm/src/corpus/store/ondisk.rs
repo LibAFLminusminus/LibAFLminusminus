@@ -223,8 +223,8 @@ impl OnDiskStoreBuilder {
     }
 
     /// Set the root directory, where the testcases will be stored.
-    pub fn root_dir(&mut self, root: &Path) -> &mut Self {
-        self.root_dir = Some(root.to_path_buf());
+    pub fn root_dir<P: AsRef<Path>>(&mut self, root_dir: P) -> &mut Self {
+        self.root_dir = Some(root_dir.as_ref().to_path_buf());
         self
     }
 

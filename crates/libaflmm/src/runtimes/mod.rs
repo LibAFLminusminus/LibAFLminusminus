@@ -4,8 +4,10 @@ use core::{pin::Pin, ptr::NonNull, time::Duration};
 use std::process::exit;
 
 use crate::{
-    DependencyResolver, Fuzzer, Result,
+    Result,
+    common::{CompatibilityChecker, DependencyResolver, Registrator},
     executors::Executor,
+    fuzzers::Fuzzer,
     inputs::Input,
     runtimes::{
         inprocess::{CrashStatus, TimeoutStatus},
@@ -54,16 +56,16 @@ pub trait Runtime<S, W>: DependencyResolver {
     /// The `rt_handle` MUST be linked to the current runtime.
     /// Using a `rt_handle` that is not instantiated with self as the runtime will lead to Undefined Behaviour.
     /// Use [`Self::run`], this function should not need to be called directly.
-    unsafe fn run_impl(self, state: S, rt_handle: &mut RuntimeHandle<S, W>) -> Result<()>;
+    unsafe fn run_impl(&mut self, state: S, rt_handle: &mut RuntimeHandle<S, W>) -> Result<()>;
 
     /// Run the runtime.
-    fn run(mut self, state: S, worker: W) -> Result<()>
+    fn run(&mut self, state: S, worker: W) -> Result<()>
     where
         Self: Sized + 'static,
     {
         let mut rt_handle = unsafe {
             RuntimeHandle::new(
-                core::ptr::from_mut::<Self>(&mut self) as *mut dyn Runtime<S, W>,
+                core::ptr::from_mut::<Self>(self) as *mut dyn Runtime<S, W>,
                 worker,
             )
         };
@@ -235,11 +237,11 @@ impl<S, W> RuntimeHandle<S, W> {
 }
 
 impl<S, W> DependencyResolver for RuntimeHandle<S, W> {
-    fn check(&self, checker: &crate::CompatibilityChecker) -> Result<()> {
+    fn check(&self, checker: &CompatibilityChecker) -> Result<()> {
         unsafe { self.runtime().check(checker) }
     }
 
-    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<()> {
+    fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
         unsafe { self.runtime_mut().register(registrator) }
     }
 }

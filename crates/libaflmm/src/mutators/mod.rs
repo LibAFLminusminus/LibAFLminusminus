@@ -2,34 +2,45 @@
 //!
 //! These can be used standalone or in combination with other mutators to explore the input space more effectively.
 //! You can read more about mutators in the [LibAFL book](https://aflplus.plus/libafl-book/core_concepts/mutator.html)
+use crate::fuzzers::EvaluationResult;
 use alloc::{borrow::Cow, boxed::Box, vec::Vec};
 use core::fmt;
-
 use libaflmm_bolts::{HasLen, Named, rands::Rand, tuples::IntoVec};
 use libaflmm_core::Error;
 use serde::{Deserialize, Serialize};
 use tuple_list::NonEmptyTuple;
 
 pub mod scheduled;
-pub use scheduled::*;
+pub use scheduled::{
+    ComposedByMutations, HavocScheduledMutator, ScheduledMutator, SingleChoiceScheduledMutator,
+    tokens_mutations,
+};
+
 pub mod mutations;
 pub use mutations::*;
+
 pub mod token_mutations;
-pub use token_mutations::*;
+pub use token_mutations::{TokenInsert, TokenReplace, Tokens};
+
 pub mod havoc_mutations;
-pub use havoc_mutations::*;
+pub use havoc_mutations::{
+    HavocCrossoverType, HavocMutationsNoCrossoverType, HavocMutationsType,
+    MappedHavocCrossoverType, havoc_crossover, havoc_crossover_with_corpus_mapper,
+    havoc_crossover_with_corpus_mapper_optional, havoc_mutations, havoc_mutations_no_crossover,
+};
+
 pub mod numeric;
 pub use numeric::int_mutators;
 
 pub mod hash;
-pub use hash::*;
+pub use hash::MutationChecker;
 
 #[cfg(feature = "nautilus")]
 pub mod nautilus;
 #[cfg(feature = "nautilus")]
-pub use nautilus::*;
+pub use nautilus::{NautilusRandomMutator, NautilusRecursionMutator, NautilusSpliceMutator};
 
-use crate::fuzzers::EvaluationResult;
+pub type StdMutator = HavocScheduledMutator<HavocMutationsType>;
 
 /// The index of a mutation in the mutations tuple
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]

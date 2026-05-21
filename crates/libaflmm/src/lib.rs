@@ -16,15 +16,20 @@ extern crate libaflmm_derive;
 #[doc(hidden)]
 pub use libaflmm_derive::*;
 
+pub use libaflmm_core::{Error, Result};
+pub use libaflmm_core::{
+    empty, empty_optional, illegal_argument, illegal_state, internal_bug, invalid_corpus,
+    invalid_input, iterator_end, key_exists, key_not_found, last_os_error, non_zero,
+    non_zero_const, non_zero_unchecked, nonnull_raw_mut, not_implemented, os_error, runtime,
+    unknown, unsupported,
+};
+
 pub mod common;
-pub use common::*;
 pub mod controllers;
-pub use controllers::*;
 pub mod corpus;
 pub mod executors;
 pub mod feedbacks;
 pub mod fuzzers;
-pub use fuzzers::*;
 pub mod generators;
 pub mod inputs;
 pub mod launchers;
@@ -44,14 +49,115 @@ pub use libaflmm_core::{
 pub use libaflmm_core::{non_zero, non_zero_const};
 
 /// The purpose of this module is to alleviate imports of many components by adding a glob import.
-#[cfg(feature = "prelude")]
 pub mod prelude {
-    #![expect(ambiguous_glob_reexports)]
-
-    pub use super::{
-        corpus::*, executors::*, feedbacks::*, fuzzers::*, generators::*, inputs::*, monitors::*,
-        mutators::*, observers::*, runtimes::*, stages::*, states::*,
+    pub use libaflmm_bolts::{
+        current_milliseconds, current_nanos, current_time, non_zero, non_zero_const,
+        non_zero_unchecked, rands::StdRand, tuples::tuple_list,
     };
+
+    pub use crate::{
+        Error, Result, feedback_and, feedback_and_fast, feedback_not, feedback_or, feedback_or_fast,
+    };
+
+    pub use crate::common::{CompatibilityChecker, DependencyResolver, Registrator};
+
+    #[cfg(feature = "nautilus")]
+    pub use crate::common::{
+        ChunkStore, ChunkStoreWrapper, Context, GrammarMutator, NTermId, NodeId, PlainRule,
+        RecursionInfo, RegExpRule, RegexScript, Rule, RuleChild, RuleId, RuleIdOrCustom, Tree,
+        TreeLike, TreeMutation,
+    };
+
+    pub use crate::controllers::{
+        Controller, Descriptor, NopController, NopDescriptor, NopWorker, SimpleController,
+        SimpleDescriptor, SimpleWorker, StdController, StdDescriptor, StdWorker, Workdir,
+        WorkdirFile, Worker,
+    };
+
+    pub use crate::corpus::{
+        Cache, CachedOnDiskCorpus, CombinedCorpus, Corpus, DisableEntry, EnableDisableCorpus,
+        FifoCache, IdentityCache, InMemoryCorpus, InMemoryOnDiskCorpus, InMemoryStore, NopCorpus,
+        NopScheduler, OnDiskCorpus, OnDiskStore, QueueScheduler, RandScheduler, RemovableScheduler,
+        Scheduler, SingleCorpus, StdCorpus, StdInMemoryCorpusMap, StdInMemoryStore,
+        StdObjectiveCorpus, StdOnDiskStore, StdScheduler, Store, Testcase, TestcaseFilenameFormat,
+        TestcaseId,
+    };
+
+    pub use crate::executors::{
+        BuiltForkserver, DiffExitKind, Executor, ExecutorsTuple, ExitKind, Forkserver,
+        ForkserverExecutor, NopExecutor, StdChildArgs, StdExecutor, common_signals,
+    };
+
+    pub use crate::feedbacks::{
+        AflMapFeedback, AlwaysInterestingMapFeedback, BoolValueFeedback, ConstFeedback,
+        CrashFeedback, DiffExitKindFeedback, EagerAndFeedback, EagerOrFeedback, ExitKindFeedback,
+        Feedback, FeedbackFactory, ListFeedback, MapFeedback, MaxMapFeedback,
+        MaxMapOneOrFilledFeedback, MaxMapPow2Feedback, MinMapFeedback, NewHashFeedback,
+        NotFeedback, StdFeedback, StdMapFeedback, StdObjectiveFeedback, TimeFeedback,
+        TimeoutFeedback,
+    };
+
+    #[cfg(feature = "nautilus")]
+    pub use crate::feedbacks::NautilusFeedback;
+
+    pub use crate::fuzzers::{
+        CalibrationHook, CustomNameHook, Evaluator, ExecutionProcessor, Fuzzer, FuzzerHook,
+        FuzzerHooksTuple, NopFuzzer, StdFuzzer,
+    };
+
+    pub use crate::generators::{Generator, RandBytesGenerator, RandPrintablesGenerator};
+
+    #[cfg(feature = "nautilus")]
+    pub use crate::generators::{NautilusContext, NautilusGenerator};
+
+    pub use crate::inputs::{
+        BytesContext, BytesInput, BytesSubInput, HasMutatorBytes, Input, InputContext, NopContext,
+        NopInput, ResizableMutator, StdContext, StdInput, ValueInput,
+    };
+
+    #[cfg(feature = "nautilus")]
+    pub use crate::inputs::NautilusInput;
+
+    pub use crate::launchers::{
+        DEFAULT_MAX_STATE_SIZE_PER_WORKER, Instance, InstanceId, Instances, StdLauncher,
+    };
+
+    pub use crate::monitors::{Monitor, PerfStats, SimpleMonitor, StdMonitor};
+
+    #[cfg(feature = "web_monitor")]
+    pub use crate::monitors::WebMonitor;
+
+    pub use crate::mutators::{
+        ComposedByMutations, HavocScheduledMutator, Mutator, MutatorsTuple, NopMutator,
+        ScheduledMutator, StdMutator, Tokens, havoc_mutations, havoc_mutations_no_crossover,
+        int_mutators, tokens_mutations,
+    };
+
+    #[cfg(feature = "nautilus")]
+    pub use crate::mutators::{
+        NautilusRandomMutator, NautilusRecursionMutator, NautilusSpliceMutator,
+    };
+
+    pub use crate::observers::{
+        CmpLogObserver, ConstLenMapObserver, ConstMapObserver, HitcountsIterableMapObserver,
+        HitcountsMapObserver, ListObserver, MapObserver, MultiMapObserver, Observer,
+        ObserverWithHashField, ObserversTuple, OutputObserver, StdErrObserver, StdMapObserver,
+        StdObserver, StdOutObserver, TimeObserver, ValueObserver, VarLenMapObserver,
+        VariableMapObserver,
+    };
+
+    pub use crate::runtimes::{
+        InProcessRuntime, NopRuntime, RestartingRuntime, Runtime, RuntimeHandle,
+        SimpleInProcessRuntime, SimpleRuntime, StdForkserverRuntime, StdInProcessRuntime,
+    };
+
+    pub use crate::stages::{
+        DynamicStage, GenStage, IfElseStage, IfStage, MutationalStage, NopStage,
+        PowerScheduleStage, RunHookFn, SingleRunStage, Stage, StagesTuple, StdMutationalStage,
+        StdStage, TracerStage, WhileStage,
+    };
+
+    pub use crate::states::{NopState, State, StdState};
 }
 
 // TODO: adapt this test...

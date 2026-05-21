@@ -1,15 +1,14 @@
 #![allow(clippy::unnecessary_cast)]
 //! Utils for addr2line
 
-use std::{borrow::Cow, fmt::Write, fs};
-
+use crate::qemu::Qemu;
 use addr2line::{Loader, fallible_iterator::FallibleIterator};
 use goblin::elf::dynamic::{DF_1_PIE, DT_FLAGS_1};
 use hashbrown::HashMap;
 use libaflmm_qemu_sys::GuestAddr;
 use rangemap::RangeMap;
+use std::{borrow::Cow, fmt::Write, fs};
 
-use crate::Qemu;
 // (almost) Copy paste from addr2line/src/bin/addr2line.rs
 fn print_function(name: Option<&str>, language: Option<addr2line::gimli::DwLang>) -> String {
     if let Some(name) = name {

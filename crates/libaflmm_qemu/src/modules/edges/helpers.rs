@@ -1,10 +1,10 @@
 use core::ptr;
-
-/// Generators, responsible for generating block/edge ids
-pub use generators::{gen_hashed_block_ids, gen_hashed_edge_ids, gen_unique_edge_ids};
 use hashbrown::HashMap;
 use libaflmm_qemu_sys::GuestAddr;
 use serde::{Deserialize, Serialize};
+
+/// Generators, responsible for generating block/edge ids
+pub use generators::{gen_hashed_block_ids, gen_hashed_edge_ids, gen_unique_edge_ids};
 /// Tracers, responsible for propagating an ID in a map.
 pub use tracers::{
     trace_block_transition_hitcount, trace_block_transition_single, trace_edge_hitcount,
@@ -48,7 +48,7 @@ mod generators {
     use std::{cmp::max, ptr};
 
     use hashbrown::hash_map::Entry;
-    use libaflmm::states::FlatState;
+    use libaflmm::states::State;
     use libaflmm_bolts::hash_64_fast;
     use libaflmm_qemu_sys::GuestAddr;
 
@@ -57,8 +57,9 @@ mod generators {
         QemuEdgesMapMetadata,
     };
     use crate::{
-        EmulatorModules, Qemu,
+        emu::EmulatorModules,
         modules::{AddressFilter, EdgeCoverageModule, EmulatorModuleTuple, PageFilter},
+        qemu::Qemu,
     };
 
     fn get_mask<const IS_CONST_MAP: bool, const MAP_SIZE: usize>() -> usize {
@@ -97,7 +98,7 @@ mod generators {
         ET: EmulatorModuleTuple<I, S>,
         PF: PageFilter,
         I: Unpin,
-        S: FlatState + Unpin,
+        S: State + Unpin,
         V: EdgeCoverageVariant<AF, PF, IS_CONST_MAP, MAP_SIZE>,
     {
         if let Some(module) =
@@ -184,7 +185,7 @@ mod generators {
         ET: EmulatorModuleTuple<I, S>,
         PF: PageFilter,
         I: Unpin,
-        S: FlatState + Unpin,
+        S: State + Unpin,
         V: EdgeCoverageVariant<AF, PF, IS_CONST_MAP, MAP_SIZE>,
     {
         if let Some(module) =
@@ -247,7 +248,7 @@ mod generators {
         ET: EmulatorModuleTuple<I, S>,
         PF: PageFilter,
         I: Unpin,
-        S: FlatState + Unpin,
+        S: State + Unpin,
         V: EdgeCoverageVariant<AF, PF, IS_CONST_MAP, MAP_SIZE>,
     {
         // first check if we should filter

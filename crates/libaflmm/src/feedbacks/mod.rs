@@ -13,11 +13,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     Error,
+    common::{DependencyResolver, Registrator},
     corpus::TestcaseId,
-    dependency::{DependencyResolver, Registrator},
     executors::ExitKind,
     observers::TimeObserver,
-    states::HasTestcase,
+    states::State,
 };
 
 pub mod list;
@@ -43,6 +43,9 @@ pub use bool::BoolValueFeedback;
 pub mod simd;
 
 pub mod stdio;
+
+pub type StdFeedback<C, O> = StdMapFeedback<C, O>;
+pub type StdObjectiveFeedback = FastOrFeedback<CrashFeedback, TimeoutFeedback>;
 
 /// Feedbacks evaluate the observers.
 /// Basically, they reduce the information provided by an observer to a value,
@@ -624,7 +627,7 @@ impl DependencyResolver for TimeFeedback {}
 impl<I, OT, S> Feedback<I, OT, S> for TimeFeedback
 where
     OT: MatchName,
-    S: HasTestcase<I>,
+    S: State<Input = I>,
 {
     /// Append to the testcase the generated metadata in case of a new corpus item
     #[inline]

@@ -1,11 +1,4 @@
-#[cfg(not(feature = "systemmode"))]
-use std::ptr::copy_nonoverlapping;
-use std::{
-    mem::MaybeUninit, ops::Range, ptr, slice::from_raw_parts_mut, str::from_utf8_unchecked_mut,
-};
-
 use libaflmm_bolts::{Error, os::unix_signals::Signal};
-#[cfg(not(feature = "systemmode"))]
 use libaflmm_qemu_sys::libafl_qemu_run;
 use libaflmm_qemu_sys::{
     GuestAbiUlong, GuestAddr, IntervalTreeNode, IntervalTreeRoot, MapInfo, MmapPerms, VerifyAccess,
@@ -14,12 +7,17 @@ use libaflmm_qemu_sys::{
     mmap_next_start, pageflags_get_root, read_self_maps,
 };
 use libc::{c_int, c_uchar, siginfo_t, strlen, ucontext_t};
+use std::ptr::copy_nonoverlapping;
+use std::{
+    mem::MaybeUninit, ops::Range, ptr, slice::from_raw_parts_mut, str::from_utf8_unchecked_mut,
+};
+
 #[cfg(feature = "python")]
 use pyo3::{IntoPyObject, Py, PyRef, PyRefMut, Python, pyclass, pymethods};
 
 #[cfg(all(doc, not(feature = "hexagon")))]
 use crate::modules::SnapshotModule;
-use crate::{CPU, Qemu, qemu::QEMU_IS_RUNNING};
+use crate::{qemu::CPU, qemu::QEMU_IS_RUNNING, qemu::Qemu};
 
 /// Choose how QEMU target signals should be handled.
 /// It's main use is to describe how crashes and timeouts should be treated.
@@ -508,7 +506,7 @@ pub mod pybind {
         types::{PyAnyMethods, PyInt},
     };
 
-    use crate::{pybind::Qemu, qemu::hooks};
+    use crate::{qemu::hooks, qemu::pybind::Qemu};
 
     static mut PY_SYSCALL_HOOK: Option<Py<PyAny>> = None;
 

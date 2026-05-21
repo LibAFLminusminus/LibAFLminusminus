@@ -44,13 +44,15 @@ use static_assertions::const_assert_eq;
 
 use super::{StdChildArgs, StdChildArgsInner};
 use crate::{
-    DependencyResolver, Error, Result,
+    Error, Result,
+    common::{DependencyResolver, Registrator},
+    controllers::Worker,
     executors::{Executor, ExitKind},
     inputs::InputContext,
     mutators::Tokens,
     observers::{MapObserver, ObserversTuple},
     runtimes::RuntimeHandle,
-    states::{FlatState, HasContext, HasCorpus},
+    states::State,
 };
 
 pub mod config;
@@ -599,11 +601,11 @@ impl<OT> ForkserverExecutor<OT> {
 impl<I, OT, S> Executor<I, S> for ForkserverExecutor<OT>
 where
     OT: ObserversTuple<S> + DependencyResolver,
-    S: FlatState + HasCorpus<I> + HasContext<I>,
+    S: State<Input = I>,
 {
     type Observers = OT;
 
-    fn init<W: crate::Worker>(
+    fn init<W: Worker>(
         &mut self,
         _state: &mut S,
         _rt_handle: &mut RuntimeHandle<S, W>,
@@ -611,7 +613,7 @@ where
         Ok(())
     }
 
-    fn execute<W: crate::Worker>(
+    fn execute<W: Worker>(
         &mut self,
         state: &mut S,
         _rt_handle: &mut RuntimeHandle<S, W>,
@@ -649,7 +651,7 @@ impl<OT> DependencyResolver for ForkserverExecutor<OT>
 where
     OT: DependencyResolver,
 {
-    fn register_with_ty(&mut self, registrator: &mut crate::Registrator) -> Result<()> {
+    fn register_with_ty(&mut self, registrator: &mut Registrator) -> Result<()> {
         registrator.register_ty::<Self>();
 
         self.register(registrator)?;

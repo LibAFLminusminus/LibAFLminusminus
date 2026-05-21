@@ -15,7 +15,7 @@ use nix::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    DependencyResolver,
+    common::{CompatibilityChecker, DependencyResolver, Registrator},
     runtimes::{Runtime, RuntimeHandle, SimpleInProcessRuntime, utils::unix::OsShmBuilder},
 };
 
@@ -49,11 +49,11 @@ impl<RT> DependencyResolver for RestartingRuntime<RT>
 where
     RT: DependencyResolver,
 {
-    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<()> {
+    fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
         self.inner.register(registrator)
     }
 
-    fn check(&self, checker: &crate::CompatibilityChecker) -> Result<()> {
+    fn check(&self, checker: &CompatibilityChecker) -> Result<()> {
         self.inner.check(checker)
     }
 }
@@ -97,7 +97,7 @@ where
     RT: Runtime<S, W>,
     for<'de> S: Serialize + Deserialize<'de>,
 {
-    unsafe fn run_impl(mut self, mut state: S, rt_handle: &mut RuntimeHandle<S, W>) -> Result<()> {
+    unsafe fn run_impl(&mut self, mut state: S, rt_handle: &mut RuntimeHandle<S, W>) -> Result<()> {
         let (state_sender, mut state_receiver) =
             OsShmBuilder::build_with_hdr::<usize, S>(self.state_ram_limit.get())?;
 
@@ -133,9 +133,8 @@ where
 
                                 signal_exit => {
                                     // the child returned with signal exit code
-                                    return Err(Error::runtime(format!(
-                                        "The child exited with code: {signal_exit}"
-                                    )));
+                                    log::error!("The child exited with code: {signal_exit}");
+                                    exit(signal_exit);
                                 }
                             }
                         }

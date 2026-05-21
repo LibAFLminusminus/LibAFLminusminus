@@ -1,6 +1,5 @@
 use core::str;
 #[cfg(any(
-    target_vendor = "apple",
     feature = "cmplog-routines",
     feature = "autotokens",
     feature = "cmplog-instructions",
@@ -20,7 +19,7 @@ use std::{env, fs::File, io::Write, path::Path};
     feature = "cmplog-instructions",
 ))]
 #[expect(clippy::too_many_arguments)]
-fn build_pass(
+pub fn build_pass(
     bindir_path: &Path,
     out_dir: &Path,
     cxxflags: &Vec<String>,

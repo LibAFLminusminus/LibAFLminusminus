@@ -1,3 +1,7 @@
+use crate::{
+    emu::{GuestAddrKind, QemuSnapshotCheckResult, snapshots::FastSnapshotPtr},
+    qemu::{CPU, MemAccessInfo, Qemu, QemuMemoryChunk},
+};
 use libaflmm_qemu_sys::{
     GuestAddr, GuestPhysAddr, GuestVirtAddr, libafl_load_qemu_snapshot, libafl_page_from_addr,
     libafl_qemu_current_paging_id, libafl_qemu_run, libafl_save_qemu_snapshot, qemu_cleanup,
@@ -10,11 +14,6 @@ use std::{
     mem::MaybeUninit,
     ptr::{NonNull, copy_nonoverlapping, null_mut},
     slice,
-};
-
-use crate::{
-    CPU, GuestAddrKind, MemAccessInfo, Qemu, QemuMemoryChunk, QemuSnapshotCheckResult,
-    standard::FastSnapshotPtr,
 };
 
 pub(super) extern "C" fn qemu_cleanup_atexit() {

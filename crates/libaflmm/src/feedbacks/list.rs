@@ -1,12 +1,18 @@
 //! A list of [`Feedback`]s.
 
+use crate::{
+    common::{DependencyResolver, Registrator},
+    corpus::TestcaseId,
+    executors::ExitKind,
+    feedbacks::Feedback,
+    observers::ListObserver,
+    states::State,
+};
 use alloc::borrow::Cow;
 use core::{
     fmt::{Debug, LowerHex},
     hash::Hash,
 };
-use std::{fs::File, io::Write, path::Path};
-
 use hashbrown::HashSet;
 use libaflmm_bolts::{
     HasRefCnt, Named,
@@ -14,11 +20,7 @@ use libaflmm_bolts::{
 };
 use libaflmm_core::Result;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
-
-use crate::{
-    common::DependencyResolver, corpus::TestcaseId, executors::ExitKind, feedbacks::Feedback,
-    observers::ListObserver, states::FlatState,
-};
+use std::{fs::File, io::Write, path::Path};
 
 /// The metadata to remember past observed value
 #[derive(Debug, Serialize, Deserialize)]
@@ -87,7 +89,7 @@ where
     ) -> bool
     where
         OT: MatchName,
-        S: FlatState,
+        S: State,
     {
         let observer = observers.get(&self.observer_handle).unwrap();
         // TODO register the list content in a testcase metadata
@@ -113,7 +115,7 @@ where
         }
     }
 
-    fn append_list_observer_metadata<S: FlatState>(&mut self, state: &mut S) {
+    fn append_list_observer_metadata<S: State>(&mut self, state: &mut S) {
         let history_set = state
             .metadata_map_mut()
             .get_mut::<ListFeedbackMetadata<T>>(self.name())
@@ -131,7 +133,7 @@ impl<T> DependencyResolver for ListFeedback<T>
 where
     T: Debug + Eq + Hash + for<'a> Deserialize<'a> + Serialize + Default + Copy + 'static,
 {
-    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<()> {
+    fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
         registrator.register_md_default::<ListFeedbackMetadata<T>>(self.name());
         Ok(())
     }
@@ -140,7 +142,7 @@ where
 impl<I, OT, S, T> Feedback<I, OT, S> for ListFeedback<T>
 where
     OT: MatchName,
-    S: FlatState,
+    S: State,
     T: Debug
         + Eq
         + Hash

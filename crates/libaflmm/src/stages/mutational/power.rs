@@ -10,18 +10,19 @@ use core::marker::PhantomData;
 use libaflmm_bolts::{Named, rands::Rand};
 
 use crate::{
-    DependencyResolver, PowerScheduleData, Result,
+    Result,
+    common::{DependencyResolver, PowerScheduleData, Registrator},
     corpus::{Corpus, TestcaseId},
     fuzzers::Evaluator,
     inputs::Input,
     mutators::{MutationResult, Mutator},
     runtimes::RuntimeHandle,
     stages::{AFLPower, MutationalStage, Power, Stage},
-    states::{HasScheduler, State},
+    states::State,
 };
 
 impl<E, F, I, M, R, S, W, Z> DependencyResolver for PowerScheduleStage<E, F, I, M, R, S, W, Z> {
-    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<()> {
+    fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
         registrator.register_md_default::<PowerScheduleData>("");
         Ok(())
     }
@@ -56,11 +57,11 @@ where
     }
 }
 
-impl<E, F, I, M, R, S, SC, W, Z> PowerScheduleStage<E, F, I, M, R, S, W, Z>
+impl<E, F, I, M, R, S, W, Z> PowerScheduleStage<E, F, I, M, R, S, W, Z>
 where
     F: Power<S>,
     R: Rand,
-    S: HasScheduler<Scheduler = SC>,
+    S: State,
 {
     /// Gets the number of iterations calculated through [`Power`]
     fn iterations(state: &mut S, current: TestcaseId) -> Result<usize> {
@@ -85,11 +86,11 @@ where
     I: Input,
     M: Mutator<I, R, S>,
     R: Rand,
-    S: State<I>,
+    S: State<Input = I>,
     Z: Evaluator<E, I, S, W>,
 {
     #[inline]
-    fn perform(
+    fn perform_impl(
         &mut self,
         fuzzer: &mut Z,
         executor: &mut E,

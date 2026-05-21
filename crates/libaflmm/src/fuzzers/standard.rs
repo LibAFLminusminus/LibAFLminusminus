@@ -1,20 +1,14 @@
 //! The standard [`Fuzzer`], for everyday use.
 
-use alloc::rc::Rc;
-use core::time::Duration;
-
-use libaflmm_bolts::current_time;
-use libaflmm_core::Result;
-use quanta::{Clock, Instant};
-use tuple_list::tuple_list;
-
 use crate::{
-    FuzzerHooksTuple, Worker,
+    common::Registrator,
+    controllers::Worker,
     corpus::{Corpus, Scheduler, Testcase},
-    dependency::Registrator,
     executors::{Executor, ExitKind},
     feedbacks::Feedback,
-    fuzzers::{EvaluationResult, Evaluator, Fuzzer, HasFeedback, HasObjective, Verdict},
+    fuzzers::{
+        EvaluationResult, Evaluator, Fuzzer, FuzzerHooksTuple, HasFeedback, HasObjective, Verdict,
+    },
     inputs::Input,
     observers::ObserversTuple,
     runtimes::{
@@ -25,8 +19,10 @@ use crate::{
     stages::StagesTuple,
     states::State,
 };
-
-const STATS_UPDATE_INTERVAL: Duration = Duration::from_secs(4);
+use alloc::rc::Rc;
+use libaflmm_bolts::current_time;
+use libaflmm_core::Result;
+use tuple_list::tuple_list;
 
 /// Note: this code should not allocate at all.
 /// Any allocation can result in unexpected locks because of concurrency bug with the standard library.
@@ -44,20 +40,17 @@ fn handle_objective_in_termination_handler<E, F, H, I, OF, S, W>(
 where
     E: Executor<I, S>,
     F: Feedback<I, E::Observers, S>,
+    H: FuzzerHooksTuple<E, I, S, W>,
     I: Input,
     OF: Feedback<I, E::Observers, S>,
-    S: State<I>,
+    S: State<Input = I>,
     W: Worker,
 {
     executor.observers_mut().post_exec_all(state, &exit_kind)?;
 
-    fuzzer.evaluate_execution(state, input, &*executor.observers_mut(), exit_kind)?;
+    fuzzer.post_execution(state, rt_handle, executor, input, exit_kind)?;
 
-    // update stats before exit
-    rt_handle
-        .worker_mut()
-        .workdir_mut()
-        .report_stats(state.stats())
+    Ok(())
 }
 
 /// Crash signals will end up there, if it happens during a fuzzing run.
@@ -69,9 +62,10 @@ unsafe fn std_on_crash<E, F, H, I, OF, S, W>(
 where
     E: Executor<I, S>,
     F: Feedback<I, E::Observers, S>,
+    H: FuzzerHooksTuple<E, I, S, W>,
     I: Input,
     OF: Feedback<I, E::Observers, S>,
-    S: State<I>,
+    S: State<Input = I>,
     W: Worker,
 {
     // double check, not mandatory
@@ -88,14 +82,14 @@ where
     let executor = unsafe { data.executor::<E, I, S>() };
     let rt_handle = unsafe { data.rt_handle::<S, W>() };
 
-    let status = unsafe { executor.handle_crash(signal_params)? };
+    let status = unsafe { executor.handle_crash(state, input.as_ref(), signal_params)? };
 
     if let CrashStatus::TargetCrash = status {
         // if it is a target crash, handle crash termination as target objective.
         handle_objective_in_termination_handler(
             executor,
             state,
-            &input.unwrap(),
+            &input.unwrap(), // since it is a target crash, it must be during fuzzing.
             fuzzer,
             rt_handle,
             ExitKind::Crash,
@@ -114,9 +108,10 @@ unsafe fn std_on_timeout<E, F, H, I, OF, S, W>(
 where
     E: Executor<I, S>,
     F: Feedback<I, E::Observers, S>,
+    H: FuzzerHooksTuple<E, I, S, W>,
     I: Input,
     OF: Feedback<I, E::Observers, S>,
-    S: State<I>,
+    S: State<Input = I>,
     W: Worker,
 {
     // double check, not mandatory
@@ -133,12 +128,12 @@ where
     let executor = unsafe { data.executor::<E, I, S>() };
     let rt_handle = unsafe { data.rt_handle::<S, W>() };
 
-    let status = unsafe { executor.handle_timeout(signal_params)? };
+    let status = unsafe { executor.handle_timeout(state, input.as_ref(), signal_params)? };
 
     handle_objective_in_termination_handler(
         executor,
         state,
-        &input.unwrap(),
+        &input.unwrap(), // since it is a target crash, it must be during fuzzing.
         fuzzer,
         rt_handle,
         ExitKind::Timeout,
@@ -156,8 +151,6 @@ pub struct StdFuzzer<F, H, OF> {
     objective: OF,
     fuzzer_hooks: H,
     initialized: bool,
-    clock: Clock,
-    last_synced: Instant,
 }
 
 /// The builder for std fuzzer
@@ -207,7 +200,7 @@ impl<F, H, OF> StdFuzzer<F, H, OF> {
         F: Feedback<I, OT, S>,
         I: Input,
         OF: Feedback<I, OT, S>,
-        S: State<I>,
+        S: State<Input = I>,
     {
         let is_solution = self
             .objective
@@ -229,29 +222,24 @@ impl<F, H, OF> StdFuzzer<F, H, OF> {
 
         Ok(eval_res)
     }
-}
 
-impl<E, F, H, I, OF, S, W> Evaluator<E, I, S, W> for StdFuzzer<F, H, OF>
-where
-    E: Executor<I, S>,
-    F: Feedback<I, E::Observers, S>,
-    H: FuzzerHooksTuple<E, I, S, W>,
-    OF: Feedback<I, E::Observers, S>,
-    I: Input,
-    S: State<I>,
-    W: Worker,
-{
-    /// Process one input, adding to the respective corpora if needed and firing the right events
-    #[inline]
-    fn evaluate_input(
+    fn post_execution<E, I, S, W>(
         &mut self,
         state: &mut S,
-        executor: &mut E,
         rt_handle: &mut RuntimeHandle<S, W>,
+        executor: &mut E,
         input: &I,
-    ) -> Result<EvaluationResult> {
-        let exit_kind = executor.execute(state, rt_handle, input)?;
-
+        exit_kind: ExitKind,
+    ) -> Result<EvaluationResult>
+    where
+        E: Executor<I, S>,
+        F: Feedback<I, E::Observers, S>,
+        H: FuzzerHooksTuple<E, I, S, W>,
+        I: Input,
+        OF: Feedback<I, E::Observers, S>,
+        S: State<Input = I>,
+        W: Worker,
+    {
         let observers = executor.observers();
         let result =
             self.evaluate_execution::<I, E::Observers, S>(state, input, &*observers, exit_kind)?;
@@ -336,6 +324,31 @@ where
     }
 }
 
+impl<E, F, H, I, OF, S, W> Evaluator<E, I, S, W> for StdFuzzer<F, H, OF>
+where
+    E: Executor<I, S>,
+    F: Feedback<I, E::Observers, S>,
+    H: FuzzerHooksTuple<E, I, S, W>,
+    OF: Feedback<I, E::Observers, S>,
+    I: Input,
+    S: State<Input = I>,
+    W: Worker,
+{
+    /// Process one input, adding to the respective corpora if needed and firing the right events
+    #[inline]
+    fn evaluate_input(
+        &mut self,
+        state: &mut S,
+        executor: &mut E,
+        rt_handle: &mut RuntimeHandle<S, W>,
+        input: &I,
+    ) -> Result<EvaluationResult> {
+        let exit_kind = executor.execute(state, rt_handle, input)?;
+
+        self.post_execution(state, rt_handle, executor, input, exit_kind)
+    }
+}
+
 impl<E, F, H, I, OF, R, S, ST, W> Fuzzer<E, I, R, S, ST, W> for StdFuzzer<F, H, OF>
 where
     E: Executor<I, S>,
@@ -343,7 +356,7 @@ where
     H: FuzzerHooksTuple<E, I, S, W>,
     I: Input,
     OF: Feedback<I, E::Observers, S>,
-    S: State<I>,
+    S: State<Input = I>,
     ST: StagesTuple<E, R, S, W, Self>,
     W: Worker,
 {
@@ -421,14 +434,8 @@ where
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
     ) -> Result<()> {
-        let now = self.clock.now();
-        if now - self.last_synced > STATS_UPDATE_INTERVAL {
-            rt_handle
-                .worker_mut()
-                .workdir_mut()
-                .report_stats(state.stats())?;
-            self.last_synced = now;
-        }
+        // start the timer for this loop
+        state.perf_stats_mut().iter_begin();
 
         self.fuzzer_hooks.pre_step_all(executor, state, rt_handle)?;
 
@@ -447,6 +454,9 @@ where
 
         self.fuzzer_hooks
             .post_step_all(executor, state, rt_handle)?;
+
+        // timer end
+        state.perf_stats_mut().iter_end();
 
         Ok(())
     }
@@ -509,16 +519,11 @@ impl<F, H, OF> StdFuzzerBuilder<F, H, OF> {
 impl<F, H, OF> StdFuzzerBuilder<F, H, OF> {
     /// Build a [`StdFuzzer`] from this builder.
     pub fn build(self) -> StdFuzzer<F, H, OF> {
-        let clock = Clock::new();
-        let now = clock.now();
-
         StdFuzzer {
             feedback: self.feedback,
             objective: self.objective_feedback,
             fuzzer_hooks: self.hooks,
             initialized: false,
-            clock,
-            last_synced: now,
         }
     }
 }
@@ -538,7 +543,7 @@ impl<F, OF> StdFuzzer<F, (), OF> {
         F: Feedback<I, E::Observers, S>,
         I: Input,
         OF: Feedback<I, E::Observers, S>,
-        S: State<I>,
+        S: State<Input = I>,
         ST: StagesTuple<E, R, S, W, Self>,
         W: Worker,
     {
@@ -571,7 +576,7 @@ impl<F, H, OF> StdFuzzer<F, H, OF> {
         H: FuzzerHooksTuple<E, I, S, W>,
         I: Input,
         OF: Feedback<I, E::Observers, S>,
-        S: State<I>,
+        S: State<Input = I>,
         ST: StagesTuple<E, R, S, W, Self>,
         W: Worker,
     {

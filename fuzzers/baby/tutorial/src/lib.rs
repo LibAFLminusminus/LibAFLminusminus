@@ -8,7 +8,7 @@ use std::env;
 
 use libafl::{
     corpus::{
-        schedulers::{NopScheduler, QueueScheduler, Scheduler},
+        schedulers::{QueueScheduler, Scheduler},
         Corpus, InMemoryCorpus, OnDiskCorpus,
     },
     executors::{ExitKind, StdExecutor},
@@ -153,17 +153,17 @@ pub extern "C" fn libafl_main() {
     let state_builder = |worker: &SimpleWorker| {
         // A queue policy to get testcasess from the corpus
         let scheduler = QueueScheduler::new();
-        let crash_dir = worker.workdir().create_dir("crashes")?;
+        let crash_dir = worker.workdir().objective_dir()?;
         let context = PacketDataContext::default();
 
         // create a State from scratch
         StdState::new(
             context,
             // Corpus that will be evolved, we keep it in memory for performance
-            InMemoryCorpus::new(scheduler),
+            InMemoryCorpus::with_scheduler(scheduler),
             // Corpus in which we store solutions (crashes in this example),
             // on disk so the user can get them after stopping the fuzzer
-            OnDiskCorpus::new(crash_dir, NopScheduler {}).unwrap(),
+            OnDiskCorpus::builder().root_dir(crash_dir).build()?,
         )
     };
 

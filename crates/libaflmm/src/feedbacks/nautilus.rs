@@ -1,22 +1,22 @@
 //! Nautilus grammar mutator, see <https://github.com/nautilus-fuzz/nautilus>
 
-use alloc::{borrow::Cow, string::String};
-use core::fmt::Debug;
-use std::fs::create_dir_all;
-
-use libaflmm_bolts::Named;
-use libaflmm_core::Result;
-use serde::{Deserialize, Serialize};
-
 use crate::{
-    DependencyResolver,
-    common::nautilus::grammartec::{chunkstore::ChunkStore, context::Context},
+    common::{
+        DependencyResolver, Registrator,
+        nautilus::grammartec::{chunkstore::ChunkStore, context::Context},
+    },
     corpus::{Corpus, TestcaseId},
     feedbacks::Feedback,
     generators::NautilusContext,
     inputs::NautilusInput,
-    states::{FlatState, HasCorpus, named_metadata_mut},
+    states::{State, named_metadata_mut},
 };
+use alloc::{borrow::Cow, string::String};
+use core::fmt::Debug;
+use libaflmm_bolts::Named;
+use libaflmm_core::Result;
+use serde::{Deserialize, Serialize};
+use std::fs::create_dir_all;
 
 /// Metadata for Nautilus grammar mutator chunks
 #[derive(Serialize, Deserialize, Default)]
@@ -71,7 +71,7 @@ impl Named for NautilusFeedback<'_> {
 }
 
 impl DependencyResolver for NautilusFeedback<'_> {
-    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<()> {
+    fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
         registrator.register_md_default::<NautilusChunksMetadata>(self.name());
         Ok(())
     }
@@ -79,7 +79,7 @@ impl DependencyResolver for NautilusFeedback<'_> {
 
 impl<OT, S> Feedback<NautilusInput, OT, S> for NautilusFeedback<'_>
 where
-    S: FlatState + HasCorpus<NautilusInput>,
+    S: State<Input = NautilusInput>,
 {
     fn append_metadata(
         &mut self,

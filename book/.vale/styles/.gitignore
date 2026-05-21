@@ -1,0 +1,7 @@
+# vale sync will install packages here, ignore them.
+*
+!.gitignore
+!Sembr/
+!Sembr/**
+!config/
+!config/**

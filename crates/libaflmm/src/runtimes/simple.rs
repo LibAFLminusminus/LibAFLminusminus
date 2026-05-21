@@ -3,7 +3,7 @@
 use libaflmm_core::Result;
 
 use crate::{
-    DependencyResolver,
+    common::DependencyResolver,
     runtimes::{Runtime, RuntimeHandle},
 };
 
@@ -26,7 +26,7 @@ impl<S, T, W> Runtime<S, W> for SimpleRuntime<T>
 where
     T: FnMut(&mut RuntimeHandle<S, W>, &mut S) -> Result<()>,
 {
-    unsafe fn run_impl(mut self, mut state: S, rt_handle: &mut RuntimeHandle<S, W>) -> Result<()> {
+    unsafe fn run_impl(&mut self, mut state: S, rt_handle: &mut RuntimeHandle<S, W>) -> Result<()> {
         (self.task)(rt_handle, &mut state)
     }
 }

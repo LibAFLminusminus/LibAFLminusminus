@@ -1,16 +1,14 @@
-use std::cell::OnceCell;
-
+use crate::{
+    arch::GuestReg,
+    emu::{EmulatorDriverError, InputLocation, InputSetter},
+    qemu::Qemu,
+};
 use libaflmm::{
     inputs::{Input, InputContext},
-    states::HasContext,
+    states::State,
 };
 use libaflmm_bolts::AsSlice;
-
-#[cfg(not(feature = "systemmode"))]
-use crate::InputLocation;
-#[cfg(feature = "systemmode")]
-use crate::emu::systemmode::SystemInputLocation as InputLocation;
-use crate::{EmulatorDriverError, GuestReg, InputSetter, Qemu};
+use std::cell::OnceCell;
 
 #[derive(Debug, Default, Clone)]
 pub struct LqemuInputSetter {
@@ -20,7 +18,7 @@ pub struct LqemuInputSetter {
 impl<I, S> InputSetter<I, S> for LqemuInputSetter
 where
     I: Input,
-    S: HasContext<I>,
+    S: State<Input = I>,
 {
     fn write_input(
         &mut self,

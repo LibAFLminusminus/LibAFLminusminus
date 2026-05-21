@@ -13,7 +13,8 @@ use libaflmm_bolts::{AsIter, AsIterMut, AsSlice, AsSliceMut, HasLen, Named, owne
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use crate::{
-    DependencyResolver, Error,
+    Error,
+    common::DependencyResolver,
     observers::{MapObserver, Observer, ObserverWithHashField},
 };
 

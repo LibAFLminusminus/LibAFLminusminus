@@ -6,6 +6,7 @@ const TWO_MIB: usize = 2_097_152;
 const SIXTY_FOUR_KIB: usize = 65_536;
 
 #[expect(clippy::too_many_lines)]
+#[allow(unused_variables)]
 fn main() {
     println!("cargo:rustc-check-cfg=cfg(nightly)");
     let out_dir = env::var_os("OUT_DIR").unwrap();

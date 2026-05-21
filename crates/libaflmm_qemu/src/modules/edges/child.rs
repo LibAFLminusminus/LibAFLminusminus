@@ -1,17 +1,17 @@
-use libaflmm::states::FlatState;
-
 use super::{
     EdgeCoverageVariant,
     helpers::{gen_hashed_edge_ids, trace_edge_hitcount_ptr, trace_edge_single_ptr},
 };
 use crate::{
-    EmulatorModules, Hook,
+    emu::EmulatorModules,
     modules::{
         AddressFilter, EdgeCoverageModule, EdgeCoverageModuleBuilder, EmulatorModuleTuple,
         PageFilter,
         utils::filters::{StdAddressFilter, StdPageFilter},
     },
+    qemu::Hook,
 };
+use libaflmm::states::State;
 
 #[derive(Debug)]
 pub struct EdgeCoverageChildVariant;
@@ -37,7 +37,7 @@ impl<AF, PF, const IS_CONST_MAP: bool, const MAP_SIZE: usize>
         ET: EmulatorModuleTuple<I, S>,
         PF: PageFilter,
         I: Unpin,
-        S: FlatState + Unpin,
+        S: State + Unpin,
     {
         emulator_modules.edges(
             Hook::Function(gen_hashed_edge_ids::<AF, ET, PF, I, S, Self, IS_CONST_MAP, MAP_SIZE>),
@@ -51,7 +51,7 @@ impl<AF, PF, const IS_CONST_MAP: bool, const MAP_SIZE: usize>
         ET: EmulatorModuleTuple<I, S>,
         PF: PageFilter,
         I: Unpin,
-        S: FlatState + Unpin,
+        S: State + Unpin,
     {
         emulator_modules.edges(
             Hook::Function(gen_hashed_edge_ids::<AF, ET, PF, I, S, Self, IS_CONST_MAP, MAP_SIZE>),

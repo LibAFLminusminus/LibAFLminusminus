@@ -12,7 +12,7 @@ use libaflmm_bolts::timers::Timer;
 use libaflmm_core::Result;
 
 use crate::{
-    DependencyResolver,
+    common::DependencyResolver,
     runtimes::{
         Runtime, RuntimeHandle,
         utils::{
@@ -130,7 +130,7 @@ where
         + 'static,
     TM: Timer,
 {
-    unsafe fn run_impl(mut self, mut state: S, rt_handle: &mut RuntimeHandle<S, W>) -> Result<()> {
+    unsafe fn run_impl(&mut self, mut state: S, rt_handle: &mut RuntimeHandle<S, W>) -> Result<()> {
         // OS-specific termination handler init
         self.termination_handler.init()?;
 

@@ -17,12 +17,12 @@ use serde::{Serialize, de::DeserializeOwned};
 
 use super::{DifferentIsNovel, Feedback, HasObserverHandle, MapFeedback};
 use crate::{
-    common::DependencyResolver,
+    common::{DependencyResolver, Registrator},
     corpus::TestcaseId,
     executors::ExitKind,
     feedbacks::MapFeedbackMetadata,
     observers::MapObserver,
-    states::{FlatState, HasTestcase},
+    states::State,
 };
 
 /// Stable Rust wrapper for SIMD accelerated map feedback. Unfortunately, we have to
@@ -45,7 +45,7 @@ where
 {
     fn is_interesting_u8_simd_optimized<S, OT>(&mut self, state: &mut S, observers: &OT) -> bool
     where
-        S: FlatState,
+        S: State,
         OT: MatchName,
     {
         // TODO Replace with match_name_type when stable
@@ -144,7 +144,7 @@ where
     O::Entry: 'static + Default + Debug + DeserializeOwned + Serialize,
     R: SimdReducer<V>,
 {
-    fn register(&mut self, registrator: &mut crate::Registrator) -> Result<()> {
+    fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
         registrator.register_md_default::<MapFeedbackMetadata<u8>>("MapFeedback");
 
         self.map.register(registrator)
@@ -180,7 +180,7 @@ where
     O: MapObserver<Entry = u8> + for<'a> AsSlice<'a, Entry = u8> + for<'a> AsIter<'a, Item = u8>,
     OT: MatchName,
     R: SimdReducer<V>,
-    S: FlatState + HasTestcase<I>,
+    S: State<Input = I>,
     V: VectorType + Copy + Eq,
     R::PrimitiveReducer: Reducer<u8>,
 {

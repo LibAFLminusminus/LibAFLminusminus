@@ -3,19 +3,20 @@
 //! Reads and parses the redqueen results written by QEMU-Nyx and adds them to the state as `CmpValuesMetadata`.
 
 use alloc::borrow::Cow;
-
 use libaflmm::{
-    DependencyResolver, Error,
+    Error,
+    common::{DependencyResolver, Registrator},
     executors::ExitKind,
     observers::{CmpLogMetadata, CmpValues, Observer},
-    states::{FlatState, named_metadata_mut},
+    states::{State, named_metadata_mut},
 };
 use libaflmm_bolts::Named;
+use serde::{Deserialize, Serialize};
+
 pub use libaflmm_targets::{
     CMPLOG_ENABLED, CMPLOG_MAP_H, CMPLOG_MAP_PTR, CMPLOG_MAP_SIZE, CMPLOG_MAP_W, CmpLogMap,
     cmps::{__libaflmm_targets_cmplog_instructions, __libaflmm_targets_cmplog_routines},
 };
-use serde::{Deserialize, Serialize};
 
 extern crate alloc;
 
@@ -42,7 +43,7 @@ impl NyxCmpObserver {
 }
 
 impl DependencyResolver for NyxCmpObserver {
-    fn register(&mut self, registrator: &mut libaflmm::Registrator) -> Result<(), Error> {
+    fn register(&mut self, registrator: &mut Registrator) -> Result<(), Error> {
         registrator.register_md_default::<CmpLogMetadata>(self.name());
         Ok(())
     }
@@ -50,7 +51,7 @@ impl DependencyResolver for NyxCmpObserver {
 
 impl<S> Observer<S> for NyxCmpObserver
 where
-    S: FlatState,
+    S: State,
 {
     fn pre_exec(&mut self, _state: &mut S) -> Result<(), Error> {
         unsafe {

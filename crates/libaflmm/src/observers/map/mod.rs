@@ -1,28 +1,26 @@
 //! All the map observer variants
 
+use crate::{Error, common::DependencyResolver, observers::Observer};
 use alloc::{borrow::Cow, vec::Vec};
 use core::{
     fmt::Debug,
     hash::{Hash, Hasher},
     ops::{Deref, DerefMut},
 };
-
 use libaflmm_bolts::{AsSlice, AsSliceMut, HasLen, Named, Truncate, ownedref::OwnedMutSlice};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
-use crate::{DependencyResolver, Error, observers::Observer};
-
 pub mod const_map;
-pub use const_map::*;
+pub use const_map::ConstMapObserver;
 
 pub mod variable_map;
-pub use variable_map::*;
+pub use variable_map::VariableMapObserver;
 
 pub mod hitcount_map;
-pub use hitcount_map::*;
+pub use hitcount_map::{HitcountsIterableMapObserver, HitcountsMapObserver};
 
 pub mod multi_map;
-pub use multi_map::*;
+pub use multi_map::MultiMapObserver;
 
 /// A [`MapObserver`] observes the static map, as oftentimes used for AFL-like coverage information
 ///

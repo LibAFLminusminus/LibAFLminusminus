@@ -1,8 +1,7 @@
 //! Nop controller and workers.
 
+use crate::controllers::{Controller, Descriptor, Workdir, Worker};
 use libaflmm_core::{Result, WorkerId};
-
-use crate::{Controller, Descriptor, Workdir, Worker};
 
 /// Nop [`Controller`]
 #[derive(Clone, Debug)]

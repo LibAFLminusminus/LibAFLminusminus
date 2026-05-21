@@ -12,7 +12,7 @@ use crate::{
     Error,
     common::nautilus::grammartec::{
         context::Context,
-        mutator::Mutator as BackingMutator,
+        mutator::GrammarMutator as BackingMutator,
         tree::{Tree, TreeMutation},
     },
     feedbacks::NautilusChunksMetadata,
@@ -20,7 +20,7 @@ use crate::{
     generators::nautilus::NautilusContext,
     inputs::nautilus::NautilusInput,
     mutators::{MutationResult, Mutator},
-    states::{FlatState, named_metadata},
+    states::{State, named_metadata},
 };
 
 /// The randomic mutator for `Nautilus` grammar.
@@ -173,7 +173,7 @@ impl Debug for NautilusSpliceMutator<'_> {
 
 impl<R: Rand, S> Mutator<NautilusInput, R, S> for NautilusSpliceMutator<'_>
 where
-    S: FlatState,
+    S: State,
 {
     fn mutate(
         &mut self,

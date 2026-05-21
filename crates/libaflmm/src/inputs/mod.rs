@@ -21,7 +21,7 @@ use libaflmm_bolts::{
 use serde::{Deserialize, Serialize};
 
 pub mod bytes;
-pub use bytes::BytesInput;
+pub use bytes::{BytesContext, BytesInput};
 
 pub mod value;
 pub use value::ValueInput;
@@ -31,9 +31,11 @@ pub use bytessub::BytesSubInput;
 
 #[cfg(feature = "nautilus")]
 pub mod nautilus;
-
 #[cfg(feature = "nautilus")]
-pub use nautilus::*;
+pub use nautilus::NautilusInput;
+
+pub type StdInput = BytesInput;
+pub type StdContext = BytesContext;
 
 /// A wrapper type that allows us to use mutators for Mutators for `&mut `[`Vec`].
 #[deprecated(since = "0.15.0", note = "Use &mut Vec<u8> directly")]
@@ -124,9 +126,11 @@ pub trait ResizableMutator<T> {
 }
 
 /// [`InputContext`] helps the conversion of [`Input`] type to byte slice.
-pub trait InputContext<I> {
+pub trait InputContext {
+    type Input;
+
     /// Turns this `input` to slice
-    fn to_bytes<'a>(&mut self, input: &'a I) -> OwnedSlice<'a, u8>;
+    fn to_bytes<'a>(&mut self, input: &'a Self::Input) -> OwnedSlice<'a, u8>;
 }
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
@@ -137,8 +141,10 @@ pub struct NopContext;
 #[derive(Clone, Serialize, Deserialize, Debug, Default, Hash)]
 pub struct NopInput;
 
-impl<I> InputContext<I> for NopContext {
-    fn to_bytes<'a>(&mut self, _input: &'a I) -> OwnedSlice<'a, u8> {
+impl InputContext for NopContext {
+    type Input = NopInput;
+
+    fn to_bytes<'a>(&mut self, _input: &'a NopInput) -> OwnedSlice<'a, u8> {
         OwnedSlice::from(vec![])
     }
 }

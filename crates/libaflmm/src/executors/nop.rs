@@ -3,7 +3,7 @@
 use libaflmm_bolts::tuples::RefIndexable;
 
 use super::{Executor, ExitKind};
-use crate::{DependencyResolver, Result, Worker, observers::ObserversTuple};
+use crate::{Result, common::DependencyResolver, controllers::Worker, observers::ObserversTuple};
 
 /// [`NopExecutor`] is an executor that does nothing
 pub type NopExecutor = ConstantExecutor<()>;

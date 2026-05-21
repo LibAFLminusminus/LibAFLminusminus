@@ -1,0 +1,38 @@
+name: "CI - Build"
+on:
+  workflow_call: {}
+
+jobs:
+  ubuntu:
+    runs-on: ${{ fromjson(vars.runs_on || '["self-hosted","linux"]') }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: true
+      - uses: ./.github/actions/apt
+        with:
+          qemu: true
+      - uses: ./.github/actions/setup-llvm
+        with:
+          version: ${{ vars.MAIN_LLVM_VERSION }}
+      - uses: ./.github/actions/setup-rust
+        with:
+          cache-key: ubuntu
+          cache: ${{ vars.runs_on != '' }}
+      - uses: ./.github/actions/cache-qemu-nyx
+      - name: check for blobs
+        run: ./scripts/check_for_blobs.sh
+      - name: check for conflicting dependency versions
+        run: cargo tree -d --workspace
+      - name: build workspace (debug)
+        run: cargo build --workspace --all-targets --exclude libaflmm_asan_libc --exclude libaflmm_frida --exclude args_reorder --exclude generics_reorder --exclude use_after_mod
+      - name: test examples
+        run: cargo test --workspace --all-targets --exclude libaflmm_asan --exclude libaflmm_asan_fuzz --exclude libaflmm_asan_libc --exclude libaflmm_frida --exclude args_reorder --exclude generics_reorder --exclude use_after_mod --examples
+      - name: build docs
+        run: ./scripts/doc_all.py
+      - name: run tests serially
+        run: cargo test -- --test-threads 1
+      - name: check sancov pcguard edges
+        run: cargo check --features=sancov_pcguard_edges
+      - name: shellcheck
+        run: shellcheck ./scripts/*.sh
