@@ -3,7 +3,7 @@ use std::slice;
 use std::{ffi::CStr, sync::OnceLock};
 
 use enum_map::{EnumMap, enum_map};
-use libaflmm::{executors::ExitKind, inputs::Input};
+use libaflmm::executors::ExitKind;
 #[cfg(feature = "systemmode")]
 use libaflmm_qemu_sys::GuestPhysAddr;
 use libaflmm_qemu_sys::{GuestAddr, GuestVirtAddr};
@@ -15,9 +15,8 @@ use super::{
 };
 use crate::{
     arch::{GuestReg, Regs},
-    command::{CommandError, CommandManager, NativeCommandParser, lqemu::LqemuCommandManager},
-    emu::{GenericEmulatorDriver, InputLocation, InputSetter, IsSnapshotManager},
-    modules::{EmulatorModuleTuple, utils::filters::HasStdFiltersTuple},
+    command::{CommandError, NativeCommandParser},
+    emu::InputLocation,
     qemu::{Qemu, QemuMemoryChunk},
     sync_exit::ExitArgs,
 };
@@ -30,16 +29,7 @@ pub static EMU_EXIT_KIND_MAP: OnceLock<EnumMap<NativeExitKind, Option<ExitKind>>
 pub struct StartPhysCommandParser;
 
 #[cfg(feature = "systemmode")]
-impl<C, ET, I, IS, S, SM>
-    NativeCommandParser<C, LqemuCommandManager<S>, GenericEmulatorDriver<IS>, ET, I, S, SM>
-    for StartPhysCommandParser
-where
-    ET: EmulatorModuleTuple<I, S> + HasStdFiltersTuple,
-    I: Input + Unpin,
-    IS: InputSetter<I, S>,
-    S: Unpin,
-    SM: IsSnapshotManager,
-{
+impl NativeCommandParser for StartPhysCommandParser {
     type OutputCommand = StartCommand;
 
     const COMMAND_ID: c_uint = libvharness_sys::LibaflQemuCommand_LIBAFL_QEMU_COMMAND_START_PHYS.0;
@@ -64,16 +54,7 @@ where
 
 pub struct StartVirtCommandParser;
 
-impl<C, ET, I, IS, S, SM>
-    NativeCommandParser<C, LqemuCommandManager<S>, GenericEmulatorDriver<IS>, ET, I, S, SM>
-    for StartVirtCommandParser
-where
-    ET: EmulatorModuleTuple<I, S> + HasStdFiltersTuple,
-    I: Input + Unpin,
-    IS: InputSetter<I, S>,
-    S: Unpin,
-    SM: IsSnapshotManager,
-{
+impl NativeCommandParser for StartVirtCommandParser {
     type OutputCommand = StartCommand;
 
     const COMMAND_ID: c_uint = libvharness_sys::LibaflQemuCommand_LIBAFL_QEMU_COMMAND_START_VIRT.0;
@@ -114,14 +95,8 @@ where
 }
 
 pub struct SaveCommandParser;
-impl<C, CM, ET, I, IS, S, SM> NativeCommandParser<C, CM, GenericEmulatorDriver<IS>, ET, I, S, SM>
-    for SaveCommandParser
-where
-    ET: EmulatorModuleTuple<I, S>,
-    I: Unpin,
-    S: Unpin,
-    SM: IsSnapshotManager,
-{
+
+impl NativeCommandParser for SaveCommandParser {
     type OutputCommand = SaveCommand;
 
     const COMMAND_ID: c_uint = libvharness_sys::LibaflQemuCommand_LIBAFL_QEMU_COMMAND_SAVE.0;
@@ -135,12 +110,7 @@ where
 }
 
 pub struct LoadCommandParser;
-impl<C, CM, ET, I, IS, S, SM> NativeCommandParser<C, CM, GenericEmulatorDriver<IS>, ET, I, S, SM>
-    for LoadCommandParser
-where
-    CM: CommandManager<C, GenericEmulatorDriver<IS>, ET, I, S, SM>,
-    SM: IsSnapshotManager,
-{
+impl NativeCommandParser for LoadCommandParser {
     type OutputCommand = LoadCommand;
 
     const COMMAND_ID: c_uint = libvharness_sys::LibaflQemuCommand_LIBAFL_QEMU_COMMAND_LOAD.0;
@@ -155,15 +125,7 @@ where
 
 pub struct EndCommandParser;
 
-impl<C, ET, I, IS, S, SM>
-    NativeCommandParser<C, LqemuCommandManager<S>, GenericEmulatorDriver<IS>, ET, I, S, SM>
-    for EndCommandParser
-where
-    ET: EmulatorModuleTuple<I, S>,
-    I: Input + Unpin,
-    S: Unpin,
-    SM: IsSnapshotManager,
-{
+impl NativeCommandParser for EndCommandParser {
     type OutputCommand = EndCommand;
 
     const COMMAND_ID: c_uint = libvharness_sys::LibaflQemuCommand_LIBAFL_QEMU_COMMAND_END.0;
@@ -190,9 +152,7 @@ where
 }
 
 pub struct VersionCommandParser;
-impl<C, CM, ED, ET, I, S, SM> NativeCommandParser<C, CM, ED, ET, I, S, SM>
-    for VersionCommandParser
-{
+impl NativeCommandParser for VersionCommandParser {
     type OutputCommand = VersionCommand;
 
     const COMMAND_ID: c_uint = libvharness_sys::LibaflQemuCommand_LIBAFL_QEMU_COMMAND_VERSION.0;
@@ -209,13 +169,8 @@ impl<C, CM, ED, ET, I, S, SM> NativeCommandParser<C, CM, ED, ET, I, S, SM>
 }
 
 pub struct VaddrFilterAllowRangeCommandParser;
-impl<C, CM, ED, ET, I, S, SM> NativeCommandParser<C, CM, ED, ET, I, S, SM>
-    for VaddrFilterAllowRangeCommandParser
-where
-    ET: EmulatorModuleTuple<I, S> + HasStdFiltersTuple,
-    I: Unpin,
-    S: Unpin,
-{
+
+impl NativeCommandParser for VaddrFilterAllowRangeCommandParser {
     type OutputCommand = AddressAllowCommand;
 
     const COMMAND_ID: c_uint =
@@ -233,12 +188,8 @@ where
 }
 
 pub struct LqprintfCommandParser;
-impl<C, CM, ED, ET, I, S, SM> NativeCommandParser<C, CM, ED, ET, I, S, SM> for LqprintfCommandParser
-where
-    ET: EmulatorModuleTuple<I, S>,
-    I: Unpin,
-    S: Unpin,
-{
+
+impl NativeCommandParser for LqprintfCommandParser {
     type OutputCommand = LqprintfCommand;
     const COMMAND_ID: c_uint = libvharness_sys::LibaflQemuCommand_LIBAFL_QEMU_COMMAND_LQPRINTF.0;
 
@@ -267,12 +218,8 @@ where
 }
 
 pub struct TestCommandParser;
-impl<C, CM, ED, ET, I, S, SM> NativeCommandParser<C, CM, ED, ET, I, S, SM> for TestCommandParser
-where
-    ET: EmulatorModuleTuple<I, S>,
-    I: Unpin,
-    S: Unpin,
-{
+
+impl NativeCommandParser for TestCommandParser {
     type OutputCommand = TestCommand;
     const COMMAND_ID: c_uint = libvharness_sys::LibaflQemuCommand_LIBAFL_QEMU_COMMAND_TEST.0;
 
@@ -291,14 +238,9 @@ where
 
 #[cfg(feature = "systemmode")]
 pub struct SetMapCommandParser;
+
 #[cfg(feature = "systemmode")]
-impl<C, CM, ET, I, IS, S, SM> NativeCommandParser<C, CM, GenericEmulatorDriver<IS>, ET, I, S, SM>
-    for SetMapCommandParser
-where
-    ET: EmulatorModuleTuple<I, S>,
-    I: Unpin,
-    S: Unpin,
-{
+impl NativeCommandParser for SetMapCommandParser {
     type OutputCommand = SetMapCommand;
     const COMMAND_ID: c_uint = libvharness_sys::LibaflQemuCommand_LIBAFL_QEMU_COMMAND_SET_MAP.0;
 

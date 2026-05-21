@@ -8,8 +8,9 @@ use crate::qemu::DeviceSnapshotFilter;
 use crate::qemu::{GuestMaps, ImageInfo, TargetSignalHandling};
 use crate::{
     arch::GuestReg,
-    breakpoint::Breakpoint,
-    command::CommandError,
+    breakpoint::{Breakpoint, BreakpointId},
+    command::{Command, CommandError, CommandManager, IsStdCommandManager},
+    modules::{EmulatorModuleTuple, HasAddressFilterTuple},
     qemu::{ArchExtras, CPU, CallingConvention, Qemu, QemuRWError, QemuShutdownCause},
     sync_exit::CustomInsn,
 };
@@ -37,7 +38,7 @@ pub use drivers::{
 
 pub mod snapshots;
 pub use snapshots::{
-    IsSnapshotManager, NopSnapshotManager, QemuSnapshotCheckResult, SnapshotId,
+    NopSnapshotManager, QemuSnapshotCheckResult, SnapshotId, SnapshotManager,
     SnapshotManagerCheckError, SnapshotManagerError,
 };
 
@@ -112,8 +113,14 @@ macro_rules! forward {
 }
 
 pub trait Emulator {
-    type Input: Input;
-    type State: State;
+    type Input: Input + Unpin;
+    type State: State + Unpin;
+
+    type Command: Command;
+    type CommandManager: CommandManager<Commands = Self::Command> + IsStdCommandManager;
+    type Driver: EmulatorDriver;
+    type Modules: EmulatorModuleTuple<Self::Input, Self::State> + HasAddressFilterTuple + Unpin;
+    type SnapshotManager: SnapshotManager;
 
     fn first_exec(&mut self, state: &mut Self::State) -> Result<()>;
 
@@ -136,6 +143,20 @@ pub trait Emulator {
     fn on_timeout(&mut self) -> Result<()>;
 
     fn qemu(&self) -> Qemu;
+
+    fn add_breakpoint(&self, bp: Breakpoint<Self::Command>, enable: bool) -> BreakpointId;
+
+    fn remove_breakpoint(&self, bp_id: BreakpointId);
+
+    fn driver_mut(&mut self) -> &mut Self::Driver;
+
+    fn snapshot_manager_mut(&mut self) -> &mut Self::SnapshotManager;
+
+    fn command_manager_mut(&mut self) -> &mut Self::CommandManager;
+
+    fn modules_mut(&mut self) -> &mut EmulatorModules<Self::Modules, Self::Input, Self::State>;
+
+    fn started(&self) -> bool;
 
     unsafe fn read_mem_val<T>(&self, addr: GuestAddr) -> result::Result<T, QemuRWError> {
         unsafe { self.qemu().read_mem_val(addr) }
@@ -190,10 +211,6 @@ pub trait Emulator {
             reg: impl Into<i32>,
             val: impl Into<GuestReg>,
         ) -> result::Result<(), QemuRWError>;
-
-        fn set_breakpoint(&self, addr: GuestAddr);
-
-        fn remove_breakpoint(&self, addr: GuestAddr);
 
         fn entry_break(&self, addr: GuestAddr) -> libaflmm::Result<()>;
 

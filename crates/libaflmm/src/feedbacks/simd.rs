@@ -145,8 +145,6 @@ where
     R: SimdReducer<V>,
 {
     fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
-        registrator.register_md_default::<MapFeedbackMetadata<u8>>("MapFeedback");
-
         self.map.register(registrator)
     }
 }

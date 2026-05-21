@@ -58,7 +58,7 @@ pub mod prelude {
     pub use crate::arch::{GuestReg, Regs, capstone, get_exit_arch_regs};
 
     pub use crate::command::{
-        CommandError, CommandManager, IsCommand, IsStdCommandManager, NativeCommandParser,
+        Command, CommandError, CommandManager, IsStdCommandManager, NativeCommandParser,
         NopCommand, NopCommandManager, StdCommandManager,
     };
 
@@ -76,8 +76,8 @@ pub mod prelude {
     pub use crate::emu::{
         Emulator, EmulatorDriver, EmulatorDriverError, EmulatorDriverResult, EmulatorExitError,
         EmulatorExitResult, EmulatorHooks, EmulatorModules, GenericEmulatorDriver, GuestAddrKind,
-        InputLocation, InputSetter, IsSnapshotManager, MapKind, NopEmulatorDriver, NopInputSetter,
-        NopSnapshotManager, QemuSnapshotCheckResult, SnapshotId, SnapshotManagerCheckError,
+        InputLocation, InputSetter, MapKind, NopEmulatorDriver, NopInputSetter, NopSnapshotManager,
+        QemuSnapshotCheckResult, SnapshotId, SnapshotManager, SnapshotManagerCheckError,
         SnapshotManagerError, StdEmulator, StdEmulatorBuilder, StdEmulatorDriver,
         StdEmulatorDriverBuilder, StdInputSetter,
     };

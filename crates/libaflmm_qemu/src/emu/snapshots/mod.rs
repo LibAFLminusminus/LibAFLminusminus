@@ -19,7 +19,7 @@ pub type StdSnapshotManager = NopSnapshotManager;
 #[cfg(feature = "systemmode")]
 pub type StdSnapshotManager = FastSnapshotManager;
 
-pub trait IsSnapshotManager: Clone + Debug {
+pub trait SnapshotManager: Clone + Debug {
     fn init(&mut self, _qemu: Qemu) {}
 
     fn save(&mut self, qemu: Qemu) -> SnapshotId;
@@ -50,13 +50,13 @@ pub trait IsSnapshotManager: Clone + Debug {
 
 #[cfg(feature = "systemmode")]
 #[derive(Debug, Clone)]
-pub enum SnapshotManager {
+pub enum AllSnapshotManager {
     Qemu(QemuSnapshotManager),
     Fast(FastSnapshotManager),
 }
 
 #[cfg(feature = "systemmode")]
-impl IsSnapshotManager for SnapshotManager {
+impl SnapshotManager for AllSnapshotManager {
     fn save(&mut self, qemu: Qemu) -> SnapshotId {
         match self {
             SnapshotManager::Qemu(qemu_sm) => qemu_sm.save(qemu),
@@ -113,7 +113,7 @@ impl Default for NopSnapshotManager {
     }
 }
 
-impl IsSnapshotManager for NopSnapshotManager {
+impl SnapshotManager for NopSnapshotManager {
     fn save(&mut self, _qemu: Qemu) -> SnapshotId {
         log::debug!("Saving snapshot with the NopSnapshotManager");
         SnapshotId { id: 0 }

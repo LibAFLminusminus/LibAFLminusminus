@@ -1245,20 +1245,40 @@ where
     }
 
     /// Get a reference to the first (type) matching member of the tuple.
+    ///
+    /// Falls back to looking up `Option<T>` so modules registered as `Option<T>`
+    /// (a common pattern for conditionally-enabled modules) are still found.
     #[must_use]
     pub fn get<T>(&self) -> Option<&T>
     where
         T: EmulatorModule<I, S>,
     {
-        self.modules.match_first_type::<T>()
+        if let Some(m) = self.modules.match_first_type::<T>() {
+            return Some(m);
+        }
+        self.modules
+            .match_first_type::<Option<T>>()
+            .and_then(Option::as_ref)
     }
 
     /// Get a mutable reference to the first (type) matching member of the tuple.
+    ///
+    /// Falls back to looking up `Option<T>` so modules registered as `Option<T>`
+    /// (a common pattern for conditionally-enabled modules) are still found.
     pub fn get_mut<T>(&mut self) -> Option<&mut T>
     where
         T: EmulatorModule<I, S>,
     {
-        self.modules.match_first_type_mut::<T>()
+        // necessary to avoid the double mut borrow problem.
+        let modules = &raw mut self.modules;
+        unsafe {
+            if let Some(m) = (*modules).match_first_type_mut::<T>() {
+                return Some(m);
+            }
+            (*modules)
+                .match_first_type_mut::<Option<T>>()
+                .and_then(Option::as_mut)
+        }
     }
 }
 

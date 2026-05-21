@@ -6,6 +6,7 @@ use std::process::exit;
 use crate::{
     Result,
     common::{CompatibilityChecker, DependencyResolver, Registrator},
+    controllers::Worker,
     executors::Executor,
     fuzzers::Fuzzer,
     inputs::Input,
@@ -15,6 +16,7 @@ use crate::{
         utils::{PinnedPtr, unix::OsShmSender},
     },
     stages::StagesTuple,
+    states::State,
 };
 
 pub mod inprocess;
@@ -160,10 +162,14 @@ impl<S, W> RuntimeHandle<S, W> {
     /// # Safety
     ///
     /// `termination_data` must outlive this [`RuntimeHandle`].
-    pub unsafe fn set_termination_handler(
+    pub unsafe fn early_init_termination_handler(
         &mut self,
         mut termination_data: Pin<&mut TerminationHandlerData>,
-    ) {
+        state: &mut S,
+    ) where
+        S: State,
+        W: Worker,
+    {
         assert!(
             self.termination_data_ptr.is_none(),
             "Termination data pointer has already been set. This is a fuzzer bug."
@@ -173,7 +179,12 @@ impl<S, W> RuntimeHandle<S, W> {
             TerminationHandlerData::commit_global(termination_data.as_mut());
         }
 
-        self.termination_data_ptr = Some(PinnedPtr::from_pin(termination_data));
+        let mut termination_data = PinnedPtr::from_pin(termination_data);
+        let rt_handle_ptr = NonNull::from_mut(self);
+
+        termination_data.early_init(state, rt_handle_ptr);
+
+        self.termination_data_ptr = Some(termination_data);
     }
 
     /// Set the shared memory saver (used by the [`RestartingRuntime`]).
@@ -189,7 +200,6 @@ impl<S, W> RuntimeHandle<S, W> {
     /// Initialize the termination global data and handlers.
     pub fn init_termination_handlers<E, I, R, ST, Z>(
         &mut self,
-        state: &mut S,
         fuzzer: &mut Z,
         executor: &mut E,
         on_crash: fn(&mut TerminationHandlerData, &OsTerminationParams) -> Result<CrashStatus>,
@@ -200,10 +210,8 @@ impl<S, W> RuntimeHandle<S, W> {
         ST: StagesTuple<E, R, S, W, Z>,
         Z: Fuzzer<E, I, R, S, ST, W>,
     {
-        let rt_handle_ptr = NonNull::from_mut(self);
-
         if let Some(termination_data) = self.termination_data_ptr.as_mut() {
-            termination_data.init(state, fuzzer, executor, rt_handle_ptr, on_crash, on_timeout);
+            termination_data.init(fuzzer, executor, on_crash, on_timeout);
 
             if let Some(ref mut saver) = self.state_shm_sender {
                 termination_data.set_saver_ptr(saver);

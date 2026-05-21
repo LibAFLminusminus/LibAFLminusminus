@@ -1,25 +1,26 @@
 //! Emulator Drivers, as the name suggests, drive QEMU execution
 //! They are used to perform specific actions on the emulator before and / or after QEMU runs.
 
-use crate::emu::InputLocation;
+use crate::emu::{Emulator, InputLocation};
 #[cfg(feature = "systemmode")]
 use crate::qemu::PhysMemoryChunk;
 use crate::{
     arch::Regs,
-    command::{CommandError, CommandManager, IsCommand},
+    command::{Command, CommandError},
     emu::{
-        EmulatorExitError, EmulatorExitResult, IsSnapshotManager, SnapshotId,
-        SnapshotManagerCheckError, SnapshotManagerError, StdEmulator,
+        EmulatorExitError, EmulatorExitResult, SnapshotId, SnapshotManager,
+        SnapshotManagerCheckError, SnapshotManagerError,
     },
-    modules::EmulatorModuleTuple,
     qemu::{Qemu, QemuError, QemuShutdownCause},
 };
-use libaflmm::{Result, executors::ExitKind, inputs::Input, observers::ObserversTuple};
+use libaflmm::{
+    Result, executors::ExitKind, inputs::Input, observers::ObserversTuple, states::State,
+};
 use libaflmm_bolts::os::unix_signals::Signal;
 use libaflmm_core::runtime;
 #[cfg(feature = "systemmode")]
 use std::collections::HashMap;
-use std::{cell::OnceCell, fmt::Debug, result};
+use std::{cell::OnceCell, fmt::Debug, marker::PhantomData, result};
 
 #[cfg(not(feature = "nyx"))]
 pub mod lqemu;
@@ -36,7 +37,7 @@ pub type StdInputSetter = LqemuInputSetter;
 #[cfg(feature = "nyx")]
 pub type StdInputSetter = StdNyxInputSetter;
 
-pub type StdEmulatorDriver = GenericEmulatorDriver<StdInputSetter>;
+pub type StdEmulatorDriver<I, S> = GenericEmulatorDriver<I, StdInputSetter, S>;
 
 #[derive(Debug, Clone)]
 pub enum EmulatorDriverResult<C> {
@@ -123,55 +124,85 @@ impl<I, S> InputSetter<I, S> for NopInputSetter {
 
 /// An Emulator Driver.
 // TODO remove 'static when specialization will be stable
-pub trait EmulatorDriver<C, CM, ET, I, S, SM>: 'static + Sized
-where
-    C: Clone,
-    ET: EmulatorModuleTuple<I, S>,
-    I: Unpin,
-    S: Unpin,
-{
+pub trait EmulatorDriver: 'static + Sized {
+    type Input: Input + Unpin;
+    type State: State + Unpin;
+    type InputSetter: InputSetter<Self::Input, Self::State>;
+
+    /// Snapshot ID captured at fuzzing start, if the driver tracks one.
+    fn snapshot_id(&self) -> Option<SnapshotId> {
+        None
+    }
+
+    /// Store the snapshot ID captured at fuzzing start.
+    fn set_snapshot_id(&mut self, _id: SnapshotId) -> result::Result<(), EmulatorDriverError> {
+        Err(EmulatorDriverError::MultipleSnapshotDefinition)
+    }
+
+    /// Mutable access to the driver's input setter.
+    fn input_setter_mut(&mut self) -> &mut Self::InputSetter;
+
+    /// Whether the driver wants commands logged on the host side.
+    fn print_commands(&self) -> bool {
+        false
+    }
+
     /// Just before calling user's harness for the first time.
     /// Called only once
-    fn first_harness_exec(
-        emulator: &mut StdEmulator<C, CM, Self, ET, I, S, SM>,
-        state: &mut S,
-    ) -> Result<()> {
-        emulator.modules.first_exec_all(emulator.qemu, state)
+    fn first_harness_exec<EMU>(emulator: &mut EMU, state: &mut Self::State) -> Result<()>
+    where
+        EMU: Emulator<Input = Self::Input, State = Self::State, Driver = Self>,
+    {
+        let qemu = emulator.qemu();
+        emulator.modules_mut().first_exec_all(qemu, state)
     }
 
     /// Just before calling user's harness
-    fn pre_harness_exec(
-        emulator: &mut StdEmulator<C, CM, Self, ET, I, S, SM>,
-        state: &mut S,
-        input: &I,
-    ) -> Result<()> {
-        emulator.modules.pre_exec_all(emulator.qemu, state, input)
+    fn pre_harness_exec<EMU>(
+        emulator: &mut EMU,
+        state: &mut Self::State,
+        input: &Self::Input,
+    ) -> Result<()>
+    where
+        EMU: Emulator<Input = Self::Input, State = Self::State, Driver = Self>,
+    {
+        let qemu = emulator.qemu();
+        emulator.modules_mut().pre_exec_all(qemu, state, input)
     }
 
     /// Just after returning from user's harness
-    fn post_harness_exec<OT>(
-        emulator: &mut StdEmulator<C, CM, Self, ET, I, S, SM>,
-        input: &I,
+    fn post_harness_exec<EMU, OT>(
+        emulator: &mut EMU,
+        input: &Self::Input,
         observers: &mut OT,
-        state: &mut S,
+        state: &mut Self::State,
         exit_kind: &mut ExitKind,
     ) -> Result<()>
     where
-        OT: ObserversTuple<S>,
+        EMU: Emulator<Input = Self::Input, State = Self::State, Driver = Self>,
+        OT: ObserversTuple<Self::State>,
     {
+        let qemu = emulator.qemu();
         emulator
-            .modules
-            .post_exec_all(emulator.qemu, state, input, observers, exit_kind)
+            .modules_mut()
+            .post_exec_all(qemu, state, input, observers, exit_kind)
     }
 
     /// Just before entering QEMU
-    fn pre_qemu_exec(_emulator: &mut StdEmulator<C, CM, Self, ET, I, S, SM>, _input: &I) {}
+    fn pre_qemu_exec<EMU>(_emulator: &mut EMU, _input: &Self::Input)
+    where
+        EMU: Emulator<Input = Self::Input, State = Self::State, Driver = Self>,
+    {
+    }
 
     /// Just after QEMU exits
-    fn post_qemu_exec(
-        _emulator: &mut StdEmulator<C, CM, Self, ET, I, S, SM>,
-        exit_reason: &mut result::Result<EmulatorExitResult<C>, EmulatorExitError>,
-    ) -> result::Result<Option<EmulatorDriverResult<C>>, EmulatorDriverError> {
+    fn post_qemu_exec<EMU>(
+        _emulator: &mut EMU,
+        exit_reason: &mut result::Result<EmulatorExitResult<EMU::Command>, EmulatorExitError>,
+    ) -> result::Result<Option<EmulatorDriverResult<EMU::Command>>, EmulatorDriverError>
+    where
+        EMU: Emulator<Input = Self::Input, State = Self::State, Driver = Self>,
+    {
         match exit_reason {
             Ok(reason) => Ok(Some(EmulatorDriverResult::ReturnToClient(reason.clone()))),
             Err(error) => Err(error.clone().into()),
@@ -179,16 +210,33 @@ where
     }
 }
 
-#[derive(Debug, Copy, Clone)]
-pub struct NopEmulatorDriver;
+#[derive(Debug)]
+pub struct NopEmulatorDriver<I, S> {
+    input_setter: NopInputSetter,
+    phantom: PhantomData<(I, S)>,
+}
 
-impl<C, CM, ET, I, S, SM> EmulatorDriver<C, CM, ET, I, S, SM> for NopEmulatorDriver
+impl<I, S> Default for NopEmulatorDriver<I, S> {
+    fn default() -> Self {
+        Self {
+            input_setter: NopInputSetter,
+            phantom: PhantomData,
+        }
+    }
+}
+
+impl<I, S> EmulatorDriver for NopEmulatorDriver<I, S>
 where
-    C: Clone,
-    ET: EmulatorModuleTuple<I, S>,
-    I: Unpin,
-    S: Unpin,
+    I: Input + Unpin + 'static,
+    S: State + Unpin + 'static,
 {
+    type Input = I;
+    type State = S;
+    type InputSetter = NopInputSetter;
+
+    fn input_setter_mut(&mut self) -> &mut Self::InputSetter {
+        &mut self.input_setter
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -198,7 +246,7 @@ pub enum MapKind {
 }
 
 #[allow(clippy::struct_excessive_bools)]
-pub struct StdEmulatorDriverBuilder<IS> {
+pub struct StdEmulatorDriverBuilder<I, IS, S> {
     input_setter: IS,
     hooks_locked: bool,
     #[cfg(feature = "systemmode")]
@@ -206,9 +254,10 @@ pub struct StdEmulatorDriverBuilder<IS> {
     #[cfg(feature = "x86_64")]
     process_only: bool,
     print_commands: bool,
+    phantom: PhantomData<(I, S)>,
 }
 
-impl<IS> Default for StdEmulatorDriverBuilder<IS>
+impl<I, IS, S> Default for StdEmulatorDriverBuilder<I, IS, S>
 where
     IS: Default,
 {
@@ -221,11 +270,12 @@ where
             #[cfg(feature = "x86_64")]
             process_only: false,
             print_commands: false,
+            phantom: PhantomData,
         }
     }
 }
 
-impl<IS> StdEmulatorDriverBuilder<IS> {
+impl<I, IS, S> StdEmulatorDriverBuilder<I, IS, S> {
     #[allow(clippy::fn_params_excessive_bools)]
     pub fn new(
         input_setter: IS,
@@ -242,10 +292,11 @@ impl<IS> StdEmulatorDriverBuilder<IS> {
             #[cfg(feature = "x86_64")]
             process_only,
             print_commands,
+            phantom: PhantomData,
         }
     }
 
-    pub fn input_setter<IS2>(self, input_setter: IS2) -> StdEmulatorDriverBuilder<IS2> {
+    pub fn input_setter<IS2>(self, input_setter: IS2) -> StdEmulatorDriverBuilder<I, IS2, S> {
         StdEmulatorDriverBuilder::new(
             input_setter,
             self.hooks_locked,
@@ -309,7 +360,7 @@ impl<IS> StdEmulatorDriverBuilder<IS> {
         )
     }
 
-    pub fn build(self) -> GenericEmulatorDriver<IS> {
+    pub fn build(self) -> GenericEmulatorDriver<I, IS, S> {
         GenericEmulatorDriver {
             input_setter: self.input_setter,
             snapshot_id: OnceCell::new(),
@@ -321,13 +372,14 @@ impl<IS> StdEmulatorDriverBuilder<IS> {
             print_commands: self.print_commands,
             #[cfg(feature = "systemmode")]
             maps: HashMap::new(),
+            phantom: PhantomData,
         }
     }
 }
 
 #[derive(Debug, Clone, Default)]
 #[allow(clippy::struct_excessive_bools)] // cfg dependent
-pub struct GenericEmulatorDriver<IS> {
+pub struct GenericEmulatorDriver<I, IS, S> {
     input_setter: IS,
     snapshot_id: OnceCell<SnapshotId>,
     hooks_locked: bool,
@@ -339,26 +391,27 @@ pub struct GenericEmulatorDriver<IS> {
     // maps declared by the VM
     #[cfg(feature = "systemmode")]
     maps: HashMap<MapKind, PhysMemoryChunk>,
+    phantom: PhantomData<(I, S)>,
 }
 
 #[cfg(not(feature = "nyx"))]
-impl GenericEmulatorDriver<LqemuInputSetter> {
+impl<I, S> GenericEmulatorDriver<I, LqemuInputSetter, S> {
     #[must_use]
-    pub fn builder() -> StdEmulatorDriverBuilder<LqemuInputSetter> {
-        StdEmulatorDriverBuilder::<LqemuInputSetter>::default()
+    pub fn builder() -> StdEmulatorDriverBuilder<I, LqemuInputSetter, S> {
+        StdEmulatorDriverBuilder::<I, LqemuInputSetter, S>::default()
     }
 }
 
 #[cfg(feature = "nyx")]
-impl GenericEmulatorDriver<StdNyxInputSetter> {
+impl<I, S> GenericEmulatorDriver<I, StdNyxInputSetter, S> {
     #[must_use]
-    pub fn builder() -> StdEmulatorDriverBuilder<StdNyxInputSetter> {
-        StdEmulatorDriverBuilder::<StdNyxInputSetter>::default()
+    pub fn builder() -> StdEmulatorDriverBuilder<I, StdNyxInputSetter, S> {
+        StdEmulatorDriverBuilder::<I, StdNyxInputSetter, S>::default()
     }
 }
 
-impl<IS> GenericEmulatorDriver<IS> {
-    pub fn write_input<I, S>(
+impl<I, IS, S> GenericEmulatorDriver<I, IS, S> {
+    pub fn write_input(
         &mut self,
         qemu: Qemu,
         state: &mut S,
@@ -372,18 +425,6 @@ impl<IS> GenericEmulatorDriver<IS> {
 
     pub fn input_setter(&self) -> &IS {
         &self.input_setter
-    }
-
-    pub fn input_setter_mut(&mut self) -> &mut IS {
-        &mut self.input_setter
-    }
-
-    pub fn set_snapshot_id(&self, snapshot_id: SnapshotId) -> result::Result<(), SnapshotId> {
-        self.snapshot_id.set(snapshot_id)
-    }
-
-    pub fn snapshot_id(&self) -> Option<SnapshotId> {
-        Some(*self.snapshot_id.get()?)
     }
 
     // return if was locked or not
@@ -415,72 +456,100 @@ impl<IS> GenericEmulatorDriver<IS> {
 }
 
 // TODO: replace handlers with generics to permit compile-time customization of handlers
-impl<C, CM, ET, I, IS, S, SM> EmulatorDriver<C, CM, ET, I, S, SM> for GenericEmulatorDriver<IS>
+impl<I, IS, S> EmulatorDriver for GenericEmulatorDriver<I, IS, S>
 where
-    C: IsCommand<CM::Commands, CM, Self, ET, I, S, SM>,
-    CM: CommandManager<C, Self, ET, I, S, SM, Commands = C>,
-    ET: EmulatorModuleTuple<I, S>,
-    I: Input + Unpin,
+    I: Input + Unpin + 'static,
     IS: InputSetter<I, S> + 'static,
-    S: Unpin,
-    SM: IsSnapshotManager,
+    S: State + Unpin + 'static,
 {
-    fn first_harness_exec(
-        emulator: &mut StdEmulator<C, CM, Self, ET, I, S, SM>,
-        state: &mut S,
-    ) -> Result<()> {
-        emulator.modules.first_exec_all(emulator.qemu, state)
+    type Input = I;
+    type State = S;
+    type InputSetter = IS;
+
+    fn snapshot_id(&self) -> Option<SnapshotId> {
+        Some(*self.snapshot_id.get()?)
     }
 
-    fn pre_harness_exec(
-        emulator: &mut StdEmulator<C, CM, Self, ET, I, S, SM>,
-        state: &mut S,
-        input: &I,
-    ) -> Result<()> {
-        emulator.modules.pre_exec_all(emulator.qemu, state, input)?;
+    fn set_snapshot_id(&mut self, id: SnapshotId) -> result::Result<(), EmulatorDriverError> {
+        self.snapshot_id
+            .set(id)
+            .map_err(|_| EmulatorDriverError::MultipleSnapshotDefinition)
+    }
+
+    fn input_setter_mut(&mut self) -> &mut Self::InputSetter {
+        &mut self.input_setter
+    }
+
+    fn print_commands(&self) -> bool {
+        self.print_commands
+    }
+
+    fn first_harness_exec<EMU>(emulator: &mut EMU, state: &mut S) -> Result<()>
+    where
+        EMU: Emulator<Input = I, State = S, Driver = Self>,
+    {
+        let qemu = emulator.qemu();
+        emulator.modules_mut().first_exec_all(qemu, state)
+    }
+
+    fn pre_harness_exec<EMU>(emulator: &mut EMU, state: &mut S, input: &I) -> Result<()>
+    where
+        EMU: Emulator<Input = I, State = S, Driver = Self>,
+    {
+        let qemu = emulator.qemu();
+        emulator.modules_mut().pre_exec_all(qemu, state, input)?;
 
         // set the input in the target, according the input setter
         // this should be run iif the emulator is "started".
         emulator
-            .driver
-            .input_setter
-            .write_input(emulator.qemu(), state, input)
+            .driver_mut()
+            .input_setter_mut()
+            .write_input(qemu, state, input)
             .unwrap();
 
         Ok(())
     }
 
-    fn post_harness_exec<OT>(
-        emulator: &mut StdEmulator<C, CM, Self, ET, I, S, SM>,
+    fn post_harness_exec<EMU, OT>(
+        emulator: &mut EMU,
         input: &I,
         observers: &mut OT,
         state: &mut S,
         exit_kind: &mut ExitKind,
     ) -> Result<()>
     where
+        EMU: Emulator<Input = I, State = S, Driver = Self>,
         OT: ObserversTuple<S>,
     {
+        let qemu = emulator.qemu();
         emulator
-            .modules
-            .post_exec_all(emulator.qemu, state, input, observers, exit_kind)
+            .modules_mut()
+            .post_exec_all(qemu, state, input, observers, exit_kind)
     }
 
-    fn pre_qemu_exec(_emulator: &mut StdEmulator<C, CM, Self, ET, I, S, SM>, _input: &I) {}
+    fn pre_qemu_exec<EMU>(_emulator: &mut EMU, _input: &I)
+    where
+        EMU: Emulator<Input = I, State = S, Driver = Self>,
+    {
+    }
 
-    fn post_qemu_exec(
-        emulator: &mut StdEmulator<C, CM, Self, ET, I, S, SM>,
-        exit_reason: &mut result::Result<EmulatorExitResult<C>, EmulatorExitError>,
-    ) -> result::Result<Option<EmulatorDriverResult<C>>, EmulatorDriverError> {
+    fn post_qemu_exec<EMU>(
+        emulator: &mut EMU,
+        exit_reason: &mut result::Result<EmulatorExitResult<EMU::Command>, EmulatorExitError>,
+    ) -> result::Result<Option<EmulatorDriverResult<EMU::Command>>, EmulatorDriverError>
+    where
+        EMU: Emulator<Input = I, State = S, Driver = Self>,
+    {
         let qemu = emulator.qemu();
 
-        // Check if QEMU existed because of an error or to handle some request
+        // Check if QEMU exited because of an error or to handle some request
         let mut exit_reason = match exit_reason {
             Ok(exit_reason) => exit_reason,
             Err(exit_error) => match exit_error {
                 EmulatorExitError::UnexpectedExit => {
-                    if emulator.started {
-                        if let Some(snapshot_id) = emulator.driver.snapshot_id.get() {
-                            emulator.snapshot_manager.restore(qemu, snapshot_id)?;
+                    if emulator.started() {
+                        if let Some(snapshot_id) = emulator.driver_mut().snapshot_id() {
+                            emulator.snapshot_manager_mut().restore(qemu, &snapshot_id)?;
                         }
 
                         return Ok(Some(EmulatorDriverResult::EndOfRun(ExitKind::Crash)));
@@ -493,7 +562,7 @@ where
         };
 
         // If QEMU stopped because of a request, handle it here
-        let (command, ret_reg): (Option<C>, Option<Regs>) = match &mut exit_reason {
+        let (command, ret_reg): (Option<EMU::Command>, Option<Regs>) = match &mut exit_reason {
             EmulatorExitResult::QemuExit(shutdown_cause) => match shutdown_cause {
                 QemuShutdownCause::HostSignal(signal) => {
                     return Err(EmulatorDriverError::UnhandledSignal(*signal));
@@ -528,7 +597,7 @@ where
 
         // If QEMU requested to handle a command, run it here.
         if let Some(cmd) = command {
-            if emulator.driver.print_commands {
+            if emulator.driver_mut().print_commands() {
                 println!("Received command: {cmd:?}");
             }
             cmd.run(emulator, ret_reg)

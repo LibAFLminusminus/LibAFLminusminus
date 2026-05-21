@@ -34,7 +34,7 @@ impl<C, I, S>
     StdEmulatorBuilder<
         C,
         NopCommandManager,
-        NopEmulatorDriver,
+        NopEmulatorDriver<I, S>,
         (),
         QemuConfigBuilder,
         I,
@@ -46,7 +46,7 @@ impl<C, I, S>
     pub fn empty() -> Self {
         Self {
             modules: tuple_list!(),
-            driver: NopEmulatorDriver,
+            driver: NopEmulatorDriver::default(),
             snapshot_manager: NopSnapshotManager,
             command_manager: NopCommandManager,
             qemu_parameters: None,
@@ -59,8 +59,8 @@ impl<C, I, S>
 impl<C, I, S>
     StdEmulatorBuilder<
         C,
-        StdCommandManager<S>,
-        StdEmulatorDriver,
+        StdCommandManager,
+        StdEmulatorDriver<I, S>,
         (),
         QemuConfigBuilder,
         I,
@@ -78,7 +78,7 @@ where
             modules: tuple_list!(),
             command_manager: StdCommandManager::default(),
             snapshot_manager: StdSnapshotManager::default(),
-            driver: StdEmulatorDriver::builder().build(),
+            driver: StdEmulatorDriver::<I, S>::builder().build(),
             qemu_parameters: None,
             phantom: PhantomData,
         }
@@ -89,8 +89,8 @@ where
 impl<C, I, S>
     StdEmulatorBuilder<
         C,
-        StdCommandManager<S>,
-        StdEmulatorDriver,
+        StdCommandManager,
+        StdEmulatorDriver<I, S>,
         (),
         QemuConfigBuilder,
         I,

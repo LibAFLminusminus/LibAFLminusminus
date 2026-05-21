@@ -130,6 +130,27 @@ where
     }
 }
 
+impl<Head, Tail> HasAddressFilterTuple for (Option<Head>, Tail)
+where
+    Head: HasAddressFilter,
+    Tail: HasAddressFilterTuple,
+{
+    fn allow_address_range_all(&mut self, address_range: &Range<GuestAddr>) {
+        if let Some(h) = &mut self.0 {
+            h.allow_address_range(address_range);
+        }
+        self.1.allow_address_range_all(address_range);
+    }
+
+    fn allowed_address_all(&self, address: &GuestAddr) -> bool {
+        let head_ok = self
+            .0
+            .as_ref()
+            .is_none_or(|h| h.allowed_address(address));
+        head_ok && self.1.allowed_address_all(address)
+    }
+}
+
 #[cfg(all(feature = "usermode", not(feature = "systemmode")))]
 impl<M> HasStdFilters for M where M: HasAddressFilter {}
 

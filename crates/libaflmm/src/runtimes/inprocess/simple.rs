@@ -2,11 +2,13 @@
 
 use crate::{
     common::{CompatibilityChecker, DependencyResolver, Registrator},
+    controllers::Worker,
     runtimes::{
         Runtime, RuntimeHandle, TerminationHandlerData,
         inprocess::{CrashStatus, InProcessRuntime, TimeoutStatus},
         utils::OsTerminationParams,
     },
+    states::State,
 };
 use core::time::Duration;
 use libaflmm_bolts::timers::Timer;
@@ -71,8 +73,10 @@ impl<S, T, TM> DependencyResolver for SimpleInProcessRuntime<S, T, TM> {
 
 impl<S, W, T, TM> Runtime<S, W> for SimpleInProcessRuntime<S, T, TM>
 where
+    S: State,
     T: FnMut(&mut RuntimeHandle<S, W>, &mut S) -> Result<()>,
     TM: Timer,
+    W: Worker,
 {
     unsafe fn run_impl(&mut self, state: S, rt_handle: &mut RuntimeHandle<S, W>) -> Result<()> {
         unsafe { self.0.run_impl(state, rt_handle) }

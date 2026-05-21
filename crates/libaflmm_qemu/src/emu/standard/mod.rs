@@ -1,3 +1,5 @@
+use crate::command::Command;
+use crate::emu::SnapshotManager;
 use crate::emu::snapshots::StdSnapshotManager;
 use crate::{
     breakpoint::{Breakpoint, BreakpointId},
@@ -55,15 +57,22 @@ pub struct StdEmulator<C, CM, ED, ET, I, S, SM> {
 
 impl<C, CM, ED, ET, I, S, SM> Emulator for StdEmulator<C, CM, ED, ET, I, S, SM>
 where
-    C: Debug + Clone,
-    CM: CommandManager<C, ED, ET, I, S, SM, Commands = C>,
-    ED: EmulatorDriver<C, CM, ET, I, S, SM>,
-    ET: EmulatorModuleTuple<I, S> + Unpin,
+    C: Command,
+    CM: CommandManager<Commands = C> + crate::command::IsStdCommandManager,
+    ED: EmulatorDriver<Input = I, State = S>,
+    ET: EmulatorModuleTuple<I, S> + crate::modules::HasAddressFilterTuple + Unpin,
     I: Input + Unpin,
     S: State + Unpin,
+    SM: SnapshotManager,
 {
     type Input = I;
     type State = S;
+
+    type Command = C;
+    type CommandManager = CM;
+    type Driver = ED;
+    type Modules = ET;
+    type SnapshotManager = SM;
 
     fn first_exec(&mut self, state: &mut Self::State) -> Result<()> {
         ED::first_harness_exec(self, state)
@@ -127,14 +136,81 @@ where
     fn qemu(&self) -> Qemu {
         self.qemu
     }
+
+    fn add_breakpoint(&self, mut bp: Breakpoint<C>, enable: bool) -> BreakpointId {
+        if enable {
+            bp.enable(self.qemu);
+        }
+
+        let bp_id = bp.id();
+        let bp_addr = bp.addr();
+
+        assert!(
+            self.breakpoints_by_addr
+                .borrow_mut()
+                .insert(bp_addr, bp.clone())
+                .is_none(),
+            "Adding multiple breakpoints at the same address"
+        );
+
+        assert!(
+            self.breakpoints_by_id
+                .borrow_mut()
+                .insert(bp_id, bp)
+                .is_none(),
+            "Adding the same breakpoint multiple times"
+        );
+
+        bp_id
+    }
+
+    fn remove_breakpoint(&self, bp_id: BreakpointId) {
+        let bp_addr = {
+            let mut bp_map = self.breakpoints_by_id.borrow_mut();
+            let bp = bp_map.get_mut(&bp_id).expect("Did not find the breakpoint");
+            bp.disable(self.qemu);
+            bp.addr()
+        };
+
+        self.breakpoints_by_id
+            .borrow_mut()
+            .remove(&bp_id)
+            .expect("Could not remove bp");
+        self.breakpoints_by_addr
+            .borrow_mut()
+            .remove(&bp_addr)
+            .expect("Could not remove bp");
+    }
+
+    fn driver_mut(&mut self) -> &mut Self::Driver {
+        &mut self.driver
+    }
+
+    fn snapshot_manager_mut(&mut self) -> &mut Self::SnapshotManager {
+        &mut self.snapshot_manager
+    }
+
+    fn command_manager_mut(&mut self) -> &mut Self::CommandManager {
+        &mut self.command_manager
+    }
+
+    fn modules_mut(&mut self) -> &mut EmulatorModules<ET, I, S> {
+        &mut self.modules
+    }
+
+    fn started(&self) -> bool {
+        self.started
+    }
 }
 
-impl<C, I, S> StdEmulator<C, NopCommandManager, NopEmulatorDriver, (), I, S, NopSnapshotManager> {
+impl<C, I, S>
+    StdEmulator<C, NopCommandManager, NopEmulatorDriver<I, S>, (), I, S, NopSnapshotManager>
+{
     #[must_use]
     pub fn empty() -> StdEmulatorBuilder<
         C,
         NopCommandManager,
-        NopEmulatorDriver,
+        NopEmulatorDriver<I, S>,
         (),
         QemuConfigBuilder,
         I,
@@ -145,7 +221,8 @@ impl<C, I, S> StdEmulator<C, NopCommandManager, NopEmulatorDriver, (), I, S, Nop
     }
 }
 
-impl<C, I, S> StdEmulator<C, StdCommandManager<S>, StdEmulatorDriver, (), I, S, StdSnapshotManager>
+impl<C, I, S>
+    StdEmulator<C, StdCommandManager, StdEmulatorDriver<I, S>, (), I, S, StdSnapshotManager>
 where
     S: State + Unpin,
     I: Input,
@@ -153,8 +230,8 @@ where
     #[must_use]
     pub fn builder() -> StdEmulatorBuilder<
         C,
-        StdCommandManager<S>,
-        StdEmulatorDriver,
+        StdCommandManager,
+        StdEmulatorDriver<I, S>,
         (),
         QemuConfigBuilder,
         I,
@@ -304,12 +381,13 @@ where
 
 impl<C, CM, ED, ET, I, S, SM> StdEmulator<C, CM, ED, ET, I, S, SM>
 where
-    C: Clone,
-    CM: CommandManager<C, ED, ET, I, S, SM, Commands = C>,
-    ED: EmulatorDriver<C, CM, ET, I, S, SM>,
-    ET: EmulatorModuleTuple<I, S>,
-    I: Unpin,
-    S: Unpin,
+    C: Command,
+    CM: CommandManager<Commands = C> + crate::command::IsStdCommandManager,
+    ED: EmulatorDriver<Input = I, State = S>,
+    ET: EmulatorModuleTuple<I, S> + crate::modules::HasAddressFilterTuple + Unpin,
+    I: Input + Unpin,
+    S: State + Unpin,
+    SM: SnapshotManager,
 {
     /// This function will run the emulator until the exit handler decides to stop the execution for
     /// whatever reason, depending on the choosen handler.
@@ -323,10 +401,6 @@ where
         &mut self,
         input: &I,
     ) -> result::Result<EmulatorDriverResult<C>, EmulatorDriverError> {
-        if !self.started {
-            return Err(EmulatorDriverError::NotStartedYet);
-        }
-
         loop {
             // Insert input if the location is already known
             ED::pre_qemu_exec(self, input);
@@ -416,55 +490,5 @@ where
                 QemuExitError::UnknownKind => EmulatorExitError::UnknownKind,
             }),
         }
-    }
-}
-
-impl<C, CM, ED, ET, I, S, SM> StdEmulator<C, CM, ED, ET, I, S, SM> {
-    pub fn add_breakpoint(&self, mut bp: Breakpoint<C>, enable: bool) -> BreakpointId
-    where
-        C: Clone,
-    {
-        if enable {
-            bp.enable(self.qemu);
-        }
-
-        let bp_id = bp.id();
-        let bp_addr = bp.addr();
-
-        assert!(
-            self.breakpoints_by_addr
-                .borrow_mut()
-                .insert(bp_addr, bp.clone())
-                .is_none(),
-            "Adding multiple breakpoints at the same address"
-        );
-
-        assert!(
-            self.breakpoints_by_id
-                .borrow_mut()
-                .insert(bp_id, bp)
-                .is_none(),
-            "Adding the same breakpoint multiple times"
-        );
-
-        bp_id
-    }
-
-    pub fn remove_breakpoint(&self, bp_id: BreakpointId) {
-        let bp_addr = {
-            let mut bp_map = self.breakpoints_by_id.borrow_mut();
-            let bp = bp_map.get_mut(&bp_id).expect("Did not find the breakpoint");
-            bp.disable(self.qemu);
-            bp.addr()
-        };
-
-        self.breakpoints_by_id
-            .borrow_mut()
-            .remove(&bp_id)
-            .expect("Could not remove bp");
-        self.breakpoints_by_addr
-            .borrow_mut()
-            .remove(&bp_addr)
-            .expect("Could not remove bp");
     }
 }

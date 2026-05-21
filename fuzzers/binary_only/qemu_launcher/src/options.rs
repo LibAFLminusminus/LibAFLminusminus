@@ -14,9 +14,6 @@ use std::{env, ops::Range, path::PathBuf};
     long_about = "Binary fuzzer using QEMU binary instrumentation"
 )]
 pub struct Cli {
-    #[command(flatten)]
-    pub common: CommonOptions,
-
     #[command(subcommand)]
     pub mode: Mode,
 }
@@ -61,6 +58,9 @@ pub struct CommonOptions {
 
 #[derive(clap::Args, Debug, Clone)]
 pub struct FuzzOptions {
+    #[command(flatten)]
+    pub common: CommonOptions,
+
     #[arg(long, help = "Timeout in milliseconds", default_value = "1000", value_parser = Cli::parse_timeout)]
     pub timeout: Duration,
 
@@ -94,8 +94,8 @@ pub struct FuzzOptions {
 
 #[derive(clap::Args, Debug, Clone)]
 pub struct ReplayOptions {
-    #[arg(short, long, help = "File or directory of inputs to replay")]
-    pub input: PathBuf,
+    #[command(flatten)]
+    pub common: CommonOptions,
 }
 
 impl FuzzOptions {
@@ -173,6 +173,13 @@ impl Cli {
     pub fn validate(&self) {
         if let Mode::Fuzz(fuzz_options) = &self.mode {
             fuzz_options.validate();
+        }
+    }
+
+    pub fn common(&self) -> &CommonOptions {
+        match &self.mode {
+            Mode::Fuzz(f) => &f.common,
+            Mode::Replay(r) => &r.common,
         }
     }
 }

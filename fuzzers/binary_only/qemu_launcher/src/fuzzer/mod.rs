@@ -1,8 +1,4 @@
-use crate::{
-    fuzzer::profile::QemuProfile,
-    harness::Harness,
-    options::{CommonOptions, FuzzOptions},
-};
+use crate::{fuzzer::profile::QemuProfile, harness::Harness, options::FuzzOptions};
 use libaflmm::prelude::*;
 use libaflmm_bolts::OwnedMutSlice;
 use libaflmm_qemu::prelude::*;
@@ -14,14 +10,18 @@ pub struct QemuFuzzer;
 
 impl QemuFuzzer {
     pub fn launch(
-        options: CommonOptions,
-        fuzz_options: FuzzOptions,
+        options: FuzzOptions,
         env: Vec<(String, String)>,
         args: Vec<String>,
     ) -> Result<()> {
+        let monitor = StdMonitor::new();
+        let controller = StdController::builder().overwrite(true).build()?;
+
         StdLauncher::builder()?
-            .cores(fuzz_options.cores.clone())
-            .timeout(Some(fuzz_options.timeout))
+            .cores(options.cores.clone())
+            .timeout(Some(options.timeout))
+            .monitor(monitor)
+            .controller(controller)
             .state_builder(move |worker| {
                 let scheduler = QueueScheduler::new();
                 let crash_dir = worker.workdir().create_dir("crashes")?;
@@ -43,7 +43,7 @@ impl QemuFuzzer {
             })
             .build_inprocess(move |rt_handle, state| {
                 let core_id = rt_handle.worker().core_id();
-                let profile = QemuProfile::new(&options, &fuzz_options, core_id)?;
+                let profile = QemuProfile::new(&options, &options, core_id)?;
 
                 // Create an observation channel using the coverage map
                 let mut edges_observer = unsafe {
@@ -88,27 +88,23 @@ impl QemuFuzzer {
                     }
                 }
 
-                if let Some(tokenfile) = &fuzz_options.tokens {
+                if let Some(tokenfile) = &options.tokens {
                     tokens.add_from_file(tokenfile)?;
                 }
 
                 state.metadata_map_mut().insert_unnamed(tokens);
 
-                let modules = profile.get_modules(
-                    &fuzz_options,
-                    &env,
-                    &mut edges_observer,
-                    injection_module,
-                )?;
+                let modules =
+                    profile.get_modules(&options, &env, &mut edges_observer, injection_module)?;
 
                 let observers = tuple_list!(edges_observer, time_observer);
 
-                let mut emulator = StdEmulator::empty()
+                let mut emulator = StdEmulator::builder()
                     .qemu_parameters(args.clone())
                     .modules(modules)
                     .build()?;
 
-                let harness = Harness::init(&mut emulator, &options)?;
+                let harness = Harness::init(&mut emulator, &options.common)?;
 
                 let cmplog_observer = profile.cmplog();
 
@@ -132,6 +128,15 @@ impl QemuFuzzer {
                     state,
                     rt_handle,
                 )?;
+
+                if state.must_load_initial_inputs() {
+                    let corpus_dirs = [&options.common.input];
+
+                    state
+                        .load_initial_inputs(&mut fuzzer, &mut executor, rt_handle, &corpus_dirs)
+                        .expect(&format!("Failed to load initial corpus at {corpus_dirs:?}"));
+                    println!("We imported {} inputs from disk.", state.corpus().count());
+                }
 
                 fuzzer.fuzz_loop(&mut stages, &mut executor, &mut rand, state, rt_handle)
             })?

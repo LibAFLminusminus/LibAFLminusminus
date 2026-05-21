@@ -1,9 +1,8 @@
+use crate::options::FuzzOptions;
 use libaflmm::prelude::*;
 use libaflmm_bolts::{CoreId, tuple_list};
 use libaflmm_qemu::prelude::*;
 use std::path::PathBuf;
-
-use crate::options::{CommonOptions, FuzzOptions};
 
 #[derive(Debug)]
 pub struct QemuProfile {
@@ -16,8 +15,8 @@ pub struct QemuProfile {
 
 impl QemuProfile {
     // resolve options here, to make sure some rules are enforced.
-    pub fn new(common: &CommonOptions, fuzz: &FuzzOptions, core: CoreId) -> Result<Self> {
-        let drcov = common.drcov.clone();
+    pub fn new(options: &FuzzOptions, fuzz: &FuzzOptions, core: CoreId) -> Result<Self> {
+        let drcov = options.common.drcov.clone();
 
         let asan_host = fuzz.is_asan_host_core(core);
         let asan_guest = fuzz.is_asan_guest_core(core);
@@ -29,7 +28,7 @@ impl QemuProfile {
         }
 
         let cmplog = fuzz.is_cmplog_core(core);
-        let injection = common.injections.is_some();
+        let injection = options.common.injections.is_some();
 
         Ok(Self {
             asan_host,
@@ -54,12 +53,12 @@ impl QemuProfile {
     }
 
     #[cfg(feature = "injections")]
-    pub fn injection_module(&self, opt: &CommonOptions) -> Result<Option<InjectionModule>> {
+    pub fn injection_module(&self, opt: &FuzzOptions) -> Result<Option<InjectionModule>> {
         if !self.injection {
             return Ok(None);
         }
 
-        let injections_file = opt.injections.as_ref().unwrap();
+        let injections_file = opt.common.injections.as_ref().unwrap();
         let extension = injections_file.extension().unwrap().to_str().unwrap();
 
         let module = if extension == "yaml" || extension == "yml" {
@@ -90,7 +89,7 @@ impl QemuProfile {
         env: &[(String, String)],
         edges_observer: &mut O,
         injection_module: Option<InjectionModule>,
-    ) -> Result<impl EmulatorModuleTuple<I, S> + use<I, O, S>>
+    ) -> Result<impl EmulatorModuleTuple<I, S> + HasAddressFilterTuple + use<I, O, S>>
     where
         I: Unpin,
         O: VarLenMapObserver,

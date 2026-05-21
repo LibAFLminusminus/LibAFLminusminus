@@ -898,7 +898,6 @@ impl AsanGiovese {
     }
 
     pub fn allocation(&mut self, pc: GuestAddr, start: GuestAddr, end: GuestAddr) {
-        eprintln!("ALLOC: pc={pc:#x} start={start:#x} end={end:#x}");
         self.alloc_remove(start, end);
         self.alloc_insert(pc, start, end);
     }
@@ -996,7 +995,7 @@ where
                 .unwrap()
                 .parent()
                 .unwrap()
-                .join("libafl_qemu_asan_host.so");
+                .join("libaflmm_qemu_asan_host.so");
 
             let asan_lib = env::var_os("CUSTOM_LIBAFL_QEMU_ASAN_PATH")
                 .map_or(asan_lib, |x| PathBuf::from(x.to_string_lossy().to_string()));
@@ -1010,11 +1009,6 @@ where
                 .to_str()
                 .expect("The path to the asan lib is invalid")
                 .to_string();
-
-            eprintln!("ASan Host: Preloading {asan_lib}");
-            // qemu_params.add_env("LD_PRELOAD", &asan_lib);
-
-            println!("Loading ASAN: {asan_lib:}");
 
             let add_asan =
                 |e: &str| "LD_PRELOAD=".to_string() + &asan_lib + " " + &e["LD_PRELOAD=".len()..];
@@ -1043,10 +1037,8 @@ where
             }
 
             if !added {
-                eprintln!("Args before: {args:?}");
                 args.insert(1, "LD_PRELOAD=".to_string() + &asan_lib);
                 args.insert(1, "-E".into());
-                eprintln!("Args after: {args:?}");
             }
             Some(asan_lib)
         } else {

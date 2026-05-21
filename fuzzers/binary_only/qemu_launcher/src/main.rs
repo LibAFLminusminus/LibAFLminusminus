@@ -36,7 +36,7 @@ pub fn main() -> Result<()> {
         .next()
         .ok_or_else(|| Error::empty_optional("Failed to read program name"))?;
 
-    let mut args = cli.common.args.clone();
+    let mut args = cli.common().args.clone();
     args.insert(0, program);
 
     // let log = cli.log.as_ref().and_then(|l| {
@@ -75,7 +75,7 @@ pub fn main() -> Result<()> {
     // let stdout = if cli.verbose { None } else { Some("/dev/null") };
 
     match cli.mode {
-        Mode::Fuzz(fuzzer_options) => QemuFuzzer::launch(cli.common, fuzzer_options, env, args),
+        Mode::Fuzz(fuzzer_options) => QemuFuzzer::launch(fuzzer_options, env, args),
         Mode::Replay(_replay_options) => {
             // QemuReplay::launch(&cli.common, &replay_options, &env, &args)
             todo!()

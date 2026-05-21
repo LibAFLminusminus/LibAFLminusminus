@@ -397,7 +397,6 @@ where
 
         // 4 - populate signal handler data if the runtime needs it
         rt_handle.init_termination_handlers::<E, I, R, ST, Self>(
-            state,
             self,
             executor,
             |data, signal_params| unsafe {

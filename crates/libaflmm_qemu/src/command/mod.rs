@@ -1,6 +1,6 @@
 use crate::{
     arch::{GuestReg, Regs},
-    emu::{EmulatorDriverError, EmulatorDriverResult, StdEmulator},
+    emu::{Emulator, EmulatorDriverError, EmulatorDriverResult},
     qemu::{Qemu, QemuRWError},
     sync_exit::ExitArgs,
 };
@@ -30,9 +30,9 @@ pub use nyx::{
 };
 
 #[cfg(not(feature = "nyx"))]
-pub type StdCommandManager<S> = LqemuCommandManager<S>;
+pub type StdCommandManager = LqemuCommandManager;
 #[cfg(feature = "nyx")]
-pub type StdCommandManager<S> = NyxCommandManager<S>;
+pub type StdCommandManager = NyxCommandManager;
 
 #[macro_export]
 macro_rules! define_std_command_manager_bound {
@@ -60,27 +60,24 @@ macro_rules! define_std_command_manager_inner {
                 use std::{
                     fmt,
                     fmt::{Debug, Formatter},
-                    marker::PhantomData,
                 };
                 use enum_map::EnumMap;
                 use $crate::{
-                    command::{IsStdCommandManager, CommandManager, CommandError, NativeCommandParser, IsCommand},
+                    command::{IsStdCommandManager, CommandManager, CommandError, NativeCommandParser, Command},
                     arch::get_exit_arch_regs,
-                    modules::{utils::filters::HasStdFiltersTuple, EmulatorModuleTuple},
                     sync_exit::ExitArgs,
-                    emu::{StdEmulator, InputSetter, EmulatorDriverError, EmulatorDriverResult, IsSnapshotManager, GenericEmulatorDriver},
+                    emu::{EmulatorDriverError, EmulatorDriverResult},
                     qemu::Qemu,
                     arch::Regs,
 
                 };
                 use std::ffi::c_uint;
 
-                pub struct $name<S> {
+                pub struct $name {
                     has_started: bool,
-                    phantom: PhantomData<S>,
                 }
 
-                impl<S> IsStdCommandManager for $name<S> {
+                impl IsStdCommandManager for $name {
                     fn start(&mut self) -> bool {
                         let tmp = self.has_started;
                         self.has_started = true;
@@ -92,38 +89,29 @@ macro_rules! define_std_command_manager_inner {
                     }
                 }
 
-                impl<S> Clone for $name<S> {
+                impl Clone for $name {
                     fn clone(&self) -> Self {
                         Self {
                             has_started: self.has_started,
-                            phantom: PhantomData,
                         }
                     }
                 }
 
-                impl<S> Debug for $name<S> {
+                impl Debug for $name {
                     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
                         write!(f, "{} (has started? {:?})", stringify!($name), self.has_started)
                     }
                 }
 
-                impl<S> Default for $name<S> {
+                impl Default for $name {
                     fn default() -> Self {
                         Self {
                             has_started: false,
-                            phantom: PhantomData,
                         }
                     }
                 }
 
-                impl<C, ET, I, IS, S, SM> CommandManager<C, GenericEmulatorDriver<IS>, ET, I, S, SM> for $name<S>
-                where
-                    ET: EmulatorModuleTuple<I, S> + HasStdFiltersTuple,
-                    I: $($input_bound)? + Unpin,
-                    IS: InputSetter<I, S>,
-                    S: Unpin,
-                    SM: IsSnapshotManager,
-                {
+                impl CommandManager for $name {
                     type Commands = [<$name Commands>];
 
                     #[deny(unreachable_patterns)]
@@ -133,7 +121,7 @@ macro_rules! define_std_command_manager_inner {
 
                         match cmd_id {
                             // <StartPhysCommandParser as NativeCommandParser<S>>::COMMAND_ID => Ok(StdCommandManagerCommands::StartPhysCommandParserCmd(<StartPhysCommandParser as NativeCommandParser<S>>::parse(qemu, arch_regs_map)?)),
-                            $(<$native_command_parser as NativeCommandParser<C, Self, GenericEmulatorDriver<IS>, ET, I, S, SM>>::COMMAND_ID => Ok(<$native_command_parser as NativeCommandParser<C, Self, GenericEmulatorDriver<IS>, ET, I, S, SM>>::parse(qemu, arch_regs_map)?.into())),+,
+                            $(<$native_command_parser as NativeCommandParser>::COMMAND_ID => Ok(<$native_command_parser as NativeCommandParser>::parse(qemu, arch_regs_map)?.into())),+,
                             _ => Err(CommandError::UnknownCommand(cmd_id.into())),
                         }
                     }
@@ -147,24 +135,20 @@ macro_rules! define_std_command_manager_inner {
                     $($command($command)),+,
                 }
 
-                impl<C, ET, I, IS, S, SM> IsCommand<C, $name<S>, GenericEmulatorDriver<IS>, ET, I, S, SM> for [<$name Commands>]
-                where
-                    ET: EmulatorModuleTuple<I, S> + HasStdFiltersTuple,
-                    I: $($input_bound)? + Unpin,
-                    IS: InputSetter<I, S>,
-                    S: Unpin,
-                    SM: IsSnapshotManager,
-                {
+                impl Command for [<$name Commands>] {
                     fn usable_at_runtime(&self) -> bool {
                         match self {
-                            $([<$name Commands>]::$command(cmd) => <$command as IsCommand<C, $name<S>, GenericEmulatorDriver<IS>, ET, I, S, SM>>::usable_at_runtime(cmd)),+
+                            $([<$name Commands>]::$command(cmd) => <$command as Command>::usable_at_runtime(cmd)),+
                         }
                     }
 
-                    fn run(&self,
-                        emu: &mut StdEmulator<C, $name<S>, GenericEmulatorDriver<IS>, ET, I, S, SM>,
+                    fn run<EMU>(&self,
+                        emu: &mut EMU,
                         ret_reg: Option<Regs>
-                    ) -> Result<Option<EmulatorDriverResult<C>>, EmulatorDriverError> {
+                    ) -> Result<Option<EmulatorDriverResult<EMU::Command>>, EmulatorDriverError>
+                    where
+                        EMU: Emulator
+                    {
                         match self {
                             $([<$name Commands>]::$command(cmd) => cmd.run(emu, ret_reg)),+
                         }
@@ -183,8 +167,8 @@ macro_rules! define_std_command_manager_inner {
     };
 }
 
-pub trait NativeCommandParser<C, CM, ED, ET, I, S, SM> {
-    type OutputCommand: IsCommand<C, CM, ED, ET, I, S, SM>;
+pub trait NativeCommandParser {
+    type OutputCommand: Command;
 
     const COMMAND_ID: c_uint;
 
@@ -203,13 +187,13 @@ pub trait IsStdCommandManager {
     fn start(&mut self) -> bool;
 }
 
-pub trait CommandManager<C, ED, ET, I, S, SM>: Sized + Debug {
-    type Commands: IsCommand<C, Self, ED, ET, I, S, SM>;
+pub trait CommandManager: Sized + Debug {
+    type Commands: Command;
 
     fn parse(&self, qemu: Qemu) -> Result<Self::Commands, CommandError>;
 }
 
-pub trait IsCommand<C, CM, ED, ET, I, S, SM>: Clone + Debug {
+pub trait Command: Clone + Debug {
     /// Used to know whether the command can be run during a backdoor, or if it is necessary to go out of
     /// the QEMU VM to run the command.
     // TODO: Use const when stabilized
@@ -219,11 +203,11 @@ pub trait IsCommand<C, CM, ED, ET, I, S, SM>: Clone + Debug {
     ///     - `ret_reg`: The register in which the guest return value should be written, if any.
     /// Returns
     ///     - `InnerHandlerResult`: How the high-level handler should behave
-    fn run(
+    fn run<EMU: Emulator>(
         &self,
-        emu: &mut StdEmulator<C, CM, ED, ET, I, S, SM>,
+        emu: &mut EMU,
         ret_reg: Option<Regs>,
-    ) -> Result<Option<EmulatorDriverResult<C>>, EmulatorDriverError>;
+    ) -> Result<Option<EmulatorDriverResult<<EMU as Emulator>::Command>>, EmulatorDriverError>;
 }
 
 #[derive(Debug, Clone)]
@@ -240,11 +224,21 @@ pub enum CommandError {
 
 #[derive(Debug, Copy, Clone)]
 pub struct NopCommandManager;
-impl<C, ED, ET, I, S, SM> CommandManager<C, ED, ET, I, S, SM> for NopCommandManager {
+impl CommandManager for NopCommandManager {
     type Commands = NopCommand;
 
     fn parse(&self, _qemu: Qemu) -> Result<Self::Commands, CommandError> {
         Ok(NopCommand)
+    }
+}
+
+impl IsStdCommandManager for NopCommandManager {
+    fn has_started(&self) -> bool {
+        false
+    }
+
+    fn start(&mut self) -> bool {
+        false
     }
 }
 
@@ -263,16 +257,16 @@ impl Display for NopCommand {
     }
 }
 
-impl<C, CM, ED, ET, I, S, SM> IsCommand<C, CM, ED, ET, I, S, SM> for NopCommand {
+impl Command for NopCommand {
     fn usable_at_runtime(&self) -> bool {
         true
     }
 
-    fn run(
+    fn run<EMU: Emulator>(
         &self,
-        _emu: &mut StdEmulator<C, CM, ED, ET, I, S, SM>,
+        _emu: &mut EMU,
         _ret_reg: Option<Regs>,
-    ) -> Result<Option<EmulatorDriverResult<C>>, EmulatorDriverError> {
+    ) -> Result<Option<EmulatorDriverResult<<EMU as Emulator>::Command>>, EmulatorDriverError> {
         Ok(None)
     }
 }

@@ -1,5 +1,5 @@
 use crate::{
-    emu::{IsSnapshotManager, QemuSnapshotCheckResult, SnapshotId, SnapshotManagerError},
+    emu::{QemuSnapshotCheckResult, SnapshotId, SnapshotManager, SnapshotManagerError},
     qemu::Qemu,
 };
 
@@ -26,7 +26,7 @@ impl QemuSnapshotManager {
     }
 }
 
-impl IsSnapshotManager for QemuSnapshotManager {
+impl SnapshotManager for QemuSnapshotManager {
     fn save(&mut self, qemu: Qemu) -> SnapshotId {
         let snapshot_id = SnapshotId::gen_unique_id();
         qemu.save_snapshot(

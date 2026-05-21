@@ -65,7 +65,11 @@ impl Harness {
     }
 
     /// Initialize the emulator, run to the entrypoint (or jump there) and return the [`Harness`] struct
-    pub fn init(emu: &mut impl Emulator, options: &CommonOptions) -> Result<Harness> {
+    pub fn init<E>(emu: &mut E, options: &CommonOptions) -> Result<Harness>
+    where
+        E: Emulator,
+        E::Command: From<EndCommand>,
+    {
         let start_pc = Self::start_pc(emu.qemu())?;
         log::info!("start_pc @ {start_pc:#x}");
 
@@ -75,7 +79,10 @@ impl Harness {
             .read_return_address()
             .map_err(|e| Error::unknown(format!("Failed to read return address: {e:?}")))?;
         log::info!("ret_addr = {ret_addr:#x}");
-        emu.set_breakpoint(ret_addr);
+        emu.add_breakpoint(
+            Breakpoint::with_command(ret_addr, EndCommand::new(Some(ExitKind::Ok)).into(), false),
+            true,
+        );
 
         let input_addr = emu
             .map_private(0, MAX_INPUT_SIZE, MmapPerms::ReadWrite)
