@@ -213,8 +213,8 @@ impl Worker for SimpleWorker {
 
     fn receive_commands<'a>(
         &'a mut self,
-    ) -> Result<impl Iterator<Item = &'a <Self::Controller as Controller>::Command>> {
-        Ok([].iter())
+    ) -> Result<impl Iterator<Item = <Self::Controller as Controller>::Command>> {
+        Ok([].into_iter())
     }
 }
 
