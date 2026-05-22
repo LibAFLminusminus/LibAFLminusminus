@@ -3,7 +3,6 @@
 use crate::controllers::{Controller, Descriptor, Result, Workdir, WorkdirFile, Worker};
 use crate::launchers::InstanceId;
 use alloc::vec::Vec;
-use libaflmm_bolts::CoreId;
 use libaflmm_core::{WorkerId, illegal_argument, internal_bug};
 use nix::unistd::{dup2_stderr, dup2_stdout};
 use std::{
@@ -61,8 +60,6 @@ pub struct SimpleDescriptor {
     workdir: Workdir,
     /// client id of this process
     worker_id: WorkerId,
-    /// core id of this process
-    core_id: CoreId,
 }
 
 /// The launcher should instantiate this alongside binding this instance to a specific core id
@@ -74,15 +71,10 @@ impl SimpleDescriptor {
         stderr: Option<WorkdirFile>,
         stats: Option<WorkdirFile>,
         worker_id: WorkerId,
-        core_id: CoreId,
     ) -> Result<Self> {
         let workdir = Workdir::new(root_dir, stdout, stderr, stats)?;
 
-        Ok(SimpleDescriptor {
-            workdir,
-            worker_id,
-            core_id,
-        })
+        Ok(SimpleDescriptor { workdir, worker_id })
     }
 }
 
@@ -131,7 +123,7 @@ impl Controller for SimpleController {
     type Descriptor = SimpleDescriptor;
     type Command = SimpleCommand;
 
-    fn create_worker(&mut self, core_id: CoreId) -> Result<SimpleWorker> {
+    fn create_worker(&mut self) -> Result<SimpleWorker> {
         let worker_id = WorkerId(self.id_ctr);
         self.id_ctr += 1;
 
@@ -152,7 +144,6 @@ impl Controller for SimpleController {
             self.worker_stderr.clone(),
             self.worker_stats.clone(),
             worker_id,
-            core_id,
         )?;
 
         let cl = SimpleWorker::new(descriptor.clone());
@@ -187,12 +178,20 @@ impl Worker for SimpleWorker {
     type Controller = SimpleController;
     type Notification = SimpleNotification;
 
+    fn id(&self) -> WorkerId {
+        self.descriptor.worker_id
+    }
+
     fn descriptor(&self) -> &SimpleDescriptor {
         &self.descriptor
     }
 
-    fn descriptor_mut(&mut self) -> &mut SimpleDescriptor {
-        &mut self.descriptor
+    fn workdir(&self) -> &Workdir {
+        &self.descriptor.workdir
+    }
+
+    fn workdir_mut(&mut self) -> &mut Workdir {
+        &mut self.descriptor.workdir
     }
 
     fn reconcile(&self) -> Result<()> {
@@ -300,9 +299,5 @@ impl Descriptor for SimpleDescriptor {
 
     fn worker_id(&self) -> WorkerId {
         self.worker_id
-    }
-
-    fn core_id(&self) -> CoreId {
-        self.core_id
     }
 }

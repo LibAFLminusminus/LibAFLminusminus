@@ -8,9 +8,9 @@ use core::{
 use std::{
     env,
     ffi::OsString,
-    io::{self, ErrorKind, Read, Write},
+    io::{self, PipeReader, PipeWriter, Read, Write, pipe},
     os::{
-        fd::{AsRawFd, BorrowedFd},
+        fd::{AsRawFd, BorrowedFd, IntoRawFd},
         unix::io::RawFd,
     },
     path::PathBuf,
@@ -18,7 +18,7 @@ use std::{
 };
 
 use libaflmm_bolts::{
-    InputLocation, Pipe, StdTargetArgs, StdTargetArgsInner, SysVShm, Truncate,
+    InputLocation, StdTargetArgs, StdTargetArgsInner, SysVShm, Truncate,
     core_affinity::CoreId,
     fs::{InputFile, get_unique_std_input_file},
     tuples::{MatchNameRef, RefIndexable},
@@ -107,9 +107,9 @@ pub struct Forkserver {
     /// The "actual" forkserver we spawned in the target
     fsrv_handle: Child,
     /// Status pipe
-    st_pipe: Pipe,
+    st_pipe: PipeReader,
     /// Control pipe
-    ctl_pipe: Pipe,
+    ctl_pipe: PipeWriter,
     /// Pid of the current forked child (child of the forkserver) during execution
     child_pid: Option<Pid>,
     /// The last status reported to us by the in-target forkserver
@@ -221,8 +221,8 @@ impl Forkserver {
             false
         };
 
-        let mut st_pipe = Pipe::new().unwrap();
-        let mut ctl_pipe = Pipe::new().unwrap();
+        let (st_pipe_rdr, st_pipe_wrt) = pipe()?;
+        let (ctl_pipe_rdr, ctl_pipe_wrt) = pipe()?;
 
         let mut command = Command::new(target);
         // Setup args, stdio
@@ -297,7 +297,7 @@ impl Forkserver {
                     .setlimit(memlimit)
                     .set_coredump(afl_debug),
             )
-            .setpipe(st_pipe.write_end().unwrap(), ctl_pipe.read_end().unwrap())
+            .setpipe(st_pipe_wrt.into_raw_fd(), ctl_pipe_rdr.into_raw_fd())
             .spawn()
             {
                 Ok(fsrv_handle) => fsrv_handle,
@@ -309,14 +309,10 @@ impl Forkserver {
             }
         };
 
-        // Ctl_pipe.read_end and st_pipe.write_end are unnecessary for the parent, so we'll close them
-        ctl_pipe.close_read_end();
-        st_pipe.close_write_end();
-
         Ok(Self {
             fsrv_handle,
-            st_pipe,
-            ctl_pipe,
+            st_pipe: st_pipe_rdr,
+            ctl_pipe: ctl_pipe_wrt,
             child_pid: None,
             status: 0,
             last_run_timed_out: 0,
@@ -418,20 +414,14 @@ impl Forkserver {
     /// Read a message from the child process.
     pub fn read_st_timed(&mut self, timeout: &TimeSpec) -> Result<Option<i32>> {
         let mut buf: [u8; 4] = [0_u8; 4];
-        let Some(st_read) = self.st_pipe.read_end() else {
-            return Err(Error::os_error(
-                io::Error::new(ErrorKind::BrokenPipe, "Read pipe end was already closed"),
-                "read_st_timed failed",
-            ));
-        };
 
-        // # Safety
-        // The FDs are valid as this point in time.
-        let st_read = unsafe { BorrowedFd::borrow_raw(st_read) };
+        let st_read = unsafe { BorrowedFd::borrow_raw(self.st_pipe.as_raw_fd()) };
 
         let mut readfds = FdSet::new();
         readfds.insert(st_read);
-        // We'll pass a copied timeout to keep the original timeout intact, because select updates timeout to indicate how much time was left. See select(2)
+
+        // We'll pass a copied timeout to keep the original timeout intact, because select updates timeout to indicate how much time was left.
+        // See select(2)
         let sret = pselect(
             Some(readfds.highest().unwrap().as_raw_fd() + 1),
             &mut readfds,
@@ -440,6 +430,7 @@ impl Forkserver {
             Some(timeout),
             Some(&SigSet::empty()),
         )?;
+
         if sret > 0 {
             if self.st_pipe.read_exact(&mut buf).is_ok() {
                 let val: i32 = i32::from_ne_bytes(buf);
