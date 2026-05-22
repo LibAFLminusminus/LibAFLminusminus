@@ -55,7 +55,6 @@ impl WebMonitor {
     /// constructor for [`struct@WebMonitor`]; `name` is displayed as the page title.
     #[must_use]
     pub fn new(name: &str) -> Self {
-        println!("WebMonitor listening on http://localhost:{}", PORT);
         Self::with_port(name, PORT)
     }
 
