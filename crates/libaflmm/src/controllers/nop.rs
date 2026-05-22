@@ -32,6 +32,7 @@ impl Descriptor for NopDescriptor {
 impl Controller for NopController {
     type Worker = NopWorker;
     type Descriptor = NopDescriptor;
+    type Command = ();
 
     fn create_worker(&mut self) -> Result<Self::Worker> {
         Ok(NopWorker)
@@ -46,10 +47,15 @@ impl Controller for NopController {
     fn worker_descriptors_mut(&mut self) -> &mut [Self::Descriptor] {
         unimplemented!("nop controller has no workers");
     }
+
+    fn poll_notifications(&mut self) -> Result<()> {
+        Ok(())
+    }
 }
 
 impl Worker for NopWorker {
     type Controller = NopController;
+    type Notification = ();
 
     fn id(&self) -> WorkerId {
         unimplemented!("nop controller has no id");
@@ -69,5 +75,11 @@ impl Worker for NopWorker {
 
     fn reconcile(&self) -> Result<()> {
         Ok(())
+    }
+
+    fn receive_commands<'a>(
+        &'a mut self,
+    ) -> Result<impl Iterator<Item = &'a <Self::Controller as Controller>::Command>> {
+        Ok([].iter())
     }
 }

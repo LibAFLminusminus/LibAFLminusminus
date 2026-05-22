@@ -43,6 +43,8 @@ pub trait Controller {
     type Worker: Worker;
     /// The associated [`Descriptor`].
     type Descriptor: Descriptor;
+    /// The commands for the [`Worker`]s.
+    type Command;
 
     /// Create a new [`Self::Worker`].
     /// The controller must keep track of the worker if necessary.
@@ -72,6 +74,12 @@ pub trait Controller {
     ) -> Result<()> {
         Ok(())
     }
+
+    /// Poll for events sent by the [`Worker`]s.
+    /// Returns when the caller should run the refresh loop.
+    fn poll_notifications(&mut self) -> Result<()> {
+        Ok(())
+    }
 }
 
 /// A worker is a representant of a fuzzing instance.
@@ -79,6 +87,8 @@ pub trait Controller {
 pub trait Worker {
     /// The associated [`Controller`].
     type Controller: Controller<Worker = Self>;
+    /// Notifications for the [`Controller`]
+    type Notification;
 
     /// The client id of the worker.
     fn id(&self) -> WorkerId;
@@ -98,6 +108,13 @@ pub trait Worker {
     /// Hook called before the [`Runtime`] of the worker gets executed.
     fn pre_runtime_exec(&mut self) -> Result<()> {
         Ok(())
+    }
+
+    /// Returns the list of commands received since the last call.
+    fn receive_commands<'a>(
+        &'a mut self,
+    ) -> Result<impl Iterator<Item = &'a <Self::Controller as Controller>::Command>> {
+        Ok([].iter())
     }
 }
 

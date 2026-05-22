@@ -32,8 +32,6 @@ members = [
 
   # linters
   "mmlint/generics_reorder",
-  "mmlint/args_reorder",
-  "mmlint/use_after_mod",
 
   # bindings
   "bindings/pylibafl",
@@ -188,8 +186,6 @@ broken_intra_doc_links = "deny"
 [workspace.metadata.dylint]
 libraries = [
   { path = "./mmlint", pattern = "generics_reorder" },
-  { path = "./mmlint", pattern = "args_reorder" },
-  { path = "./mmlint", pattern = "use_after_mod" },
 ]
 
 [profile.release]
