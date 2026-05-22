@@ -16,7 +16,7 @@ pub struct PerfStats {
     iter_start: Duration,
 }
 
-/// basically tell serde_json how to serialize it, because we have to dump it once in a while into a json
+/// basically tell `serde_json` how to serialize it, because we have to dump it once in a while into a json
 impl Serialize for PerfStats {
     fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
         let mut map = s.serialize_map(Some(self.stages.len()))?;
@@ -27,7 +27,7 @@ impl Serialize for PerfStats {
     }
 }
 
-/// the opposite
+/// the opposite to above
 impl<'de> Deserialize<'de> for PerfStats {
     fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         let raw = <HashMap<String, u64>>::deserialize(d)?;
