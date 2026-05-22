@@ -1,6 +1,6 @@
 #[cfg(feature = "usermode")]
 use std::slice;
-use std::{ffi::CStr, sync::OnceLock};
+use std::{ffi::CStr, result, sync::OnceLock};
 
 use enum_map::{EnumMap, enum_map};
 use libaflmm::executors::ExitKind;
@@ -14,14 +14,18 @@ use super::{
     StartCommand, TestCommand, VersionCommand,
 };
 use crate::{
+    Result,
     arch::{GuestReg, Regs},
-    command::{CommandError, NativeCommandParser},
+    command::NativeCommandParser,
     emu::InputLocation,
     qemu::{Qemu, QemuMemoryChunk},
     sync_exit::ExitArgs,
 };
 #[cfg(feature = "systemmode")]
-use crate::{command::lqemu::SetMapCommand, emu::MapKind};
+use crate::{
+    command::{CommandError, lqemu::SetMapCommand},
+    emu::MapKind,
+};
 
 pub static EMU_EXIT_KIND_MAP: OnceLock<EnumMap<NativeExitKind, Option<ExitKind>>> = OnceLock::new();
 
@@ -37,7 +41,7 @@ impl NativeCommandParser for StartPhysCommandParser {
     fn parse(
         qemu: Qemu,
         arch_regs_map: &'static EnumMap<ExitArgs, Regs>,
-    ) -> Result<Self::OutputCommand, CommandError> {
+    ) -> Result<Self::OutputCommand> {
         let input_phys_addr: GuestPhysAddr = qemu.read_reg(arch_regs_map[ExitArgs::Arg1])?.into();
         let max_input_size: GuestReg = qemu.read_reg(arch_regs_map[ExitArgs::Arg2])?;
 
@@ -62,7 +66,7 @@ impl NativeCommandParser for StartVirtCommandParser {
     fn parse(
         qemu: Qemu,
         arch_regs_map: &'static EnumMap<ExitArgs, Regs>,
-    ) -> Result<Self::OutputCommand, CommandError> {
+    ) -> Result<Self::OutputCommand> {
         let input_virt_addr: GuestVirtAddr =
             qemu.read_reg(arch_regs_map[ExitArgs::Arg1])? as GuestVirtAddr;
         let max_input_size: GuestReg = qemu.read_reg(arch_regs_map[ExitArgs::Arg2])?;
@@ -104,7 +108,7 @@ impl NativeCommandParser for SaveCommandParser {
     fn parse(
         _qemu: Qemu,
         _arch_regs_map: &'static EnumMap<ExitArgs, Regs>,
-    ) -> Result<Self::OutputCommand, CommandError> {
+    ) -> Result<Self::OutputCommand> {
         Ok(SaveCommand)
     }
 }
@@ -118,7 +122,7 @@ impl NativeCommandParser for LoadCommandParser {
     fn parse(
         _qemu: Qemu,
         _arch_regs_map: &'static EnumMap<ExitArgs, Regs>,
-    ) -> Result<Self::OutputCommand, CommandError> {
+    ) -> Result<Self::OutputCommand> {
         Ok(LoadCommand)
     }
 }
@@ -133,9 +137,10 @@ impl NativeCommandParser for EndCommandParser {
     fn parse(
         qemu: Qemu,
         arch_regs_map: &'static EnumMap<ExitArgs, Regs>,
-    ) -> Result<Self::OutputCommand, CommandError> {
+    ) -> Result<Self::OutputCommand> {
         let native_exit_kind: GuestReg = qemu.read_reg(arch_regs_map[ExitArgs::Arg1])?;
-        let native_exit_kind: Result<NativeExitKind, _> = u64::from(native_exit_kind).try_into();
+        let native_exit_kind: result::Result<NativeExitKind, _> =
+            u64::from(native_exit_kind).try_into();
 
         let exit_kind = native_exit_kind.ok().and_then(|k| {
             EMU_EXIT_KIND_MAP.get_or_init(|| {
@@ -160,7 +165,7 @@ impl NativeCommandParser for VersionCommandParser {
     fn parse(
         qemu: Qemu,
         arch_regs_map: &'static EnumMap<ExitArgs, Regs>,
-    ) -> Result<Self::OutputCommand, CommandError> {
+    ) -> Result<Self::OutputCommand> {
         let major = qemu.read_reg(arch_regs_map[ExitArgs::Arg1])?.into();
         let minor = qemu.read_reg(arch_regs_map[ExitArgs::Arg2])?.into();
 
@@ -179,7 +184,7 @@ impl NativeCommandParser for VaddrFilterAllowRangeCommandParser {
     fn parse(
         qemu: Qemu,
         arch_regs_map: &'static EnumMap<ExitArgs, Regs>,
-    ) -> Result<Self::OutputCommand, CommandError> {
+    ) -> Result<Self::OutputCommand> {
         let vaddr_start: GuestAddr = qemu.read_reg(arch_regs_map[ExitArgs::Arg1])? as GuestAddr;
         let vaddr_end: GuestAddr = qemu.read_reg(arch_regs_map[ExitArgs::Arg2])? as GuestAddr;
 
@@ -196,7 +201,7 @@ impl NativeCommandParser for LqprintfCommandParser {
     fn parse(
         qemu: Qemu,
         arch_regs_map: &'static EnumMap<ExitArgs, Regs>,
-    ) -> Result<Self::OutputCommand, CommandError> {
+    ) -> Result<Self::OutputCommand> {
         let buf_addr: GuestAddr = qemu.read_reg(arch_regs_map[ExitArgs::Arg1])? as GuestAddr;
         let str_size: usize = qemu
             .read_reg(arch_regs_map[ExitArgs::Arg2])?
@@ -226,7 +231,7 @@ impl NativeCommandParser for TestCommandParser {
     fn parse(
         qemu: Qemu,
         arch_regs_map: &'static EnumMap<ExitArgs, Regs>,
-    ) -> Result<Self::OutputCommand, CommandError> {
+    ) -> Result<Self::OutputCommand> {
         let received_value: GuestReg = qemu.read_reg(arch_regs_map[ExitArgs::Arg1])?;
 
         Ok(TestCommand::new(
@@ -247,7 +252,7 @@ impl NativeCommandParser for SetMapCommandParser {
     fn parse(
         qemu: Qemu,
         arch_regs_map: &'static EnumMap<ExitArgs, Regs>,
-    ) -> Result<Self::OutputCommand, CommandError> {
+    ) -> Result<Self::OutputCommand> {
         let map_addr: GuestAddr = qemu.read_reg(arch_regs_map[ExitArgs::Arg1])? as GuestAddr;
         let map: libvharness_sys::lqemu_map = unsafe { qemu.read_mem_val(map_addr)? };
 
@@ -256,7 +261,7 @@ impl NativeCommandParser for SetMapCommandParser {
 
             libvharness_sys::lqemu_map_kind_LQEMU_MAP_CMP => MapKind::Cmp,
 
-            _ => return Err(CommandError::InvalidParameters),
+            _ => return Err(CommandError::InvalidParameters.into()),
         };
 
         let map = match map.addr_kind {

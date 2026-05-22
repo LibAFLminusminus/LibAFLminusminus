@@ -3,14 +3,19 @@ use crate::command::Command;
 #[cfg(feature = "systemmode")]
 use crate::emu::MapKind;
 use crate::emu::snapshots::StdSnapshotManager;
-use crate::emu::{InputWriter, NopInputWriter, SnapshotId, SnapshotManager, StdInputSetter};
+use crate::emu::{
+    EmulatorError, InputWriter, NopInputWriter, SnapshotId, SnapshotManager, StdInputWriter,
+};
+use crate::modules::{HasAddressFilterTuple, HasStdFiltersTuple};
+#[cfg(feature = "systemmode")]
+use crate::qemu::PhysMemoryChunk;
+use crate::{Error, Result};
 use crate::{
     breakpoint::{Breakpoint, BreakpointId},
     command::{CommandManager, NopCommandManager, StdCommandManager},
     emu::{
-        Emulator, EmulatorDriver, EmulatorDriverError, EmulatorDriverResult, EmulatorExitError,
-        EmulatorExitResult, EmulatorHooks, EmulatorModules, NopEmulatorDriver, NopSnapshotManager,
-        StdEmulatorDriver,
+        Emulator, EmulatorDriverResult, EmulatorExitError, EmulatorExitResult, EmulatorHooks,
+        EmulatorModules, NopSnapshotManager,
     },
     modules::EmulatorModuleTuple,
     qemu::{
@@ -19,9 +24,7 @@ use crate::{
     },
     sync_exit::CustomInsn,
 };
-use libaflmm::{
-    Result, executors::ExitKind, inputs::Input, observers::ObserversTuple, states::State,
-};
+use libaflmm::{executors::ExitKind, inputs::Input, observers::ObserversTuple, states::State};
 use libaflmm_qemu_sys::GuestAddr;
 use std::cell::OnceCell;
 use std::{cell::RefCell, collections::HashMap, fmt::Debug, marker::PhantomData, pin::Pin, result};
@@ -48,14 +51,14 @@ pub use builder::StdEmulatorBuilder;
 /// Please check the documentation of [`StdEmulatorBuilder`] for more details.
 #[derive(Debug)]
 pub struct StdEmulator<C, CM, ET, I, IS, S, SM> {
-    pub(crate) snapshot_manager: SM,
-    pub(crate) modules: Pin<Box<EmulatorModules<ET, I, S>>>,
-    pub(crate) command_manager: CM,
+    snapshot_manager: SM,
+    modules: Pin<Box<EmulatorModules<ET, I, S>>>,
+    command_manager: CM,
     input_setter: IS,
     breakpoints_by_addr: RefCell<HashMap<GuestAddr, Breakpoint<C>>>, // TODO: change to RC here
     breakpoints_by_id: RefCell<HashMap<BreakpointId, Breakpoint<C>>>,
-    pub(crate) qemu: Qemu,
-    pub(crate) started: bool,
+    qemu: Qemu,
+    started: bool,
     snapshot_id: OnceCell<SnapshotId>,
     hooks_locked: bool,
     #[cfg(feature = "systemmode")]
@@ -72,8 +75,8 @@ pub struct StdEmulator<C, CM, ET, I, IS, S, SM> {
 impl<C, CM, ET, I, IW, S, SM> Emulator for StdEmulator<C, CM, ET, I, IW, S, SM>
 where
     C: Command,
-    CM: CommandManager<Commands = C> + crate::command::IsStdCommandManager,
-    ET: EmulatorModuleTuple<I, S> + crate::modules::HasAddressFilterTuple + Unpin,
+    CM: CommandManager<Commands = C>,
+    ET: EmulatorModuleTuple<I, S> + HasStdFiltersTuple + Unpin,
     I: Input + Unpin,
     IW: InputWriter<I, S>,
     S: State + Unpin,
@@ -97,15 +100,11 @@ where
         let qemu = self.qemu();
         self.modules_mut().pre_exec_all(qemu, state, input)?;
 
-        // set the input in the target, according the input setter
-        // this should be run iif the emulator is "started".
-        self.input_setter.write_input(qemu, state, input).unwrap();
-
         Ok(())
     }
 
-    fn exec_input(&mut self, input: &Self::Input) -> Result<ExitKind> {
-        match unsafe { self.run(input)? } {
+    fn exec_input(&mut self, state: &mut Self::State, input: &Self::Input) -> Result<ExitKind> {
+        match unsafe { self.run(state, input)? } {
             EmulatorDriverResult::EndOfRun(exit_kind) => Ok(exit_kind),
             EmulatorDriverResult::ReturnToClient(EmulatorExitResult::QemuExit(qemu_exit)) => {
                 match qemu_exit {
@@ -217,6 +216,16 @@ where
     fn modules_mut(&mut self) -> &mut EmulatorModules<ET, I, S> {
         &mut self.modules
     }
+
+    fn snapshot_id(&self) -> Option<SnapshotId> {
+        self.snapshot_id.get().map(|sid| *sid)
+    }
+
+    fn set_snapshot_id(&mut self, snapshot_id: SnapshotId) -> Result<()> {
+        self.snapshot_id
+            .set(snapshot_id)
+            .map_err(|_| Error::Emulator(EmulatorError::MultipleSnapshotDefinition))
+    }
 }
 
 impl<C, I, S> StdEmulator<C, NopCommandManager, (), I, NopInputWriter, S, NopSnapshotManager> {
@@ -235,7 +244,7 @@ impl<C, I, S> StdEmulator<C, NopCommandManager, (), I, NopInputWriter, S, NopSna
     }
 }
 
-impl<C, I, S> StdEmulator<C, StdCommandManager, (), I, StdInputSetter, S, StdSnapshotManager>
+impl<C, I, S> StdEmulator<C, StdCommandManager, (), I, StdInputWriter, S, StdSnapshotManager>
 where
     S: State + Unpin,
     I: Input,
@@ -244,10 +253,10 @@ where
     pub fn builder() -> StdEmulatorBuilder<
         C,
         StdCommandManager,
-        StdEmulatorDriver<I, S>,
         (),
         QemuConfigBuilder,
         I,
+        StdInputWriter,
         S,
         StdSnapshotManager,
     > {
@@ -255,7 +264,7 @@ where
     }
 }
 
-impl<C, CM, ED, ET, I, S, SM> StdEmulator<C, CM, ED, ET, I, S, SM> {
+impl<C, CM, ET, I, IS, S, SM> StdEmulator<C, CM, ET, I, IS, S, SM> {
     pub fn modules(&self) -> &EmulatorModules<ET, I, S> {
         &self.modules
     }
@@ -295,7 +304,7 @@ where
     }
 }
 
-impl<C, CM, ET, I, IS, S, SM> StdEmulator<C, CM, ET, I, IS, S, SM>
+impl<C, CM, ET, I, IW, S, SM> StdEmulator<C, CM, ET, I, IW, S, SM>
 where
     ET: EmulatorModuleTuple<I, S>,
     I: Unpin,
@@ -305,7 +314,7 @@ where
     pub fn new<T>(
         qemu_params: T,
         modules: ET,
-        input_setter: IS,
+        input_writer: IW,
         snapshot_manager: SM,
         command_manager: CM,
     ) -> result::Result<Self, QemuInitError>
@@ -344,7 +353,7 @@ where
             Ok(Self::new_with_qemu(
                 qemu,
                 emulator_modules,
-                input_setter,
+                input_writer,
                 snapshot_manager,
                 command_manager,
             ))
@@ -360,7 +369,7 @@ where
     unsafe fn new_with_qemu(
         qemu: Qemu,
         emulator_modules: Pin<Box<EmulatorModules<ET, I, S>>>,
-        input_setter: IS,
+        input_writer: IW,
         snapshot_manager: SM,
         command_manager: CM,
     ) -> Self {
@@ -368,7 +377,9 @@ where
             modules: emulator_modules,
             command_manager,
             snapshot_manager,
-            input_setter,
+            input_setter: input_writer,
+            hooks_locked: true,
+            print_commands: true,
             breakpoints_by_addr: RefCell::new(HashMap::new()),
             breakpoints_by_id: RefCell::new(HashMap::new()),
             qemu,
@@ -377,6 +388,10 @@ where
             phantom: PhantomData,
             #[cfg(feature = "systemmode")]
             maps: HashMap::new(),
+            #[cfg(feature = "systemmode")]
+            allow_page_on_start: false,
+            #[cfg(feature = "x86_64")]
+            process_only: false,
         };
 
         emulator.modules.post_qemu_init_all(qemu);
@@ -385,20 +400,20 @@ where
     }
 }
 
-impl<C, CM, ED, ET, I, S, SM> StdEmulator<C, CM, ED, ET, I, S, SM>
+impl<C, CM, ET, I, IW, S, SM> StdEmulator<C, CM, ET, I, IW, S, SM>
 where
     C: Command,
-    CM: CommandManager<Commands = C> + crate::command::IsStdCommandManager,
-    ED: EmulatorDriver<Input = I, State = S>,
-    ET: EmulatorModuleTuple<I, S> + crate::modules::HasAddressFilterTuple + Unpin,
+    CM: CommandManager<Commands = C>,
+    ET: EmulatorModuleTuple<I, S> + HasAddressFilterTuple + Unpin,
     I: Input + Unpin,
+    IW: InputWriter<I, S>,
     S: State + Unpin,
     SM: SnapshotManager,
 {
     fn post_qemu_exec(
         &mut self,
         exit_reason: &mut result::Result<EmulatorExitResult<C>, EmulatorExitError>,
-    ) -> result::Result<Option<EmulatorDriverResult<C>>, EmulatorDriverError> {
+    ) -> Result<Option<EmulatorDriverResult<C>>> {
         let qemu = self.qemu();
 
         // Check if QEMU exited because of an error or to handle some request
@@ -407,8 +422,8 @@ where
             Err(exit_error) => match exit_error {
                 EmulatorExitError::UnexpectedExit => {
                     if self.started {
-                        if let Some(snapshot_id) = self.driver_mut().snapshot_id() {
-                            self.snapshot_manager_mut().restore(qemu, &snapshot_id)?;
+                        if let Some(snapshot_id) = self.snapshot_id.get() {
+                            self.snapshot_manager.restore(qemu, &snapshot_id)?;
                         }
 
                         return Ok(Some(EmulatorDriverResult::EndOfRun(ExitKind::Crash)));
@@ -424,7 +439,7 @@ where
         let (command, ret_reg): (Option<C>, Option<Regs>) = match &mut exit_reason {
             EmulatorExitResult::QemuExit(shutdown_cause) => match shutdown_cause {
                 QemuShutdownCause::HostSignal(signal) => {
-                    return Err(EmulatorDriverError::UnhandledSignal(*signal));
+                    return Err(EmulatorError::UnhandledSignal(*signal).into());
                 }
                 QemuShutdownCause::GuestPanic => {
                     return Ok(Some(EmulatorDriverResult::EndOfRun(ExitKind::Crash)));
@@ -475,10 +490,16 @@ where
     /// # Safety
     /// Should, in general, be safe to call.
     /// Of course, the emulated target is not contained securely and can corrupt state or interact with the operating system.
-    pub unsafe fn run(
-        &mut self,
-        input: &I,
-    ) -> result::Result<EmulatorDriverResult<C>, EmulatorDriverError> {
+    pub unsafe fn run(&mut self, state: &mut S, input: &I) -> Result<EmulatorDriverResult<C>> {
+        if !self.started {
+            return Err(EmulatorError::NotStartedYet.into());
+        }
+
+        // write the input
+        self.input_setter
+            .write_input(self.qemu, state, input)
+            .unwrap();
+
         loop {
             // Run QEMU
             log::debug!("Running QEMU...");
@@ -498,7 +519,7 @@ where
     ///
     /// This will make QEMU start. The calling thread will be running QEMU until an event stops it.
     /// This is (at least) as unsafe as running QEMU.
-    pub unsafe fn start(&mut self) -> result::Result<(), EmulatorDriverError> {
+    pub unsafe fn start(&mut self) -> result::Result<(), EmulatorError> {
         loop {
             let mut exit_result = unsafe { self.run_qemu() };
 
@@ -526,7 +547,7 @@ where
                     }
                     EmulatorDriverResult::ShutdownRequest => {}
                     EmulatorDriverResult::EndOfRun(_exit_kind) => {
-                        return Err(EmulatorDriverError::EndBeforeStart);
+                        return Err(EmulatorError::EndBeforeStart);
                     }
                 }
             }

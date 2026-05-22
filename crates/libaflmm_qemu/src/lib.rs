@@ -21,9 +21,10 @@
 // same
 #![allow(clippy::std_instead_of_alloc)]
 
+use crate::{command::CommandError, emu::EmulatorError, qemu::QemuError};
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
-use std::env;
+use std::{env, io, result};
 #[cfg(feature = "python")]
 use strum::IntoEnumIterator;
 
@@ -44,7 +45,49 @@ pub use libaflmm_qemu_sys::GuestAbiUlong;
 pub use libaflmm_qemu_sys::{CPUArchState, GuestPhysAddr, GuestVirtAddr};
 pub use libaflmm_qemu_sys::{GuestAddr, GuestUlong, GuestUsize, MmapPerms};
 
+pub type Result<T> = result::Result<T, Error>;
+
+#[derive(Debug)]
+pub enum Error {
+    Emulator(EmulatorError),
+    Qemu(QemuError),
+    Libaflmm(libaflmm::Error),
+    Command(CommandError),
+}
+
+impl From<libaflmm::Error> for Error {
+    fn from(error: libaflmm::Error) -> Self {
+        Error::Libaflmm(error)
+    }
+}
+
+impl From<QemuError> for Error {
+    fn from(error: QemuError) -> Self {
+        Error::Qemu(error)
+    }
+}
+
+impl From<EmulatorError> for Error {
+    fn from(error: EmulatorError) -> Self {
+        Error::Emulator(error)
+    }
+}
+
+impl From<CommandError> for Error {
+    fn from(error: CommandError) -> Self {
+        Error::Command(error)
+    }
+}
+
+impl From<io::Error> for Error {
+    fn from(error: io::Error) -> Self {
+        Error::Libaflmm(error.into())
+    }
+}
+
 pub mod prelude {
+    pub use libaflmm::prelude::*;
+
     #[cfg(feature = "usermode")]
     pub use crate::GuestAbiUlong;
 
@@ -58,8 +101,8 @@ pub mod prelude {
     pub use crate::arch::{GuestReg, Regs, capstone, get_exit_arch_regs};
 
     pub use crate::command::{
-        Command, CommandError, CommandManager, IsStdCommandManager, NativeCommandParser,
-        NopCommand, NopCommandManager, StdCommandManager,
+        Command, CommandError, CommandManager, NativeCommandParser, NopCommand, NopCommandManager,
+        StdCommandManager,
     };
 
     #[cfg(feature = "nyx")]
@@ -74,12 +117,11 @@ pub mod prelude {
     pub use crate::command::SetMapCommand;
 
     pub use crate::emu::{
-        Emulator, EmulatorDriver, EmulatorDriverError, EmulatorDriverResult, EmulatorExitError,
-        EmulatorExitResult, EmulatorHooks, EmulatorModules, GenericEmulatorDriver, GuestAddrKind,
-        InputLocation, InputWriter, MapKind, NopEmulatorDriver, NopInputWriter, NopSnapshotManager,
-        QemuSnapshotCheckResult, SnapshotId, SnapshotManager, SnapshotManagerCheckError,
-        SnapshotManagerError, StdEmulator, StdEmulatorBuilder, StdEmulatorDriver,
-        StdEmulatorDriverBuilder, StdInputSetter,
+        Emulator, EmulatorDriverError, EmulatorDriverResult, EmulatorExitError, EmulatorExitResult,
+        EmulatorHooks, EmulatorModules, GuestAddrKind, InputLocation, InputWriter, MapKind,
+        NopInputWriter, NopSnapshotManager, QemuSnapshotCheckResult, SnapshotId, SnapshotManager,
+        SnapshotManagerCheckError, SnapshotManagerError, StdEmulator, StdEmulatorBuilder,
+        StdInputWriter,
     };
 
     #[cfg(feature = "systemmode")]

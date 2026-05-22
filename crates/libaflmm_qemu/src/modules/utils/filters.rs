@@ -143,10 +143,7 @@ where
     }
 
     fn allowed_address_all(&self, address: &GuestAddr) -> bool {
-        let head_ok = self
-            .0
-            .as_ref()
-            .is_none_or(|h| h.allowed_address(address));
+        let head_ok = self.0.as_ref().is_none_or(|h| h.allowed_address(address));
         head_ok && self.1.allowed_address_all(address)
     }
 }

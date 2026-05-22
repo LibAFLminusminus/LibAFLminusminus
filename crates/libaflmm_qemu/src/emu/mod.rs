@@ -7,17 +7,17 @@ use crate::qemu::DeviceSnapshotFilter;
 #[cfg(feature = "usermode")]
 use crate::qemu::{GuestMaps, ImageInfo, TargetSignalHandling};
 use crate::{
+    Result,
     arch::GuestReg,
     breakpoint::{Breakpoint, BreakpointId},
-    command::{Command, CommandError, CommandManager, IsStdCommandManager},
-    modules::{EmulatorModuleTuple, HasAddressFilterTuple},
-    qemu::{ArchExtras, CPU, CallingConvention, Qemu, QemuRWError, QemuShutdownCause},
+    command::{Command, CommandError, CommandManager},
+    modules::{EmulatorModuleTuple, HasStdFiltersTuple},
+    qemu::{ArchExtras, CPU, CallingConvention, Qemu, QemuError, QemuRWError, QemuShutdownCause},
     sync_exit::CustomInsn,
 };
 use core::fmt::{self, Debug, Display, Formatter};
-use libaflmm::{
-    Result, executors::ExitKind, inputs::Input, observers::ObserversTuple, states::State,
-};
+use libaflmm::{executors::ExitKind, inputs::Input, observers::ObserversTuple, states::State};
+use libaflmm_bolts::os::unix_signals::Signal;
 use libaflmm_qemu_sys::{GuestAddr, GuestPhysAddr, GuestVirtAddr};
 #[cfg(feature = "usermode")]
 use libaflmm_qemu_sys::{MmapPerms, VerifyAccess};
@@ -31,8 +31,7 @@ pub use hooks::{EmulatorHooks, EmulatorModules};
 
 pub mod input_writer;
 pub use input_writer::{
-    EmulatorDriverError, EmulatorDriverResult, InputWriter, LqemuInputWriter, MapKind,
-    NopInputWriter, StdInputSetter,
+    EmulatorDriverResult, InputWriter, LqemuInputWriter, MapKind, NopInputWriter, StdInputWriter,
 };
 
 pub mod snapshots;
@@ -111,21 +110,36 @@ macro_rules! forward {
     };
 }
 
+#[derive(Debug, Clone)]
+pub enum EmulatorError {
+    QemuError(QemuError),
+    QemuExitReasonError(EmulatorExitError),
+    SMError(SnapshotManagerError),
+    SMCheckError(SnapshotManagerCheckError),
+    CommandError(CommandError),
+    UnhandledSignal(Signal),
+    MultipleSnapshotDefinition,
+    MultipleInputLocationDefinition,
+    SnapshotNotFound,
+    NotStartedYet,
+    EndBeforeStart,
+}
+
 pub trait Emulator {
     type Input: Input + Unpin;
     type State: State + Unpin;
 
     type Command: Command;
-    type CommandManager: CommandManager<Commands = Self::Command> + IsStdCommandManager;
+    type CommandManager: CommandManager<Commands = Self::Command>;
     type InputWriter: InputWriter<Self::Input, Self::State>;
-    type Modules: EmulatorModuleTuple<Self::Input, Self::State> + HasAddressFilterTuple + Unpin;
+    type Modules: EmulatorModuleTuple<Self::Input, Self::State> + HasStdFiltersTuple + Unpin;
     type SnapshotManager: SnapshotManager;
 
     fn first_exec(&mut self, state: &mut Self::State) -> Result<()>;
 
     fn pre_exec(&mut self, state: &mut Self::State, input: &Self::Input) -> Result<()>;
 
-    fn exec_input(&mut self, input: &Self::Input) -> Result<ExitKind>;
+    fn exec_input(&mut self, state: &mut Self::State, input: &Self::Input) -> Result<ExitKind>;
 
     fn post_exec<OT>(
         &mut self,
@@ -146,6 +160,10 @@ pub trait Emulator {
     fn add_breakpoint(&self, bp: Breakpoint<Self::Command>, enable: bool) -> BreakpointId;
 
     fn remove_breakpoint(&self, bp_id: BreakpointId);
+
+    fn snapshot_id(&self) -> Option<SnapshotId>;
+
+    fn set_snapshot_id(&mut self, snapshot_id: SnapshotId) -> Result<()>;
 
     fn snapshot_manager_mut(&mut self) -> &mut Self::SnapshotManager;
 

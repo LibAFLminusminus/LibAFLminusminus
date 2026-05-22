@@ -1,16 +1,12 @@
 //! Emulator Drivers, as the name suggests, drive QEMU execution
 //! They are used to perform specific actions on the emulator before and / or after QEMU runs.
 
-use crate::emu::InputLocation;
-#[cfg(feature = "systemmode")]
 use crate::{
-    command::CommandError,
-    emu::{EmulatorExitError, EmulatorExitResult, SnapshotManagerCheckError, SnapshotManagerError},
-    qemu::{Qemu, QemuError},
+    Result,
+    emu::{EmulatorExitResult, InputLocation},
+    qemu::Qemu,
 };
 use libaflmm::executors::ExitKind;
-use libaflmm_bolts::os::unix_signals::Signal;
-use libaflmm_core::runtime;
 use std::{fmt::Debug, result};
 
 #[cfg(not(feature = "nyx"))]
@@ -24,7 +20,7 @@ pub mod nyx;
 pub use nyx::StdNyxInputSetter;
 
 #[cfg(not(feature = "nyx"))]
-pub type StdInputSetter = LqemuInputWriter;
+pub type StdInputWriter = LqemuInputWriter;
 #[cfg(feature = "nyx")]
 pub type StdInputSetter = StdNyxInputSetter;
 
@@ -40,47 +36,12 @@ pub enum EmulatorDriverResult<C> {
     ShutdownRequest,
 }
 
-#[derive(Debug, Clone)]
-pub enum EmulatorDriverError {
-    QemuError(QemuError),
-    QemuExitReasonError(EmulatorExitError),
-    SMError(SnapshotManagerError),
-    SMCheckError(SnapshotManagerCheckError),
-    CommandError(CommandError),
-    UnhandledSignal(Signal),
-    MultipleSnapshotDefinition,
-    MultipleInputLocationDefinition,
-    SnapshotNotFound,
-    NotStartedYet,
-    EndBeforeStart,
-}
-
-impl From<EmulatorDriverError> for libaflmm::Error {
-    fn from(value: EmulatorDriverError) -> Self {
-        runtime!("Emulator driver error: {value:?}")
-    }
-}
-
-impl From<QemuError> for EmulatorDriverError {
-    fn from(error: QemuError) -> Self {
-        EmulatorDriverError::QemuError(error)
-    }
-}
-
 pub trait InputWriter<I, S> {
     /// Set input in the Emulator.
-    fn write_input(
-        &mut self,
-        qemu: Qemu,
-        state: &mut S,
-        input: &I,
-    ) -> result::Result<(), EmulatorDriverError>;
+    fn write_input(&mut self, qemu: Qemu, state: &mut S, input: &I) -> Result<()>;
 
     /// Set location at which input should be set.
-    fn set_input_location(
-        &mut self,
-        location: InputLocation,
-    ) -> result::Result<(), EmulatorDriverError>;
+    fn set_input_location(&mut self, location: InputLocation) -> Result<()>;
 
     /// Get the input location, if it is set.
     fn input_location(&self) -> Option<&InputLocation>;
@@ -90,19 +51,11 @@ pub trait InputWriter<I, S> {
 pub struct NopInputWriter;
 
 impl<I, S> InputWriter<I, S> for NopInputWriter {
-    fn write_input(
-        &mut self,
-        _qemu: Qemu,
-        _state: &mut S,
-        _input: &I,
-    ) -> result::Result<(), EmulatorDriverError> {
+    fn write_input(&mut self, _qemu: Qemu, _state: &mut S, _input: &I) -> Result<()> {
         Ok(())
     }
 
-    fn set_input_location(
-        &mut self,
-        _location: InputLocation,
-    ) -> result::Result<(), EmulatorDriverError> {
+    fn set_input_location(&mut self, _location: InputLocation) -> Result<()> {
         Ok(())
     }
 

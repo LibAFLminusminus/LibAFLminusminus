@@ -1,24 +1,21 @@
 #![allow(clippy::cast_possible_wrap)]
 #![allow(clippy::unnecessary_cast)]
 
-use std::{env, fmt::Debug, fs, ops::Range, path::PathBuf};
-
-use libaflmm::Result;
-use libaflmm_qemu_sys::{GuestAddr, MapInfo};
-
 use super::IntervalSnapshotFilter;
 #[cfg(not(feature = "clippy"))]
 use crate::sys::libafl_tcg_gen_asan;
 use crate::{
+    Result,
     emu::EmulatorModules,
     modules::{
         AddressFilter, EmulatorModule, EmulatorModuleTuple, IntervalSnapshotFilters,
         utils::filters::{HasAddressFilter, StdAddressFilter},
     },
-    qemu::QemuParams,
-    qemu::{Hook, MemAccessInfo, Qemu},
+    qemu::{Hook, MemAccessInfo, Qemu, QemuParams},
     sys::TCGTemp,
 };
+use libaflmm_qemu_sys::{GuestAddr, MapInfo};
+use std::{env, fmt::Debug, fs, ops::Range, path::PathBuf};
 
 #[derive(Debug)]
 pub struct AsanGuestModule<F> {

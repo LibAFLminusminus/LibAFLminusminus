@@ -7,6 +7,7 @@ use libaflmm::{
     controllers::Worker,
     executors::{Executor, ExitKind, HasShadowObservers},
     observers::ObserversTuple,
+    runtime,
     runtimes::{
         OsTerminationParams, RuntimeHandle,
         inprocess::{CrashStatus, TimeoutStatus},
@@ -108,7 +109,9 @@ where
         state: &mut S,
         _rt_handle: &mut RuntimeHandle<S, W>,
     ) -> Result<()> {
-        self.emulator.first_exec(state)
+        self.emulator
+            .first_exec(state)
+            .map_err(|e| runtime!("LibAFLmm QEMU init error: {e:?}"))
     }
 
     unsafe fn execute_impl(&mut self, state: &mut S, input: &I) -> Result<ExitKind> {
@@ -116,7 +119,7 @@ where
 
         self.emulator.pre_exec(state, input)?;
 
-        let mut exit_kind = self.emulator.exec_input(input)?;
+        let mut exit_kind = self.emulator.exec_input(state, input)?;
 
         (self.post_exec)(state, input, &mut self.emulator, &mut exit_kind)?;
 

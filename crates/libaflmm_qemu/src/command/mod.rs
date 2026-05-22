@@ -1,6 +1,7 @@
 use crate::{
+    Result,
     arch::{GuestReg, Regs},
-    emu::{Emulator, EmulatorDriverError, EmulatorDriverResult},
+    emu::{Emulator, EmulatorDriverResult},
     qemu::{Qemu, QemuRWError},
     sync_exit::ExitArgs,
 };
@@ -63,30 +64,19 @@ macro_rules! define_std_command_manager_inner {
                 };
                 use enum_map::EnumMap;
                 use $crate::{
-                    command::{IsStdCommandManager, CommandManager, CommandError, NativeCommandParser, Command},
+                    command::{CommandManager, CommandError, NativeCommandParser, Command},
                     arch::get_exit_arch_regs,
                     sync_exit::ExitArgs,
                     emu::{EmulatorDriverError, EmulatorDriverResult},
                     qemu::Qemu,
                     arch::Regs,
+                    Result,
 
                 };
                 use std::ffi::c_uint;
 
                 pub struct $name {
                     has_started: bool,
-                }
-
-                impl IsStdCommandManager for $name {
-                    fn start(&mut self) -> bool {
-                        let tmp = self.has_started;
-                        self.has_started = true;
-                        tmp
-                    }
-
-                    fn has_started(&self) -> bool {
-                        self.has_started
-                    }
                 }
 
                 impl Clone for $name {
@@ -114,15 +104,25 @@ macro_rules! define_std_command_manager_inner {
                 impl CommandManager for $name {
                     type Commands = [<$name Commands>];
 
+                    fn start(&mut self) -> bool {
+                        let tmp = self.has_started;
+                        self.has_started = true;
+                        tmp
+                    }
+
+                    fn has_started(&self) -> bool {
+                        self.has_started
+                    }
+
                     #[deny(unreachable_patterns)]
-                    fn parse(&self, qemu: Qemu) -> Result<Self::Commands, CommandError> {
+                    fn parse(&self, qemu: Qemu) -> Result<Self::Commands> {
                         let arch_regs_map: &'static EnumMap<ExitArgs, Regs> = get_exit_arch_regs();
                         let cmd_id = qemu.read_reg(arch_regs_map[ExitArgs::Cmd])? as c_uint;
 
                         match cmd_id {
                             // <StartPhysCommandParser as NativeCommandParser<S>>::COMMAND_ID => Ok(StdCommandManagerCommands::StartPhysCommandParserCmd(<StartPhysCommandParser as NativeCommandParser<S>>::parse(qemu, arch_regs_map)?)),
                             $(<$native_command_parser as NativeCommandParser>::COMMAND_ID => Ok(<$native_command_parser as NativeCommandParser>::parse(qemu, arch_regs_map)?.into())),+,
-                            _ => Err(CommandError::UnknownCommand(cmd_id.into())),
+                            _ => Err(CommandError::UnknownCommand(cmd_id.into()).into()),
                         }
                     }
                 }
@@ -145,7 +145,7 @@ macro_rules! define_std_command_manager_inner {
                     fn run<EMU>(&self,
                         emu: &mut EMU,
                         ret_reg: Option<Regs>
-                    ) -> Result<Option<EmulatorDriverResult<EMU::Command>>, EmulatorDriverError>
+                    ) -> Result<Option<EmulatorDriverResult<EMU::Command>>>
                     where
                         EMU: Emulator
                     {
@@ -175,22 +175,20 @@ pub trait NativeCommandParser {
     fn parse(
         qemu: Qemu,
         arch_regs_map: &'static EnumMap<ExitArgs, Regs>,
-    ) -> Result<Self::OutputCommand, CommandError>;
+    ) -> Result<Self::OutputCommand>;
 }
 
-pub trait IsStdCommandManager {
+pub trait CommandManager: Sized + Debug {
+    type Commands: Command;
+
     /// Returns whether the command manager has been started already.
     fn has_started(&self) -> bool;
 
     /// Mark the command manager as started.
     /// it should return if it has been started before or not.
     fn start(&mut self) -> bool;
-}
 
-pub trait CommandManager: Sized + Debug {
-    type Commands: Command;
-
-    fn parse(&self, qemu: Qemu) -> Result<Self::Commands, CommandError>;
+    fn parse(&self, qemu: Qemu) -> Result<Self::Commands>;
 }
 
 pub trait Command: Clone + Debug {
@@ -207,7 +205,7 @@ pub trait Command: Clone + Debug {
         &self,
         emu: &mut EMU,
         ret_reg: Option<Regs>,
-    ) -> Result<Option<EmulatorDriverResult<<EMU as Emulator>::Command>>, EmulatorDriverError>;
+    ) -> Result<Option<EmulatorDriverResult<<EMU as Emulator>::Command>>>;
 }
 
 #[derive(Debug, Clone)]
@@ -227,18 +225,16 @@ pub struct NopCommandManager;
 impl CommandManager for NopCommandManager {
     type Commands = NopCommand;
 
-    fn parse(&self, _qemu: Qemu) -> Result<Self::Commands, CommandError> {
-        Ok(NopCommand)
-    }
-}
-
-impl IsStdCommandManager for NopCommandManager {
     fn has_started(&self) -> bool {
         false
     }
 
     fn start(&mut self) -> bool {
         false
+    }
+
+    fn parse(&self, _qemu: Qemu) -> Result<Self::Commands> {
+        Ok(NopCommand)
     }
 }
 
@@ -266,7 +262,7 @@ impl Command for NopCommand {
         &self,
         _emu: &mut EMU,
         _ret_reg: Option<Regs>,
-    ) -> Result<Option<EmulatorDriverResult<<EMU as Emulator>::Command>>, EmulatorDriverError> {
+    ) -> Result<Option<EmulatorDriverResult<<EMU as Emulator>::Command>>> {
         Ok(None)
     }
 }

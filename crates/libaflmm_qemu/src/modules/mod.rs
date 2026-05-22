@@ -1,6 +1,10 @@
-use crate::{emu::EmulatorModules, qemu::Qemu, qemu::QemuParams};
+use crate::{
+    Result,
+    emu::EmulatorModules,
+    qemu::{Qemu, QemuParams},
+};
 use core::fmt::Debug;
-use libaflmm::{Result, executors::ExitKind, observers::ObserversTuple};
+use libaflmm::{executors::ExitKind, observers::ObserversTuple};
 use libaflmm_bolts::tuples::{MatchFirstType, SplitBorrowExtractFirstType};
 
 #[cfg(feature = "usermode")]

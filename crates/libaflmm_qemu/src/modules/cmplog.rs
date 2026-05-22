@@ -3,18 +3,18 @@ use crate::arch::capstone;
 #[cfg(feature = "systemmode")]
 use crate::modules::utils::filters::{HasPageFilter, NOP_PAGE_FILTER};
 use crate::{
+    Result,
     emu::EmulatorModules,
     modules::{
         AddressFilter, EmulatorModule, EmulatorModuleTuple,
         utils::filters::{HasAddressFilter, NopPageFilter, StdAddressFilter},
     },
-    qemu::Hook,
-    qemu::Qemu,
+    qemu::{Hook, Qemu},
 };
 #[cfg(feature = "usermode")]
 use capstone::{Capstone, InsnDetail, arch::BuildsCapstone};
 use hashbrown::HashMap;
-use libaflmm::{Result, states::State};
+use libaflmm::states::State;
 use libaflmm_bolts::hash_64_fast;
 use libaflmm_qemu_sys::GuestAddr;
 #[cfg(feature = "usermode")]

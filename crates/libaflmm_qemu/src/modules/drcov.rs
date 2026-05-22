@@ -1,5 +1,4 @@
 use hashbrown::{HashMap, hash_map::Entry};
-use libaflmm::Result;
 use libaflmm::{executors::ExitKind, observers::ObserversTuple, states::State};
 use libaflmm_bolts::drcov::{DrCovBasicBlock, DrCovWriter};
 use libaflmm_qemu_sys::{GuestAddr, GuestUsize};
@@ -16,6 +15,7 @@ use std::{
 };
 
 use super::utils::filters::HasAddressFilter;
+use crate::Result;
 #[cfg(feature = "systemmode")]
 use crate::modules::utils::filters::{HasPageFilter, NOP_PAGE_FILTER, NopPageFilter};
 use crate::{

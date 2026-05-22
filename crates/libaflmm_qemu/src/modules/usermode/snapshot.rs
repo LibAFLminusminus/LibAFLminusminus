@@ -18,6 +18,7 @@ use crate::arch::syscalls::SYS_newfstatat;
 #[cfg(not(cpu_target = "riscv32"))]
 use crate::arch::syscalls::{SYS_fstat, SYS_fstatfs, SYS_futex, SYS_getrandom, SYS_statfs};
 use crate::{
+    Result,
     arch::syscalls::{
         SYS_brk, SYS_mprotect, SYS_mremap, SYS_munmap, SYS_pread64, SYS_read, SYS_readlinkat,
     },
@@ -26,11 +27,9 @@ use crate::{
         AsanHostModule, EmulatorModule, EmulatorModuleTuple,
         utils::filters::{HasAddressFilter, NOP_ADDRESS_FILTER, NopAddressFilter},
     },
-    qemu::Qemu,
-    qemu::{Hook, SyscallHookResult},
+    qemu::{Hook, Qemu, SyscallHookResult},
 };
 use hashbrown::{HashMap, HashSet};
-use libaflmm::Result;
 use libaflmm_qemu_sys::{GuestAddr, GuestUlong, MmapPerms};
 use meminterval::{Interval, IntervalTree};
 use std::{cell::UnsafeCell, mem::MaybeUninit, ops::Range, sync::Mutex};

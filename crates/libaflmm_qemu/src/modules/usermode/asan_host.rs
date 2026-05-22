@@ -3,8 +3,8 @@
 #![allow(clippy::unnecessary_cast)]
 
 use crate::{
-    arch::GuestReg,
-    arch::Regs,
+    Result,
+    arch::{GuestReg, Regs},
     emu::EmulatorModules,
     modules::{
         AddressFilter, EmulatorModule, EmulatorModuleTuple,
@@ -12,14 +12,12 @@ use crate::{
         snapshot::{SnapshotModule, get_snapshot_module_mut},
         utils::filters::{HasAddressFilter, StdAddressFilter},
     },
-    qemu::Qemu,
-    qemu::QemuParams,
-    qemu::{Hook, MemAccessInfo, QemuHooks, SyscallHookResult},
+    qemu::{Hook, MemAccessInfo, Qemu, QemuHooks, QemuParams, SyscallHookResult},
     sys::TCGTemp,
 };
 use core::{fmt, slice};
 use hashbrown::{HashMap, HashSet};
-use libaflmm::{Result, executors::ExitKind, observers::ObserversTuple};
+use libaflmm::{executors::ExitKind, observers::ObserversTuple};
 use libaflmm_bolts::os::unix_signals::Signal;
 use libaflmm_qemu_sys::{GuestAddr, GuestUlong, MapInfo};
 use libc::{

@@ -1,9 +1,10 @@
-use super::{Command, CommandError, IsStdCommandManager};
+use super::{Command, CommandError};
 use crate::{
+    Result,
     arch::{GuestReg, Regs},
     emu::{
-        Emulator, EmulatorDriver, EmulatorDriverError, EmulatorDriverResult, EmulatorExitResult,
-        InputLocation, InputWriter, SnapshotManager,
+        Emulator, EmulatorDriverResult, EmulatorError, EmulatorExitResult, InputLocation,
+        InputWriter, SnapshotManager,
     },
     modules::HasAddressFilterTuple,
 };
@@ -109,15 +110,14 @@ impl Command for SaveCommand {
         &self,
         emu: &mut EMU,
         _ret_reg: Option<Regs>,
-    ) -> Result<Option<EmulatorDriverResult<EMU::Command>>, EmulatorDriverError>
+    ) -> Result<Option<EmulatorDriverResult<EMU::Command>>>
     where
         EMU: Emulator,
     {
         let qemu = emu.qemu();
         let snapshot_id = emu.snapshot_manager_mut().save(qemu);
 
-        emu.set_snapshot_id(snapshot_id)
-            .map_err(|_| EmulatorDriverError::MultipleSnapshotDefinition)?;
+        emu.set_snapshot_id(snapshot_id)?;
 
         Ok(None)
     }
@@ -135,15 +135,13 @@ impl Command for LoadCommand {
         &self,
         emu: &mut EMU,
         _ret_reg: Option<Regs>,
-    ) -> Result<Option<EmulatorDriverResult<EMU::Command>>, EmulatorDriverError>
+    ) -> Result<Option<EmulatorDriverResult<EMU::Command>>>
     where
         EMU: Emulator,
     {
         let qemu = emu.qemu();
 
-        let snapshot_id = emu
-            .snapshot_id()
-            .ok_or(EmulatorDriverError::SnapshotNotFound)?;
+        let snapshot_id = emu.snapshot_id().ok_or(EmulatorError::SnapshotNotFound)?;
 
         emu.snapshot_manager_mut().restore(qemu, &snapshot_id)?;
 
@@ -168,7 +166,7 @@ impl Command for StartCommand {
         &self,
         emu: &mut EMU,
         _ret_reg: Option<Regs>,
-    ) -> Result<Option<EmulatorDriverResult<EMU::Command>>, EmulatorDriverError>
+    ) -> Result<Option<EmulatorDriverResult<EMU::Command>>>
     where
         EMU: Emulator,
     {
@@ -179,8 +177,7 @@ impl Command for StartCommand {
             let snapshot_id = emu.snapshot_manager_mut().save(qemu);
 
             // Set snapshot ID to restore to after fuzzing ends
-            emu.set_snapshot_id(snapshot_id)
-                .map_err(|_| EmulatorDriverError::MultipleSnapshotDefinition)?;
+            emu.set_snapshot_id(snapshot_id)?;
 
             // Save input location for next runs
             emu.input_setter_mut()
@@ -223,21 +220,17 @@ impl Command for EndCommand {
         &self,
         emu: &mut EMU,
         _ret_reg: Option<Regs>,
-    ) -> Result<Option<EmulatorDriverResult<EMU::Command>>, EmulatorDriverError>
+    ) -> Result<Option<EmulatorDriverResult<EMU::Command>>>
     where
         EMU: Emulator,
     {
         let qemu = emu.qemu();
 
         if !emu.command_manager_mut().has_started() {
-            return Err(EmulatorDriverError::CommandError(
-                CommandError::EndBeforeStart,
-            ));
+            return Err(CommandError::EndBeforeStart.into());
         }
 
-        let snapshot_id = emu
-            .snapshot_id()
-            .ok_or(EmulatorDriverError::SnapshotNotFound)?;
+        let snapshot_id = emu.snapshot_id().ok_or(EmulatorError::SnapshotNotFound)?;
 
         log::trace!(
             "Restore snapshot @ PC {:x?}",
@@ -267,7 +260,7 @@ impl Command for VersionCommand {
         &self,
         _emu: &mut EMU,
         _ret_reg: Option<Regs>,
-    ) -> Result<Option<EmulatorDriverResult<EMU::Command>>, EmulatorDriverError>
+    ) -> Result<Option<EmulatorDriverResult<EMU::Command>>>
     where
         EMU: Emulator,
     {
@@ -277,9 +270,7 @@ impl Command for VersionCommand {
         if VERSION_MAJOR == major && VERSION_MINOR == minor {
             Ok(None)
         } else {
-            Err(EmulatorDriverError::CommandError(
-                CommandError::VersionDifference(major, minor),
-            ))
+            Err(CommandError::VersionDifference(major, minor).into())
         }
     }
 }
@@ -300,7 +291,7 @@ impl Command for PageAllowCommand {
         &self,
         emu: &mut EMU,
         _ret_reg: Option<Regs>,
-    ) -> Result<Option<EmulatorDriverResult<EMU::Command>>, EmulatorDriverError>
+    ) -> Result<Option<EmulatorDriverResult<EMU::Command>>>
     where
         EMU: Emulator,
     {
@@ -324,7 +315,7 @@ impl Command for AddressAllowCommand {
         &self,
         emu: &mut EMU,
         _ret_reg: Option<Regs>,
-    ) -> Result<Option<EmulatorDriverResult<EMU::Command>>, EmulatorDriverError>
+    ) -> Result<Option<EmulatorDriverResult<EMU::Command>>>
     where
         EMU: Emulator,
     {
@@ -348,7 +339,7 @@ impl Command for LqprintfCommand {
         &self,
         _emu: &mut EMU,
         _ret_reg: Option<Regs>,
-    ) -> Result<Option<EmulatorDriverResult<EMU::Command>>, EmulatorDriverError>
+    ) -> Result<Option<EmulatorDriverResult<EMU::Command>>>
     where
         EMU: Emulator,
     {
@@ -371,13 +362,11 @@ impl Command for TestCommand {
         &self,
         _emu: &mut EMU,
         _ret_reg: Option<Regs>,
-    ) -> Result<Option<EmulatorDriverResult<EMU::Command>>, EmulatorDriverError> {
+    ) -> Result<Option<EmulatorDriverResult<EMU::Command>>> {
         if self.expected_value == self.received_value {
             Ok(None)
         } else {
-            Err(EmulatorDriverError::CommandError(
-                CommandError::TestDifference(self.received_value, self.expected_value),
-            ))
+            Err(CommandError::TestDifference(self.received_value, self.expected_value).into())
         }
     }
 }
@@ -399,7 +388,7 @@ impl Command for SetMapCommand {
         &self,
         emu: &mut EMU,
         _ret_reg: Option<Regs>,
-    ) -> Result<Option<EmulatorDriverResult<EMU::Command>>, EmulatorDriverError>
+    ) -> Result<Option<EmulatorDriverResult<EMU::Command>>>
     where
         EMU: Emulator,
     {

@@ -1,5 +1,6 @@
 #![allow(clippy::missing_transmute_annotations)]
 
+use crate::Result;
 use crate::qemu::{
     CpuPostRunHook, CpuPreRunHook, CpuRunHookId, HookState, MemAccessInfo, NewThreadHookFn, Qemu,
     cpu_run_post_exec_hook_wrapper, cpu_run_pre_exec_hook_wrapper,
@@ -36,7 +37,7 @@ use crate::{
         write_4_exec_hook_wrapper, write_gen_hook_wrapper,
     },
 };
-use libaflmm::{Result, executors::ExitKind, observers::ObserversTuple};
+use libaflmm::{executors::ExitKind, observers::ObserversTuple};
 use libaflmm_qemu_sys::{CPUStatePtr, FatPtr, GuestAddr, TCGTemp};
 use std::{fmt::Debug, marker::PhantomData, mem::transmute, pin::Pin, ptr};
 

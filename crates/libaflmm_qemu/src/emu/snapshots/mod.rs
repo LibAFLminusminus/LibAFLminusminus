@@ -59,8 +59,8 @@ pub enum AllSnapshotManager {
 impl SnapshotManager for AllSnapshotManager {
     fn save(&mut self, qemu: Qemu) -> SnapshotId {
         match self {
-            SnapshotManager::Qemu(qemu_sm) => qemu_sm.save(qemu),
-            SnapshotManager::Fast(fast_sm) => fast_sm.save(qemu),
+            AllSnapshotManager::Qemu(qemu_sm) => qemu_sm.save(qemu),
+            AllSnapshotManager::Fast(fast_sm) => fast_sm.save(qemu),
         }
     }
 
@@ -70,8 +70,8 @@ impl SnapshotManager for AllSnapshotManager {
         snapshot_id: &SnapshotId,
     ) -> Result<(), SnapshotManagerError> {
         match self {
-            SnapshotManager::Qemu(qemu_sm) => qemu_sm.restore(qemu, snapshot_id),
-            SnapshotManager::Fast(fast_sm) => fast_sm.restore(qemu, snapshot_id),
+            AllSnapshotManager::Qemu(qemu_sm) => qemu_sm.restore(qemu, snapshot_id),
+            AllSnapshotManager::Fast(fast_sm) => fast_sm.restore(qemu, snapshot_id),
         }
     }
 
@@ -81,8 +81,8 @@ impl SnapshotManager for AllSnapshotManager {
         reference_snapshot_id: &SnapshotId,
     ) -> Result<QemuSnapshotCheckResult, SnapshotManagerError> {
         match self {
-            SnapshotManager::Qemu(qemu_sm) => qemu_sm.do_check(qemu, reference_snapshot_id),
-            SnapshotManager::Fast(fast_sm) => fast_sm.do_check(qemu, reference_snapshot_id),
+            AllSnapshotManager::Qemu(qemu_sm) => qemu_sm.do_check(qemu, reference_snapshot_id),
+            AllSnapshotManager::Fast(fast_sm) => fast_sm.do_check(qemu, reference_snapshot_id),
         }
     }
 }

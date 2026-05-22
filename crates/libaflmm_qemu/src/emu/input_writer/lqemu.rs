@@ -1,6 +1,7 @@
 use crate::{
+    Error, Result,
     arch::GuestReg,
-    emu::{EmulatorDriverError, InputLocation, InputWriter},
+    emu::{EmulatorError, InputLocation, InputWriter},
     qemu::Qemu,
 };
 use libaflmm::{
@@ -20,12 +21,7 @@ where
     I: Input,
     S: State<Input = I>,
 {
-    fn write_input(
-        &mut self,
-        _qemu: Qemu,
-        state: &mut S,
-        input: &I,
-    ) -> Result<(), EmulatorDriverError> {
+    fn write_input(&mut self, _qemu: Qemu, state: &mut S, input: &I) -> Result<()> {
         if let Some(input_location) = self.input_location.get_mut() {
             let ret_value = input_location.write(state.context_mut().to_bytes(input).as_slice());
 
@@ -40,10 +36,10 @@ where
         Ok(())
     }
 
-    fn set_input_location(&mut self, location: InputLocation) -> Result<(), EmulatorDriverError> {
-        self.input_location
-            .set(location)
-            .or(Err(EmulatorDriverError::MultipleInputLocationDefinition))
+    fn set_input_location(&mut self, location: InputLocation) -> Result<()> {
+        self.input_location.set(location).or(Err(Error::Emulator(
+            EmulatorError::MultipleInputLocationDefinition,
+        )))
     }
 
     fn input_location(&self) -> Option<&InputLocation> {

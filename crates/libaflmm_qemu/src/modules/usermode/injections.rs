@@ -14,18 +14,17 @@
 #[cfg(not(cpu_target = "hexagon"))]
 use crate::arch::syscalls::SYS_execve;
 use crate::{
+    Result,
     elf::EasyElf,
     emu::EmulatorModules,
     modules::{
         EmulatorModule, EmulatorModuleTuple,
         utils::filters::{HasAddressFilter, NOP_ADDRESS_FILTER, NopAddressFilter},
     },
-    qemu::CallingConvention,
-    qemu::Qemu,
-    qemu::{ArchExtras, Hook, SyscallHookResult},
+    qemu::{ArchExtras, CallingConvention, Hook, Qemu, SyscallHookResult},
 };
 use hashbrown::HashMap;
-use libaflmm::{Error, Result};
+use libaflmm::illegal_argument;
 use libaflmm_qemu_sys::{GuestAddr, GuestUlong};
 use serde::{Deserialize, Serialize};
 use std::{ffi::CStr, fs, os::raw::c_char, path::Path};
@@ -33,20 +32,22 @@ use std::{ffi::CStr, fs, os::raw::c_char, path::Path};
 /// Parses `injections.yaml`
 fn parse_yaml(path: impl AsRef<Path>) -> Result<Vec<YamlInjectionEntry>> {
     serde_yaml::from_str(&fs::read_to_string(&path)?).map_err(|e| {
-        Error::serialize(format!(
+        libaflmm::Error::serialize(format!(
             "Failed to deserialize yaml at {}: {e}",
             path.as_ref().display()
         ))
+        .into()
     })
 }
 
 /// Parses `injections.toml`
 fn parse_toml(path: impl AsRef<Path>) -> Result<HashMap<String, InjectionDefinition>> {
     toml::from_str(&fs::read_to_string(&path)?).map_err(|e| {
-        Error::serialize(format!(
+        libaflmm::Error::serialize(format!(
             "Failed to deserialize toml at {}: {e}",
             path.as_ref().display()
         ))
+        .into()
     })
 }
 
@@ -85,10 +86,7 @@ fn yaml_entries_to_definition(
             )
             .is_some()
         {
-            return Err(Error::illegal_argument(format!(
-                "Entry {} was multiply defined!",
-                entry.name
-            )));
+            return Err(illegal_argument!("Entry {} was multiply defined!", entry.name).into());
         }
     }
     Ok(ret)
@@ -309,9 +307,9 @@ where
                 let hook_addrs = if name.to_lowercase().starts_with(&"0x".to_string()) {
                     let func_pc = u64::from_str_radix(&name[2..], 16)
                         .map_err(|e| {
-                            Error::illegal_argument(format!(
-                            "Failed to parse hex string {name} from definition for {lib_name}: {e}"
-                        ))
+                            illegal_argument!(
+                                "Failed to parse hex string {name} from definition for {lib_name}: {e}"
+                            ).into()
                         })
                         .unwrap() as GuestAddr;
                     log::info!("Injections: Hooking hardcoded function {func_pc:#x}");
