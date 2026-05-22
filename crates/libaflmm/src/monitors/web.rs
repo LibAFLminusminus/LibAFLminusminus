@@ -43,6 +43,7 @@ struct SharedState {
 }
 
 pub static WEBUI_PREFIX: &str = "libaflmm-webui";
+const PORT: u16 = 13337;
 /// `WebUI` gathers data from fuzzers and show stats to users through a web interface
 #[derive(Debug)]
 pub struct WebMonitor {
@@ -54,7 +55,11 @@ impl WebMonitor {
     /// constructor for [`struct@WebMonitor`]; `name` is displayed as the page title.
     #[must_use]
     pub fn new(name: &str) -> Self {
-        Self::with_port(name, 13337)
+        println!(
+            "{}",
+            format!("WebMonitor listening on http://localhost:{}", PORT)
+        );
+        Self::with_port(name, PORT)
     }
 
     /// constructor for [`struct@WebMonitor`] specifying an opening port

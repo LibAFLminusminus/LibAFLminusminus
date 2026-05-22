@@ -16,10 +16,13 @@ pub struct PerfStats {
     iter_start: Duration,
 }
 
+const TOTAL_ELAPSED_KEY: &str = "__total_elapsed_ns__";
+
 /// basically tell `serde_json` how to serialize it, because we have to dump it once in a while into a json
 impl Serialize for PerfStats {
     fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
-        let mut map = s.serialize_map(Some(self.stages.len()))?;
+        let mut map = s.serialize_map(Some(self.stages.len() + 1))?;
+        map.serialize_entry(TOTAL_ELAPSED_KEY, &(self.total_elapsed.as_nanos() as u64))?;
         for (k, v) in &self.stages {
             map.serialize_entry(k.as_ref(), &(v.as_nanos() as u64))?;
         }
@@ -30,13 +33,17 @@ impl Serialize for PerfStats {
 /// the opposite to above
 impl<'de> Deserialize<'de> for PerfStats {
     fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
-        let raw = <HashMap<String, u64>>::deserialize(d)?;
+        let mut raw = <HashMap<String, u64>>::deserialize(d)?;
+        let total_elapsed = raw
+            .remove(TOTAL_ELAPSED_KEY)
+            .map(Duration::from_nanos)
+            .ok_or_else(|| serde::de::Error::missing_field(TOTAL_ELAPSED_KEY))?;
         let stages = raw
             .into_iter()
             .map(|(k, v)| (Cow::Owned(k), Duration::from_nanos(v)))
             .collect();
         Ok(Self {
-            total_elapsed: Duration::ZERO,
+            total_elapsed,
             stages,
             iter_start: Duration::ZERO,
         })

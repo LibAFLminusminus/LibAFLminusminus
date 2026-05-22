@@ -228,6 +228,7 @@
                 text-transform: uppercase;
                 letter-spacing: 0.1em;
                 padding: 0.45rem 2.2rem 0.45rem 0.9rem;
+                min-width: 12rem;
                 border-radius: 6px;
                 cursor: pointer;
                 outline: none;
@@ -762,16 +763,25 @@
                 const i = selectedWorker;
                 const latest = history[history.length - 1];
                 const perf = latest?.stats?.[i]?.perf || {};
-                const entries = Object.entries(perf).sort(([a], [b]) =>
-                    a.localeCompare(b),
-                );
-                stagePerfChart.data.labels = entries.map(([k]) => k);
-                stagePerfChart.data.datasets[0].data = entries.map(
-                    ([, v]) => v,
-                );
-                stagePerfChart.data.datasets[0].backgroundColor = entries.map(
+                const totalElapsed = perf["__total_elapsed_ns__"] ?? 0;
+                const entries = Object.entries(perf)
+                    .filter(([k]) => k !== "__total_elapsed_ns__")
+                    .sort(([a], [b]) => a.localeCompare(b));
+                const stageSum = entries.reduce((a, [, v]) => a + v, 0);
+                const others = Math.max(0, totalElapsed - stageSum);
+                const labels = entries.map(([k]) => k);
+                const data = entries.map(([, v]) => v);
+                const colors = entries.map(
                     (_, idx) => USER_MAP_COLORS[idx % USER_MAP_COLORS.length],
                 );
+                if (others > 0) {
+                    labels.push("others");
+                    data.push(others);
+                    colors.push("rgb(150,150,150)");
+                }
+                stagePerfChart.data.labels = labels;
+                stagePerfChart.data.datasets[0].data = data;
+                stagePerfChart.data.datasets[0].backgroundColor = colors;
                 stagePerfChart.update();
             }
 
@@ -819,6 +829,7 @@
 
                     const wrap = document.createElement("div");
                     wrap.className = "chart-wrap";
+                    wrap.style.minHeight = "300px";
                     wrap.style.display =
                         key === selectedUserMapKey ? "" : "none";
                     const canvas = document.createElement("canvas");
