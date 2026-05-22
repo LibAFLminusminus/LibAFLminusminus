@@ -172,6 +172,26 @@ impl Controller for SimpleController {
         log::info!("Started worker {:?}", descriptor.worker_id);
         Ok(())
     }
+
+    fn send_command(&mut self, _command: Self::Command, _worker_id: WorkerId) -> Result<()> {
+        todo!()
+    }
+
+    fn send_command_all(&mut self, _command: Self::Command) -> Result<()> {
+        todo!()
+    }
+
+    fn send_command_all_but(
+        &mut self,
+        _command: Self::Command,
+        _worker_id: WorkerId,
+    ) -> Result<()> {
+        todo!()
+    }
+
+    fn wait_notifications(&mut self, _timeout: Option<std::time::Duration>) -> Result<()> {
+        todo!()
+    }
 }
 
 impl Worker for SimpleWorker {
@@ -211,10 +231,14 @@ impl Worker for SimpleWorker {
         Ok(())
     }
 
-    fn receive_commands<'a>(
+    fn poll_commands<'a>(
         &'a mut self,
     ) -> Result<impl Iterator<Item = <Self::Controller as Controller>::Command>> {
         Ok([].into_iter())
+    }
+
+    fn send_notification(&mut self, _notification: Self::Notification) -> Result<()> {
+        todo!()
     }
 }
 

@@ -76,31 +76,18 @@ pub trait Controller {
     }
 
     /// Send a command to a given [`Worker`].
-    fn send_command(&mut self, _command: Self::Command, _worker_id: WorkerId) -> Result<()> {
-        Ok(())
-    }
+    fn send_command(&mut self, _command: Self::Command, _worker_id: WorkerId) -> Result<()>;
 
     /// Send a command to every [`Worker`].
-    fn send_command_all(&mut self, _command: Self::Command) -> Result<()> {
-        Ok(())
-    }
+    fn send_command_all(&mut self, _command: Self::Command) -> Result<()>;
 
     /// Send a command to every [`Worker`] except the given one.
-    fn send_command_all_but(
-        &mut self,
-        _command: Self::Command,
-        _worker_id: WorkerId,
-    ) -> Result<()> {
-        Ok(())
-    }
+    fn send_command_all_but(&mut self, _command: Self::Command, _worker_id: WorkerId)
+    -> Result<()>;
 
     /// Wait for events sent by the [`Worker`]s.
-    /// Returns when the caller should run the refresh loop.
-    ///
-    /// The function returns after a notification is received or the given timemout value has elapsed.
-    fn wait_notifications(&mut self, _timeout: Option<&Duration>) -> Result<()> {
-        Ok(())
-    }
+    /// The function returns after a notification is received or the given timeout value has elapsed.
+    fn wait_notifications(&mut self, _timeout: Option<Duration>) -> Result<()>;
 }
 
 /// A worker is a representant of a fuzzing instance.
@@ -132,16 +119,12 @@ pub trait Worker {
     }
 
     /// Send a notification to the [`Controller`]
-    fn send_notification(&mut self, _notification: Self::Notification) -> Result<()> {
-        Ok(())
-    }
+    fn send_notification(&mut self, _notification: Self::Notification) -> Result<()>;
 
     /// Polls the list of commands received since the last call.
     fn poll_commands(
         &mut self,
-    ) -> Result<impl Iterator<Item = <Self::Controller as Controller>::Command>> {
-        Ok([].into_iter())
-    }
+    ) -> Result<impl Iterator<Item = <Self::Controller as Controller>::Command>>;
 }
 
 /// A descriptor describes a [`Worker`].

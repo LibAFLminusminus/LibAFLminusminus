@@ -1,5 +1,7 @@
 //! Nop controller and workers.
 
+use std::time::Duration;
+
 use crate::controllers::{Controller, Descriptor, Workdir, Worker};
 use libaflmm_core::{Result, WorkerId};
 
@@ -48,8 +50,24 @@ impl Controller for NopController {
         unimplemented!("nop controller has no workers");
     }
 
-    fn poll_notifications(&mut self) -> Result<()> {
+    fn wait_notifications(&mut self, _timeout: Option<Duration>) -> Result<()> {
         Ok(())
+    }
+
+    fn send_command(&mut self, _command: Self::Command, _worker_id: WorkerId) -> Result<()> {
+        unimplemented!("nop controller has no workers");
+    }
+
+    fn send_command_all(&mut self, _command: Self::Command) -> Result<()> {
+        unimplemented!("nop controller has no workers");
+    }
+
+    fn send_command_all_but(
+        &mut self,
+        _command: Self::Command,
+        _worker_id: WorkerId,
+    ) -> Result<()> {
+        unimplemented!("nop controller has no workers");
     }
 }
 
@@ -77,8 +95,12 @@ impl Worker for NopWorker {
         Ok(())
     }
 
-    fn receive_commands<'a>(
-        &'a mut self,
+    fn send_notification(&mut self, _notification: Self::Notification) -> Result<()> {
+        todo!()
+    }
+
+    fn poll_commands(
+        &mut self,
     ) -> Result<impl Iterator<Item = <Self::Controller as Controller>::Command>> {
         Ok([].into_iter())
     }
