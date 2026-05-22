@@ -1,10 +1,9 @@
 #!/bin/bash
 
 set -eu
-
+mkdir corpus || true
 if [ ! -d "sqlite3" ]; then
     curl 'https://sqlite.org/src/tarball/sqlite.tar.gz?r=c78cbf2e86850cc6' -o sqlite3.tar.gz && mkdir sqlite3 && pushd sqlite3 && tar xzf ../sqlite3.tar.gz --strip-components 1 && popd
-    mkdir corpus
     find ./sqlite3 -name "*.test" -exec cp {} corpus/ \;
 fi
 
@@ -24,15 +23,16 @@ export CFLAGS="$CFLAGS -DSQLITE_MAX_LENGTH=128000000 \
                -DSQLITE_MAX_MEMORY=25000000 \
                -DSQLITE_PRINTF_PRECISION_LIMIT=1048576 \
                -DSQLITE_DEBUG=1 \
-               -DSQLITE_MAX_PAGE_COUNT=16384"
+               -DSQLITE_MAX_PAGE_COUNT=16384 \
+               -Wno-error=implicit-function-declaration"
 pushd sqlite3
 
 if [ ! -f "Makefile" ]; then
     echo "Run configure..."
     ./configure
 fi
+make sqlite3.c
 make -j$(nproc)
-make -B sqlite3.c
 popd
 
 if [ "$1" = "release" ]; then

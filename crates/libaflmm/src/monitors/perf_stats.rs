@@ -1,12 +1,12 @@
-use alloc::{borrow::Cow, vec::Vec};
+use alloc::{borrow::Cow, string::String, vec::Vec};
 use core::{fmt, time::Duration};
 
 use hashbrown::HashMap;
 use libaflmm_bolts::current_time;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer, ser::SerializeMap};
 
 /// class for performance analytics
-#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct PerfStats {
     /// Total wall time accumulated across all completed iterations.
     total_elapsed: Duration,
@@ -14,6 +14,32 @@ pub struct PerfStats {
     stages: HashMap<Cow<'static, str>, Duration>,
     /// Wall-clock timer for this run.
     iter_start: Duration,
+}
+
+/// basically tell serde_json how to serialize it, because we have to dump it once in a while into a json
+impl Serialize for PerfStats {
+    fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        let mut map = s.serialize_map(Some(self.stages.len()))?;
+        for (k, v) in &self.stages {
+            map.serialize_entry(k.as_ref(), &(v.as_nanos() as u64))?;
+        }
+        map.end()
+    }
+}
+
+impl<'de> Deserialize<'de> for PerfStats {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        let raw = <HashMap<String, u64>>::deserialize(d)?;
+        let stages = raw
+            .into_iter()
+            .map(|(k, v)| (Cow::Owned(k), Duration::from_nanos(v)))
+            .collect();
+        Ok(Self {
+            total_elapsed: Duration::ZERO,
+            stages,
+            iter_start: Duration::ZERO,
+        })
+    }
 }
 
 impl PerfStats {
