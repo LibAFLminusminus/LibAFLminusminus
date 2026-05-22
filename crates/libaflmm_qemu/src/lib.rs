@@ -76,7 +76,7 @@ pub mod prelude {
     pub use crate::emu::{
         Emulator, EmulatorDriver, EmulatorDriverError, EmulatorDriverResult, EmulatorExitError,
         EmulatorExitResult, EmulatorHooks, EmulatorModules, GenericEmulatorDriver, GuestAddrKind,
-        InputLocation, InputSetter, MapKind, NopEmulatorDriver, NopInputSetter, NopSnapshotManager,
+        InputLocation, InputWriter, MapKind, NopEmulatorDriver, NopInputWriter, NopSnapshotManager,
         QemuSnapshotCheckResult, SnapshotId, SnapshotManager, SnapshotManagerCheckError,
         SnapshotManagerError, StdEmulator, StdEmulatorBuilder, StdEmulatorDriver,
         StdEmulatorDriverBuilder, StdInputSetter,

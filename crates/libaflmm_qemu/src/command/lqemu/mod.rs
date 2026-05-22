@@ -3,7 +3,7 @@ use crate::{
     arch::{GuestReg, Regs},
     emu::{
         Emulator, EmulatorDriver, EmulatorDriverError, EmulatorDriverResult, EmulatorExitResult,
-        InputLocation, InputSetter, SnapshotManager,
+        InputLocation, InputWriter, SnapshotManager,
     },
     modules::HasAddressFilterTuple,
 };
@@ -116,8 +116,7 @@ impl Command for SaveCommand {
         let qemu = emu.qemu();
         let snapshot_id = emu.snapshot_manager_mut().save(qemu);
 
-        emu.driver_mut()
-            .set_snapshot_id(snapshot_id)
+        emu.set_snapshot_id(snapshot_id)
             .map_err(|_| EmulatorDriverError::MultipleSnapshotDefinition)?;
 
         Ok(None)
@@ -143,7 +142,6 @@ impl Command for LoadCommand {
         let qemu = emu.qemu();
 
         let snapshot_id = emu
-            .driver_mut()
             .snapshot_id()
             .ok_or(EmulatorDriverError::SnapshotNotFound)?;
 
@@ -181,18 +179,16 @@ impl Command for StartCommand {
             let snapshot_id = emu.snapshot_manager_mut().save(qemu);
 
             // Set snapshot ID to restore to after fuzzing ends
-            emu.driver_mut()
-                .set_snapshot_id(snapshot_id)
+            emu.set_snapshot_id(snapshot_id)
                 .map_err(|_| EmulatorDriverError::MultipleSnapshotDefinition)?;
 
             // Save input location for next runs
-            emu.driver_mut()
-                .input_setter_mut()
+            emu.input_setter_mut()
                 .set_input_location(self.input_location.clone())?;
 
             // Auto page filtering if option is enabled
             #[cfg(feature = "systemmode")]
-            if emu.driver_mut().allow_page_on_start()
+            if emu.allow_page_on_start()
                 && let Some(paging_id) = qemu.current_cpu().unwrap().current_paging_id()
             {
                 log::info!("Filter: allow page ID {paging_id}.");
@@ -240,7 +236,6 @@ impl Command for EndCommand {
         }
 
         let snapshot_id = emu
-            .driver_mut()
             .snapshot_id()
             .ok_or(EmulatorDriverError::SnapshotNotFound)?;
 

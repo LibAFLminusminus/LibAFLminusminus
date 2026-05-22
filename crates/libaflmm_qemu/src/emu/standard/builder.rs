@@ -1,7 +1,8 @@
 #[cfg(doc)]
 use crate::config::QemuConfig;
-use crate::emu::StdEmulatorDriver;
+use crate::emu::StdInputSetter;
 use crate::emu::snapshots::StdSnapshotManager;
+use crate::emu::{NopInputWriter, StdEmulatorDriver};
 use crate::{
     command::{NopCommandManager, StdCommandManager},
     emu::{NopEmulatorDriver, NopSnapshotManager, StdEmulator},
@@ -21,9 +22,9 @@ use std::marker::PhantomData;
 /// - with a QEMU-compatible CLI. It will be given to QEMU as-is. The first argument should always be a path to the running binary, as expected by execve.
 /// - with an instance of [`QemuConfig`]. It is a more programmatic way to configure [`Qemu`]. It should be built using [`QemuConfigBuilder`].
 #[derive(Clone)]
-pub struct StdEmulatorBuilder<C, CM, ED, ET, QP, I, S, SM> {
+pub struct StdEmulatorBuilder<C, CM, ET, QP, I, IS, S, SM> {
     modules: ET,
-    driver: ED,
+    input_setter: IS,
     snapshot_manager: SM,
     command_manager: CM,
     qemu_parameters: Option<QP>,
@@ -34,10 +35,10 @@ impl<C, I, S>
     StdEmulatorBuilder<
         C,
         NopCommandManager,
-        NopEmulatorDriver<I, S>,
         (),
         QemuConfigBuilder,
         I,
+        NopInputWriter,
         S,
         NopSnapshotManager,
     >
@@ -46,9 +47,9 @@ impl<C, I, S>
     pub fn empty() -> Self {
         Self {
             modules: tuple_list!(),
-            driver: NopEmulatorDriver::default(),
             snapshot_manager: NopSnapshotManager,
             command_manager: NopCommandManager,
+            input_setter: NopInputWriter,
             qemu_parameters: None,
             phantom: PhantomData,
         }
@@ -60,10 +61,10 @@ impl<C, I, S>
     StdEmulatorBuilder<
         C,
         StdCommandManager,
-        StdEmulatorDriver<I, S>,
         (),
         QemuConfigBuilder,
         I,
+        StdInputSetter,
         S,
         StdSnapshotManager,
     >
@@ -78,7 +79,7 @@ where
             modules: tuple_list!(),
             command_manager: StdCommandManager::default(),
             snapshot_manager: StdSnapshotManager::default(),
-            driver: StdEmulatorDriver::<I, S>::builder().build(),
+            input_setter: StdInputSetter::default(),
             qemu_parameters: None,
             phantom: PhantomData,
         }
@@ -94,6 +95,7 @@ impl<C, I, S>
         (),
         QemuConfigBuilder,
         I,
+        StdInputSetter,
         S,
         StdSnapshotManager,
     >
@@ -108,37 +110,37 @@ where
             modules: (),
             command_manager: StdCommandManager::default(),
             snapshot_manager: StdSnapshotManager::default(),
-            driver: StdEmulatorDriver::builder().build(),
+            input_setter: StdInputSetter::default(),
             qemu_parameters: None,
             phantom: PhantomData,
         }
     }
 }
 
-impl<C, CM, ED, ET, QP, I, S, SM> StdEmulatorBuilder<C, CM, ED, ET, QP, I, S, SM>
+impl<C, CM, ET, QP, I, IS, S, SM> StdEmulatorBuilder<C, CM, ET, QP, I, IS, S, SM>
 where
     I: Unpin,
     S: Unpin,
 {
     fn new(
         modules: ET,
-        driver: ED,
         command_manager: CM,
         snapshot_manager: SM,
+        input_setter: IS,
         qemu_parameters: Option<QP>,
     ) -> Self {
         Self {
             modules,
             command_manager,
-            driver,
             snapshot_manager,
             qemu_parameters,
+            input_setter,
             phantom: PhantomData,
         }
     }
 
     #[allow(clippy::type_complexity)]
-    pub fn build<E>(self) -> Result<StdEmulator<C, CM, ED, ET, I, S, SM>, QemuInitError>
+    pub fn build<E>(self) -> Result<StdEmulator<C, CM, ET, I, IS, S, SM>, QemuInitError>
     where
         ET: EmulatorModuleTuple<I, S>,
         QP: TryInto<QemuParams, Error = E>,

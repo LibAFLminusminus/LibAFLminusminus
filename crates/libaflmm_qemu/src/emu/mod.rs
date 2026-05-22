@@ -29,11 +29,10 @@ pub use standard::{StdEmulator, StdEmulatorBuilder};
 pub mod hooks;
 pub use hooks::{EmulatorHooks, EmulatorModules};
 
-pub mod drivers;
-pub use drivers::{
-    EmulatorDriver, EmulatorDriverError, EmulatorDriverResult, GenericEmulatorDriver, InputSetter,
-    LqemuInputSetter, MapKind, NopEmulatorDriver, NopInputSetter, StdEmulatorDriver,
-    StdEmulatorDriverBuilder, StdInputSetter,
+pub mod input_writer;
+pub use input_writer::{
+    EmulatorDriverError, EmulatorDriverResult, InputWriter, LqemuInputWriter, MapKind,
+    NopInputWriter, StdInputSetter,
 };
 
 pub mod snapshots;
@@ -118,7 +117,7 @@ pub trait Emulator {
 
     type Command: Command;
     type CommandManager: CommandManager<Commands = Self::Command> + IsStdCommandManager;
-    type Driver: EmulatorDriver;
+    type InputWriter: InputWriter<Self::Input, Self::State>;
     type Modules: EmulatorModuleTuple<Self::Input, Self::State> + HasAddressFilterTuple + Unpin;
     type SnapshotManager: SnapshotManager;
 
@@ -148,15 +147,11 @@ pub trait Emulator {
 
     fn remove_breakpoint(&self, bp_id: BreakpointId);
 
-    fn driver_mut(&mut self) -> &mut Self::Driver;
-
     fn snapshot_manager_mut(&mut self) -> &mut Self::SnapshotManager;
 
     fn command_manager_mut(&mut self) -> &mut Self::CommandManager;
 
     fn modules_mut(&mut self) -> &mut EmulatorModules<Self::Modules, Self::Input, Self::State>;
-
-    fn started(&self) -> bool;
 
     unsafe fn read_mem_val<T>(&self, addr: GuestAddr) -> result::Result<T, QemuRWError> {
         unsafe { self.qemu().read_mem_val(addr) }

@@ -1,6 +1,6 @@
 use crate::{
     arch::GuestReg,
-    emu::{EmulatorDriverError, InputLocation, InputSetter},
+    emu::{EmulatorDriverError, InputLocation, InputWriter},
     qemu::Qemu,
 };
 use libaflmm::{
@@ -11,11 +11,11 @@ use libaflmm_bolts::AsSlice;
 use std::cell::OnceCell;
 
 #[derive(Debug, Default, Clone)]
-pub struct LqemuInputSetter {
+pub struct LqemuInputWriter {
     input_location: OnceCell<InputLocation>,
 }
 
-impl<I, S> InputSetter<I, S> for LqemuInputSetter
+impl<I, S> InputWriter<I, S> for LqemuInputWriter
 where
     I: Input,
     S: State<Input = I>,
