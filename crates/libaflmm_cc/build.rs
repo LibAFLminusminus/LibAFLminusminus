@@ -60,11 +60,10 @@ pub fn build_pass(
     match command_result {
         Some(res) => match res {
             Ok(s) => {
-                if !s.success() {
-                    panic!(
-                        "Failed to compile required compiler pass src/{src_file} - Exit status: {s}"
-                    );
-                }
+                assert!(
+                    s.success(),
+                    "Failed to compile required compiler pass src/{src_file} - Exit status: {s}"
+                );
             }
             Err(err) => {
                 panic!(
