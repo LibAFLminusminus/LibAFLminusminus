@@ -10,7 +10,7 @@ use std::{
     ffi::OsString,
     io::{self, PipeReader, PipeWriter, Read, Write, pipe},
     os::{
-        fd::{AsRawFd, BorrowedFd, IntoRawFd},
+        fd::{AsRawFd, BorrowedFd},
         unix::io::RawFd,
     },
     path::PathBuf,
@@ -297,7 +297,7 @@ impl Forkserver {
                     .setlimit(memlimit)
                     .set_coredump(afl_debug),
             )
-            .setpipe(st_pipe_wrt.into_raw_fd(), ctl_pipe_rdr.into_raw_fd())
+            .setpipe(st_pipe_wrt.as_raw_fd(), ctl_pipe_rdr.as_raw_fd())
             .spawn()
             {
                 Ok(fsrv_handle) => fsrv_handle,
