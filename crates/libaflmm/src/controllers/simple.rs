@@ -5,16 +5,19 @@ use crate::launchers::InstanceId;
 use alloc::vec::Vec;
 use libaflmm_core::{WorkerId, illegal_argument, internal_bug};
 use nix::unistd::{dup2_stderr, dup2_stdout};
+use serde::{Deserialize, Serialize};
 use std::{
     fs,
     path::{Path, PathBuf},
 };
 
+#[derive(Clone, Serialize, Deserialize)]
 pub enum SimpleCommand {
     Shutdown,
     NewInput(PathBuf),
 }
 
+#[derive(Clone, Serialize, Deserialize)]
 pub enum SimpleNotification {
     Ping,
 }

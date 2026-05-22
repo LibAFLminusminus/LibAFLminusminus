@@ -11,6 +11,7 @@ use std::{
 use libaflmm_core::{Error, WorkerId, internal_bug};
 use nix::sys::signal::Signal;
 use quanta::{Clock, Instant};
+use serde::{Serialize, de::DeserializeOwned};
 
 use crate::{
     Result,
@@ -44,7 +45,7 @@ pub trait Controller {
     /// The associated [`Descriptor`].
     type Descriptor: Descriptor;
     /// The commands for the [`Worker`]s.
-    type Command;
+    type Command: Clone + Serialize + DeserializeOwned;
 
     /// Create a new [`Self::Worker`].
     /// The controller must keep track of the worker if necessary.
@@ -96,7 +97,7 @@ pub trait Worker {
     /// The associated [`Controller`].
     type Controller: Controller<Worker = Self>;
     /// Notifications for the [`Controller`]
-    type Notification;
+    type Notification: Serialize + DeserializeOwned;
 
     /// The client id of the worker.
     fn id(&self) -> WorkerId;
