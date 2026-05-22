@@ -12,7 +12,6 @@ use std::{env, fs::File, io::Write, path::Path};
     feature = "autotokens",
     feature = "cmplog-instructions",
 ))]
-#[expect(clippy::too_many_arguments)]
 pub fn build_pass(
     bindir_path: &Path,
     out_dir: &Path,
