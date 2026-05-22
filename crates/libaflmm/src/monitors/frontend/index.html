@@ -391,11 +391,8 @@
                                 flex: 1;
                                 min-height: 0;
                                 min-width: 0;
-                                overflow-y: auto;
-                                overflow-x: hidden;
-                                display: flex;
-                                flex-direction: column;
-                                gap: 1rem;
+                                overflow: hidden;
+                                position: relative;
                             "
                         >
                             <div
@@ -415,9 +412,10 @@
                                 flex: 1;
                                 min-height: 0;
                                 min-width: 0;
+                                position: relative;
                             "
                         >
-                            <div class="chart-wrap">
+                            <div class="chart-wrap" style="position: absolute; inset: 0;">
                                 <canvas id="stagePerfChart"></canvas>
                             </div>
                         </div>
@@ -726,7 +724,7 @@
                             maintainAspectRatio: false,
                             plugins: {
                                 legend: {
-                                    position: "right",
+                                    position: "bottom",
                                     labels: {
                                         color: t.legend,
                                         font: { size: 13 },
@@ -829,7 +827,8 @@
 
                     const wrap = document.createElement("div");
                     wrap.className = "chart-wrap";
-                    wrap.style.minHeight = "300px";
+                    wrap.style.position = "absolute";
+                    wrap.style.inset = "0";
                     wrap.style.display =
                         key === selectedUserMapKey ? "" : "none";
                     const canvas = document.createElement("canvas");
@@ -1146,6 +1145,7 @@
                 if (rightMode === "stage_perf") updateStagePerf(history);
             }
 
+            selectRightMode(document.getElementById("rightModeSelect").value);
             refresh();
             setInterval(refresh, 5000);
         </script>
