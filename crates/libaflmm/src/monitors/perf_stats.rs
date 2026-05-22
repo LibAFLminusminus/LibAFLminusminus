@@ -27,6 +27,7 @@ impl Serialize for PerfStats {
     }
 }
 
+/// the opposite
 impl<'de> Deserialize<'de> for PerfStats {
     fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         let raw = <HashMap<String, u64>>::deserialize(d)?;
