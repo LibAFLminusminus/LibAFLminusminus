@@ -619,7 +619,7 @@ impl ClangWrapper {
 
 /// Compile a given LLVM pass source code into a shared object (and return it)
 ///
-/// this one is basically just the same as the build_pass in build.rs but just but the pass on-demand
+/// this one is basically just the same as the `build_pass` in build.rs but just but the pass on-demand
 pub fn compile_custom_pass(src: &Path) -> Result<PathBuf, Error> {
     let version = LIBAFL_CC_LLVM_VERSION.ok_or_else(|| {
         Error::Unknown(
@@ -628,10 +628,9 @@ pub fn compile_custom_pass(src: &Path) -> Result<PathBuf, Error> {
         )
     })?;
 
-    let stem = src
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .ok_or_else(|| Error::InvalidArguments(format!("Invalid pass source path: {src:?}")))?;
+    let stem = src.file_stem().and_then(|s| s.to_str()).ok_or_else(|| {
+        Error::InvalidArguments(format!("Invalid pass source path: {}", src.display()))
+    })?;
 
     let cache_dir = PathBuf::from(OUT_DIR).join("custom-passes");
     fs::create_dir_all(&cache_dir).map_err(Error::Io)?;
