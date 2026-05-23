@@ -66,6 +66,8 @@ __pycache__
 **/libaflmm_nyx/QEMU-Nyx
 **/libaflmm_nyx/packer
 
+**/sqlite
+
 # No gdb history
 .gdb_history
 # No llvm IR

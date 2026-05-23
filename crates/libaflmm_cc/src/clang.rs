@@ -1,7 +1,11 @@
 //! LLVM compiler Wrapper from `LibAFL`
 
 use core::{env, str::FromStr};
-use std::path::{Path, PathBuf};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+    process::Command,
+};
 
 use crate::{CompilerWrapper, Error, LIB_EXT, LIB_PREFIX, ToolWrapper};
 
@@ -95,7 +99,7 @@ pub struct ClangWrapper {
     base_args: Vec<String>,
     cc_args: Vec<String>,
     link_args: Vec<String>,
-    passes: Vec<LLVMPasses>,
+    passes: Vec<PathBuf>,
     passes_args: Vec<String>,
     passes_linking_args: Vec<String>,
 }
@@ -404,15 +408,13 @@ impl ToolWrapper for ClangWrapper {
             // https://github.com/llvm/llvm-project/issues/56137
             // Need this -Xclang -load -Xclang -<pass>.so thing even with the new PM
             // to pass the arguments to LLVM Passes
+            let pass_path = pass.clone().into_os_string().into_string().unwrap();
             args.push("-Xclang".into());
             args.push("-load".into());
             args.push("-Xclang".into());
-            args.push(pass.path().into_os_string().into_string().unwrap());
+            args.push(pass_path.clone());
             args.push("-Xclang".into());
-            args.push(format!(
-                "-fpass-plugin={}",
-                pass.path().into_os_string().into_string().unwrap()
-            ));
+            args.push(format!("-fpass-plugin={pass_path}"));
         }
         if !self.is_asm && !self.passes.is_empty() {
             for passes_arg in &self.passes_args {
@@ -572,7 +574,15 @@ impl ClangWrapper {
 
     /// Add LLVM pass
     pub fn add_pass(&mut self, pass: LLVMPasses) -> &'_ mut Self {
-        self.passes.push(pass);
+        self.passes.push(pass.path());
+        self
+    }
+
+    /// Add a pre-compiled LLVM pass .so file to the pipeline
+    ///
+    /// Use [`compile_custom_pass`] first to build the `.so` from the source code first
+    pub fn add_raw_pass<P: AsRef<Path>>(&mut self, pass_so: P) -> &'_ mut Self {
+        self.passes.push(pass_so.as_ref().to_path_buf());
         self
     }
 
@@ -604,6 +614,71 @@ impl ClangWrapper {
     pub fn need_libaflmm_arg(&mut self, value: bool) -> &'_ mut Self {
         self.need_libaflmm_arg = value;
         self
+    }
+}
+
+/// Compile a given LLVM pass source code into a shared object (and return it)
+///
+/// this one is basically just the same as the `build_pass` in build.rs but just but the pass on-demand
+pub fn compile_custom_pass(src: &Path) -> Result<PathBuf, Error> {
+    let version = LIBAFL_CC_LLVM_VERSION.ok_or_else(|| {
+        Error::Unknown(
+            "LLVM was not found at libaflmm_cc build time; cannot compile custom passes"
+                .to_string(),
+        )
+    })?;
+
+    let stem = src.file_stem().and_then(|s| s.to_str()).ok_or_else(|| {
+        Error::InvalidArguments(format!("Invalid pass source path: {}", src.display()))
+    })?;
+
+    let cache_dir = PathBuf::from(OUT_DIR).join("custom-passes");
+    fs::create_dir_all(&cache_dir).map_err(Error::Io)?;
+    let ext = dll_extension();
+    let out_path = cache_dir.join(format!("{stem}-llvm{version}.{ext}"));
+    if out_path.exists() {
+        return Ok(out_path);
+    }
+
+    #[cfg(unix)]
+    let status = Command::new(CLANGXX_PATH)
+        .arg("-v")
+        .arg(format!("--target={HOST_TARGET}"))
+        .args(LLVM_CXXFLAGS)
+        .arg(src)
+        .args(LLVM_LDFLAGS)
+        .arg("-o")
+        .arg(&out_path)
+        .status()
+        .map_err(Error::Io)?;
+
+    #[cfg(windows)]
+    let status = Command::new(Path::new(LLVM_BINDIR).join("clang-cl.exe"))
+        .arg("-v")
+        .arg(format!("--target={HOST_TARGET}"))
+        .args(LLVM_CXXFLAGS)
+        .arg(src)
+        .arg("/link")
+        .args(LLVM_LDFLAGS)
+        .arg(format!("/OUT:{}", out_path.display()))
+        .status()
+        .map_err(Error::Io)?;
+
+    #[cfg(not(any(unix, windows)))]
+    return Err(Error::Unknown(
+        "Custom pass compilation is only supported on unix or windows".to_string(),
+    ));
+
+    #[cfg(any(unix, windows))]
+    {
+        if !status.success() {
+            let _ = fs::remove_file(&out_path);
+            return Err(Error::Unknown(format!(
+                "Failed to compile custom pass {}: exit status {status}",
+                src.display()
+            )));
+        }
+        Ok(out_path)
     }
 }
 
