@@ -38,7 +38,6 @@ $AllProjects = @(
     "crates/libafl_sugar",
     "crates/libafl_tinyinst"
     "utils/build_and_test_fuzzers",
-    "utils/deexit",
     "utils/libafl_benches",
 )
 
