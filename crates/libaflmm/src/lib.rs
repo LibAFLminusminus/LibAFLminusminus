@@ -61,9 +61,8 @@ pub mod prelude {
     };
 
     pub use crate::controllers::{
-        Controller, Descriptor, NopController, NopDescriptor, NopWorker, SimpleController,
-        SimpleDescriptor, SimpleWorker, StdController, StdDescriptor, StdWorker, Workdir,
-        WorkdirFile, Worker,
+        Controller, Descriptor, StdController, StdDescriptor, StdWorker, Workdir, WorkdirFile,
+        Worker,
     };
 
     pub use crate::corpus::{

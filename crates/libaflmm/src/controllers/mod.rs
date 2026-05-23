@@ -1,6 +1,15 @@
 //! Module defining [`Controller`]s.
 
+use crate::{
+    Result,
+    launchers::InstanceId,
+    states::{Stats, sync_stats},
+};
 use core::time::Duration;
+use libaflmm_core::{Error, WorkerId, internal_bug};
+use nix::sys::signal::Signal;
+use quanta::{Clock, Instant};
+use serde::{Serialize, de::DeserializeOwned};
 use std::{
     fs::{self, File, OpenOptions},
     io::{stderr, stdout},
@@ -8,32 +17,20 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use libaflmm_core::{Error, WorkerId, internal_bug};
-use nix::sys::signal::Signal;
-use quanta::{Clock, Instant};
-use serde::{Serialize, de::DeserializeOwned};
-
-use crate::{
-    Result,
-    launchers::InstanceId,
-    states::{Stats, sync_stats},
-};
-
 /// Default wait time between stats updates.
 const STATS_UPDATE_INTERVAL: Duration = Duration::from_secs(5);
 
-// pub mod aflpp;
-pub mod nop;
-pub use nop::{NopController, NopDescriptor, NopWorker};
-
-pub mod simple;
-pub use simple::{
-    SimpleController, SimpleControllerBuilder, SimpleDescriptor, SimpleWorker, SimpleWorkerRepr,
+pub mod standard;
+pub use standard::{
+    StdCommand, StdController, StdControllerBuilder, StdDescriptor, StdNotification, StdWorker,
+    StdWorkerRepr,
 };
 
-pub type StdController = SimpleController;
-pub type StdDescriptor = SimpleDescriptor;
-pub type StdWorker = SimpleWorker;
+// how is that?
+pub trait Exchange {
+    type Command;
+    type Notification;
+}
 
 /// A controller is the glue between multiple [`Worker`]s.
 ///
