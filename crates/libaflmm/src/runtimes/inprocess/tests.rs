@@ -1,5 +1,5 @@
 use crate::{
-    controllers::NopWorker,
+    controllers::StdWorker,
     inputs::NopInput,
     runtimes::{
         Runtime, RuntimeHandle, TerminationHandlerData,

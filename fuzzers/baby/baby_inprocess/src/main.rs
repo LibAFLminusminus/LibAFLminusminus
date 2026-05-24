@@ -8,7 +8,7 @@ use std::time::Duration;
 mod target;
 
 fn run_fuzzer<C, OC>(
-    rt_handle: &mut RuntimeHandle<StdState<C, BytesContext, BytesInput, OC>, SimpleWorker>,
+    rt_handle: &mut RuntimeHandle<StdState<C, BytesContext, BytesInput, OC>, StdWorker>,
     state: &mut StdState<C, BytesContext, BytesInput, OC>,
 ) -> Result<()>
 where
@@ -67,7 +67,7 @@ pub fn main() -> Result<()> {
     env_logger::init();
 
     // The state creation closure.
-    let state_builder = |worker: &SimpleWorker| {
+    let state_builder = |worker: &StdWorker| {
         // A scheduler following the queue policy
         let scheduler = QueueScheduler::new();
         // The default objective directory
@@ -89,7 +89,7 @@ pub fn main() -> Result<()> {
     let controller = StdController::builder().overwrite(true).build()?;
 
     // The monitor tracks the fuzzing current status.
-    let monitor = SimpleMonitor::new();
+    let monitor = StdMonitor::new();
 
     // A fast timer, much faster than classic OS timers.
     let fast_timer = FastTimer::new();
