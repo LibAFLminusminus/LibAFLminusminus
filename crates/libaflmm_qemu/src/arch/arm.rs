@@ -10,7 +10,7 @@ use strum_macros::EnumIter;
 pub use syscall_numbers::arm as syscalls;
 
 use crate::{
-    GuestAddr,
+    GuestAddr, Result,
     qemu::{ArchExtras, CPU, CallingConvention, QemuRWError, QemuRWErrorKind},
     sync_exit::ExitArgs,
 };
@@ -92,11 +92,11 @@ pub fn capstone_thumb() -> capstone::arch::arm::ArchCapstoneBuilder {
 pub type GuestReg = u32;
 
 impl ArchExtras for CPU {
-    fn read_return_address(&self) -> Result<GuestAddr, QemuRWError> {
+    fn read_return_address(&self) -> Result<GuestAddr> {
         self.read_reg(Regs::Lr).map(|res| res as GuestAddr)
     }
 
-    fn write_return_address<T>(&self, val: T) -> Result<(), QemuRWError>
+    fn write_return_address<T>(&self, val: T) -> Result<()>
     where
         T: Into<GuestAddr>,
     {
@@ -104,11 +104,7 @@ impl ArchExtras for CPU {
         self.write_reg(Regs::Lr, addr as GuestReg)
     }
 
-    fn read_function_argument_with_cc(
-        &self,
-        idx: u8,
-        conv: CallingConvention,
-    ) -> Result<GuestReg, QemuRWError> {
+    fn read_function_argument_with_cc(&self, idx: u8, conv: CallingConvention) -> Result<GuestReg> {
         QemuRWError::check_conv(QemuRWErrorKind::Read, CallingConvention::Aapcs, conv)?;
 
         match idx {
@@ -143,7 +139,7 @@ impl ArchExtras for CPU {
         idx: u8,
         val: T,
         conv: CallingConvention,
-    ) -> Result<(), QemuRWError>
+    ) -> Result<()>
     where
         T: Into<GuestReg>,
     {

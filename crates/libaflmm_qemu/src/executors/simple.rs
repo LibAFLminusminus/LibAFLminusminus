@@ -1,7 +1,7 @@
+use crate::Result;
 use crate::{emu::Emulator, qemu::Qemu};
 use libaflmm::runtimes::{OsTerminationParams, inprocess::CrashStatus};
 use libaflmm::{
-    Result,
     common::DependencyResolver,
     controllers::Worker,
     executors::{Executor, ExitKind},
@@ -49,11 +49,11 @@ where
         &mut self,
         state: &mut S,
         _rt_handle: &mut RuntimeHandle<S, W>,
-    ) -> Result<()> {
-        self.emulator.first_exec(state)
+    ) -> libaflmm::Result<()> {
+        Ok(self.emulator.first_exec(state)?)
     }
 
-    unsafe fn execute_impl(&mut self, state: &mut S, input: &I) -> Result<ExitKind> {
+    unsafe fn execute_impl(&mut self, state: &mut S, input: &I) -> libaflmm::Result<ExitKind> {
         self.emulator.pre_exec(state, input)?;
 
         let mut exit_kind = (self.harness)(state, input, self.emulator.qemu())?;
@@ -78,7 +78,7 @@ where
         _state: &mut S,
         _input: Option<&I>,
         _params: &OsTerminationParams,
-    ) -> Result<CrashStatus> {
+    ) -> libaflmm::Result<CrashStatus> {
         log::error!("Crash in QEMU systemmode: this is a fuzzer bug.");
         Ok(CrashStatus::FuzzerCrash)
     }
@@ -89,7 +89,7 @@ where
         state: &mut S,
         input: Option<&I>,
         params: &OsTerminationParams,
-    ) -> Result<CrashStatus> {
+    ) -> libaflmm::Result<CrashStatus> {
         unsafe {
             super::handle_crash(
                 &mut self.emulator,
@@ -106,7 +106,7 @@ where
         state: &mut S,
         input: Option<&I>,
         _params: &libaflmm::runtimes::OsTerminationParams,
-    ) -> Result<TimeoutStatus> {
+    ) -> libaflmm::Result<TimeoutStatus> {
         unsafe { super::handle_timeout(&mut self.emulator, &mut self.observers, state, input) }
     }
 }

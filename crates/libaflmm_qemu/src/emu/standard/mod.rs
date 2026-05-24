@@ -4,9 +4,10 @@ use crate::command::Command;
 use crate::emu::MapKind;
 use crate::emu::snapshots::StdSnapshotManager;
 use crate::emu::{
-    EmulatorError, InputWriter, NopInputWriter, SnapshotId, SnapshotManager, StdInputWriter,
+    EmulatorError, InputLocation, InputWriter, NopInputWriter, SnapshotId, SnapshotManager,
+    StdInputWriter,
 };
-use crate::modules::{HasAddressFilterTuple, HasStdFiltersTuple};
+use crate::modules::HasStdFiltersTuple;
 #[cfg(feature = "systemmode")]
 use crate::qemu::PhysMemoryChunk;
 use crate::{Error, Result};
@@ -19,15 +20,14 @@ use crate::{
     },
     modules::EmulatorModuleTuple,
     qemu::{
-        Qemu, QemuExitError, QemuExitReason, QemuHooks, QemuInitError, QemuParams,
-        QemuShutdownCause, config::QemuConfigBuilder,
+        Qemu, QemuExitReason, QemuHooks, QemuParams, QemuShutdownCause, config::QemuConfigBuilder,
     },
     sync_exit::CustomInsn,
 };
 use libaflmm::{executors::ExitKind, inputs::Input, observers::ObserversTuple, states::State};
 use libaflmm_qemu_sys::GuestAddr;
 use std::cell::OnceCell;
-use std::{cell::RefCell, collections::HashMap, fmt::Debug, marker::PhantomData, pin::Pin, result};
+use std::{cell::RefCell, collections::HashMap, fmt::Debug, marker::PhantomData, pin::Pin};
 
 pub mod builder;
 pub use builder::StdEmulatorBuilder;
@@ -60,7 +60,7 @@ pub struct StdEmulator<C, CM, ET, I, IS, S, SM> {
     qemu: Qemu,
     started: bool,
     snapshot_id: OnceCell<SnapshotId>,
-    hooks_locked: bool,
+    // hooks_locked: bool,
     #[cfg(feature = "systemmode")]
     allow_page_on_start: bool,
     #[cfg(feature = "x86_64")]
@@ -226,6 +226,10 @@ where
             .set(snapshot_id)
             .map_err(|_| Error::Emulator(EmulatorError::MultipleSnapshotDefinition))
     }
+
+    fn set_input_location(&mut self, input_location: &InputLocation) -> Result<()> {
+        self.input_setter.set_input_location(input_location.clone())
+    }
 }
 
 impl<C, I, S> StdEmulator<C, NopCommandManager, (), I, NopInputWriter, S, NopSnapshotManager> {
@@ -317,7 +321,7 @@ where
         input_writer: IW,
         snapshot_manager: SM,
         command_manager: CM,
-    ) -> result::Result<Self, QemuInitError>
+    ) -> Result<Self>
     where
         T: Into<QemuParams>,
     {
@@ -378,7 +382,7 @@ where
             command_manager,
             snapshot_manager,
             input_setter: input_writer,
-            hooks_locked: true,
+            // hooks_locked: true,
             print_commands: true,
             breakpoints_by_addr: RefCell::new(HashMap::new()),
             breakpoints_by_id: RefCell::new(HashMap::new()),
@@ -404,7 +408,7 @@ impl<C, CM, ET, I, IW, S, SM> StdEmulator<C, CM, ET, I, IW, S, SM>
 where
     C: Command,
     CM: CommandManager<Commands = C>,
-    ET: EmulatorModuleTuple<I, S> + HasAddressFilterTuple + Unpin,
+    ET: EmulatorModuleTuple<I, S> + HasStdFiltersTuple + Unpin,
     I: Input + Unpin,
     IW: InputWriter<I, S>,
     S: State + Unpin,
@@ -412,31 +416,12 @@ where
 {
     fn post_qemu_exec(
         &mut self,
-        exit_reason: &mut result::Result<EmulatorExitResult<C>, EmulatorExitError>,
+        exit_reason: &mut EmulatorExitResult<C>,
     ) -> Result<Option<EmulatorDriverResult<C>>> {
         let qemu = self.qemu();
 
-        // Check if QEMU exited because of an error or to handle some request
-        let mut exit_reason = match exit_reason {
-            Ok(exit_reason) => exit_reason,
-            Err(exit_error) => match exit_error {
-                EmulatorExitError::UnexpectedExit => {
-                    if self.started {
-                        if let Some(snapshot_id) = self.snapshot_id.get() {
-                            self.snapshot_manager.restore(qemu, &snapshot_id)?;
-                        }
-
-                        return Ok(Some(EmulatorDriverResult::EndOfRun(ExitKind::Crash)));
-                    }
-
-                    Err(exit_error.clone())?
-                }
-                _ => Err(exit_error.clone())?,
-            },
-        };
-
         // If QEMU stopped because of a request, handle it here
-        let (command, ret_reg): (Option<C>, Option<Regs>) = match &mut exit_reason {
+        let (command, ret_reg): (Option<C>, Option<Regs>) = match exit_reason {
             EmulatorExitResult::QemuExit(shutdown_cause) => match shutdown_cause {
                 QemuShutdownCause::HostSignal(signal) => {
                     return Err(EmulatorError::UnhandledSignal(*signal).into());
@@ -503,7 +488,7 @@ where
         loop {
             // Run QEMU
             log::debug!("Running QEMU...");
-            let mut exit_reason = unsafe { self.run_qemu() };
+            let mut exit_reason = unsafe { self.run_qemu()? };
             log::debug!("QEMU stopped.");
 
             // Handle QEMU exit
@@ -519,9 +504,9 @@ where
     ///
     /// This will make QEMU start. The calling thread will be running QEMU until an event stops it.
     /// This is (at least) as unsafe as running QEMU.
-    pub unsafe fn start(&mut self) -> result::Result<(), EmulatorError> {
+    pub unsafe fn start(&mut self) -> Result<()> {
         loop {
-            let mut exit_result = unsafe { self.run_qemu() };
+            let mut exit_result = unsafe { self.run_qemu()? };
 
             // Handle QEMU exit
             if let Some(exit_handler_result) = self.post_qemu_exec(&mut exit_result)? {
@@ -547,7 +532,7 @@ where
                     }
                     EmulatorDriverResult::ShutdownRequest => {}
                     EmulatorDriverResult::EndOfRun(_exit_kind) => {
-                        return Err(EmulatorError::EndBeforeStart);
+                        return Err(EmulatorError::EndBeforeStart.into());
                     }
                 }
             }
@@ -560,31 +545,27 @@ where
     ///
     /// Should, in general, be safe to call.
     /// Of course, the emulated target is not contained securely and can corrupt state or interact with the operating system.
-    pub unsafe fn run_qemu(&self) -> result::Result<EmulatorExitResult<C>, EmulatorExitError> {
-        match unsafe { self.qemu.run() } {
-            Ok(qemu_exit_reason) => Ok(match qemu_exit_reason {
-                QemuExitReason::End(qemu_shutdown_cause) => {
-                    EmulatorExitResult::QemuExit(qemu_shutdown_cause)
-                }
-                QemuExitReason::Crash => EmulatorExitResult::Crash,
-                QemuExitReason::Timeout => EmulatorExitResult::Timeout,
-                QemuExitReason::Breakpoint(bp_addr) => {
-                    let bp = self
-                        .breakpoints_by_addr
-                        .borrow()
-                        .get(&bp_addr)
-                        .ok_or(EmulatorExitError::BreakpointNotFound(bp_addr))?
-                        .clone();
-                    EmulatorExitResult::Breakpoint(bp.clone())
-                }
-                QemuExitReason::SyncExit => EmulatorExitResult::CustomInsn(CustomInsn::new(
-                    self.command_manager.parse(self.qemu)?,
-                )),
-            }),
-            Err(qemu_exit_reason_error) => Err(match qemu_exit_reason_error {
-                QemuExitError::UnexpectedExit => EmulatorExitError::UnexpectedExit,
-                QemuExitError::UnknownKind => EmulatorExitError::UnknownKind,
-            }),
-        }
+    pub unsafe fn run_qemu(&self) -> Result<EmulatorExitResult<C>> {
+        let qemu_exit_reason = unsafe { self.qemu.run()? };
+
+        Ok(match qemu_exit_reason {
+            QemuExitReason::End(qemu_shutdown_cause) => {
+                EmulatorExitResult::QemuExit(qemu_shutdown_cause)
+            }
+            QemuExitReason::Crash => EmulatorExitResult::Crash,
+            QemuExitReason::Timeout => EmulatorExitResult::Timeout,
+            QemuExitReason::Breakpoint(bp_addr) => {
+                let bp = self
+                    .breakpoints_by_addr
+                    .borrow()
+                    .get(&bp_addr)
+                    .ok_or(EmulatorExitError::BreakpointNotFound(bp_addr))?
+                    .clone();
+                EmulatorExitResult::Breakpoint(bp.clone())
+            }
+            QemuExitReason::SyncExit => EmulatorExitResult::CustomInsn(CustomInsn::new(
+                self.command_manager.parse(self.qemu)?,
+            )),
+        })
     }
 }

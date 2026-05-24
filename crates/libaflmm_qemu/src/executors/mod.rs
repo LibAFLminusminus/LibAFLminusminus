@@ -6,7 +6,7 @@ use libaflmm::runtimes::OsTerminationParams;
 #[cfg(feature = "usermode")]
 use libaflmm::runtimes::inprocess::CrashStatus;
 use libaflmm::runtimes::inprocess::TimeoutStatus;
-use libaflmm::{Result, executors::ExitKind, observers::ObserversTuple};
+use libaflmm::{executors::ExitKind, observers::ObserversTuple};
 #[cfg(feature = "usermode")]
 use libaflmm_bolts::minibsod;
 #[cfg(feature = "systemmode")]
@@ -33,7 +33,7 @@ unsafe fn handle_crash<EMU, I, OT, S>(
     state: &mut S,
     input: Option<&I>,
     params: &OsTerminationParams,
-) -> Result<CrashStatus>
+) -> libaflmm::Result<CrashStatus>
 where
     EMU: Emulator<Input = I, State = S>,
     OT: ObserversTuple<S>,
@@ -136,7 +136,7 @@ unsafe fn handle_timeout<EMU, I, OT, S>(
     observers: &mut OT,
     state: &mut S,
     input: Option<&I>,
-) -> Result<TimeoutStatus>
+) -> libaflmm::Result<TimeoutStatus>
 where
     EMU: Emulator<Input = I, State = S>,
     OT: ObserversTuple<S>,

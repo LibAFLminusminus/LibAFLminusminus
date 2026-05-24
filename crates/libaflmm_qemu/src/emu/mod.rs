@@ -12,16 +12,17 @@ use crate::{
     breakpoint::{Breakpoint, BreakpointId},
     command::{Command, CommandError, CommandManager},
     modules::{EmulatorModuleTuple, HasStdFiltersTuple},
-    qemu::{ArchExtras, CPU, CallingConvention, Qemu, QemuError, QemuRWError, QemuShutdownCause},
+    qemu::{ArchExtras, CPU, CallingConvention, Qemu, QemuShutdownCause},
     sync_exit::CustomInsn,
 };
 use core::fmt::{self, Debug, Display, Formatter};
+use delegate::delegate;
 use libaflmm::{executors::ExitKind, inputs::Input, observers::ObserversTuple, states::State};
 use libaflmm_bolts::os::unix_signals::Signal;
 use libaflmm_qemu_sys::{GuestAddr, GuestPhysAddr, GuestVirtAddr};
 #[cfg(feature = "usermode")]
 use libaflmm_qemu_sys::{MmapPerms, VerifyAccess};
-use std::{ops::Add, result};
+use std::ops::Add;
 
 pub mod standard;
 pub use standard::{StdEmulator, StdEmulatorBuilder};
@@ -53,67 +54,9 @@ pub mod systemmode;
 #[cfg(feature = "systemmode")]
 pub use systemmode::InputLocation;
 
-// forward Emulator trait calls to the Qemu function with a similar name.
-macro_rules! forward {
-    () => {};
-
-    // safe, &self
-    (
-        $(#[$m:meta])*
-        fn $name:ident $(<$($gen:tt)*>)? (&self $(, $arg:ident: $ty:ty)* $(,)?) $(-> $ret:ty)?;
-        $($rest:tt)*
-    ) => {
-        $(#[$m])*
-        fn $name $(<$($gen)*>)? (&self $(, $arg: $ty)*) $(-> $ret)? {
-            self.qemu().$name($($arg),*)
-        }
-        forward!($($rest)*);
-    };
-
-    // safe, &mut self
-    (
-        $(#[$m:meta])*
-        fn $name:ident $(<$($gen:tt)*>)? (&mut self $(, $arg:ident: $ty:ty)* $(,)?) $(-> $ret:ty)?;
-        $($rest:tt)*
-    ) => {
-        $(#[$m])*
-        fn $name $(<$($gen)*>)? (&mut self $(, $arg: $ty)*) $(-> $ret)? {
-            self.qemu().$name($($arg),*)
-        }
-        forward!($($rest)*);
-    };
-
-    // unsafe, &self
-    (
-        $(#[$m:meta])*
-        unsafe fn $name:ident $(<$($gen:tt)*>)? (&self $(, $arg:ident: $ty:ty)* $(,)?) $(-> $ret:ty)?;
-        $($rest:tt)*
-    ) => {
-        $(#[$m])*
-        unsafe fn $name $(<$($gen)*>)? (&self $(, $arg: $ty)*) $(-> $ret)? {
-            unsafe { self.qemu().$name($($arg),*) }
-        }
-        forward!($($rest)*);
-    };
-
-    // unsafe, &mut self
-    (
-        $(#[$m:meta])*
-        unsafe fn $name:ident $(<$($gen:tt)*>)? (&mut self $(, $arg:ident: $ty:ty)* $(,)?) $(-> $ret:ty)?;
-        $($rest:tt)*
-    ) => {
-        $(#[$m])*
-        unsafe fn $name $(<$($gen)*>)? (&mut self $(, $arg: $ty)*) $(-> $ret)? {
-            unsafe { self.qemu().$name($($arg),*) }
-        }
-        forward!($($rest)*);
-    };
-}
-
 #[derive(Debug, Clone)]
 pub enum EmulatorError {
-    QemuError(QemuError),
-    QemuExitReasonError(EmulatorExitError),
+    Exit(EmulatorExitError),
     SMError(SnapshotManagerError),
     SMCheckError(SnapshotManagerCheckError),
     CommandError(CommandError),
@@ -171,19 +114,21 @@ pub trait Emulator {
 
     fn modules_mut(&mut self) -> &mut EmulatorModules<Self::Modules, Self::Input, Self::State>;
 
-    unsafe fn read_mem_val<T>(&self, addr: GuestAddr) -> result::Result<T, QemuRWError> {
+    fn set_input_location(&mut self, input_location: &InputLocation) -> Result<()>;
+
+    unsafe fn read_mem_val<T>(&self, addr: GuestAddr) -> Result<T> {
         unsafe { self.qemu().read_mem_val(addr) }
     }
 
-    unsafe fn write_mem_val<T>(&self, addr: GuestAddr, val: &T) -> result::Result<(), QemuRWError> {
+    unsafe fn write_mem_val<T>(&self, addr: GuestAddr, val: &T) -> Result<()> {
         unsafe { self.qemu().write_mem_val(addr, val) }
     }
 
-    fn read_reg(&self, reg: impl Into<i32>) -> result::Result<GuestReg, QemuRWError> {
+    fn read_reg(&self, reg: impl Into<i32>) -> Result<GuestReg> {
         self.qemu().read_reg(reg)
     }
 
-    fn write_return_address<T>(&self, val: T) -> result::Result<(), QemuRWError>
+    fn write_return_address<T>(&self, val: T) -> Result<()>
     where
         T: Into<GuestAddr>,
     {
@@ -195,70 +140,72 @@ pub trait Emulator {
         idx: u8,
         val: T,
         conv: CallingConvention,
-    ) -> result::Result<(), QemuRWError>
+    ) -> Result<()>
     where
         T: Into<GuestReg>,
     {
         self.qemu().write_function_argument_with_cc(idx, val, conv)
     }
 
-    forward! {
-        fn num_cpus(&self) -> usize;
+    delegate! {
+        to self.qemu() {
+            fn num_cpus(&self) -> usize;
 
-        fn current_cpu(&self) -> Option<CPU>;
+            fn current_cpu(&self) -> Option<CPU>;
 
-        fn cpu_from_index(&self, idx: usize) -> Option<CPU>;
+            fn cpu_from_index(&self, idx: usize) -> Option<CPU>;
 
-        fn page_from_addr(&self, addr: GuestAddr) -> GuestAddr;
+            fn page_from_addr(&self, addr: GuestAddr) -> GuestAddr;
 
-        fn read_mem(&self, addr: GuestAddr, buf: &mut [u8]) -> result::Result<(), QemuRWError>;
+            fn read_mem(&self, addr: GuestAddr, buf: &mut [u8]) -> Result<()>;
 
-        fn read_mem_vec(&self, addr: GuestAddr, len: usize) -> result::Result<Vec<u8>, QemuRWError>;
+            fn read_mem_vec(&self, addr: GuestAddr, len: usize) -> Result<Vec<u8>>;
 
-        fn write_mem(&self, addr: GuestAddr, buf: &[u8]) -> result::Result<(), QemuRWError>;
+            fn write_mem(&self, addr: GuestAddr, buf: &[u8]) -> Result<()>;
 
-        fn num_regs(&self) -> i32;
+            fn num_regs(&self) -> i32;
 
-        fn write_reg(
-            &self,
-            reg: impl Into<i32>,
-            val: impl Into<GuestReg>,
-        ) -> result::Result<(), QemuRWError>;
+            fn write_reg(
+                &self,
+                reg: impl Into<i32>,
+                val: impl Into<GuestReg>,
+            ) -> Result<()>;
 
-        fn entry_break(&self, addr: GuestAddr) -> libaflmm::Result<()>;
+            fn entry_break(&self, addr: GuestAddr) -> libaflmm::Result<()>;
 
-        fn flush_jit(&self);
+            fn flush_jit(&self);
 
-        fn host_page_size(&self) -> usize;
+            fn host_page_size(&self) -> usize;
 
-        fn is_running(&self) -> bool;
+            fn is_running(&self) -> bool;
 
-        fn write_function_arguments(
-            &mut self,
-            val: &[impl Into<GuestReg> + Clone],
-        ) -> result::Result<(), QemuRWError>;
+            fn write_function_arguments(
+                &mut self,
+                val: &[impl Into<GuestReg> + Clone],
+            ) -> Result<()>;
 
-        fn write_function_arguments_with_cc(
-            &mut self,
-            val: &[impl Into<GuestReg> + Clone],
-            conv: &CallingConvention,
-        ) -> result::Result<(), QemuRWError>;
+            fn write_function_arguments_with_cc(
+                &mut self,
+                val: &[impl Into<GuestReg> + Clone],
+                conv: &CallingConvention,
+            ) -> Result<()>;
 
-        fn read_function_argument(&self, idx: u8) -> result::Result<GuestReg, QemuRWError>;
+            fn read_function_argument(&self, idx: u8) -> Result<GuestReg>;
 
-        fn write_function_argument(
-            &self,
-            idx: u8,
-            val: impl Into<GuestReg>,
-        ) -> result::Result<(), QemuRWError>;
+            fn write_function_argument(
+                &self,
+                idx: u8,
+                val: impl Into<GuestReg>,
+            ) -> Result<()>;
 
-        fn read_return_address(&self) -> result::Result<GuestAddr, QemuRWError>;
+            fn read_return_address(&self) -> Result<GuestAddr>;
 
-        fn read_function_argument_with_cc(
-            &self,
-            idx: u8,
-            conv: CallingConvention,
-        ) -> result::Result<GuestReg, QemuRWError>;
+            fn read_function_argument_with_cc(
+                &self,
+                idx: u8,
+                conv: CallingConvention,
+            ) -> Result<GuestReg>;
+        }
     }
 
     #[cfg(feature = "usermode")]
@@ -277,78 +224,82 @@ pub trait Emulator {
     }
 
     #[cfg(feature = "usermode")]
-    forward! {
-        fn mappings(&self) -> GuestMaps;
+    delegate! {
+        to self.qemu() {
+            fn mappings(&self) -> GuestMaps;
 
-        fn image_info(&self) -> ImageInfo;
+            fn image_info(&self) -> ImageInfo;
 
-        fn access_ok(&self, kind: VerifyAccess, addr: GuestAddr, size: usize) -> Option<bool>;
+            fn access_ok(&self, kind: VerifyAccess, addr: GuestAddr, size: usize) -> Option<bool>;
 
-        fn force_dfl(&self);
+            fn force_dfl(&self);
 
-        fn load_addr(&self) -> GuestAddr;
+            fn load_addr(&self) -> GuestAddr;
 
-        fn get_brk(&self) -> GuestAddr;
+            fn get_brk(&self) -> GuestAddr;
 
-        fn get_initial_brk(&self) -> GuestAddr;
+            fn get_initial_brk(&self) -> GuestAddr;
 
-        fn set_brk(&self, brk: GuestAddr);
+            fn set_brk(&self, brk: GuestAddr);
 
-        fn get_mmap_start(&self) -> GuestAddr;
+            fn get_mmap_start(&self) -> GuestAddr;
 
-        fn set_mmap_start(&self, start: GuestAddr);
+            fn set_mmap_start(&self, start: GuestAddr);
 
-        fn mmap(
-            &self,
-            addr: GuestAddr,
-            size: usize,
-            perms: MmapPerms,
-            flags: i32,
-            fd: i32,
-        ) -> Result<GuestAddr>;
+            fn mmap(
+                &self,
+                addr: GuestAddr,
+                size: usize,
+                perms: MmapPerms,
+                flags: i32,
+                fd: i32,
+            ) -> Result<GuestAddr>;
 
-        fn map_private(
-            &self,
-            addr: GuestAddr,
-            size: usize,
-            perms: MmapPerms,
-        ) -> Result<GuestAddr>;
+            fn map_private(
+                &self,
+                addr: GuestAddr,
+                size: usize,
+                perms: MmapPerms,
+            ) -> Result<GuestAddr>;
 
-        fn map_fixed(
-            &self,
-            addr: GuestAddr,
-            size: usize,
-            perms: MmapPerms,
-        ) -> Result<GuestAddr>;
+            fn map_fixed(
+                &self,
+                addr: GuestAddr,
+                size: usize,
+                perms: MmapPerms,
+            ) -> Result<GuestAddr>;
 
-        fn mprotect(&self, addr: GuestAddr, size: usize, perms: MmapPerms) -> result::Result<(), String>;
+            fn mprotect(&self, addr: GuestAddr, size: usize, perms: MmapPerms) -> Result<()>;
 
-        fn unmap(&self, addr: GuestAddr, size: usize) -> result::Result<(), String>;
+            fn unmap(&self, addr: GuestAddr, size: usize) -> Result<()>;
 
-        unsafe fn set_target_crash_handling(&self, handling: &TargetSignalHandling);
+            unsafe fn set_target_crash_handling(&self, handling: &TargetSignalHandling);
+        }
     }
 
     #[cfg(feature = "systemmode")]
-    forward! {
-        unsafe fn write_phys_mem(&self, paddr: GuestPhysAddr, buf: &[u8]);
+    delegate! {
+        to self.qemu() {
+            unsafe fn write_phys_mem(&self, paddr: GuestPhysAddr, buf: &[u8]);
 
-        unsafe fn read_phys_mem(&self, paddr: GuestPhysAddr, buf: &mut [u8]);
+            unsafe fn read_phys_mem(&self, paddr: GuestPhysAddr, buf: &mut [u8]);
 
-        fn save_snapshot(&self, name: &str, sync: bool);
+            fn save_snapshot(&self, name: &str, sync: bool);
 
-        fn load_snapshot(&self, name: &str, sync: bool);
+            fn load_snapshot(&self, name: &str, sync: bool);
 
-        fn create_fast_snapshot(&self, track: bool) -> FastSnapshotPtr;
+            fn create_fast_snapshot(&self, track: bool) -> FastSnapshotPtr;
 
-        fn create_fast_snapshot_filter(
-            &self,
-            track: bool,
-            device_filter: &DeviceSnapshotFilter,
-        ) -> FastSnapshotPtr;
+            fn create_fast_snapshot_filter(
+                &self,
+                track: bool,
+                device_filter: &DeviceSnapshotFilter,
+            ) -> FastSnapshotPtr;
 
-        unsafe fn restore_fast_snapshot(&self, snapshot: FastSnapshotPtr);
+            unsafe fn restore_fast_snapshot(&self, snapshot: FastSnapshotPtr);
 
-        fn list_devices(&self) -> Vec<String>;
+            fn list_devices(&self) -> Vec<String>;
+        }
     }
 }
 
@@ -374,6 +325,12 @@ pub enum EmulatorExitError {
     UnexpectedExit,
     CommandError(CommandError),
     BreakpointNotFound(GuestAddr),
+}
+
+impl From<EmulatorExitError> for crate::Error {
+    fn from(error: EmulatorExitError) -> Self {
+        crate::Error::Emulator(EmulatorError::Exit(error))
+    }
 }
 
 impl<C> Debug for EmulatorExitResult<C>
@@ -445,27 +402,21 @@ impl Display for GuestAddrKind {
     }
 }
 
-impl From<SnapshotManagerError> for EmulatorDriverError {
+impl From<SnapshotManagerError> for EmulatorError {
     fn from(sm_error: SnapshotManagerError) -> Self {
-        EmulatorDriverError::SMError(sm_error)
+        EmulatorError::SMError(sm_error)
     }
 }
 
-impl From<SnapshotManagerCheckError> for EmulatorDriverError {
+impl From<SnapshotManagerCheckError> for EmulatorError {
     fn from(sm_check_error: SnapshotManagerCheckError) -> Self {
-        EmulatorDriverError::SMCheckError(sm_check_error)
+        EmulatorError::SMCheckError(sm_check_error)
     }
 }
 
-impl From<EmulatorExitError> for EmulatorDriverError {
-    fn from(error: EmulatorExitError) -> Self {
-        EmulatorDriverError::QemuExitReasonError(error)
-    }
-}
-
-impl From<CommandError> for EmulatorDriverError {
+impl From<CommandError> for EmulatorError {
     fn from(error: CommandError) -> Self {
-        EmulatorDriverError::CommandError(error)
+        EmulatorError::CommandError(error)
     }
 }
 

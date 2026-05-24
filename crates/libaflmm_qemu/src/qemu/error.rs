@@ -1,4 +1,4 @@
-use crate::qemu::CallingConvention;
+use crate::{Result, qemu::CallingConvention};
 use core::fmt;
 use libaflmm_qemu_sys::{CPUStatePtr, GuestAddr};
 use std::{convert::Infallible, fmt::Display};
@@ -124,13 +124,14 @@ impl QemuRWError {
         kind: QemuRWErrorKind,
         expected_conv: CallingConvention,
         given_conv: CallingConvention,
-    ) -> Result<(), Self> {
+    ) -> Result<()> {
         if expected_conv != given_conv {
-            return Err(Self::new(
+            return Err(QemuError::RW(QemuRWError::new(
                 kind,
                 QemuRWErrorCause::WrongCallingConvention(expected_conv, given_conv),
                 None,
-            ));
+            ))
+            .into());
         }
 
         Ok(())

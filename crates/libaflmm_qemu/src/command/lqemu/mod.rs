@@ -2,9 +2,10 @@ use super::{Command, CommandError};
 use crate::{
     Result,
     arch::{GuestReg, Regs},
+    command::CommandManager,
     emu::{
         Emulator, EmulatorDriverResult, EmulatorError, EmulatorExitResult, InputLocation,
-        InputWriter, SnapshotManager,
+        SnapshotManager,
     },
     modules::HasAddressFilterTuple,
 };
@@ -30,6 +31,9 @@ use std::{
     fmt::{Debug, Display, Formatter},
     ops::Range,
 };
+
+pub mod input_writer;
+pub use input_writer::LqemuInputWriter;
 
 pub mod parser;
 
@@ -180,8 +184,7 @@ impl Command for StartCommand {
             emu.set_snapshot_id(snapshot_id)?;
 
             // Save input location for next runs
-            emu.input_setter_mut()
-                .set_input_location(self.input_location.clone())?;
+            emu.set_input_location(&self.input_location)?;
 
             // Auto page filtering if option is enabled
             #[cfg(feature = "systemmode")]
@@ -398,8 +401,7 @@ impl Command for SetMapCommand {
             .expect("Declared map is not contiguous in memory");
 
         assert!(
-            emu.driver_mut()
-                .maps_mut()
+            emu.maps_mut()
                 .insert(self.kind.clone(), phys_mem_chunk)
                 .is_none(),
             "a map is being declared two times"

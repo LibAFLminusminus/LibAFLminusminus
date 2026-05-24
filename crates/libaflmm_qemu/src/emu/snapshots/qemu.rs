@@ -1,5 +1,6 @@
 use crate::{
-    emu::{QemuSnapshotCheckResult, SnapshotId, SnapshotManager, SnapshotManagerError},
+    Result,
+    emu::{QemuSnapshotCheckResult, SnapshotId, SnapshotManager},
     qemu::Qemu,
 };
 
@@ -36,11 +37,7 @@ impl SnapshotManager for QemuSnapshotManager {
         snapshot_id
     }
 
-    fn restore(
-        &mut self,
-        qemu: Qemu,
-        snapshot_id: &SnapshotId,
-    ) -> Result<(), SnapshotManagerError> {
+    fn restore(&mut self, qemu: Qemu, snapshot_id: &SnapshotId) -> Result<()> {
         qemu.load_snapshot(self.snapshot_id_to_name(snapshot_id).as_str(), self.is_sync);
         Ok(())
     }
@@ -49,7 +46,7 @@ impl SnapshotManager for QemuSnapshotManager {
         &self,
         _qemu: Qemu,
         _reference_snapshot_id: &SnapshotId,
-    ) -> Result<QemuSnapshotCheckResult, SnapshotManagerError> {
+    ) -> Result<QemuSnapshotCheckResult> {
         // We consider the qemu implementation to be 'ideal' for now.
         Ok(QemuSnapshotCheckResult::default())
     }

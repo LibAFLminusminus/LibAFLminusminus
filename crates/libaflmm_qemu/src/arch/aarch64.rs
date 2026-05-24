@@ -1,15 +1,15 @@
-use std::sync::OnceLock;
-
+use crate::{
+    CallingConvention, Error, GuestAddr, QemuRWError, QemuRWErrorKind, sync_exit::ExitArgs,
+};
 use capstone::arch::BuildsCapstone;
 use enum_map::{EnumMap, enum_map};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 #[cfg(feature = "python")]
 #[allow(unused)]
 use pyo3::prelude::*;
-pub use strum_macros::EnumIter;
-pub use syscall_numbers::aarch64::*;
+use std::sync::OnceLock;
 
-use crate::{CallingConvention, GuestAddr, QemuRWError, QemuRWErrorKind, sync_exit::ExitArgs};
+pub use syscall_numbers::aarch64 as syscalls;
 
 #[expect(non_upper_case_globals)]
 impl CallingConvention {
@@ -89,11 +89,11 @@ pub fn capstone() -> capstone::arch::arm64::ArchCapstoneBuilder {
 pub type GuestReg = u64;
 
 impl crate::ArchExtras for crate::CPU {
-    fn read_return_address(&self) -> Result<GuestAddr, QemuRWError> {
+    fn read_return_address(&self) -> Result<GuestAddr> {
         self.read_reg(Regs::Lr).map(|res| res as GuestAddr)
     }
 
-    fn write_return_address<T>(&self, val: T) -> Result<(), QemuRWError>
+    fn write_return_address<T>(&self, val: T) -> Result<()>
     where
         T: Into<GuestAddr>,
     {
@@ -101,11 +101,7 @@ impl crate::ArchExtras for crate::CPU {
         self.write_reg(Regs::Lr, addr as GuestReg)
     }
 
-    fn read_function_argument_with_cc(
-        &self,
-        idx: u8,
-        conv: CallingConvention,
-    ) -> Result<GuestReg, QemuRWError> {
+    fn read_function_argument_with_cc(&self, idx: u8, conv: CallingConvention) -> Result<GuestReg> {
         QemuRWError::check_conv(QemuRWErrorKind::Read, CallingConvention::Aapcs64, conv)?;
 
         match idx {
@@ -144,7 +140,7 @@ impl crate::ArchExtras for crate::CPU {
         idx: u8,
         val: T,
         conv: CallingConvention,
-    ) -> Result<(), QemuRWError>
+    ) -> Result<()>
     where
         T: Into<GuestReg>,
     {

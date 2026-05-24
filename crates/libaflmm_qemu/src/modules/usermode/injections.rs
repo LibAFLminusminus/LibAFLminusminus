@@ -305,13 +305,11 @@ where
 
             for (name, func_definition) in &self.definitions[lib_name].functions {
                 let hook_addrs = if name.to_lowercase().starts_with(&"0x".to_string()) {
-                    let func_pc = u64::from_str_radix(&name[2..], 16)
-                        .map_err(|e| {
-                            illegal_argument!(
-                                "Failed to parse hex string {name} from definition for {lib_name}: {e}"
-                            ).into()
-                        })
-                        .unwrap() as GuestAddr;
+                    let func_pc = u64::from_str_radix(&name[2..], 16).map_err(|e| {
+                        crate::Error::Libaflmm(illegal_argument!(
+                            "Failed to parse hex string {name} from definition for {lib_name}: {e}"
+                        ))
+                    })? as GuestAddr;
                     log::info!("Injections: Hooking hardcoded function {func_pc:#x}");
                     vec![func_pc]
                 } else {

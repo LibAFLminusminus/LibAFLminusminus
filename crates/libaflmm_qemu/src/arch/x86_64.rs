@@ -1,5 +1,5 @@
 use crate::{
-    GuestAddr,
+    GuestAddr, Result,
     qemu::{ArchExtras, CPU, CallingConvention, QemuRWError, QemuRWErrorKind},
     sync_exit::ExitArgs,
 };
@@ -75,14 +75,14 @@ pub fn capstone() -> capstone::arch::x86::ArchCapstoneBuilder {
 pub type GuestReg = u64;
 
 impl ArchExtras for CPU {
-    fn read_return_address(&self) -> Result<GuestAddr, QemuRWError> {
+    fn read_return_address(&self) -> Result<GuestAddr> {
         let stack_ptr: GuestAddr = self.read_reg(Regs::Rsp)? as GuestAddr;
         let mut ret_addr = [0; size_of::<GuestReg>()];
         unsafe { self.read_mem_unchecked(stack_ptr, &mut ret_addr) };
         Ok(GuestReg::from_le_bytes(ret_addr) as GuestAddr)
     }
 
-    fn write_return_address<T>(&self, val: T) -> Result<(), QemuRWError>
+    fn write_return_address<T>(&self, val: T) -> Result<()>
     where
         T: Into<GuestAddr>,
     {
@@ -94,11 +94,7 @@ impl ArchExtras for CPU {
         Ok(())
     }
 
-    fn read_function_argument_with_cc(
-        &self,
-        idx: u8,
-        conv: CallingConvention,
-    ) -> Result<GuestReg, QemuRWError> {
+    fn read_function_argument_with_cc(&self, idx: u8, conv: CallingConvention) -> Result<GuestReg> {
         QemuRWError::check_conv(QemuRWErrorKind::Read, CallingConvention::SystemV, conv)?;
 
         match idx {
@@ -130,7 +126,7 @@ impl ArchExtras for CPU {
         idx: u8,
         val: T,
         conv: CallingConvention,
-    ) -> Result<(), QemuRWError>
+    ) -> Result<()>
     where
         T: Into<GuestReg>,
     {

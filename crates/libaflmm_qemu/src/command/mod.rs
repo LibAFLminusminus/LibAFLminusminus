@@ -1,7 +1,7 @@
 use crate::{
     Result,
     arch::{GuestReg, Regs},
-    emu::{Emulator, EmulatorDriverResult},
+    emu::{Emulator, EmulatorDriverResult, InputLocation},
     qemu::{Qemu, QemuRWError},
     sync_exit::ExitArgs,
 };
@@ -67,7 +67,7 @@ macro_rules! define_std_command_manager_inner {
                     command::{CommandManager, CommandError, NativeCommandParser, Command},
                     arch::get_exit_arch_regs,
                     sync_exit::ExitArgs,
-                    emu::{EmulatorDriverError, EmulatorDriverResult},
+                    emu::EmulatorDriverResult,
                     qemu::Qemu,
                     arch::Regs,
                     Result,
@@ -206,6 +206,34 @@ pub trait Command: Clone + Debug {
         emu: &mut EMU,
         ret_reg: Option<Regs>,
     ) -> Result<Option<EmulatorDriverResult<<EMU as Emulator>::Command>>>;
+}
+
+pub trait InputWriter<I, S> {
+    /// Set input in the Emulator.
+    fn write_input(&mut self, qemu: Qemu, state: &mut S, input: &I) -> Result<()>;
+
+    /// Set location at which input should be set.
+    fn set_input_location(&mut self, location: InputLocation) -> Result<()>;
+
+    /// Get the input location, if it is set.
+    fn input_location(&self) -> Option<&InputLocation>;
+}
+
+#[derive(Debug, Default)]
+pub struct NopInputWriter;
+
+impl<I, S> InputWriter<I, S> for NopInputWriter {
+    fn write_input(&mut self, _qemu: Qemu, _state: &mut S, _input: &I) -> Result<()> {
+        Ok(())
+    }
+
+    fn set_input_location(&mut self, _location: InputLocation) -> Result<()> {
+        Ok(())
+    }
+
+    fn input_location(&self) -> Option<&InputLocation> {
+        None
+    }
 }
 
 #[derive(Debug, Clone)]

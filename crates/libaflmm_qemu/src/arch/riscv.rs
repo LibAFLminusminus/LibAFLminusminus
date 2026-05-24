@@ -1,16 +1,15 @@
-use core::ffi::c_long;
-use std::sync::OnceLock;
-
 use capstone::arch::BuildsCapstone;
+use core::ffi::c_long;
 use enum_map::{EnumMap, enum_map};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
-pub use strum_macros::EnumIter;
+use std::sync::OnceLock;
+
 #[cfg(feature = "riscv32")]
-pub use syscall_numbers::riscv32::*;
+pub use syscall_numbers::riscv32 as syscalls;
 #[cfg(feature = "riscv64")]
-pub use syscall_numbers::riscv64::*;
+pub use syscall_numbers::riscv64 as syscalls;
 
 // QEMU specific
 #[expect(non_upper_case_globals)]

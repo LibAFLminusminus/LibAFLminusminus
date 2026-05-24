@@ -1,14 +1,14 @@
-use std::{mem::size_of, sync::OnceLock};
-
+use crate::{
+    CallingConvention, Error, GuestAddr, QemuRWError, QemuRWErrorKind, sync_exit::ExitArgs,
+};
 use capstone::arch::BuildsCapstone;
 use enum_map::{EnumMap, enum_map};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
-pub use strum_macros::EnumIter;
-pub use syscall_numbers::x86::*;
+use std::{mem::size_of, sync::OnceLock};
 
-use crate::{CallingConvention, GuestAddr, QemuRWError, QemuRWErrorKind, sync_exit::ExitArgs};
+pub use syscall_numbers::x86 as syscalls;
 
 #[expect(non_upper_case_globals)]
 impl CallingConvention {
@@ -65,14 +65,14 @@ pub fn capstone() -> capstone::arch::x86::ArchCapstoneBuilder {
 pub type GuestReg = u32;
 
 impl crate::ArchExtras for crate::CPU {
-    fn read_return_address(&self) -> Result<GuestAddr, QemuRWError> {
+    fn read_return_address(&self) -> Result<GuestAddr> {
         let stack_ptr: GuestAddr = self.read_reg(Regs::Esp)? as GuestAddr;
         let mut ret_addr = [0; size_of::<GuestReg>()];
         self.read_mem(stack_ptr, &mut ret_addr)?;
         Ok(GuestReg::from_le_bytes(ret_addr) as GuestAddr)
     }
 
-    fn write_return_address<T>(&self, val: T) -> Result<(), QemuRWError>
+    fn write_return_address<T>(&self, val: T) -> Result<()>
     where
         T: Into<GuestAddr>,
     {
@@ -84,11 +84,7 @@ impl crate::ArchExtras for crate::CPU {
         Ok(())
     }
 
-    fn read_function_argument_with_cc(
-        &self,
-        idx: u8,
-        conv: CallingConvention,
-    ) -> Result<GuestReg, QemuRWError> {
+    fn read_function_argument_with_cc(&self, idx: u8, conv: CallingConvention) -> Result<GuestReg> {
         QemuRWError::check_conv(QemuRWErrorKind::Read, CallingConvention::Cdecl, conv)?;
 
         let size: usize = size_of::<GuestReg>();
@@ -109,7 +105,7 @@ impl crate::ArchExtras for crate::CPU {
         idx: u8,
         val: T,
         conv: CallingConvention,
-    ) -> Result<(), QemuRWError>
+    ) -> Result<()>
     where
         T: Into<GuestReg>,
     {

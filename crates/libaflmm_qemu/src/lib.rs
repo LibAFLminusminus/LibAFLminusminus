@@ -22,6 +22,7 @@
 #![allow(clippy::std_instead_of_alloc)]
 
 use crate::{command::CommandError, emu::EmulatorError, qemu::QemuError};
+use libaflmm::runtime;
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
 use std::{env, io, result};
@@ -49,9 +50,9 @@ pub type Result<T> = result::Result<T, Error>;
 
 #[derive(Debug)]
 pub enum Error {
+    Libaflmm(libaflmm::Error),
     Emulator(EmulatorError),
     Qemu(QemuError),
-    Libaflmm(libaflmm::Error),
     Command(CommandError),
 }
 
@@ -82,6 +83,15 @@ impl From<CommandError> for Error {
 impl From<io::Error> for Error {
     fn from(error: io::Error) -> Self {
         Error::Libaflmm(error.into())
+    }
+}
+
+impl From<Error> for libaflmm::Error {
+    fn from(error: Error) -> Self {
+        match error {
+            Error::Libaflmm(e) => e,
+            e => runtime!("LibAFLmm QEMU error: {e:?}"),
+        }
     }
 }
 
@@ -117,9 +127,9 @@ pub mod prelude {
     pub use crate::command::SetMapCommand;
 
     pub use crate::emu::{
-        Emulator, EmulatorDriverError, EmulatorDriverResult, EmulatorExitError, EmulatorExitResult,
-        EmulatorHooks, EmulatorModules, GuestAddrKind, InputLocation, InputWriter, MapKind,
-        NopInputWriter, NopSnapshotManager, QemuSnapshotCheckResult, SnapshotId, SnapshotManager,
+        Emulator, EmulatorDriverResult, EmulatorExitError, EmulatorExitResult, EmulatorHooks,
+        EmulatorModules, GuestAddrKind, InputLocation, InputWriter, MapKind, NopInputWriter,
+        NopSnapshotManager, QemuSnapshotCheckResult, SnapshotId, SnapshotManager,
         SnapshotManagerCheckError, SnapshotManagerError, StdEmulator, StdEmulatorBuilder,
         StdInputWriter,
     };

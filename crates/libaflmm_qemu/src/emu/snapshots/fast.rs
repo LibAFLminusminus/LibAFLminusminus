@@ -1,4 +1,5 @@
 use crate::{
+    Result,
     emu::{QemuSnapshotCheckResult, SnapshotId, SnapshotManager, SnapshotManagerError},
     qemu::Qemu,
 };
@@ -39,11 +40,7 @@ impl SnapshotManager for FastSnapshotManager {
         snapshot_id
     }
 
-    fn restore(
-        &mut self,
-        qemu: Qemu,
-        snapshot_id: &SnapshotId,
-    ) -> Result<(), SnapshotManagerError> {
+    fn restore(&mut self, qemu: Qemu, snapshot_id: &SnapshotId) -> Result<()> {
         let fast_snapshot_ptr = *self
             .snapshots
             .get(snapshot_id)
@@ -60,7 +57,7 @@ impl SnapshotManager for FastSnapshotManager {
         &self,
         qemu: Qemu,
         reference_snapshot_id: &SnapshotId,
-    ) -> Result<QemuSnapshotCheckResult, SnapshotManagerError> {
+    ) -> Result<QemuSnapshotCheckResult> {
         let fast_snapshot_ptr = *self.snapshots.get(reference_snapshot_id).ok_or(
             SnapshotManagerError::SnapshotIdNotFound(*reference_snapshot_id),
         )?;

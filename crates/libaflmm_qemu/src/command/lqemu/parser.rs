@@ -277,7 +277,7 @@ impl NativeCommandParser for SetMapCommandParser {
                 qemu.current_cpu().unwrap(),
             ),
 
-            _ => return Err(CommandError::InvalidParameters),
+            _ => return Err(CommandError::InvalidParameters.into()),
         };
 
         Ok(SetMapCommand::new(kind, map))

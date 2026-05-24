@@ -1,8 +1,10 @@
+use crate::Result;
 #[cfg(doc)]
 use crate::config::QemuConfig;
 use crate::emu::NopInputWriter;
 use crate::emu::StdInputWriter;
 use crate::emu::snapshots::StdSnapshotManager;
+use crate::qemu::QemuError;
 use crate::{
     command::{NopCommandManager, StdCommandManager},
     emu::{NopSnapshotManager, StdEmulator},
@@ -139,15 +141,17 @@ where
     }
 
     #[allow(clippy::type_complexity)]
-    pub fn build<E>(self) -> Result<StdEmulator<C, CM, ET, I, IW, S, SM>, QemuInitError>
+    pub fn build<E>(self) -> Result<StdEmulator<C, CM, ET, I, IW, S, SM>>
     where
         ET: EmulatorModuleTuple<I, S>,
-        QP: TryInto<QemuParams, Error = E>,
+        QP: TryInto<QemuParams, Error = crate::Error>,
         QemuInitError: From<E>,
     {
         let qemu_params: QemuParams = self
             .qemu_parameters
-            .ok_or(QemuInitError::NoParametersProvided)?
+            .ok_or(crate::Error::Qemu(QemuError::Init(
+                QemuInitError::NoParametersProvided,
+            )))?
             .try_into()?;
 
         StdEmulator::new(
@@ -160,10 +164,7 @@ where
     }
 
     #[allow(clippy::type_complexity)]
-    pub fn build_with_qemu(
-        self,
-        qemu: Qemu,
-    ) -> Result<StdEmulator<C, CM, ET, I, IW, S, SM>, QemuInitError>
+    pub fn build_with_qemu(self, qemu: Qemu) -> Result<StdEmulator<C, CM, ET, I, IW, S, SM>>
     where
         ET: EmulatorModuleTuple<I, S>,
     {
