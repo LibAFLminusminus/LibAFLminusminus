@@ -1,5 +1,5 @@
 use crate::options::FuzzOptions;
-use libaflmm::prelude::*;
+use libaflmm::{Result, prelude::*};
 use libaflmm_bolts::{CoreId, tuple_list};
 use libaflmm_qemu::prelude::*;
 use std::path::PathBuf;

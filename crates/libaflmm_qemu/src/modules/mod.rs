@@ -53,6 +53,9 @@ pub use utils::{
     PageFilterVec, StdAddressFilter, StdPageFilter,
 };
 
+#[cfg(feature = "systemmode")]
+pub use utils::HasPageFilterTuple;
+
 /// [`EmulatorModule`] is a trait designed to define modules that interact with the QEMU emulator
 /// during fuzzing. [`EmulatorModule`] provides a set of interfaces (hooks) that can be invoked at various stages
 /// of the fuzzer's execution.

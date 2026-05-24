@@ -5,7 +5,7 @@ use crate::{
     options::{Cli, Mode},
 };
 use clap::Parser;
-use libaflmm::prelude::*;
+use libaflmm::{Result, prelude::*};
 use std::env;
 
 mod fuzzer;
@@ -34,7 +34,7 @@ pub fn main() -> Result<()> {
 
     let program = env::args()
         .next()
-        .ok_or_else(|| Error::empty_optional("Failed to read program name"))?;
+        .ok_or_else(|| empty_optional!("Failed to read program name"))?;
 
     let mut args = cli.common().args.clone();
     args.insert(0, program);

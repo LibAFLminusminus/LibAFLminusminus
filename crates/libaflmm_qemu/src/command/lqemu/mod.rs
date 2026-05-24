@@ -11,7 +11,7 @@ use crate::{
 };
 use crate::{define_std_command_manager_bound, define_std_command_manager_inner};
 #[cfg(feature = "systemmode")]
-use crate::{emu::MapKind, qemu::QemuMemoryChunk};
+use crate::{emu::MapKind, modules::HasPageFilterTuple, qemu::QemuMemoryChunk};
 use enum_map::Enum;
 use libaflmm::executors::ExitKind;
 use libaflmm_qemu_sys::GuestAddr;
@@ -376,6 +376,7 @@ impl Command for TestCommand {
 
 #[cfg(feature = "systemmode")]
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct SetMapCommand {
     kind: MapKind,
     map: QemuMemoryChunk,
@@ -395,19 +396,20 @@ impl Command for SetMapCommand {
     where
         EMU: Emulator,
     {
-        let phys_mem_chunk = self
+        let _phys_mem_chunk = self
             .map
             .to_phys_mem_chunk(emu.qemu())
             .expect("Declared map is not contiguous in memory");
 
-        assert!(
-            emu.maps_mut()
-                .insert(self.kind.clone(), phys_mem_chunk)
-                .is_none(),
-            "a map is being declared two times"
-        );
-
-        Ok(None)
+        todo!("Adapt this if using the explicit map.");
+        // assert!(
+        //     emu.maps_mut()
+        //         .insert(self.kind.clone(), phys_mem_chunk)
+        //         .is_none(),
+        //     "a map is being declared two times"
+        // );
+        //
+        // Ok(None)
     }
 }
 

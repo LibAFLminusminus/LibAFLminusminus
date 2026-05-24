@@ -316,6 +316,9 @@ pub trait Emulator {
             fn list_devices(&self) -> Vec<String>;
         }
     }
+
+    #[cfg(feature = "systemmode")]
+    fn allow_page_on_start(&self) -> bool;
 }
 
 #[derive(Copy, Clone)]
@@ -444,4 +447,3 @@ where
         }
     }
 }
-

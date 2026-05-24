@@ -1,7 +1,7 @@
 use std::ops::Range;
 
-use libaflmm::prelude::*;
 use libaflmm::states::State;
+use libaflmm::{Result, prelude::*};
 use libaflmm_bolts::AsSlice;
 use libaflmm_qemu::emu::Emulator;
 use libaflmm_qemu::prelude::*;
@@ -25,7 +25,7 @@ impl Harness {
 
         let start_pc = elf
             .resolve_symbol("LLVMFuzzerTestOneInput", qemu.load_addr())
-            .ok_or_else(|| Error::empty_optional("Symbol LLVMFuzzerTestOneInput not found"))?;
+            .ok_or_else(|| empty_optional!("Symbol LLVMFuzzerTestOneInput not found"))?;
         Ok(start_pc)
     }
 
@@ -77,7 +77,7 @@ impl Harness {
 
         let ret_addr: GuestAddr = emu
             .read_return_address()
-            .map_err(|e| Error::unknown(format!("Failed to read return address: {e:?}")))?;
+            .map_err(|e| unknown!("Failed to read return address: {e}"))?;
         log::info!("ret_addr = {ret_addr:#x}");
         emu.add_breakpoint(
             Breakpoint::with_command(ret_addr, EndCommand::new(Some(ExitKind::Ok)).into(), false),
@@ -86,19 +86,19 @@ impl Harness {
 
         let input_addr = emu
             .map_private(0, MAX_INPUT_SIZE, MmapPerms::ReadWrite)
-            .map_err(|e| Error::unknown(format!("Failed to map input buffer: {e:}")))?;
+            .map_err(|e| unknown!("Failed to map input buffer: {e}"))?;
 
         let pc: GuestReg = emu
             .read_reg(Regs::Pc)
-            .map_err(|e| Error::unknown(format!("Failed to read PC: {e:?}")))?;
+            .map_err(|e| unknown!("Failed to read PC: {e}"))?;
 
         let stack_ptr = emu
             .read_reg(Regs::Sp)
-            .map_err(|e| Error::unknown(format!("Failed to read stack pointer: {e:?}")))?;
+            .map_err(|e| unknown!("Failed to read stack pointer: {e}"))?;
 
         let ret_addr: GuestAddr = emu
             .read_return_address()
-            .map_err(|e| Error::unknown(format!("Failed to read return address: {e:?}")))?;
+            .map_err(|e| unknown!("Failed to read return address: {e}"))?;
 
         Self::coverage_filter(emu, options)?;
 

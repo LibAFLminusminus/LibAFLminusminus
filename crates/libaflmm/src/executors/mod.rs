@@ -195,21 +195,6 @@ pub trait Executor<I, S>: DependencyResolver {
     }
 }
 
-pub trait HasShadowObservers<S> {
-    /// The [`Observer`]s owned by the [`Executor`].
-    /// Contrarily to [`Observers`], [`ShadowObservers`] are not exposed
-    /// and only kept around.
-    type ShadowObservers: ObserversTuple<S>;
-
-    /// The shadow observers are not considered by the feedbacks and the manager, mutable
-    fn shadow_observers(&self) -> RefIndexable<&Self::ShadowObservers, Self::ShadowObservers>;
-
-    /// The shadow observers are not considered by the feedbacks and the manager, mutable
-    fn shadow_observers_mut(
-        &mut self,
-    ) -> RefIndexable<&mut Self::ShadowObservers, Self::ShadowObservers>;
-}
-
 /// Like [`crate::observers::ObserversTuple`], a list of executors
 pub trait ExecutorsTuple<EM, I, S, Z> {
     /// Execute the executors and stop if any of them returns a crash

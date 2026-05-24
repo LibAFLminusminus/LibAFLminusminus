@@ -143,13 +143,14 @@ where
     pub fn build<E>(self) -> Result<StdEmulator<C, CM, ET, I, IW, S, SM>>
     where
         ET: EmulatorModuleTuple<I, S>,
-        QP: TryInto<QemuParams, Error = crate::Error>,
+        QP: TryInto<QemuParams, Error = E>,
         QemuInitError: From<E>,
     {
         let qemu_params: QemuParams = self
             .qemu_parameters
             .ok_or(QemuInitError::NoParametersProvided)?
-            .try_into()?;
+            .try_into()
+            .map_err(QemuInitError::from)?;
 
         StdEmulator::new(
             qemu_params,

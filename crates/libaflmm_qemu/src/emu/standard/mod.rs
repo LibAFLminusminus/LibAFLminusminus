@@ -1,3 +1,4 @@
+use crate::Result;
 use crate::arch::Regs;
 use crate::command::Command;
 #[cfg(feature = "systemmode")]
@@ -10,7 +11,6 @@ use crate::emu::{
 use crate::modules::HasStdFiltersTuple;
 #[cfg(feature = "systemmode")]
 use crate::qemu::PhysMemoryChunk;
-use crate::Result;
 use crate::{
     breakpoint::{Breakpoint, BreakpointId},
     command::{CommandManager, NopCommandManager, StdCommandManager},
@@ -69,6 +69,7 @@ pub struct StdEmulator<C, CM, ET, I, IS, S, SM> {
     print_commands: bool,
     // maps declared by the VM
     #[cfg(feature = "systemmode")]
+    #[allow(dead_code)]
     maps: HashMap<MapKind, PhysMemoryChunk>,
     phantom: PhantomData<(I, S)>,
 }
@@ -230,6 +231,11 @@ where
 
     fn set_input_location(&mut self, input_location: &InputLocation) -> Result<()> {
         self.input_setter.set_input_location(input_location.clone())
+    }
+
+    #[cfg(feature = "systemmode")]
+    fn allow_page_on_start(&self) -> bool {
+        self.allow_page_on_start
     }
 }
 

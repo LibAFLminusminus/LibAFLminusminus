@@ -1,5 +1,5 @@
 use crate::{fuzzer::profile::QemuProfile, harness::Harness, options::FuzzOptions};
-use libaflmm::prelude::*;
+use libaflmm::{Result, prelude::*};
 use libaflmm_bolts::OwnedMutSlice;
 use libaflmm_qemu::prelude::*;
 use libaflmm_targets::{EDGES_MAP_DEFAULT_SIZE, MAX_EDGES_FOUND, edges_map_mut_ptr};
@@ -97,7 +97,8 @@ impl QemuFuzzer {
                 let modules =
                     profile.get_modules(&options, &env, &mut edges_observer, injection_module)?;
 
-                let observers = tuple_list!(edges_observer, time_observer);
+                let cmplog_observer = profile.cmplog();
+                let observers = tuple_list!(edges_observer, cmplog_observer, time_observer);
 
                 let mut emulator = StdEmulator::builder()
                     .qemu_parameters(args.clone())
@@ -106,15 +107,12 @@ impl QemuFuzzer {
 
                 let harness = Harness::init(&mut emulator, &options.common)?;
 
-                let cmplog_observer = profile.cmplog();
-
-                let mut executor = StdQemuExecutor::with_shadow_observers(
+                let mut executor = StdQemuExecutor::new(
                     state,
                     emulator,
                     |state, input, emu| harness.run(state, input, emu),
                     |_, _, _, _| Ok(()),
                     observers,
-                    tuple_list!(cmplog_observer),
                 )?;
 
                 let mut stages = tuple_list!(StdStage::default());

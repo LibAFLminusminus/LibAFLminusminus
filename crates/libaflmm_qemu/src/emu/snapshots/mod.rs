@@ -98,6 +98,12 @@ pub enum SnapshotManagerCheckError {
     SnapshotCheckError(QemuSnapshotCheckResult),
 }
 
+impl From<SnapshotManagerError> for crate::Error {
+    fn from(error: SnapshotManagerError) -> Self {
+        EmulatorError::from(error).into()
+    }
+}
+
 impl From<SnapshotManagerCheckError> for crate::Error {
     fn from(error: SnapshotManagerCheckError) -> Self {
         EmulatorError::from(error).into()

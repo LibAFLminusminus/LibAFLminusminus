@@ -1,4 +1,6 @@
 pub mod filters;
+#[cfg(feature = "systemmode")]
+pub use filters::HasPageFilterTuple;
 pub use filters::{
     AddressFilter, AddressFilterVec, FilterList, HasAddressFilter, HasAddressFilterTuple,
     HasPageFilter, HasStdFilters, HasStdFiltersTuple, NopAddressFilter, NopPageFilter, PageFilter,
