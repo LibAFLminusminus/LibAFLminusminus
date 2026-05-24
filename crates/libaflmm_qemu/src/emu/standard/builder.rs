@@ -4,7 +4,6 @@ use crate::config::QemuConfig;
 use crate::emu::NopInputWriter;
 use crate::emu::StdInputWriter;
 use crate::emu::snapshots::StdSnapshotManager;
-use crate::qemu::QemuError;
 use crate::{
     command::{NopCommandManager, StdCommandManager},
     emu::{NopSnapshotManager, StdEmulator},
@@ -149,9 +148,7 @@ where
     {
         let qemu_params: QemuParams = self
             .qemu_parameters
-            .ok_or(crate::Error::Qemu(QemuError::Init(
-                QemuInitError::NoParametersProvided,
-            )))?
+            .ok_or(QemuInitError::NoParametersProvided)?
             .try_into()?;
 
         StdEmulator::new(

@@ -1,5 +1,5 @@
 use crate::{
-    Error, Result,
+    Result,
     arch::GuestReg,
     emu::{EmulatorError, InputLocation, InputWriter},
     qemu::Qemu,
@@ -37,9 +37,9 @@ where
     }
 
     fn set_input_location(&mut self, location: InputLocation) -> Result<()> {
-        self.input_location.set(location).or(Err(Error::Emulator(
-            EmulatorError::MultipleInputLocationDefinition,
-        )))
+        self.input_location
+            .set(location)
+            .or(Err(EmulatorError::MultipleInputLocationDefinition.into()))
     }
 
     fn input_location(&self) -> Option<&InputLocation> {

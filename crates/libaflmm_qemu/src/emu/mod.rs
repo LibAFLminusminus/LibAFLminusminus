@@ -12,7 +12,7 @@ use crate::{
     breakpoint::{Breakpoint, BreakpointId},
     command::{Command, CommandError, CommandManager},
     modules::{EmulatorModuleTuple, HasStdFiltersTuple},
-    qemu::{ArchExtras, CPU, CallingConvention, Qemu, QemuShutdownCause},
+    qemu::{ArchExtras, CPU, CallingConvention, Qemu, QemuRWError, QemuShutdownCause},
     sync_exit::CustomInsn,
 };
 use core::fmt::{self, Debug, Display, Formatter};
@@ -22,7 +22,8 @@ use libaflmm_bolts::os::unix_signals::Signal;
 use libaflmm_qemu_sys::{GuestAddr, GuestPhysAddr, GuestVirtAddr};
 #[cfg(feature = "usermode")]
 use libaflmm_qemu_sys::{MmapPerms, VerifyAccess};
-use std::ops::Add;
+use std::{ops::Add, result};
+use thiserror::Error;
 
 pub mod standard;
 pub use standard::{StdEmulator, StdEmulatorBuilder};
@@ -54,17 +55,27 @@ pub mod systemmode;
 #[cfg(feature = "systemmode")]
 pub use systemmode::InputLocation;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Error)]
 pub enum EmulatorError {
-    Exit(EmulatorExitError),
-    SMError(SnapshotManagerError),
-    SMCheckError(SnapshotManagerCheckError),
-    CommandError(CommandError),
+    #[error(transparent)]
+    Exit(#[from] EmulatorExitError),
+    #[error(transparent)]
+    SMError(#[from] SnapshotManagerError),
+    #[error(transparent)]
+    SMCheckError(#[from] SnapshotManagerCheckError),
+    #[error(transparent)]
+    CommandError(#[from] CommandError),
+    #[error("unhandled signal: {0:?}")]
     UnhandledSignal(Signal),
+    #[error("multiple snapshot definitions")]
     MultipleSnapshotDefinition,
+    #[error("multiple input location definitions")]
     MultipleInputLocationDefinition,
+    #[error("snapshot not found")]
     SnapshotNotFound,
+    #[error("emulator not started yet")]
     NotStartedYet,
+    #[error("end command received before start")]
     EndBeforeStart,
 }
 
@@ -116,19 +127,19 @@ pub trait Emulator {
 
     fn set_input_location(&mut self, input_location: &InputLocation) -> Result<()>;
 
-    unsafe fn read_mem_val<T>(&self, addr: GuestAddr) -> Result<T> {
+    unsafe fn read_mem_val<T>(&self, addr: GuestAddr) -> result::Result<T, QemuRWError> {
         unsafe { self.qemu().read_mem_val(addr) }
     }
 
-    unsafe fn write_mem_val<T>(&self, addr: GuestAddr, val: &T) -> Result<()> {
+    unsafe fn write_mem_val<T>(&self, addr: GuestAddr, val: &T) -> result::Result<(), QemuRWError> {
         unsafe { self.qemu().write_mem_val(addr, val) }
     }
 
-    fn read_reg(&self, reg: impl Into<i32>) -> Result<GuestReg> {
+    fn read_reg(&self, reg: impl Into<i32>) -> result::Result<GuestReg, QemuRWError> {
         self.qemu().read_reg(reg)
     }
 
-    fn write_return_address<T>(&self, val: T) -> Result<()>
+    fn write_return_address<T>(&self, val: T) -> result::Result<(), QemuRWError>
     where
         T: Into<GuestAddr>,
     {
@@ -140,7 +151,7 @@ pub trait Emulator {
         idx: u8,
         val: T,
         conv: CallingConvention,
-    ) -> Result<()>
+    ) -> result::Result<(), QemuRWError>
     where
         T: Into<GuestReg>,
     {
@@ -157,11 +168,15 @@ pub trait Emulator {
 
             fn page_from_addr(&self, addr: GuestAddr) -> GuestAddr;
 
-            fn read_mem(&self, addr: GuestAddr, buf: &mut [u8]) -> Result<()>;
+            fn read_mem(&self, addr: GuestAddr, buf: &mut [u8]) -> result::Result<(), QemuRWError>;
 
-            fn read_mem_vec(&self, addr: GuestAddr, len: usize) -> Result<Vec<u8>>;
+            fn read_mem_vec(
+                &self,
+                addr: GuestAddr,
+                len: usize,
+            ) -> result::Result<Vec<u8>, QemuRWError>;
 
-            fn write_mem(&self, addr: GuestAddr, buf: &[u8]) -> Result<()>;
+            fn write_mem(&self, addr: GuestAddr, buf: &[u8]) -> result::Result<(), QemuRWError>;
 
             fn num_regs(&self) -> i32;
 
@@ -169,7 +184,7 @@ pub trait Emulator {
                 &self,
                 reg: impl Into<i32>,
                 val: impl Into<GuestReg>,
-            ) -> Result<()>;
+            ) -> result::Result<(), QemuRWError>;
 
             fn entry_break(&self, addr: GuestAddr) -> libaflmm::Result<()>;
 
@@ -182,29 +197,29 @@ pub trait Emulator {
             fn write_function_arguments(
                 &mut self,
                 val: &[impl Into<GuestReg> + Clone],
-            ) -> Result<()>;
+            ) -> result::Result<(), QemuRWError>;
 
             fn write_function_arguments_with_cc(
                 &mut self,
                 val: &[impl Into<GuestReg> + Clone],
                 conv: &CallingConvention,
-            ) -> Result<()>;
+            ) -> result::Result<(), QemuRWError>;
 
-            fn read_function_argument(&self, idx: u8) -> Result<GuestReg>;
+            fn read_function_argument(&self, idx: u8) -> result::Result<GuestReg, QemuRWError>;
 
             fn write_function_argument(
                 &self,
                 idx: u8,
                 val: impl Into<GuestReg>,
-            ) -> Result<()>;
+            ) -> result::Result<(), QemuRWError>;
 
-            fn read_return_address(&self) -> Result<GuestAddr>;
+            fn read_return_address(&self) -> result::Result<GuestAddr, QemuRWError>;
 
             fn read_function_argument_with_cc(
                 &self,
                 idx: u8,
                 conv: CallingConvention,
-            ) -> Result<GuestReg>;
+            ) -> result::Result<GuestReg, QemuRWError>;
         }
     }
 
@@ -319,17 +334,21 @@ pub enum EmulatorExitResult<C> {
     FuzzingStarts,             // The emulator is ready to enter the fuzzing loop.
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Error)]
 pub enum EmulatorExitError {
+    #[error("unknown exit kind")]
     UnknownKind,
+    #[error("unexpected exit")]
     UnexpectedExit,
-    CommandError(CommandError),
+    #[error(transparent)]
+    CommandError(#[from] CommandError),
+    #[error("breakpoint not found at addr {0:#x}")]
     BreakpointNotFound(GuestAddr),
 }
 
 impl From<EmulatorExitError> for crate::Error {
     fn from(error: EmulatorExitError) -> Self {
-        crate::Error::Emulator(EmulatorError::Exit(error))
+        EmulatorError::from(error).into()
     }
 }
 
@@ -402,24 +421,6 @@ impl Display for GuestAddrKind {
     }
 }
 
-impl From<SnapshotManagerError> for EmulatorError {
-    fn from(sm_error: SnapshotManagerError) -> Self {
-        EmulatorError::SMError(sm_error)
-    }
-}
-
-impl From<SnapshotManagerCheckError> for EmulatorError {
-    fn from(sm_check_error: SnapshotManagerCheckError) -> Self {
-        EmulatorError::SMCheckError(sm_check_error)
-    }
-}
-
-impl From<CommandError> for EmulatorError {
-    fn from(error: CommandError) -> Self {
-        EmulatorError::CommandError(error)
-    }
-}
-
 impl<C> Display for EmulatorExitResult<C>
 where
     C: Debug,
@@ -444,8 +445,3 @@ where
     }
 }
 
-impl From<CommandError> for EmulatorExitError {
-    fn from(error: CommandError) -> Self {
-        EmulatorExitError::CommandError(error)
-    }
-}

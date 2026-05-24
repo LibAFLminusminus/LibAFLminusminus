@@ -1,28 +1,40 @@
-use crate::{Result, qemu::CallingConvention};
-use core::fmt;
+use crate::qemu::CallingConvention;
 use libaflmm_qemu_sys::{CPUStatePtr, GuestAddr};
-use std::{convert::Infallible, fmt::Display};
+use std::convert::Infallible;
+use thiserror::Error;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Error)]
 pub enum QemuError {
-    Init(QemuInitError),
-    Exit(QemuExitError),
-    RW(QemuRWError),
+    #[error(transparent)]
+    Init(#[from] QemuInitError),
+    #[error(transparent)]
+    Exit(#[from] QemuExitError),
+    #[error(transparent)]
+    RW(#[from] QemuRWError),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Error)]
 pub enum QemuInitError {
+    #[error("Only one instance of the QEMU Emulator is permitted")]
     MultipleInstances,
+    #[error("No parameters were provided to initialize QEMU.")]
     NoParametersProvided,
+    #[error("QEMU emulator args cannot be empty")]
     EmptyArgs,
+    #[error("Infallible error, should never be reached.")]
     Infallible,
+    #[error("Too many arguments passed to QEMU emulator ({0} > i32::MAX)")]
     TooManyArgs(usize),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Error)]
 pub enum QemuExitError {
-    UnknownKind, // Exit reason was not NULL, but exit kind is unknown. Should never happen.
-    UnexpectedExit, // Qemu exited without going through an expected exit point. Can be caused by a crash for example.
+    /// Exit reason was not NULL, but exit kind is unknown. Should never happen.
+    #[error("Unknown QEMU exit kind")]
+    UnknownKind,
+    /// QEMU exited without going through an expected exit point. Can be caused by a crash for example.
+    #[error("Unexpected QEMU exit")]
+    UnexpectedExit,
 }
 
 #[derive(Debug, Clone)]
@@ -40,45 +52,12 @@ pub enum QemuRWErrorCause {
     WrongMemoryLocation(GuestAddr, usize), // addr, size
 }
 
-#[derive(Debug, Clone)]
-#[expect(dead_code)]
+#[derive(Debug, Clone, Error)]
+#[error("QEMU {kind:?} error: {cause:?}")]
 pub struct QemuRWError {
     kind: QemuRWErrorKind,
     cause: QemuRWErrorCause,
     cpu: Option<CPUStatePtr>, // Only makes sense when cause != CurrentCpuNotFound
-}
-
-impl std::error::Error for QemuInitError {}
-
-impl Display for QemuInitError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            QemuInitError::MultipleInstances => {
-                write!(f, "Only one instance of the QEMU Emulator is permitted")
-            }
-            QemuInitError::NoParametersProvided => {
-                write!(f, "No parameters were provided to initialize QEMU.")
-            }
-            QemuInitError::EmptyArgs => {
-                write!(f, "QEMU emulator args cannot be empty")
-            }
-            QemuInitError::TooManyArgs(n) => {
-                write!(
-                    f,
-                    "Too many arguments passed to QEMU emulator ({n} > i32::MAX)"
-                )
-            }
-            QemuInitError::Infallible => {
-                panic!("Infallible error, should never be reached.")
-            }
-        }
-    }
-}
-
-impl From<QemuInitError> for libaflmm::Error {
-    fn from(err: QemuInitError) -> Self {
-        libaflmm::Error::unknown(format!("{err}"))
-    }
 }
 
 impl From<Infallible> for QemuInitError {
@@ -124,23 +103,16 @@ impl QemuRWError {
         kind: QemuRWErrorKind,
         expected_conv: CallingConvention,
         given_conv: CallingConvention,
-    ) -> Result<()> {
+    ) -> std::result::Result<(), QemuRWError> {
         if expected_conv != given_conv {
-            return Err(QemuError::RW(QemuRWError::new(
+            return Err(QemuRWError::new(
                 kind,
                 QemuRWErrorCause::WrongCallingConvention(expected_conv, given_conv),
                 None,
-            ))
-            .into());
+            ));
         }
 
         Ok(())
-    }
-}
-
-impl From<QemuRWError> for QemuError {
-    fn from(qemu_rw_error: QemuRWError) -> Self {
-        QemuError::RW(qemu_rw_error)
     }
 }
 
@@ -152,6 +124,6 @@ impl From<QemuError> for libaflmm::Error {
 
 impl From<QemuError> for String {
     fn from(qemu_error: QemuError) -> Self {
-        format!("LibAFL QEMU Error: {qemu_error:?}")
+        format!("LibAFL QEMU Error: {qemu_error}")
     }
 }

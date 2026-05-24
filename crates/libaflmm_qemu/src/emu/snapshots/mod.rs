@@ -3,6 +3,7 @@ use std::{
     fmt::Debug,
     sync::atomic::{AtomicU64, Ordering},
 };
+use thiserror::Error;
 
 #[cfg(feature = "systemmode")]
 pub mod fast;
@@ -81,21 +82,25 @@ pub struct QemuSnapshotCheckResult {
     pub nb_page_inconsistencies: u64,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Error)]
 pub enum SnapshotManagerError {
+    #[error("snapshot id not found: {0:?}")]
     SnapshotIdNotFound(SnapshotId),
+    #[error("memory inconsistencies: {0}")]
     MemoryInconsistencies(u64),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Error)]
 pub enum SnapshotManagerCheckError {
-    SnapshotManagerError(SnapshotManagerError),
+    #[error(transparent)]
+    SnapshotManagerError(#[from] SnapshotManagerError),
+    #[error("snapshot check failed: {0:?}")]
     SnapshotCheckError(QemuSnapshotCheckResult),
 }
 
 impl From<SnapshotManagerCheckError> for crate::Error {
     fn from(error: SnapshotManagerCheckError) -> Self {
-        crate::Error::Emulator(EmulatorError::SMCheckError(error))
+        EmulatorError::from(error).into()
     }
 }
 

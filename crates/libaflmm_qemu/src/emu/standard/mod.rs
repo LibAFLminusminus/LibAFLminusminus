@@ -10,7 +10,7 @@ use crate::emu::{
 use crate::modules::HasStdFiltersTuple;
 #[cfg(feature = "systemmode")]
 use crate::qemu::PhysMemoryChunk;
-use crate::{Error, Result};
+use crate::Result;
 use crate::{
     breakpoint::{Breakpoint, BreakpointId},
     command::{CommandManager, NopCommandManager, StdCommandManager},
@@ -64,6 +64,7 @@ pub struct StdEmulator<C, CM, ET, I, IS, S, SM> {
     #[cfg(feature = "systemmode")]
     allow_page_on_start: bool,
     #[cfg(feature = "x86_64")]
+    #[allow(dead_code)]
     process_only: bool,
     print_commands: bool,
     // maps declared by the VM
@@ -224,7 +225,7 @@ where
     fn set_snapshot_id(&mut self, snapshot_id: SnapshotId) -> Result<()> {
         self.snapshot_id
             .set(snapshot_id)
-            .map_err(|_| Error::Emulator(EmulatorError::MultipleSnapshotDefinition))
+            .map_err(|_| EmulatorError::MultipleSnapshotDefinition.into())
     }
 
     fn set_input_location(&mut self, input_location: &InputLocation) -> Result<()> {

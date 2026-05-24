@@ -123,6 +123,7 @@ object = "0.38.1"
 addr2line = "0.25.1"
 paste = { workspace = true }
 delegate = { workspace = true }
+thiserror = { workspace = true }
 enum-map = "2.7.3"
 serde_yaml = { workspace = true, optional = true } # For parsing the injections yaml file
 toml = { workspace = true, optional = true } # For parsing the injections toml file

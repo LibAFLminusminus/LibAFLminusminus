@@ -356,9 +356,10 @@ impl Qemu {
         };
         if res <= 0 {
             let errno = std::io::Error::last_os_error().raw_os_error();
-            Err(crate::Error::Libaflmm(illegal_argument!(
+            Err(illegal_argument!(
                 "failed to mmap addr: {addr:x} (size: {size:?} prot: {perms:?} flags: {flags:?} fd: {fd:?}). The errno is {errno:?}",
-            )))
+            )
+            .into())
         } else {
             Ok(res as GuestAddr)
         }
@@ -395,9 +396,7 @@ impl Qemu {
         if res == 0 {
             Ok(())
         } else {
-            Err(crate::Error::Libaflmm(runtime!(
-                "Failed to mprotect {addr}"
-            )))
+            Err(runtime!("Failed to mprotect {addr}").into())
         }
     }
 
@@ -407,7 +406,7 @@ impl Qemu {
         {
             Ok(())
         } else {
-            Err(crate::Error::Libaflmm(runtime!("Failed to unmap {addr}")))
+            Err(runtime!("Failed to unmap {addr}").into())
         }
     }
 

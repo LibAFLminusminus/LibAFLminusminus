@@ -1,6 +1,4 @@
-use crate::{
-    CallingConvention, Error, GuestAddr, QemuRWError, QemuRWErrorKind, sync_exit::ExitArgs,
-};
+use crate::{CallingConvention, GuestAddr, QemuRWError, QemuRWErrorKind, sync_exit::ExitArgs};
 use capstone::arch::BuildsCapstone;
 use enum_map::{EnumMap, enum_map};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
@@ -89,11 +87,11 @@ pub fn capstone() -> capstone::arch::arm64::ArchCapstoneBuilder {
 pub type GuestReg = u64;
 
 impl crate::ArchExtras for crate::CPU {
-    fn read_return_address(&self) -> Result<GuestAddr> {
+    fn read_return_address(&self) -> Result<GuestAddr, QemuRWError> {
         self.read_reg(Regs::Lr).map(|res| res as GuestAddr)
     }
 
-    fn write_return_address<T>(&self, val: T) -> Result<()>
+    fn write_return_address<T>(&self, val: T) -> Result<(), QemuRWError>
     where
         T: Into<GuestAddr>,
     {
@@ -101,7 +99,11 @@ impl crate::ArchExtras for crate::CPU {
         self.write_reg(Regs::Lr, addr as GuestReg)
     }
 
-    fn read_function_argument_with_cc(&self, idx: u8, conv: CallingConvention) -> Result<GuestReg> {
+    fn read_function_argument_with_cc(
+        &self,
+        idx: u8,
+        conv: CallingConvention,
+    ) -> Result<GuestReg, QemuRWError> {
         QemuRWError::check_conv(QemuRWErrorKind::Read, CallingConvention::Aapcs64, conv)?;
 
         match idx {
@@ -140,7 +142,7 @@ impl crate::ArchExtras for crate::CPU {
         idx: u8,
         val: T,
         conv: CallingConvention,
-    ) -> Result<()>
+    ) -> Result<(), QemuRWError>
     where
         T: Into<GuestReg>,
     {

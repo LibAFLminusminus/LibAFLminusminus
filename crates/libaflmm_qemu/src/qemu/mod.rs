@@ -4,7 +4,6 @@
 //! To access higher-level features of QEMU, it is recommended to use [`crate::Emulator`] instead.
 
 use crate::{
-    Result,
     arch::{GuestReg, Regs},
     emu::GuestAddrKind,
 };
@@ -68,18 +67,22 @@ pub trait HookId {
 }
 
 pub trait ArchExtras {
-    fn read_return_address(&self) -> Result<GuestAddr>;
-    fn write_return_address<T>(&self, val: T) -> Result<()>
+    fn read_return_address(&self) -> Result<GuestAddr, QemuRWError>;
+    fn write_return_address<T>(&self, val: T) -> Result<(), QemuRWError>
     where
         T: Into<GuestAddr>;
-    fn read_function_argument_with_cc(&self, idx: u8, conv: CallingConvention) -> Result<GuestReg>;
+    fn read_function_argument_with_cc(
+        &self,
+        idx: u8,
+        conv: CallingConvention,
+    ) -> Result<GuestReg, QemuRWError>;
 
     fn write_function_argument_with_cc<T>(
         &self,
         idx: u8,
         val: T,
         conv: CallingConvention,
-    ) -> Result<()>
+    ) -> Result<(), QemuRWError>
     where
         T: Into<GuestReg>;
 }
@@ -315,7 +318,7 @@ impl CPU {
         unsafe { libafl_qemu_num_regs(self.cpu_ptr) }
     }
 
-    pub fn read_reg(&self, reg: impl Into<i32>) -> Result<GuestReg> {
+    pub fn read_reg(&self, reg: impl Into<i32>) -> Result<GuestReg, QemuRWError> {
         unsafe {
             let reg_id: i32 = reg.into();
 
@@ -323,12 +326,11 @@ impl CPU {
 
             let success = libafl_qemu_read_reg(self.cpu_ptr, reg_id, val.as_mut_ptr() as *mut u8);
             if success == 0 {
-                Err(QemuError::RW(QemuRWError::wrong_reg(
+                Err(QemuRWError::wrong_reg(
                     QemuRWErrorKind::Write,
                     reg_id,
                     Some(self.cpu_ptr),
                 ))
-                .into())
             } else {
                 #[cfg(feature = "be")]
                 return Ok(GuestReg::from_be(val.assume_init()).into());
@@ -339,7 +341,11 @@ impl CPU {
         }
     }
 
-    pub fn write_reg(&self, reg: impl Into<i32>, val: impl Into<GuestReg>) -> Result<()> {
+    pub fn write_reg(
+        &self,
+        reg: impl Into<i32>,
+        val: impl Into<GuestReg>,
+    ) -> Result<(), QemuRWError> {
         let reg_id: i32 = reg.into();
 
         #[cfg(feature = "be")]
@@ -350,19 +356,18 @@ impl CPU {
         let success =
             unsafe { libafl_qemu_write_reg(self.cpu_ptr, reg_id, &raw const val as *mut u8) };
         if success == 0 {
-            Err(QemuError::RW(QemuRWError::wrong_reg(
+            Err(QemuRWError::wrong_reg(
                 QemuRWErrorKind::Write,
                 reg_id,
                 Some(self.cpu_ptr),
             ))
-            .into())
         } else {
             Ok(())
         }
     }
 
     /// Read a value from a guest address, taking into account the potential MMU / MPU.
-    pub fn read_mem(&self, addr: GuestAddr, buf: &mut [u8]) -> Result<()> {
+    pub fn read_mem(&self, addr: GuestAddr, buf: &mut [u8]) -> Result<(), QemuRWError> {
         // TODO use gdbstub's target_cpu_memory_rw_debug
         let ret = unsafe {
             libaflmm_qemu_sys::cpu_memory_rw_debug(
@@ -375,32 +380,31 @@ impl CPU {
         };
 
         if ret != 0 {
-            Err(QemuError::RW(QemuRWError::wrong_mem_location(
+            Err(QemuRWError::wrong_mem_location(
                 QemuRWErrorKind::Read,
                 self.cpu_ptr,
                 addr,
                 buf.len(),
             ))
-            .into())
         } else {
             Ok(())
         }
     }
 
-    pub fn read_mem_vec(&self, addr: GuestAddr, len: usize) -> Result<Vec<u8>> {
+    pub fn read_mem_vec(&self, addr: GuestAddr, len: usize) -> Result<Vec<u8>, QemuRWError> {
         // # Safety
         // This is safe because we read exactly `len` bytes from QEMU.
         unsafe {
             vec_init(len, |buf| {
                 self.read_mem(addr, buf.as_slice_mut())?;
 
-                Ok(())
+                Ok::<(), QemuRWError>(())
             })
         }
     }
 
     /// Write a value to a guest address, taking into account the potential MMU / MPU.
-    pub fn write_mem(&self, addr: GuestAddr, buf: &[u8]) -> Result<()> {
+    pub fn write_mem(&self, addr: GuestAddr, buf: &[u8]) -> Result<(), QemuRWError> {
         // TODO use gdbstub's target_cpu_memory_rw_debug
         let ret = unsafe {
             libaflmm_qemu_sys::cpu_memory_rw_debug(
@@ -413,13 +417,12 @@ impl CPU {
         };
 
         if ret != 0 {
-            Err(QemuError::RW(QemuRWError::wrong_mem_location(
+            Err(QemuRWError::wrong_mem_location(
                 QemuRWErrorKind::Write,
                 self.cpu_ptr,
                 addr,
                 buf.len(),
             ))
-            .into())
         } else {
             Ok(())
         }
@@ -541,7 +544,7 @@ impl From<u8> for HookData {
 
 impl Qemu {
     #[expect(clippy::similar_names)]
-    pub fn init<T>(params: T) -> Result<Self>
+    pub fn init<T>(params: T) -> Result<Self, QemuInitError>
     where
         T: Into<QemuParams>,
     {
@@ -560,17 +563,17 @@ impl Qemu {
         let args = params.to_cli();
 
         if args.is_empty() {
-            return Err(QemuError::Init(QemuInitError::EmptyArgs).into());
+            return Err(QemuInitError::EmptyArgs);
         }
 
         let argc = args.len();
         if i32::try_from(argc).is_err() {
-            return Err(QemuError::Init(QemuInitError::TooManyArgs(argc)).into());
+            return Err(QemuInitError::TooManyArgs(argc));
         }
 
         unsafe {
             if QEMU_IS_INITIALIZED {
-                return Err(QemuError::Init(QemuInitError::MultipleInstances).into());
+                return Err(QemuInitError::MultipleInstances);
             }
 
             QEMU_IS_INITIALIZED = true;
@@ -642,7 +645,7 @@ impl Qemu {
     ///
     /// Should, in general, be safe to call.
     /// Of course, the emulated target is not contained securely and can corrupt state or interact with the operating system.
-    pub unsafe fn run(&self) -> Result<QemuExitReason> {
+    pub unsafe fn run(&self) -> Result<QemuExitReason, QemuExitError> {
         unsafe {
             QEMU_IS_RUNNING = true;
             log::trace!("[{}] Qemu running", std::process::id());
@@ -653,7 +656,7 @@ impl Qemu {
 
         let exit_reason = unsafe { libafl_get_exit_reason() };
         if exit_reason.is_null() {
-            Err(QemuError::Exit(QemuExitError::UnexpectedExit).into())
+            Err(QemuExitError::UnexpectedExit)
         } else {
             let exit_reason: &mut libaflmm_qemu_sys::libafl_exit_reason =
                 unsafe { transmute(&mut *exit_reason) };
@@ -716,7 +719,7 @@ impl Qemu {
 
                 libaflmm_qemu_sys::libafl_exit_reason_kind_CRASH => QemuExitReason::Crash,
 
-                _ => return Err(QemuError::Exit(QemuExitError::UnknownKind).into()),
+                _ => return Err(QemuExitError::UnknownKind),
             })
         }
     }
@@ -768,34 +771,28 @@ impl Qemu {
 
     /// Read a value from a guest address, taking into account the potential indirections with the current CPU.
     /// Uses the 0th CPU if no CPU is currently running.
-    pub fn read_mem(&self, addr: GuestAddr, buf: &mut [u8]) -> Result<()> {
+    pub fn read_mem(&self, addr: GuestAddr, buf: &mut [u8]) -> Result<(), QemuRWError> {
         self.current_cpu()
             .or_else(|| self.cpu_from_index(0))
-            .ok_or(QemuError::RW(QemuRWError::current_cpu_not_found(
-                QemuRWErrorKind::Read,
-            )))?
+            .ok_or(QemuRWError::current_cpu_not_found(QemuRWErrorKind::Read))?
             .read_mem(addr, buf)
     }
 
     /// Read a value from a guest address, taking into account the potential indirections with the current CPU.
     /// Uses the 0th CPU if no CPU is currently running.
-    pub fn read_mem_vec(&self, addr: GuestAddr, len: usize) -> Result<Vec<u8>> {
+    pub fn read_mem_vec(&self, addr: GuestAddr, len: usize) -> Result<Vec<u8>, QemuRWError> {
         self.current_cpu()
             .or_else(|| self.cpu_from_index(0))
-            .ok_or(QemuError::RW(QemuRWError::current_cpu_not_found(
-                QemuRWErrorKind::Read,
-            )))?
+            .ok_or(QemuRWError::current_cpu_not_found(QemuRWErrorKind::Read))?
             .read_mem_vec(addr, len)
     }
 
     /// Write a value to a guest address, taking into account the potential indirections with the current CPU.
     /// Uses the 0th CPU if no CPU is currently running.
-    pub fn write_mem(&self, addr: GuestAddr, buf: &[u8]) -> Result<()> {
+    pub fn write_mem(&self, addr: GuestAddr, buf: &[u8]) -> Result<(), QemuRWError> {
         self.current_cpu()
             .or_else(|| self.cpu_from_index(0))
-            .ok_or(QemuError::RW(QemuRWError::current_cpu_not_found(
-                QemuRWErrorKind::Write,
-            )))?
+            .ok_or(QemuRWError::current_cpu_not_found(QemuRWErrorKind::Write))?
             .write_mem(addr, buf)
     }
 
@@ -806,7 +803,7 @@ impl Qemu {
     /// The read object should have the same layout as the type of val.
     /// No checked is performed to check whether the returned object makes sense or not.
     // TODO: Use sized array when const generics are stabilized.
-    pub unsafe fn read_mem_val<T>(&self, addr: GuestAddr) -> Result<T> {
+    pub unsafe fn read_mem_val<T>(&self, addr: GuestAddr) -> Result<T, QemuRWError> {
         unsafe {
             // let mut val_buf: [u8; size_of::<T>()] = [0; size_of::<T>()];
 
@@ -821,7 +818,7 @@ impl Qemu {
     /// # Safety
     ///
     /// val will be used as parameter of [`slice::from_raw_parts`], and thus must enforce the same requirements.
-    pub unsafe fn write_mem_val<T>(&self, addr: GuestAddr, val: &T) -> Result<()> {
+    pub unsafe fn write_mem_val<T>(&self, addr: GuestAddr, val: &T) -> Result<(), QemuRWError> {
         unsafe {
             let val_buf: &[u8] =
                 slice::from_raw_parts(ptr::from_ref(val) as *const u8, size_of::<T>());
@@ -871,19 +868,19 @@ impl Qemu {
         self.current_cpu().unwrap().num_regs()
     }
 
-    pub fn write_reg(&self, reg: impl Into<i32>, val: impl Into<GuestReg>) -> Result<()> {
+    pub fn write_reg(
+        &self,
+        reg: impl Into<i32>,
+        val: impl Into<GuestReg>,
+    ) -> Result<(), QemuRWError> {
         self.current_cpu()
-            .ok_or(QemuError::RW(QemuRWError::current_cpu_not_found(
-                QemuRWErrorKind::Write,
-            )))?
+            .ok_or(QemuRWError::current_cpu_not_found(QemuRWErrorKind::Write))?
             .write_reg(reg, val)
     }
 
-    pub fn read_reg(&self, reg: impl Into<i32>) -> Result<GuestReg> {
+    pub fn read_reg(&self, reg: impl Into<i32>) -> Result<GuestReg, QemuRWError> {
         self.current_cpu()
-            .ok_or(QemuError::RW(QemuRWError::current_cpu_not_found(
-                QemuRWErrorKind::Read,
-            )))?
+            .ok_or(QemuRWError::current_cpu_not_found(QemuRWErrorKind::Read))?
             .read_reg(reg)
     }
 
@@ -984,7 +981,10 @@ impl Qemu {
     /// of the called function, in case the argument is written in the stack.
     /// Support downward-growing stack only.
     /// If you need to specify a calling convention, use [`Self::write_function_arguments_with_cc`].
-    pub fn write_function_arguments(&mut self, val: &[impl Into<GuestReg> + Clone]) -> Result<()> {
+    pub fn write_function_arguments(
+        &mut self,
+        val: &[impl Into<GuestReg> + Clone],
+    ) -> Result<(), QemuRWError> {
         self.write_function_arguments_with_cc(val, &CallingConvention::Default)
     }
 
@@ -998,7 +998,7 @@ impl Qemu {
         &mut self,
         val: &[impl Into<GuestReg> + Clone],
         conv: &CallingConvention,
-    ) -> Result<()> {
+    ) -> Result<(), QemuRWError> {
         for (idx, elem) in val.iter().enumerate() {
             self.write_function_argument_with_cc(idx as u8, elem.to_owned(), conv.clone())?;
         }
@@ -1012,7 +1012,7 @@ impl Qemu {
     /// of the called function, in case the value is in the stack.
     /// Support downward-growing stack only.
     /// If you need to specify a calling convention, use [`Self::read_function_argument_with_cc`].
-    pub fn read_function_argument(&self, idx: u8) -> Result<GuestReg> {
+    pub fn read_function_argument(&self, idx: u8) -> Result<GuestReg, QemuRWError> {
         self.read_function_argument_with_cc(idx, CallingConvention::Default)
     }
 
@@ -1023,28 +1023,28 @@ impl Qemu {
     /// of the called function, in case the argument is written in the stack.
     /// Support downward-growing stack only.
     /// If you need to specify a calling convention, use [`Self::write_function_argument_with_cc`].
-    pub fn write_function_argument(&self, idx: u8, val: impl Into<GuestReg>) -> Result<()> {
+    pub fn write_function_argument(
+        &self,
+        idx: u8,
+        val: impl Into<GuestReg>,
+    ) -> Result<(), QemuRWError> {
         self.write_function_argument_with_cc(idx, val, CallingConvention::Default)
     }
 }
 
 impl ArchExtras for Qemu {
-    fn read_return_address(&self) -> Result<GuestAddr> {
+    fn read_return_address(&self) -> Result<GuestAddr, QemuRWError> {
         self.current_cpu()
-            .ok_or(QemuError::RW(QemuRWError::current_cpu_not_found(
-                QemuRWErrorKind::Read,
-            )))?
+            .ok_or(QemuRWError::current_cpu_not_found(QemuRWErrorKind::Read))?
             .read_return_address()
     }
 
-    fn write_return_address<T>(&self, val: T) -> Result<()>
+    fn write_return_address<T>(&self, val: T) -> Result<(), QemuRWError>
     where
         T: Into<GuestAddr>,
     {
         self.current_cpu()
-            .ok_or(QemuError::RW(QemuRWError::current_cpu_not_found(
-                QemuRWErrorKind::Write,
-            )))?
+            .ok_or(QemuRWError::current_cpu_not_found(QemuRWErrorKind::Write))?
             .write_return_address::<T>(val)
     }
 
@@ -1054,11 +1054,13 @@ impl ArchExtras for Qemu {
     /// Note that the stack pointer register must point the top of the stack at the start
     /// of the called function, in case the value is in the stack.
     /// Support downward-growing stack only.
-    fn read_function_argument_with_cc(&self, idx: u8, conv: CallingConvention) -> Result<GuestReg> {
+    fn read_function_argument_with_cc(
+        &self,
+        idx: u8,
+        conv: CallingConvention,
+    ) -> Result<GuestReg, QemuRWError> {
         self.current_cpu()
-            .ok_or(QemuError::RW(QemuRWError::current_cpu_not_found(
-                QemuRWErrorKind::Read,
-            )))?
+            .ok_or(QemuRWError::current_cpu_not_found(QemuRWErrorKind::Read))?
             .read_function_argument_with_cc(idx, conv)
     }
 
@@ -1073,14 +1075,12 @@ impl ArchExtras for Qemu {
         idx: u8,
         val: T,
         conv: CallingConvention,
-    ) -> Result<()>
+    ) -> Result<(), QemuRWError>
     where
         T: Into<GuestReg>,
     {
         self.current_cpu()
-            .ok_or(QemuError::RW(QemuRWError::current_cpu_not_found(
-                QemuRWErrorKind::Write,
-            )))?
+            .ok_or(QemuRWError::current_cpu_not_found(QemuRWErrorKind::Write))?
             .write_function_argument_with_cc::<T>(idx, val, conv)
     }
 }
@@ -1167,7 +1167,7 @@ impl QemuMemoryChunk {
 
     /// Returns the number of bytes effectively read.
     /// output will get chunked at `size` bytes.
-    pub fn read(&self, qemu: Qemu, output: &mut [u8]) -> Result<GuestReg> {
+    pub fn read(&self, qemu: Qemu, output: &mut [u8]) -> Result<GuestReg, QemuRWError> {
         let max_len: usize = self.size.try_into().unwrap();
 
         let output_sliced = if output.len() > max_len {
@@ -1237,21 +1237,21 @@ impl QemuMemoryChunk {
         }
     }
 
-    pub fn read_vec(&self, qemu: Qemu) -> Result<Vec<u8>> {
+    pub fn read_vec(&self, qemu: Qemu) -> Result<Vec<u8>, QemuRWError> {
         // # Safety
         // This is safe because we read exactly `self.size` bytes from QEMU.
         unsafe {
             vec_init(self.size as usize, |buf| {
                 self.read(qemu, buf.as_slice_mut())?;
 
-                Ok(())
+                Ok::<(), QemuRWError>(())
             })
         }
     }
 
     /// Returns the number of bytes effectively written.
     /// Input will get chunked at `size` bytes.
-    pub fn write(&self, qemu: Qemu, input: &[u8]) -> Result<GuestReg> {
+    pub fn write(&self, qemu: Qemu, input: &[u8]) -> Result<GuestReg, QemuRWError> {
         let max_len: usize = self.size.try_into().unwrap();
 
         let input_sliced = if input.len() > max_len {

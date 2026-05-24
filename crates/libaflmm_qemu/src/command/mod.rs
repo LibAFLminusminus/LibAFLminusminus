@@ -9,7 +9,9 @@ use enum_map::EnumMap;
 use std::{
     ffi::c_uint,
     fmt::{self, Debug, Display, Formatter},
+    result,
 };
+use thiserror::Error;
 
 #[cfg(not(feature = "nyx"))]
 pub mod lqemu;
@@ -62,6 +64,7 @@ macro_rules! define_std_command_manager_inner {
                     fmt,
                     fmt::{Debug, Formatter},
                 };
+                use core::result;
                 use enum_map::EnumMap;
                 use $crate::{
                     command::{CommandManager, CommandError, NativeCommandParser, Command},
@@ -115,14 +118,14 @@ macro_rules! define_std_command_manager_inner {
                     }
 
                     #[deny(unreachable_patterns)]
-                    fn parse(&self, qemu: Qemu) -> Result<Self::Commands> {
+                    fn parse(&self, qemu: Qemu) -> result::Result<Self::Commands, CommandError> {
                         let arch_regs_map: &'static EnumMap<ExitArgs, Regs> = get_exit_arch_regs();
                         let cmd_id = qemu.read_reg(arch_regs_map[ExitArgs::Cmd])? as c_uint;
 
                         match cmd_id {
                             // <StartPhysCommandParser as NativeCommandParser<S>>::COMMAND_ID => Ok(StdCommandManagerCommands::StartPhysCommandParserCmd(<StartPhysCommandParser as NativeCommandParser<S>>::parse(qemu, arch_regs_map)?)),
                             $(<$native_command_parser as NativeCommandParser>::COMMAND_ID => Ok(<$native_command_parser as NativeCommandParser>::parse(qemu, arch_regs_map)?.into())),+,
-                            _ => Err(CommandError::UnknownCommand(cmd_id.into()).into()),
+                            _ => Err(CommandError::UnknownCommand(cmd_id.into())),
                         }
                     }
                 }
@@ -175,7 +178,7 @@ pub trait NativeCommandParser {
     fn parse(
         qemu: Qemu,
         arch_regs_map: &'static EnumMap<ExitArgs, Regs>,
-    ) -> Result<Self::OutputCommand>;
+    ) -> result::Result<Self::OutputCommand, CommandError>;
 }
 
 pub trait CommandManager: Sized + Debug {
@@ -188,7 +191,7 @@ pub trait CommandManager: Sized + Debug {
     /// it should return if it has been started before or not.
     fn start(&mut self) -> bool;
 
-    fn parse(&self, qemu: Qemu) -> Result<Self::Commands>;
+    fn parse(&self, qemu: Qemu) -> result::Result<Self::Commands, CommandError>;
 }
 
 pub trait Command: Clone + Debug {
@@ -208,15 +211,23 @@ pub trait Command: Clone + Debug {
     ) -> Result<Option<EmulatorDriverResult<<EMU as Emulator>::Command>>>;
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Error)]
 pub enum CommandError {
+    #[error("unknown command: {0:?}")]
     UnknownCommand(GuestReg),
-    RWError(QemuRWError),
+    #[error(transparent)]
+    RWError(#[from] QemuRWError),
+    #[error("version mismatch: received {0}, expected {1}")]
     VersionDifference(u64, u64),
-    TestDifference(GuestReg, GuestReg), // received, expected
+    #[error("test mismatch: received {0:?}, expected {1:?}")]
+    TestDifference(GuestReg, GuestReg),
+    #[error("invalid parameters")]
     InvalidParameters,
+    #[error("command manager started twice")]
     StartedTwice,
+    #[error("end command received before start")]
     EndBeforeStart,
+    #[error("wrong usage")]
     WrongUsage,
 }
 
@@ -233,14 +244,8 @@ impl CommandManager for NopCommandManager {
         false
     }
 
-    fn parse(&self, _qemu: Qemu) -> Result<Self::Commands> {
+    fn parse(&self, _qemu: Qemu) -> result::Result<Self::Commands, CommandError> {
         Ok(NopCommand)
-    }
-}
-
-impl From<QemuRWError> for CommandError {
-    fn from(error: QemuRWError) -> Self {
-        CommandError::RWError(error)
     }
 }
 
