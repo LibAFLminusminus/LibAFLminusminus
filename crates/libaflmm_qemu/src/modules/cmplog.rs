@@ -17,12 +17,9 @@ use hashbrown::HashMap;
 use libaflmm::states::State;
 use libaflmm_bolts::hash_64_fast;
 use libaflmm_qemu_sys::GuestAddr;
+use libaflmm_targets::{cmps::__libaflmm_targets_cmplog_instructions, constants::CMPLOG_MAP_W};
 #[cfg(feature = "usermode")]
-use libaflmm_targets::CMPLOG_ENABLED;
-pub use libaflmm_targets::{
-    CMPLOG_MAP_H, CMPLOG_MAP_PTR, CMPLOG_MAP_SIZE, CMPLOG_MAP_W, CmpLogMap,
-    cmps::{__libaflmm_targets_cmplog_instructions, __libaflmm_targets_cmplog_routines},
-};
+use libaflmm_targets::{cmps::__libaflmm_targets_cmplog_routines, exports::CMPLOG_ENABLED};
 use serde::{Deserialize, Serialize};
 
 #[cfg_attr(miri, allow(clippy::unsafe_derive_deserialize))] // for SerdeAny

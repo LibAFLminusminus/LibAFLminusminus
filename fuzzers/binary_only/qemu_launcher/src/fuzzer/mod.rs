@@ -1,8 +1,6 @@
 use crate::{fuzzer::profile::QemuProfile, harness::Harness, options::FuzzOptions};
-use libaflmm::{Result, prelude::*};
-use libaflmm_bolts::OwnedMutSlice;
+use libaflmm::Result;
 use libaflmm_qemu::prelude::*;
-use libaflmm_targets::{EDGES_MAP_DEFAULT_SIZE, MAX_EDGES_FOUND, edges_map_mut_ptr};
 
 mod profile;
 

@@ -1,10 +1,6 @@
-use std::ops::Range;
-
-use libaflmm::states::State;
 use libaflmm::{Result, prelude::*};
-use libaflmm_bolts::AsSlice;
-use libaflmm_qemu::emu::Emulator;
 use libaflmm_qemu::prelude::*;
+use std::ops::Range;
 
 use crate::options::CommonOptions;
 
@@ -117,7 +113,7 @@ impl Harness {
         emu: &mut impl Emulator<Input = I, State = S>,
     ) -> Result<()> {
         let bytes = state.context_mut().to_bytes(input);
-        let mut buf = bytes.as_slice();
+        let mut buf = bytes.iter().as_slice();
         let mut len = buf.len();
         if len > MAX_INPUT_SIZE {
             buf = &buf[0..MAX_INPUT_SIZE];

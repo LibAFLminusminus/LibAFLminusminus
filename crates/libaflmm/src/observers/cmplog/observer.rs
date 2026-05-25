@@ -15,9 +15,9 @@ use core::{
 };
 use libaflmm_bolts::{EmptyShmHeader, Named, SysVShm, ownedref::OwnedMutPtr};
 use libaflmm_core::Result;
-use libaflmm_targets::{
+use libaflmm_targets::cmps::{
     CMPLOG_KIND_INS, CMPLOG_RTN_LEN, CmpLogHeader, CmpLogMap, CmpLogVals, Operand, Routine,
-    StdCmpLogHeader, StdCmpLogVals,
+    StdCmpLogHeader, StdCmpLogVals, libafl_cmplog_map_ptr,
 };
 use serde::{Deserialize, Serialize};
 
@@ -100,7 +100,7 @@ impl StdCmpLogObserver {
                 name: Cow::from(name),
                 size: None,
                 add_meta,
-                map: OwnedMutPtr::Ptr(libaflmm_targets::libafl_cmplog_map_ptr),
+                map: OwnedMutPtr::Ptr(libafl_cmplog_map_ptr),
             }
         }
     }

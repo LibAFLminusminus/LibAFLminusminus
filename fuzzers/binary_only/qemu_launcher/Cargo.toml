@@ -39,14 +39,11 @@ vergen-git2 = "9.1.0"
 
 [dependencies]
 libaflmm = { path = "../../../crates/libaflmm" }
-libaflmm_bolts = { path = "../../../crates/libaflmm_bolts", features = [
-  "errors_backtrace",
-] }
 libaflmm_qemu = { path = "../../../crates/libaflmm_qemu", features = [
   "usermode",
   "asan_rust",
+  "errors_backtrace"
 ] }
-libaflmm_targets = { path = "../../../crates/libaflmm_targets" }
 
 clap = { version = "4.6.1", features = ["derive", "string"] }
 env_logger = { version = "0.11.10" }

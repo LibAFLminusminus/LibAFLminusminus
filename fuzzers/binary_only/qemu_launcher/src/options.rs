@@ -2,8 +2,7 @@ use crate::version::Version;
 use clap::{CommandFactory, Parser, error::ErrorKind};
 use core::time::Duration;
 use libaflmm::{Result, illegal_argument};
-use libaflmm_bolts::core_affinity::{CoreId, Cores};
-use libaflmm_qemu::GuestAddr;
+use libaflmm_qemu::prelude::*;
 use std::{env, ops::Range, path::PathBuf};
 
 #[derive(Parser, Debug)]

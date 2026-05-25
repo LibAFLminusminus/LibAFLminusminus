@@ -173,6 +173,8 @@ impl From<Error> for libaflmm::Error {
 
 pub mod prelude {
     pub use libaflmm::prelude::*;
+    pub use libaflmm_bolts::prelude::*;
+    pub use libaflmm_targets::prelude::*;
 
     #[cfg(feature = "usermode")]
     pub use crate::GuestAbiUlong;

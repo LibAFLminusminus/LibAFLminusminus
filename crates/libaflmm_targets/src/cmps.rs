@@ -1,4 +1,4 @@
-use crate::{CMPLOG_MAP_H, CMPLOG_MAP_W};
+use crate::constants::{CMPLOG_MAP_H, CMPLOG_MAP_W};
 use core::{
     fmt::{self, Debug, Formatter},
     mem::{size_of, zeroed},

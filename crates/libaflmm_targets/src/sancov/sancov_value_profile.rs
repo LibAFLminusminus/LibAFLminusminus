@@ -1,6 +1,6 @@
 //! Value profile support for `LibAFL`
 
-use crate::CMP_MAP_SIZE;
+use crate::constants::CMP_MAP_SIZE;
 
 /// The constant cmplog map for the current `LibAFL` target
 #[unsafe(no_mangle)]
