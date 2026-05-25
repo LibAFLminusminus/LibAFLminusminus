@@ -27,9 +27,10 @@ use crate::{
     qemu::{QemuError, QemuExitError, QemuInitError, QemuRWError},
 };
 use libaflmm::runtime;
+use libaflmm_core::{ErrorBacktrace, display_error_backtrace};
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
-use std::{backtrace::Backtrace, env, error, fmt, io, result};
+use std::{env, error, fmt, io, result};
 #[cfg(feature = "python")]
 use strum::IntoEnumIterator;
 
@@ -54,42 +55,41 @@ pub type Result<T> = result::Result<T, Error>;
 
 #[derive(Debug)]
 pub enum Error {
+    // [`libaflmm::Error`] already carries its own backtrace, so we don't capture another one here.
     Libaflmm {
         source: libaflmm::Error,
-        backtrace: Backtrace,
     },
     Emulator {
         source: EmulatorError,
-        backtrace: Backtrace,
+        backtrace: ErrorBacktrace,
     },
     Qemu {
         source: QemuError,
-        backtrace: Backtrace,
+        backtrace: ErrorBacktrace,
     },
     Command {
         source: CommandError,
-        backtrace: Backtrace,
+        backtrace: ErrorBacktrace,
     },
-}
-
-impl Error {
-    pub fn backtrace(&self) -> &Backtrace {
-        match self {
-            Error::Libaflmm { backtrace, .. }
-            | Error::Emulator { backtrace, .. }
-            | Error::Qemu { backtrace, .. }
-            | Error::Command { backtrace, .. } => backtrace,
-        }
-    }
 }
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Error::Libaflmm { source, .. } => write!(f, "{source}"),
-            Error::Emulator { source, .. } => write!(f, "{source}"),
-            Error::Qemu { source, .. } => write!(f, "{source}"),
-            Error::Command { source, .. } => write!(f, "{source}"),
+            // The inner error already appends its own backtrace on `Display`.
+            Error::Libaflmm { source } => write!(f, "{source}"),
+            Error::Emulator { source, backtrace } => {
+                write!(f, "{source}")?;
+                display_error_backtrace(f, backtrace)
+            }
+            Error::Qemu { source, backtrace } => {
+                write!(f, "{source}")?;
+                display_error_backtrace(f, backtrace)
+            }
+            Error::Command { source, backtrace } => {
+                write!(f, "{source}")?;
+                display_error_backtrace(f, backtrace)
+            }
         }
     }
 }
@@ -97,7 +97,7 @@ impl fmt::Display for Error {
 impl error::Error for Error {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         match self {
-            Error::Libaflmm { source, .. } => Some(source),
+            Error::Libaflmm { source } => Some(source),
             Error::Emulator { source, .. } => Some(source),
             Error::Qemu { source, .. } => Some(source),
             Error::Command { source, .. } => Some(source),
@@ -107,10 +107,7 @@ impl error::Error for Error {
 
 impl From<libaflmm::Error> for Error {
     fn from(source: libaflmm::Error) -> Self {
-        Error::Libaflmm {
-            source,
-            backtrace: Backtrace::capture(),
-        }
+        Error::Libaflmm { source }
     }
 }
 
@@ -118,7 +115,7 @@ impl From<EmulatorError> for Error {
     fn from(source: EmulatorError) -> Self {
         Error::Emulator {
             source,
-            backtrace: Backtrace::capture(),
+            backtrace: ErrorBacktrace::capture(),
         }
     }
 }
@@ -127,7 +124,7 @@ impl From<QemuError> for Error {
     fn from(source: QemuError) -> Self {
         Error::Qemu {
             source,
-            backtrace: Backtrace::capture(),
+            backtrace: ErrorBacktrace::capture(),
         }
     }
 }
@@ -136,7 +133,7 @@ impl From<CommandError> for Error {
     fn from(source: CommandError) -> Self {
         Error::Command {
             source,
-            backtrace: Backtrace::capture(),
+            backtrace: ErrorBacktrace::capture(),
         }
     }
 }
@@ -169,7 +166,7 @@ impl From<Error> for libaflmm::Error {
     fn from(error: Error) -> Self {
         match error {
             Error::Libaflmm { source, .. } => source,
-            ref e => runtime!("LibAFLmm QEMU error: {e}\n{}", e.backtrace()),
+            ref e => runtime!("LibAFLmm QEMU error: {e}"),
         }
     }
 }

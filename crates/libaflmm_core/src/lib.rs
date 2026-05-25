@@ -51,8 +51,9 @@ impl ErrorBacktrace {
     }
 }
 
+/// Appends an [`ErrorBacktrace`] to a formatter, if one was captured.
 #[cfg(feature = "errors_backtrace")]
-fn display_error_backtrace(f: &mut fmt::Formatter, err: &ErrorBacktrace) -> fmt::Result {
+pub fn display_error_backtrace(f: &mut fmt::Formatter, err: &ErrorBacktrace) -> fmt::Result {
     match err.status() {
         std::backtrace::BacktraceStatus::Captured => write!(f, "\nBacktrace:\n{err}"),
         std::backtrace::BacktraceStatus::Disabled => {
@@ -61,10 +62,11 @@ fn display_error_backtrace(f: &mut fmt::Formatter, err: &ErrorBacktrace) -> fmt:
         _ => Ok(()),
     }
 }
+
+/// Appends an [`ErrorBacktrace`] to a formatter, if one was captured.
 #[cfg(not(feature = "errors_backtrace"))]
-#[expect(clippy::unnecessary_wraps)]
-fn display_error_backtrace(_f: &mut fmt::Formatter, _err: &ErrorBacktrace) -> fmt::Result {
-    fmt::Result::Ok(())
+pub fn display_error_backtrace(_f: &mut fmt::Formatter, _err: &ErrorBacktrace) -> fmt::Result {
+    Ok(())
 }
 
 /// Shorthand for `std::result::Result<T, libafl_core::Error>`.

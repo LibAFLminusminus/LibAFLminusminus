@@ -56,16 +56,7 @@ pub struct StdLauncher<D, CT, MT, RT, S, W> {
     monitor_refresh: Duration,
 }
 
-impl
-    StdLauncher<
-        NopWorker,
-        NopDescriptor,
-        SimpleController,
-        SimpleMonitor,
-        NopRuntime,
-        NopState,
-    >
-{
+impl StdLauncher<NopWorker, NopDescriptor, SimpleController, SimpleMonitor, NopRuntime, NopState> {
     /// Create a default Launcher.
     /// It is configured with a very minimal configuration.
     /// It will spawn one fuzzing core on core 0 and run the provided task or runtime.

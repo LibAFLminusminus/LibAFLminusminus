@@ -47,11 +47,7 @@ rusty_fork_test! {
 /// - if it is not set, the runner considers we are out of the fuzzing loop, so crash / timeout is unexpected (fuzzer bug)
 fn run_runtime<CH, T, TH>(task: T, crash_handler: CH, timeout_handler: TH, set_input: bool)
 where
-    T: FnMut(
-            &mut RuntimeHandle<NopState, NopWorker>,
-            &mut NopState,
-        ) -> Result<(), Error>
-        + 'static,
+    T: FnMut(&mut RuntimeHandle<NopState, NopWorker>, &mut NopState) -> Result<(), Error> + 'static,
     for<'a> CH: FnMut(&mut TerminationHandlerData, &OsTerminationParams<'a>) -> Result<CrashStatus, Error>
         + Send
         + Sync

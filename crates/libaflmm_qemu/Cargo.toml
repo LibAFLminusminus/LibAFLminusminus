@@ -21,12 +21,14 @@ features = ["document-features", "default", "python", "x86_64", "usermode"]
 rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
-default = ["asan_guest", "asan_host", "usermode", "injections"]
+default = ["asan_guest", "asan_host", "usermode", "injections", "errors_backtrace"]
 ## Build asan for address sanitization
 asan_guest = []
 asan_host = []
 ## Use Address Sanitizer implementation written in rust (rather than the older C version)
 asan_rust = []
+## Capture backtraces in errors (mirrors the libaflmm_core feature of the same name)
+errors_backtrace = ["libaflmm_core/errors_backtrace", "libaflmm/errors_backtrace"]
 
 document-features = ["dep:document-features"]
 
