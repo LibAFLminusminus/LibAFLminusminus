@@ -57,6 +57,8 @@
 [//]: <> (Optimal configuration for most common scenarios)
 [//]: <> (AFL++ integration)
 
+[Development Tips](./development_tips.md)
+
 [Contributing](./contributing.md)
 
 [Migrating from LibAFL](./libafl_migration.md)
