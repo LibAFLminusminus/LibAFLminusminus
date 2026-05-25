@@ -24,7 +24,6 @@ members = [
   "utils/build_and_test_fuzzers",
   "utils/ci_runner",
   "utils/ci_splitter",
-  "utils/deexit",
   "utils/drcov_utils",
   "utils/libaflmm_benches",
   "utils/find_llvm_config",
@@ -84,7 +83,6 @@ libaflmm_targets = { path = "./crates/libaflmm_targets", version = "0.16.0", def
 
 # Utils
 build_and_test_fuzzers = { path = "./utils/build_and_test_fuzzers", version = "0.16.0", default-features = false }
-deexit = { path = "./utils/deexit", version = "0.16.0", default-features = false }
 drcov_utils = { path = "./utils/drcov_utils", version = "0.16.0", default-features = false }
 libaflmm_benches = { path = "./utils/libaflmm_benches", version = "0.16.0", default-features = false }
 

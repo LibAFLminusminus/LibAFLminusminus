@@ -211,6 +211,44 @@
                 border-color: var(--accent);
                 color: var(--accent);
             }
+            .mode-select {
+                appearance: none;
+                -webkit-appearance: none;
+                -moz-appearance: none;
+                background-color: var(--bg2);
+                background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6' fill='none'><path d='M1 1L5 5L9 1' stroke='currentColor' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+                background-repeat: no-repeat;
+                background-position: right 0.75rem center;
+                background-size: 10px 6px;
+                border: 1px solid var(--border2);
+                color: var(--text2);
+                font-family: var(--font-ui);
+                font-size: 0.8rem;
+                font-weight: 500;
+                text-transform: uppercase;
+                letter-spacing: 0.1em;
+                padding: 0.45rem 2.2rem 0.45rem 0.9rem;
+                min-width: 12rem;
+                border-radius: 6px;
+                cursor: pointer;
+                outline: none;
+                transition:
+                    border-color 0.15s ease,
+                    color 0.15s ease,
+                    background-color 0.15s ease;
+            }
+            .mode-select:hover,
+            .mode-select:focus-visible {
+                border-color: var(--accent);
+                color: var(--accent);
+                background-color: var(--bg3);
+            }
+            .mode-select option {
+                background: var(--bg2);
+                color: var(--text);
+                font-weight: 500;
+                letter-spacing: normal;
+            }
             .chart-wrap {
                 background: var(--bg2);
                 border: 1px solid var(--border);
@@ -337,7 +375,14 @@
                                 min-width: 0;
                             "
                         >
-                            <span class="panel-title">User Data</span>
+                            <select
+                                id="rightModeSelect"
+                                class="mode-select"
+                                onchange="selectRightMode(this.value)"
+                            >
+                                <option value="user_data">USER DATA</option>
+                                <option value="stage_perf">STAGE PERF</option>
+                            </select>
                             <div class="tabs" id="userMapTabs"></div>
                         </div>
                         <div
@@ -346,11 +391,8 @@
                                 flex: 1;
                                 min-height: 0;
                                 min-width: 0;
-                                overflow-y: auto;
-                                overflow-x: hidden;
-                                display: flex;
-                                flex-direction: column;
-                                gap: 1rem;
+                                overflow: hidden;
+                                position: relative;
                             "
                         >
                             <div
@@ -361,6 +403,20 @@
                                 "
                             >
                                 No numeric data in user_map
+                            </div>
+                        </div>
+                        <div
+                            id="stagePerfBody"
+                            style="
+                                display: none;
+                                flex: 1;
+                                min-height: 0;
+                                min-width: 0;
+                                position: relative;
+                            "
+                        >
+                            <div class="chart-wrap" style="position: absolute; inset: 0;">
+                                <canvas id="stagePerfChart"></canvas>
                             </div>
                         </div>
                     </div>
@@ -419,6 +475,12 @@
                 ]
                     .filter(Boolean)
                     .forEach(applyChartTheme);
+                if (stagePerfChart) {
+                    const t = CHART_THEMES[currentTheme];
+                    stagePerfChart.options.plugins.legend.labels.color =
+                        t.legend;
+                    stagePerfChart.update();
+                }
             }
 
             function toggleTheme() {
@@ -626,6 +688,101 @@
             let userMapKeys = [];
             let selectedUserMapKey = null;
 
+            // --- Right-pane mode swap: "user_data" (default) ↔ "stage_perf" ---
+            let rightMode = "user_data";
+            let stagePerfChart = null;
+
+            function selectRightMode(mode) {
+                rightMode = mode;
+                const showPerf = mode === "stage_perf";
+                document.getElementById("userMapTabs").style.display = showPerf
+                    ? "none"
+                    : "";
+                document.getElementById("userMapBody").style.display = showPerf
+                    ? "none"
+                    : "";
+                document.getElementById("stagePerfBody").style.display =
+                    showPerf ? "" : "none";
+                if (showPerf && cachedHistory) updateStagePerf(cachedHistory);
+            }
+
+            function initStagePerfChart() {
+                if (stagePerfChart) return;
+                const t = CHART_THEMES[currentTheme];
+                stagePerfChart = new Chart(
+                    document.getElementById("stagePerfChart"),
+                    {
+                        type: "pie",
+                        data: {
+                            labels: [],
+                            datasets: [
+                                { data: [], backgroundColor: [], borderWidth: 0 },
+                            ],
+                        },
+                        options: {
+                            animation: false,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    position: "bottom",
+                                    labels: {
+                                        color: t.legend,
+                                        font: { size: 13 },
+                                    },
+                                },
+                                tooltip: {
+                                    callbacks: {
+                                        label: (ctx) => {
+                                            const total =
+                                                ctx.dataset.data.reduce(
+                                                    (a, b) => a + b,
+                                                    0,
+                                                );
+                                            const v = ctx.parsed;
+                                            const pct =
+                                                total > 0
+                                                    ? ((v / total) * 100).toFixed(
+                                                          2,
+                                                      )
+                                                    : "0.00";
+                                            const secs = (v / 1e9).toFixed(4);
+                                            return `${ctx.label}: ${secs}s (${pct}%)`;
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                );
+            }
+
+            function updateStagePerf(history) {
+                initStagePerfChart();
+                const i = selectedWorker;
+                const latest = history[history.length - 1];
+                const perf = latest?.stats?.[i]?.perf || {};
+                const totalElapsed = perf["__total_elapsed_ns__"] ?? 0;
+                const entries = Object.entries(perf)
+                    .filter(([k]) => k !== "__total_elapsed_ns__")
+                    .sort(([a], [b]) => a.localeCompare(b));
+                const stageSum = entries.reduce((a, [, v]) => a + v, 0);
+                const others = Math.max(0, totalElapsed - stageSum);
+                const labels = entries.map(([k]) => k);
+                const data = entries.map(([, v]) => v);
+                const colors = entries.map(
+                    (_, idx) => USER_MAP_COLORS[idx % USER_MAP_COLORS.length],
+                );
+                if (others > 0) {
+                    labels.push("others");
+                    data.push(others);
+                    colors.push("rgb(150,150,150)");
+                }
+                stagePerfChart.data.labels = labels;
+                stagePerfChart.data.datasets[0].data = data;
+                stagePerfChart.data.datasets[0].backgroundColor = colors;
+                stagePerfChart.update();
+            }
+
             function selectUserMapTab(key) {
                 selectedUserMapKey = key;
                 const tabsEl = document.getElementById("userMapTabs");
@@ -670,6 +827,8 @@
 
                     const wrap = document.createElement("div");
                     wrap.className = "chart-wrap";
+                    wrap.style.position = "absolute";
+                    wrap.style.inset = "0";
                     wrap.style.display =
                         key === selectedUserMapKey ? "" : "none";
                     const canvas = document.createElement("canvas");
@@ -788,6 +947,8 @@
                         if (cachedHistory) {
                             updateWorkerCharts(cachedHistory);
                             updateUserMapPanel(cachedHistory);
+                            if (rightMode === "stage_perf")
+                                updateStagePerf(cachedHistory);
                         }
                     };
                     tabsEl.appendChild(tab);
@@ -981,8 +1142,10 @@
 
                 updateWorkerCharts(history);
                 updateUserMapPanel(history);
+                if (rightMode === "stage_perf") updateStagePerf(history);
             }
 
+            selectRightMode(document.getElementById("rightModeSelect").value);
             refresh();
             setInterval(refresh, 5000);
         </script>

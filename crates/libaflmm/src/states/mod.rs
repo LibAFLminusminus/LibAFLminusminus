@@ -56,6 +56,8 @@ pub struct Stats {
     /// hold additional info that users want, in JSON format.
     /// Key is the info name, value is the info in JSON.
     pub(crate) user_map: HashMap<String, String>,
+    /// Per-stage performance counters used by the introspection macros.
+    pub(crate) perf: PerfStats,
 }
 
 /// The name used in stats json file for the stability value
@@ -312,8 +314,6 @@ pub struct StdState<C, CT, I, OC> {
     dont_reenter: Option<Vec<PathBuf>>,
     metadata_initialized: bool,
     stats: Stats,
-    /// performance counters used by the introspection macros.
-    perf_stats: PerfStats,
     phantom: PhantomData<I>,
 }
 
@@ -649,7 +649,7 @@ where
     }
 
     fn perf_stats_mut(&mut self) -> &mut PerfStats {
-        &mut self.perf_stats
+        &mut self.stats.perf
     }
 
     /// The max size allowed for this [`Input`]
@@ -1075,6 +1075,7 @@ where
                 last_found_time: libaflmm_bolts::current_time(),
                 start_time: libaflmm_bolts::current_time(),
                 user_map: HashMap::new(),
+                perf: PerfStats::new(),
             },
             named_metadata: NamedSerdeAnyMap::default(),
             corpus,
@@ -1085,7 +1086,6 @@ where
             testcase_metadata: HashMap::new(),
             metadata_initialized: false,
             phantom: PhantomData,
-            perf_stats: PerfStats::new(),
         };
         Ok(state)
     }

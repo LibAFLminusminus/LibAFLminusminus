@@ -82,7 +82,7 @@ pub struct X<A>
 }
 ```
 
-3. Prefer generic to associated types in traits definition as much as possible.
+3. In general, prefer generic to associated types in traits definition as much as possible.
 They are much easier to use around, and avoid tricky caveats / type repetition in the code.
 It is also much easier to have unconstrained struct definitions.
 Try not to write this:
@@ -105,16 +105,26 @@ pub trait X<A>
 }
 ```
 
-4. Traits which have an associated type (if you have made sure you cannot use a generic instead) should refer to the associated type, not the concrete/generic.
-In other words, you should only have the associated type when you can define a getter to it.
-For example, in the following code, you can define a associate type.
+4. You should only declare an associated type on a trait when implementors of that trait actually hold a value of that type.
+In other words, the associated type needs to correspond to something concrete the struct owns or can return.
 
 ```rust
-pub trait X 
-{
-    type A; // <- You should(can) define it as long as you have a getter to it.
-    
-    fn a(&self) -> Self::A;
+pub trait X {
+    type XXX; // OK to define. Because we are sure that implementors of X will hold a value of this type XXX.
+
+    fn a(&self) -> Self::XXX;
+}
+
+pub struct MyObject<A> {
+    a: A, // MyObject holds an instance of A.
+}
+
+impl<A> X for MyObject<A> {
+    type XXX = A; // ...so we can bind the associated type to A.
+
+    fn a(&self) -> Self::XXX {
+        // and you can define a getter. 
+    }
 }
 ```
 
@@ -156,21 +166,19 @@ Sometimes it is necessary but try to avoid it. For example, The following code i
 pub struct X {}
 pub struct Y {}
 
-pub trait Fuzzer: Sized {
-    fn fuzz<EM>(&self, em: &EM) 
-    where
-        EM: EventManager
+pub trait A {
+    fn fuzz<X>(&self, x: &X) 
     {
-        em.do_stuff(self);
+        x.do_stuff(self);
     }
 }
 
-pub trait EventManager: Sized {
-    fn do_stuff<Z>(&self, fuzzer: &Z); // <- This function signature should not take fuzzer
+pub trait X {
+    fn do_stuff<A>(&self, a: &A); // <- This function should not take a
 }
 ```
 
-trait `EventManager` should not implement any method that takes fuzzer, any object that could implement `Fuzzer` trait.
+trait `X` should not implement any method that takes `a`, any object that could implement `A` trait.
 
 ## Formatting
 
