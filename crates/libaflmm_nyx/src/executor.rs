@@ -1,4 +1,4 @@
-use crate::{cmplog::CMPLOG_ENABLED, helper::NyxHelper};
+use crate::helper::NyxHelper;
 use core::{ops::IndexMut, time::Duration};
 use libaflmm::{
     Error,
@@ -13,6 +13,7 @@ use libaflmm_bolts::{
     AsSlice,
     tuples::{Handle, RefIndexable},
 };
+use libaflmm_targets::exports::CMPLOG_ENABLED;
 use libnyx::NyxReturnValue;
 use std::{
     io::{Read, Seek},
@@ -152,7 +153,7 @@ where
             }
             NyxReturnValue::Abort => {
                 self.helper.nyx_process.shutdown();
-                return Err(Error::shutting_down());
+                return Err(Error::runtime("Nyx abort"));
             }
         };
 

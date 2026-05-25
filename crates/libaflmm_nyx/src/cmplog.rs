@@ -11,12 +11,8 @@ use libaflmm::{
     states::{State, named_metadata_mut},
 };
 use libaflmm_bolts::Named;
+use libaflmm_targets::exports::CMPLOG_ENABLED;
 use serde::{Deserialize, Serialize};
-
-pub use libaflmm_targets::{
-    CMPLOG_ENABLED, CMPLOG_MAP_H, CMPLOG_MAP_PTR, CMPLOG_MAP_SIZE, CMPLOG_MAP_W, CmpLogMap,
-    cmps::{__libaflmm_targets_cmplog_instructions, __libaflmm_targets_cmplog_routines},
-};
 
 extern crate alloc;
 

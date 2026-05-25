@@ -60,7 +60,7 @@ test_inner: harness build
     # ./tests/injection/test.sh || exit 1
 
     # complie again with simple mgr
-    cargo build --profile={{ PROFILE }} --features="simplemgr,{{ ARCH }}" --target-dir={{ TARGET_DIR }} || exit 1
+    cargo build --profile={{ PROFILE }} --features={{ ARCH }} --target-dir={{ TARGET_DIR }} || exit 1
 
     export CUSTOM_LIBAFL_QEMU_ASAN_PATH={{ BUILD_DIR }}/$CROSS_TARGET/{{ PROFILE_DIR }}/libaflmm_qemu_asan_host.so
     ./tests/asan/host_test.sh || exit 1

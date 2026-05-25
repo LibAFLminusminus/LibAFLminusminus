@@ -62,7 +62,7 @@ define_std_command_manager_bound!(
 
 #[cfg(feature = "systemmode")]
 define_std_command_manager_bound!(
-    LqemuCommandManager,
+    Lqemu,
     Input,
     [
         Start,

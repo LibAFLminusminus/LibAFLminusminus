@@ -407,7 +407,10 @@ mod tests {
 
     use libaflmm::observers::{HitcountsMapObserver, VariableMapObserver};
     use libaflmm_bolts::ownedref::OwnedMutSlice;
-    use libaflmm_targets::{EDGES_MAP_DEFAULT_SIZE, MAX_EDGES_FOUND, edges_map_mut_ptr};
+    use libaflmm_targets::{
+        constants::EDGES_MAP_DEFAULT_SIZE,
+        coverage::{MAX_EDGES_FOUND, edges_map_mut_ptr},
+    };
 
     use crate::modules::StdEdgeCoverageModule;
 

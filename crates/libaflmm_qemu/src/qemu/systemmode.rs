@@ -410,6 +410,10 @@ impl QemuMemoryChunk {
 }
 
 impl HostMemoryChunk {
+    pub fn size(&self) -> usize {
+        self.size
+    }
+
     #[must_use]
     pub fn write(&self, buf: &[u8]) -> usize {
         let write_len = min(buf.len(), self.size);
@@ -428,6 +432,10 @@ impl HostMemorySegments {
     #[must_use]
     pub fn new(segments: Vec<HostMemoryChunk>) -> Self {
         Self { segments }
+    }
+
+    pub fn segments(&self) -> impl Iterator<Item = &HostMemoryChunk> {
+        self.segments.iter()
     }
 
     /// Write a buffer into the VM memory segments.

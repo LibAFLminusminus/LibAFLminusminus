@@ -57,8 +57,6 @@ pub enum ExitKind {
         /// The exitkind of the secondary executor
         secondary: DiffExitKind,
     },
-    // The run resulted in a custom `ExitKind`.
-    // Custom(Box<dyn SerdeAny>),
 }
 libaflmm_bolts::impl_serdeany!(ExitKind);
 
