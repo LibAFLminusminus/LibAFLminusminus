@@ -15,8 +15,8 @@ use crate::{
     breakpoint::{Breakpoint, BreakpointId},
     command::{CommandManager, NopCommandManager, StdCommandManager},
     emu::{
-        Emulator, EmulatorDriverResult, EmulatorExitError, EmulatorExitResult, EmulatorHooks,
-        EmulatorModules, NopSnapshotManager,
+        Emulator, EmulatorExitError, EmulatorExitReason, EmulatorHooks, EmulatorModules,
+        EmulatorRunResult, NopSnapshotManager,
     },
     modules::EmulatorModuleTuple,
     qemu::{
@@ -24,7 +24,9 @@ use crate::{
     },
     sync_exit::CustomInsn,
 };
-use libaflmm::{executors::ExitKind, inputs::Input, observers::ObserversTuple, states::State};
+use libaflmm::{
+    executors::ExitKind, inputs::Input, observers::ObserversTuple, runtime, states::State,
+};
 use libaflmm_qemu_sys::GuestAddr;
 use std::cell::OnceCell;
 use std::{cell::RefCell, collections::HashMap, fmt::Debug, marker::PhantomData, pin::Pin};
@@ -37,7 +39,6 @@ pub use builder::StdEmulatorBuilder;
 /// It embeds multiple structures aiming at making QEMU usage easier:
 ///
 /// - An [`IsSnapshotManager`] implementation, implementing the QEMU snapshot method to use.
-/// - An [`EmulatorDriver`] implementation, responsible for handling the high-level control flow of QEMU runtime.
 /// - A [`CommandManager`] implementation, handling the commands received from the target.
 /// - [`EmulatorModules`], containing the [`EmulatorModule`] implementations' state.
 ///
@@ -92,6 +93,23 @@ where
     type Modules = ET;
     type SnapshotManager = SM;
 
+    fn start(&mut self) -> Result<()> {
+        match unsafe { self.run_until_outcome()? } {
+            EmulatorRunResult::FuzzingStarts => {
+                self.started = true;
+                Ok(())
+            }
+            EmulatorRunResult::EndOfRun(_) => Err(EmulatorError::EndBeforeStart.into()),
+            EmulatorRunResult::Breakpoint(bp_id) => {
+                Err(runtime!("unexpected breakpoint {bp_id:?}").into())
+            }
+            EmulatorRunResult::ShutdownRequest => {
+                log::warn!("QEMU shutdown before fuzzing started.");
+                Err(EmulatorError::EndBeforeStart.into())
+            }
+        }
+    }
+
     fn first_exec(&mut self, state: &mut Self::State) -> Result<()> {
         let qemu = self.qemu();
         self.modules_mut().first_exec_all(qemu, state)
@@ -106,24 +124,19 @@ where
 
     fn exec_input(&mut self, state: &mut Self::State, input: &Self::Input) -> Result<ExitKind> {
         match unsafe { self.run(state, input)? } {
-            EmulatorDriverResult::EndOfRun(exit_kind) => Ok(exit_kind),
-            EmulatorDriverResult::ReturnToClient(EmulatorExitResult::QemuExit(qemu_exit)) => {
-                match qemu_exit {
-                    QemuShutdownCause::GuestPanic
-                    | QemuShutdownCause::GuestReset
-                    | QemuShutdownCause::GuestShutdown => Ok(ExitKind::Crash),
-                    e => panic!("Bug in LibAFL QEMU fuzzer: {e:?}"),
-                }
-            }
-            EmulatorDriverResult::ShutdownRequest => {
+            EmulatorRunResult::EndOfRun(exit_kind) => Ok(exit_kind),
+            EmulatorRunResult::ShutdownRequest => {
                 log::warn!(
                     "QEMU received a shutdown request during a fuzzing run. It will be considered as a crash."
                 );
 
                 Ok(ExitKind::Crash)
             }
-            EmulatorDriverResult::ReturnToClient(exit_reason) => {
-                panic!("Unexpected return to client: {exit_reason:?}")
+            EmulatorRunResult::Breakpoint(bp_id) => {
+                Err(runtime!("unexpected breakpoint {bp_id:?}").into())
+            }
+            EmulatorRunResult::FuzzingStarts => {
+                Err(runtime!("unexpected fuzzing-start signal during a fuzzing run").into())
             }
         }
     }
@@ -235,6 +248,19 @@ where
     #[cfg(feature = "systemmode")]
     fn allow_page_on_start(&self) -> bool {
         self.allow_page_on_start
+    }
+
+    fn entry_break(
+        &mut self,
+        addr: GuestAddr,
+        bp_cb: impl FnMut(Qemu) -> Result<C> + 'static,
+    ) -> Result<()> {
+        self.add_breakpoint(Breakpoint::with_command(addr, bp_cb, true), true);
+        self.start()
+    }
+
+    fn max_input_size(&self, state: &mut Self::State, input: &Self::Input) -> usize {
+        self.input_setter.input_size(state, input)
     }
 }
 
@@ -422,127 +448,81 @@ where
 {
     fn post_qemu_exec(
         &mut self,
-        exit_reason: &mut EmulatorExitResult<C>,
-    ) -> Result<Option<EmulatorDriverResult<C>>> {
+        exit_reason: &mut EmulatorExitReason<C>,
+    ) -> Result<Option<EmulatorRunResult>> {
         let qemu = self.qemu();
 
         // If QEMU stopped because of a request, handle it here
-        let (command, ret_reg): (Option<C>, Option<Regs>) = match exit_reason {
-            EmulatorExitResult::QemuExit(shutdown_cause) => match shutdown_cause {
+        let (command, ret_reg): (C, Option<Regs>) = match exit_reason {
+            EmulatorExitReason::QemuExit(shutdown_cause) => match shutdown_cause {
                 QemuShutdownCause::HostSignal(signal) => {
                     return Err(EmulatorError::UnhandledSignal(*signal).into());
                 }
                 QemuShutdownCause::GuestPanic => {
-                    return Ok(Some(EmulatorDriverResult::EndOfRun(ExitKind::Crash)));
+                    return Ok(Some(EmulatorRunResult::EndOfRun(ExitKind::Crash)));
                 }
                 QemuShutdownCause::GuestShutdown | QemuShutdownCause::HostQmpQuit => {
-                    log::warn!("Guest shutdown. Stopping fuzzing...");
-                    // std::process::exit(CTRL_C_EXIT);
+                    log::warn!("Guest shutdown requested.");
                     panic!("Implement proper exit there...")
                 }
                 _ => panic!("Unhandled QEMU shutdown cause: {shutdown_cause:?}."),
             },
-            EmulatorExitResult::Crash => {
-                return Ok(Some(EmulatorDriverResult::EndOfRun(ExitKind::Crash)));
+            EmulatorExitReason::Crash => {
+                return Ok(Some(EmulatorRunResult::EndOfRun(ExitKind::Crash)));
             }
-            EmulatorExitResult::Timeout => {
-                return Ok(Some(EmulatorDriverResult::EndOfRun(ExitKind::Timeout)));
+            EmulatorExitReason::Timeout => {
+                return Ok(Some(EmulatorRunResult::EndOfRun(ExitKind::Timeout)));
             }
-            EmulatorExitResult::FuzzingStarts => {
-                return Ok(Some(EmulatorDriverResult::ReturnToClient(
-                    EmulatorExitResult::FuzzingStarts,
-                )));
+            EmulatorExitReason::Breakpoint(bp) => {
+                let bp_id = bp.id();
+                match bp.trigger(qemu)? {
+                    Some(command) => (command, None),
+                    None => return Ok(Some(EmulatorRunResult::Breakpoint(bp_id))),
+                }
             }
-            EmulatorExitResult::Breakpoint(bp) => (bp.trigger(qemu), None),
-            EmulatorExitResult::CustomInsn(custom_insn) => {
-                let command = custom_insn.command().clone();
-                (Some(command), Some(custom_insn.ret_reg()))
+            EmulatorExitReason::CustomInsn(custom_insn) => {
+                (custom_insn.command().clone(), Some(custom_insn.ret_reg()))
             }
         };
 
-        // If QEMU requested to handle a command, run it here.
-        if let Some(cmd) = command {
-            if self.print_commands {
-                println!("Received command: {cmd:?}");
-            }
-            cmd.run(self, ret_reg)
-        } else {
-            Ok(Some(EmulatorDriverResult::ReturnToClient(
-                exit_reason.clone(),
-            )))
+        // Run the requested command.
+        if self.print_commands {
+            println!("Received command: {command:?}");
         }
+        command.run(self, ret_reg)
     }
 
-    /// This function will run the emulator until the exit handler decides to stop the execution for
-    /// whatever reason, depending on the choosen handler.
-    /// It is a higher-level abstraction of [`Emulator::run`] that will take care of some part of the runtime logic,
-    /// returning only when something interesting happen.
+    /// Run QEMU, handling stops, until an explicit exit is necessary. Commands that don't end
+    /// the run (like snapshot save/load) keep the loop running.
+    /// A breakpoint without an explicit handler stops it.
     ///
     /// # Safety
     /// Should, in general, be safe to call.
     /// Of course, the emulated target is not contained securely and can corrupt state or interact with the operating system.
-    pub unsafe fn run(&mut self, state: &mut S, input: &I) -> Result<EmulatorDriverResult<C>> {
+    unsafe fn run_until_outcome(&mut self) -> Result<EmulatorRunResult> {
+        loop {
+            let mut exit_reason = unsafe { self.run_qemu()? };
+
+            if let Some(outcome) = self.post_qemu_exec(&mut exit_reason)? {
+                return Ok(outcome);
+            }
+        }
+    }
+
+    /// Write the input and run a single fuzzing iteration, returning its result.
+    ///
+    /// # Safety
+    /// Should, in general, be safe to call.
+    /// Of course, the emulated target is not contained securely and can corrupt state or interact with the operating system.
+    pub unsafe fn run(&mut self, state: &mut S, input: &I) -> Result<EmulatorRunResult> {
         if !self.started {
             return Err(EmulatorError::NotStartedYet.into());
         }
 
         // write the input
-        self.input_setter
-            .write_input(self.qemu, state, input)
-            .unwrap();
+        self.input_setter.write_input(self.qemu, state, input)?;
 
-        loop {
-            // Run QEMU
-            log::debug!("Running QEMU...");
-            let mut exit_reason = unsafe { self.run_qemu()? };
-            log::debug!("QEMU stopped.");
-
-            // Handle QEMU exit
-            if let Some(exit_handler_result) = self.post_qemu_exec(&mut exit_reason)? {
-                return Ok(exit_handler_result);
-            }
-        }
-    }
-
-    /// Start the emulator until a start even occurs
-    ///
-    /// # Safety
-    ///
-    /// This will make QEMU start. The calling thread will be running QEMU until an event stops it.
-    /// This is (at least) as unsafe as running QEMU.
-    pub unsafe fn start(&mut self) -> Result<()> {
-        loop {
-            let mut exit_result = unsafe { self.run_qemu()? };
-
-            // Handle QEMU exit
-            if let Some(exit_handler_result) = self.post_qemu_exec(&mut exit_result)? {
-                match exit_handler_result {
-                    EmulatorDriverResult::ReturnToClient(emulator_exit_result) => {
-                        match emulator_exit_result {
-                            EmulatorExitResult::QemuExit(qemu_shutdown_cause) => {
-                                panic!("QEMU shut down unexpectedly: {qemu_shutdown_cause:?}");
-                            }
-                            EmulatorExitResult::Breakpoint(_breakpoint) => {}
-                            EmulatorExitResult::CustomInsn(_custom_insn) => {}
-                            EmulatorExitResult::Crash => {
-                                panic!("Unexpected crash")
-                            }
-                            EmulatorExitResult::Timeout => {
-                                panic!("No timeout should happen in start phase")
-                            }
-                            EmulatorExitResult::FuzzingStarts => {
-                                self.started = true;
-                                return Ok(());
-                            }
-                        }
-                    }
-                    EmulatorDriverResult::ShutdownRequest => {}
-                    EmulatorDriverResult::EndOfRun(_exit_kind) => {
-                        return Err(EmulatorError::EndBeforeStart.into());
-                    }
-                }
-            }
-        }
+        unsafe { self.run_until_outcome() }
     }
 
     /// This function will run the emulator until the next breakpoint, or until finish.
@@ -551,15 +531,15 @@ where
     ///
     /// Should, in general, be safe to call.
     /// Of course, the emulated target is not contained securely and can corrupt state or interact with the operating system.
-    pub unsafe fn run_qemu(&self) -> Result<EmulatorExitResult<C>> {
+    pub unsafe fn run_qemu(&self) -> Result<EmulatorExitReason<C>> {
         let qemu_exit_reason = unsafe { self.qemu.run()? };
 
         Ok(match qemu_exit_reason {
             QemuExitReason::End(qemu_shutdown_cause) => {
-                EmulatorExitResult::QemuExit(qemu_shutdown_cause)
+                EmulatorExitReason::QemuExit(qemu_shutdown_cause)
             }
-            QemuExitReason::Crash => EmulatorExitResult::Crash,
-            QemuExitReason::Timeout => EmulatorExitResult::Timeout,
+            QemuExitReason::Crash => EmulatorExitReason::Crash,
+            QemuExitReason::Timeout => EmulatorExitReason::Timeout,
             QemuExitReason::Breakpoint(bp_addr) => {
                 let bp = self
                     .breakpoints_by_addr
@@ -567,9 +547,9 @@ where
                     .get(&bp_addr)
                     .ok_or(EmulatorExitError::BreakpointNotFound(bp_addr))?
                     .clone();
-                EmulatorExitResult::Breakpoint(bp.clone())
+                EmulatorExitReason::Breakpoint(bp.clone())
             }
-            QemuExitReason::SyncExit => EmulatorExitResult::CustomInsn(CustomInsn::new(
+            QemuExitReason::SyncExit => EmulatorExitReason::CustomInsn(CustomInsn::new(
                 self.command_manager.parse(self.qemu)?,
             )),
         })

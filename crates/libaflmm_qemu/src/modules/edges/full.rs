@@ -18,6 +18,7 @@ pub struct EdgeCoverageFullVariant;
 
 pub type StdEdgeCoverageFullModule =
     EdgeCoverageModule<StdAddressFilter, StdPageFilter, EdgeCoverageFullVariant, false, 0>;
+
 pub type StdEdgeCoverageFullModuleBuilder = EdgeCoverageModuleBuilder<
     StdAddressFilter,
     StdPageFilter,

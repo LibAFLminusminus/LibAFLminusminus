@@ -70,11 +70,11 @@ impl NativeCommandParser for StartVirtCommandParser {
         #[cfg(feature = "usermode")]
         {
             let memory_chunk = unsafe {
-                slice::from_raw_parts(input_virt_addr as *const u8, max_input_size as usize)
+                slice::from_raw_parts_mut(input_virt_addr as *mut u8, max_input_size as usize)
             };
 
             Ok(StartCommand::new(InputLocation::new(
-                Box::from(memory_chunk),
+                memory_chunk,
                 Some(arch_regs_map[ExitArgs::Ret]),
                 qemu.current_cpu().unwrap(),
             )))

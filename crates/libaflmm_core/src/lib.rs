@@ -98,8 +98,6 @@ pub enum Error {
     Unsupported(String, ErrorBacktrace),
     /// Raise this from a stage to skip the remaining stages for a given input, not really an error.
     SkipRemainingStages,
-    /// Shutting down, not really an error.
-    ShuttingDown,
     /// OS error, wrapping a [`io::Error`]
     OsError(io::Error, String, ErrorBacktrace),
     /// Something else happened
@@ -210,12 +208,6 @@ impl Error {
         S: Into<String>,
     {
         Error::IllegalArgument(arg.into(), ErrorBacktrace::capture())
-    }
-
-    /// Shutting down, not really an error.
-    #[must_use]
-    pub fn shutting_down() -> Self {
-        Error::ShuttingDown
     }
 
     /// This operation is not supported on the current architecture or platform
@@ -461,7 +453,6 @@ impl Display for Error {
                 )?;
                 display_error_backtrace(f, b)
             }
-            Self::ShuttingDown => write!(f, "Shutting down!"),
             Self::OsError(err, s, b) => {
                 write!(f, "OS error: {0}: {1}", &s, err)?;
                 display_error_backtrace(f, b)

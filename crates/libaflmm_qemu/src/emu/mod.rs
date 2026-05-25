@@ -32,9 +32,7 @@ pub mod hooks;
 pub use hooks::{EmulatorHooks, EmulatorModules};
 
 pub mod input_writer;
-pub use input_writer::{
-    EmulatorDriverResult, InputWriter, LqemuInputWriter, MapKind, NopInputWriter, StdInputWriter,
-};
+pub use input_writer::{InputWriter, LqemuInputWriter, MapKind, NopInputWriter, StdInputWriter};
 
 pub mod snapshots;
 pub use snapshots::{
@@ -88,6 +86,9 @@ pub trait Emulator {
     type Modules: EmulatorModuleTuple<Self::Input, Self::State> + HasStdFiltersTuple + Unpin;
     type SnapshotManager: SnapshotManager;
 
+    /// Run the emulator until the start event occurs, delivered through a breakpoint or custom instruction.
+    fn start(&mut self) -> Result<()>;
+
     fn first_exec(&mut self, state: &mut Self::State) -> Result<()>;
 
     fn pre_exec(&mut self, state: &mut Self::State, input: &Self::Input) -> Result<()>;
@@ -130,6 +131,8 @@ pub trait Emulator {
 
     fn set_input_location(&mut self, input_location: &InputLocation) -> Result<()>;
 
+    fn max_input_size(&self, state: &mut Self::State, input: &Self::Input) -> usize;
+
     /// Read a value in memory of type T.
     ///
     /// # Safety
@@ -171,6 +174,19 @@ pub trait Emulator {
         self.qemu().write_function_argument_with_cc(idx, val, conv)
     }
 
+    /// Kick the emulator and break when `addr` is reached.
+    ///
+    /// Once reached, the breakpoint callback `bp_cb` will be executed.
+    /// The callback must return a command, that will be executed after the callback is executed.
+    ///
+    /// This command must put the Emulator in the "started" state.
+    /// The exact command doing so may change depending on the [`CommandManager`].
+    fn entry_break(
+        &mut self,
+        addr: GuestAddr,
+        bp_cb: impl FnMut(Qemu) -> Result<<Self::CommandManager as CommandManager>::Commands> + 'static,
+    ) -> Result<()>;
+
     delegate! {
         to self.qemu() {
             fn num_cpus(&self) -> usize;
@@ -198,8 +214,6 @@ pub trait Emulator {
                 reg: impl Into<i32>,
                 val: impl Into<GuestReg>,
             ) -> result::Result<(), QemuRWError>;
-
-            fn entry_break(&self, addr: GuestAddr) -> libaflmm::Result<()>;
 
             fn flush_jit(&self);
 
@@ -345,14 +359,30 @@ pub enum GuestAddrKind {
     Virtual(GuestVirtAddr),
 }
 
+/// Why QEMU handed control back to the emulator. The emulator-level lift of
+/// `QemuExitReason`, resolving breakpoint addresses and custom instructions to commands.
 #[derive(Clone)]
-pub enum EmulatorExitResult<C> {
+pub enum EmulatorExitReason<C> {
     QemuExit(QemuShutdownCause), // QEMU ended for some reason.
     Breakpoint(Breakpoint<C>),   // Breakpoint triggered. Contains the address of the trigger.
     CustomInsn(CustomInsn<C>), // Synchronous backdoor: The guest triggered a backdoor and should return to LibAFL.
     Crash,                     // Crash
     Timeout,                   // Timeout
-    FuzzingStarts,             // The emulator is ready to enter the fuzzing loop.
+}
+
+/// The final result of an [`Emulator`] run.
+#[derive(Debug, Clone)]
+pub enum EmulatorRunResult {
+    /// The fuzzing start even triggered.
+    /// The emulator is ready to start fuzzing.
+    FuzzingStarts,
+    /// The target has been stop after a fuzzing input has been executed.
+    EndOfRun(ExitKind),
+    /// A breakpoint has been triggered (and does not have a handler).
+    Breakpoint(BreakpointId),
+    /// The guest requested a shutdown.
+    // TODO: i think it should be handled differently.
+    ShutdownRequest,
 }
 
 #[derive(Debug, Clone, Error)]
@@ -373,40 +403,27 @@ impl From<EmulatorExitError> for crate::Error {
     }
 }
 
-impl<C> Debug for EmulatorExitResult<C>
+impl<C> Debug for EmulatorExitReason<C>
 where
     C: Debug,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            EmulatorExitResult::QemuExit(qemu_exit) => {
+            EmulatorExitReason::QemuExit(qemu_exit) => {
                 write!(f, "{qemu_exit:?}")
             }
-            EmulatorExitResult::Breakpoint(bp) => {
+            EmulatorExitReason::Breakpoint(bp) => {
                 write!(f, "{bp:?}")
             }
-            EmulatorExitResult::CustomInsn(sync_exit) => {
+            EmulatorExitReason::CustomInsn(sync_exit) => {
                 write!(f, "{sync_exit:?}")
             }
-            EmulatorExitResult::Crash => {
+            EmulatorExitReason::Crash => {
                 write!(f, "Crash")
             }
-            EmulatorExitResult::Timeout => {
+            EmulatorExitReason::Timeout => {
                 write!(f, "Timeout")
             }
-            EmulatorExitResult::FuzzingStarts => {
-                write!(f, "Fuzzing starts")
-            }
-        }
-    }
-}
-
-impl<C> EmulatorDriverResult<C> {
-    #[must_use]
-    pub fn end_of_run(&self) -> Option<ExitKind> {
-        match self {
-            EmulatorDriverResult::EndOfRun(exit_kind) => Some(*exit_kind),
-            _ => None,
         }
     }
 }
@@ -442,25 +459,22 @@ impl Display for GuestAddrKind {
     }
 }
 
-impl<C> Display for EmulatorExitResult<C>
+impl<C> Display for EmulatorExitReason<C>
 where
     C: Debug,
 {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            EmulatorExitResult::QemuExit(shutdown_cause) => write!(f, "End: {shutdown_cause:?}"),
-            EmulatorExitResult::Breakpoint(bp) => write!(f, "{bp}"),
-            EmulatorExitResult::CustomInsn(sync_exit) => {
+            EmulatorExitReason::QemuExit(shutdown_cause) => write!(f, "End: {shutdown_cause:?}"),
+            EmulatorExitReason::Breakpoint(bp) => write!(f, "{bp}"),
+            EmulatorExitReason::CustomInsn(sync_exit) => {
                 write!(f, "Sync exit: {sync_exit:?}")
             }
-            EmulatorExitResult::Crash => {
+            EmulatorExitReason::Crash => {
                 write!(f, "Crash")
             }
-            EmulatorExitResult::Timeout => {
+            EmulatorExitReason::Timeout => {
                 write!(f, "Timeout")
-            }
-            EmulatorExitResult::FuzzingStarts => {
-                write!(f, "Fuzzing starts")
             }
         }
     }

@@ -125,6 +125,9 @@ pub trait InputContext {
 
     /// Turns this `input` to slice
     fn to_bytes<'a>(&mut self, input: &'a Self::Input) -> OwnedSlice<'a, u8>;
+
+    /// Get the `input` size in bytes
+    fn len<'a>(&self, input: &'a Self::Input) -> usize;
 }
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
@@ -140,6 +143,10 @@ impl InputContext for NopContext {
 
     fn to_bytes<'a>(&mut self, _input: &'a NopInput) -> OwnedSlice<'a, u8> {
         OwnedSlice::from(vec![])
+    }
+
+    fn len<'a>(&self, _input: &'a Self::Input) -> usize {
+        0
     }
 }
 

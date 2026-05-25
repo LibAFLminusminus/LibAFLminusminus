@@ -32,7 +32,7 @@ impl Scheduler for QueueScheduler {
     /// Gets the next entry in the queue
     fn next(&mut self) -> Result<TestcaseId> {
         if self.queue.is_empty() {
-            Err(Error::empty("Scheduler queue is empty.".to_owned()))
+            Err(Error::empty("Scheduler queue".to_owned()))
         } else {
             let idx = if let Some(current) = self.current {
                 if self.queue.get(current + 1).is_some() {

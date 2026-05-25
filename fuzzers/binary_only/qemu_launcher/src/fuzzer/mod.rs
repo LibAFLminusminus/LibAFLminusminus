@@ -108,7 +108,7 @@ impl QemuFuzzer {
                 let mut executor = StdQemuExecutor::new(
                     state,
                     emulator,
-                    |state, input, emu| harness.run(state, input, emu),
+                    |state, input, emu| harness.pre_exec(state, input, emu),
                     |_, _, _, _| Ok(()),
                     observers,
                 )?;

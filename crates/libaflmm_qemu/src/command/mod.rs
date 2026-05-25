@@ -1,7 +1,7 @@
 use crate::{
     Result,
     arch::{GuestReg, Regs},
-    emu::{Emulator, EmulatorDriverResult},
+    emu::{Emulator, EmulatorRunResult},
     qemu::{Qemu, QemuRWError},
     sync_exit::ExitArgs,
 };
@@ -75,7 +75,7 @@ macro_rules! define_std_command_manager_inner {
                     command::{CommandManager, CommandError, NativeCommandParser, Command},
                     arch::get_exit_arch_regs,
                     sync_exit::ExitArgs,
-                    emu::EmulatorDriverResult,
+                    emu::EmulatorRunResult,
                     qemu::Qemu,
                     arch::Regs,
                     Result,
@@ -136,7 +136,6 @@ macro_rules! define_std_command_manager_inner {
                 }
 
                 #[derive(Clone, Debug)]
-                #[expect(clippy::enum_variant_names)]
                 pub enum [<$name Commands>]
                 {
                     // StartPhysCommand(StartPhysCommand)
@@ -153,7 +152,7 @@ macro_rules! define_std_command_manager_inner {
                     fn run<EMU>(&self,
                         emu: &mut EMU,
                         ret_reg: Option<Regs>
-                    ) -> Result<Option<EmulatorDriverResult<EMU::Command>>>
+                    ) -> Result<Option<EmulatorRunResult>>
                     where
                         EMU: Emulator
                     {
@@ -213,7 +212,7 @@ pub trait Command: Clone + Debug {
         &self,
         emu: &mut EMU,
         ret_reg: Option<Regs>,
-    ) -> Result<Option<EmulatorDriverResult<<EMU::CommandManager as CommandManager>::Commands>>>;
+    ) -> Result<Option<EmulatorRunResult>>;
 }
 
 #[derive(Debug, Clone, Error)]
@@ -272,8 +271,7 @@ impl Command for NopCommand {
         &self,
         _emu: &mut EMU,
         _ret_reg: Option<Regs>,
-    ) -> Result<Option<EmulatorDriverResult<<EMU::CommandManager as CommandManager>::Commands>>>
-    {
+    ) -> Result<Option<EmulatorRunResult>> {
         Ok(None)
     }
 }

@@ -96,6 +96,7 @@ impl QemuProfile {
     {
         let edge_coverage_module = StdEdgeCoverageModule::builder()
             .map_observer(edges_observer.as_mut())
+            .jit(false)
             .build()?;
 
         let mut snapshot_module = SnapshotModule::with_filters(AsanGuestModule::snapshot_filters());

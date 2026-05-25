@@ -31,6 +31,13 @@ impl InputContext for NautilusContext {
         input.unparse(self, &mut bytes);
         OwnedSlice::from(bytes)
     }
+
+    fn len<'a>(&self, input: &'a Self::Input) -> usize {
+        // TODO: optimize?
+        let mut bytes = vec![];
+        input.unparse(self, &mut bytes);
+        bytes.len()
+    }
 }
 
 impl Debug for NautilusContext {

@@ -36,6 +36,14 @@ where
         Ok(())
     }
 
+    fn input_size(&self, state: &mut S, input: &I) -> usize {
+        if let Some(input_location) = self.input_location.get() {
+            input_location.input_size(state.context_mut().len(input))
+        } else {
+            0
+        }
+    }
+
     fn set_input_location(&mut self, location: InputLocation) -> Result<()> {
         self.input_location
             .set(location)

@@ -205,8 +205,8 @@ pub mod prelude {
     pub use crate::command::SetMapCommand;
 
     pub use crate::emu::{
-        Emulator, EmulatorDriverResult, EmulatorExitError, EmulatorExitResult, EmulatorHooks,
-        EmulatorModules, GuestAddrKind, InputLocation, InputWriter, MapKind, NopInputWriter,
+        Emulator, EmulatorExitError, EmulatorExitReason, EmulatorHooks, EmulatorModules,
+        EmulatorRunResult, GuestAddrKind, InputLocation, InputWriter, MapKind, NopInputWriter,
         NopSnapshotManager, QemuSnapshotCheckResult, SnapshotId, SnapshotManager,
         SnapshotManagerCheckError, SnapshotManagerError, StdEmulator, StdEmulatorBuilder,
         StdInputWriter,

@@ -36,6 +36,8 @@ where
         Ok(())
     }
 
+    fn input_size(&self, state: &mut S, input: &I) -> usize {}
+
     fn set_input_location(&mut self, location: InputLocation) -> Result<()> {
         self.input_location
             .set(location)

@@ -648,9 +648,9 @@ impl Qemu {
     pub unsafe fn run(&self) -> Result<QemuExitReason, QemuExitError> {
         unsafe {
             QEMU_IS_RUNNING = true;
-            log::trace!("[{}] Qemu running", std::process::id());
+            log::trace!("[{}] Qemu run: start", std::process::id());
             self.run_inner();
-            log::trace!("[{}] Qemu running done.", std::process::id());
+            log::trace!("[{}] Qemu run: end.", std::process::id());
             QEMU_IS_RUNNING = false;
         }
 

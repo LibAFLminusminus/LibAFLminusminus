@@ -64,42 +64,45 @@ impl Harness {
     pub fn init<E>(emu: &mut E, options: &CommonOptions) -> Result<Harness>
     where
         E: Emulator,
-        E::Command: From<StdCommands>,
+        <E::CommandManager as CommandManager>::Commands: From<StdCommands> + 'static,
     {
+        // get the start PC from the ELF
         let start_pc = Self::start_pc(emu.qemu())?;
         log::info!("start_pc @ {start_pc:#x}");
 
-        // emu.entry_break(start_pc)?;
+        // map the address at which the input will live.
+        let input_addr = emu
+            .map_private(0, MAX_INPUT_SIZE, MmapPerms::ReadWrite)
+            .map_err(|e| unknown!("Failed to map input buffer: {e}"))?;
+
+        // set the
+        emu.entry_break(start_pc, move |qemu| {
+            log::info!("Entry break triggered.");
+
+            let input_slice =
+                unsafe { slice::from_raw_parts_mut(input_addr as *mut u8, MAX_INPUT_SIZE) };
+
+            let cpu = qemu.current_cpu().unwrap();
+
+            Ok(StdCommands::Start(StartCommand::new(InputLocation::new(
+                input_slice,
+                None,
+                cpu,
+            )))
+            .into())
+        })?;
 
         let ret_addr: GuestAddr = emu
             .read_return_address()
             .map_err(|e| unknown!("Failed to read return address: {e}"))?;
         log::info!("ret_addr = {ret_addr:#x}");
 
-        let input_addr = emu
-            .map_private(0, MAX_INPUT_SIZE, MmapPerms::ReadWrite)
-            .map_err(|e| unknown!("Failed to map input buffer: {e}"))?;
-
-        let input_slice: *mut [u8] =
-            unsafe { slice::from_raw_parts_mut(input_addr as *mut u8, MAX_INPUT_SIZE) };
-        let input_box = unsafe { Box::from_raw(input_slice) };
-
-        let cpu = emu.cpu_from_index(0).unwrap();
-
-        emu.add_breakpoint(
-            Breakpoint::with_command(
-                start_pc,
-                StdCommands::Start(StartCommand::new(InputLocation::new(input_box, None, cpu)))
-                    .into(),
-                false,
-            ),
-            true,
-        );
-
+        // add the end breakpoint
+        // when hit, qemu will stop and give back the hand to the fuzzer.
         emu.add_breakpoint(
             Breakpoint::with_command(
                 ret_addr,
-                StdCommands::End(EndCommand::new(Some(ExitKind::Ok))).into(),
+                |_| Ok(StdCommands::End(EndCommand::new(Some(ExitKind::Ok))).into()),
                 false,
             ),
             true,
@@ -119,8 +122,6 @@ impl Harness {
 
         Self::coverage_filter(emu, options)?;
 
-        emu.start();
-
         Ok(Harness {
             input_addr,
             pc,
@@ -129,23 +130,13 @@ impl Harness {
         })
     }
 
-    pub fn run<I, S: State<Input = I>>(
+    pub fn pre_exec<I: Input, S: State<Input = I>>(
         &self,
         state: &mut S,
         input: &I,
         emu: &mut impl Emulator<Input = I, State = S>,
     ) -> Result<()> {
-        let bytes = state.context_mut().to_bytes(input);
-        let mut buf = bytes.iter().as_slice();
-        let mut len = buf.len();
-        if len > MAX_INPUT_SIZE {
-            buf = &buf[0..MAX_INPUT_SIZE];
-            len = MAX_INPUT_SIZE;
-        }
-        let len = len as GuestReg;
-
-        emu.write_mem(self.input_addr, buf)
-            .map_err(|e| runtime!("Failed to write to memory@{:#x}: {e:?}", self.input_addr))?;
+        let len = emu.max_input_size(state, input);
 
         emu.write_reg(Regs::Pc, self.pc)
             .map_err(|e| runtime!("Failed to write PC: {e:?}"))?;
@@ -159,7 +150,7 @@ impl Harness {
         emu.write_function_argument(0, self.input_addr as GuestReg)
             .map_err(|e| runtime!("Failed to write argument 0: {e:?}"))?;
 
-        emu.write_function_argument(1, len)
+        emu.write_function_argument(1, len as u64)
             .map_err(|e| runtime!("Failed to write argument 1: {e:?}"))?;
 
         Ok(())

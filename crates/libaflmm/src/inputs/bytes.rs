@@ -27,6 +27,10 @@ impl InputContext for BytesContext {
     fn to_bytes<'a>(&mut self, input: &'a BytesInput) -> OwnedSlice<'a, u8> {
         OwnedSlice::from(input.as_ref())
     }
+
+    fn len<'a>(&self, input: &'a Self::Input) -> usize {
+        input.len()
+    }
 }
 
 /// Rc Ref-cell from Input

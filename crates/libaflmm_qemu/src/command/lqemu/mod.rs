@@ -3,10 +3,7 @@ use crate::{
     Result,
     arch::{GuestReg, Regs},
     command::CommandManager,
-    emu::{
-        Emulator, EmulatorDriverResult, EmulatorError, EmulatorExitResult, InputLocation,
-        SnapshotManager,
-    },
+    emu::{Emulator, EmulatorError, EmulatorRunResult, InputLocation, SnapshotManager},
     modules::HasAddressFilterTuple,
 };
 use crate::{define_std_command_manager_bound, define_std_command_manager_inner};
@@ -31,9 +28,6 @@ use std::{
     fmt::{Debug, Display, Formatter},
     ops::Range,
 };
-
-pub mod input_writer;
-pub use input_writer::LqemuInputWriter;
 
 pub mod parser;
 
@@ -110,11 +104,7 @@ impl Command for SaveCommand {
         false
     }
 
-    fn run<EMU>(
-        &self,
-        emu: &mut EMU,
-        _ret_reg: Option<Regs>,
-    ) -> Result<Option<EmulatorDriverResult<EMU::Command>>>
+    fn run<EMU>(&self, emu: &mut EMU, _ret_reg: Option<Regs>) -> Result<Option<EmulatorRunResult>>
     where
         EMU: Emulator,
     {
@@ -135,11 +125,7 @@ impl Command for LoadCommand {
         false
     }
 
-    fn run<EMU>(
-        &self,
-        emu: &mut EMU,
-        _ret_reg: Option<Regs>,
-    ) -> Result<Option<EmulatorDriverResult<EMU::Command>>>
+    fn run<EMU>(&self, emu: &mut EMU, _ret_reg: Option<Regs>) -> Result<Option<EmulatorRunResult>>
     where
         EMU: Emulator,
     {
@@ -156,9 +142,15 @@ impl Command for LoadCommand {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct StartCommand {
     input_location: InputLocation,
+}
+
+impl Debug for StartCommand {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "StartCommand {{ input: {:?} }}", self.input_location)
+    }
 }
 
 impl Command for StartCommand {
@@ -166,11 +158,7 @@ impl Command for StartCommand {
         false
     }
 
-    fn run<EMU>(
-        &self,
-        emu: &mut EMU,
-        _ret_reg: Option<Regs>,
-    ) -> Result<Option<EmulatorDriverResult<EMU::Command>>>
+    fn run<EMU>(&self, emu: &mut EMU, _ret_reg: Option<Regs>) -> Result<Option<EmulatorRunResult>>
     where
         EMU: Emulator,
     {
@@ -200,9 +188,7 @@ impl Command for StartCommand {
 
             log::info!("Fuzzing starts @ PC {:x}", qemu.read_reg(Regs::Pc).unwrap());
 
-            return Ok(Some(EmulatorDriverResult::ReturnToClient(
-                EmulatorExitResult::FuzzingStarts,
-            )));
+            return Ok(Some(EmulatorRunResult::FuzzingStarts));
         }
 
         Ok(None)
@@ -219,11 +205,7 @@ impl Command for EndCommand {
         false
     }
 
-    fn run<EMU>(
-        &self,
-        emu: &mut EMU,
-        _ret_reg: Option<Regs>,
-    ) -> Result<Option<EmulatorDriverResult<EMU::Command>>>
+    fn run<EMU>(&self, emu: &mut EMU, _ret_reg: Option<Regs>) -> Result<Option<EmulatorRunResult>>
     where
         EMU: Emulator,
     {
@@ -245,9 +227,7 @@ impl Command for EndCommand {
         #[cfg(feature = "paranoid_debug")]
         emu.snapshot_manager_mut().check(qemu, &snapshot_id)?;
 
-        Ok(Some(EmulatorDriverResult::EndOfRun(
-            self.exit_kind.unwrap(),
-        )))
+        Ok(Some(EmulatorRunResult::EndOfRun(self.exit_kind.unwrap())))
     }
 }
 
@@ -259,11 +239,7 @@ impl Command for VersionCommand {
         true
     }
 
-    fn run<EMU>(
-        &self,
-        _emu: &mut EMU,
-        _ret_reg: Option<Regs>,
-    ) -> Result<Option<EmulatorDriverResult<EMU::Command>>>
+    fn run<EMU>(&self, _emu: &mut EMU, _ret_reg: Option<Regs>) -> Result<Option<EmulatorRunResult>>
     where
         EMU: Emulator,
     {
@@ -290,11 +266,7 @@ impl Command for PageAllowCommand {
         true
     }
 
-    fn run<EMU>(
-        &self,
-        emu: &mut EMU,
-        _ret_reg: Option<Regs>,
-    ) -> Result<Option<EmulatorDriverResult<EMU::Command>>>
+    fn run<EMU>(&self, emu: &mut EMU, _ret_reg: Option<Regs>) -> Result<Option<EmulatorRunResult>>
     where
         EMU: Emulator,
     {
@@ -314,11 +286,7 @@ impl Command for AddressAllowCommand {
         true
     }
 
-    fn run<EMU>(
-        &self,
-        emu: &mut EMU,
-        _ret_reg: Option<Regs>,
-    ) -> Result<Option<EmulatorDriverResult<EMU::Command>>>
+    fn run<EMU>(&self, emu: &mut EMU, _ret_reg: Option<Regs>) -> Result<Option<EmulatorRunResult>>
     where
         EMU: Emulator,
     {
@@ -338,11 +306,7 @@ impl Command for LqprintfCommand {
         true
     }
 
-    fn run<EMU>(
-        &self,
-        _emu: &mut EMU,
-        _ret_reg: Option<Regs>,
-    ) -> Result<Option<EmulatorDriverResult<EMU::Command>>>
+    fn run<EMU>(&self, _emu: &mut EMU, _ret_reg: Option<Regs>) -> Result<Option<EmulatorRunResult>>
     where
         EMU: Emulator,
     {
@@ -365,7 +329,7 @@ impl Command for TestCommand {
         &self,
         _emu: &mut EMU,
         _ret_reg: Option<Regs>,
-    ) -> Result<Option<EmulatorDriverResult<EMU::Command>>> {
+    ) -> Result<Option<EmulatorRunResult>> {
         if self.expected_value == self.received_value {
             Ok(None)
         } else {
@@ -388,11 +352,7 @@ impl Command for SetMapCommand {
         true
     }
 
-    fn run<EMU>(
-        &self,
-        emu: &mut EMU,
-        _ret_reg: Option<Regs>,
-    ) -> Result<Option<EmulatorDriverResult<EMU::Command>>>
+    fn run<EMU>(&self, emu: &mut EMU, _ret_reg: Option<Regs>) -> Result<Option<EmulatorRunResult>>
     where
         EMU: Emulator,
     {

@@ -25,6 +25,7 @@ use core::{
     time::Duration,
 };
 use libaflmm_bolts::{NamedSerdeAnyMap, SerdeAny, rands::Rand};
+use libaflmm_core::illegal_argument;
 use nix::fcntl::{Flock, FlockArg};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
@@ -714,15 +715,6 @@ where
     fn next_file(&mut self) -> Result<PathBuf> {
         loop {
             if let Some(path) = self.remaining_initial_files.as_mut().and_then(Vec::pop) {
-                let filename = path.file_name().unwrap().to_string_lossy();
-                if filename.starts_with('.')
-                // || filename
-                //     .rsplit_once('-')
-                //     .is_some_and(|(_, s)| u64::from_str(s).is_ok())
-                {
-                    continue;
-                }
-
                 let attributes = fs::metadata(&path);
 
                 if attributes.is_err() {
@@ -805,7 +797,8 @@ where
                 Some(file_list.iter().map(|p| p.as_ref().to_path_buf()).collect());
         }
 
-        self.continue_loading_initial_inputs_custom(fuzzer, executor, rt_handle, load_config)
+        self.continue_loading_initial_inputs_custom(fuzzer, executor, rt_handle, load_config)?;
+        Ok(())
     }
 
     fn load_file<E, W, Z>(
@@ -843,13 +836,16 @@ where
         executor: &mut E,
         rt_handle: &mut RuntimeHandle<Self, W>,
         mut config: LoadConfig<I, Self, Z>,
-    ) -> Result<()>
+    ) -> Result<usize>
     where
         Z: Evaluator<E, I, Self, W>,
     {
+        let mut nb_loaded = 0;
+
         loop {
             match self.next_file() {
                 Ok(path) => {
+                    nb_loaded += 1;
                     let res = self.load_file(&path, fuzzer, executor, rt_handle, &mut config)?;
                     if config.exit_on_solution && res.is_objective_worthy() {
                         return Err(Error::invalid_corpus(format!(
@@ -863,7 +859,7 @@ where
             }
         }
 
-        Ok(())
+        Ok(nb_loaded)
     }
 
     /// Recursively walk supplied corpus directories
@@ -937,7 +933,8 @@ where
                 loader: &mut |_, _, path| I::from_file(path),
                 exit_on_solution: false,
             },
-        )
+        )?;
+        Ok(())
     }
     /// Loads initial inputs from the passed-in `in_dirs`.
     /// If `forced` is true, will add all testcases, no matter what.
@@ -976,7 +973,7 @@ where
         Z: Evaluator<E, I, Self, W>,
     {
         self.canonicalize_input_dirs(in_dirs)?;
-        self.continue_loading_initial_inputs_custom(
+        let nb_loaded = self.continue_loading_initial_inputs_custom(
             fuzzer,
             executor,
             rt_handle,
@@ -984,7 +981,15 @@ where
                 loader: &mut |_, _, path| I::from_file(path),
                 exit_on_solution: false,
             },
-        )
+        )?;
+
+        if nb_loaded == 0 {
+            Err(illegal_argument!(
+                "0 inputs have been loaded. Are inputs directories correct?"
+            ))
+        } else {
+            Ok(())
+        }
     }
 
     /// Loads initial inputs from the passed-in `in_dirs`.
@@ -1008,7 +1013,8 @@ where
                 loader: &mut |_, _, path| I::from_file(path),
                 exit_on_solution: true,
             },
-        )
+        )?;
+        Ok(())
     }
 }
 
