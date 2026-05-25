@@ -1,6 +1,6 @@
 use libaflmm::{Result, prelude::*};
 use libaflmm_qemu::prelude::*;
-use std::ops::Range;
+use std::{ops::Range, slice};
 
 use crate::options::CommonOptions;
 
@@ -64,25 +64,46 @@ impl Harness {
     pub fn init<E>(emu: &mut E, options: &CommonOptions) -> Result<Harness>
     where
         E: Emulator,
-        E::Command: From<EndCommand>,
+        E::Command: From<StdCommands>,
     {
         let start_pc = Self::start_pc(emu.qemu())?;
         log::info!("start_pc @ {start_pc:#x}");
 
-        emu.entry_break(start_pc)?;
+        // emu.entry_break(start_pc)?;
 
         let ret_addr: GuestAddr = emu
             .read_return_address()
             .map_err(|e| unknown!("Failed to read return address: {e}"))?;
         log::info!("ret_addr = {ret_addr:#x}");
-        emu.add_breakpoint(
-            Breakpoint::with_command(ret_addr, EndCommand::new(Some(ExitKind::Ok)).into(), false),
-            true,
-        );
 
         let input_addr = emu
             .map_private(0, MAX_INPUT_SIZE, MmapPerms::ReadWrite)
             .map_err(|e| unknown!("Failed to map input buffer: {e}"))?;
+
+        let input_slice: *mut [u8] =
+            unsafe { slice::from_raw_parts_mut(input_addr as *mut u8, MAX_INPUT_SIZE) };
+        let input_box = unsafe { Box::from_raw(input_slice) };
+
+        let cpu = emu.cpu_from_index(0).unwrap();
+
+        emu.add_breakpoint(
+            Breakpoint::with_command(
+                start_pc,
+                StdCommands::Start(StartCommand::new(InputLocation::new(input_box, None, cpu)))
+                    .into(),
+                false,
+            ),
+            true,
+        );
+
+        emu.add_breakpoint(
+            Breakpoint::with_command(
+                ret_addr,
+                StdCommands::End(EndCommand::new(Some(ExitKind::Ok))).into(),
+                false,
+            ),
+            true,
+        );
 
         let pc: GuestReg = emu
             .read_reg(Regs::Pc)
@@ -97,6 +118,8 @@ impl Harness {
             .map_err(|e| unknown!("Failed to read return address: {e}"))?;
 
         Self::coverage_filter(emu, options)?;
+
+        emu.start();
 
         Ok(Harness {
             input_addr,

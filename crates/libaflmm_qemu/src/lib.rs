@@ -190,7 +190,7 @@ pub mod prelude {
 
     pub use crate::command::{
         Command, CommandError, CommandManager, NativeCommandParser, NopCommand, NopCommandManager,
-        StdCommandManager,
+        StdCommandManager, StdCommands,
     };
 
     #[cfg(feature = "nyx")]

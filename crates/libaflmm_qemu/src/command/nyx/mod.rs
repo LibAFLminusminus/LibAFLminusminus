@@ -150,7 +150,7 @@ macro_rules! define_nyx_command_manager {
 }
 
 define_nyx_command_manager!(
-    NyxCommandManager,
+    Nyx,
     [
         AcquireCommand,
         ReleaseCommand,

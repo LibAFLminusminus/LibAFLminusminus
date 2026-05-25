@@ -42,17 +42,17 @@ pub const VERSION_MINOR: u64 = libvharness_sys::LQEMU_VERSION_MINOR as u64;
 
 #[cfg(feature = "usermode")]
 define_std_command_manager_bound!(
-    LqemuCommandManager,
+    Lqemu,
     Input,
     [
-        StartCommand,
-        SaveCommand,
-        LoadCommand,
-        EndCommand,
-        VersionCommand,
-        AddressAllowCommand,
-        LqprintfCommand,
-        TestCommand
+        Start,
+        Save,
+        Load,
+        End,
+        Version,
+        AddressAllow,
+        Lqprintf,
+        Test
     ],
     [
         StartVirtCommandParser,
@@ -71,15 +71,15 @@ define_std_command_manager_bound!(
     LqemuCommandManager,
     Input,
     [
-        StartCommand,
-        SaveCommand,
-        LoadCommand,
-        EndCommand,
-        VersionCommand,
-        AddressAllowCommand,
-        LqprintfCommand,
-        TestCommand,
-        SetMapCommand
+        Start,
+        Save,
+        Load,
+        End,
+        Version,
+        AddressAllow,
+        Lqprintf,
+        Test,
+        SetMap
     ],
     [
         StartPhysCommandParser,

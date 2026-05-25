@@ -10,7 +10,7 @@ use crate::{
     Result,
     arch::GuestReg,
     breakpoint::{Breakpoint, BreakpointId},
-    command::{Command, CommandError, CommandManager},
+    command::{CommandError, CommandManager},
     modules::{EmulatorModuleTuple, HasStdFiltersTuple},
     qemu::{ArchExtras, CPU, CallingConvention, Qemu, QemuRWError, QemuShutdownCause},
     sync_exit::CustomInsn,
@@ -83,8 +83,7 @@ pub trait Emulator {
     type Input: Input + Unpin;
     type State: State + Unpin;
 
-    type Command: Command;
-    type CommandManager: CommandManager<Commands = Self::Command>;
+    type CommandManager: CommandManager;
     type InputWriter: InputWriter<Self::Input, Self::State>;
     type Modules: EmulatorModuleTuple<Self::Input, Self::State> + HasStdFiltersTuple + Unpin;
     type SnapshotManager: SnapshotManager;
@@ -111,7 +110,11 @@ pub trait Emulator {
 
     fn qemu(&self) -> Qemu;
 
-    fn add_breakpoint(&self, bp: Breakpoint<Self::Command>, enable: bool) -> BreakpointId;
+    fn add_breakpoint(
+        &self,
+        bp: Breakpoint<<Self::CommandManager as CommandManager>::Commands>,
+        enable: bool,
+    ) -> BreakpointId;
 
     fn remove_breakpoint(&self, bp_id: BreakpointId);
 

@@ -19,8 +19,8 @@ pub mod lqemu;
 pub use lqemu::SetMapCommand;
 #[cfg(not(feature = "nyx"))]
 pub use lqemu::{
-    AddressAllowCommand, EndCommand, LoadCommand, LqemuCommandManager, LqprintfCommand,
-    SaveCommand, StartCommand, TestCommand, VersionCommand,
+    AddressAllowCommand, EndCommand, LoadCommand, LqemuCommandManager, LqemuCommands,
+    LqprintfCommand, SaveCommand, StartCommand, TestCommand, VersionCommand,
 };
 
 #[cfg(feature = "nyx")]
@@ -34,8 +34,13 @@ pub use nyx::{
 
 #[cfg(not(feature = "nyx"))]
 pub type StdCommandManager = LqemuCommandManager;
+#[cfg(not(feature = "nyx"))]
+pub type StdCommands = LqemuCommands;
+
 #[cfg(feature = "nyx")]
 pub type StdCommandManager = NyxCommandManager;
+#[cfg(feature = "nyx")]
+pub type StdCommands = NyxCommands;
 
 #[macro_export]
 macro_rules! define_std_command_manager_bound {
@@ -55,7 +60,7 @@ macro_rules! define_std_command_manager_type {
 macro_rules! define_std_command_manager_inner {
     ($name:ident, ($($input_bound:ty,)?), [$($command:ty),+], [$($native_command_parser:ty),+]$(, $input_type:ty)?) => {
         paste! {
-            pub use [< $name:snake >]::$name;
+            pub use [< $name:snake >]::{[<$name CommandManager>], [<$name Commands>]};
 
             mod [< $name:snake >] {
                 use super::*;
@@ -78,11 +83,11 @@ macro_rules! define_std_command_manager_inner {
                 };
                 use std::ffi::c_uint;
 
-                pub struct $name {
+                pub struct [<$name CommandManager>] {
                     has_started: bool,
                 }
 
-                impl Clone for $name {
+                impl Clone for [<$name CommandManager>] {
                     fn clone(&self) -> Self {
                         Self {
                             has_started: self.has_started,
@@ -90,13 +95,13 @@ macro_rules! define_std_command_manager_inner {
                     }
                 }
 
-                impl Debug for $name {
+                impl Debug for [<$name CommandManager>] {
                     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
                         write!(f, "{} (has started? {:?})", stringify!($name), self.has_started)
                     }
                 }
 
-                impl Default for $name {
+                impl Default for [<$name CommandManager>] {
                     fn default() -> Self {
                         Self {
                             has_started: false,
@@ -104,7 +109,7 @@ macro_rules! define_std_command_manager_inner {
                     }
                 }
 
-                impl CommandManager for $name {
+                impl CommandManager for [<$name CommandManager>] {
                     type Commands = [<$name Commands>];
 
                     fn start(&mut self) -> bool {
@@ -135,13 +140,13 @@ macro_rules! define_std_command_manager_inner {
                 pub enum [<$name Commands>]
                 {
                     // StartPhysCommand(StartPhysCommand)
-                    $($command($command)),+,
+                    $($command([<$command Command>])),+,
                 }
 
                 impl Command for [<$name Commands>] {
                     fn usable_at_runtime(&self) -> bool {
                         match self {
-                            $([<$name Commands>]::$command(cmd) => <$command as Command>::usable_at_runtime(cmd)),+
+                            $([<$name Commands>]::$command(cmd) => <[<$command Command>] as Command>::usable_at_runtime(cmd)),+
                         }
                     }
 
@@ -159,8 +164,8 @@ macro_rules! define_std_command_manager_inner {
                 }
 
                 $(
-                    impl From<$command> for [<$name Commands>] {
-                        fn from(cmd: $command) -> [<$name Commands>] {
+                    impl From<[<$command Command>]> for [<$name Commands>] {
+                        fn from(cmd: [<$command Command>]) -> [<$name Commands>] {
                             [<$name Commands>]::$command(cmd)
                         }
                     }
@@ -208,7 +213,7 @@ pub trait Command: Clone + Debug {
         &self,
         emu: &mut EMU,
         ret_reg: Option<Regs>,
-    ) -> Result<Option<EmulatorDriverResult<<EMU as Emulator>::Command>>>;
+    ) -> Result<Option<EmulatorDriverResult<<EMU::CommandManager as CommandManager>::Commands>>>;
 }
 
 #[derive(Debug, Clone, Error)]
@@ -267,7 +272,8 @@ impl Command for NopCommand {
         &self,
         _emu: &mut EMU,
         _ret_reg: Option<Regs>,
-    ) -> Result<Option<EmulatorDriverResult<<EMU as Emulator>::Command>>> {
+    ) -> Result<Option<EmulatorDriverResult<<EMU::CommandManager as CommandManager>::Commands>>>
+    {
         Ok(None)
     }
 }

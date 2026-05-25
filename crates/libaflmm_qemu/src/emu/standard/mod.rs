@@ -87,7 +87,6 @@ where
     type Input = I;
     type State = S;
 
-    type Command = C;
     type CommandManager = CM;
     type InputWriter = IW;
     type Modules = ET;
