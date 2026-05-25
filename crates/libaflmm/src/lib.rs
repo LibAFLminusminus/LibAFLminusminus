@@ -135,11 +135,11 @@ pub mod prelude {
     };
 
     pub use crate::observers::{
-        CmpLogObserver, ConstLenMapObserver, ConstMapObserver, HitcountsIterableMapObserver,
-        HitcountsMapObserver, ListObserver, MapObserver, MultiMapObserver, Observer,
-        ObserverWithHashField, ObserversTuple, OutputObserver, StdCmpLogObserver, StdErrObserver,
-        StdMapObserver, StdObserver, StdOutObserver, TimeObserver, ValueObserver,
-        VarLenMapObserver, VariableMapObserver,
+        CmpLogMetadata, CmpLogObserver, ConstLenMapObserver, ConstMapObserver,
+        HitcountsIterableMapObserver, HitcountsMapObserver, ListObserver, MapObserver,
+        MultiMapObserver, Observer, ObserverWithHashField, ObserversTuple, OutputObserver,
+        StdCmpLogObserver, StdErrObserver, StdMapObserver, StdObserver, StdOutObserver,
+        TimeObserver, ValueObserver, VarLenMapObserver, VariableMapObserver,
     };
 
     pub use crate::runtimes::{

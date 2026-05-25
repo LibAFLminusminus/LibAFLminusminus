@@ -110,7 +110,7 @@ impl Command for SaveCommand {
         false
     }
 
-    fn run<EMU: Emulator>(
+    fn run<EMU>(
         &self,
         emu: &mut EMU,
         _ret_reg: Option<Regs>,
@@ -166,7 +166,7 @@ impl Command for StartCommand {
         false
     }
 
-    fn run<EMU: Emulator>(
+    fn run<EMU>(
         &self,
         emu: &mut EMU,
         _ret_reg: Option<Regs>,
@@ -259,7 +259,7 @@ impl Command for VersionCommand {
         true
     }
 
-    fn run<EMU: Emulator>(
+    fn run<EMU>(
         &self,
         _emu: &mut EMU,
         _ret_reg: Option<Regs>,

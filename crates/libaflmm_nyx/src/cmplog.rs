@@ -7,7 +7,7 @@ use libaflmm::{
     Error,
     common::{DependencyResolver, Registrator},
     executors::ExitKind,
-    observers::{CmpLogMetadata, CmpValues, Observer},
+    observers::{CmpValues, Observer, cmplog::CmpLogMetadata},
     states::{State, named_metadata_mut},
 };
 use libaflmm_bolts::Named;

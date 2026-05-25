@@ -4,7 +4,7 @@ use libaflmm_core::{AsSlice, HasLen};
 use serde::{Deserialize, Serialize};
 
 pub mod observer;
-pub use observer::{CmpLogObserver, StdCmpLogObserver};
+pub use observer::{CmpLogMetadata, CmpLogObserver, StdCmpLogObserver};
 
 /// A bytes string for cmplog with up to 32 elements.
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, Eq, PartialEq)]

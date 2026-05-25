@@ -594,14 +594,16 @@ pub mod pybind {
             if let Ok(p) = MmapPerms::try_from(perms) {
                 self.qemu
                     .mprotect(addr, size, p)
-                    .map_err(PyValueError::new_err)
+                    .map_err(|err| PyValueError::new_err(format!("Failed to mprotect: {err:?}")))
             } else {
                 Err(PyValueError::new_err("Invalid perms"))
             }
         }
 
         fn unmap(&self, addr: GuestAddr, size: usize) -> PyResult<()> {
-            self.qemu.unmap(addr, size).map_err(PyValueError::new_err)
+            self.qemu
+                .unmap(addr, size)
+                .map_err(|err| PyValueError::new_err(format!("Failed to unmap: {err:?}")))
         }
 
         /// # Safety

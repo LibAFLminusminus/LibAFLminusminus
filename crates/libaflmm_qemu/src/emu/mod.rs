@@ -127,10 +127,20 @@ pub trait Emulator {
 
     fn set_input_location(&mut self, input_location: &InputLocation) -> Result<()>;
 
+    /// Read a value in memory of type T.
+    ///
+    /// # Safety
+    ///
+    /// Check [`Qemu::read_mem_val`] for more details.
     unsafe fn read_mem_val<T>(&self, addr: GuestAddr) -> result::Result<T, QemuRWError> {
         unsafe { self.qemu().read_mem_val(addr) }
     }
 
+    /// Write a value in memory of type T.
+    ///
+    /// # Safety
+    ///
+    /// Check [`Qemu::write_mem_val`] for more details.
     unsafe fn write_mem_val<T>(&self, addr: GuestAddr, val: &T) -> result::Result<(), QemuRWError> {
         unsafe { self.qemu().write_mem_val(addr, val) }
     }
@@ -288,6 +298,11 @@ pub trait Emulator {
 
             fn unmap(&self, addr: GuestAddr, size: usize) -> Result<()>;
 
+            /// Set target crash handling.
+            ///
+            /// # Safety
+            ///
+            /// Check [`Qemu::set_target_crash_handling`] for more details.
             unsafe fn set_target_crash_handling(&self, handling: &TargetSignalHandling);
         }
     }

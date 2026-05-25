@@ -24,10 +24,7 @@ use core::{
     marker::PhantomData,
     time::Duration,
 };
-use libaflmm_bolts::{
-    NamedSerdeAnyMap, SerdeAny, SerdeAnyMap,
-    rands::{Rand, StdRand},
-};
+use libaflmm_bolts::{NamedSerdeAnyMap, SerdeAny, rands::Rand};
 use nix::fcntl::{Flock, FlockArg};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
@@ -1107,31 +1104,16 @@ impl
     }
 }
 
-/// A very simple state without any bells or whistles, for testing.
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct NopState<I> {
-    metadata: SerdeAnyMap,
-    named_metadata: NamedSerdeAnyMap,
-    execution: u64,
-    stop_requested: bool,
-    rand: StdRand,
-    phantom: PhantomData<I>,
-}
-
-impl<I> NopState<I> {
-    /// Create a new [`NopState`] that does nothing (for testing purposes usually)
-    #[must_use]
-    pub fn new() -> Self {
-        NopState {
-            metadata: SerdeAnyMap::new(),
-            named_metadata: NamedSerdeAnyMap::new(),
-            execution: 0,
-            rand: StdRand::default(),
-            stop_requested: false,
-            phantom: PhantomData,
-        }
-    }
-}
+/// A very simple [`State`] with minimal capabilities, for testing.
+///
+/// It is a [`StdState`] backed by in-memory corpora and a [`NopContext`].
+/// Build one with [`StdState::nop`].
+pub type NopState = StdState<
+    InMemoryCorpus<NopInput, NopScheduler>,
+    NopContext,
+    NopInput,
+    InMemoryCorpus<NopInput, NopScheduler>,
+>;
 
 #[cfg(test)]
 mod test {

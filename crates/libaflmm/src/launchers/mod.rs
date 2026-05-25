@@ -12,7 +12,6 @@ use crate::{
     controllers::SimpleController,
     controllers::Worker,
     controllers::{NopDescriptor, NopWorker},
-    inputs::NopInput,
     monitors::{Monitor, SimpleMonitor},
     runtimes::{
         Runtime, RuntimeHandle, StdForkserverRuntime, StdInProcessRuntime, nop::NopRuntime,
@@ -64,7 +63,7 @@ impl
         SimpleController,
         SimpleMonitor,
         NopRuntime,
-        NopState<NopInput>,
+        NopState,
     >
 {
     /// Create a default Launcher.
@@ -76,8 +75,8 @@ impl
             SimpleController,
             SimpleMonitor,
             NopRuntime,
-            NopState<NopInput>,
-            fn() -> Result<NopState<NopInput>>,
+            NopState,
+            fn() -> Result<NopState>,
             StdTimer,
         >,
     > {
@@ -89,7 +88,7 @@ impl
             monitor: None,
             runtime,
             cores,
-            state_builder: || Ok(NopState::new()),
+            state_builder: || NopState::nop(),
             max_state_size_per_client: None,
             monitor_refresh: DEFAULT_MONITOR_REFRESH,
             timeout: Some(DEFAULT_TIMEOUT),

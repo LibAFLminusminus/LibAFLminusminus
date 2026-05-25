@@ -220,7 +220,7 @@ where
     }
 
     fn snapshot_id(&self) -> Option<SnapshotId> {
-        self.snapshot_id.get().map(|sid| *sid)
+        self.snapshot_id.get().copied()
     }
 
     fn set_snapshot_id(&mut self, snapshot_id: SnapshotId) -> Result<()> {

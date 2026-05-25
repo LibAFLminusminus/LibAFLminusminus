@@ -154,14 +154,11 @@ impl<M> HasStdFilters for M where M: HasAddressFilter {}
 #[cfg(feature = "systemmode")]
 impl<M> HasStdFilters for M where M: HasAddressFilter + HasPageFilter {}
 
-impl HasStdFiltersTuple for () {}
+#[cfg(all(feature = "usermode", not(feature = "systemmode")))]
+impl<T> HasStdFiltersTuple for T where T: HasAddressFilterTuple {}
 
-impl<Head, Tail> HasStdFiltersTuple for (Head, Tail)
-where
-    Head: HasStdFilters,
-    Tail: HasStdFiltersTuple,
-{
-}
+#[cfg(feature = "systemmode")]
+impl<T> HasStdFiltersTuple for T where T: HasAddressFilterTuple + HasPageFilterTuple {}
 
 /// Offers accessors to modules' page filters.
 pub trait HasPageFilter {
@@ -212,6 +209,25 @@ where
 
     fn allowed_page_id_all(&self, page_id: &GuestPhysAddr) -> bool {
         self.0.allowed_page_id(page_id) && self.1.allowed_page_id_all(page_id)
+    }
+}
+
+#[cfg(feature = "systemmode")]
+impl<Head, Tail> HasPageFilterTuple for (Option<Head>, Tail)
+where
+    Head: HasPageFilter,
+    Tail: HasPageFilterTuple,
+{
+    fn allow_page_id_all(&mut self, page_id: GuestPhysAddr) {
+        if let Some(h) = &mut self.0 {
+            h.allow_page_id(page_id);
+        }
+        self.1.allow_page_id_all(page_id);
+    }
+
+    fn allowed_page_id_all(&self, page_id: &GuestPhysAddr) -> bool {
+        let head_ok = self.0.as_ref().is_none_or(|h| h.allowed_page_id(page_id));
+        head_ok && self.1.allowed_page_id_all(page_id)
     }
 }
 
