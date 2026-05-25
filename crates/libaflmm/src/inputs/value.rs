@@ -131,7 +131,7 @@ macro_rules! impl_to_bytes_for_primitive {
                     OwnedSlice::from(input.into_inner().to_le_bytes().to_vec())
                 }
 
-                fn len<'a>(&self, input: &'a ValueInput<$t>) -> usize {
+                fn len(&self, input: &ValueInput<$t>) -> usize {
                     input.into_inner().to_le_bytes().len()
                 }
             }

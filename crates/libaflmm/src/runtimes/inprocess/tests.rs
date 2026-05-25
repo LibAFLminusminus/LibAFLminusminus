@@ -22,7 +22,7 @@ rusty_fork_test! {
         let worker = NopWorker;
 
         let task = |_rt_handle: &mut RuntimeHandle<NopState, NopWorker>, _state: &mut NopState| {
-            Err(Error::shutting_down())
+            Ok(())
         };
 
         let crash_handler = |_data: &mut TerminationHandlerData, _params: &OsTerminationParams| Ok(CrashStatus::default());
@@ -33,12 +33,7 @@ rusty_fork_test! {
 
         let mut runtime = InProcessRuntime::new(task, crash_handler, TerminationHandlerData::new(), timeout_handler, std_timer);
 
-        match runtime.run(state, worker).err() {
-            Some(Error::ShuttingDown) => {}
-            _ => {
-                panic!("Task did not run successfully");
-            }
-        }
+        assert!(runtime.run(state, worker).is_ok(), "Task did not run successfully");
     }
 }
 

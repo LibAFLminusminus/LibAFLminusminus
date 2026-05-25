@@ -28,7 +28,7 @@ impl InputContext for BytesContext {
         OwnedSlice::from(input.as_ref())
     }
 
-    fn len<'a>(&self, input: &'a Self::Input) -> usize {
+    fn len(&self, input: &Self::Input) -> usize {
         input.len()
     }
 }

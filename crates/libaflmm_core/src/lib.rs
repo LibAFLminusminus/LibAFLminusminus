@@ -565,24 +565,24 @@ impl From<windows_result::Error> for Error {
     }
 }
 
-#[cfg(feature = "python")]
-impl From<pyo3::PyErr> for Error {
-    fn from(err: pyo3::PyErr) -> Self {
-        pyo3::Python::attach(|py| {
-            if err
-                .matches(
-                    py,
-                    pyo3::types::PyType::new::<pyo3::exceptions::PyKeyboardInterrupt>(py),
-                )
-                .unwrap()
-            {
-                Self::shutting_down()
-            } else {
-                Self::illegal_state(format!("Python exception: {err:?}"))
-            }
-        })
-    }
-}
+// #[cfg(feature = "python")]
+// impl From<pyo3::PyErr> for Error {
+//     fn from(err: pyo3::PyErr) -> Self {
+//         pyo3::Python::attach(|py| {
+//             if err
+//                 .matches(
+//                     py,
+//                     pyo3::types::PyType::new::<pyo3::exceptions::PyKeyboardInterrupt>(py),
+//                 )
+//                 .unwrap()
+//             {
+//                 Ok(())
+//             } else {
+//                 Self::illegal_state(format!("Python exception: {err:?}"))
+//             }
+//         })
+//     }
+// }
 
 /// Trait to convert into an Owned type
 pub trait IntoOwned {
