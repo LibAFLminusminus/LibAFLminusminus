@@ -63,6 +63,8 @@ pub struct Stats {
 }
 
 /// The name used in stats json file for the stability value
+pub static STAT_MAP_INFO: Cow<'static, str> = Cow::Borrowed("mapping info");
+/// The name used in stats json file for the stability value
 pub static STAT_CALIBRATION: Cow<'static, str> = Cow::Borrowed("stability");
 /// The name used in stats json file for the coverage value
 pub static STAT_COVERAGE: Cow<'static, str> = Cow::Borrowed("coverage");
