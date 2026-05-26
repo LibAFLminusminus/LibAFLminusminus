@@ -36,9 +36,8 @@ run: harness build
     CUSTOM_LIBAFL_QEMU_ASAN_PATH={{ BUILD_DIR }}/$CROSS_TARGET/{{ PROFILE_DIR }}/libaflmm_qemu_asan_host.so \
     {{ FUZZER }} fuzz \
         --input ./corpus \
-        --cores 0 \
-        --asan-host-cores 0 \
-        --iterations 1000000 \
+        --cores 0-7 \
+        --asan-host-cores 0-3 \
         -- \
         {{ HARNESS }}
 

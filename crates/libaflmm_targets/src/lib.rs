@@ -45,10 +45,13 @@ pub mod prelude {
     #[cfg(feature = "coverage")]
     pub use crate::coverage::{MAX_EDGES_FOUND, autotokens, edges_map_mut_ptr};
 
-    pub use crate::exports::{
-        CMP_MAP, CMPLOG_ENABLED, CMPLOG_MAP, CMPLOG_MAP_PTR, EDGES_MAP, EDGES_MAP_PTR,
-        INPUT_LENGTH_PTR, INPUT_PTR, SHM_FUZZING,
-    };
+    pub use crate::exports::{CMP_MAP, CMPLOG_ENABLED, CMPLOG_MAP};
+
+    #[cfg(feature = "cmplog")]
+    pub use crate::exports::CMPLOG_MAP_PTR;
+
+    #[cfg(feature = "coverage")]
+    pub use crate::exports::{EDGES_MAP, EDGES_MAP_PTR, INPUT_LENGTH_PTR, INPUT_PTR, SHM_FUZZING};
 
     pub use crate::libfuzzer::{libfuzzer_initialize, libfuzzer_test_one_input};
 
