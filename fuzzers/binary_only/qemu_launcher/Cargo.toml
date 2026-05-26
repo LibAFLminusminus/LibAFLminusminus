@@ -42,7 +42,7 @@ libaflmm = { path = "../../../crates/libaflmm" }
 libaflmm_qemu = { path = "../../../crates/libaflmm_qemu", features = [
   "usermode",
   "asan_rust",
-  "errors_backtrace"
+  "errors_backtrace",
 ] }
 
 clap = { version = "4.6.1", features = ["derive", "string"] }
