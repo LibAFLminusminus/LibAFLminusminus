@@ -133,6 +133,8 @@ pyo3 = { workspace = true, optional = true, features = ["multiple-pymethods"] }
 typed-builder = { workspace = true }
 getset = "0.1.6"
 libvharness_sys = { workspace = true }
+nix = { workspace = true, features = ["mman"] }
+ctor = { workspace = true }
 
 # Document all features of this crate (for `cargo doc`)
 document-features = { workspace = true, optional = true }

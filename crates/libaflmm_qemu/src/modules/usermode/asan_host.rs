@@ -20,30 +20,61 @@ use hashbrown::{HashMap, HashSet};
 use libaflmm::{executors::ExitKind, observers::ObserversTuple};
 use libaflmm_bolts::os::unix_signals::Signal;
 use libaflmm_qemu_sys::{GuestAddr, GuestUlong, MapInfo};
-use libc::{
-    MAP_ANON, MAP_FAILED, MAP_FIXED, MAP_NORESERVE, MAP_PRIVATE, PROT_READ, PROT_WRITE, c_void,
-};
 use meminterval::{Interval, IntervalTree};
+use nix::sys::mman::{MapFlags, ProtFlags, mmap_anonymous};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use std::{
     env,
+    ffi::c_void,
     fmt::{Debug, Display},
     fs,
+    num::NonZeroUsize,
     path::PathBuf,
     pin::Pin,
     result,
     sync::Mutex,
 };
 
+#[ctor::ctor]
+fn reserve_asan_shadow() {
+    let msg: &str = "ASan mapping failed, is the region free?";
+
+    unsafe {
+        mmap_anonymous(
+            Some(HIGH_SHADOW_ADDR),
+            HIGH_SHADOW_SIZE,
+            ProtFlags::PROT_READ | ProtFlags::PROT_WRITE,
+            MapFlags::MAP_PRIVATE | MapFlags::MAP_FIXED_NOREPLACE | MapFlags::MAP_NORESERVE,
+        )
+        .expect(msg);
+
+        mmap_anonymous(
+            Some(LOW_SHADOW_ADDR),
+            LOW_SHADOW_SIZE,
+            ProtFlags::PROT_READ | ProtFlags::PROT_WRITE,
+            MapFlags::MAP_PRIVATE | MapFlags::MAP_FIXED_NOREPLACE | MapFlags::MAP_NORESERVE,
+        )
+        .expect(msg);
+
+        mmap_anonymous(
+            Some(GAP_SHADOW_ADDR),
+            GAP_SHADOW_SIZE,
+            ProtFlags::PROT_READ | ProtFlags::PROT_WRITE,
+            MapFlags::MAP_PRIVATE | MapFlags::MAP_FIXED_NOREPLACE | MapFlags::MAP_NORESERVE,
+        )
+        .expect(msg);
+    }
+}
+
 // TODO at some point, merge parts with libaflmm_frida
 
-pub const HIGH_SHADOW_ADDR: *mut c_void = 0x02008fff7000 as *mut c_void;
-pub const LOW_SHADOW_ADDR: *mut c_void = 0x00007fff8000 as *mut c_void;
-pub const GAP_SHADOW_ADDR: *mut c_void = 0x00008fff7000 as *mut c_void;
+pub const HIGH_SHADOW_ADDR: NonZeroUsize = NonZeroUsize::new(0x02008fff7000).unwrap();
+pub const LOW_SHADOW_ADDR: NonZeroUsize = NonZeroUsize::new(0x00007fff8000).unwrap();
+pub const GAP_SHADOW_ADDR: NonZeroUsize = NonZeroUsize::new(0x00008fff7000).unwrap();
 
-pub const HIGH_SHADOW_SIZE: usize = 0xdfff0000fff;
-pub const LOW_SHADOW_SIZE: usize = 0xfffefff;
-pub const GAP_SHADOW_SIZE: usize = 0x1ffffffffff;
+pub const HIGH_SHADOW_SIZE: NonZeroUsize = NonZeroUsize::new(0xdfff0000fff).unwrap();
+pub const LOW_SHADOW_SIZE: NonZeroUsize = NonZeroUsize::new(0xfffefff).unwrap();
+pub const GAP_SHADOW_SIZE: NonZeroUsize = NonZeroUsize::new(0x1ffffffffff).unwrap();
 
 pub const SHADOW_OFFSET: isize = 0x7fff8000;
 
@@ -484,43 +515,7 @@ impl AsanHostModule {
 
 impl AsanGiovese {
     unsafe fn init(self: &mut Pin<Box<Self>>, qemu_hooks: QemuHooks) {
-        unsafe {
-            assert_ne!(
-                libc::mmap(
-                    HIGH_SHADOW_ADDR,
-                    HIGH_SHADOW_SIZE,
-                    PROT_READ | PROT_WRITE,
-                    MAP_PRIVATE | MAP_FIXED | MAP_NORESERVE | MAP_ANON,
-                    -1,
-                    0
-                ),
-                MAP_FAILED
-            );
-            assert_ne!(
-                libc::mmap(
-                    LOW_SHADOW_ADDR,
-                    LOW_SHADOW_SIZE,
-                    PROT_READ | PROT_WRITE,
-                    MAP_PRIVATE | MAP_FIXED | MAP_NORESERVE | MAP_ANON,
-                    -1,
-                    0
-                ),
-                MAP_FAILED
-            );
-            assert_ne!(
-                libc::mmap(
-                    GAP_SHADOW_ADDR,
-                    GAP_SHADOW_SIZE,
-                    PROT_READ | PROT_WRITE,
-                    MAP_PRIVATE | MAP_FIXED | MAP_NORESERVE | MAP_ANON,
-                    -1,
-                    0
-                ),
-                MAP_FAILED
-            );
-
-            qemu_hooks.add_pre_syscall_hook(self.as_mut(), Self::fake_syscall);
-        }
+        qemu_hooks.add_pre_syscall_hook(self.as_mut(), Self::fake_syscall);
     }
 
     #[must_use]

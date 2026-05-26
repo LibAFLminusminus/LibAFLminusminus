@@ -226,12 +226,22 @@ pub mod prelude {
         StdEdgeCoverageModule, StdPageFilter,
     };
 
+    #[cfg(all(
+        feature = "usermode",
+        feature = "asan_guest",
+        not(cpu_target = "hexagon")
+    ))]
+    pub use crate::modules::AsanGuestModule;
+    #[cfg(all(
+        feature = "usermode",
+        feature = "asan_host",
+        not(cpu_target = "hexagon")
+    ))]
+    pub use crate::modules::AsanHostModule;
     #[cfg(feature = "injections")]
     pub use crate::modules::InjectionModule;
     #[cfg(feature = "usermode")]
-    pub use crate::modules::{
-        AsanGuestModule, AsanHostModule, RedirectStdinModule, RedirectStdoutModule, SnapshotModule,
-    };
+    pub use crate::modules::{RedirectStdinModule, RedirectStdoutModule, SnapshotModule};
 
     pub use crate::qemu::{
         ArchExtras, CPU, CallingConvention, MemAccessInfo, Qemu, QemuConfig, QemuError,

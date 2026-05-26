@@ -415,7 +415,7 @@ where
             snapshot_manager,
             input_setter: input_writer,
             // hooks_locked: true,
-            print_commands: true,
+            print_commands: false,
             breakpoints_by_addr: RefCell::new(HashMap::new()),
             breakpoints_by_id: RefCell::new(HashMap::new()),
             qemu,

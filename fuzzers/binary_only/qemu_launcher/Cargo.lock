@@ -1364,6 +1364,7 @@ version = "0.16.0"
 dependencies = [
  "addr2line",
  "capstone",
+ "ctor",
  "delegate",
  "enum-map",
  "getset",
@@ -1380,6 +1381,7 @@ dependencies = [
  "libvharness_sys",
  "log",
  "meminterval",
+ "nix 0.30.1",
  "num-traits",
  "num_enum",
  "object 0.38.1",

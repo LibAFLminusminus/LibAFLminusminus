@@ -9,12 +9,24 @@ use libaflmm_bolts::tuples::{MatchFirstType, SplitBorrowExtractFirstType};
 
 #[cfg(feature = "usermode")]
 pub mod usermode;
+#[cfg(all(
+    feature = "usermode",
+    feature = "asan_guest",
+    not(cpu_target = "hexagon")
+))]
+pub use usermode::AsanGuestModule;
+#[cfg(all(
+    feature = "usermode",
+    feature = "asan_host",
+    not(cpu_target = "hexagon")
+))]
+pub use usermode::AsanHostModule;
 #[cfg(feature = "injections")]
 pub use usermode::InjectionModule;
 #[cfg(feature = "usermode")]
 pub use usermode::{
-    AsanGuestModule, AsanHostModule, IntervalSnapshotFilter, IntervalSnapshotFilters,
-    RedirectStdinModule, RedirectStdoutModule, SnapshotModule, get_snapshot_module_mut, snapshot,
+    IntervalSnapshotFilter, IntervalSnapshotFilters, RedirectStdinModule, RedirectStdoutModule,
+    SnapshotModule, get_snapshot_module_mut, snapshot,
 };
 
 #[cfg(feature = "systemmode")]
