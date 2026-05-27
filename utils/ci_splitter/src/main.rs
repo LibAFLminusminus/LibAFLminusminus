@@ -56,7 +56,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let lqemu_exclude_features_str = lqemu_exclude_features.join(",");
 
     // libaflmm_asan_libc needs no_std; qemu crates are checked separately below;
-    // frida, linters, and pylibafl require special build environments
+    // frida, linters, and pylibaflmm require special build environments
     let the_command = format!(
         "DOCS_RS=1 cargo hack check --workspace --each-feature --clean-per-run \
             --exclude-features={exclude_features_str} \
@@ -66,7 +66,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             --exclude libaflmm_asan_libc --exclude libaflmm_asan_fuzz \
             --exclude libaflmm_frida \
             --exclude args_reorder --exclude generics_reorder --exclude use_after_mod \
-            --exclude pylibafl \
+            --exclude pylibaflmm \
             --print-command-list; "
     ) + &format!(
         "DOCS_RS=1 cargo hack check -p libaflmm_qemu -p libaflmm_qemu_sys --each-feature --clean-per-run \

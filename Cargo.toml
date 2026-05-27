@@ -35,7 +35,7 @@ members = [
   "mmlint/use_after_mod",
 
   # bindings
-  "bindings/pylibafl",
+  "bindings/pylibaflmm",
 ]
 
 default-members = [
