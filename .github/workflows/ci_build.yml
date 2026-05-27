@@ -39,7 +39,7 @@ jobs:
 
   ubuntu-qemu:
     runs-on: ${{ fromjson(vars.runs_on || '["self-hosted","linux"]') }}
-    if: contains( github.event.pull_request.labels.*.name, 'qemu-full')
+    if: contains( github.event.pull_request.labels.*.name, 'qemu-full') || contains( github.event.pull_request.labels.*.name, 'pre-release')
     strategy:
       fail-fast: false
       matrix:
