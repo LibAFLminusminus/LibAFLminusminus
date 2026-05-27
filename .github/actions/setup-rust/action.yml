@@ -55,9 +55,10 @@ runs:
         # make rustup available for the commands below.
         export PATH="$CARGO_BIN:$PATH"
 
-        if ! rustup toolchain list 2>/dev/null | grep -q "^${TOOLCHAIN}-"; then
+        if ! rustup component list --toolchain "$TOOLCHAIN" >/dev/null 2>&1; then
           flock --timeout 300 /var/lock/github-rust.lock \
-            bash -c 'rustup toolchain list 2>/dev/null | grep -q "^'"$TOOLCHAIN"'-" ||
+            bash -c 'rustup component list --toolchain "'"$TOOLCHAIN"'" >/dev/null 2>&1 && exit 0
+                     rustup toolchain uninstall "'"$TOOLCHAIN"'" >/dev/null 2>&1 || true
                      rustup toolchain install "'"$TOOLCHAIN"'" --no-self-update'
         fi
 
