@@ -1,25 +1,30 @@
+use crate::{
+    GuestAddr,
+    qemu::{ArchExtras, CPU, CallingConvention, QemuRWError, QemuRWErrorKind},
+    sync_exit::ExitArgs,
+};
 use capstone::arch::BuildsCapstone;
-use core::ffi::c_long;
 use enum_map::{EnumMap, enum_map};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
-#[cfg(feature = "python")]
-use pyo3::prelude::*;
 use std::sync::OnceLock;
+use strum_macros::EnumIter;
 
-#[cfg(feature = "riscv32")]
-pub use syscall_numbers::riscv32 as syscalls;
-#[cfg(feature = "riscv64")]
-pub use syscall_numbers::riscv64 as syscalls;
+pub mod syscalls {
+    use core::ffi::c_long;
 
-// QEMU specific
-#[expect(non_upper_case_globals)]
-pub const SYS_syscalls: c_long = 447;
-#[expect(non_upper_case_globals)]
-pub const SYS_riscv_flush_icache: c_long = SYS_arch_specific_syscall + 15;
-#[expect(non_upper_case_globals)]
-pub const SYS_riscv_hwprobe: c_long = SYS_arch_specific_syscall + 14;
+    #[cfg(feature = "riscv32")]
+    pub use syscall_numbers::riscv32::*;
+    #[cfg(feature = "riscv64")]
+    pub use syscall_numbers::riscv64::*;
 
-use crate::{CallingConvention, GuestAddr, QemuRWError, QemuRWErrorKind, sync_exit::ExitArgs};
+    // QEMU specific
+    #[expect(non_upper_case_globals)]
+    pub const SYS_syscalls: c_long = 447;
+    #[expect(non_upper_case_globals)]
+    pub const SYS_riscv_flush_icache: c_long = SYS_arch_specific_syscall + 15;
+    #[expect(non_upper_case_globals)]
+    pub const SYS_riscv_hwprobe: c_long = SYS_arch_specific_syscall + 14;
+}
 
 #[expect(non_upper_case_globals)]
 impl CallingConvention {
@@ -98,7 +103,7 @@ pub fn capstone() -> capstone::arch::riscv::ArchCapstoneBuilder {
         .mode(capstone::arch::riscv::ArchMode::RiscV64);
 }
 
-impl crate::ArchExtras for crate::CPU {
+impl ArchExtras for CPU {
     fn read_return_address(&self) -> Result<GuestAddr, QemuRWError> {
         self.read_reg(Regs::Ra).map(|res| res as GuestAddr)
     }

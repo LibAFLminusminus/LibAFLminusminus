@@ -219,6 +219,8 @@ pub mod prelude {
 
     pub use crate::executors::{SimpleQemuExecutor, StdQemuExecutor};
 
+    #[cfg(not(any(cpu_target = "mips", cpu_target = "hexagon")))]
+    pub use crate::modules::CmpLogModule;
     pub use crate::modules::{
         AddressFilter, AddressFilterVec, EdgeCoverageModule, EmulatorModule, EmulatorModuleTuple,
         FilterList, HasAddressFilter, HasAddressFilterTuple, HasPageFilter, HasStdFilters,
@@ -227,7 +229,7 @@ pub mod prelude {
         StdEdgeCoverageFullModule, StdEdgeCoverageModule, StdPageFilter,
     };
     #[cfg(not(feature = "hexagon"))]
-    pub use crate::modules::{CallTracerModule, CmpLogModule, DrCovModule, DrCovModuleBuilder};
+    pub use crate::modules::{CallTracerModule, DrCovModule, DrCovModuleBuilder};
 
     #[cfg(all(
         feature = "usermode",
