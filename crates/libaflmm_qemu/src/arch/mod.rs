@@ -7,9 +7,11 @@ use pyo3::{prelude::*, types::PyInt};
 #[cfg(feature = "python")]
 use std::convert::Infallible;
 
+#[cfg(all(feature = "usermode", not(feature = "hexagon")))]
+pub use guest::capstone;
 #[cfg(feature = "usermode")]
 pub use guest::syscalls;
-pub use guest::{GuestReg, Regs, capstone, get_exit_arch_regs};
+pub use guest::{GuestReg, Regs, get_exit_arch_regs};
 
 #[cfg(cpu_target = "aarch64")]
 pub mod aarch64;

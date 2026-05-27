@@ -184,9 +184,11 @@ pub mod prelude {
 
     pub use crate::{GuestAddr, GuestUlong, GuestUsize, MmapPerms};
 
+    #[cfg(all(feature = "usermode", not(feature = "hexagon")))]
+    pub use crate::arch::capstone;
     #[cfg(feature = "usermode")]
     pub use crate::arch::syscalls;
-    pub use crate::arch::{GuestReg, Regs, capstone, get_exit_arch_regs};
+    pub use crate::arch::{GuestReg, Regs, get_exit_arch_regs};
 
     pub use crate::command::{
         Command, CommandError, CommandManager, NativeCommandParser, NopCommand, NopCommandManager,
@@ -218,13 +220,14 @@ pub mod prelude {
     pub use crate::executors::{SimpleQemuExecutor, StdQemuExecutor};
 
     pub use crate::modules::{
-        AddressFilter, AddressFilterVec, CallTracerModule, CmpLogModule, DrCovModule,
-        DrCovModuleBuilder, EdgeCoverageModule, EmulatorModule, EmulatorModuleTuple, FilterList,
-        HasAddressFilter, HasAddressFilterTuple, HasPageFilter, HasStdFilters, HasStdFiltersTuple,
-        LoggerModule, NopAddressFilter, NopPageFilter, PageFilter, PageFilterVec, StdAddressFilter,
-        StdEdgeCoverageChildModule, StdEdgeCoverageClassicModule, StdEdgeCoverageFullModule,
-        StdEdgeCoverageModule, StdPageFilter,
+        AddressFilter, AddressFilterVec, EdgeCoverageModule, EmulatorModule, EmulatorModuleTuple,
+        FilterList, HasAddressFilter, HasAddressFilterTuple, HasPageFilter, HasStdFilters,
+        HasStdFiltersTuple, LoggerModule, NopAddressFilter, NopPageFilter, PageFilter,
+        PageFilterVec, StdAddressFilter, StdEdgeCoverageChildModule, StdEdgeCoverageClassicModule,
+        StdEdgeCoverageFullModule, StdEdgeCoverageModule, StdPageFilter,
     };
+    #[cfg(not(feature = "hexagon"))]
+    pub use crate::modules::{CallTracerModule, CmpLogModule, DrCovModule, DrCovModuleBuilder};
 
     #[cfg(all(
         feature = "usermode",
@@ -240,8 +243,10 @@ pub mod prelude {
     pub use crate::modules::AsanHostModule;
     #[cfg(feature = "injections")]
     pub use crate::modules::InjectionModule;
+    #[cfg(all(feature = "usermode", not(feature = "hexagon")))]
+    pub use crate::modules::SnapshotModule;
     #[cfg(feature = "usermode")]
-    pub use crate::modules::{RedirectStdinModule, RedirectStdoutModule, SnapshotModule};
+    pub use crate::modules::{RedirectStdinModule, RedirectStdoutModule};
 
     pub use crate::qemu::{
         ArchExtras, CPU, CallingConvention, MemAccessInfo, Qemu, QemuConfig, QemuError,

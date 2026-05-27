@@ -23,11 +23,13 @@ pub use usermode::AsanGuestModule;
 pub use usermode::AsanHostModule;
 #[cfg(feature = "injections")]
 pub use usermode::InjectionModule;
-#[cfg(feature = "usermode")]
+#[cfg(all(feature = "usermode", not(feature = "hexagon")))]
 pub use usermode::{
-    IntervalSnapshotFilter, IntervalSnapshotFilters, RedirectStdinModule, RedirectStdoutModule,
-    SnapshotModule, get_snapshot_module_mut, snapshot,
+    IntervalSnapshotFilter, IntervalSnapshotFilters, SnapshotModule, get_snapshot_module_mut,
+    snapshot,
 };
+#[cfg(all(feature = "usermode"))]
+pub use usermode::{RedirectStdinModule, RedirectStdoutModule};
 
 #[cfg(feature = "systemmode")]
 pub mod systemmode;
