@@ -12,6 +12,7 @@ impl QemuFuzzer {
         env: Vec<(String, String)>,
         args: Vec<String>,
     ) -> Result<()> {
+        // let monitor = WebMonitor::new("qemu_launcher");
         let monitor = StdMonitor::new();
         let controller = StdController::builder().overwrite(true).build()?;
 
@@ -55,20 +56,8 @@ impl QemuFuzzer {
                     ))
                 };
 
-                // Create an observation channel to keep track of the execution time
-                let time_observer = TimeObserver::new("time");
-
                 let map_feedback = StdMapFeedback::with_name("map_feedback", &edges_observer);
                 let map_objective = StdMapFeedback::with_name("map_objective", &edges_observer);
-
-                // Feedback to rate the interestingness of an input
-                // This one is composed by two Feedbacks in OR
-                let feedback = feedback_or!(
-                    // New maximization map feedback linked to the edges observer and the feedback state
-                    map_feedback,
-                    // Time feedback, this one does not need a feedback state
-                    TimeFeedback::new(&time_observer)
-                );
 
                 // A feedback to choose if an input is a solution or not
                 let objective = feedback_and_fast!(
@@ -91,6 +80,20 @@ impl QemuFuzzer {
                 }
 
                 state.metadata_map_mut().insert_unnamed(tokens);
+
+                let calibration = CalibrationHook::new(&map_feedback);
+
+                // Create an observation channel to keep track of the execution time
+                let time_observer = TimeObserver::new("time");
+
+                // Feedback to rate the interestingness of an input
+                // This one is composed by two Feedbacks in OR
+                let feedback = feedback_or!(
+                    // New maximization map feedback linked to the edges observer and the feedback state
+                    map_feedback,
+                    // Time feedback, this one does not need a feedback state
+                    TimeFeedback::new(&time_observer)
+                );
 
                 let modules =
                     profile.get_modules(&options, &env, &mut edges_observer, injection_module)?;
@@ -116,9 +119,10 @@ impl QemuFuzzer {
                 let mut stages = tuple_list!(StdStage::default());
                 let mut rand = StdRand::new();
 
-                let mut fuzzer = StdFuzzer::new(
+                let mut fuzzer = StdFuzzer::with_hooks(
                     feedback,
                     objective,
+                    tuple_list!(calibration),
                     &mut stages,
                     &mut executor,
                     state,

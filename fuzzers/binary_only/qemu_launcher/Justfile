@@ -37,10 +37,10 @@ run: harness build
     {{ FUZZER }} fuzz \
         --input ./corpus \
         --cores 0-7 \
-        --asan-host-cores 0-3 \
         -- \
         {{ HARNESS }}
 
+        # --asan-host-cores 0-3 \
         # --cmplog-cores 2-5 \
 [unix]
 test_inner: harness build
