@@ -148,14 +148,14 @@ macro_rules! define_std_command_manager_inner {
                     $($command([<$command Command>])),+,
                 }
 
-                impl<I, S> Command<I, S> for [<$name Commands>]
+                impl<I, S> Command<[<$name CommandManager>], I, S> for [<$name Commands>]
                 where
-                    I: Unpin,
-                    S: Unpin,
+                    I: Input + Unpin,
+                    S: State<Input = I> + Unpin,
                 {
                     fn usable_at_runtime(&self) -> bool {
                         match self {
-                            $([<$name Commands>]::$command(cmd) => <[<$command Command>] as Command<I, S>>::usable_at_runtime(cmd)),+
+                            $([<$name Commands>]::$command(cmd) => <[<$command Command>] as Command<[<$name CommandManager>], I, S>>::usable_at_runtime(cmd)),+
                         }
                     }
 
@@ -164,7 +164,7 @@ macro_rules! define_std_command_manager_inner {
                         ret_reg: Option<Regs>
                     ) -> Result<Option<EmulatorRunResult>>
                     where
-                        EMU: Emulator<I, S>
+                        EMU: Emulator<I, S, CommandManager = [<$name CommandManager>]>
                     {
                         match self {
                             $([<$name Commands>]::$command(cmd) => cmd.run(emu, ret_reg)),+
@@ -196,7 +196,7 @@ pub trait NativeCommandParser {
 }
 
 pub trait CommandManager<I, S>: Sized + Debug {
-    type Commands: Command<I, S>;
+    type Commands: Command<Self, I, S>;
     type InputWriter: InputWriter<I, S>;
 
     /// Returns whether the command manager has been started already.
@@ -209,7 +209,10 @@ pub trait CommandManager<I, S>: Sized + Debug {
     fn parse(&self, qemu: Qemu) -> result::Result<Self::Commands, CommandError>;
 }
 
-pub trait Command<I, S>: Clone + Debug {
+pub trait Command<CM, I, S>: Clone + Debug
+where
+    CM: CommandManager<I, S>,
+{
     /// Used to know whether the command can be run during a backdoor, or if it is necessary to go out of
     /// the QEMU VM to run the command.
     // TODO: Use const when stabilized
@@ -219,11 +222,13 @@ pub trait Command<I, S>: Clone + Debug {
     ///     - `ret_reg`: The register in which the guest return value should be written, if any.
     /// Returns
     ///     - `InnerHandlerResult`: How the high-level handler should behave
-    fn run<EMU: Emulator<I, S>>(
+    fn run<EMU>(
         &self,
         emu: &mut EMU,
         ret_reg: Option<Regs>,
-    ) -> Result<Option<EmulatorRunResult>>;
+    ) -> Result<Option<EmulatorRunResult>>
+    where
+        EMU: Emulator<I, S, CommandManager = CM>;
 }
 
 #[derive(Debug, Clone, Error)]
@@ -274,16 +279,22 @@ impl Display for NopCommand {
     }
 }
 
-impl<I, S> Command<I, S> for NopCommand {
+impl<CM, I, S> Command<CM, I, S> for NopCommand
+where
+    CM: CommandManager<I, S>,
+{
     fn usable_at_runtime(&self) -> bool {
         true
     }
 
-    fn run<EMU: Emulator<I, S>>(
+    fn run<EMU>(
         &self,
         _emu: &mut EMU,
         _ret_reg: Option<Regs>,
-    ) -> Result<Option<EmulatorRunResult>> {
+    ) -> Result<Option<EmulatorRunResult>>
+    where
+        EMU: Emulator<I, S, CommandManager = CM>,
+    {
         Ok(None)
     }
 }

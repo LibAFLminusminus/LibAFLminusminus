@@ -1,5 +1,9 @@
 use crate::{EmulatorError, Result, emu::InputLocation, emu::InputWriter, qemu::Qemu};
-use libaflmm::{inputs::Input, states::State};
+use libaflmm::{
+    inputs::{Input, InputContext},
+    states::State,
+};
+use libaflmm_bolts::AsSlice;
 use std::cell::OnceCell;
 use std::cmp::min;
 use std::ptr;
@@ -34,6 +38,12 @@ impl StdNyxInputWriter {
     pub fn max_input_size(&self) -> usize {
         self.max_input_size
     }
+
+    pub fn set_input_struct_location(&mut self, location: InputLocation) -> Result<()> {
+        self.input_struct_location
+            .set(location)
+            .or(Err(EmulatorError::MultipleInputLocationDefinition.into()))
+    }
 }
 
 impl<I, S> InputWriter<I, S> for StdNyxInputWriter
@@ -41,9 +51,11 @@ where
     I: Input,
     S: State<Input = I>,
 {
-    fn write_input(&mut self, _qemu: Qemu, _state: &mut S, input: &I) -> Result<()> {
-        let input_len =
-            i32::try_from(min(self.max_input_size, input.target_bytes().len())).unwrap();
+    fn write_input(&mut self, _qemu: Qemu, state: &mut S, input: &I) -> Result<()> {
+        let input_bytes = state.context_mut().to_bytes(input);
+        let input_slice = input_bytes.as_slice();
+
+        let input_len = i32::try_from(min(self.max_input_size, input_slice.len())).unwrap();
 
         let kafl_payload = libvharness_sys::kAFL_payload {
             size: input_len,
@@ -64,10 +76,7 @@ where
             .write(kafl_payload_buf);
 
         // write struct first
-        self.input_location
-            .get_mut()
-            .unwrap()
-            .write(input.target_bytes().as_ref());
+        self.input_location.get_mut().unwrap().write(input_slice);
 
         Ok(())
     }
@@ -75,7 +84,7 @@ where
     fn set_input_location(&mut self, location: InputLocation) -> Result<()> {
         self.input_location
             .set(location)
-            .or(Err(EmulatorError::MultipleInputLocationDefinition))
+            .or(Err(EmulatorError::MultipleInputLocationDefinition.into()))
     }
 
     fn input_location(&self) -> Option<&InputLocation> {
@@ -99,7 +108,7 @@ where
     fn set_input_struct_location(&mut self, location: InputLocation) -> Result<()> {
         self.input_struct_location
             .set(location)
-            .or(Err(EmulatorError::MultipleInputLocationDefinition))
+            .or(Err(EmulatorError::MultipleInputLocationDefinition.into()))
     }
 
     fn input_struct_location(&self) -> Option<&InputLocation> {

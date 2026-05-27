@@ -99,14 +99,17 @@ pub enum NativeExitKind {
 
 #[derive(Debug, Clone)]
 pub struct SaveCommand;
-impl<I, S> Command<I, S> for SaveCommand {
+impl<CM, I, S> Command<CM, I, S> for SaveCommand
+where
+    CM: CommandManager<I, S>,
+{
     fn usable_at_runtime(&self) -> bool {
         false
     }
 
     fn run<EMU>(&self, emu: &mut EMU, _ret_reg: Option<Regs>) -> Result<Option<EmulatorRunResult>>
     where
-        EMU: Emulator<I, S>,
+        EMU: Emulator<I, S, CommandManager = CM>,
     {
         let qemu = emu.qemu();
         let snapshot_id = emu.snapshot_manager_mut().save(qemu);
@@ -120,14 +123,17 @@ impl<I, S> Command<I, S> for SaveCommand {
 #[derive(Debug, Clone)]
 pub struct LoadCommand;
 
-impl<I, S> Command<I, S> for LoadCommand {
+impl<CM, I, S> Command<CM, I, S> for LoadCommand
+where
+    CM: CommandManager<I, S>,
+{
     fn usable_at_runtime(&self) -> bool {
         false
     }
 
     fn run<EMU>(&self, emu: &mut EMU, _ret_reg: Option<Regs>) -> Result<Option<EmulatorRunResult>>
     where
-        EMU: Emulator<I, S>,
+        EMU: Emulator<I, S, CommandManager = CM>,
     {
         let qemu = emu.qemu();
 
@@ -153,8 +159,9 @@ impl Debug for StartCommand {
     }
 }
 
-impl<I, S> Command<I, S> for StartCommand
+impl<CM, I, S> Command<CM, I, S> for StartCommand
 where
+    CM: CommandManager<I, S>,
     I: Unpin,
     S: Unpin,
 {
@@ -164,7 +171,7 @@ where
 
     fn run<EMU>(&self, emu: &mut EMU, _ret_reg: Option<Regs>) -> Result<Option<EmulatorRunResult>>
     where
-        EMU: Emulator<I, S>,
+        EMU: Emulator<I, S, CommandManager = CM>,
     {
         let qemu = emu.qemu();
 
@@ -204,14 +211,17 @@ pub struct EndCommand {
     exit_kind: Option<ExitKind>,
 }
 
-impl<I, S> Command<I, S> for EndCommand {
+impl<CM, I, S> Command<CM, I, S> for EndCommand
+where
+    CM: CommandManager<I, S>,
+{
     fn usable_at_runtime(&self) -> bool {
         false
     }
 
     fn run<EMU>(&self, emu: &mut EMU, _ret_reg: Option<Regs>) -> Result<Option<EmulatorRunResult>>
     where
-        EMU: Emulator<I, S>,
+        EMU: Emulator<I, S, CommandManager = CM>,
     {
         let qemu = emu.qemu();
 
@@ -238,14 +248,17 @@ impl<I, S> Command<I, S> for EndCommand {
 #[derive(Debug, Clone)]
 pub struct VersionCommand(u64, u64);
 
-impl<I, S> Command<I, S> for VersionCommand {
+impl<CM, I, S> Command<CM, I, S> for VersionCommand
+where
+    CM: CommandManager<I, S>,
+{
     fn usable_at_runtime(&self) -> bool {
         true
     }
 
     fn run<EMU>(&self, _emu: &mut EMU, _ret_reg: Option<Regs>) -> Result<Option<EmulatorRunResult>>
     where
-        EMU: Emulator<I, S>,
+        EMU: Emulator<I, S, CommandManager = CM>,
     {
         let major = self.0;
         let minor = self.1;
@@ -265,8 +278,9 @@ pub struct PageAllowCommand {
 }
 
 #[cfg(feature = "systemmode")]
-impl<I, S> Command<I, S> for PageAllowCommand
+impl<CM, I, S> Command<CM, I, S> for PageAllowCommand
 where
+    CM: CommandManager<I, S>,
     I: Unpin,
     S: Unpin,
 {
@@ -276,7 +290,7 @@ where
 
     fn run<EMU>(&self, emu: &mut EMU, _ret_reg: Option<Regs>) -> Result<Option<EmulatorRunResult>>
     where
-        EMU: Emulator<I, S>,
+        EMU: Emulator<I, S, CommandManager = CM>,
     {
         emu.modules_mut()
             .modules_mut()
@@ -289,8 +303,9 @@ where
 pub struct AddressAllowCommand {
     address_range: Range<GuestAddr>,
 }
-impl<I, S> Command<I, S> for AddressAllowCommand
+impl<CM, I, S> Command<CM, I, S> for AddressAllowCommand
 where
+    CM: CommandManager<I, S>,
     I: Unpin,
     S: Unpin,
 {
@@ -300,7 +315,7 @@ where
 
     fn run<EMU>(&self, emu: &mut EMU, _ret_reg: Option<Regs>) -> Result<Option<EmulatorRunResult>>
     where
-        EMU: Emulator<I, S>,
+        EMU: Emulator<I, S, CommandManager = CM>,
     {
         emu.modules_mut()
             .modules_mut()
@@ -313,14 +328,17 @@ where
 pub struct LqprintfCommand {
     content: String,
 }
-impl<I, S> Command<I, S> for LqprintfCommand {
+impl<CM, I, S> Command<CM, I, S> for LqprintfCommand
+where
+    CM: CommandManager<I, S>,
+{
     fn usable_at_runtime(&self) -> bool {
         true
     }
 
     fn run<EMU>(&self, _emu: &mut EMU, _ret_reg: Option<Regs>) -> Result<Option<EmulatorRunResult>>
     where
-        EMU: Emulator<I, S>,
+        EMU: Emulator<I, S, CommandManager = CM>,
     {
         print!("LQPRINTF: {}", self.content);
         Ok(None)
@@ -332,16 +350,22 @@ pub struct TestCommand {
     expected_value: GuestReg,
     received_value: GuestReg,
 }
-impl<I, S> Command<I, S> for TestCommand {
+impl<CM, I, S> Command<CM, I, S> for TestCommand
+where
+    CM: CommandManager<I, S>,
+{
     fn usable_at_runtime(&self) -> bool {
         true
     }
 
-    fn run<EMU: Emulator<I, S>>(
+    fn run<EMU>(
         &self,
         _emu: &mut EMU,
         _ret_reg: Option<Regs>,
-    ) -> Result<Option<EmulatorRunResult>> {
+    ) -> Result<Option<EmulatorRunResult>>
+    where
+        EMU: Emulator<I, S, CommandManager = CM>,
+    {
         if self.expected_value == self.received_value {
             Ok(None)
         } else {
@@ -359,14 +383,17 @@ pub struct SetMapCommand {
 }
 
 #[cfg(feature = "systemmode")]
-impl<I, S> Command<I, S> for SetMapCommand {
+impl<CM, I, S> Command<CM, I, S> for SetMapCommand
+where
+    CM: CommandManager<I, S>,
+{
     fn usable_at_runtime(&self) -> bool {
         true
     }
 
     fn run<EMU>(&self, emu: &mut EMU, _ret_reg: Option<Regs>) -> Result<Option<EmulatorRunResult>>
     where
-        EMU: Emulator<I, S>,
+        EMU: Emulator<I, S, CommandManager = CM>,
     {
         let _phys_mem_chunk = self
             .map

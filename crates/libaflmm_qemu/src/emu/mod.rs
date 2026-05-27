@@ -121,6 +121,8 @@ pub trait Emulator<I, S> {
 
     fn snapshot_manager_mut(&mut self) -> &mut Self::SnapshotManager;
 
+    fn command_manager(&self) -> &Self::CommandManager;
+
     fn command_manager_mut(&mut self) -> &mut Self::CommandManager;
 
     fn modules_mut(&mut self) -> &mut EmulatorModules<Self::Modules, I, S>;

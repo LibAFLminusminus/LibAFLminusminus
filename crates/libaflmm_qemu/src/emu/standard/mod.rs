@@ -76,7 +76,7 @@ pub struct StdEmulator<C, CM, ET, I, IS, S, SM> {
 
 impl<C, CM, ET, I, IW, S, SM> Emulator<I, S> for StdEmulator<C, CM, ET, I, IW, S, SM>
 where
-    C: Command<I, S>,
+    C: Command<CM, I, S>,
     CM: CommandManager<I, S, Commands = C, InputWriter = IW>,
     ET: EmulatorModuleTuple<I, S> + HasStdFiltersTuple + Unpin,
     I: Input + Unpin,
@@ -216,6 +216,10 @@ where
 
     fn snapshot_manager_mut(&mut self) -> &mut Self::SnapshotManager {
         &mut self.snapshot_manager
+    }
+
+    fn command_manager(&self) -> &Self::CommandManager {
+        &self.command_manager
     }
 
     fn command_manager_mut(&mut self) -> &mut Self::CommandManager {
@@ -436,7 +440,7 @@ where
 
 impl<C, CM, ET, I, IW, S, SM> StdEmulator<C, CM, ET, I, IW, S, SM>
 where
-    C: Command<I, S>,
+    C: Command<CM, I, S>,
     CM: CommandManager<I, S, Commands = C, InputWriter = IW>,
     ET: EmulatorModuleTuple<I, S> + HasStdFiltersTuple + Unpin,
     I: Input + Unpin,
