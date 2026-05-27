@@ -35,7 +35,7 @@ run: harness build
     source {{ DOTENV }}
     CUSTOM_LIBAFL_QEMU_ASAN_PATH={{ BUILD_DIR }}/$CROSS_TARGET/{{ PROFILE_DIR }}/libaflmm_qemu_asan_host.so \
     {{ FUZZER }} fuzz \
-        --input ./corpus \
+        --input ./seeds \
         --cores 0-7 \
         -- \
         {{ HARNESS }}
@@ -73,7 +73,7 @@ test:
 
 single: harness build
     {{ FUZZER }} \
-        --input ./corpus \
+        --input ./seeds \
         --output {{ TARGET_DIR }}/output/ \
         --log {{ TARGET_DIR }}/output/log.txt \
         --cores 0 \
@@ -86,7 +86,7 @@ asan_host: harness build
     source {{ DOTENV }}
     CUSTOM_LIBAFL_QEMU_ASAN_PATH={{ BUILD_DIR }}/$CROSS_TARGET/{{ PROFILE_DIR }}/libaflmm_qemu_asan_host.so \
     {{ FUZZER }} \
-        --input ./corpus \
+        --input ./seeds \
         --output {{ TARGET_DIR }}/output/ \
         --log {{ TARGET_DIR }}/output/log.txt \
         --cores 0 \
@@ -100,7 +100,7 @@ asan_guest: harness build
     source {{ DOTENV }}
     CUSTOM_LIBAFL_QEMU_ASAN_PATH={{ BUILD_DIR }}/$CROSS_TARGET/{{ PROFILE_DIR }}/libafl_qemu_asan_guest.so \
     {{ FUZZER }} \
-        --input ./corpus \
+        --input ./seeds \
         --output {{ TARGET_DIR }}/output/ \
         --log {{ TARGET_DIR }}/output/log.txt \
         --cores 0 \
