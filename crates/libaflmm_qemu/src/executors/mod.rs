@@ -35,7 +35,7 @@ unsafe fn handle_crash<EMU, I, OT, S>(
     params: &OsTerminationParams,
 ) -> libaflmm::Result<CrashStatus>
 where
-    EMU: Emulator<Input = I, State = S>,
+    EMU: Emulator<I, S>,
     OT: ObserversTuple<S>,
 {
     let (signal, mut info, mut context) = match params {
@@ -138,7 +138,7 @@ unsafe fn handle_timeout<EMU, I, OT, S>(
     input: Option<&I>,
 ) -> libaflmm::Result<TimeoutStatus>
 where
-    EMU: Emulator<Input = I, State = S>,
+    EMU: Emulator<I, S>,
     OT: ObserversTuple<S>,
 {
     emulator.post_exec(state, input.unwrap(), observers, &mut ExitKind::Timeout)?;

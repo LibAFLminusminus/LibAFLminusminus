@@ -88,8 +88,6 @@ usermode = ["libaflmm_qemu_sys/usermode"]
 ## Systemmode (mutually exclusive to Usermode) - requires libvharness
 systemmode = ["libaflmm_qemu_sys/systemmode"]
 
-#! ## SerdeAny features
-
 slirp = [
   "systemmode",
   "libaflmm_qemu_sys/slirp",

@@ -17,7 +17,7 @@ use crate::{
 };
 use core::fmt::{self, Debug, Display, Formatter};
 use delegate::delegate;
-use libaflmm::{executors::ExitKind, inputs::Input, observers::ObserversTuple, states::State};
+use libaflmm::{executors::ExitKind, observers::ObserversTuple};
 use libaflmm_bolts::os::unix_signals::Signal;
 use libaflmm_qemu_sys::{GuestAddr, GuestPhysAddr, GuestVirtAddr};
 #[cfg(feature = "usermode")]
@@ -32,7 +32,7 @@ pub mod hooks;
 pub use hooks::{EmulatorHooks, EmulatorModules};
 
 pub mod input_writer;
-pub use input_writer::{InputWriter, LqemuInputWriter, MapKind, NopInputWriter, StdInputWriter};
+pub use input_writer::{InputWriter, MapKind, NopInputWriter, StdInputWriter};
 
 pub mod snapshots;
 pub use snapshots::{
@@ -77,33 +77,29 @@ pub enum EmulatorError {
     EndBeforeStart,
 }
 
-pub trait Emulator {
-    type Input: Input + Unpin;
-    type State: State + Unpin;
-
-    type CommandManager: CommandManager;
-    type InputWriter: InputWriter<Self::Input, Self::State>;
-    type Modules: EmulatorModuleTuple<Self::Input, Self::State> + HasStdFiltersTuple + Unpin;
+pub trait Emulator<I, S> {
+    type CommandManager: CommandManager<I, S>;
+    type Modules: EmulatorModuleTuple<I, S> + HasStdFiltersTuple + Unpin;
     type SnapshotManager: SnapshotManager;
 
     /// Run the emulator until the start event occurs, delivered through a breakpoint or custom instruction.
     fn start(&mut self) -> Result<()>;
 
-    fn first_exec(&mut self, state: &mut Self::State) -> Result<()>;
+    fn first_exec(&mut self, state: &mut S) -> Result<()>;
 
-    fn pre_exec(&mut self, state: &mut Self::State, input: &Self::Input) -> Result<()>;
+    fn pre_exec(&mut self, state: &mut S, input: &I) -> Result<()>;
 
-    fn exec_input(&mut self, state: &mut Self::State, input: &Self::Input) -> Result<ExitKind>;
+    fn exec_input(&mut self, state: &mut S, input: &I) -> Result<ExitKind>;
 
     fn post_exec<OT>(
         &mut self,
-        state: &mut Self::State,
-        input: &Self::Input,
+        state: &mut S,
+        input: &I,
         observers: &mut OT,
         exit_kind: &mut ExitKind,
     ) -> Result<()>
     where
-        OT: ObserversTuple<Self::State>;
+        OT: ObserversTuple<S>;
 
     fn on_crash(&mut self) -> Result<()>;
 
@@ -113,7 +109,7 @@ pub trait Emulator {
 
     fn add_breakpoint(
         &self,
-        bp: Breakpoint<<Self::CommandManager as CommandManager>::Commands>,
+        bp: Breakpoint<<Self::CommandManager as CommandManager<I, S>>::Commands>,
         enable: bool,
     ) -> BreakpointId;
 
@@ -127,11 +123,15 @@ pub trait Emulator {
 
     fn command_manager_mut(&mut self) -> &mut Self::CommandManager;
 
-    fn modules_mut(&mut self) -> &mut EmulatorModules<Self::Modules, Self::Input, Self::State>;
+    fn modules_mut(&mut self) -> &mut EmulatorModules<Self::Modules, I, S>;
 
     fn set_input_location(&mut self, input_location: &InputLocation) -> Result<()>;
 
-    fn max_input_size(&self, state: &mut Self::State, input: &Self::Input) -> usize;
+    fn max_input_size(&self, state: &mut S, input: &I) -> usize;
+
+    fn input_writer_mut(
+        &mut self,
+    ) -> &mut <Self::CommandManager as CommandManager<I, S>>::InputWriter;
 
     /// Read a value in memory of type T.
     ///
@@ -184,7 +184,8 @@ pub trait Emulator {
     fn entry_break(
         &mut self,
         addr: GuestAddr,
-        bp_cb: impl FnMut(Qemu) -> Result<<Self::CommandManager as CommandManager>::Commands> + 'static,
+        bp_cb: impl FnMut(Qemu) -> Result<<Self::CommandManager as CommandManager<I, S>>::Commands>
+        + 'static,
     ) -> Result<()>;
 
     delegate! {

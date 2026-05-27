@@ -29,7 +29,7 @@ use libaflmm::{
 };
 use libaflmm_qemu_sys::GuestAddr;
 use std::cell::OnceCell;
-use std::{cell::RefCell, collections::HashMap, fmt::Debug, marker::PhantomData, pin::Pin};
+use std::{cell::RefCell, collections::HashMap, fmt::Debug, pin::Pin};
 
 pub mod builder;
 pub use builder::StdEmulatorBuilder;
@@ -55,7 +55,7 @@ pub struct StdEmulator<C, CM, ET, I, IS, S, SM> {
     snapshot_manager: SM,
     modules: Pin<Box<EmulatorModules<ET, I, S>>>,
     command_manager: CM,
-    input_setter: IS,
+    input_writer: IS,
     breakpoints_by_addr: RefCell<HashMap<GuestAddr, Breakpoint<C>>>, // TODO: change to RC here
     breakpoints_by_id: RefCell<HashMap<BreakpointId, Breakpoint<C>>>,
     qemu: Qemu,
@@ -72,24 +72,19 @@ pub struct StdEmulator<C, CM, ET, I, IS, S, SM> {
     #[cfg(feature = "systemmode")]
     #[allow(dead_code)]
     maps: HashMap<MapKind, PhysMemoryChunk>,
-    phantom: PhantomData<(I, S)>,
 }
 
-impl<C, CM, ET, I, IW, S, SM> Emulator for StdEmulator<C, CM, ET, I, IW, S, SM>
+impl<C, CM, ET, I, IW, S, SM> Emulator<I, S> for StdEmulator<C, CM, ET, I, IW, S, SM>
 where
-    C: Command,
-    CM: CommandManager<Commands = C>,
+    C: Command<I, S>,
+    CM: CommandManager<I, S, Commands = C, InputWriter = IW>,
     ET: EmulatorModuleTuple<I, S> + HasStdFiltersTuple + Unpin,
     I: Input + Unpin,
     IW: InputWriter<I, S>,
     S: State + Unpin,
     SM: SnapshotManager,
 {
-    type Input = I;
-    type State = S;
-
     type CommandManager = CM;
-    type InputWriter = IW;
     type Modules = ET;
     type SnapshotManager = SM;
 
@@ -110,19 +105,19 @@ where
         }
     }
 
-    fn first_exec(&mut self, state: &mut Self::State) -> Result<()> {
+    fn first_exec(&mut self, state: &mut S) -> Result<()> {
         let qemu = self.qemu();
         self.modules_mut().first_exec_all(qemu, state)
     }
 
-    fn pre_exec(&mut self, state: &mut Self::State, input: &Self::Input) -> Result<()> {
+    fn pre_exec(&mut self, state: &mut S, input: &I) -> Result<()> {
         let qemu = self.qemu();
         self.modules_mut().pre_exec_all(qemu, state, input)?;
 
         Ok(())
     }
 
-    fn exec_input(&mut self, state: &mut Self::State, input: &Self::Input) -> Result<ExitKind> {
+    fn exec_input(&mut self, state: &mut S, input: &I) -> Result<ExitKind> {
         match unsafe { self.run(state, input)? } {
             EmulatorRunResult::EndOfRun(exit_kind) => Ok(exit_kind),
             EmulatorRunResult::ShutdownRequest => {
@@ -143,13 +138,13 @@ where
 
     fn post_exec<OT>(
         &mut self,
-        state: &mut Self::State,
-        input: &Self::Input,
+        state: &mut S,
+        input: &I,
         observers: &mut OT,
         exit_kind: &mut ExitKind,
     ) -> Result<()>
     where
-        OT: ObserversTuple<Self::State>,
+        OT: ObserversTuple<S>,
     {
         let qemu = self.qemu();
         self.modules_mut()
@@ -242,7 +237,11 @@ where
     }
 
     fn set_input_location(&mut self, input_location: &InputLocation) -> Result<()> {
-        self.input_setter.set_input_location(input_location.clone())
+        self.input_writer.set_input_location(input_location.clone())
+    }
+
+    fn input_writer_mut(&mut self) -> &mut IW {
+        &mut self.input_writer
     }
 
     #[cfg(feature = "systemmode")]
@@ -259,8 +258,8 @@ where
         self.start()
     }
 
-    fn max_input_size(&self, state: &mut Self::State, input: &Self::Input) -> usize {
-        self.input_setter.input_size(state, input)
+    fn max_input_size(&self, state: &mut S, input: &I) -> usize {
+        self.input_writer.input_size(state, input)
     }
 }
 
@@ -413,7 +412,7 @@ where
             modules: emulator_modules,
             command_manager,
             snapshot_manager,
-            input_setter: input_writer,
+            input_writer,
             // hooks_locked: true,
             print_commands: false,
             breakpoints_by_addr: RefCell::new(HashMap::new()),
@@ -421,7 +420,6 @@ where
             qemu,
             started: false,
             snapshot_id: OnceCell::new(),
-            phantom: PhantomData,
             #[cfg(feature = "systemmode")]
             maps: HashMap::new(),
             #[cfg(feature = "systemmode")]
@@ -438,8 +436,8 @@ where
 
 impl<C, CM, ET, I, IW, S, SM> StdEmulator<C, CM, ET, I, IW, S, SM>
 where
-    C: Command,
-    CM: CommandManager<Commands = C>,
+    C: Command<I, S>,
+    CM: CommandManager<I, S, Commands = C, InputWriter = IW>,
     ET: EmulatorModuleTuple<I, S> + HasStdFiltersTuple + Unpin,
     I: Input + Unpin,
     IW: InputWriter<I, S>,
@@ -520,7 +518,7 @@ where
         }
 
         // write the input
-        self.input_setter.write_input(self.qemu, state, input)?;
+        self.input_writer.write_input(self.qemu, state, input)?;
 
         unsafe { self.run_until_outcome() }
     }

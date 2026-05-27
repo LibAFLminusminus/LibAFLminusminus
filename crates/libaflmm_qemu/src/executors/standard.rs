@@ -1,5 +1,7 @@
 //! A `QEMU`-based executor for binary-only instrumentation in `LibAFL`
 
+use std::marker::PhantomData;
+
 use crate::emu::Emulator;
 use libaflmm::{
     Result,
@@ -15,36 +17,38 @@ use libaflmm::{
 };
 use libaflmm_bolts::tuples::RefIndexable;
 
-pub struct StdQemuExecutor<EMU, OT, PRE, POST> {
+pub struct StdQemuExecutor<EMU, I, OT, PRE, POST, S> {
     emulator: EMU,
     pre_exec: PRE,
     post_exec: POST,
     observers: OT,
+    phantom: PhantomData<(I, S)>,
 }
 
-impl<EMU, OT, PRE, POST> StdQemuExecutor<EMU, OT, PRE, POST> {
+impl<EMU, I, OT, PRE, POST, S> StdQemuExecutor<EMU, I, OT, PRE, POST, S> {
     pub fn new(
-        _state: &EMU::State, // necessary to anchor state type and make type inference working.
+        _state: &S, // necessary to anchor state type and make type inference working.
         emulator: EMU,
         pre_exec: PRE,
         post_exec: POST,
         observers: OT,
     ) -> Result<Self>
     where
-        EMU: Emulator,
-        PRE: FnMut(&mut EMU::State, &EMU::Input, &mut EMU) -> Result<()>,
-        POST: FnMut(&mut EMU::State, &EMU::Input, &mut EMU, &mut ExitKind) -> Result<()>,
+        EMU: Emulator<I, S>,
+        PRE: FnMut(&mut S, &I, &mut EMU) -> Result<()>,
+        POST: FnMut(&mut S, &I, &mut EMU, &mut ExitKind) -> Result<()>,
     {
         Ok(Self {
             emulator,
             pre_exec,
             post_exec,
             observers,
+            phantom: PhantomData,
         })
     }
 }
 
-impl<EMU, OT, PRE, POST> StdQemuExecutor<EMU, OT, PRE, POST> {
+impl<EMU, I, OT, PRE, POST, S> StdQemuExecutor<EMU, I, OT, PRE, POST, S> {
     #[cfg(feature = "systemmode")]
     pub fn break_on_timeout(&mut self) {
         super::break_on_timeout();
@@ -58,11 +62,11 @@ impl<EMU, OT, PRE, POST> StdQemuExecutor<EMU, OT, PRE, POST> {
     }
 }
 
-impl<EMU, OT, PRE, POST> DependencyResolver for StdQemuExecutor<EMU, OT, PRE, POST> {}
+impl<EMU, I, OT, PRE, POST, S> DependencyResolver for StdQemuExecutor<EMU, I, OT, PRE, POST, S> {}
 
-impl<EMU, I, OT, PRE, POST, S> Executor<I, S> for StdQemuExecutor<EMU, OT, PRE, POST>
+impl<EMU, I, OT, PRE, POST, S> Executor<I, S> for StdQemuExecutor<EMU, I, OT, PRE, POST, S>
 where
-    EMU: Emulator<Input = I, State = S>,
+    EMU: Emulator<I, S>,
     OT: ObserversTuple<S>,
     PRE: FnMut(&mut S, &I, &mut EMU) -> Result<()>,
     POST: FnMut(&mut S, &I, &mut EMU, &mut ExitKind) -> Result<()>,

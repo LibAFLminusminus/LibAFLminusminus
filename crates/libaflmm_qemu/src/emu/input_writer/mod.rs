@@ -10,12 +10,12 @@ pub use lqemu::LqemuInputWriter;
 #[cfg(feature = "nyx")]
 pub mod nyx;
 #[cfg(feature = "nyx")]
-pub use nyx::StdNyxInputSetter;
+pub use nyx::StdNyxInputWriter;
 
 #[cfg(not(feature = "nyx"))]
 pub type StdInputWriter = LqemuInputWriter;
 #[cfg(feature = "nyx")]
-pub type StdInputSetter = StdNyxInputSetter;
+pub type StdInputWriter = StdNyxInputWriter;
 
 pub trait InputWriter<I, S> {
     /// Set input in the Emulator.

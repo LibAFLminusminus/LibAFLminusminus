@@ -1,13 +1,12 @@
-#[cfg(feature = "usermode")]
-use std::slice;
-use std::{ffi::CStr, result, sync::OnceLock};
-
 use enum_map::{EnumMap, enum_map};
 use libaflmm::executors::ExitKind;
 #[cfg(feature = "systemmode")]
 use libaflmm_qemu_sys::GuestPhysAddr;
 use libaflmm_qemu_sys::{GuestAddr, GuestVirtAddr};
 use libc::c_uint;
+#[cfg(feature = "usermode")]
+use std::slice;
+use std::{ffi::CStr, result, sync::OnceLock};
 
 use super::{
     AddressAllowCommand, EndCommand, LoadCommand, LqprintfCommand, NativeExitKind, SaveCommand,

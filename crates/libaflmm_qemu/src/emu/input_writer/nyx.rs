@@ -1,16 +1,18 @@
-use crate::{
-    EmulatorDriverError, InputSetter, Qemu, emu::standard::systemmode::SystemInputLocation,
-};
-use std::{cell::OnceCell, cmp::min, ptr, slice::from_raw_parts};
+use crate::{EmulatorError, Result, emu::InputLocation, emu::InputWriter, qemu::Qemu};
+use libaflmm::{inputs::Input, states::State};
+use std::cell::OnceCell;
+use std::cmp::min;
+use std::ptr;
+use std::slice;
 
 #[derive(Clone, Debug)]
-pub struct StdNyxInputSetter {
-    input_location: OnceCell<SystemInputLocation>,
-    input_struct_location: OnceCell<SystemInputLocation>,
+pub struct StdNyxInputWriter {
+    input_location: OnceCell<InputLocation>,
+    input_struct_location: OnceCell<InputLocation>,
     max_input_size: usize,
 }
 
-impl Default for StdNyxInputSetter {
+impl Default for StdNyxInputWriter {
     fn default() -> Self {
         Self {
             input_location: OnceCell::new(),
@@ -20,33 +22,26 @@ impl Default for StdNyxInputSetter {
     }
 }
 
-pub trait NyxInputSetter<I, S>: InputSetter<I, S> {
-    fn set_input_struct_location(
-        &mut self,
-        location: SystemInputLocation,
-    ) -> Result<(), EmulatorDriverError>;
+pub trait NyxInputWriter<I, S>: InputWriter<I, S> {
+    fn set_input_struct_location(&mut self, location: InputLocation) -> Result<()>;
 
-    fn input_struct_location(&self) -> Option<&SystemInputLocation>;
+    fn input_struct_location(&self) -> Option<&InputLocation>;
 
     fn max_input_size(&self) -> usize;
 }
 
-impl StdNyxInputSetter {
+impl StdNyxInputWriter {
     pub fn max_input_size(&self) -> usize {
         self.max_input_size
     }
 }
 
-impl<I, S> InputSetter<I, S> for StdNyxInputSetter
+impl<I, S> InputWriter<I, S> for StdNyxInputWriter
 where
-    I: HasTargetBytes,
+    I: Input,
+    S: State<Input = I>,
 {
-    fn write_input(
-        &mut self,
-        _qemu: Qemu,
-        _state: &mut S,
-        input: &I,
-    ) -> Result<(), EmulatorDriverError> {
+    fn write_input(&mut self, _qemu: Qemu, _state: &mut S, input: &I) -> Result<()> {
         let input_len =
             i32::try_from(min(self.max_input_size, input.target_bytes().len())).unwrap();
 
@@ -56,7 +51,7 @@ where
         };
 
         let kafl_payload_buf = unsafe {
-            from_raw_parts(
+            slice::from_raw_parts(
                 ptr::from_ref(&kafl_payload) as *const u8,
                 size_of::<libvharness_sys::kAFL_payload>(),
             )
@@ -77,34 +72,28 @@ where
         Ok(())
     }
 
-    fn set_input_location(
-        &mut self,
-        location: SystemInputLocation,
-    ) -> Result<(), EmulatorDriverError> {
+    fn set_input_location(&mut self, location: InputLocation) -> Result<()> {
         self.input_location
             .set(location)
-            .or(Err(EmulatorDriverError::MultipleInputLocationDefinition))
+            .or(Err(EmulatorError::MultipleInputLocationDefinition))
     }
 
-    fn input_location(&self) -> Option<&SystemInputLocation> {
+    fn input_location(&self) -> Option<&InputLocation> {
         self.input_location.get()
     }
 }
 
-impl<I, S> NyxInputSetter<I, S> for StdNyxInputSetter
+impl<I, S> NyxInputWriter<I, S> for StdNyxInputWriter
 where
-    I: HasTargetBytes,
+    I: Input,
 {
-    fn set_input_struct_location(
-        &mut self,
-        location: SystemInputLocation,
-    ) -> Result<(), EmulatorDriverError> {
+    fn set_input_struct_location(&mut self, location: InputLocation) -> Result<()> {
         self.input_struct_location
             .set(location)
-            .or(Err(EmulatorDriverError::MultipleInputLocationDefinition))
+            .or(Err(EmulatorError::MultipleInputLocationDefinition))
     }
 
-    fn input_struct_location(&self) -> Option<&SystemInputLocation> {
+    fn input_struct_location(&self) -> Option<&InputLocation> {
         self.input_struct_location.get()
     }
 

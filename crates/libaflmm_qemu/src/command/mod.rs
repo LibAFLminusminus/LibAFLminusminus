@@ -1,7 +1,7 @@
 use crate::{
     Result,
     arch::{GuestReg, Regs},
-    emu::{Emulator, EmulatorRunResult},
+    emu::{Emulator, EmulatorRunResult, InputWriter, NopInputWriter},
     qemu::{Qemu, QemuRWError},
     sync_exit::ExitArgs,
 };
@@ -75,13 +75,14 @@ macro_rules! define_std_command_manager_inner {
                     command::{CommandManager, CommandError, NativeCommandParser, Command},
                     arch::get_exit_arch_regs,
                     sync_exit::ExitArgs,
-                    emu::EmulatorRunResult,
+                    emu::{EmulatorRunResult, StdInputWriter},
                     qemu::Qemu,
                     arch::Regs,
                     Result,
 
                 };
                 use std::ffi::c_uint;
+                use libaflmm::{inputs::Input, states::State};
 
                 pub struct [<$name CommandManager>] {
                     has_started: bool,
@@ -109,8 +110,13 @@ macro_rules! define_std_command_manager_inner {
                     }
                 }
 
-                impl CommandManager for [<$name CommandManager>] {
+                impl<I, S> CommandManager<I, S> for [<$name CommandManager>]
+                where
+                    I: Input + Unpin,
+                    S: State<Input = I> + Unpin,
+                {
                     type Commands = [<$name Commands>];
+                    type InputWriter = StdInputWriter;
 
                     fn start(&mut self) -> bool {
                         let tmp = self.has_started;
@@ -142,10 +148,14 @@ macro_rules! define_std_command_manager_inner {
                     $($command([<$command Command>])),+,
                 }
 
-                impl Command for [<$name Commands>] {
+                impl<I, S> Command<I, S> for [<$name Commands>]
+                where
+                    I: Unpin,
+                    S: Unpin,
+                {
                     fn usable_at_runtime(&self) -> bool {
                         match self {
-                            $([<$name Commands>]::$command(cmd) => <[<$command Command>] as Command>::usable_at_runtime(cmd)),+
+                            $([<$name Commands>]::$command(cmd) => <[<$command Command>] as Command<I, S>>::usable_at_runtime(cmd)),+
                         }
                     }
 
@@ -154,7 +164,7 @@ macro_rules! define_std_command_manager_inner {
                         ret_reg: Option<Regs>
                     ) -> Result<Option<EmulatorRunResult>>
                     where
-                        EMU: Emulator
+                        EMU: Emulator<I, S>
                     {
                         match self {
                             $([<$name Commands>]::$command(cmd) => cmd.run(emu, ret_reg)),+
@@ -175,7 +185,7 @@ macro_rules! define_std_command_manager_inner {
 }
 
 pub trait NativeCommandParser {
-    type OutputCommand: Command;
+    type OutputCommand;
 
     const COMMAND_ID: c_uint;
 
@@ -185,8 +195,9 @@ pub trait NativeCommandParser {
     ) -> result::Result<Self::OutputCommand, CommandError>;
 }
 
-pub trait CommandManager: Sized + Debug {
-    type Commands: Command;
+pub trait CommandManager<I, S>: Sized + Debug {
+    type Commands: Command<I, S>;
+    type InputWriter: InputWriter<I, S>;
 
     /// Returns whether the command manager has been started already.
     fn has_started(&self) -> bool;
@@ -198,7 +209,7 @@ pub trait CommandManager: Sized + Debug {
     fn parse(&self, qemu: Qemu) -> result::Result<Self::Commands, CommandError>;
 }
 
-pub trait Command: Clone + Debug {
+pub trait Command<I, S>: Clone + Debug {
     /// Used to know whether the command can be run during a backdoor, or if it is necessary to go out of
     /// the QEMU VM to run the command.
     // TODO: Use const when stabilized
@@ -208,7 +219,7 @@ pub trait Command: Clone + Debug {
     ///     - `ret_reg`: The register in which the guest return value should be written, if any.
     /// Returns
     ///     - `InnerHandlerResult`: How the high-level handler should behave
-    fn run<EMU: Emulator>(
+    fn run<EMU: Emulator<I, S>>(
         &self,
         emu: &mut EMU,
         ret_reg: Option<Regs>,
@@ -237,8 +248,9 @@ pub enum CommandError {
 
 #[derive(Debug, Copy, Clone)]
 pub struct NopCommandManager;
-impl CommandManager for NopCommandManager {
+impl<I, S> CommandManager<I, S> for NopCommandManager {
     type Commands = NopCommand;
+    type InputWriter = NopInputWriter;
 
     fn has_started(&self) -> bool {
         false
@@ -262,12 +274,12 @@ impl Display for NopCommand {
     }
 }
 
-impl Command for NopCommand {
+impl<I, S> Command<I, S> for NopCommand {
     fn usable_at_runtime(&self) -> bool {
         true
     }
 
-    fn run<EMU: Emulator>(
+    fn run<EMU: Emulator<I, S>>(
         &self,
         _emu: &mut EMU,
         _ret_reg: Option<Regs>,

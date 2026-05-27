@@ -1,18 +1,16 @@
+use super::{
+    AcquireCommand, GetHostConfigCommand, GetPayloadCommand, NextPayloadCommand, PanicCommand,
+    PrintfCommand, RangeSubmitCommand, ReleaseCommand, SetAgentConfigCommand, SubmitCR3Command,
+    SubmitPanicCommand, UserAbortCommand,
+};
 use crate::{
-    GuestAddr, GuestReg, GuestVirtAddr, IsSnapshotManager, Qemu, QemuMemoryChunk, Regs,
-    StdEmulatorDriver,
-    command::{
-        CommandError, NativeCommandParser,
-        nyx::{
-            AcquireCommand, GetHostConfigCommand, GetPayloadCommand, NextPayloadCommand,
-            NyxCommandManager, PanicCommand, PrintfCommand, RangeSubmitCommand, ReleaseCommand,
-            SetAgentConfigCommand, SubmitCR3Command, SubmitPanicCommand, UserAbortCommand,
-        },
-    },
-    modules::{EmulatorModuleTuple, utils::filters::HasStdFiltersTuple},
+    arch::{GuestReg, Regs},
+    command::{CommandError, NativeCommandParser},
+    qemu::{Qemu, QemuMemoryChunk},
     sync_exit::ExitArgs,
 };
 use enum_map::EnumMap;
+use libaflmm_qemu_sys::{GuestAddr, GuestVirtAddr};
 use libc::c_uint;
 use std::ffi::CStr;
 
@@ -31,10 +29,7 @@ fn get_guest_string(qemu: Qemu, string_ptr_reg: Regs) -> Result<String, CommandE
 }
 
 pub struct AcquireCommandParser;
-impl<C, CM, ED, ET, I, S, SM> NativeCommandParser<C, CM, ED, ET, I, S, SM> for AcquireCommandParser
-where
-    I: HasTargetBytes,
-{
+impl NativeCommandParser for AcquireCommandParser {
     type OutputCommand = AcquireCommand;
 
     const COMMAND_ID: c_uint = libvharness_sys::HYPERCALL_KAFL_ACQUIRE;
@@ -48,14 +43,7 @@ where
 }
 
 pub struct GetPayloadCommandParser;
-impl<C, ET, I, S, SM> NativeCommandParser<C, NyxCommandManager<S>, StdEmulatorDriver, ET, I, S, SM>
-    for GetPayloadCommandParser
-where
-    ET: EmulatorModuleTuple<I, S>,
-    I: HasTargetBytes + Unpin,
-    S: Unpin,
-    SM: IsSnapshotManager,
-{
+impl NativeCommandParser for GetPayloadCommandParser {
     type OutputCommand = GetPayloadCommand;
 
     const COMMAND_ID: c_uint = libvharness_sys::HYPERCALL_KAFL_GET_PAYLOAD;
@@ -71,14 +59,7 @@ where
 }
 
 pub struct SubmitCR3CommandParser;
-impl<C, ET, I, S, SM> NativeCommandParser<C, NyxCommandManager<S>, StdEmulatorDriver, ET, I, S, SM>
-    for SubmitCR3CommandParser
-where
-    ET: EmulatorModuleTuple<I, S> + HasStdFiltersTuple,
-    I: HasTargetBytes + Unpin,
-    S: Unpin,
-    SM: IsSnapshotManager,
-{
+impl NativeCommandParser for SubmitCR3CommandParser {
     type OutputCommand = SubmitCR3Command;
     const COMMAND_ID: c_uint = libvharness_sys::HYPERCALL_KAFL_SUBMIT_CR3;
 
@@ -91,14 +72,7 @@ where
 }
 
 pub struct RangeSubmitCommandParser;
-impl<C, ET, I, S, SM> NativeCommandParser<C, NyxCommandManager<S>, StdEmulatorDriver, ET, I, S, SM>
-    for RangeSubmitCommandParser
-where
-    ET: EmulatorModuleTuple<I, S> + HasStdFiltersTuple,
-    I: HasTargetBytes + Unpin,
-    S: Unpin,
-    SM: IsSnapshotManager,
-{
+impl NativeCommandParser for RangeSubmitCommandParser {
     type OutputCommand = RangeSubmitCommand;
     const COMMAND_ID: c_uint = libvharness_sys::HYPERCALL_KAFL_RANGE_SUBMIT;
 
@@ -119,14 +93,7 @@ where
 }
 
 pub struct SubmitPanicCommandParser;
-impl<C, ET, I, S, SM> NativeCommandParser<C, NyxCommandManager<S>, StdEmulatorDriver, ET, I, S, SM>
-    for SubmitPanicCommandParser
-where
-    ET: EmulatorModuleTuple<I, S>,
-    I: HasTargetBytes + Unpin,
-    S: Unpin,
-    SM: IsSnapshotManager,
-{
+impl NativeCommandParser for SubmitPanicCommandParser {
     type OutputCommand = SubmitPanicCommand;
     const COMMAND_ID: c_uint = libvharness_sys::HYPERCALL_KAFL_SUBMIT_PANIC;
 
@@ -139,14 +106,7 @@ where
 }
 
 pub struct PanicCommandParser;
-impl<C, ET, I, S, SM> NativeCommandParser<C, NyxCommandManager<S>, StdEmulatorDriver, ET, I, S, SM>
-    for PanicCommandParser
-where
-    ET: EmulatorModuleTuple<I, S>,
-    I: HasTargetBytes + Unpin,
-    S: Unpin,
-    SM: IsSnapshotManager,
-{
+impl NativeCommandParser for PanicCommandParser {
     type OutputCommand = PanicCommand;
     const COMMAND_ID: c_uint = libvharness_sys::HYPERCALL_KAFL_PANIC;
 
@@ -159,14 +119,7 @@ where
 }
 
 pub struct UserAbortCommandParser;
-impl<C, ET, I, S, SM> NativeCommandParser<C, NyxCommandManager<S>, StdEmulatorDriver, ET, I, S, SM>
-    for UserAbortCommandParser
-where
-    ET: EmulatorModuleTuple<I, S>,
-    I: HasTargetBytes + Unpin,
-    S: Unpin,
-    SM: IsSnapshotManager,
-{
+impl NativeCommandParser for UserAbortCommandParser {
     type OutputCommand = UserAbortCommand;
     const COMMAND_ID: c_uint = libvharness_sys::HYPERCALL_KAFL_USER_ABORT;
 
@@ -181,14 +134,7 @@ where
 }
 
 pub struct NextPayloadCommandParser;
-impl<C, ET, I, S, SM> NativeCommandParser<C, NyxCommandManager<S>, StdEmulatorDriver, ET, I, S, SM>
-    for NextPayloadCommandParser
-where
-    ET: EmulatorModuleTuple<I, S> + HasStdFiltersTuple,
-    I: HasTargetBytes + Unpin,
-    S: Unpin,
-    SM: IsSnapshotManager,
-{
+impl NativeCommandParser for NextPayloadCommandParser {
     type OutputCommand = NextPayloadCommand;
 
     const COMMAND_ID: c_uint = libvharness_sys::HYPERCALL_KAFL_NEXT_PAYLOAD;
@@ -202,14 +148,7 @@ where
 }
 
 pub struct ReleaseCommandParser;
-impl<C, ET, I, S, SM> NativeCommandParser<C, NyxCommandManager<S>, StdEmulatorDriver, ET, I, S, SM>
-    for ReleaseCommandParser
-where
-    ET: EmulatorModuleTuple<I, S>,
-    I: HasTargetBytes + Unpin,
-    S: Unpin,
-    SM: IsSnapshotManager,
-{
+impl NativeCommandParser for ReleaseCommandParser {
     type OutputCommand = ReleaseCommand;
 
     const COMMAND_ID: c_uint = libvharness_sys::HYPERCALL_KAFL_RELEASE;
@@ -223,11 +162,7 @@ where
 }
 
 pub struct GetHostConfigCommandParser;
-impl<C, CM, ED, ET, I, S, SM> NativeCommandParser<C, CM, ED, ET, I, S, SM>
-    for GetHostConfigCommandParser
-where
-    I: HasTargetBytes,
-{
+impl NativeCommandParser for GetHostConfigCommandParser {
     type OutputCommand = GetHostConfigCommand;
 
     const COMMAND_ID: c_uint = libvharness_sys::HYPERCALL_KAFL_GET_HOST_CONFIG;
@@ -247,11 +182,7 @@ where
 }
 
 pub struct SetAgentConfigCommandParser;
-impl<C, CM, ED, ET, I, S, SM> NativeCommandParser<C, CM, ED, ET, I, S, SM>
-    for SetAgentConfigCommandParser
-where
-    I: HasTargetBytes,
-{
+impl NativeCommandParser for SetAgentConfigCommandParser {
     type OutputCommand = SetAgentConfigCommand;
 
     const COMMAND_ID: c_uint = libvharness_sys::HYPERCALL_KAFL_SET_AGENT_CONFIG;
@@ -272,10 +203,7 @@ where
 }
 
 pub struct PrintfCommandParser;
-impl<C, CM, ED, ET, I, S, SM> NativeCommandParser<C, CM, ED, ET, I, S, SM> for PrintfCommandParser
-where
-    I: HasTargetBytes,
-{
+impl NativeCommandParser for PrintfCommandParser {
     type OutputCommand = PrintfCommand;
 
     const COMMAND_ID: c_uint = libvharness_sys::HYPERCALL_KAFL_PRINTF;
