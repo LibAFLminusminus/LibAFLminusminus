@@ -1,6 +1,6 @@
 [package]
-name = "pylibafl"
-description = "Python bindings for LibAFL"
+name = "pylibaflmm"
+description = "Python bindings for LibAFL--"
 keywords = ["fuzzing", "testing", "security", "python"]
 categories = ["development-tools::testing", "emulators", "embedded", "os"]
 
@@ -28,7 +28,7 @@ libaflmm_qemu = { workspace = true, features = ["python"] }
 pyo3-build-config = { workspace = true }
 
 [lib]
-name = "pylibafl"
+name = "pylibaflmm"
 crate-type = ["cdylib"]
 
 # TODO: find a way to fix this when a solution is found

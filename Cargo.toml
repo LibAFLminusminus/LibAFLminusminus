@@ -47,7 +47,6 @@ default-members = [
 ]
 
 exclude = [
-  "bindings/pylibafl",
   "docs",
   "fuzzers",
   "scripts",
