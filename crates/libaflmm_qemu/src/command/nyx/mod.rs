@@ -45,13 +45,14 @@ macro_rules! define_nyx_command_manager {
                     command::{CommandManager, CommandError, NativeCommandParser, Command},
                     arch::get_exit_arch_regs,
                     sync_exit::ExitArgs,
-                    emu::EmulatorRunResult,
+                    emu::{EmulatorRunResult, input_writer::StdNyxInputWriter},
                     qemu::Qemu,
                     arch::Regs,
                     Result,
 
                 };
                 use std::ffi::c_uint;
+                use libaflmm::{inputs::Input, states::State};
 
                 pub struct [<$name CommandManager>] {
                     has_started: bool,
@@ -79,8 +80,13 @@ macro_rules! define_nyx_command_manager {
                     }
                 }
 
-                impl CommandManager for [<$name CommandManager>] {
+                impl<I, S> CommandManager<I, S> for [<$name CommandManager>]
+                where
+                    I: Input + Unpin,
+                    S: State<Input = I> + Unpin,
+                {
                     type Commands = [<$name Commands>];
+                    type InputWriter = StdNyxInputWriter;
 
                     fn start(&mut self) -> bool {
                         let tmp = self.has_started;
@@ -116,10 +122,14 @@ macro_rules! define_nyx_command_manager {
                     $($command([<$command Command>])),+,
                 }
 
-                impl Command for [<$name Commands>] {
+                impl<I, S> Command<I, S> for [<$name Commands>]
+                where
+                    I: Unpin,
+                    S: Unpin,
+                {
                     fn usable_at_runtime(&self) -> bool {
                         match self {
-                            $([<$name Commands>]::$command(cmd) => <[<$command Command>] as Command>::usable_at_runtime(cmd)),+
+                            $([<$name Commands>]::$command(cmd) => <[<$command Command>] as Command<I, S>>::usable_at_runtime(cmd)),+
                         }
                     }
 
@@ -128,7 +138,7 @@ macro_rules! define_nyx_command_manager {
                         ret_reg: Option<Regs>
                     ) -> Result<Option<EmulatorRunResult>>
                     where
-                        EMU: Emulator
+                        EMU: Emulator<I, S>
                     {
                         match self {
                             $([<$name Commands>]::$command(cmd) => cmd.run(emu, ret_reg)),+
@@ -182,12 +192,12 @@ define_nyx_command_manager!(
 
 #[derive(Debug, Clone)]
 pub struct AcquireCommand;
-impl Command for AcquireCommand {
+impl<I, S> Command<I, S> for AcquireCommand {
     fn usable_at_runtime(&self) -> bool {
         false
     }
 
-    fn run<EMU: Emulator>(
+    fn run<EMU: Emulator<I, S>>(
         &self,
         _emu: &mut EMU,
         _ret_reg: Option<Regs>,
@@ -210,12 +220,16 @@ impl GetPayloadCommand {
     }
 }
 
-impl Command for GetPayloadCommand {
+impl<I, S> Command<I, S> for GetPayloadCommand
+where
+    I: Unpin,
+    S: Unpin,
+{
     fn usable_at_runtime(&self) -> bool {
         false
     }
 
-    fn run<EMU: Emulator>(
+    fn run<EMU: Emulator<I, S>>(
         &self,
         emu: &mut EMU,
         _ret_reg: Option<Regs>,
@@ -254,12 +268,12 @@ impl Command for GetPayloadCommand {
 #[derive(Debug, Clone)]
 pub struct NextPayloadCommand;
 
-impl Command for NextPayloadCommand {
+impl<I, S> Command<I, S> for NextPayloadCommand {
     fn usable_at_runtime(&self) -> bool {
         false
     }
 
-    fn run<EMU: Emulator>(
+    fn run<EMU: Emulator<I, S>>(
         &self,
         emu: &mut EMU,
         _ret_reg: Option<Regs>,
@@ -301,12 +315,12 @@ impl Command for NextPayloadCommand {
 #[derive(Debug, Clone)]
 pub struct SubmitCR3Command;
 
-impl Command for SubmitCR3Command {
+impl<I, S> Command<I, S> for SubmitCR3Command {
     fn usable_at_runtime(&self) -> bool {
         true
     }
 
-    fn run<EMU: Emulator>(
+    fn run<EMU: Emulator<I, S>>(
         &self,
         emu: &mut EMU,
         _ret_reg: Option<Regs>,
@@ -340,12 +354,12 @@ impl RangeSubmitCommand {
     }
 }
 
-impl Command for RangeSubmitCommand {
+impl<I, S> Command<I, S> for RangeSubmitCommand {
     fn usable_at_runtime(&self) -> bool {
         true
     }
 
-    fn run<EMU: Emulator>(
+    fn run<EMU: Emulator<I, S>>(
         &self,
         emu: &mut EMU,
         _ret_reg: Option<Regs>,
@@ -374,12 +388,12 @@ impl Command for RangeSubmitCommand {
 #[derive(Debug, Clone)]
 pub struct PanicCommand;
 
-impl Command for PanicCommand {
+impl<I, S> Command<I, S> for PanicCommand {
     fn usable_at_runtime(&self) -> bool {
         true
     }
 
-    fn run<EMU: Emulator>(
+    fn run<EMU: Emulator<I, S>>(
         &self,
         emu: &mut EMU,
         _ret_reg: Option<Regs>,
@@ -407,12 +421,12 @@ impl Command for PanicCommand {
 #[derive(Debug, Clone)]
 pub struct SubmitPanicCommand;
 
-impl Command for SubmitPanicCommand {
+impl<I, S> Command<I, S> for SubmitPanicCommand {
     fn usable_at_runtime(&self) -> bool {
         true
     }
 
-    fn run<EMU: Emulator>(
+    fn run<EMU: Emulator<I, S>>(
         &self,
         _emu: &mut EMU,
         _ret_reg: Option<Regs>,
@@ -433,12 +447,12 @@ impl UserAbortCommand {
     }
 }
 
-impl Command for UserAbortCommand {
+impl<I, S> Command<I, S> for UserAbortCommand {
     fn usable_at_runtime(&self) -> bool {
         true
     }
 
-    fn run<EMU: Emulator>(
+    fn run<EMU: Emulator<I, S>>(
         &self,
         _emu: &mut EMU,
         _ret_reg: Option<Regs>,
@@ -451,12 +465,12 @@ impl Command for UserAbortCommand {
 
 #[derive(Debug, Clone)]
 pub struct ReleaseCommand;
-impl Command for ReleaseCommand {
+impl<I, S> Command<I, S> for ReleaseCommand {
     fn usable_at_runtime(&self) -> bool {
         false
     }
 
-    fn run<EMU: Emulator>(
+    fn run<EMU: Emulator<I, S>>(
         &self,
         emu: &mut EMU,
         _ret_reg: Option<Regs>,
@@ -500,12 +514,12 @@ impl GetHostConfigCommand {
     }
 }
 
-impl Command for GetHostConfigCommand {
+impl<I, S> Command<I, S> for GetHostConfigCommand {
     fn usable_at_runtime(&self) -> bool {
         false
     }
 
-    fn run<EMU: Emulator>(
+    fn run<EMU: Emulator<I, S>>(
         &self,
         emu: &mut EMU,
         _ret_reg: Option<Regs>,
@@ -549,12 +563,12 @@ impl PrintfCommand {
     }
 }
 
-impl Command for PrintfCommand {
+impl<I, S> Command<I, S> for PrintfCommand {
     fn usable_at_runtime(&self) -> bool {
         false
     }
 
-    fn run<EMU: Emulator>(
+    fn run<EMU: Emulator<I, S>>(
         &self,
         _emu: &mut EMU,
         _ret_reg: Option<Regs>,
@@ -576,12 +590,12 @@ impl SetAgentConfigCommand {
     }
 }
 
-impl Command for SetAgentConfigCommand {
+impl<I, S> Command<I, S> for SetAgentConfigCommand {
     fn usable_at_runtime(&self) -> bool {
         false
     }
 
-    fn run<EMU: Emulator>(
+    fn run<EMU: Emulator<I, S>>(
         &self,
         _emu: &mut EMU,
         _ret_reg: Option<Regs>,

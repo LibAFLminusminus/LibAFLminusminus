@@ -28,8 +28,8 @@ pub mod nyx;
 #[cfg(feature = "nyx")]
 pub use nyx::{
     AcquireCommand, GetHostConfigCommand, GetPayloadCommand, NextPayloadCommand, NyxCommandManager,
-    PanicCommand, PrintfCommand, RangeSubmitCommand, ReleaseCommand, SetAgentConfigCommand,
-    SubmitCR3Command, SubmitPanicCommand, UserAbortCommand,
+    NyxCommands, PanicCommand, PrintfCommand, RangeSubmitCommand, ReleaseCommand,
+    SetAgentConfigCommand, SubmitCR3Command, SubmitPanicCommand, UserAbortCommand,
 };
 
 #[cfg(not(feature = "nyx"))]

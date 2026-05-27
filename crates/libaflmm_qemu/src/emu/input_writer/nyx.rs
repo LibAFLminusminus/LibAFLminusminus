@@ -81,11 +81,20 @@ where
     fn input_location(&self) -> Option<&InputLocation> {
         self.input_location.get()
     }
+
+    fn input_size(&self, state: &mut S, input: &I) -> usize {
+        if let Some(input_location) = self.input_location.get() {
+            input_location.input_size(state.context_mut().len(input))
+        } else {
+            0
+        }
+    }
 }
 
 impl<I, S> NyxInputWriter<I, S> for StdNyxInputWriter
 where
     I: Input,
+    S: State<Input = I>,
 {
     fn set_input_struct_location(&mut self, location: InputLocation) -> Result<()> {
         self.input_struct_location
