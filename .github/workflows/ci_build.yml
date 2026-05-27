@@ -72,3 +72,23 @@ jobs:
           cache: ${{ vars.RUNS_ON != '' }}
       - name: Build LibAFLmm QEMU ${{ matrix.mode }} - ${{ matrix.arch }}
         run: cargo build -p libaflmm_qemu --no-default-features --features ${{ matrix.mode }},${{ matrix.arch }}
+
+  ubuntu-qemu-nyx:
+    runs-on: ${{ fromjson(vars.runs_on || '["self-hosted","linux"]') }}
+    if: contains( github.event.pull_request.labels.*.name, 'qemu-full') || contains( github.event.pull_request.labels.*.name, 'pre-release')
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: true
+      - uses: ./.github/actions/apt
+        with:
+          qemu: true
+      - uses: ./.github/actions/setup-llvm
+        with:
+          version: ${{ vars.MAIN_LLVM_VERSION }}
+      - uses: ./.github/actions/setup-rust
+        with:
+          cache-key: ubuntu
+          cache: ${{ vars.RUNS_ON != '' }}
+      - name: Build LibAFLmm QEMU with Nyx API (systemmode - x86_64)
+        run: cargo build -p libaflmm_qemu --no-default-features --features systemmode,x86_64,nyx

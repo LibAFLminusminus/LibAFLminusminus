@@ -7,7 +7,7 @@ use pyo3::{prelude::*, types::PyInt};
 #[cfg(feature = "python")]
 use std::convert::Infallible;
 
-#[cfg(all(feature = "usermode", not(feature = "hexagon")))]
+#[cfg(not(feature = "hexagon"))]
 pub use guest::capstone;
 #[cfg(feature = "usermode")]
 pub use guest::syscalls;
