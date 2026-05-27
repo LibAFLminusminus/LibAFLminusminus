@@ -1,11 +1,13 @@
-use crate::{CallingConvention, GuestAddr, QemuRWError, QemuRWErrorKind, sync_exit::ExitArgs};
+use crate::{
+    GuestAddr,
+    qemu::{ArchExtras, CPU, CallingConvention, QemuRWError, QemuRWErrorKind},
+    sync_exit::ExitArgs,
+};
 use capstone::arch::BuildsCapstone;
 use enum_map::{EnumMap, enum_map};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
-#[cfg(feature = "python")]
-#[allow(unused)]
-use pyo3::prelude::*;
 use std::sync::OnceLock;
+use strum_macros::EnumIter;
 
 pub use syscall_numbers::aarch64 as syscalls;
 
@@ -86,7 +88,7 @@ pub fn capstone() -> capstone::arch::arm64::ArchCapstoneBuilder {
 
 pub type GuestReg = u64;
 
-impl crate::ArchExtras for crate::CPU {
+impl ArchExtras for CPU {
     fn read_return_address(&self) -> Result<GuestAddr, QemuRWError> {
         self.read_reg(Regs::Lr).map(|res| res as GuestAddr)
     }

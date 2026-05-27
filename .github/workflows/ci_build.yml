@@ -70,5 +70,5 @@ jobs:
         with:
           cache-key: ubuntu
           cache: ${{ vars.RUNS_ON != '' }}
-      - name: Build LibAFLmm QEMU {{ matrix.mode }} - {{ matrix.arch }}
-        run: cargo build -p libaflmm_qemu --no-default-features --features {{ matrix.mode }},{{ matrix.arch }}
+      - name: Build LibAFLmm QEMU ${{ matrix.mode }} - ${{ matrix.arch }}
+        run: cargo build -p libaflmm_qemu --no-default-features --features ${{ matrix.mode }},${{ matrix.arch }}
