@@ -358,11 +358,7 @@ where
         true
     }
 
-    fn run<EMU>(
-        &self,
-        _emu: &mut EMU,
-        _ret_reg: Option<Regs>,
-    ) -> Result<Option<EmulatorRunResult>>
+    fn run<EMU>(&self, _emu: &mut EMU, _ret_reg: Option<Regs>) -> Result<Option<EmulatorRunResult>>
     where
         EMU: Emulator<I, S, CommandManager = CM>,
     {

@@ -222,11 +222,7 @@ where
     ///     - `ret_reg`: The register in which the guest return value should be written, if any.
     /// Returns
     ///     - `InnerHandlerResult`: How the high-level handler should behave
-    fn run<EMU>(
-        &self,
-        emu: &mut EMU,
-        ret_reg: Option<Regs>,
-    ) -> Result<Option<EmulatorRunResult>>
+    fn run<EMU>(&self, emu: &mut EMU, ret_reg: Option<Regs>) -> Result<Option<EmulatorRunResult>>
     where
         EMU: Emulator<I, S, CommandManager = CM>;
 }
@@ -287,11 +283,7 @@ where
         true
     }
 
-    fn run<EMU>(
-        &self,
-        _emu: &mut EMU,
-        _ret_reg: Option<Regs>,
-    ) -> Result<Option<EmulatorRunResult>>
+    fn run<EMU>(&self, _emu: &mut EMU, _ret_reg: Option<Regs>) -> Result<Option<EmulatorRunResult>>
     where
         EMU: Emulator<I, S, CommandManager = CM>,
     {
