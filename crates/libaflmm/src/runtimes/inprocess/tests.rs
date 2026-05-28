@@ -17,6 +17,7 @@ use rusty_fork::rusty_fork_id;
 use std::thread;
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_runtime_create() {
     let status = rusty_fork::fork(
         "runtimes::inprocess::tests::test_runtime_create",
@@ -92,6 +93,7 @@ where
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_runtime_timeout() {
     // The timeout handler calls exit(55), so we use rusty_fork::fork
     // directly to check the child's exit code.
@@ -138,6 +140,7 @@ fn test_runtime_timeout() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_runtime_crash() {
     let status = rusty_fork::fork(
         "runtimes::inprocess::tests::test_runtime_crash",
@@ -181,6 +184,7 @@ fn test_runtime_crash() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_runtime_timeout_handler() {
     // The timeout handler calls exit(55), so we use rusty_fork::fork
     // directly to check the child's exit code.
@@ -228,6 +232,7 @@ fn test_runtime_timeout_handler() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_runtime_crash_handler() {
     let status = rusty_fork::fork(
         "runtimes::inprocess::tests::test_runtime_crash_handler",
