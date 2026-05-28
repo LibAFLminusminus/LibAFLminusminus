@@ -28,7 +28,7 @@ pub use usermode::{
     IntervalSnapshotFilter, IntervalSnapshotFilters, SnapshotModule, get_snapshot_module_mut,
     snapshot,
 };
-#[cfg(all(feature = "usermode"))]
+#[cfg(feature = "usermode")]
 pub use usermode::{RedirectStdinModule, RedirectStdoutModule};
 
 #[cfg(feature = "systemmode")]

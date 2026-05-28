@@ -56,6 +56,9 @@ jobs:
         mode:
           - usermode
           - systemmode
+        exclude:
+          - arch: hexagon
+            mode: systemmode
     steps:
       - uses: actions/checkout@v6
         with:
