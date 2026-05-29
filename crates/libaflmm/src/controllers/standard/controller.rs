@@ -5,6 +5,7 @@ use crate::{
     },
     launchers::InstanceId,
 };
+use libaflmm_bolts::CoreId;
 use libaflmm_core::{Result, WorkerId, illegal_argument, internal_bug};
 use serde::{Deserialize, Serialize};
 use std::{fs, path::PathBuf};
@@ -33,7 +34,7 @@ impl Controller for StdController {
     type Descriptor = StdDescriptor;
     type Command = StdCommand;
 
-    fn create_worker(&mut self) -> Result<StdWorker> {
+    fn create_worker(&mut self, core_id: CoreId) -> Result<StdWorker> {
         let worker_id = WorkerId(self.id_ctr);
         self.id_ctr += 1;
 
@@ -54,6 +55,7 @@ impl Controller for StdController {
             self.worker_stderr.clone(),
             self.worker_stats.clone(),
             worker_id,
+            core_id,
         )?;
 
         let cl = StdWorker::new(descriptor.clone());
@@ -66,9 +68,7 @@ impl Controller for StdController {
     }
 
     fn worker_descriptors_mut(&mut self) -> impl IntoIterator<Item = &mut Self::Descriptor> {
-        self.workers
-            .iter_mut()
-            .map(|repr| &mut repr.descriptor_mut())
+        self.workers.iter_mut().map(|repr| repr.descriptor_mut())
     }
 
     fn on_worker_start(&mut self, descriptor: &Self::Descriptor, _id: InstanceId) -> Result<()> {

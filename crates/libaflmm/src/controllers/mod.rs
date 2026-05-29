@@ -27,6 +27,9 @@ pub use standard::{
     StdWorkerRepr,
 };
 
+pub mod nop;
+pub use nop::{NopController, NopDescriptor, NopWorker};
+
 // how is that?
 pub trait Exchange {
     type Command;

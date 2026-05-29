@@ -8,11 +8,8 @@ use serde::Serialize;
 
 use crate::{
     Error, Result,
-    controllers::Controller,
-    controllers::SimpleController,
-    controllers::Worker,
-    controllers::{NopDescriptor, NopWorker},
-    monitors::{Monitor, SimpleMonitor},
+    controllers::{Controller, StdController, StdDescriptor, StdWorker, Worker},
+    monitors::{Monitor, StdMonitor},
     runtimes::{
         Runtime, RuntimeHandle, StdForkserverRuntime, StdInProcessRuntime, nop::NopRuntime,
     },
@@ -56,15 +53,15 @@ pub struct StdLauncher<D, CT, MT, RT, S, W> {
     monitor_refresh: Duration,
 }
 
-impl StdLauncher<NopWorker, NopDescriptor, SimpleController, SimpleMonitor, NopRuntime, NopState> {
+impl StdLauncher<StdWorker, StdDescriptor, StdController, StdMonitor, NopRuntime, NopState> {
     /// Create a default Launcher.
     /// It is configured with a very minimal configuration.
     /// It will spawn one fuzzing core on core 0 and run the provided task or runtime.
     #[expect(clippy::type_complexity)]
     pub fn builder() -> Result<
         StdLauncherBuilder<
-            SimpleController,
-            SimpleMonitor,
+            StdController,
+            StdMonitor,
             NopRuntime,
             NopState,
             fn() -> Result<NopState>,

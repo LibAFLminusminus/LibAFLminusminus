@@ -48,6 +48,10 @@ impl Worker for StdWorker {
         &self.descriptor
     }
 
+    fn descriptor_mut(&mut self) -> &mut StdDescriptor {
+        &mut self.descriptor
+    }
+
     fn workdir(&self) -> &Workdir {
         &self.descriptor.workdir
     }
