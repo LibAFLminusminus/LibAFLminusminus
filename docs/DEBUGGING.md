@@ -45,8 +45,7 @@ Finally, if you really have no idea what is going on, run your fuzzer with loggi
 
 ## Q. My fuzzer died of `Storing state in crashed fuzzer instance did not work`
 
-If the exit code is zero, then this is because either your harness exited or you are using fuzzer_loop_for and forgot to add `mgr.on_restart` at the end of the fuzzer. In the first case, you should patch your harness not to exit. (or use `utils/deexit`).
-
+If the exit code is zero, then this is because either your harness exited or you are using fuzzer_loop_for and forgot to add `mgr.on_restart` at the end of the fuzzer. In the first case, you should patch your harness not to exit.
 ## Q. I can't leave the TUI screen
 
 Type `q` to leave TUI.

@@ -24,10 +24,8 @@ use core::{
     marker::PhantomData,
     time::Duration,
 };
-use libaflmm_bolts::{
-    NamedSerdeAnyMap, SerdeAny, SerdeAnyMap,
-    rands::{Rand, StdRand},
-};
+use libaflmm_bolts::{NamedSerdeAnyMap, SerdeAny, rands::Rand};
+use libaflmm_core::illegal_argument;
 use nix::fcntl::{Flock, FlockArg};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
@@ -58,6 +56,8 @@ pub struct Stats {
     /// hold additional info that users want, in JSON format.
     /// Key is the info name, value is the info in JSON.
     pub(crate) user_map: HashMap<String, String>,
+    /// Per-stage performance counters used by the introspection macros.
+    pub(crate) perf: PerfStats,
 }
 
 /// The name used in stats json file for the stability value
@@ -314,8 +314,6 @@ pub struct StdState<C, CT, I, OC> {
     dont_reenter: Option<Vec<PathBuf>>,
     metadata_initialized: bool,
     stats: Stats,
-    /// performance counters used by the introspection macros.
-    perf_stats: PerfStats,
     phantom: PhantomData<I>,
 }
 
@@ -651,7 +649,7 @@ where
     }
 
     fn perf_stats_mut(&mut self) -> &mut PerfStats {
-        &mut self.perf_stats
+        &mut self.stats.perf
     }
 
     /// The max size allowed for this [`Input`]
@@ -717,15 +715,6 @@ where
     fn next_file(&mut self) -> Result<PathBuf> {
         loop {
             if let Some(path) = self.remaining_initial_files.as_mut().and_then(Vec::pop) {
-                let filename = path.file_name().unwrap().to_string_lossy();
-                if filename.starts_with('.')
-                // || filename
-                //     .rsplit_once('-')
-                //     .is_some_and(|(_, s)| u64::from_str(s).is_ok())
-                {
-                    continue;
-                }
-
                 let attributes = fs::metadata(&path);
 
                 if attributes.is_err() {
@@ -765,10 +754,7 @@ where
     }
 
     /// Sets canonical paths for provided inputs
-    fn canonicalize_input_dirs<P>(&mut self, in_dirs: &[P]) -> Result<()>
-    where
-        P: AsRef<Path>,
-    {
+    fn canonicalize_input_dirs(&mut self, in_dirs: &[impl AsRef<Path>]) -> Result<()> {
         if let Some(remaining) = self.remaining_initial_files.as_ref() {
             // everything was loaded
             if remaining.is_empty() {
@@ -790,16 +776,15 @@ where
     /// Loads initial inputs from the passed-in `in_dirs`.
     /// If `forced` is true, will add all testcases, no matter what.
     /// This method takes a list of files.
-    fn load_initial_inputs_custom_by_filenames<E, P, W, Z>(
+    fn load_initial_inputs_custom_by_filenames<E, W, Z>(
         &mut self,
         fuzzer: &mut Z,
         executor: &mut E,
         rt_handle: &mut RuntimeHandle<Self, W>,
-        file_list: &[P],
+        file_list: &[impl AsRef<Path>],
         load_config: LoadConfig<I, Self, Z>,
     ) -> Result<()>
     where
-        P: AsRef<Path>,
         Z: Evaluator<E, I, Self, W>,
     {
         if let Some(remaining) = self.remaining_initial_files.as_ref() {
@@ -812,7 +797,8 @@ where
                 Some(file_list.iter().map(|p| p.as_ref().to_path_buf()).collect());
         }
 
-        self.continue_loading_initial_inputs_custom(fuzzer, executor, rt_handle, load_config)
+        self.continue_loading_initial_inputs_custom(fuzzer, executor, rt_handle, load_config)?;
+        Ok(())
     }
 
     fn load_file<E, W, Z>(
@@ -850,13 +836,16 @@ where
         executor: &mut E,
         rt_handle: &mut RuntimeHandle<Self, W>,
         mut config: LoadConfig<I, Self, Z>,
-    ) -> Result<()>
+    ) -> Result<usize>
     where
         Z: Evaluator<E, I, Self, W>,
     {
+        let mut nb_loaded = 0;
+
         loop {
             match self.next_file() {
                 Ok(path) => {
+                    nb_loaded += 1;
                     let res = self.load_file(&path, fuzzer, executor, rt_handle, &mut config)?;
                     if config.exit_on_solution && res.is_objective_worthy() {
                         return Err(Error::invalid_corpus(format!(
@@ -870,14 +859,17 @@ where
             }
         }
 
-        Ok(())
+        Ok(nb_loaded)
     }
 
     /// Recursively walk supplied corpus directories
-    pub fn walk_initial_inputs<F, P>(&mut self, in_dirs: &[P], mut closure: F) -> Result<()>
+    pub fn walk_initial_inputs<F>(
+        &mut self,
+        in_dirs: &[impl AsRef<Path>],
+        mut closure: F,
+    ) -> Result<()>
     where
         F: FnMut(&Path) -> Result<()>,
-        P: AsRef<Path>,
     {
         self.canonicalize_input_dirs(in_dirs)?;
         loop {
@@ -897,15 +889,14 @@ where
     /// This is rarely the right method, use `load_initial_inputs`,
     /// and potentially fix your `Feedback`, instead.
     /// This method takes a list of files, instead of folders.
-    pub fn load_initial_inputs_by_filenames<E, P, W, Z>(
+    pub fn load_initial_inputs_by_filenames<E, W, Z>(
         &mut self,
         fuzzer: &mut Z,
         executor: &mut E,
         rt_handle: &mut RuntimeHandle<Self, W>,
-        file_list: &[P],
+        file_list: &[impl AsRef<Path>],
     ) -> Result<()>
     where
-        P: AsRef<Path>,
         Z: Evaluator<E, I, Self, W>,
     {
         self.load_initial_inputs_custom_by_filenames(
@@ -923,15 +914,14 @@ where
     /// Loads all intial inputs, even if they are not considered `interesting`.
     /// This is rarely the right method, use `load_initial_inputs`,
     /// and potentially fix your `Feedback`, instead.
-    pub fn load_initial_inputs_forced<E, P, W, Z>(
+    pub fn load_initial_inputs_forced<E, W, Z>(
         &mut self,
         fuzzer: &mut Z,
         executor: &mut E,
         rt_handle: &mut RuntimeHandle<Self, W>,
-        in_dirs: &[P],
+        in_dirs: &[impl AsRef<Path>],
     ) -> Result<()>
     where
-        P: AsRef<Path>,
         Z: Evaluator<E, I, Self, W>,
     {
         self.canonicalize_input_dirs(in_dirs)?;
@@ -943,20 +933,20 @@ where
                 loader: &mut |_, _, path| I::from_file(path),
                 exit_on_solution: false,
             },
-        )
+        )?;
+        Ok(())
     }
     /// Loads initial inputs from the passed-in `in_dirs`.
     /// If `forced` is true, will add all testcases, no matter what.
     /// This method takes a list of files, instead of folders.
-    pub fn load_initial_inputs_by_filenames_forced<E, P, W, Z>(
+    pub fn load_initial_inputs_by_filenames_forced<E, W, Z>(
         &mut self,
         fuzzer: &mut Z,
         executor: &mut E,
         rt_handle: &mut RuntimeHandle<Self, W>,
-        file_list: &[P],
+        file_list: &[impl AsRef<Path>],
     ) -> Result<()>
     where
-        P: AsRef<Path>,
         Z: Evaluator<E, I, Self, W>,
     {
         self.load_initial_inputs_custom_by_filenames(
@@ -972,19 +962,18 @@ where
     }
 
     /// Loads initial inputs from the passed-in `in_dirs`.
-    pub fn load_initial_inputs<E, P, W, Z>(
+    pub fn load_initial_inputs<E, W, Z>(
         &mut self,
         fuzzer: &mut Z,
         executor: &mut E,
         rt_handle: &mut RuntimeHandle<Self, W>,
-        in_dirs: &[P],
+        in_dirs: &[impl AsRef<Path>],
     ) -> Result<()>
     where
-        P: AsRef<Path>,
         Z: Evaluator<E, I, Self, W>,
     {
         self.canonicalize_input_dirs(in_dirs)?;
-        self.continue_loading_initial_inputs_custom(
+        let nb_loaded = self.continue_loading_initial_inputs_custom(
             fuzzer,
             executor,
             rt_handle,
@@ -992,20 +981,27 @@ where
                 loader: &mut |_, _, path| I::from_file(path),
                 exit_on_solution: false,
             },
-        )
+        )?;
+
+        if nb_loaded == 0 {
+            Err(illegal_argument!(
+                "0 inputs have been loaded. Are inputs directories correct?"
+            ))
+        } else {
+            Ok(())
+        }
     }
 
     /// Loads initial inputs from the passed-in `in_dirs`.
     /// Will return a `CorpusError` if a solution is found
-    pub fn load_initial_inputs_disallow_solution<E, P, W, Z>(
+    pub fn load_initial_inputs_disallow_solution<E, W, Z>(
         &mut self,
         fuzzer: &mut Z,
         executor: &mut E,
         rt_handle: &mut RuntimeHandle<Self, W>,
-        in_dirs: &[P],
+        in_dirs: &[impl AsRef<Path>],
     ) -> Result<()>
     where
-        P: AsRef<Path>,
         Z: Evaluator<E, I, Self, W>,
     {
         self.canonicalize_input_dirs(in_dirs)?;
@@ -1017,7 +1013,8 @@ where
                 loader: &mut |_, _, path| I::from_file(path),
                 exit_on_solution: true,
             },
-        )
+        )?;
+        Ok(())
     }
 }
 
@@ -1078,6 +1075,7 @@ where
                 last_found_time: libaflmm_bolts::current_time(),
                 start_time: libaflmm_bolts::current_time(),
                 user_map: HashMap::new(),
+                perf: PerfStats::new(),
             },
             named_metadata: NamedSerdeAnyMap::default(),
             corpus,
@@ -1088,7 +1086,6 @@ where
             testcase_metadata: HashMap::new(),
             metadata_initialized: false,
             phantom: PhantomData,
-            perf_stats: PerfStats::new(),
         };
         Ok(state)
     }
@@ -1113,31 +1110,16 @@ impl
     }
 }
 
-/// A very simple state without any bells or whistles, for testing.
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct NopState<I> {
-    metadata: SerdeAnyMap,
-    named_metadata: NamedSerdeAnyMap,
-    execution: u64,
-    stop_requested: bool,
-    rand: StdRand,
-    phantom: PhantomData<I>,
-}
-
-impl<I> NopState<I> {
-    /// Create a new [`NopState`] that does nothing (for testing purposes usually)
-    #[must_use]
-    pub fn new() -> Self {
-        NopState {
-            metadata: SerdeAnyMap::new(),
-            named_metadata: NamedSerdeAnyMap::new(),
-            execution: 0,
-            rand: StdRand::default(),
-            stop_requested: false,
-            phantom: PhantomData,
-        }
-    }
-}
+/// A very simple [`State`] with minimal capabilities, for testing.
+///
+/// It is a [`StdState`] backed by in-memory corpora and a [`NopContext`].
+/// Build one with [`StdState::nop`].
+pub type NopState = StdState<
+    InMemoryCorpus<NopInput, NopScheduler>,
+    NopContext,
+    NopInput,
+    InMemoryCorpus<NopInput, NopScheduler>,
+>;
 
 #[cfg(test)]
 mod test {

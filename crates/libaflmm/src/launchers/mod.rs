@@ -12,7 +12,6 @@ use crate::{
     controllers::SimpleController,
     controllers::Worker,
     controllers::{NopDescriptor, NopWorker},
-    inputs::NopInput,
     monitors::{Monitor, SimpleMonitor},
     runtimes::{
         Runtime, RuntimeHandle, StdForkserverRuntime, StdInProcessRuntime, nop::NopRuntime,
@@ -57,16 +56,7 @@ pub struct StdLauncher<D, CT, MT, RT, S, W> {
     monitor_refresh: Duration,
 }
 
-impl
-    StdLauncher<
-        NopWorker,
-        NopDescriptor,
-        SimpleController,
-        SimpleMonitor,
-        NopRuntime,
-        NopState<NopInput>,
-    >
-{
+impl StdLauncher<NopWorker, NopDescriptor, SimpleController, SimpleMonitor, NopRuntime, NopState> {
     /// Create a default Launcher.
     /// It is configured with a very minimal configuration.
     /// It will spawn one fuzzing core on core 0 and run the provided task or runtime.
@@ -76,8 +66,8 @@ impl
             SimpleController,
             SimpleMonitor,
             NopRuntime,
-            NopState<NopInput>,
-            fn() -> Result<NopState<NopInput>>,
+            NopState,
+            fn() -> Result<NopState>,
             StdTimer,
         >,
     > {
@@ -89,7 +79,7 @@ impl
             monitor: None,
             runtime,
             cores,
-            state_builder: || Ok(NopState::new()),
+            state_builder: || NopState::nop(),
             max_state_size_per_client: None,
             monitor_refresh: DEFAULT_MONITOR_REFRESH,
             timeout: Some(DEFAULT_TIMEOUT),
@@ -342,8 +332,6 @@ where
         task: T,
     ) -> Result<StdLauncher<CT::Descriptor, CT, MT, StdInProcessRuntime<S, T, TM>, S, CT::Worker>>
     where
-        // this bound is needed to help rust link the state output by the state builder and
-        // the one used by the task. otherwise, the compiler needs explicit typing.
         T: FnMut(&mut RuntimeHandle<S, CT::Worker>, &mut S) -> Result<()> + Clone,
     {
         if self.cores.is_empty() {
@@ -398,7 +386,7 @@ where
         // create an instance per core, ready to run.
         for core in self.cores {
             // spawn a controller for the instance
-            let worker = controller.create_worker()?;
+            let worker = controller.create_worker(core)?;
 
             // create the state for the instance
             let state: S = (self.state_builder)(&worker)?;

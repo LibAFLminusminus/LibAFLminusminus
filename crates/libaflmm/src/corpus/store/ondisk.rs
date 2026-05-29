@@ -47,13 +47,13 @@ pub struct DiskMgr<I> {
 
 impl<I> DiskMgr<I> {
     /// Create a new [`DiskMgr`]
-    pub fn new<P: AsRef<Path>>(root_dir: P) -> Result<Self> {
+    pub fn new(root_dir: impl AsRef<Path>) -> Result<Self> {
         Self::new_with_format(root_dir, TestcaseFilenameFormat::default())
     }
 
     /// Create a new [`DiskMgr`]
-    pub fn new_with_format<P: AsRef<Path>>(
-        root_dir: P,
+    pub fn new_with_format(
+        root_dir: impl AsRef<Path>,
         file_fmt: TestcaseFilenameFormat,
     ) -> Result<Self> {
         let dir = root_dir.as_ref();
@@ -138,7 +138,7 @@ where
     M: Default,
 {
     /// Create a new [`OnDiskStore`]
-    pub fn new<P: AsRef<Path>>(root: P, filename_format: TestcaseFilenameFormat) -> Result<Self> {
+    pub fn new(root: impl AsRef<Path>, filename_format: TestcaseFilenameFormat) -> Result<Self> {
         let disk_mgr = Rc::new(DiskMgr::new(root)?);
 
         Ok(Self {
@@ -223,7 +223,7 @@ impl OnDiskStoreBuilder {
     }
 
     /// Set the root directory, where the testcases will be stored.
-    pub fn root_dir<P: AsRef<Path>>(&mut self, root_dir: P) -> &mut Self {
+    pub fn root_dir(&mut self, root_dir: impl AsRef<Path>) -> &mut Self {
         self.root_dir = Some(root_dir.as_ref().to_path_buf());
         self
     }

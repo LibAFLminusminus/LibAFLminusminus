@@ -129,10 +129,7 @@ impl Tokens {
     }
 
     /// Creates a new [`Tokens`] from a file
-    pub fn from_file<P>(file: P) -> Result<Self, Error>
-    where
-        P: AsRef<Path>,
-    {
+    pub fn from_file(file: impl AsRef<Path>) -> Result<Self, Error> {
         let mut ret = Self::new();
         ret.add_from_file(file)?;
         Ok(ret)
@@ -150,10 +147,7 @@ impl Tokens {
     }
 
     /// Reads a [`Tokens`] file, returning the count of new entries read
-    pub fn add_from_file<P>(&mut self, file: P) -> Result<&mut Self, Error>
-    where
-        P: AsRef<Path>,
-    {
+    pub fn add_from_file(&mut self, file: impl AsRef<Path>) -> Result<&mut Self, Error> {
         // log::info!("Loading tokens file {:?} ...", file);
 
         let file = File::open(file)?; // panic if not found

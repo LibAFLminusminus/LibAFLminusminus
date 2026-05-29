@@ -1,5 +1,5 @@
 use crate::target::SIGNALS;
-use libaflmm::{launchers::DEFAULT_MAX_STATE_SIZE_PER_WORKER, prelude::*};
+use libaflmm::{Result, launchers::DEFAULT_MAX_STATE_SIZE_PER_WORKER, prelude::*};
 use libaflmm_bolts::{
     current_nanos, nonnull_raw_mut, rands::StdRand, timers::FastTimer, tuples::tuple_list,
 };

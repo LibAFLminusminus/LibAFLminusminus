@@ -65,7 +65,7 @@ mod tests {
 
     #[test]
     fn not_mutated() {
-        let state: NopState<BytesInput> = NopState::new();
+        let state = NopState::nop().unwrap();
         let mut rand = StdRand::with_seed(1337);
         let mut inner = BytesSetMutator::new();
 

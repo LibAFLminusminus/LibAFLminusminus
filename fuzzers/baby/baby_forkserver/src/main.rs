@@ -1,5 +1,5 @@
 use clap::Parser;
-use libaflmm::prelude::*;
+use libaflmm::{Result, prelude::*};
 use libaflmm_bolts::{StdTargetArgs, SysVShm, current_nanos, rands::StdRand, tuples::tuple_list};
 use std::{ops::DerefMut, path::PathBuf, time::Duration};
 

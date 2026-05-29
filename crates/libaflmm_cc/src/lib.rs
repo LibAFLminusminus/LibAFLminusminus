@@ -7,8 +7,6 @@ use std::{path::Path, process::Command};
 
 pub mod ar;
 pub use ar::ArWrapper;
-pub mod cfg;
-pub use cfg::{CfgEdge, ControlFlowGraph, EntryBasicBlockInfo, HasWeight};
 pub mod clang;
 pub use clang::{ClangWrapper, LLVMPasses};
 pub mod libtool;

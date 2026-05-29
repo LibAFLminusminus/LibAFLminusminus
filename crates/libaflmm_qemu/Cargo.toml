@@ -21,12 +21,23 @@ features = ["document-features", "default", "python", "x86_64", "usermode"]
 rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
-default = ["asan_guest", "asan_host", "usermode", "injections"]
+default = [
+  "asan_guest",
+  "asan_host",
+  "usermode",
+  "injections",
+  "errors_backtrace",
+]
 ## Build asan for address sanitization
 asan_guest = []
 asan_host = []
 ## Use Address Sanitizer implementation written in rust (rather than the older C version)
 asan_rust = []
+## Capture backtraces in errors (mirrors the libaflmm_core feature of the same name)
+errors_backtrace = [
+  "libaflmm_core/errors_backtrace",
+  "libaflmm/errors_backtrace",
+]
 
 document-features = ["dep:document-features"]
 
@@ -77,8 +88,6 @@ usermode = ["libaflmm_qemu_sys/usermode"]
 ## Systemmode (mutually exclusive to Usermode) - requires libvharness
 systemmode = ["libaflmm_qemu_sys/systemmode"]
 
-#! ## SerdeAny features
-
 slirp = [
   "systemmode",
   "libaflmm_qemu_sys/slirp",
@@ -122,6 +131,8 @@ log = { workspace = true }
 object = "0.38.1"
 addr2line = "0.25.1"
 paste = { workspace = true }
+delegate = { workspace = true }
+thiserror = { workspace = true }
 enum-map = "2.7.3"
 serde_yaml = { workspace = true, optional = true } # For parsing the injections yaml file
 toml = { workspace = true, optional = true } # For parsing the injections toml file
@@ -129,6 +140,8 @@ pyo3 = { workspace = true, optional = true, features = ["multiple-pymethods"] }
 typed-builder = { workspace = true }
 getset = "0.1.6"
 libvharness_sys = { workspace = true }
+nix = { workspace = true, features = ["mman"] }
+ctor = { workspace = true }
 
 # Document all features of this crate (for `cargo doc`)
 document-features = { workspace = true, optional = true }

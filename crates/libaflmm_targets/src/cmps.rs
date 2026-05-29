@@ -1,4 +1,4 @@
-use crate::{CMPLOG_MAP_H, CMPLOG_MAP_W};
+use crate::constants::{CMPLOG_MAP_H, CMPLOG_MAP_W};
 use core::{
     fmt::{self, Debug, Formatter},
     mem::{size_of, zeroed},
@@ -9,6 +9,15 @@ use libaflmm_bolts::{
     Error,
     shm::{EmptyShmHeader, SysVShm},
 };
+
+/// The standard cmplog header
+pub type StdCmpLogHeader = LibAFLCmpLogHeader;
+
+/// The standard cmplog values
+pub type StdCmpLogVals = LibAFLCmpLogVals;
+
+/// the standard cmplog map used by libaflmm instrumentation
+pub type StdCmpLogMap = CmpLogMap<StdCmpLogHeader, StdCmpLogVals>;
 
 // CONSTANTS
 
@@ -400,6 +409,3 @@ pub static mut libafl_cmplog_map: CmpLogMap<LibAFLCmpLogHeader, LibAFLCmpLogVals
         operands: [[LibAFLCmpLogInstruction(0, 0, 0); CMPLOG_MAP_H]; CMPLOG_MAP_W],
     },
 };
-
-/// the standard cmplog map used by libaflmm instrumentation
-pub type StdCmpLogMap = CmpLogMap<LibAFLCmpLogHeader, LibAFLCmpLogVals>;

@@ -3,7 +3,7 @@ requires = ["maturin[patchelf]>=1.0,<2.0"]
 build-backend = "maturin"
 
 [project]
-name = "PyLibAFL"
+name = "PyLibAFLmm"
 version = "0.16.0"
 description = "Advanced Fuzzing Library for Python"
 readme = "README.md"
@@ -17,7 +17,7 @@ classifiers = [
 ]
 
 [project.urls]
-repository = "https://github.com/AFLplusplus/LibAFL.git"
+repository = "https://github.com/LibAFLminusminus/LibAFLminusminus"
 
 [tool.maturin]
 bindings = "pyo3"

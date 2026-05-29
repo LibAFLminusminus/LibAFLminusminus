@@ -1,26 +1,28 @@
 //! `CmpLog` logs and reports back values touched during fuzzing.
 //! The values will then be used in subsequent mutations.
 
+use crate::{
+    common::{DependencyResolver, Registrator},
+    executors::ExitKind,
+    observers::{CmpObserver, CmpValues, CmplogBytes, Observer},
+    states::{State, named_metadata_mut},
+};
 use alloc::{borrow::Cow, vec::Vec};
 use core::{
     fmt::Debug,
     ops::{Deref, DerefMut},
     ptr,
 };
-
 use libaflmm_bolts::{EmptyShmHeader, Named, SysVShm, ownedref::OwnedMutPtr};
-use libaflmm_targets::{
+use libaflmm_core::Result;
+use libaflmm_targets::cmps::{
     CMPLOG_KIND_INS, CMPLOG_RTN_LEN, CmpLogHeader, CmpLogMap, CmpLogVals, Operand, Routine,
+    StdCmpLogHeader, StdCmpLogVals, libafl_cmplog_map_ptr,
 };
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    Error,
-    common::{DependencyResolver, Registrator},
-    executors::ExitKind,
-    observers::{CmpObserver, CmpValues, CmplogBytes, Observer},
-    states::{State, named_metadata_mut},
-};
+pub type StdCmpLogObserver = CmpLogObserver<StdCmpLogHeader, StdCmpLogVals>;
+
 /// A [`CmpObserver`] observer for cmplog
 #[derive(Debug)]
 pub struct CmpLogObserver<H, V> {
@@ -55,7 +57,7 @@ where
 }
 
 impl<H, V> DependencyResolver for CmpLogObserver<H, V> {
-    fn register(&mut self, registrator: &mut Registrator) -> Result<(), Error> {
+    fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
         registrator.register_md_default::<CmpLogMetadata>(self.name());
         Ok(())
     }
@@ -67,12 +69,12 @@ where
     V: CmpLogVals,
     S: State,
 {
-    fn pre_exec(&mut self, _state: &mut S) -> Result<(), Error> {
+    fn pre_exec(&mut self, _state: &mut S) -> Result<()> {
         self.map.as_mut().reset()?;
         Ok(())
     }
 
-    fn post_exec(&mut self, state: &mut S, _exit_kind: &ExitKind) -> Result<(), Error> {
+    fn post_exec(&mut self, state: &mut S, _exit_kind: &ExitKind) -> Result<()> {
         if self.add_meta {
             let meta = named_metadata_mut::<CmpLogMetadata>(state.metadata_map_mut(), self.name())?;
 
@@ -91,16 +93,29 @@ impl<H, V> Named for CmpLogObserver<H, V> {
     }
 }
 
+impl StdCmpLogObserver {
+    pub fn new(name: &'static str, add_meta: bool) -> Self {
+        unsafe {
+            Self {
+                name: Cow::from(name),
+                size: None,
+                add_meta,
+                map: OwnedMutPtr::Ptr(libafl_cmplog_map_ptr),
+            }
+        }
+    }
+}
+
 impl<H, V> CmpLogObserver<H, V>
 where
     H: CmpLogHeader,
 {
-    /// Create a [`struct@CmpLogObserver`] backed by the given [`SysVShm`] System V shared memory region.
+    /// Create a [`CmpLogObserver`] backed by the given [`SysVShm`] System V shared memory region.
     pub fn from_shm(
         name: &'static str,
         mut shm: SysVShm<EmptyShmHeader>,
         add_meta: bool,
-    ) -> Result<Self, Error> {
+    ) -> Result<Self> {
         let mut owned = CmpLogMap::<H, V>::from_shm(&mut shm)?;
         let map_ptr = ptr::from_mut::<CmpLogMap<H, V>>(owned.as_mut());
         Ok(Self {

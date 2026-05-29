@@ -2,33 +2,30 @@
 name = "qemu_launcher"
 version = "0.16.0"
 authors = [
+  "Romain Malmain <rmalmain@pm.me>",
   "Andrea Fioraldi <andreafioraldi@gmail.com>",
   "Dominik Maier <domenukk@gmail.com>",
 ]
-edition = "2021"
+edition = "2024"
 
 [features]
-default = ["std", "injections"]
-std = []
-clippy = []                     # Only for clippy, don't use.
-
-## Build with a simple event manager instead of Launcher - don't fork, and crash after the first bug.
-simplemgr = []
+default = ["injections"]
+clippy = ["libaflmm_qemu/clippy"] # Only for clippy, don't use.
 
 ## Enable fuzzing for injections (where supported)
-injections = ["libafl_qemu/injections"]
+injections = ["libaflmm_qemu/injections"]
 
 ## Set emulator to big endian
-be = ["libafl_qemu/be"]
+be = ["libaflmm_qemu/be"]
 
 #! ## Mutually exclusive architectures
-arm = ["libafl_qemu/arm"]
-x86_64 = ["libafl_qemu/x86_64"]
-i386 = ["libafl_qemu/i386"]
-aarch64 = ["libafl_qemu/aarch64"]
-mips = ["libafl_qemu/mips"]
-ppc = ["libafl_qemu/ppc", "be"]
-hexagon = ["libafl_qemu/hexagon"]
+arm = ["libaflmm_qemu/arm"]
+x86_64 = ["libaflmm_qemu/x86_64"]
+i386 = ["libaflmm_qemu/i386"]
+aarch64 = ["libaflmm_qemu/aarch64"]
+mips = ["libaflmm_qemu/mips"]
+ppc = ["libaflmm_qemu/ppc", "be"]
+hexagon = ["libaflmm_qemu/hexagon"]
 
 [profile.release]
 lto = true
@@ -37,24 +34,22 @@ opt-level = 3
 debug = true
 
 [build-dependencies]
-vergen = { version = "9.0.1", features = ["build", "cargo", "rustc", "si"] }
-vergen-git2 = "9.0.1"
+vergen = { version = "9.1.0", features = ["build", "cargo", "rustc", "si"] }
+vergen-git2 = "9.1.0"
 
 [dependencies]
-clap = { version = "4.5.18", features = ["derive", "string"] }
-env_logger = { version = "0.11.5" }
-libafl = { path = "../../../crates/libafl", features = ["tui_monitor"] }
-libafl_bolts = { path = "../../../crates/libafl_bolts", features = [
-  "errors_backtrace",
-] }
-libafl_qemu = { path = "../../../crates/libafl_qemu", features = [
+libaflmm = { path = "../../../crates/libaflmm", features = ["web_monitor"] }
+libaflmm_qemu = { path = "../../../crates/libaflmm_qemu", features = [
   "usermode",
   "asan_rust",
+  "errors_backtrace",
 ] }
-libafl_targets = { path = "../../../crates/libafl_targets" }
-log = { version = "0.4.22", features = ["release_max_level_info"] }
-mimalloc = "0.1.48"
-rangemap = { version = "1.5.1" }
-readonly = { version = "0.2.12" }
+
+clap = { version = "4.6.1", features = ["derive", "string"] }
+env_logger = { version = "0.11.10" }
+log = { version = "0.4.29", features = ["release_max_level_info"] }
+mimalloc = "0.1.50"
+rangemap = { version = "1.7.1" }
+readonly = { version = "0.2.13" }
 scudo = "0.1.3"
-typed-builder = { version = "0.20.0" }
+typed-builder = { version = "0.20.1" }

@@ -5,30 +5,19 @@
 //! The [Nyx API](https://github.com/IntelLabs/kafl.targets/blob/master/nyx_api.h) refers to the hypercalls used in Nyx to communicate with the fuzzer, not to the fuzzer itself.
 //! This is mostly a convenient way to run Nyx-compatible targets in `LibAFL` QEMU directly, without having to change a single bit of the target files.
 
+use super::{Command, CommandError};
 use crate::{
-    EmulatorDriverError, EmulatorDriverResult, EmulatorExitResult, GuestReg, IsSnapshotManager,
-    Qemu, QemuMemoryChunk, Regs, StdEmulator, StdEmulatorDriver,
-    command::{CommandError, CommandManager, IsCommand, NativeCommandParser},
-    emu::{InputSetter, StdInputSetter, nyx::NyxInputSetter},
-    get_exit_arch_regs,
-    modules::{EmulatorModuleTuple, utils::filters::HasStdFiltersTuple},
-    sync_exit::ExitArgs,
+    Result,
+    arch::{GuestReg, Regs},
+    command::CommandManager,
+    emu::{Emulator, EmulatorError, EmulatorRunResult, InputLocation, SnapshotManager},
+    modules::HasAddressFilterTuple,
 };
-use core::result;
-use enum_map::EnumMap;
-use libaflmm::executors::ExitKind;
+use crate::{modules::HasPageFilterTuple, qemu::QemuMemoryChunk};
+use libaflmm::{executors::ExitKind, inputs::Input, states::State};
 use libaflmm_qemu_sys::{GuestAddr, GuestVirtAddr};
-use libc::c_uint;
 use paste::paste;
-use std::{
-    fmt,
-    fmt::{Debug, Formatter},
-    marker::PhantomData,
-    mem::offset_of,
-    ops::Range,
-    ptr,
-    slice::from_raw_parts,
-};
+use std::{fmt::Debug, mem::offset_of, ops::Range, ptr, slice};
 
 pub mod parser;
 use parser::{
@@ -41,129 +30,149 @@ use parser::{
 macro_rules! define_nyx_command_manager {
     ($name:ident, [$($command:ty),+], [$($native_command_parser:ty),+]) => {
         paste! {
-            pub struct $name<S> {
-                has_started: bool,
-                phantom: PhantomData<S>,
-            }
+            pub use [< $name:snake >]::{[<$name CommandManager>], [<$name Commands>]};
 
-            impl<S> Clone for $name<S> {
-                fn clone(&self) -> Self {
-                    Self {
-                        has_started: self.has_started,
-                        phantom: PhantomData,
-                    }
-                }
-            }
+            mod [< $name:snake >] {
+                use super::*;
 
-            impl<S> Debug for $name<S> {
-                fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-                    write!(f, "{} (has started? {:?})", stringify!($name), self.has_started)
-                }
-            }
+                use std::{
+                    fmt,
+                    fmt::{Debug, Formatter},
+                };
+                use core::result;
+                use enum_map::EnumMap;
+                use $crate::{
+                    command::{CommandManager, CommandError, NativeCommandParser, Command},
+                    arch::get_exit_arch_regs,
+                    sync_exit::ExitArgs,
+                    emu::{EmulatorRunResult, input_writer::StdNyxInputWriter},
+                    qemu::Qemu,
+                    arch::Regs,
+                    Result,
 
-            impl<S> Default for $name<S> {
-                fn default() -> Self {
-                    Self {
-                        has_started: false,
-                        phantom: PhantomData,
-                    }
-                }
-            }
+                };
+                use std::ffi::c_uint;
+                use libaflmm::{inputs::Input, states::State};
 
-            impl<S> $name<S> {
-                fn start(&mut self) -> bool {
-                    let tmp = self.has_started;
-                    self.has_started = true;
-                    tmp
+                pub struct [<$name CommandManager>] {
+                    has_started: bool,
                 }
 
-                fn has_started(&self) -> bool {
-                    self.has_started
-                }
-            }
-
-            impl<C, ET, I, S, SM> CommandManager<C, StdEmulatorDriver, ET, I, S, SM> for $name<S>
-            where
-                ET: EmulatorModuleTuple<I, S> + HasStdFiltersTuple,
-                I: HasTargetBytes + Unpin,
-                S: Unpin,
-                SM: IsSnapshotManager,
-            {
-                type Commands = [<$name Commands>];
-
-                #[deny(unreachable_patterns)]
-                fn parse(&self, qemu: Qemu) -> result::Result<Self::Commands, CommandError> {
-                    let arch_regs_map: &'static EnumMap<ExitArgs, Regs> = get_exit_arch_regs();
-                    let nyx_backdoor = qemu.read_reg(Regs::Rax)? as c_uint;
-                    let cmd_id = qemu.read_reg(Regs::Rbx)? as c_uint;
-
-                    // Check nyx backdoor correctness
-                    debug_assert_eq!(nyx_backdoor, libvharness_sys::HYPERCALL_KAFL_RAX_ID);
-
-                    match cmd_id {
-                        // <StartPhysCommandParser as NativeCommandParser<S>>::COMMAND_ID => Ok(NyxCommandManagerCommands::StartPhysCommandParserCmd(<StartPhysCommandParser as NativeCommandParser<S>>::parse(qemu, arch_regs_map)?)),
-                        $(<$native_command_parser as NativeCommandParser<C, Self, StdEmulatorDriver, ET, I, S, SM>>::COMMAND_ID => Ok(<$native_command_parser as NativeCommandParser<C, Self, StdEmulatorDriver, ET, I, S, SM>>::parse(qemu, arch_regs_map)?.into())),+,
-                        _ => Err(CommandError::UnknownCommand(cmd_id.into())),
-                    }
-                }
-            }
-
-            #[derive(Debug, Clone)]
-            pub enum [<$name Commands>]
-            {
-                // StartPhysCommand(StartPhysCommand)
-                $($command($command)),+,
-            }
-
-            impl<C, ET, I, S, SM> IsCommand<C, $name<S>, StdEmulatorDriver, ET, I, S, SM> for [<$name Commands>]
-            where
-                ET: EmulatorModuleTuple<I, S> + HasStdFiltersTuple,
-                I: HasTargetBytes + Unpin,
-                S: Unpin,
-                SM: IsSnapshotManager,
-            {
-                fn usable_at_runtime(&self) -> bool {
-                    match self {
-                        $([<$name Commands>]::$command(cmd) => <$command as IsCommand<C, $name<S>, StdEmulatorDriver, ET, I, S, SM>>::usable_at_runtime(cmd)),+
+                impl Clone for [<$name CommandManager>] {
+                    fn clone(&self) -> Self {
+                        Self {
+                            has_started: self.has_started,
+                        }
                     }
                 }
 
-                fn run(&self,
-                    emu: &mut StdEmulator<C, $name<S>, StdEmulatorDriver, ET, I, S, SM>,
-                    ret_reg: Option<Regs>
-                ) -> result::Result<Option<EmulatorDriverResult<C>>, EmulatorDriverError> {
-                    match self {
-                        $([<$name Commands>]::$command(cmd) => cmd.run(emu, ret_reg)),+
+                impl Debug for [<$name CommandManager>] {
+                    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+                        write!(f, "{} (has started? {:?})", stringify!($name), self.has_started)
                     }
                 }
-            }
 
-            $(
-                impl From<$command> for [<$name Commands>] {
-                    fn from(cmd: $command) -> [<$name Commands>] {
-                        [<$name Commands>]::$command(cmd)
+                impl Default for [<$name CommandManager>] {
+                    fn default() -> Self {
+                        Self {
+                            has_started: false,
+                        }
                     }
                 }
-            )+
+
+                impl<I, S> CommandManager<I, S> for [<$name CommandManager>]
+                where
+                    I: Input + Unpin,
+                    S: State<Input = I> + Unpin,
+                {
+                    type Commands = [<$name Commands>];
+                    type InputWriter = StdNyxInputWriter;
+
+                    fn start(&mut self) -> bool {
+                        let tmp = self.has_started;
+                        self.has_started = true;
+                        tmp
+                    }
+
+                    fn has_started(&self) -> bool {
+                        self.has_started
+                    }
+
+                    #[deny(unreachable_patterns)]
+                    fn parse(&self, qemu: Qemu) -> result::Result<Self::Commands, CommandError> {
+                        let arch_regs_map: &'static EnumMap<ExitArgs, Regs> = get_exit_arch_regs();
+                        let nyx_backdoor = qemu.read_reg(Regs::Rax)? as c_uint;
+                        let cmd_id = qemu.read_reg(Regs::Rbx)? as c_uint;
+
+                        // Check nyx backdoor correctness
+                        debug_assert_eq!(nyx_backdoor, libvharness_sys::HYPERCALL_KAFL_RAX_ID);
+
+                        match cmd_id {
+                            // <StartPhysCommandParser as NativeCommandParser<S>>::COMMAND_ID => Ok(StdCommandManagerCommands::StartPhysCommandParserCmd(<StartPhysCommandParser as NativeCommandParser<S>>::parse(qemu, arch_regs_map)?)),
+                            $(<$native_command_parser as NativeCommandParser>::COMMAND_ID => Ok(<$native_command_parser as NativeCommandParser>::parse(qemu, arch_regs_map)?.into())),+,
+                            _ => Err(CommandError::UnknownCommand(cmd_id.into())),
+                        }
+                    }
+                }
+
+                #[derive(Clone, Debug)]
+                pub enum [<$name Commands>]
+                {
+                    // StartPhysCommand(StartPhysCommand)
+                    $($command([<$command Command>])),+,
+                }
+
+                impl<I, S> Command<[<$name CommandManager>], I, S> for [<$name Commands>]
+                where
+                    I: Input + Unpin,
+                    S: State<Input = I> + Unpin,
+                {
+                    fn usable_at_runtime(&self) -> bool {
+                        match self {
+                            $([<$name Commands>]::$command(cmd) => <[<$command Command>] as Command<[<$name CommandManager>], I, S>>::usable_at_runtime(cmd)),+
+                        }
+                    }
+
+                    fn run<EMU>(&self,
+                        emu: &mut EMU,
+                        ret_reg: Option<Regs>
+                    ) -> Result<Option<EmulatorRunResult>>
+                    where
+                        EMU: Emulator<I, S, CommandManager = [<$name CommandManager>]>
+                    {
+                        match self {
+                            $([<$name Commands>]::$command(cmd) => cmd.run(emu, ret_reg)),+
+                        }
+                    }
+                }
+
+                $(
+                    impl From<[<$command Command>]> for [<$name Commands>] {
+                        fn from(cmd: [<$command Command>]) -> [<$name Commands>] {
+                            [<$name Commands>]::$command(cmd)
+                        }
+                    }
+                )+
+            }
         }
     };
 }
 
 define_nyx_command_manager!(
-    NyxCommandManager,
+    Nyx,
     [
-        AcquireCommand,
-        ReleaseCommand,
-        GetHostConfigCommand,
-        SetAgentConfigCommand,
-        PrintfCommand,
-        GetPayloadCommand,
-        NextPayloadCommand,
-        SubmitCR3Command,
-        PanicCommand,
-        SubmitPanicCommand,
-        UserAbortCommand,
-        RangeSubmitCommand
+        Acquire,
+        Release,
+        GetHostConfig,
+        SetAgentConfig,
+        Printf,
+        GetPayload,
+        NextPayload,
+        SubmitCR3,
+        Panic,
+        SubmitPanic,
+        UserAbort,
+        RangeSubmit
     ],
     [
         AcquireCommandParser,
@@ -183,16 +192,18 @@ define_nyx_command_manager!(
 
 #[derive(Debug, Clone)]
 pub struct AcquireCommand;
-impl<C, CM, ED, ET, I, S, SM> IsCommand<C, CM, ED, ET, I, S, SM> for AcquireCommand {
+impl<CM, I, S> Command<CM, I, S> for AcquireCommand
+where
+    CM: CommandManager<I, S>,
+{
     fn usable_at_runtime(&self) -> bool {
         false
     }
 
-    fn run(
-        &self,
-        _emu: &mut StdEmulator<C, CM, ED, ET, I, S, SM>,
-        _ret_reg: Option<Regs>,
-    ) -> result::Result<Option<EmulatorDriverResult<C>>, EmulatorDriverError> {
+    fn run<EMU>(&self, _emu: &mut EMU, _ret_reg: Option<Regs>) -> Result<Option<EmulatorRunResult>>
+    where
+        EMU: Emulator<I, S, CommandManager = CM>,
+    {
         Ok(None)
     }
 }
@@ -211,28 +222,26 @@ impl GetPayloadCommand {
     }
 }
 
-impl<C, ET, I, S, SM> IsCommand<C, NyxCommandManager<S>, StdEmulatorDriver, ET, I, S, SM>
-    for GetPayloadCommand
+impl<I, S> Command<NyxCommandManager, I, S> for GetPayloadCommand
 where
-    ET: EmulatorModuleTuple<I, S>,
-    I: HasTargetBytes + Unpin,
-    S: Unpin,
-    SM: IsSnapshotManager,
+    I: Input + Unpin,
+    S: State<Input = I> + Unpin,
 {
     fn usable_at_runtime(&self) -> bool {
         false
     }
 
-    fn run(
-        &self,
-        emu: &mut StdEmulator<C, NyxCommandManager<S>, StdEmulatorDriver, ET, I, S, SM>,
-        _ret_reg: Option<Regs>,
-    ) -> result::Result<Option<EmulatorDriverResult<C>>, EmulatorDriverError> {
+    fn run<EMU>(&self, emu: &mut EMU, _ret_reg: Option<Regs>) -> Result<Option<EmulatorRunResult>>
+    where
+        EMU: Emulator<I, S, CommandManager = NyxCommandManager>,
+    {
         let qemu = emu.qemu();
 
         let struct_addr = self.input_struct_location;
         let input_addr = self.input_struct_location
             + offset_of!(libvharness_sys::kAFL_payload, data) as GuestVirtAddr;
+
+        let max_input_size = emu.input_writer_mut().max_input_size();
 
         let payload_struct_mem_chunk = QemuMemoryChunk::virt(
             struct_addr,
@@ -241,23 +250,18 @@ where
         );
         let payload_mem_chunk = QemuMemoryChunk::virt(
             input_addr,
-            emu.driver().input_setter().max_input_size() as GuestReg,
+            max_input_size as GuestReg,
             qemu.current_cpu().unwrap(),
         );
 
         // Save input struct location for next runs
-        <StdInputSetter as NyxInputSetter<I, S>>::set_input_struct_location(
-            emu.driver_mut().input_setter_mut(),
-            crate::systemmode::SystemInputLocation::new(qemu, &payload_struct_mem_chunk, None),
-        )
-        .unwrap();
+        emu.input_writer_mut()
+            .set_input_struct_location(InputLocation::new(qemu, &payload_struct_mem_chunk, None))
+            .unwrap();
 
         // Save input location for next runs
-        <StdInputSetter as InputSetter<I, S>>::set_input_location(
-            emu.driver_mut().input_setter_mut(),
-            crate::standard::systemmode::SystemInputLocation::new(qemu, &payload_mem_chunk, None),
-        )
-        .unwrap();
+        emu.set_input_location(&InputLocation::new(qemu, &payload_mem_chunk, None))
+            .unwrap();
 
         Ok(None)
     }
@@ -266,25 +270,20 @@ where
 #[derive(Debug, Clone)]
 pub struct NextPayloadCommand;
 
-impl<C, ET, I, S, SM> IsCommand<C, NyxCommandManager<S>, StdEmulatorDriver, ET, I, S, SM>
-    for NextPayloadCommand
+impl<CM, I, S> Command<CM, I, S> for NextPayloadCommand
 where
-    ET: EmulatorModuleTuple<I, S>
-        + HasStdFiltersTuple
-        + crate::modules::utils::filters::HasPageFilterTuple,
+    CM: CommandManager<I, S>,
     I: Unpin,
     S: Unpin,
-    SM: IsSnapshotManager,
 {
     fn usable_at_runtime(&self) -> bool {
         false
     }
 
-    fn run(
-        &self,
-        emu: &mut StdEmulator<C, NyxCommandManager<S>, StdEmulatorDriver, ET, I, S, SM>,
-        _ret_reg: Option<Regs>,
-    ) -> result::Result<Option<EmulatorDriverResult<C>>, EmulatorDriverError> {
+    fn run<EMU>(&self, emu: &mut EMU, _ret_reg: Option<Regs>) -> Result<Option<EmulatorRunResult>>
+    where
+        EMU: Emulator<I, S, CommandManager = CM>,
+    {
         let qemu = emu.qemu();
 
         if !emu.command_manager_mut().start() {
@@ -294,13 +293,12 @@ where
             let snapshot_id = emu.snapshot_manager_mut().save(qemu);
 
             // Set snapshot ID to restore to after fuzzing ends
-            emu.driver_mut()
-                .set_snapshot_id(snapshot_id)
-                .map_err(|_| EmulatorDriverError::MultipleSnapshotDefinition)?;
+            emu.set_snapshot_id(snapshot_id)
+                .map_err(|_| EmulatorError::MultipleSnapshotDefinition)?;
 
             // Auto page filtering if option is enabled
             #[cfg(feature = "systemmode")]
-            if emu.driver_mut().allow_page_on_start() {
+            if emu.allow_page_on_start() {
                 if let Some(paging_id) = qemu.current_cpu().unwrap().current_paging_id() {
                     log::info!("Filter: allow page ID {paging_id}.");
                     emu.modules_mut().modules_mut().allow_page_id_all(paging_id);
@@ -312,9 +310,7 @@ where
 
             log::info!("Fuzzing starts");
 
-            return Ok(Some(EmulatorDriverResult::ReturnToClient(
-                EmulatorExitResult::FuzzingStarts,
-            )));
+            return Ok(Some(EmulatorRunResult::FuzzingStarts));
         }
 
         Ok(None)
@@ -324,25 +320,20 @@ where
 #[derive(Debug, Clone)]
 pub struct SubmitCR3Command;
 
-impl<C, ET, I, S, SM> IsCommand<C, NyxCommandManager<S>, StdEmulatorDriver, ET, I, S, SM>
-    for SubmitCR3Command
+impl<CM, I, S> Command<CM, I, S> for SubmitCR3Command
 where
-    ET: EmulatorModuleTuple<I, S>
-        + HasStdFiltersTuple
-        + crate::modules::utils::filters::HasPageFilterTuple,
-    I: HasTargetBytes + Unpin,
+    CM: CommandManager<I, S>,
+    I: Unpin,
     S: Unpin,
-    SM: IsSnapshotManager,
 {
     fn usable_at_runtime(&self) -> bool {
         true
     }
 
-    fn run(
-        &self,
-        emu: &mut StdEmulator<C, NyxCommandManager<S>, StdEmulatorDriver, ET, I, S, SM>,
-        _ret_reg: Option<Regs>,
-    ) -> result::Result<Option<EmulatorDriverResult<C>>, EmulatorDriverError> {
+    fn run<EMU>(&self, emu: &mut EMU, _ret_reg: Option<Regs>) -> Result<Option<EmulatorRunResult>>
+    where
+        EMU: Emulator<I, S, CommandManager = CM>,
+    {
         let qemu = emu.qemu();
 
         if let Some(current_cpu) = qemu.current_cpu() {
@@ -352,11 +343,11 @@ where
                 Ok(None)
             } else {
                 log::warn!("No paging id found for current cpu");
-                Err(EmulatorDriverError::CommandError(CommandError::WrongUsage))
+                Err(EmulatorError::CommandError(CommandError::WrongUsage).into())
             }
         } else {
             log::error!("No current cpu found");
-            Err(EmulatorDriverError::CommandError(CommandError::WrongUsage))
+            Err(EmulatorError::CommandError(CommandError::WrongUsage).into())
         }
     }
 }
@@ -372,23 +363,20 @@ impl RangeSubmitCommand {
     }
 }
 
-impl<C, ET, I, S, SM> IsCommand<C, NyxCommandManager<S>, StdEmulatorDriver, ET, I, S, SM>
-    for RangeSubmitCommand
+impl<CM, I, S> Command<CM, I, S> for RangeSubmitCommand
 where
-    ET: EmulatorModuleTuple<I, S> + HasStdFiltersTuple,
+    CM: CommandManager<I, S>,
     I: Unpin,
     S: Unpin,
-    SM: IsSnapshotManager,
 {
     fn usable_at_runtime(&self) -> bool {
         true
     }
 
-    fn run(
-        &self,
-        emu: &mut StdEmulator<C, NyxCommandManager<S>, StdEmulatorDriver, ET, I, S, SM>,
-        _ret_reg: Option<Regs>,
-    ) -> result::Result<Option<EmulatorDriverResult<C>>, EmulatorDriverError> {
+    fn run<EMU>(&self, emu: &mut EMU, _ret_reg: Option<Regs>) -> Result<Option<EmulatorRunResult>>
+    where
+        EMU: Emulator<I, S, CommandManager = CM>,
+    {
         log::info!("Allow address range: {:#x?}", self.allowed_range);
 
         const EMPTY_RANGE: Range<GuestAddr> = 0..0;
@@ -413,65 +401,50 @@ where
 #[derive(Debug, Clone)]
 pub struct PanicCommand;
 
-impl<C, ET, I, S, SM> IsCommand<C, NyxCommandManager<S>, StdEmulatorDriver, ET, I, S, SM>
-    for PanicCommand
+impl<CM, I, S> Command<CM, I, S> for PanicCommand
 where
-    ET: EmulatorModuleTuple<I, S>,
-    I: Unpin,
-    S: Unpin,
-    SM: IsSnapshotManager,
+    CM: CommandManager<I, S>,
 {
     fn usable_at_runtime(&self) -> bool {
         true
     }
 
-    fn run(
-        &self,
-        emu: &mut StdEmulator<C, NyxCommandManager<S>, StdEmulatorDriver, ET, I, S, SM>,
-        _ret_reg: Option<Regs>,
-    ) -> result::Result<Option<EmulatorDriverResult<C>>, EmulatorDriverError> {
+    fn run<EMU>(&self, emu: &mut EMU, _ret_reg: Option<Regs>) -> Result<Option<EmulatorRunResult>>
+    where
+        EMU: Emulator<I, S, CommandManager = CM>,
+    {
         let qemu = emu.qemu();
 
         if !emu.command_manager_mut().has_started() {
-            return Err(EmulatorDriverError::CommandError(
-                CommandError::EndBeforeStart,
-            ));
+            return Err(EmulatorError::CommandError(CommandError::EndBeforeStart).into());
         }
 
-        let snapshot_id = emu
-            .driver_mut()
-            .snapshot_id()
-            .ok_or(EmulatorDriverError::SnapshotNotFound)?;
+        let snapshot_id = emu.snapshot_id().ok_or(EmulatorError::SnapshotNotFound)?;
 
         log::debug!("Restoring snapshot");
         emu.snapshot_manager_mut().restore(qemu, &snapshot_id)?;
 
         emu.snapshot_manager_mut().check(qemu, &snapshot_id)?;
 
-        Ok(Some(EmulatorDriverResult::EndOfRun(ExitKind::Crash)))
+        Ok(Some(EmulatorRunResult::EndOfRun(ExitKind::Crash)))
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct SubmitPanicCommand;
 
-impl<C, ET, I, S, SM> IsCommand<C, NyxCommandManager<S>, StdEmulatorDriver, ET, I, S, SM>
-    for SubmitPanicCommand
+impl<CM, I, S> Command<CM, I, S> for SubmitPanicCommand
 where
-    ET: EmulatorModuleTuple<I, S>,
-    I: HasTargetBytes + Unpin,
-    S: Unpin,
-    SM: IsSnapshotManager,
+    CM: CommandManager<I, S>,
 {
     fn usable_at_runtime(&self) -> bool {
         true
     }
 
-    fn run(
-        &self,
-        _emu: &mut StdEmulator<C, NyxCommandManager<S>, StdEmulatorDriver, ET, I, S, SM>,
-        _ret_reg: Option<Regs>,
-    ) -> result::Result<Option<EmulatorDriverResult<C>>, EmulatorDriverError> {
+    fn run<EMU>(&self, _emu: &mut EMU, _ret_reg: Option<Regs>) -> Result<Option<EmulatorRunResult>>
+    where
+        EMU: Emulator<I, S, CommandManager = CM>,
+    {
         // TODO: add breakpoint to submit panic addr / page and associate it with a panic command
         unimplemented!()
     }
@@ -488,57 +461,44 @@ impl UserAbortCommand {
     }
 }
 
-impl<C, ET, I, S, SM> IsCommand<C, NyxCommandManager<S>, StdEmulatorDriver, ET, I, S, SM>
-    for UserAbortCommand
+impl<CM, I, S> Command<CM, I, S> for UserAbortCommand
 where
-    ET: EmulatorModuleTuple<I, S>,
-    I: HasTargetBytes + Unpin,
-    S: Unpin,
-    SM: IsSnapshotManager,
+    CM: CommandManager<I, S>,
 {
     fn usable_at_runtime(&self) -> bool {
         true
     }
 
-    fn run(
-        &self,
-        _emu: &mut StdEmulator<C, NyxCommandManager<S>, StdEmulatorDriver, ET, I, S, SM>,
-        _ret_reg: Option<Regs>,
-    ) -> result::Result<Option<EmulatorDriverResult<C>>, EmulatorDriverError> {
+    fn run<EMU>(&self, _emu: &mut EMU, _ret_reg: Option<Regs>) -> Result<Option<EmulatorRunResult>>
+    where
+        EMU: Emulator<I, S, CommandManager = CM>,
+    {
         log::error!("Nyx Guest Abort: {}", self.content);
 
-        Ok(Some(EmulatorDriverResult::ShutdownRequest))
+        Ok(Some(EmulatorRunResult::ShutdownRequest))
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct ReleaseCommand;
-impl<C, ET, I, S, SM> IsCommand<C, NyxCommandManager<S>, StdEmulatorDriver, ET, I, S, SM>
-    for ReleaseCommand
+impl<CM, I, S> Command<CM, I, S> for ReleaseCommand
 where
-    ET: EmulatorModuleTuple<I, S>,
-    I: HasTargetBytes + Unpin,
-    S: Unpin,
-    SM: IsSnapshotManager,
+    CM: CommandManager<I, S>,
 {
     fn usable_at_runtime(&self) -> bool {
         false
     }
 
-    fn run(
-        &self,
-        emu: &mut StdEmulator<C, NyxCommandManager<S>, StdEmulatorDriver, ET, I, S, SM>,
-        _ret_reg: Option<Regs>,
-    ) -> result::Result<Option<EmulatorDriverResult<C>>, EmulatorDriverError> {
+    fn run<EMU>(&self, emu: &mut EMU, _ret_reg: Option<Regs>) -> Result<Option<EmulatorRunResult>>
+    where
+        EMU: Emulator<I, S, CommandManager = CM>,
+    {
         let qemu = emu.qemu();
 
         if emu.command_manager().has_started() {
             log::debug!("Release: end of fuzzing run. Restoring...");
 
-            let snapshot_id = emu
-                .driver_mut()
-                .snapshot_id()
-                .ok_or(EmulatorDriverError::SnapshotNotFound)?;
+            let snapshot_id = emu.snapshot_id().ok_or(EmulatorError::SnapshotNotFound)?;
 
             log::debug!("Restoring snapshot");
             emu.snapshot_manager_mut().restore(qemu, &snapshot_id)?;
@@ -546,7 +506,7 @@ where
             #[cfg(feature = "paranoid_debug")]
             emu.snapshot_manager_mut().check(qemu, &snapshot_id)?;
 
-            Ok(Some(EmulatorDriverResult::EndOfRun(ExitKind::Ok)))
+            Ok(Some(EmulatorRunResult::EndOfRun(ExitKind::Ok)))
         } else {
             log::debug!("Early release. Skipping...");
 
@@ -569,16 +529,18 @@ impl GetHostConfigCommand {
     }
 }
 
-impl<C, CM, ED, ET, I, S, SM> IsCommand<C, CM, ED, ET, I, S, SM> for GetHostConfigCommand {
+impl<CM, I, S> Command<CM, I, S> for GetHostConfigCommand
+where
+    CM: CommandManager<I, S>,
+{
     fn usable_at_runtime(&self) -> bool {
         false
     }
 
-    fn run(
-        &self,
-        emu: &mut StdEmulator<C, CM, ED, ET, I, S, SM>,
-        _ret_reg: Option<Regs>,
-    ) -> result::Result<Option<EmulatorDriverResult<C>>, EmulatorDriverError> {
+    fn run<EMU>(&self, emu: &mut EMU, _ret_reg: Option<Regs>) -> Result<Option<EmulatorRunResult>>
+    where
+        EMU: Emulator<I, S, CommandManager = CM>,
+    {
         // TODO: check this against fuzzer code
         let host_config = libvharness_sys::host_config_t {
             bitmap_size: 0,
@@ -590,7 +552,7 @@ impl<C, CM, ED, ET, I, S, SM> IsCommand<C, CM, ED, ET, I, S, SM> for GetHostConf
         };
 
         let host_config_buf = unsafe {
-            from_raw_parts(
+            slice::from_raw_parts(
                 ptr::from_ref(&host_config) as *const u8,
                 size_of::<libvharness_sys::host_config_t>(),
             )
@@ -618,16 +580,18 @@ impl PrintfCommand {
     }
 }
 
-impl<C, CM, ED, ET, I, S, SM> IsCommand<C, CM, ED, ET, I, S, SM> for PrintfCommand {
+impl<CM, I, S> Command<CM, I, S> for PrintfCommand
+where
+    CM: CommandManager<I, S>,
+{
     fn usable_at_runtime(&self) -> bool {
         false
     }
 
-    fn run(
-        &self,
-        _emu: &mut StdEmulator<C, CM, ED, ET, I, S, SM>,
-        _ret_reg: Option<Regs>,
-    ) -> result::Result<Option<EmulatorDriverResult<C>>, EmulatorDriverError> {
+    fn run<EMU>(&self, _emu: &mut EMU, _ret_reg: Option<Regs>) -> Result<Option<EmulatorRunResult>>
+    where
+        EMU: Emulator<I, S, CommandManager = CM>,
+    {
         println!("hprintf: {}", self.content);
         Ok(None)
     }
@@ -645,16 +609,18 @@ impl SetAgentConfigCommand {
     }
 }
 
-impl<C, CM, ED, ET, I, S, SM> IsCommand<C, CM, ED, ET, I, S, SM> for SetAgentConfigCommand {
+impl<CM, I, S> Command<CM, I, S> for SetAgentConfigCommand
+where
+    CM: CommandManager<I, S>,
+{
     fn usable_at_runtime(&self) -> bool {
         false
     }
 
-    fn run(
-        &self,
-        _emu: &mut StdEmulator<C, CM, ED, ET, I, S, SM>,
-        _ret_reg: Option<Regs>,
-    ) -> result::Result<Option<EmulatorDriverResult<C>>, EmulatorDriverError> {
+    fn run<EMU>(&self, _emu: &mut EMU, _ret_reg: Option<Regs>) -> Result<Option<EmulatorRunResult>>
+    where
+        EMU: Emulator<I, S, CommandManager = CM>,
+    {
         let agent_magic = self.agent_config.agent_magic;
         let agent_version = self.agent_config.agent_version;
 

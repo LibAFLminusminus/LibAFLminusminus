@@ -1,5 +1,6 @@
 use crate::{
-    emu::{IsSnapshotManager, QemuSnapshotCheckResult, SnapshotId, SnapshotManagerError},
+    Result,
+    emu::{QemuSnapshotCheckResult, SnapshotId, SnapshotManager, SnapshotManagerError},
     qemu::Qemu,
 };
 use std::collections::HashMap;
@@ -31,7 +32,7 @@ impl FastSnapshotManager {
     }
 }
 
-impl IsSnapshotManager for FastSnapshotManager {
+impl SnapshotManager for FastSnapshotManager {
     fn save(&mut self, qemu: Qemu) -> SnapshotId {
         let snapshot_id = SnapshotId::gen_unique_id();
         self.snapshots
@@ -39,11 +40,7 @@ impl IsSnapshotManager for FastSnapshotManager {
         snapshot_id
     }
 
-    fn restore(
-        &mut self,
-        qemu: Qemu,
-        snapshot_id: &SnapshotId,
-    ) -> Result<(), SnapshotManagerError> {
+    fn restore(&mut self, qemu: Qemu, snapshot_id: &SnapshotId) -> Result<()> {
         let fast_snapshot_ptr = *self
             .snapshots
             .get(snapshot_id)
@@ -60,7 +57,7 @@ impl IsSnapshotManager for FastSnapshotManager {
         &self,
         qemu: Qemu,
         reference_snapshot_id: &SnapshotId,
-    ) -> Result<QemuSnapshotCheckResult, SnapshotManagerError> {
+    ) -> Result<QemuSnapshotCheckResult> {
         let fast_snapshot_ptr = *self.snapshots.get(reference_snapshot_id).ok_or(
             SnapshotManagerError::SnapshotIdNotFound(*reference_snapshot_id),
         )?;

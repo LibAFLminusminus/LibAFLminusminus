@@ -15,6 +15,7 @@ jobs:
           version: ${{ vars.MAIN_LLVM_VERSION }}
       - uses: ./.github/actions/setup-rust
         with:
+          toolchain: nightly
           components: miri
           cache-key: ubuntu-miri
           cache: ${{ vars.RUNS_ON != '' }}

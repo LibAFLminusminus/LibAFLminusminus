@@ -111,10 +111,11 @@ impl<'a> DrCovWriter<'a> {
     }
 
     /// Write the list of basic blocks to a `DrCov` file.
-    pub fn write<P>(&mut self, path: P, basic_blocks: &[DrCovBasicBlock]) -> Result<()>
-    where
-        P: AsRef<Path>,
-    {
+    pub fn write(
+        &mut self,
+        path: impl AsRef<Path>,
+        basic_blocks: &[DrCovBasicBlock],
+    ) -> Result<()> {
         let mut writer = BufWriter::new(File::create(path)?);
         let modules = self.module_entries();
 
@@ -272,7 +273,7 @@ fn parse_path(s: &str) -> PathBuf {
 
 impl DrCovReader {
     /// Parse a `drcov` file to memory.
-    pub fn read<P: AsRef<Path> + ?Sized>(path: &P) -> Result<Self> {
+    pub fn read(path: impl AsRef<Path>) -> Result<Self> {
         let f = File::open(path.as_ref())?;
         let mut reader = BufReader::new(f);
 
@@ -444,7 +445,7 @@ impl DrCovReader {
     }
 
     /// Writes this data out to disk (again).
-    pub fn write<P: AsRef<Path>>(&self, path: P) -> Result<()> {
+    pub fn write(&self, path: impl AsRef<Path>) -> Result<()> {
         let ranges = self.module_map();
         let mut writer = DrCovWriter::new(&ranges);
         writer.write(path, &self.basic_blocks())

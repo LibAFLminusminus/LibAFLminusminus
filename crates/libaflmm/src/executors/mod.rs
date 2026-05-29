@@ -57,8 +57,6 @@ pub enum ExitKind {
         /// The exitkind of the secondary executor
         secondary: DiffExitKind,
     },
-    // The run resulted in a custom `ExitKind`.
-    // Custom(Box<dyn SerdeAny>),
 }
 libaflmm_bolts::impl_serdeany!(ExitKind);
 
@@ -83,7 +81,7 @@ libaflmm_bolts::impl_serdeany!(DiffExitKind);
 
 /// Runs the fuzzer harness.
 pub trait Executor<I, S>: DependencyResolver {
-    /// The [`Observer`]s owned by the Executor.
+    /// The [`Observer`]s owned by the [`Executor`].
     type Observers: ObserversTuple<S>;
 
     /// The init function of the executor.

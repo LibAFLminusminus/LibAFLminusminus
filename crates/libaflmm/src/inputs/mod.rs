@@ -44,18 +44,12 @@ pub type MutVecInput<'a> = &'a mut Vec<u8>;
 /// An input for the target
 pub trait Input: Clone + Serialize + serde::de::DeserializeOwned + Debug + Hash {
     /// Write this input to the file
-    fn to_file<P>(&self, path: P) -> Result<(), Error>
-    where
-        P: AsRef<Path>,
-    {
+    fn to_file(&self, path: impl AsRef<Path>) -> Result<(), Error> {
         write_file_atomic(path, &postcard::to_allocvec(self)?)
     }
 
     /// Load the content of this input from a file
-    fn from_file<P>(path: P) -> Result<Self, Error>
-    where
-        P: AsRef<Path>,
-    {
+    fn from_file(path: impl AsRef<Path>) -> Result<Self, Error> {
         let mut file = File::open(path)?;
         let mut bytes = vec![];
         file.read_to_end(&mut bytes)?;
@@ -131,6 +125,9 @@ pub trait InputContext {
 
     /// Turns this `input` to slice
     fn to_bytes<'a>(&mut self, input: &'a Self::Input) -> OwnedSlice<'a, u8>;
+
+    /// Get the `input` size in bytes
+    fn len(&self, input: &Self::Input) -> usize;
 }
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
@@ -146,6 +143,10 @@ impl InputContext for NopContext {
 
     fn to_bytes<'a>(&mut self, _input: &'a NopInput) -> OwnedSlice<'a, u8> {
         OwnedSlice::from(vec![])
+    }
+
+    fn len(&self, _input: &Self::Input) -> usize {
+        0
     }
 }
 

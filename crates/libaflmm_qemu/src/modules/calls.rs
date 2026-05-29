@@ -2,17 +2,17 @@ use super::utils::filters::HasAddressFilter;
 #[cfg(feature = "systemmode")]
 use crate::modules::utils::filters::{HasPageFilter, NOP_PAGE_FILTER, NopPageFilter};
 use crate::{
+    Result,
     arch::capstone,
     modules::{
         AddressFilter, EmulatorModule, EmulatorModuleTuple, EmulatorModules,
         utils::filters::StdAddressFilter,
     },
-    qemu::Qemu,
-    qemu::{ArchExtras, Hook},
+    qemu::{ArchExtras, Hook, Qemu},
 };
 use capstone::prelude::*;
 use core::{cell::UnsafeCell, fmt::Debug};
-use libaflmm::{Result, executors::ExitKind, inputs::Input, observers::ObserversTuple};
+use libaflmm::{executors::ExitKind, inputs::Input, observers::ObserversTuple};
 use libaflmm_bolts::tuples::MatchFirstType;
 use libaflmm_qemu_sys::GuestAddr;
 use thread_local::ThreadLocal;

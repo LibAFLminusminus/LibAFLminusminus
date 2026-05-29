@@ -169,7 +169,7 @@ where
                     unsafe {
                         self.inner
                             .run_impl(state, rt_handle)
-                            .expect("Error while running the child runtime");
+                            .expect("Restarting - error while running the runtime");
                     }
 
                     exit(LIBAFLMM_EXIT_END);

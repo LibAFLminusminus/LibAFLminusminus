@@ -1,11 +1,10 @@
 //! A fuzzer using qemu in systemmode for binary-only coverage of kernels
 
-use libaflmm::prelude::*;
+use libaflmm::{prelude::*, Result};
 use libaflmm_bolts::{
     core_affinity::Cores, ownedref::OwnedMutSlice, rands::StdRand, tuples::tuple_list, AsSlice,
 };
 use libaflmm_qemu::prelude::*;
-use libaflmm_targets::{edges_map_mut_ptr, EDGES_MAP_DEFAULT_SIZE, MAX_EDGES_FOUND};
 use std::{env, path::PathBuf, result, time::Duration};
 
 pub static mut MAX_INPUT_SIZE: usize = 50;

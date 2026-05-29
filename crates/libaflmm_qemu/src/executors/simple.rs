@@ -1,7 +1,9 @@
+use std::marker::PhantomData;
+
+use crate::Result;
 use crate::{emu::Emulator, qemu::Qemu};
 use libaflmm::runtimes::{OsTerminationParams, inprocess::CrashStatus};
 use libaflmm::{
-    Result,
     common::DependencyResolver,
     controllers::Worker,
     executors::{Executor, ExitKind},
@@ -10,22 +12,24 @@ use libaflmm::{
 };
 use libaflmm_bolts::tuples::RefIndexable;
 
-pub struct SimpleQemuExecutor<EMU, H, OT> {
+pub struct SimpleQemuExecutor<EMU, H, I, OT, S> {
     emulator: EMU,
     harness: H,
     observers: OT,
+    phantom: PhantomData<(I, S)>,
 }
 
-impl<EMU, H, OT> SimpleQemuExecutor<EMU, H, OT> {
-    pub fn new(_state: &mut EMU::State, emu: EMU, harness: H, observers: OT) -> Result<Self>
+impl<EMU, H, I, OT, S> SimpleQemuExecutor<EMU, H, I, OT, S> {
+    pub fn new(_state: &mut S, emu: EMU, harness: H, observers: OT) -> Result<Self>
     where
-        EMU: Emulator,
-        H: FnMut(&mut EMU::State, &EMU::Input, Qemu) -> Result<ExitKind>,
+        EMU: Emulator<I, S>,
+        H: FnMut(&mut S, &I, Qemu) -> Result<ExitKind>,
     {
         Ok(Self {
             emulator: emu,
             harness,
             observers,
+            phantom: PhantomData,
         })
     }
 
@@ -35,11 +39,11 @@ impl<EMU, H, OT> SimpleQemuExecutor<EMU, H, OT> {
     }
 }
 
-impl<EMU, H, OT> DependencyResolver for SimpleQemuExecutor<EMU, H, OT> {}
+impl<EMU, H, I, OT, S> DependencyResolver for SimpleQemuExecutor<EMU, H, I, OT, S> {}
 
-impl<EMU, H, I, OT, S> Executor<I, S> for SimpleQemuExecutor<EMU, H, OT>
+impl<EMU, H, I, OT, S> Executor<I, S> for SimpleQemuExecutor<EMU, H, I, OT, S>
 where
-    EMU: Emulator<Input = I, State = S>,
+    EMU: Emulator<I, S>,
     OT: ObserversTuple<S>,
     H: FnMut(&mut S, &I, Qemu) -> Result<ExitKind>,
 {
@@ -49,11 +53,11 @@ where
         &mut self,
         state: &mut S,
         _rt_handle: &mut RuntimeHandle<S, W>,
-    ) -> Result<()> {
-        self.emulator.first_exec(state)
+    ) -> libaflmm::Result<()> {
+        Ok(self.emulator.first_exec(state)?)
     }
 
-    unsafe fn execute_impl(&mut self, state: &mut S, input: &I) -> Result<ExitKind> {
+    unsafe fn execute_impl(&mut self, state: &mut S, input: &I) -> libaflmm::Result<ExitKind> {
         self.emulator.pre_exec(state, input)?;
 
         let mut exit_kind = (self.harness)(state, input, self.emulator.qemu())?;
@@ -78,7 +82,7 @@ where
         _state: &mut S,
         _input: Option<&I>,
         _params: &OsTerminationParams,
-    ) -> Result<CrashStatus> {
+    ) -> libaflmm::Result<CrashStatus> {
         log::error!("Crash in QEMU systemmode: this is a fuzzer bug.");
         Ok(CrashStatus::FuzzerCrash)
     }
@@ -89,7 +93,7 @@ where
         state: &mut S,
         input: Option<&I>,
         params: &OsTerminationParams,
-    ) -> Result<CrashStatus> {
+    ) -> libaflmm::Result<CrashStatus> {
         unsafe {
             super::handle_crash(
                 &mut self.emulator,
@@ -106,7 +110,7 @@ where
         state: &mut S,
         input: Option<&I>,
         _params: &libaflmm::runtimes::OsTerminationParams,
-    ) -> Result<TimeoutStatus> {
+    ) -> libaflmm::Result<TimeoutStatus> {
         unsafe { super::handle_timeout(&mut self.emulator, &mut self.observers, state, input) }
     }
 }

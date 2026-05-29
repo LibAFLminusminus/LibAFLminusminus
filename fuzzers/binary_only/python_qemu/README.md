@@ -2,7 +2,7 @@
 
 ## Build
 
-First, install python bindings (check `LibAFL/bindings/pylibafl`) and use the virtual environment.
+First, install python bindings (check `LibAFL/bindings/pylibaflmm`) and use the virtual environment.
 
 Then, create the `in` folder and put some input inside
 ```bash

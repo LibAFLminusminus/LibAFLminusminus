@@ -1,6 +1,7 @@
-import pylibafl.sugar as sugar
 import ctypes
 import platform
+
+import pylibaflmm.sugar as sugar
 
 print("Starting to fuzz from python!")
 fuzzer = sugar.InProcessBytesCoverageSugar(

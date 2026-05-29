@@ -50,7 +50,7 @@ runs:
         packages=(
           curl lsb-release wget software-properties-common gnupg
           shellcheck libc6-dev gcc g++ build-essential libfile-mimeinfo-perl
-          python3-pip cmake python3 libpython3-dev mold yq
+          python3-pip cmake python3 libpython3-dev mold yq libasan8
         )
 
         if ! dpkg -s "${packages[@]}" &>/dev/null; then

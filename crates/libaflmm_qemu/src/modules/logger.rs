@@ -4,17 +4,14 @@
 //! It must be built through [`LoggerModuleBuilder`].
 
 use crate::{
-    GuestAddr,
+    GuestAddr, Result,
     emu::EmulatorModules,
     modules::{
         EmulatorModule, EmulatorModuleTuple,
         utils::filters::{AddressFilter, NopAddressFilter, NopPageFilter},
     },
-    qemu::Hook,
-    qemu::MemAccessInfo,
-    qemu::Qemu,
+    qemu::{Hook, MemAccessInfo, Qemu},
 };
-use libaflmm::Result;
 use libaflmm_qemu_sys::TCGTemp;
 use std::fmt::Debug;
 

@@ -1,20 +1,17 @@
+#[cfg(not(cpu_target = "hexagon"))]
+use crate::arch::syscalls::SYS_write;
+use crate::{
+    Result,
+    emu::EmulatorModules,
+    modules::{EmulatorModule, EmulatorModuleTuple},
+    qemu::{Hook, Qemu, SyscallHookResult},
+};
 use core::{
     fmt::{self, Debug},
     slice::from_raw_parts,
 };
-
-use libaflmm::Result;
 use libaflmm_bolts::HasLen;
 use libaflmm_qemu_sys::GuestUlong;
-
-#[cfg(not(cpu_target = "hexagon"))]
-use crate::arch::syscalls::SYS_write;
-use crate::{
-    emu::EmulatorModules,
-    modules::{EmulatorModule, EmulatorModuleTuple},
-    qemu::Qemu,
-    qemu::{Hook, SyscallHookResult},
-};
 
 #[cfg(cpu_target = "hexagon")]
 /// Hexagon syscalls are not currently supported by the `syscalls` crate, so we just paste this here for now.

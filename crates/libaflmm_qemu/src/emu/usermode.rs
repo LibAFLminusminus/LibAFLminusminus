@@ -1,37 +1,64 @@
 use crate::{arch::Regs, qemu::CPU};
+use std::cmp::min;
+use std::fmt::{Debug, Formatter};
+use std::ptr::NonNull;
+use std::slice;
 
 /// The fuzzing input location.
 ///
 /// We store the memory location to which the input should be written,
 /// and the return register containing the number bytes effectively written.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct InputLocation {
-    location: Box<[u8]>,
+    addr: NonNull<u8>,
+    size: usize,
     ret_register: Option<Regs>,
     cpu: CPU,
 }
 
+impl Debug for InputLocation {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let dst = unsafe { slice::from_raw_parts(self.addr.as_ptr(), self.size) };
+
+        write!(
+            f,
+            "InputLocation @host addr {:#x} {{\n\tsize: {:#x} bytes\n\tcontent: {:x?}\n\tret_register: {:?}\n\tcpu: {:?}\n}}",
+            self.addr.as_ptr() as usize,
+            self.size,
+            &dst[..min(dst.len(), 64)],
+            self.ret_register,
+            self.cpu,
+        )
+    }
+}
+
 impl InputLocation {
     #[must_use]
-    pub fn new(location: Box<[u8]>, ret_register: Option<Regs>, cpu: CPU) -> Self {
+    pub fn new(location: &mut [u8], ret_register: Option<Regs>, cpu: CPU) -> Self {
         Self {
-            location,
+            addr: NonNull::new(location.as_mut_ptr()).unwrap(),
+            size: location.len(),
             ret_register,
             cpu,
         }
     }
 
-    pub fn write(&mut self, input: &[u8]) -> usize {
-        if input.len() < self.location.len() {
-            self.location[..input.len()].copy_from_slice(input);
-            input.len()
-        } else if input.len() > self.location.len() {
-            self.location.copy_from_slice(&input[..self.location.len()]);
-            self.location.len()
+    #[must_use]
+    pub fn input_size(&self, input_len: usize) -> usize {
+        if input_len <= self.size {
+            input_len
         } else {
-            self.location.copy_from_slice(input);
-            input.len()
+            self.size
         }
+    }
+
+    pub fn write(&mut self, input: &[u8]) -> usize {
+        let size = self.input_size(input.len());
+        let dst = unsafe { slice::from_raw_parts_mut(self.addr.as_mut(), size) };
+
+        dst.copy_from_slice(&input[..size]);
+
+        size
     }
 
     #[must_use]

@@ -1,24 +1,21 @@
 #![allow(clippy::cast_possible_wrap)]
 #![allow(clippy::unnecessary_cast)]
 
-use std::{env, fmt::Debug, fs, ops::Range, path::PathBuf};
-
-use libaflmm::Result;
-use libaflmm_qemu_sys::{GuestAddr, MapInfo};
-
 use super::IntervalSnapshotFilter;
 #[cfg(not(feature = "clippy"))]
 use crate::sys::libafl_tcg_gen_asan;
 use crate::{
+    Result,
     emu::EmulatorModules,
     modules::{
         AddressFilter, EmulatorModule, EmulatorModuleTuple, IntervalSnapshotFilters,
         utils::filters::{HasAddressFilter, StdAddressFilter},
     },
-    qemu::QemuParams,
-    qemu::{Hook, MemAccessInfo, Qemu},
+    qemu::{Hook, MemAccessInfo, Qemu, QemuParams},
     sys::TCGTemp,
 };
+use libaflmm_qemu_sys::{GuestAddr, MapInfo};
+use std::{env, fmt::Debug, fs, ops::Range, path::PathBuf};
 
 #[derive(Debug)]
 pub struct AsanGuestModule<F> {
@@ -195,7 +192,7 @@ where
                 .unwrap()
                 .parent()
                 .unwrap()
-                .join("libafl_qemu_asan_guest.so");
+                .join("libaflmm_qemu_asan_guest.so");
 
             let asan_lib = env::var_os("CUSTOM_LIBAFL_QEMU_ASAN_PATH").map_or(asan_lib, |x| {
                 fs::canonicalize(PathBuf::from(x.to_string_lossy().to_string())).unwrap()

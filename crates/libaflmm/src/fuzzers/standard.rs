@@ -1,6 +1,7 @@
 //! The standard [`Fuzzer`], for everyday use.
 
 use crate::{
+    Error,
     common::Registrator,
     controllers::Worker,
     corpus::{Corpus, Scheduler, Testcase},
@@ -397,7 +398,6 @@ where
 
         // 4 - populate signal handler data if the runtime needs it
         rt_handle.init_termination_handlers::<E, I, R, ST, Self>(
-            state,
             self,
             executor,
             |data, signal_params| unsafe {
@@ -440,7 +440,17 @@ where
         self.fuzzer_hooks.pre_step_all(executor, state, rt_handle)?;
 
         // Get the next index from the scheduler
-        let testcase_id = state.scheduler_mut().next()?;
+
+        let testcase_id = match state.scheduler_mut().next() {
+            Ok(testcase_id) => testcase_id,
+            Err(Error::Empty(e, b)) => {
+                log::error!(
+                    "Scheduler is empty, which often indicates the target is incorrectly instrumented."
+                );
+                return Err(Error::Empty(e, b));
+            }
+            Err(e) => return Err(e),
+        };
 
         self.fuzzer_hooks
             .pre_perform_all(executor, state, rt_handle, testcase_id)?;

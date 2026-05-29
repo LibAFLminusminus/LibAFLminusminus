@@ -5,6 +5,7 @@ use alloc::{
     string::ToString,
 };
 use core::{fmt::Debug, marker::PhantomData};
+use libaflmm_targets::exports::CMPLOG_ENABLED;
 
 use libaflmm_bolts::Named;
 
@@ -100,7 +101,7 @@ pub fn cmplog_pre_hook<E, R, S, W, Z>(
     _: &mut Z,
 ) -> Result<()> {
     unsafe {
-        libaflmm_targets::CMPLOG_ENABLED = 1;
+        CMPLOG_ENABLED = 1;
     }
     Ok(())
 }
@@ -114,7 +115,7 @@ pub fn cmplog_post_hook<E, R, S, W, Z>(
     _: &mut Z,
 ) -> Result<()> {
     unsafe {
-        libaflmm_targets::CMPLOG_ENABLED = 0;
+        CMPLOG_ENABLED = 0;
     }
     Ok(())
 }

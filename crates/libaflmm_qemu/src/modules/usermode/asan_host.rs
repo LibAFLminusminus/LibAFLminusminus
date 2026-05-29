@@ -3,8 +3,8 @@
 #![allow(clippy::unnecessary_cast)]
 
 use crate::{
-    arch::GuestReg,
-    arch::Regs,
+    Result,
+    arch::{GuestReg, Regs},
     emu::EmulatorModules,
     modules::{
         AddressFilter, EmulatorModule, EmulatorModuleTuple,
@@ -12,40 +12,69 @@ use crate::{
         snapshot::{SnapshotModule, get_snapshot_module_mut},
         utils::filters::{HasAddressFilter, StdAddressFilter},
     },
-    qemu::Qemu,
-    qemu::QemuParams,
-    qemu::{Hook, MemAccessInfo, QemuHooks, SyscallHookResult},
+    qemu::{Hook, MemAccessInfo, Qemu, QemuHooks, QemuParams, SyscallHookResult},
     sys::TCGTemp,
 };
 use core::{fmt, slice};
 use hashbrown::{HashMap, HashSet};
-use libaflmm::{Result, executors::ExitKind, observers::ObserversTuple};
+use libaflmm::{executors::ExitKind, observers::ObserversTuple};
 use libaflmm_bolts::os::unix_signals::Signal;
 use libaflmm_qemu_sys::{GuestAddr, GuestUlong, MapInfo};
-use libc::{
-    MAP_ANON, MAP_FAILED, MAP_FIXED, MAP_NORESERVE, MAP_PRIVATE, PROT_READ, PROT_WRITE, c_void,
-};
 use meminterval::{Interval, IntervalTree};
+use nix::sys::mman::{MapFlags, ProtFlags, mmap_anonymous};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use std::{
     env,
+    ffi::c_void,
     fmt::{Debug, Display},
     fs,
+    num::NonZeroUsize,
     path::PathBuf,
     pin::Pin,
     result,
     sync::Mutex,
 };
 
+#[ctor::ctor]
+fn reserve_asan_shadow() {
+    let msg: &str = "ASan mapping failed, is the region free?";
+
+    unsafe {
+        mmap_anonymous(
+            Some(HIGH_SHADOW_ADDR),
+            HIGH_SHADOW_SIZE,
+            ProtFlags::PROT_READ | ProtFlags::PROT_WRITE,
+            MapFlags::MAP_PRIVATE | MapFlags::MAP_FIXED_NOREPLACE | MapFlags::MAP_NORESERVE,
+        )
+        .expect(msg);
+
+        mmap_anonymous(
+            Some(LOW_SHADOW_ADDR),
+            LOW_SHADOW_SIZE,
+            ProtFlags::PROT_READ | ProtFlags::PROT_WRITE,
+            MapFlags::MAP_PRIVATE | MapFlags::MAP_FIXED_NOREPLACE | MapFlags::MAP_NORESERVE,
+        )
+        .expect(msg);
+
+        mmap_anonymous(
+            Some(GAP_SHADOW_ADDR),
+            GAP_SHADOW_SIZE,
+            ProtFlags::PROT_READ | ProtFlags::PROT_WRITE,
+            MapFlags::MAP_PRIVATE | MapFlags::MAP_FIXED_NOREPLACE | MapFlags::MAP_NORESERVE,
+        )
+        .expect(msg);
+    }
+}
+
 // TODO at some point, merge parts with libaflmm_frida
 
-pub const HIGH_SHADOW_ADDR: *mut c_void = 0x02008fff7000 as *mut c_void;
-pub const LOW_SHADOW_ADDR: *mut c_void = 0x00007fff8000 as *mut c_void;
-pub const GAP_SHADOW_ADDR: *mut c_void = 0x00008fff7000 as *mut c_void;
+pub const HIGH_SHADOW_ADDR: NonZeroUsize = NonZeroUsize::new(0x02008fff7000).unwrap();
+pub const LOW_SHADOW_ADDR: NonZeroUsize = NonZeroUsize::new(0x00007fff8000).unwrap();
+pub const GAP_SHADOW_ADDR: NonZeroUsize = NonZeroUsize::new(0x00008fff7000).unwrap();
 
-pub const HIGH_SHADOW_SIZE: usize = 0xdfff0000fff;
-pub const LOW_SHADOW_SIZE: usize = 0xfffefff;
-pub const GAP_SHADOW_SIZE: usize = 0x1ffffffffff;
+pub const HIGH_SHADOW_SIZE: NonZeroUsize = NonZeroUsize::new(0xdfff0000fff).unwrap();
+pub const LOW_SHADOW_SIZE: NonZeroUsize = NonZeroUsize::new(0xfffefff).unwrap();
+pub const GAP_SHADOW_SIZE: NonZeroUsize = NonZeroUsize::new(0x1ffffffffff).unwrap();
 
 pub const SHADOW_OFFSET: isize = 0x7fff8000;
 
@@ -486,43 +515,7 @@ impl AsanHostModule {
 
 impl AsanGiovese {
     unsafe fn init(self: &mut Pin<Box<Self>>, qemu_hooks: QemuHooks) {
-        unsafe {
-            assert_ne!(
-                libc::mmap(
-                    HIGH_SHADOW_ADDR,
-                    HIGH_SHADOW_SIZE,
-                    PROT_READ | PROT_WRITE,
-                    MAP_PRIVATE | MAP_FIXED | MAP_NORESERVE | MAP_ANON,
-                    -1,
-                    0
-                ),
-                MAP_FAILED
-            );
-            assert_ne!(
-                libc::mmap(
-                    LOW_SHADOW_ADDR,
-                    LOW_SHADOW_SIZE,
-                    PROT_READ | PROT_WRITE,
-                    MAP_PRIVATE | MAP_FIXED | MAP_NORESERVE | MAP_ANON,
-                    -1,
-                    0
-                ),
-                MAP_FAILED
-            );
-            assert_ne!(
-                libc::mmap(
-                    GAP_SHADOW_ADDR,
-                    GAP_SHADOW_SIZE,
-                    PROT_READ | PROT_WRITE,
-                    MAP_PRIVATE | MAP_FIXED | MAP_NORESERVE | MAP_ANON,
-                    -1,
-                    0
-                ),
-                MAP_FAILED
-            );
-
-            qemu_hooks.add_pre_syscall_hook(self.as_mut(), Self::fake_syscall);
-        }
+        qemu_hooks.add_pre_syscall_hook(self.as_mut(), Self::fake_syscall);
     }
 
     #[must_use]
@@ -898,7 +891,6 @@ impl AsanGiovese {
     }
 
     pub fn allocation(&mut self, pc: GuestAddr, start: GuestAddr, end: GuestAddr) {
-        eprintln!("ALLOC: pc={pc:#x} start={start:#x} end={end:#x}");
         self.alloc_remove(start, end);
         self.alloc_insert(pc, start, end);
     }
@@ -996,7 +988,7 @@ where
                 .unwrap()
                 .parent()
                 .unwrap()
-                .join("libafl_qemu_asan_host.so");
+                .join("libaflmm_qemu_asan_host.so");
 
             let asan_lib = env::var_os("CUSTOM_LIBAFL_QEMU_ASAN_PATH")
                 .map_or(asan_lib, |x| PathBuf::from(x.to_string_lossy().to_string()));
@@ -1010,11 +1002,6 @@ where
                 .to_str()
                 .expect("The path to the asan lib is invalid")
                 .to_string();
-
-            eprintln!("ASan Host: Preloading {asan_lib}");
-            // qemu_params.add_env("LD_PRELOAD", &asan_lib);
-
-            println!("Loading ASAN: {asan_lib:}");
 
             let add_asan =
                 |e: &str| "LD_PRELOAD=".to_string() + &asan_lib + " " + &e["LD_PRELOAD=".len()..];
@@ -1043,10 +1030,8 @@ where
             }
 
             if !added {
-                eprintln!("Args before: {args:?}");
                 args.insert(1, "LD_PRELOAD=".to_string() + &asan_lib);
                 args.insert(1, "-E".into());
-                eprintln!("Args after: {args:?}");
             }
             Some(asan_lib)
         } else {

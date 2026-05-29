@@ -32,10 +32,7 @@ impl NyxHelper {
     /// Create [`NyxProcess`] and do basic settings. It will convert the
     /// instance to a parent or child using `parent_cpu_id` when
     /// `parallel_mode` is set.
-    pub fn new<P>(share_dir: P, settings: NyxSettings) -> Result<Self, Error>
-    where
-        P: AsRef<Path>,
-    {
+    pub fn new(share_dir: impl AsRef<Path>, settings: NyxSettings) -> Result<Self, Error> {
         let share_dir_str = share_dir
             .as_ref()
             .to_str()

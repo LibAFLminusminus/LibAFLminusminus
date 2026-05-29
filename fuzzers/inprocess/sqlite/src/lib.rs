@@ -1,15 +1,15 @@
 use clap::{self, Parser};
 use core::time::Duration;
-use libaflmm::prelude::*;
+use libaflmm::{prelude::*, Result};
 use libaflmm_bolts::{
     core_affinity::Cores,
     rands::StdRand,
     timers::FastTimer,
     tuples::{tuple_list, Merge},
 };
-use libaflmm_targets::{edges_map_mut_slice, libfuzzer_initialize, libfuzzer_test_one_input};
+use libaflmm_targets::prelude::*;
 use mimalloc::MiMalloc;
-use std::{env, net::SocketAddr, path::PathBuf};
+use std::{env, path::PathBuf};
 
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;

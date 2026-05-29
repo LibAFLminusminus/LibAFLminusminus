@@ -41,7 +41,7 @@ pub struct Opt {
 }
 
 fn process(opts: &Opt, input: &PathBuf) -> Result<(), std::io::Error> {
-    let Ok(drcov) = DrCovReader::read(&input)
+    let Ok(drcov) = DrCovReader::read(input)
         .map_err(|err| eprintln!("Ignored coverage file {}, reason: {err:?}", input.display()))
     else {
         return Ok(());

@@ -13,6 +13,7 @@ use libaflmm_core::Result;
 
 use crate::{
     common::DependencyResolver,
+    controllers::Worker,
     runtimes::{
         Runtime, RuntimeHandle,
         utils::{
@@ -20,6 +21,7 @@ use crate::{
             TerminationHandler,
         },
     },
+    states::State,
 };
 
 #[cfg(test)]
@@ -122,6 +124,7 @@ impl<CH, D, S, T, TH, TM, W> Runtime<S, W> for InProcessRuntime<CH, D, S, T, TH,
 where
     CH: FnMut(&mut D, &OsTerminationParams) -> Result<CrashStatus> + Send + Sync + Unpin + 'static,
     D: IntoTerminationHandlerData + Send + Sync + Unpin + 'static,
+    S: State,
     T: FnMut(&mut RuntimeHandle<S, W>, &mut S) -> Result<()>,
     TH: FnMut(&mut D, &OsTerminationParams) -> Result<TimeoutStatus>
         + Send
@@ -129,6 +132,7 @@ where
         + Unpin
         + 'static,
     TM: Timer,
+    W: Worker,
 {
     unsafe fn run_impl(&mut self, mut state: S, rt_handle: &mut RuntimeHandle<S, W>) -> Result<()> {
         // OS-specific termination handler init
@@ -144,7 +148,7 @@ where
         // set the runtime handler pointer to the termination data
         if let Some(termination_handler_data) = D::termination_handler_data(termination_data) {
             unsafe {
-                rt_handle.set_termination_handler(termination_handler_data);
+                rt_handle.early_init_termination_handler(termination_handler_data, &mut state);
             }
         }
 

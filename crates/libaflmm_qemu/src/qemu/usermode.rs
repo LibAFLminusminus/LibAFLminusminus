@@ -1,4 +1,5 @@
-use libaflmm_bolts::{Error, os::unix_signals::Signal};
+use libaflmm::{illegal_argument, runtime};
+use libaflmm_bolts::os::unix_signals::Signal;
 use libaflmm_qemu_sys::libafl_qemu_run;
 use libaflmm_qemu_sys::{
     GuestAbiUlong, GuestAddr, IntervalTreeNode, IntervalTreeRoot, MapInfo, MmapPerms, VerifyAccess,
@@ -15,6 +16,7 @@ use std::{
 #[cfg(feature = "python")]
 use pyo3::{IntoPyObject, Py, PyRef, PyRefMut, Python, pyclass, pymethods};
 
+use crate::Result;
 #[cfg(all(doc, not(feature = "hexagon")))]
 use crate::modules::SnapshotModule;
 use crate::{qemu::CPU, qemu::QEMU_IS_RUNNING, qemu::Qemu};
@@ -184,7 +186,6 @@ impl CPU {
     /// This will read from a translated guest address (using `g2h`).
     /// It just adds `guest_base` and writes to that location, without checking the bounds.
     /// This may only be safely used for valid guest addresses!
-    #[cfg(not(feature = "systemmode"))]
     pub unsafe fn read_mem_unchecked(&self, addr: GuestAddr, buf: &mut [u8]) {
         let host_addr = self.g2h::<u8>(addr);
         unsafe {
@@ -199,7 +200,6 @@ impl CPU {
     /// This will write to a translated guest address (using `g2h`).
     /// It just adds `guest_base` and writes to that location, without checking the bounds.
     /// This may only be safely used for valid guest addresses!
-    #[cfg(not(feature = "systemmode"))]
     pub unsafe fn write_mem_unchecked(&self, addr: GuestAddr, buf: &[u8]) {
         let host_addr = self.g2h::<u8>(addr);
         unsafe {
@@ -229,6 +229,7 @@ impl CPU {
 
 #[expect(clippy::unused_self)]
 impl Qemu {
+    /// This function gets the memory mappings from the emulator.
     #[must_use]
     pub fn mappings(&self) -> GuestMaps {
         GuestMaps::new()
@@ -290,7 +291,6 @@ impl Qemu {
         }
     }
 
-    #[cfg(not(feature = "systemmode"))]
     pub(super) unsafe fn run_inner(self) {
         unsafe {
             libafl_qemu_run();
@@ -337,13 +337,13 @@ impl Qemu {
 
     #[expect(clippy::cast_sign_loss)]
     pub fn mmap(
-        self,
+        &self,
         addr: GuestAddr,
         size: usize,
         perms: MmapPerms,
-        flags: c_int,
+        flags: i32,
         fd: i32,
-    ) -> Result<GuestAddr, Error> {
+    ) -> Result<GuestAddr> {
         let res = unsafe {
             libaflmm_qemu_sys::target_mmap(
                 addr as GuestAbiUlong,
@@ -356,20 +356,16 @@ impl Qemu {
         };
         if res <= 0 {
             let errno = std::io::Error::last_os_error().raw_os_error();
-            Err(Error::illegal_argument(format!(
+            Err(illegal_argument!(
                 "failed to mmap addr: {addr:x} (size: {size:?} prot: {perms:?} flags: {flags:?} fd: {fd:?}). The errno is {errno:?}",
-            )))
+            )
+            .into())
         } else {
             Ok(res as GuestAddr)
         }
     }
 
-    pub fn map_private(
-        &self,
-        addr: GuestAddr,
-        size: usize,
-        perms: MmapPerms,
-    ) -> Result<GuestAddr, Error> {
+    pub fn map_private(&self, addr: GuestAddr, size: usize, perms: MmapPerms) -> Result<GuestAddr> {
         self.mmap(
             addr,
             size,
@@ -379,12 +375,7 @@ impl Qemu {
         )
     }
 
-    pub fn map_fixed(
-        &self,
-        addr: GuestAddr,
-        size: usize,
-        perms: MmapPerms,
-    ) -> Result<GuestAddr, Error> {
+    pub fn map_fixed(&self, addr: GuestAddr, size: usize, perms: MmapPerms) -> Result<GuestAddr> {
         self.mmap(
             addr,
             size,
@@ -394,7 +385,7 @@ impl Qemu {
         )
     }
 
-    pub fn mprotect(&self, addr: GuestAddr, size: usize, perms: MmapPerms) -> Result<(), String> {
+    pub fn mprotect(&self, addr: GuestAddr, size: usize, perms: MmapPerms) -> Result<()> {
         let res = unsafe {
             libaflmm_qemu_sys::target_mprotect(
                 addr as GuestAbiUlong,
@@ -405,17 +396,17 @@ impl Qemu {
         if res == 0 {
             Ok(())
         } else {
-            Err(format!("Failed to mprotect {addr}"))
+            Err(runtime!("Failed to mprotect {addr}").into())
         }
     }
 
-    pub fn unmap(&self, addr: GuestAddr, size: usize) -> Result<(), String> {
+    pub fn unmap(&self, addr: GuestAddr, size: usize) -> Result<()> {
         if unsafe { libaflmm_qemu_sys::target_munmap(addr as GuestAbiUlong, size as GuestAbiUlong) }
             == 0
         {
             Ok(())
         } else {
-            Err(format!("Failed to unmap {addr}"))
+            Err(runtime!("Failed to unmap {addr}").into())
         }
     }
 
@@ -603,14 +594,16 @@ pub mod pybind {
             if let Ok(p) = MmapPerms::try_from(perms) {
                 self.qemu
                     .mprotect(addr, size, p)
-                    .map_err(PyValueError::new_err)
+                    .map_err(|err| PyValueError::new_err(format!("Failed to mprotect: {err:?}")))
             } else {
                 Err(PyValueError::new_err("Invalid perms"))
             }
         }
 
         fn unmap(&self, addr: GuestAddr, size: usize) -> PyResult<()> {
-            self.qemu.unmap(addr, size).map_err(PyValueError::new_err)
+            self.qemu
+                .unmap(addr, size)
+                .map_err(|err| PyValueError::new_err(format!("Failed to unmap: {err:?}")))
         }
 
         /// # Safety

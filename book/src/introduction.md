@@ -19,7 +19,7 @@ Many modules ended up rarely used in practice, and the resulting surface area be
 We also identified core architectural limitations that called for rewriting significant parts of the code.
 This is how the idea of `LibAFL--` was born.
 
-## Why LibAFL--?
+## Why `LibAFL--`?
 
 `LibAFL--` keeps the main benefits of `LibAFL`, while exposing a saner API for users.
 Some highlight features currently include:
