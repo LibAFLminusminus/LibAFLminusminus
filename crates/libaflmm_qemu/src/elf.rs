@@ -19,10 +19,7 @@ impl<'a> EasyElf<'a> {
         Ok(v)
     }
 
-    pub fn from_file<P>(path: P, buffer: &'a mut Vec<u8>) -> Result<Self, Error>
-    where
-        P: AsRef<Path>,
-    {
+    pub fn from_file(path: impl AsRef<Path>, buffer: &'a mut Vec<u8>) -> Result<Self, Error> {
         let elf = {
             let mut binary_file = File::open(path)?;
             binary_file.read_to_end(buffer)?;

@@ -1,72 +1,128 @@
-use libafl::{
-    executors::ExitKind,
-    inputs::{BytesInput, HasTargetBytes},
-    Error,
-};
-use libafl_bolts::AsSlice;
-use libafl_qemu::{elf::EasyElf, ArchExtras, GuestAddr, GuestReg, MmapPerms, Qemu, Regs};
+use libaflmm::{Result, prelude::*};
+use libaflmm_qemu::prelude::*;
+use std::{ops::Range, slice};
+
+use crate::options::CommonOptions;
 
 pub struct Harness {
-    qemu: Qemu,
     input_addr: GuestAddr,
     pc: GuestReg,
     stack_ptr: GuestReg,
     ret_addr: GuestAddr,
 }
 
-pub const MAX_INPUT_SIZE: usize = 1_048_576; // 1MB
+pub const MAX_INPUT_SIZE: usize = 1 << 20; // 1MB
 
 impl Harness {
-    /// Change environment
-    #[inline]
-    pub fn edit_env(_env: &mut Vec<(String, String)>) {}
-
-    /// Change arguments
-    #[inline]
-    pub fn edit_args(_args: &mut Vec<String>) {}
-
     /// Helper function to find the function we want to fuzz.
-    fn start_pc(qemu: Qemu) -> Result<GuestAddr, Error> {
+    fn start_pc(qemu: Qemu) -> Result<GuestAddr> {
         let mut elf_buffer = Vec::new();
         let elf = EasyElf::from_file(qemu.binary_path(), &mut elf_buffer)?;
 
         let start_pc = elf
             .resolve_symbol("LLVMFuzzerTestOneInput", qemu.load_addr())
-            .ok_or_else(|| Error::empty_optional("Symbol LLVMFuzzerTestOneInput not found"))?;
+            .ok_or_else(|| empty_optional!("Symbol LLVMFuzzerTestOneInput not found"))?;
         Ok(start_pc)
     }
 
+    fn coverage_filter(
+        emu: &mut impl Emulator,
+        options: &CommonOptions,
+    ) -> Result<StdAddressFilter> {
+        /* Conversion is required on 32-bit targets, but not on 64-bit ones */
+        if let Some(includes) = &options.include {
+            #[cfg_attr(target_pointer_width = "64", allow(clippy::useless_conversion))]
+            let rules = includes
+                .iter()
+                .map(|x| Range {
+                    start: x.start.into(),
+                    end: x.end.into(),
+                })
+                .collect::<Vec<Range<GuestAddr>>>();
+            Ok(StdAddressFilter::allow_list(rules))
+        } else if let Some(excludes) = &options.exclude {
+            #[cfg_attr(target_pointer_width = "64", allow(clippy::useless_conversion))]
+            let rules = excludes
+                .iter()
+                .map(|x| Range {
+                    start: x.start.into(),
+                    end: x.end.into(),
+                })
+                .collect::<Vec<Range<GuestAddr>>>();
+            Ok(StdAddressFilter::deny_list(rules))
+        } else {
+            let mut elf_buffer = Vec::new();
+            let elf = EasyElf::from_file(emu.binary_path(), &mut elf_buffer)?;
+            let range = elf
+                .get_section(".text", emu.load_addr())
+                .ok_or_else(|| key_not_found!("Failed to find .text section"))?;
+            Ok(StdAddressFilter::allow_list(vec![range]))
+        }
+    }
+
     /// Initialize the emulator, run to the entrypoint (or jump there) and return the [`Harness`] struct
-    pub fn init(qemu: Qemu) -> Result<Harness, Error> {
-        let start_pc = Self::start_pc(qemu)?;
+    pub fn init<E>(emu: &mut E, options: &CommonOptions) -> Result<Harness>
+    where
+        E: Emulator,
+        <E::CommandManager as CommandManager>::Commands: From<StdCommands> + 'static,
+    {
+        // get the start PC from the ELF
+        let start_pc = Self::start_pc(emu.qemu())?;
         log::info!("start_pc @ {start_pc:#x}");
 
-        qemu.entry_break(start_pc);
-
-        let ret_addr: GuestAddr = qemu
-            .read_return_address()
-            .map_err(|e| Error::unknown(format!("Failed to read return address: {e:?}")))?;
-        log::info!("ret_addr = {ret_addr:#x}");
-        qemu.set_breakpoint(ret_addr);
-
-        let input_addr = qemu
+        // map the address at which the input will live.
+        let input_addr = emu
             .map_private(0, MAX_INPUT_SIZE, MmapPerms::ReadWrite)
-            .map_err(|e| Error::unknown(format!("Failed to map input buffer: {e:}")))?;
+            .map_err(|e| unknown!("Failed to map input buffer: {e}"))?;
 
-        let pc: GuestReg = qemu
-            .read_reg(Regs::Pc)
-            .map_err(|e| Error::unknown(format!("Failed to read PC: {e:?}")))?;
+        // set the
+        emu.entry_break(start_pc, move |qemu| {
+            log::info!("Entry break triggered.");
 
-        let stack_ptr = qemu
-            .read_reg(Regs::Sp)
-            .map_err(|e| Error::unknown(format!("Failed to read stack pointer: {e:?}")))?;
+            let input_slice =
+                unsafe { slice::from_raw_parts_mut(input_addr as *mut u8, MAX_INPUT_SIZE) };
 
-        let ret_addr: GuestAddr = qemu
+            let cpu = qemu.current_cpu().unwrap();
+
+            Ok(StdCommands::Start(StartCommand::new(InputLocation::new(
+                input_slice,
+                None,
+                cpu,
+            )))
+            .into())
+        })?;
+
+        let ret_addr: GuestAddr = emu
             .read_return_address()
-            .map_err(|e| Error::unknown(format!("Failed to read return address: {e:?}")))?;
+            .map_err(|e| unknown!("Failed to read return address: {e}"))?;
+        log::info!("ret_addr = {ret_addr:#x}");
+
+        // add the end breakpoint
+        // when hit, qemu will stop and give back the hand to the fuzzer.
+        emu.add_breakpoint(
+            Breakpoint::with_command(
+                ret_addr,
+                |_| Ok(StdCommands::End(EndCommand::new(Some(ExitKind::Ok))).into()),
+                false,
+            ),
+            true,
+        );
+
+        let pc: GuestReg = emu
+            .read_reg(Regs::Pc)
+            .map_err(|e| unknown!("Failed to read PC: {e}"))?;
+
+        let stack_ptr = emu
+            .read_reg(Regs::Sp)
+            .map_err(|e| unknown!("Failed to read stack pointer: {e}"))?;
+
+        let ret_addr: GuestAddr = emu
+            .read_return_address()
+            .map_err(|e| unknown!("Failed to read return address: {e}"))?;
+
+        Self::coverage_filter(emu, options)?;
 
         Ok(Harness {
-            qemu,
             input_addr,
             pc,
             stack_ptr,
@@ -74,55 +130,29 @@ impl Harness {
         })
     }
 
-    /// If we need to do extra work after forking, we can do that here.
-    #[inline]
-    #[expect(clippy::unused_self)]
-    pub fn post_fork(&self) {}
+    pub fn pre_exec<I: Input, S: State<Input = I>>(
+        &self,
+        state: &mut S,
+        input: &I,
+        emu: &mut impl Emulator<Input = I, State = S>,
+    ) -> Result<()> {
+        let len = emu.max_input_size(state, input);
 
-    pub fn run(&self, input: &BytesInput) -> ExitKind {
-        self.reset(input).unwrap();
-        ExitKind::Ok
-    }
+        emu.write_reg(Regs::Pc, self.pc)
+            .map_err(|e| runtime!("Failed to write PC: {e:?}"))?;
 
-    fn reset(&self, input: &BytesInput) -> Result<(), Error> {
-        let target = input.target_bytes();
-        let mut buf = target.as_slice();
-        let mut len = buf.len();
-        if len > MAX_INPUT_SIZE {
-            buf = &buf[0..MAX_INPUT_SIZE];
-            len = MAX_INPUT_SIZE;
-        }
-        let len = len as GuestReg;
+        emu.write_reg(Regs::Sp, self.stack_ptr)
+            .map_err(|e| runtime!("Failed to write SP: {e:?}"))?;
 
-        self.qemu.write_mem(self.input_addr, buf).map_err(|e| {
-            Error::unknown(format!(
-                "Failed to write to memory@{:#x}: {e:?}",
-                self.input_addr
-            ))
-        })?;
+        emu.write_return_address(self.ret_addr)
+            .map_err(|e| runtime!("Failed to write return address: {e:?}"))?;
 
-        self.qemu
-            .write_reg(Regs::Pc, self.pc)
-            .map_err(|e| Error::unknown(format!("Failed to write PC: {e:?}")))?;
+        emu.write_function_argument(0, self.input_addr as GuestReg)
+            .map_err(|e| runtime!("Failed to write argument 0: {e:?}"))?;
 
-        self.qemu
-            .write_reg(Regs::Sp, self.stack_ptr)
-            .map_err(|e| Error::unknown(format!("Failed to write SP: {e:?}")))?;
+        emu.write_function_argument(1, len as u64)
+            .map_err(|e| runtime!("Failed to write argument 1: {e:?}"))?;
 
-        self.qemu
-            .write_return_address(self.ret_addr)
-            .map_err(|e| Error::unknown(format!("Failed to write return address: {e:?}")))?;
-
-        self.qemu
-            .write_function_argument(0, self.input_addr as GuestReg)
-            .map_err(|e| Error::unknown(format!("Failed to write argument 0: {e:?}")))?;
-
-        self.qemu
-            .write_function_argument(1, len)
-            .map_err(|e| Error::unknown(format!("Failed to write argument 1: {e:?}")))?;
-        unsafe {
-            let _ = self.qemu.run();
-        };
         Ok(())
     }
 }

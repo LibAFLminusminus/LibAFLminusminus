@@ -125,6 +125,7 @@ document-features = ["dep:document-features"]
 
 [build-dependencies]
 cc = { workspace = true, features = ["parallel"] }
+bindgen = { workspace = true, optional = true }
 
 [dependencies]
 document-features = { workspace = true, optional = true }

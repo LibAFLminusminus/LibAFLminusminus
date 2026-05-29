@@ -10,7 +10,7 @@ rust-version.workspace = true
 version.workspace = true
 
 [lib]
-name = "afl_qemu_asan_host"
+name = "aflmm_qemu_asan_host"
 crate-type = ["staticlib"]
 
 [features]

@@ -1,8 +1,8 @@
 use clap::Parser;
-use libaflmm::prelude::*;
+use libaflmm::{Result, prelude::*};
 use libaflmm_bolts::{StdTargetArgs, SysVShm, current_nanos, rands::StdRand, tuples::tuple_list};
 use libaflmm_core::forkserver::{AFLPP_CMPLOG_MAP, SHM_CMPLOG_ENV_VAR, SHM_ENV_VAR};
-use libaflmm_targets::{AFLppCmplogVals, AFLppLibAFLCmpLogHeader};
+use libaflmm_targets::cmps::{AFLppCmplogVals, AFLppLibAFLCmpLogHeader};
 use std::{ops::DerefMut, path::PathBuf, time::Duration};
 
 /// The commandline args this fuzzer accepts

@@ -130,20 +130,35 @@ where
     }
 }
 
+impl<Head, Tail> HasAddressFilterTuple for (Option<Head>, Tail)
+where
+    Head: HasAddressFilter,
+    Tail: HasAddressFilterTuple,
+{
+    fn allow_address_range_all(&mut self, address_range: &Range<GuestAddr>) {
+        if let Some(h) = &mut self.0 {
+            h.allow_address_range(address_range);
+        }
+        self.1.allow_address_range_all(address_range);
+    }
+
+    fn allowed_address_all(&self, address: &GuestAddr) -> bool {
+        let head_ok = self.0.as_ref().is_none_or(|h| h.allowed_address(address));
+        head_ok && self.1.allowed_address_all(address)
+    }
+}
+
 #[cfg(all(feature = "usermode", not(feature = "systemmode")))]
 impl<M> HasStdFilters for M where M: HasAddressFilter {}
 
 #[cfg(feature = "systemmode")]
 impl<M> HasStdFilters for M where M: HasAddressFilter + HasPageFilter {}
 
-impl HasStdFiltersTuple for () {}
+#[cfg(all(feature = "usermode", not(feature = "systemmode")))]
+impl<T> HasStdFiltersTuple for T where T: HasAddressFilterTuple {}
 
-impl<Head, Tail> HasStdFiltersTuple for (Head, Tail)
-where
-    Head: HasStdFilters,
-    Tail: HasStdFiltersTuple,
-{
-}
+#[cfg(feature = "systemmode")]
+impl<T> HasStdFiltersTuple for T where T: HasAddressFilterTuple + HasPageFilterTuple {}
 
 /// Offers accessors to modules' page filters.
 pub trait HasPageFilter {
@@ -194,6 +209,25 @@ where
 
     fn allowed_page_id_all(&self, page_id: &GuestPhysAddr) -> bool {
         self.0.allowed_page_id(page_id) && self.1.allowed_page_id_all(page_id)
+    }
+}
+
+#[cfg(feature = "systemmode")]
+impl<Head, Tail> HasPageFilterTuple for (Option<Head>, Tail)
+where
+    Head: HasPageFilter,
+    Tail: HasPageFilterTuple,
+{
+    fn allow_page_id_all(&mut self, page_id: GuestPhysAddr) {
+        if let Some(h) = &mut self.0 {
+            h.allow_page_id(page_id);
+        }
+        self.1.allow_page_id_all(page_id);
+    }
+
+    fn allowed_page_id_all(&self, page_id: &GuestPhysAddr) -> bool {
+        let head_ok = self.0.as_ref().is_none_or(|h| h.allowed_page_id(page_id));
+        head_ok && self.1.allowed_page_id_all(page_id)
     }
 }
 

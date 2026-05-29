@@ -3,26 +3,23 @@ use crate::arch::capstone;
 #[cfg(feature = "systemmode")]
 use crate::modules::utils::filters::{HasPageFilter, NOP_PAGE_FILTER};
 use crate::{
+    Result,
     emu::EmulatorModules,
     modules::{
         AddressFilter, EmulatorModule, EmulatorModuleTuple,
         utils::filters::{HasAddressFilter, NopPageFilter, StdAddressFilter},
     },
-    qemu::Hook,
-    qemu::Qemu,
+    qemu::{Hook, Qemu},
 };
 #[cfg(feature = "usermode")]
 use capstone::{Capstone, InsnDetail, arch::BuildsCapstone};
 use hashbrown::HashMap;
-use libaflmm::{Result, states::State};
+use libaflmm::states::State;
 use libaflmm_bolts::hash_64_fast;
 use libaflmm_qemu_sys::GuestAddr;
+use libaflmm_targets::{cmps::__libaflmm_targets_cmplog_instructions, constants::CMPLOG_MAP_W};
 #[cfg(feature = "usermode")]
-use libaflmm_targets::CMPLOG_ENABLED;
-pub use libaflmm_targets::{
-    CMPLOG_MAP_H, CMPLOG_MAP_PTR, CMPLOG_MAP_SIZE, CMPLOG_MAP_W, CmpLogMap,
-    cmps::{__libaflmm_targets_cmplog_instructions, __libaflmm_targets_cmplog_routines},
-};
+use libaflmm_targets::{cmps::__libaflmm_targets_cmplog_routines, exports::CMPLOG_ENABLED};
 use serde::{Deserialize, Serialize};
 
 #[cfg_attr(miri, allow(clippy::unsafe_derive_deserialize))] // for SerdeAny

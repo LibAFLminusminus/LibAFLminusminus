@@ -109,7 +109,7 @@ mod test {
 
         let mut bool_feedback = BoolValueFeedback::new(&observer.handle());
 
-        let mut state: NopState<()> = NopState::new();
+        let mut state = NopState::nop().unwrap();
         // bool_feedback.init_state(&mut state).unwrap();
 
         let observers = tuple_list!(observer);

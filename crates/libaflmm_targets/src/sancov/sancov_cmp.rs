@@ -6,7 +6,7 @@ use core::{
     ptr,
 };
 
-use crate::CMPLOG_MAP_W;
+use crate::{cmps::__libaflmm_targets_cmplog_routines_len, constants::CMPLOG_MAP_W};
 
 unsafe extern "C" {
 
@@ -48,7 +48,7 @@ pub unsafe extern "C" fn __sanitizer_weak_hook_memcmp(
             let k: usize = called_pc as usize;
             let k = (k >> 4) ^ (k << 8);
             let k = k & (CMPLOG_MAP_W - 1);
-            crate::__libaflmm_targets_cmplog_routines_len(
+            __libaflmm_targets_cmplog_routines_len(
                 k,
                 s1 as *const u8,
                 s2 as *const u8,
@@ -86,12 +86,7 @@ pub unsafe extern "C" fn __sanitizer_weak_hook_strncmp(
                 }
                 actual_len += 1;
             }
-            crate::__libaflmm_targets_cmplog_routines_len(
-                k,
-                s1 as *const u8,
-                s2 as *const u8,
-                actual_len,
-            );
+            __libaflmm_targets_cmplog_routines_len(k, s1 as *const u8, s2 as *const u8, actual_len);
         }
     }
 }
@@ -137,12 +132,7 @@ pub unsafe extern "C" fn __sanitizer_weak_hook_strcmp(
                 }
                 actual_len += 1;
             }
-            crate::__libaflmm_targets_cmplog_routines_len(
-                k,
-                s1 as *const u8,
-                s2 as *const u8,
-                actual_len,
-            );
+            __libaflmm_targets_cmplog_routines_len(k, s1 as *const u8, s2 as *const u8, actual_len);
         }
     }
 }

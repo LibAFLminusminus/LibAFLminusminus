@@ -4,6 +4,7 @@ use crate::{
     runtimes::{
         Runtime, RuntimeHandle, TerminationHandlerData,
         inprocess::{CrashStatus, InProcessRuntime, TimeoutStatus},
+        restarting::LIBAFLMM_EXIT_END,
         utils::OsTerminationParams,
     },
     states::NopState,
@@ -12,34 +13,42 @@ use core::time::Duration;
 use libaflmm_bolts::StdTimer;
 use libaflmm_core::Error;
 use libc::SIGALRM;
-use rusty_fork::{rusty_fork_id, rusty_fork_test};
+use rusty_fork::rusty_fork_id;
 use std::thread;
 
-rusty_fork_test! {
-    #[test]
-    fn test_runtime_create() {
-        let state = NopState::<NopInput>::new();
-        let worker = NopWorker;
+#[test]
+#[cfg_attr(miri, ignore)]
+fn test_runtime_create() {
+    let status = rusty_fork::fork(
+        "runtimes::inprocess::tests::test_runtime_create",
+        rusty_fork_id!(),
+        |_| (),
+        |child, _| child.wait().unwrap(),
+        || {
+            let task =
+                |_rt_handle: &mut RuntimeHandle<NopState, NopWorker>, _state: &mut NopState| Ok(());
 
-        let task = |_rt_handle: &mut RuntimeHandle<NopState<NopInput>, NopWorker>, _state: &mut NopState<NopInput>| {
-            Err(Error::shutting_down())
-        };
+            let crash_handler = |_data: &mut TerminationHandlerData,
+                                 _params: &OsTerminationParams| {
+                Ok(CrashStatus::default())
+            };
 
-        let crash_handler = |_data: &mut TerminationHandlerData, _params: &OsTerminationParams| Ok(CrashStatus::default());
+            let timeout_handler =
+                |_data: &mut TerminationHandlerData, _params: &OsTerminationParams| {
+                    Ok(TimeoutStatus::default())
+                };
 
-        let timeout_handler = |_data: &mut TerminationHandlerData, _params: &OsTerminationParams| Ok(TimeoutStatus::default());
+            run_runtime(task, crash_handler, timeout_handler, false);
+        },
+    )
+    .unwrap();
 
-        let std_timer = StdTimer::new();
-
-        let mut runtime = InProcessRuntime::new(task, crash_handler, TerminationHandlerData::new(), timeout_handler, std_timer);
-
-        match runtime.run(state, worker).err() {
-            Some(Error::ShuttingDown) => {}
-            _ => {
-                panic!("Task did not run successfully");
-            }
-        }
-    }
+    assert_eq!(
+        status.code(),
+        Some(LIBAFLMM_EXIT_END),
+        "Expected child to exit with code {LIBAFLMM_EXIT_END}, received {:?}",
+        status.code()
+    );
 }
 
 /// `set_input` is important:
@@ -47,11 +56,7 @@ rusty_fork_test! {
 /// - if it is not set, the runner considers we are out of the fuzzing loop, so crash / timeout is unexpected (fuzzer bug)
 fn run_runtime<CH, T, TH>(task: T, crash_handler: CH, timeout_handler: TH, set_input: bool)
 where
-    T: FnMut(
-            &mut RuntimeHandle<NopState<NopInput>, NopWorker>,
-            &mut NopState<NopInput>,
-        ) -> Result<(), Error>
-        + 'static,
+    T: FnMut(&mut RuntimeHandle<NopState, NopWorker>, &mut NopState) -> Result<(), Error> + 'static,
     for<'a> CH: FnMut(&mut TerminationHandlerData, &OsTerminationParams<'a>) -> Result<CrashStatus, Error>
         + Send
         + Sync
@@ -63,7 +68,7 @@ where
         + Unpin
         + 'static,
 {
-    let state = NopState::<NopInput>::new();
+    let state = NopState::nop().unwrap();
     let worker = NopWorker;
 
     let std_timer = StdTimer::new();
@@ -88,6 +93,7 @@ where
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_runtime_timeout() {
     // The timeout handler calls exit(55), so we use rusty_fork::fork
     // directly to check the child's exit code.
@@ -97,8 +103,8 @@ fn test_runtime_timeout() {
         |_| (),
         |child, _| child.wait().unwrap(),
         || {
-            let task = |rt_handle: &mut RuntimeHandle<NopState<NopInput>, NopWorker>,
-                        _state: &mut NopState<NopInput>| {
+            let task = |rt_handle: &mut RuntimeHandle<NopState, NopWorker>,
+                        _state: &mut NopState| {
                 rt_handle.set_timeout(Duration::from_millis(10))?;
 
                 rt_handle.arm_timeout()?;
@@ -134,6 +140,7 @@ fn test_runtime_timeout() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_runtime_crash() {
     let status = rusty_fork::fork(
         "runtimes::inprocess::tests::test_runtime_crash",
@@ -141,8 +148,8 @@ fn test_runtime_crash() {
         |_| (),
         |child, _| child.wait().unwrap(),
         || {
-            let task = |_rt_handle: &mut RuntimeHandle<NopState<NopInput>, NopWorker>,
-                        _state: &mut NopState<NopInput>| {
+            let task = |_rt_handle: &mut RuntimeHandle<NopState, NopWorker>,
+                        _state: &mut NopState| {
                 unsafe {
                     libc::raise(libc::SIGSEGV);
                 }
@@ -177,6 +184,7 @@ fn test_runtime_crash() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_runtime_timeout_handler() {
     // The timeout handler calls exit(55), so we use rusty_fork::fork
     // directly to check the child's exit code.
@@ -186,8 +194,8 @@ fn test_runtime_timeout_handler() {
         |_| (),
         |child, _| child.wait().unwrap(),
         || {
-            let task = |rt_handle: &mut RuntimeHandle<NopState<NopInput>, NopWorker>,
-                        _state: &mut NopState<NopInput>| {
+            let task = |rt_handle: &mut RuntimeHandle<NopState, NopWorker>,
+                        _state: &mut NopState| {
                 rt_handle.set_timeout(Duration::from_millis(10))?;
 
                 rt_handle.arm_timeout()?;
@@ -224,6 +232,7 @@ fn test_runtime_timeout_handler() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_runtime_crash_handler() {
     let status = rusty_fork::fork(
         "runtimes::inprocess::tests::test_runtime_crash_handler",
@@ -231,8 +240,8 @@ fn test_runtime_crash_handler() {
         |_| (),
         |child, _| child.wait().unwrap(),
         || {
-            let task = |_rt_handle: &mut RuntimeHandle<NopState<NopInput>, NopWorker>,
-                        _state: &mut NopState<NopInput>| {
+            let task = |_rt_handle: &mut RuntimeHandle<NopState, NopWorker>,
+                        _state: &mut NopState| {
                 unsafe {
                     libc::raise(libc::SIGSEGV);
                 }

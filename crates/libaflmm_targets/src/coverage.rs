@@ -1,7 +1,7 @@
 //! Coverage maps as static mut array
 
 use crate::{
-    EDGES_MAP_ALLOCATED_SIZE, EDGES_MAP_DEFAULT_SIZE,
+    constants::{EDGES_MAP_ALLOCATED_SIZE, EDGES_MAP_DEFAULT_SIZE},
     exports::{EDGES_MAP, EDGES_MAP_PTR},
 };
 

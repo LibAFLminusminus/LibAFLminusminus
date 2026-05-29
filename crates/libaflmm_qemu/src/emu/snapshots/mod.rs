@@ -1,8 +1,9 @@
-use crate::qemu::Qemu;
+use crate::{Result, emu::EmulatorError, qemu::Qemu};
 use std::{
     fmt::Debug,
     sync::atomic::{AtomicU64, Ordering},
 };
+use thiserror::Error;
 
 #[cfg(feature = "systemmode")]
 pub mod fast;
@@ -19,59 +20,48 @@ pub type StdSnapshotManager = NopSnapshotManager;
 #[cfg(feature = "systemmode")]
 pub type StdSnapshotManager = FastSnapshotManager;
 
-pub trait IsSnapshotManager: Clone + Debug {
+pub trait SnapshotManager: Clone + Debug {
     fn init(&mut self, _qemu: Qemu) {}
 
     fn save(&mut self, qemu: Qemu) -> SnapshotId;
-    fn restore(&mut self, qemu: Qemu, snapshot_id: &SnapshotId)
-    -> Result<(), SnapshotManagerError>;
+    fn restore(&mut self, qemu: Qemu, snapshot_id: &SnapshotId) -> Result<()>;
     fn do_check(
         &self,
         qemu: Qemu,
         reference_snapshot_id: &SnapshotId,
-    ) -> Result<QemuSnapshotCheckResult, SnapshotManagerError>;
+    ) -> Result<QemuSnapshotCheckResult>;
 
-    fn check(
-        &self,
-        qemu: Qemu,
-        reference_snapshot_id: &SnapshotId,
-    ) -> Result<(), SnapshotManagerCheckError> {
-        let check_result = self
-            .do_check(qemu, reference_snapshot_id)
-            .map_err(SnapshotManagerCheckError::SnapshotManagerError)?;
+    fn check(&self, qemu: Qemu, reference_snapshot_id: &SnapshotId) -> Result<()> {
+        let check_result = self.do_check(qemu, reference_snapshot_id)?;
 
         if check_result == QemuSnapshotCheckResult::default() {
             Ok(())
         } else {
-            Err(SnapshotManagerCheckError::SnapshotCheckError(check_result))
+            Err(SnapshotManagerCheckError::SnapshotCheckError(check_result).into())
         }
     }
 }
 
 #[cfg(feature = "systemmode")]
 #[derive(Debug, Clone)]
-pub enum SnapshotManager {
+pub enum AllSnapshotManager {
     Qemu(QemuSnapshotManager),
     Fast(FastSnapshotManager),
 }
 
 #[cfg(feature = "systemmode")]
-impl IsSnapshotManager for SnapshotManager {
+impl SnapshotManager for AllSnapshotManager {
     fn save(&mut self, qemu: Qemu) -> SnapshotId {
         match self {
-            SnapshotManager::Qemu(qemu_sm) => qemu_sm.save(qemu),
-            SnapshotManager::Fast(fast_sm) => fast_sm.save(qemu),
+            AllSnapshotManager::Qemu(qemu_sm) => qemu_sm.save(qemu),
+            AllSnapshotManager::Fast(fast_sm) => fast_sm.save(qemu),
         }
     }
 
-    fn restore(
-        &mut self,
-        qemu: Qemu,
-        snapshot_id: &SnapshotId,
-    ) -> Result<(), SnapshotManagerError> {
+    fn restore(&mut self, qemu: Qemu, snapshot_id: &SnapshotId) -> Result<()> {
         match self {
-            SnapshotManager::Qemu(qemu_sm) => qemu_sm.restore(qemu, snapshot_id),
-            SnapshotManager::Fast(fast_sm) => fast_sm.restore(qemu, snapshot_id),
+            AllSnapshotManager::Qemu(qemu_sm) => qemu_sm.restore(qemu, snapshot_id),
+            AllSnapshotManager::Fast(fast_sm) => fast_sm.restore(qemu, snapshot_id),
         }
     }
 
@@ -79,10 +69,10 @@ impl IsSnapshotManager for SnapshotManager {
         &self,
         qemu: Qemu,
         reference_snapshot_id: &SnapshotId,
-    ) -> Result<QemuSnapshotCheckResult, SnapshotManagerError> {
+    ) -> Result<QemuSnapshotCheckResult> {
         match self {
-            SnapshotManager::Qemu(qemu_sm) => qemu_sm.do_check(qemu, reference_snapshot_id),
-            SnapshotManager::Fast(fast_sm) => fast_sm.do_check(qemu, reference_snapshot_id),
+            AllSnapshotManager::Qemu(qemu_sm) => qemu_sm.do_check(qemu, reference_snapshot_id),
+            AllSnapshotManager::Fast(fast_sm) => fast_sm.do_check(qemu, reference_snapshot_id),
         }
     }
 }
@@ -92,16 +82,32 @@ pub struct QemuSnapshotCheckResult {
     pub nb_page_inconsistencies: u64,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Error)]
 pub enum SnapshotManagerError {
+    #[error("snapshot id not found: {0:?}")]
     SnapshotIdNotFound(SnapshotId),
+    #[error("memory inconsistencies: {0}")]
     MemoryInconsistencies(u64),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Error)]
 pub enum SnapshotManagerCheckError {
-    SnapshotManagerError(SnapshotManagerError),
+    #[error(transparent)]
+    SnapshotManagerError(#[from] SnapshotManagerError),
+    #[error("snapshot check failed: {0:?}")]
     SnapshotCheckError(QemuSnapshotCheckResult),
+}
+
+impl From<SnapshotManagerError> for crate::Error {
+    fn from(error: SnapshotManagerError) -> Self {
+        EmulatorError::from(error).into()
+    }
+}
+
+impl From<SnapshotManagerCheckError> for crate::Error {
+    fn from(error: SnapshotManagerCheckError) -> Self {
+        EmulatorError::from(error).into()
+    }
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -113,17 +119,13 @@ impl Default for NopSnapshotManager {
     }
 }
 
-impl IsSnapshotManager for NopSnapshotManager {
+impl SnapshotManager for NopSnapshotManager {
     fn save(&mut self, _qemu: Qemu) -> SnapshotId {
         log::debug!("Saving snapshot with the NopSnapshotManager");
         SnapshotId { id: 0 }
     }
 
-    fn restore(
-        &mut self,
-        _qemu: Qemu,
-        _snapshot_id: &SnapshotId,
-    ) -> Result<(), SnapshotManagerError> {
+    fn restore(&mut self, _qemu: Qemu, _snapshot_id: &SnapshotId) -> Result<()> {
         log::debug!("Restoring snapshot with the NopSnapshotManager");
         Ok(())
     }
@@ -132,7 +134,7 @@ impl IsSnapshotManager for NopSnapshotManager {
         &self,
         _qemu: Qemu,
         _reference_snapshot_id: &SnapshotId,
-    ) -> Result<QemuSnapshotCheckResult, SnapshotManagerError> {
+    ) -> Result<QemuSnapshotCheckResult> {
         Ok(QemuSnapshotCheckResult::default())
     }
 }

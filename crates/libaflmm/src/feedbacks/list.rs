@@ -194,7 +194,7 @@ impl<T> ListFeedback<T> {
 
     /// Creates a new [`ListFeedback`], deciding if the given [`ListObserver`] value of a run is interesting.
     /// Will dump newly observed addresses to `path`. If `path` exists, the file will be truncated.
-    pub fn with_coverage_dump<P: AsRef<Path>>(observer: &ListObserver<T>, path: P) -> Self {
+    pub fn with_coverage_dump(observer: &ListObserver<T>, path: impl AsRef<Path>) -> Self {
         let file = Some(File::create(path).unwrap());
 
         Self {

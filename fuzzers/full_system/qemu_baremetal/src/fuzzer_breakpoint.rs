@@ -1,11 +1,14 @@
 //! A fuzzer using qemu in systemmode for binary-only coverage of kernels
 
-use libaflmm::prelude::*;
+use libaflmm::{prelude::*, Result};
 use libaflmm_bolts::{
     core_affinity::Cores, ownedref::OwnedMutSlice, rands::StdRand, tuples::tuple_list,
 };
 use libaflmm_qemu::prelude::*;
-use libaflmm_targets::{edges_map_mut_ptr, EDGES_MAP_DEFAULT_SIZE, MAX_EDGES_FOUND};
+use libaflmm_targets::{
+    constants::EDGES_MAP_DEFAULT_SIZE,
+    coverage::{edges_map_mut_ptr, MAX_EDGES_FOUND},
+};
 use std::{env, path::PathBuf, time::Duration};
 
 pub static mut MAX_INPUT_SIZE: usize = 50;
@@ -95,22 +98,22 @@ pub fn fuzz() -> Result<()> {
                 .snapshot_manager(QemuSnapshotManager::default())
                 .build()?;
 
-            let qemu = emu.qemu();
-
             // Set breakpoints of interest with corresponding commands.
             emu.add_breakpoint(
                 Breakpoint::with_command(
                     main_addr,
-                    StartCommand::new(InputLocation::new(
-                        qemu,
-                        &QemuMemoryChunk::phys(
-                            input_addr,
-                            unsafe { MAX_INPUT_SIZE } as GuestReg,
-                            qemu.cpu_from_index(0).unwrap(),
-                        ),
-                        None,
-                    ))
-                    .into(),
+                    move |qemu| {
+                        Ok(StartCommand::new(InputLocation::new(
+                            qemu,
+                            &QemuMemoryChunk::phys(
+                                input_addr,
+                                unsafe { MAX_INPUT_SIZE } as GuestReg,
+                                qemu.cpu_from_index(0).unwrap(),
+                            ),
+                            None,
+                        ))
+                        .into())
+                    },
                     true,
                 ),
                 true,
@@ -118,7 +121,7 @@ pub fn fuzz() -> Result<()> {
             emu.add_breakpoint(
                 Breakpoint::with_command(
                     breakpoint,
-                    EndCommand::new(Some(ExitKind::Ok)).into(),
+                    |_| Ok(EndCommand::new(Some(ExitKind::Ok)).into()),
                     false,
                 ),
                 true,
@@ -127,9 +130,7 @@ pub fn fuzz() -> Result<()> {
             let devices = emu.list_devices();
             println!("Devices = {:?}", devices);
 
-            unsafe {
-                emu.start().unwrap();
-            }
+            emu.start().unwrap();
 
             // Create an observation channel to keep track of the execution time
             let time_observer = TimeObserver::new("time");

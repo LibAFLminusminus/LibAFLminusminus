@@ -1,19 +1,15 @@
-use capstone::arch::BuildsCapstone;
-use enum_map::{EnumMap, enum_map};
-use num_enum::{IntoPrimitive, TryFromPrimitive};
-#[cfg(feature = "python")]
-#[allow(unused)]
-use pyo3::prelude::*;
-use std::sync::OnceLock;
-use strum_macros::EnumIter;
-
-pub use syscall_numbers::arm as syscalls;
-
 use crate::{
     GuestAddr,
     qemu::{ArchExtras, CPU, CallingConvention, QemuRWError, QemuRWErrorKind},
     sync_exit::ExitArgs,
 };
+use capstone::arch::BuildsCapstone;
+use enum_map::{EnumMap, enum_map};
+use num_enum::{IntoPrimitive, TryFromPrimitive};
+use std::{mem::size_of, sync::OnceLock};
+use strum_macros::EnumIter;
+
+pub use syscall_numbers::arm as syscalls;
 
 #[expect(non_upper_case_globals)]
 impl CallingConvention {

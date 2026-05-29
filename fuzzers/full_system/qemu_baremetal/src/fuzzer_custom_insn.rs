@@ -1,11 +1,10 @@
 //! A fuzzer using qemu in systemmode for binary-only coverage of kernels
 
-use libaflmm::prelude::*;
+use libaflmm::{prelude::*, Result};
 use libaflmm_bolts::{
     core_affinity::Cores, ownedref::OwnedMutSlice, rands::StdRand, tuples::tuple_list,
 };
 use libaflmm_qemu::prelude::*;
-use libaflmm_targets::{edges_map_mut_ptr, EDGES_MAP_DEFAULT_SIZE, MAX_EDGES_FOUND};
 use std::{env, path::PathBuf, time::Duration};
 
 pub fn fuzz() -> Result<()> {
@@ -68,9 +67,7 @@ pub fn fuzz() -> Result<()> {
             let devices = emu.list_devices();
             println!("Devices = {:?}", devices);
 
-            unsafe {
-                emu.start().unwrap();
-            }
+            emu.start().unwrap();
 
             // Create an observation channel to keep track of the execution time
             let time_observer = TimeObserver::new("time");

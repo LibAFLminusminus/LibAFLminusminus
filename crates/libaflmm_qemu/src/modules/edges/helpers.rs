@@ -286,11 +286,9 @@ mod generators {
 }
 
 mod tracers {
-    use std::cell::UnsafeCell;
-
-    use libaflmm_targets::EDGES_MAP;
-
     use super::{LIBAFL_QEMU_EDGES_MAP_MASK_MAX, LIBAFL_QEMU_EDGES_MAP_PTR};
+    use libaflmm_targets::exports::EDGES_MAP;
+    use std::cell::UnsafeCell;
 
     thread_local!(static PREV_LOC : UnsafeCell<u64> = const { UnsafeCell::new(0) });
 

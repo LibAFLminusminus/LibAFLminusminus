@@ -8,6 +8,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use libaflmm_bolts::CoreId;
 use libaflmm_core::{Error, WorkerId, internal_bug};
 use nix::sys::signal::Signal;
 use quanta::{Clock, Instant};
@@ -46,7 +47,7 @@ pub trait Controller {
 
     /// Create a new [`Self::Worker`].
     /// The controller must keep track of the worker if necessary.
-    fn create_worker(&mut self) -> Result<Self::Worker>;
+    fn create_worker(&mut self, core_id: CoreId) -> Result<Self::Worker>;
 
     /// Get an iterator over all [`Self::Worker`] descriptors.
     fn worker_descriptors(&self) -> impl IntoIterator<Item = &Self::Descriptor>;
@@ -80,17 +81,31 @@ pub trait Worker {
     /// The associated [`Controller`].
     type Controller: Controller<Worker = Self>;
 
-    /// The client id of the worker.
-    fn id(&self) -> WorkerId;
-
-    /// Returns the descriptor of the worker.
+    /// Returns the reference to the descriptor of the worker.
     fn descriptor(&self) -> &<Self::Controller as Controller>::Descriptor;
 
+    /// Returns the mutable reference to the descriptor of the worker.
+    fn descriptor_mut(&mut self) -> &mut <Self::Controller as Controller>::Descriptor;
+
     /// Returns the reference of the working directory of the worker.
-    fn workdir(&self) -> &Workdir;
+    fn workdir(&self) -> &Workdir {
+        self.descriptor().workdir()
+    }
 
     /// Returns the mutable reference of the working directory of the worker.
-    fn workdir_mut(&mut self) -> &mut Workdir;
+    fn workdir_mut(&mut self) -> &mut Workdir {
+        self.descriptor_mut().workdir_mut()
+    }
+
+    /// Returns the [`WorkerId`] attributed to the worker
+    fn id(&self) -> WorkerId {
+        self.descriptor().worker_id()
+    }
+
+    /// Returns the [`CoreId`] on which the worker is running
+    fn core_id(&self) -> CoreId {
+        self.descriptor().core_id()
+    }
 
     /// Do the work related to reconciling between instances: sharing corpus, etc.
     fn reconcile(&self) -> Result<()>;
@@ -109,8 +124,11 @@ pub trait Descriptor: Clone {
     /// Get the mutable reference to the workdir of the [`Worker`].
     fn workdir_mut(&mut self) -> &mut Workdir;
 
-    /// Get the worker ID of the [`Worker`].
+    /// Get the [`WorkerId`] of the [`Worker`].
     fn worker_id(&self) -> WorkerId;
+
+    /// Get the [`CoreId`] of the [`Worker`].
+    fn core_id(&self) -> CoreId;
 }
 
 /// A workdir contains information relative to the working environement of a [`Worker`].
@@ -286,7 +304,7 @@ impl Workdir {
     /// Create a new directory, relative to the [`Workdir`].
     ///
     /// Errors out if the directory already exists.
-    pub fn create_dir<P: AsRef<Path>>(&self, path: P) -> Result<PathBuf> {
+    pub fn create_dir(&self, path: impl AsRef<Path>) -> Result<PathBuf> {
         let full_path = self.root_dir.join(path.as_ref());
         fs::create_dir(full_path.as_path())?;
 

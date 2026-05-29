@@ -1,9 +1,11 @@
-use crate::qemu::Qemu;
+use crate::{Result, qemu::Qemu};
 use libaflmm_qemu_sys::GuestAddr;
 use std::{
     borrow::Borrow,
+    cell::RefCell,
     fmt::{Debug, Display, Formatter},
     hash::{Hash, Hasher},
+    rc::Rc,
     sync::{
         OnceLock,
         atomic::{AtomicU64, Ordering},
@@ -14,12 +16,14 @@ use std::{
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct BreakpointId(u64);
 
+pub type BreakpointCommandFn<C> = Rc<RefCell<dyn FnMut(Qemu) -> Result<C>>>;
+
 // TODO: distinguish breakpoints with IDs instead of addresses to avoid collisions.
 #[derive(Clone)]
 pub struct Breakpoint<C> {
     id: BreakpointId,
     addr: GuestAddr,
-    cmd: Option<C>,
+    cmd_cb: Option<BreakpointCommandFn<C>>,
     disable_on_trigger: bool,
     enabled: bool,
 }
@@ -84,19 +88,24 @@ impl<C> Breakpoint<C> {
         Self {
             id: BreakpointId::new(),
             addr,
-            cmd: None,
+            cmd_cb: None,
             disable_on_trigger,
             enabled: false,
         }
     }
 
-    // Emu will execute the command when it meets the breakpoint.
+    /// Breakpoint running the `cmd_cb` callback once the breakpoint triggers.
     #[must_use]
-    pub fn with_command(addr: GuestAddr, cmd: C, disable_on_trigger: bool) -> Self {
+    pub fn with_command(
+        addr: GuestAddr,
+        cmd_cb: impl FnMut(Qemu) -> Result<C> + 'static,
+        disable_on_trigger: bool,
+    ) -> Self {
+        let cmd_cb: BreakpointCommandFn<C> = Rc::new(RefCell::new(cmd_cb));
         Self {
             id: BreakpointId::new(),
             addr,
-            cmd: Some(cmd),
+            cmd_cb: Some(cmd_cb),
             disable_on_trigger,
             enabled: false,
         }
@@ -126,14 +135,17 @@ impl<C> Breakpoint<C> {
         }
     }
 
-    pub fn trigger(&mut self, qemu: Qemu) -> Option<C>
-    where
-        C: Clone,
-    {
+    /// Trigger the breakpoint, producing its command if one is attached.
+    pub fn trigger(&mut self, qemu: Qemu) -> Result<Option<C>> {
         if self.disable_on_trigger {
             self.disable(qemu);
         }
 
-        self.cmd.clone()
+        if let Some(cmd_cb) = &self.cmd_cb {
+            let mut cmd_cb = cmd_cb.borrow_mut();
+            Ok(Some((*cmd_cb)(qemu)?))
+        } else {
+            Ok(None)
+        }
     }
 }

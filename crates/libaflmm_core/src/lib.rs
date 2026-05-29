@@ -51,8 +51,9 @@ impl ErrorBacktrace {
     }
 }
 
+/// Appends an [`ErrorBacktrace`] to a formatter, if one was captured.
 #[cfg(feature = "errors_backtrace")]
-fn display_error_backtrace(f: &mut fmt::Formatter, err: &ErrorBacktrace) -> fmt::Result {
+pub fn display_error_backtrace(f: &mut fmt::Formatter, err: &ErrorBacktrace) -> fmt::Result {
     match err.status() {
         std::backtrace::BacktraceStatus::Captured => write!(f, "\nBacktrace:\n{err}"),
         std::backtrace::BacktraceStatus::Disabled => {
@@ -61,10 +62,11 @@ fn display_error_backtrace(f: &mut fmt::Formatter, err: &ErrorBacktrace) -> fmt:
         _ => Ok(()),
     }
 }
+
+/// Appends an [`ErrorBacktrace`] to a formatter, if one was captured.
 #[cfg(not(feature = "errors_backtrace"))]
-#[expect(clippy::unnecessary_wraps)]
-fn display_error_backtrace(_f: &mut fmt::Formatter, _err: &ErrorBacktrace) -> fmt::Result {
-    fmt::Result::Ok(())
+pub fn display_error_backtrace(_f: &mut fmt::Formatter, _err: &ErrorBacktrace) -> fmt::Result {
+    Ok(())
 }
 
 /// Shorthand for `std::result::Result<T, libafl_core::Error>`.
@@ -96,8 +98,6 @@ pub enum Error {
     Unsupported(String, ErrorBacktrace),
     /// Raise this from a stage to skip the remaining stages for a given input, not really an error.
     SkipRemainingStages,
-    /// Shutting down, not really an error.
-    ShuttingDown,
     /// OS error, wrapping a [`io::Error`]
     OsError(io::Error, String, ErrorBacktrace),
     /// Something else happened
@@ -208,12 +208,6 @@ impl Error {
         S: Into<String>,
     {
         Error::IllegalArgument(arg.into(), ErrorBacktrace::capture())
-    }
-
-    /// Shutting down, not really an error.
-    #[must_use]
-    pub fn shutting_down() -> Self {
-        Error::ShuttingDown
     }
 
     /// This operation is not supported on the current architecture or platform
@@ -459,7 +453,6 @@ impl Display for Error {
                 )?;
                 display_error_backtrace(f, b)
             }
-            Self::ShuttingDown => write!(f, "Shutting down!"),
             Self::OsError(err, s, b) => {
                 write!(f, "OS error: {0}: {1}", &s, err)?;
                 display_error_backtrace(f, b)
@@ -572,24 +565,24 @@ impl From<windows_result::Error> for Error {
     }
 }
 
-#[cfg(feature = "python")]
-impl From<pyo3::PyErr> for Error {
-    fn from(err: pyo3::PyErr) -> Self {
-        pyo3::Python::attach(|py| {
-            if err
-                .matches(
-                    py,
-                    pyo3::types::PyType::new::<pyo3::exceptions::PyKeyboardInterrupt>(py),
-                )
-                .unwrap()
-            {
-                Self::shutting_down()
-            } else {
-                Self::illegal_state(format!("Python exception: {err:?}"))
-            }
-        })
-    }
-}
+// #[cfg(feature = "python")]
+// impl From<pyo3::PyErr> for Error {
+//     fn from(err: pyo3::PyErr) -> Self {
+//         pyo3::Python::attach(|py| {
+//             if err
+//                 .matches(
+//                     py,
+//                     pyo3::types::PyType::new::<pyo3::exceptions::PyKeyboardInterrupt>(py),
+//                 )
+//                 .unwrap()
+//             {
+//                 Ok(())
+//             } else {
+//                 Self::illegal_state(format!("Python exception: {err:?}"))
+//             }
+//         })
+//     }
+// }
 
 /// Trait to convert into an Owned type
 pub trait IntoOwned {
@@ -784,6 +777,20 @@ impl Named for () {
     fn name(&self) -> &Cow<'static, str> {
         static NAME: Cow<'static, str> = Cow::Borrowed("()");
         &NAME
+    }
+}
+
+impl<N> Named for Option<N>
+where
+    N: Named,
+{
+    fn name(&self) -> &Cow<'static, str> {
+        if let Some(named) = self {
+            named.name()
+        } else {
+            static EMPTY: Cow<'static, str> = Cow::Borrowed("<empty>");
+            &EMPTY
+        }
     }
 }
 

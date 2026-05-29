@@ -31,6 +31,13 @@ impl InputContext for NautilusContext {
         input.unparse(self, &mut bytes);
         OwnedSlice::from(bytes)
     }
+
+    fn len(&self, input: &Self::Input) -> usize {
+        // TODO: optimize?
+        let mut bytes = vec![];
+        input.unparse(self, &mut bytes);
+        bytes.len()
+    }
 }
 
 impl Debug for NautilusContext {
@@ -97,7 +104,7 @@ impl NautilusContext {
     }
 
     /// Create a new [`NautilusContext`] from a file
-    pub fn from_file<P: AsRef<Path>>(tree_depth: usize, grammar_file: P) -> Result<Self, Error> {
+    pub fn from_file(tree_depth: usize, grammar_file: impl AsRef<Path>) -> Result<Self, Error> {
         let grammar_file = grammar_file.as_ref();
         if grammar_file.extension().unwrap_or_default() == "py" {
             #[cfg(feature = "nautilus_py")]

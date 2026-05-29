@@ -14,7 +14,7 @@ pub mod stdio;
 pub use stdio::{OutputObserver, StdErrObserver, StdOutObserver};
 
 pub mod cmplog;
-pub use cmplog::{CmpLogMetadata, CmpLogObserver, CmpValues, CmplogBytes, parse_cmplog_map};
+pub use cmplog::{CmpLogMetadata, CmpLogObserver, CmpValues, CmplogBytes, StdCmpLogObserver};
 
 pub mod map;
 pub use map::{
@@ -166,6 +166,29 @@ impl<S> Observer<S> for TimeObserver {
 impl Named for TimeObserver {
     fn name(&self) -> &Cow<'static, str> {
         &self.name
+    }
+}
+
+impl<O> DependencyResolver for Option<O> {}
+
+impl<O, S> Observer<S> for Option<O>
+where
+    O: Observer<S>,
+{
+    fn pre_exec(&mut self, state: &mut S) -> Result<(), Error> {
+        if let Some(obs) = self {
+            obs.pre_exec(state)
+        } else {
+            Ok(())
+        }
+    }
+
+    fn post_exec(&mut self, state: &mut S, exit_kind: &ExitKind) -> Result<(), Error> {
+        if let Some(obs) = self {
+            obs.post_exec(state, exit_kind)
+        } else {
+            Ok(())
+        }
     }
 }
 

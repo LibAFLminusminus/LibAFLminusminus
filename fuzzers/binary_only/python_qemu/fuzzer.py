@@ -1,7 +1,7 @@
 # from the maturin venv, after running 'maturin develop' in the pylibafl directory
 
-from pylibafl import sugar, qemu
 import lief
+from pylibaflmm import qemu, sugar
 
 MAX_SIZE = 0x100
 BINARY_PATH = "./a.out"

@@ -1,4 +1,4 @@
-use libaflmm::prelude::*;
+use libaflmm::{Result, prelude::*};
 use libaflmm_bolts::{non_zero, rands::StdRand, tuples::tuple_list};
 use libaflmm_nyx::{executor::NyxExecutor, helper::NyxHelper, settings::NyxSettings};
 

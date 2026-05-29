@@ -23,6 +23,11 @@ arch_dir:
 zlib_wget: deps_dir
     #!/bin/bash
 
+    if [ -e "{{ DEPS_DIR }}/zlib-1.2.13" ]; then
+        echo "zlib sources already present, skipping download"
+        exit 0
+    fi
+
     wget \
         -O "{{ DEPS_DIR }}/zlib-1.2.13.tar.gz" \
         https://github.com/madler/zlib/releases/download/v1.2.13/zlib-1.2.13.tar.gz
@@ -37,9 +42,12 @@ zlib: zlib_wget
 
     source {{ DOTENV }}
 
-    rm -rf {{ TARGET_DIR }}/build-zlib/
+    if [ -e "{{ TARGET_DIR }}/build-zlib/zlib/lib/libz.a" ]; then
+        echo "zlib already built, skipping"
+        exit 0
+    fi
 
-    mkdir {{ TARGET_DIR }}/build-zlib/
+    mkdir -p {{ TARGET_DIR }}/build-zlib/
 
     cd {{ TARGET_DIR }}/build-zlib/ && \
         CC={{REAL_CC}} \
@@ -51,6 +59,13 @@ zlib: zlib_wget
 
 [unix]
 libpng_wget: deps_dir
+    #!/bin/bash
+
+    if [ -e "{{ DEPS_DIR }}/libpng-1.6.37" ]; then
+        echo "libpng sources already present, skipping download"
+        exit 0
+    fi
+
     wget \
         -O "{{ DEPS_DIR }}/v1.6.37.tar.gz" \
         https://github.com/glennrp/libpng/archive/refs/tags/v1.6.37.tar.gz
@@ -65,9 +80,12 @@ libpng: arch_dir zlib libpng_wget
 
     source {{ DOTENV }}
 
-    rm -rf {{ TARGET_DIR }}/build-png/
+    if [ -e "{{ TARGET_DIR }}/build-png/.libs/libpng16.a" ]; then
+        echo "libpng already built, skipping"
+        exit 0
+    fi
 
-    mkdir {{TARGET_DIR}}/build-png/
+    mkdir -p {{TARGET_DIR}}/build-png/
 
     cd {{ TARGET_DIR }}/build-png/ && \
         CC=$CROSS_CC \

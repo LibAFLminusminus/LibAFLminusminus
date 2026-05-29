@@ -17,20 +17,21 @@ use crate::arch::syscalls::SYS_mmap2;
 use crate::arch::syscalls::SYS_newfstatat;
 #[cfg(not(cpu_target = "riscv32"))]
 use crate::arch::syscalls::{SYS_fstat, SYS_fstatfs, SYS_futex, SYS_getrandom, SYS_statfs};
+#[cfg(feature = "asan_host")]
+use crate::modules::AsanHostModule;
 use crate::{
+    Result,
     arch::syscalls::{
         SYS_brk, SYS_mprotect, SYS_mremap, SYS_munmap, SYS_pread64, SYS_read, SYS_readlinkat,
     },
     emu::EmulatorModules,
     modules::{
-        AsanHostModule, EmulatorModule, EmulatorModuleTuple,
+        EmulatorModule, EmulatorModuleTuple,
         utils::filters::{HasAddressFilter, NOP_ADDRESS_FILTER, NopAddressFilter},
     },
-    qemu::Qemu,
-    qemu::{Hook, SyscallHookResult},
+    qemu::{Hook, Qemu, SyscallHookResult},
 };
 use hashbrown::{HashMap, HashSet};
-use libaflmm::Result;
 use libaflmm_qemu_sys::{GuestAddr, GuestUlong, MmapPerms};
 use meminterval::{Interval, IntervalTree};
 use std::{cell::UnsafeCell, mem::MaybeUninit, ops::Range, sync::Mutex};
@@ -793,8 +794,12 @@ where
     where
         ET: EmulatorModuleTuple<I, S>,
     {
-        if emulator_modules.get::<AsanHostModule>().is_none() {
-            // The ASan module, if present, will call the tracer hook for the snapshot helper as opt
+        #[cfg(feature = "asan_host")]
+        let install_hooks = emulator_modules.get::<AsanHostModule>().is_none();
+        #[cfg(not(feature = "asan_host"))]
+        let install_hooks = true;
+
+        if install_hooks {
             emulator_modules.writes(
                 Hook::Empty,
                 Hook::Function(trace_write_snapshot::<ET, I, S, 1>),

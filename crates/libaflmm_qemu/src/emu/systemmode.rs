@@ -26,6 +26,15 @@ impl InputLocation {
         }
     }
 
+    pub fn input_size(&self, input_len: usize) -> usize {
+        let mut size = 0;
+        for segment in self.location.segments() {
+            size += segment.size()
+        }
+
+        if input_len <= size { input_len } else { size }
+    }
+
     #[must_use]
     pub fn location(&self) -> &HostMemorySegments {
         &self.location

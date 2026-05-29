@@ -22,6 +22,10 @@ inputs:
       Enable Swatinem/rust-cache. Set to false on persistent self-hosted runners.
     required: false
     default: "true"
+  cargo-install:
+    description: Comma-separated list of cargo binaries to install (e.g. cargo-hack,cargo-nextest).
+    required: false
+    default: ""
 
 runs:
   using: composite
@@ -51,9 +55,10 @@ runs:
         # make rustup available for the commands below.
         export PATH="$CARGO_BIN:$PATH"
 
-        if ! rustup toolchain list 2>/dev/null | grep -q "^${TOOLCHAIN}-"; then
+        if ! rustup component list --toolchain "$TOOLCHAIN" >/dev/null 2>&1; then
           flock --timeout 300 /var/lock/github-rust.lock \
-            bash -c 'rustup toolchain list 2>/dev/null | grep -q "^'"$TOOLCHAIN"'-" ||
+            bash -c 'rustup component list --toolchain "'"$TOOLCHAIN"'" >/dev/null 2>&1 && exit 0
+                     rustup toolchain uninstall "'"$TOOLCHAIN"'" >/dev/null 2>&1 || true
                      rustup toolchain install "'"$TOOLCHAIN"'" --no-self-update'
         fi
 
@@ -93,3 +98,13 @@ runs:
         shared-key: ${{ inputs.cache-key }}
         save-if: ${{ inputs.save-cache }}
         cache-all-crates: true
+
+    - name: Install cargo binaries
+      if: inputs.cargo-install != ''
+      shell: bash
+      env:
+        BINARIES: ${{ inputs.cargo-install }}
+      run: |
+        for bin in $(echo "$BINARIES" | tr ',' ' '); do
+          command -v "$bin" &>/dev/null || cargo install --locked "$bin"
+        done

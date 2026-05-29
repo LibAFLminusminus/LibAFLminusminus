@@ -204,25 +204,25 @@ where
 
                 log::error!("Fuzzer crashed at 0x{si_addr:x}. This is a fuzzer bug.");
 
-                {
-                    let mut bsod = Vec::new();
-                    {
-                        let mut writer = std::io::BufWriter::new(&mut bsod);
-                        let bsod = libaflmm_bolts::minibsod::generate_minibsod(
-                            &mut writer,
-                            signal,
-                            siginfo,
-                            context,
-                        );
-                        if bsod.is_err() {
-                            log::error!("generate_minibsod failed");
-                        }
-                        let _ = writer.flush();
-                    }
-                    if let Ok(r) = core::str::from_utf8(&bsod) {
-                        log::error!("\n{r}");
-                    }
-                }
+                // {
+                //     let mut bsod = Vec::new();
+                //     {
+                //         let mut writer = std::io::BufWriter::new(&mut bsod);
+                //         let bsod = libaflmm_bolts::minibsod::generate_minibsod(
+                //             &mut writer,
+                //             signal,
+                //             siginfo,
+                //             context,
+                //         );
+                //         if bsod.is_err() {
+                //             log::error!("generate_minibsod failed");
+                //         }
+                //         let _ = writer.flush();
+                //     }
+                //     if let Ok(r) = core::str::from_utf8(&bsod) {
+                //         log::error!("\n{r}");
+                //     }
+                // }
             }
 
             // offset by 128 to signal a fuzzer crash

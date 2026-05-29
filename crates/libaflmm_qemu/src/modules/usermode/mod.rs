@@ -10,14 +10,14 @@ pub use snapshot::{
     IntervalSnapshotFilter, IntervalSnapshotFilters, SnapshotModule, get_snapshot_module_mut,
 };
 
-#[cfg(not(cpu_target = "hexagon"))]
+#[cfg(all(feature = "asan_host", not(cpu_target = "hexagon")))]
 pub mod asan_host;
-#[cfg(not(cpu_target = "hexagon"))]
+#[cfg(all(feature = "asan_host", not(cpu_target = "hexagon")))]
 pub use asan_host::AsanHostModule;
 
-#[cfg(not(cpu_target = "hexagon"))]
+#[cfg(all(feature = "asan_guest", not(cpu_target = "hexagon")))]
 pub mod asan_guest;
-#[cfg(not(cpu_target = "hexagon"))]
+#[cfg(all(feature = "asan_guest", not(cpu_target = "hexagon")))]
 pub use asan_guest::AsanGuestModule;
 
 pub mod redirect_stdin;

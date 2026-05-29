@@ -1,6 +1,7 @@
 use crate::{
+    Result,
     arch::GuestReg,
-    emu::{EmulatorDriverError, InputLocation, InputSetter},
+    emu::{EmulatorError, InputLocation, InputWriter},
     qemu::Qemu,
 };
 use libaflmm::{
@@ -11,21 +12,16 @@ use libaflmm_bolts::AsSlice;
 use std::cell::OnceCell;
 
 #[derive(Debug, Default, Clone)]
-pub struct LqemuInputSetter {
+pub struct LqemuInputWriter {
     input_location: OnceCell<InputLocation>,
 }
 
-impl<I, S> InputSetter<I, S> for LqemuInputSetter
+impl<I, S> InputWriter<I, S> for LqemuInputWriter
 where
     I: Input,
     S: State<Input = I>,
 {
-    fn write_input(
-        &mut self,
-        _qemu: Qemu,
-        state: &mut S,
-        input: &I,
-    ) -> Result<(), EmulatorDriverError> {
+    fn write_input(&mut self, _qemu: Qemu, state: &mut S, input: &I) -> Result<()> {
         if let Some(input_location) = self.input_location.get_mut() {
             let ret_value = input_location.write(state.context_mut().to_bytes(input).as_slice());
 
@@ -40,10 +36,18 @@ where
         Ok(())
     }
 
-    fn set_input_location(&mut self, location: InputLocation) -> Result<(), EmulatorDriverError> {
+    fn input_size(&self, state: &mut S, input: &I) -> usize {
+        if let Some(input_location) = self.input_location.get() {
+            input_location.input_size(state.context_mut().len(input))
+        } else {
+            0
+        }
+    }
+
+    fn set_input_location(&mut self, location: InputLocation) -> Result<()> {
         self.input_location
             .set(location)
-            .or(Err(EmulatorDriverError::MultipleInputLocationDefinition))
+            .or(Err(EmulatorError::MultipleInputLocationDefinition.into()))
     }
 
     fn input_location(&self) -> Option<&InputLocation> {

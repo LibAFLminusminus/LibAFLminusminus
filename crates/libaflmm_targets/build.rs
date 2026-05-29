@@ -14,6 +14,7 @@ fn main() {
     //let out_dir_path = Path::new(&out_dir);
     #[allow(unused_variables)] // feature dependent
     let src_dir = Path::new("src");
+    #[allow(unused_variables)] // feature dependent
     let static_dir = src_dir.join("static");
 
     let dest_path = Path::new(&out_dir).join("constants.rs");

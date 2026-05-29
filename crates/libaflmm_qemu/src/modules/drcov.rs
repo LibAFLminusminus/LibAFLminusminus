@@ -1,5 +1,4 @@
 use hashbrown::{HashMap, hash_map::Entry};
-use libaflmm::Result;
 use libaflmm::{executors::ExitKind, observers::ObserversTuple, states::State};
 use libaflmm_bolts::drcov::{DrCovBasicBlock, DrCovWriter};
 use libaflmm_qemu_sys::{GuestAddr, GuestUsize};
@@ -16,6 +15,7 @@ use std::{
 };
 
 use super::utils::filters::HasAddressFilter;
+use crate::Result;
 #[cfg(feature = "systemmode")]
 use crate::modules::utils::filters::{HasPageFilter, NOP_PAGE_FILTER, NopPageFilter};
 use crate::{
@@ -96,11 +96,11 @@ where
     }
 
     #[must_use]
-    pub fn path<P: Into<PathBuf>>(self, path: P) -> Self {
+    pub fn path(self, path: impl AsRef<Path>) -> Self {
         Self {
             filter: self.filter,
             module_mapping: self.module_mapping,
-            path: Some(path.into()),
+            path: Some(path.as_ref().into()),
             full_trace: self.full_trace,
             clean_on_flush: self.clean_on_flush,
         }
@@ -395,9 +395,9 @@ impl DrCovModule<NopAddressFilter> {
 
 impl<F> DrCovModule<F> {
     #[must_use]
-    pub fn new<P: Into<PathBuf>>(
+    pub fn new(
         filter: F,
-        path: P,
+        path: impl AsRef<Path>,
         module_mapping: Option<RangeMap<u64, (u16, String)>>,
         full_trace: bool,
         clean_on_flush: bool,
@@ -412,15 +412,15 @@ impl<F> DrCovModule<F> {
         Self {
             filter,
             module_mapping,
-            path: path.into(),
+            path: path.as_ref().to_path_buf(),
             full_trace,
             clean_on_flush,
             drcov_len: 0,
         }
     }
 
-    pub fn set_path<P: Into<PathBuf>>(&mut self, path: P) {
-        self.path = path.into();
+    pub fn set_path(&mut self, path: impl AsRef<Path>) {
+        self.path = path.as_ref().to_path_buf();
     }
 
     pub fn path(&self) -> &Path {

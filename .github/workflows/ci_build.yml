@@ -36,3 +36,62 @@ jobs:
         run: cargo check --features=sancov_pcguard_edges
       - name: shellcheck
         run: shellcheck ./scripts/*.sh
+
+  ubuntu-qemu:
+    runs-on: ${{ fromjson(vars.runs_on || '["self-hosted","linux"]') }}
+    if: contains( github.event.pull_request.labels.*.name, 'qemu-full') || contains( github.event.pull_request.labels.*.name, 'pre-release')
+    strategy:
+      fail-fast: false
+      matrix:
+        arch:
+          - x86_64
+          - i386
+          - arm
+          - aarch64
+          - mips
+          - ppc
+          - hexagon
+          - riscv32
+          - riscv64
+        mode:
+          - usermode
+          - systemmode
+        exclude:
+          - arch: hexagon
+            mode: systemmode
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: true
+      - uses: ./.github/actions/apt
+        with:
+          qemu: true
+      - uses: ./.github/actions/setup-llvm
+        with:
+          version: ${{ vars.MAIN_LLVM_VERSION }}
+      - uses: ./.github/actions/setup-rust
+        with:
+          cache-key: ubuntu
+          cache: ${{ vars.RUNS_ON != '' }}
+      - name: Build LibAFLmm QEMU ${{ matrix.mode }} - ${{ matrix.arch }}
+        run: cargo build -p libaflmm_qemu --no-default-features --features ${{ matrix.mode }},${{ matrix.arch }}
+
+  ubuntu-qemu-nyx:
+    runs-on: ${{ fromjson(vars.runs_on || '["self-hosted","linux"]') }}
+    if: contains( github.event.pull_request.labels.*.name, 'qemu-full') || contains( github.event.pull_request.labels.*.name, 'pre-release')
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: true
+      - uses: ./.github/actions/apt
+        with:
+          qemu: true
+      - uses: ./.github/actions/setup-llvm
+        with:
+          version: ${{ vars.MAIN_LLVM_VERSION }}
+      - uses: ./.github/actions/setup-rust
+        with:
+          cache-key: ubuntu
+          cache: ${{ vars.RUNS_ON != '' }}
+      - name: Build LibAFLmm QEMU with Nyx API (systemmode - x86_64)
+        run: cargo build -p libaflmm_qemu --no-default-features --features systemmode,x86_64,nyx

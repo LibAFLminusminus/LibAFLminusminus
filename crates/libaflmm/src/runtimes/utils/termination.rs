@@ -1,6 +1,7 @@
 //! Termination is a generic term to talk about an abnormal program end, i.e. crash and timeout.
 
 use crate::{
+    controllers::Worker,
     executors::Executor,
     fuzzers::Fuzzer,
     runtimes::{
@@ -8,6 +9,7 @@ use crate::{
         inprocess::{CrashStatus, TimeoutStatus},
         utils::{OsTerminationParams, unix::OsShmSender},
     },
+    states::State,
 };
 use core::{
     ffi::c_void,
@@ -78,13 +80,25 @@ impl TerminationHandlerData {
         }
     }
 
+    pub fn early_init<S, W>(&mut self, state: &mut S, rt_handle_ptr: NonNull<RuntimeHandle<S, W>>)
+    where
+        S: State,
+        W: Worker,
+    {
+        assert!(
+            self.state_ptr.is_none(),
+            "Trying to early initialize termination information multiple times. This is a fuzzer bug."
+        );
+
+        self.state_ptr = Some(NonNull::from(state).cast());
+        self.rt_handle_ptr = Some(rt_handle_ptr.cast());
+    }
+
     /// Initialize the handler data.
     pub fn init<E, I, R, S, ST, W, Z>(
         &mut self,
-        state: &mut S,
         fuzzer: &mut Z,
         executor: &mut E,
-        rt_handle_ptr: NonNull<RuntimeHandle<S, W>>,
         on_crash: fn(&mut Self, &OsTerminationParams) -> Result<CrashStatus>,
         on_timeout: fn(&mut Self, &OsTerminationParams) -> Result<TimeoutStatus>,
     ) where
@@ -92,14 +106,17 @@ impl TerminationHandlerData {
         Z: Fuzzer<E, I, R, S, ST, W>,
     {
         assert!(
-            self.state_ptr.is_none(),
+            self.state_ptr.is_some(),
+            "The early initialization function has not been called yet. `Self::early_init` should have already been called at this point."
+        );
+
+        assert!(
+            self.fuzzer_ptr.is_none(),
             "Trying to initialize termination information multiple times. This is a fuzzer bug."
         );
 
-        self.state_ptr = Some(NonNull::from(state).cast());
         self.fuzzer_ptr = Some(NonNull::from(fuzzer).cast());
         self.executor_ptr = Some(NonNull::from(executor).cast());
-        self.rt_handle_ptr = Some(rt_handle_ptr.cast());
         self.crash_handler = Some(on_crash);
         self.timeout_handler = Some(on_timeout);
     }

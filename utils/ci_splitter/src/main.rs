@@ -56,7 +56,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let lqemu_exclude_features_str = lqemu_exclude_features.join(",");
 
     // libaflmm_asan_libc needs no_std; qemu crates are checked separately below;
-    // frida, linters, and pylibafl require special build environments
+    // frida, linters, and pylibaflmm require special build environments
     let the_command = format!(
         "DOCS_RS=1 cargo hack check --workspace --each-feature --clean-per-run \
             --exclude-features={exclude_features_str} \
@@ -66,7 +66,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             --exclude libaflmm_asan_libc --exclude libaflmm_asan_fuzz \
             --exclude libaflmm_frida \
             --exclude args_reorder --exclude generics_reorder --exclude use_after_mod \
-            --exclude pylibafl \
+            --exclude pylibaflmm \
             --print-command-list; "
     ) + &format!(
         "DOCS_RS=1 cargo hack check -p libaflmm_qemu -p libaflmm_qemu_sys --each-feature --clean-per-run \
@@ -75,6 +75,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     );
 
     let output = Command::new("sh").arg("-c").arg(&the_command).output()?;
+    if !output.status.success() {
+        eprintln!("{}", String::from_utf8_lossy(&output.stderr));
+        exit(output.status.code().unwrap_or(1));
+    }
     let stdout = String::from_utf8_lossy(&output.stdout);
     let lines: Vec<&str> = stdout.trim().lines().collect();
 
@@ -84,8 +88,9 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let start = instance_idx * 2 * task_per_core;
     let end = ((instance_idx + 1) * 2 * task_per_core).min(lines.len());
-    for &task in &lines[start..end] {
-        println!("Running {task}");
+    let total_lines = end - start;
+    for (idx, task) in lines[start..end].iter().enumerate() {
+        println!("Running task {} / {total_lines}: \"{task}\"", idx + 1);
 
         // skip no_std crates that have no features (checking them requires panic=abort)
         if task.contains("--no-default-features") && !task.contains("--features") {

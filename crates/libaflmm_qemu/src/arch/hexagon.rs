@@ -1,12 +1,19 @@
-use std::sync::OnceLock;
-
+use crate::{
+    GuestAddr,
+    qemu::{ArchExtras, CPU, CallingConvention, QemuRWError, QemuRWErrorKind},
+    sync_exit::ExitArgs,
+};
 use enum_map::{EnumMap, enum_map};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
-#[cfg(feature = "python")]
-use pyo3::prelude::*;
-pub use strum_macros::EnumIter;
+use std::sync::OnceLock;
+use strum_macros::EnumIter;
 
-use crate::{CallingConvention, GuestAddr, QemuRWError, QemuRWErrorKind, sync_exit::ExitArgs};
+/// Hexagon syscalls are not currently supported by the `syscall_numbers` crate, so we just paste this here for now.
+/// <https://github.com/qemu/qemu/blob/11be70677c70fdccd452a3233653949b79e97908/linux-user/hexagon/syscall_nr.h#L230>
+pub mod syscalls {
+    #![expect(non_upper_case_globals)]
+    pub const SYS_execve: u8 = 221;
+}
 
 #[expect(non_upper_case_globals)]
 impl CallingConvention {
@@ -96,7 +103,7 @@ impl Regs {
 
 pub type GuestReg = u32;
 
-impl crate::ArchExtras for crate::CPU {
+impl ArchExtras for CPU {
     fn read_return_address(&self) -> Result<GuestAddr, QemuRWError> {
         self.read_reg(Regs::Lr).map(|res| res as GuestAddr)
     }

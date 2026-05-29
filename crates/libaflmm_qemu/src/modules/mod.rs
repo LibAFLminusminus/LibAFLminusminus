@@ -1,24 +1,35 @@
-use core::fmt::Debug;
-
-use libaflmm::{Result, executors::ExitKind, observers::ObserversTuple};
-use libaflmm_bolts::tuples::{MatchFirstType, SplitBorrowExtractFirstType};
-
 use crate::{
+    Result,
     emu::EmulatorModules,
-    modules::utils::filters::{AddressFilter, PageFilter},
-    qemu::Qemu,
-    qemu::QemuParams,
+    qemu::{Qemu, QemuParams},
 };
+use core::fmt::Debug;
+use libaflmm::{executors::ExitKind, observers::ObserversTuple};
+use libaflmm_bolts::tuples::{MatchFirstType, SplitBorrowExtractFirstType};
 
 #[cfg(feature = "usermode")]
 pub mod usermode;
+#[cfg(all(
+    feature = "usermode",
+    feature = "asan_guest",
+    not(cpu_target = "hexagon")
+))]
+pub use usermode::AsanGuestModule;
+#[cfg(all(
+    feature = "usermode",
+    feature = "asan_host",
+    not(cpu_target = "hexagon")
+))]
+pub use usermode::AsanHostModule;
 #[cfg(feature = "injections")]
 pub use usermode::InjectionModule;
-#[cfg(feature = "usermode")]
+#[cfg(all(feature = "usermode", not(feature = "hexagon")))]
 pub use usermode::{
-    AsanGuestModule, AsanHostModule, IntervalSnapshotFilter, IntervalSnapshotFilters,
-    RedirectStdinModule, RedirectStdoutModule, SnapshotModule, get_snapshot_module_mut, snapshot,
+    IntervalSnapshotFilter, IntervalSnapshotFilters, SnapshotModule, get_snapshot_module_mut,
+    snapshot,
 };
+#[cfg(feature = "usermode")]
+pub use usermode::{RedirectStdinModule, RedirectStdoutModule};
 
 #[cfg(feature = "systemmode")]
 pub mod systemmode;
@@ -50,6 +61,14 @@ pub mod logger;
 pub use logger::LoggerModule;
 
 pub mod utils;
+pub use utils::{
+    AddressFilter, AddressFilterVec, FilterList, HasAddressFilter, HasAddressFilterTuple,
+    HasPageFilter, HasStdFilters, HasStdFiltersTuple, NopAddressFilter, NopPageFilter, PageFilter,
+    PageFilterVec, StdAddressFilter, StdPageFilter,
+};
+
+#[cfg(feature = "systemmode")]
+pub use utils::HasPageFilterTuple;
 
 /// [`EmulatorModule`] is a trait designed to define modules that interact with the QEMU emulator
 /// during fuzzing. [`EmulatorModule`] provides a set of interfaces (hooks) that can be invoked at various stages
