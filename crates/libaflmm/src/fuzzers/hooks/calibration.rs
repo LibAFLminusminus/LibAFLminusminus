@@ -13,7 +13,7 @@ use crate::{
     inputs::Input,
     observers::{MapObserver, ObserversTuple},
     runtimes::RuntimeHandle,
-    states::{STAT_CALIBRATION, State, named_metadata_mut, unnamed_metadata_mut},
+    states::{STAT_CALIBRATION, STAT_MAP_INFO, State, named_metadata_mut, unnamed_metadata_mut},
 };
 use alloc::{borrow::Cow, string::ToString, vec::Vec};
 use core::{marker::PhantomData, time::Duration};
@@ -22,6 +22,7 @@ use libaflmm_bolts::{Named, current_time, impl_serdeany, tuples::Handle};
 use libaflmm_core::illegal_state;
 use num_traits::Bounded;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 /// AFL++'s `CAL_CYCLES` + 1
 const CAL_STAGE_MAX: usize = 8;
@@ -33,8 +34,20 @@ const CAL_STAGE_MAX: usize = 8;
 pub struct UnstableEntriesMetadata {
     unstable_entries: HashSet<usize>,
     filled_entries_count: usize,
+    map_info: Option<CalibrationMapInfo>,
 }
 impl_serdeany!(UnstableEntriesMetadata);
+
+/// The mapping between map entry and target IP.
+/// Useful to debug unstable entries.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum CalibrationMapInfo {
+    /// map id -> block addr
+    Block(HashMap<u64, u64>),
+    /// map id -> (src, dst)
+    Edge(HashMap<u64, (u64, u64)>),
+}
+impl_serdeany!(CalibrationMapInfo);
 
 impl UnstableEntriesMetadata {
     #[must_use]
@@ -43,6 +56,7 @@ impl UnstableEntriesMetadata {
         Self {
             unstable_entries: HashSet::new(),
             filled_entries_count: 0,
+            map_info: None,
         }
     }
 
@@ -235,32 +249,38 @@ where
             i += 1;
         }
 
-        let unstable_found = !unstable_entries.is_empty();
-        let stability = if unstable_found {
-            let metadata = named_metadata_mut::<UnstableEntriesMetadata>(
-                state.metadata_map_mut(),
-                self.name(),
-            )?;
+        let metadata =
+            named_metadata_mut::<UnstableEntriesMetadata>(state.metadata_map_mut(), self.name())?;
 
-            let unstable = unstable_entries.len();
-            let all = map_first_filled_count;
-            let stability = unstable as f64 / all as f64;
+        for item in unstable_entries {
+            metadata.unstable_entries.insert(item); // Insert newly found items
+        }
+        metadata.filled_entries_count = map_first_filled_count;
 
-            // If we see new unstable entries executing this new corpus entries, then merge with the existing one
-            for item in unstable_entries {
-                metadata.unstable_entries.insert(item); // Insert newly found items
-            }
-            metadata.filled_entries_count = map_first_filled_count;
+        let unstable = metadata.unstable_entries.len();
+        let all = metadata.filled_entries_count;
 
-            stability
-        } else {
+        let stability = if all == 0 {
             100.0f64
+        } else {
+            all.saturating_sub(unstable) as f64 / all as f64 * 100.0
         };
 
         state.stats_mut().user_map.insert(
             STAT_CALIBRATION.to_string(),
             serde_json::json!(stability).to_string(),
         );
+
+        // update map info history
+        if let Some(map_history) = state
+            .metadata_map_mut()
+            .remove_unnamed::<CalibrationMapInfo>()
+        {
+            state.stats_mut().user_map.insert(
+                STAT_MAP_INFO.to_string(),
+                serde_json::json!(map_history).to_string(),
+            );
+        }
 
         if state.has_md::<PowerScheduleData>() {
             let current = state.corpus().scheduler().current();

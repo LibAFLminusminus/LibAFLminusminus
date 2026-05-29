@@ -48,7 +48,7 @@ mod generators {
     use std::{cmp::max, ptr};
 
     use hashbrown::hash_map::Entry;
-    use libaflmm::states::State;
+    use libaflmm::{fuzzers::hooks::calibration::CalibrationMapInfo, states::State};
     use libaflmm_bolts::hash_64_fast;
     use libaflmm_qemu_sys::GuestAddr;
 
@@ -131,35 +131,53 @@ mod generators {
 
         let mask: usize = get_mask::<IS_CONST_MAP, MAP_SIZE>();
 
-        let meta = state.get_md_or_insert_with(QemuEdgesMapMetadata::new);
+        let (id, map) = {
+            let meta = state.get_md_or_insert_with(QemuEdgesMapMetadata::new);
 
-        match meta.map.entry((src, dest)) {
-            Entry::Occupied(e) => {
-                let id = *e.get();
-                unsafe {
-                    let nxt = (id as usize + 1) & mask;
+            match meta.map.entry((src, dest)) {
+                Entry::Occupied(e) => {
+                    let id = *e.get();
 
-                    if !IS_CONST_MAP {
-                        *LIBAFL_QEMU_EDGES_MAP_SIZE_PTR = max(*LIBAFL_QEMU_EDGES_MAP_SIZE_PTR, nxt);
+                    unsafe {
+                        let nxt = (id as usize + 1) & mask;
+
+                        if !IS_CONST_MAP {
+                            *LIBAFL_QEMU_EDGES_MAP_SIZE_PTR =
+                                max(*LIBAFL_QEMU_EDGES_MAP_SIZE_PTR, nxt);
+                        }
                     }
-                }
-                Some(id)
-            }
-            Entry::Vacant(e) => {
-                let id = meta.current_id;
-                e.insert(id);
-                unsafe {
-                    meta.current_id = (id + 1) & (mask as u64);
 
-                    if !IS_CONST_MAP {
-                        *LIBAFL_QEMU_EDGES_MAP_SIZE_PTR = meta.current_id as usize;
-                    }
+                    (Some(id), None)
                 }
-                // GuestAddress is u32 for 32 bit guests
-                #[allow(clippy::unnecessary_cast)]
-                Some(id as u64)
+                Entry::Vacant(e) => {
+                    let id = meta.current_id;
+                    e.insert(id);
+                    unsafe {
+                        meta.current_id = (id + 1) & (mask as u64);
+
+                        if !IS_CONST_MAP {
+                            *LIBAFL_QEMU_EDGES_MAP_SIZE_PTR = meta.current_id as usize;
+                        }
+                    }
+
+                    // GuestAddress is u32 for 32 bit guests
+                    #[allow(clippy::unnecessary_cast)]
+                    (Some(id as u64), Some(meta.map.clone()))
+                }
             }
+        };
+
+        if let Some(map) = map {
+            state
+                .metadata_map_mut()
+                .insert_unnamed::<CalibrationMapInfo>(CalibrationMapInfo::Edge(
+                    map.into_iter()
+                        .map(|((src, dst), v)| (v.clone(), (src as u64, dst as u64)))
+                        .collect(),
+                ));
         }
+
+        id
     }
 
     #[allow(unused_variables)]
