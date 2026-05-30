@@ -43,7 +43,6 @@ pub struct NopNotification;
 
 impl Controller for NopController {
     type Worker = NopWorker;
-    type Descriptor = NopDescriptor;
     type Command = NopCommand;
 
     fn create_worker(&mut self, _core_id: CoreId) -> Result<Self::Worker> {
@@ -51,12 +50,12 @@ impl Controller for NopController {
     }
 
     #[expect(refining_impl_trait)]
-    fn worker_descriptors(&self) -> &[Self::Descriptor] {
+    fn worker_descriptors(&self) -> &[NopDescriptor] {
         unimplemented!("nop controller has no workers");
     }
 
     #[expect(refining_impl_trait)]
-    fn worker_descriptors_mut(&mut self) -> &mut [Self::Descriptor] {
+    fn worker_descriptors_mut(&mut self) -> &mut [NopDescriptor] {
         unimplemented!("nop controller has no workers");
     }
 
@@ -83,6 +82,7 @@ impl Controller for NopController {
 
 impl Worker for NopWorker {
     type Controller = NopController;
+    type Descriptor = NopDescriptor;
     type Notification = NopNotification;
 
     fn descriptor(&self) -> &NopDescriptor {

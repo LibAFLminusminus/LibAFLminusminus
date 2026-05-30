@@ -35,6 +35,17 @@ Even though we will gladly assist you in finishing up your PR, try to:
 
 You can also run ./scripts/precommit.sh to execute checks that will be performed on a PR.
 
+## What makes a good contribution
+
+The contribution policy of `LibAFL--` is a bit different from `LibAFL`:
+- `LibAFL` used to accept more easily new implementors for the main traits (`Executor`s, `Mutator`s, etc...).
+In `LibAFL--`, we are more picky about what exactly we accept to **add** to the library.
+For example, we won't merge a new mutator that enables better coverage for niche targets (like a `Unicode` mutator).
+But we will accept addition contributions that can be globally useful (like a generic concept that can be reasonably reused in many fuzzers) or have shown to improve results significantly in the general case (like for `CmpLog`).
+If your addition request does not get merged, it is most likely because it would fit better in a dedicated crate.
+
+- Of course, we accept more easily pull requests that address an open issue issue, improve the documentation or fix bugs.
+
 ### Pre-commit Hooks
 
 Some of these checks can be performed automatically during commit using [pre-commit](https://pre-commit.com/).

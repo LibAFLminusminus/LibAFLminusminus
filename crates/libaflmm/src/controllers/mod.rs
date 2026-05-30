@@ -43,8 +43,6 @@ pub trait Exchange {
 pub trait Controller {
     /// The associated [`Worker`].
     type Worker: Worker;
-    /// The associated [`Descriptor`].
-    type Descriptor: Descriptor;
     /// The commands for the [`Worker`]s.
     type Command: Clone + Serialize + DeserializeOwned;
 
@@ -53,25 +51,36 @@ pub trait Controller {
     fn create_worker(&mut self, core_id: CoreId) -> Result<Self::Worker>;
 
     /// Get an iterator over all [`Self::Worker`] descriptors.
-    fn worker_descriptors(&self) -> impl IntoIterator<Item = &Self::Descriptor>;
+    fn worker_descriptors(&self)
+    -> impl IntoIterator<Item = &<Self::Worker as Worker>::Descriptor>;
 
     /// Get a mutable iterator over all [`Self::Worker`] descriptors.
-    fn worker_descriptors_mut(&mut self) -> impl IntoIterator<Item = &mut Self::Descriptor>;
+    fn worker_descriptors_mut(
+        &mut self,
+    ) -> impl IntoIterator<Item = &mut <Self::Worker as Worker>::Descriptor>;
 
     /// Hook called when a [`Self::Worker`] actually starts, with its associated [`InstanceId`].
-    fn on_worker_start(&mut self, _descriptor: &Self::Descriptor, _id: InstanceId) -> Result<()> {
+    fn on_worker_start(
+        &mut self,
+        _descriptor: &<Self::Worker as Worker>::Descriptor,
+        _id: InstanceId,
+    ) -> Result<()> {
         Ok(())
     }
 
     /// Hook called when a controller exits with some exit code
-    fn on_worker_exit(&mut self, _descriptor: &Self::Descriptor, _exit_code: i32) -> Result<()> {
+    fn on_worker_exit(
+        &mut self,
+        _descriptor: &<Self::Worker as Worker>::Descriptor,
+        _exit_code: i32,
+    ) -> Result<()> {
         Ok(())
     }
 
     /// Hook called when a controller exits with a termination (e.g. signal / exception)
     fn on_worker_termination(
         &mut self,
-        _descriptor: &Self::Descriptor,
+        _descriptor: &<Self::Worker as Worker>::Descriptor,
         _termination_code: Signal, // TODO: make this os-agnostic
     ) -> Result<()> {
         Ok(())
@@ -97,14 +106,16 @@ pub trait Controller {
 pub trait Worker {
     /// The associated [`Controller`].
     type Controller: Controller<Worker = Self>;
+    /// The associated [`Descriptor`].
+    type Descriptor: Descriptor;
     /// Notifications for the [`Controller`]
     type Notification: Serialize + DeserializeOwned;
 
     /// Returns the reference to the descriptor of the worker.
-    fn descriptor(&self) -> &<Self::Controller as Controller>::Descriptor;
+    fn descriptor(&self) -> &Self::Descriptor;
 
     /// Returns the mutable reference to the descriptor of the worker.
-    fn descriptor_mut(&mut self) -> &mut <Self::Controller as Controller>::Descriptor;
+    fn descriptor_mut(&mut self) -> &mut Self::Descriptor;
 
     /// Returns the reference of the working directory of the worker.
     fn workdir(&self) -> &Workdir {
@@ -333,9 +344,36 @@ impl Workdir {
     /// Errors out if the directory already exists.
     pub fn create_dir(&self, path: impl AsRef<Path>) -> Result<PathBuf> {
         let full_path = self.root_dir.join(path.as_ref());
-        fs::create_dir(full_path.as_path())?;
+        fs::create_dir(&full_path)?;
 
         Ok(full_path)
+    }
+
+    /// Create a new file, relative to the [`Workdir`].
+    ///
+    /// Errors out if the file already exists.
+    pub fn create_file(&self, path: impl AsRef<Path>) -> Result<File> {
+        let full_path = self.root_dir.join(path.as_ref());
+        Ok(File::create_new(full_path)?)
+    }
+
+    /// Open a file in RW mode, relative to the [`Workdir`].
+    /// The file cursor is always at the beginning of the file.
+    ///
+    /// Errors out if the file does not exist.
+    pub fn open_file(&self, path: impl AsRef<Path>) -> Result<File> {
+        let full_path = self.root_dir.join(path.as_ref());
+
+        Ok(fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(full_path)?)
+    }
+
+    pub fn is_file(&self, path: impl AsRef<Path>) -> bool {
+        let full_path = self.root_dir.join(path.as_ref());
+
+        full_path.is_file()
     }
 
     /// Update the [`Stats`] of the [`Workdir`].

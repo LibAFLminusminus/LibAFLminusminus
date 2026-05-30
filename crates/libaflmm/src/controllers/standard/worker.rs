@@ -1,14 +1,21 @@
+use std::marker::PhantomData;
+
 use libaflmm_core::{Result, WorkerId};
 use nix::unistd::{dup2_stderr, dup2_stdout};
 use serde::{Deserialize, Serialize};
 
-use crate::controllers::{Controller, StdDescriptor, Workdir, Worker, standard::StdController};
+use crate::{
+    controllers::{Controller, StdDescriptor, Workdir, Worker, standard::StdController},
+    synchronizer::Synchronizer,
+};
 
 /// A simple [`Worker`].
 #[derive(Debug)]
-pub struct StdWorker {
+pub struct StdWorker<I, SY> {
     /// the descriptor describing this client
     descriptor: StdDescriptor,
+    sync: SY,
+    phantom: PhantomData<I>,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -36,8 +43,12 @@ impl StdWorkerRepr {
     }
 }
 
-impl Worker for StdWorker {
-    type Controller = StdController;
+impl<I, SY> Worker for StdWorker<I, SY>
+where
+    SY: Synchronizer<I> + Default,
+{
+    type Controller = StdController<I, SY>;
+    type Descriptor = StdDescriptor;
     type Notification = StdNotification;
 
     fn id(&self) -> WorkerId {
@@ -88,10 +99,17 @@ impl Worker for StdWorker {
     }
 }
 
-impl StdWorker {
+impl<I, SY> StdWorker<I, SY>
+where
+    SY: Default,
+{
     /// Get a new [`StdWorker`].
     #[must_use]
     pub fn new(descriptor: StdDescriptor) -> Self {
-        Self { descriptor }
+        Self {
+            descriptor,
+            sync: SY::default(),
+            phantom: PhantomData,
+        }
     }
 }

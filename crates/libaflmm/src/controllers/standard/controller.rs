@@ -4,23 +4,23 @@ use crate::{
         standard::builder::StdControllerBuilder,
     },
     launchers::InstanceId,
+    synchronizer::Synchronizer,
 };
 use libaflmm_bolts::CoreId;
 use libaflmm_core::{Result, WorkerId, illegal_argument, internal_bug};
 use serde::{Deserialize, Serialize};
-use std::{fs, path::PathBuf};
+use std::{fs, marker::PhantomData, path::PathBuf};
 
-// C: Command
-// D: Descriptor
 /// The standard controller.
 #[derive(Debug)]
-pub struct StdController {
+pub struct StdController<I, SY> {
     root_dir: PathBuf,
     id_ctr: u32,
     workers: Vec<StdWorkerRepr>,
     worker_stdout: Option<WorkdirFile>,
     worker_stderr: Option<WorkdirFile>,
     worker_stats: Option<WorkdirFile>,
+    phantom: PhantomData<(I, SY)>,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -29,12 +29,14 @@ pub enum StdCommand {
     NewInput(PathBuf),
 }
 
-impl Controller for StdController {
-    type Worker = StdWorker;
-    type Descriptor = StdDescriptor;
+impl<I, SY> Controller for StdController<I, SY>
+where
+    SY: Synchronizer<I> + Default,
+{
+    type Worker = StdWorker<I, SY>;
     type Command = StdCommand;
 
-    fn create_worker(&mut self, core_id: CoreId) -> Result<StdWorker> {
+    fn create_worker(&mut self, core_id: CoreId) -> Result<StdWorker<I, SY>> {
         let worker_id = WorkerId(self.id_ctr);
         self.id_ctr += 1;
 
@@ -63,22 +65,22 @@ impl Controller for StdController {
         Ok(cl)
     }
 
-    fn worker_descriptors(&self) -> impl IntoIterator<Item = &Self::Descriptor> {
+    fn worker_descriptors(&self) -> impl IntoIterator<Item = &StdDescriptor> {
         self.workers.iter().map(|repr| repr.descriptor())
     }
 
-    fn worker_descriptors_mut(&mut self) -> impl IntoIterator<Item = &mut Self::Descriptor> {
+    fn worker_descriptors_mut(&mut self) -> impl IntoIterator<Item = &mut StdDescriptor> {
         self.workers.iter_mut().map(|repr| repr.descriptor_mut())
     }
 
-    fn on_worker_start(&mut self, descriptor: &Self::Descriptor, _id: InstanceId) -> Result<()> {
+    fn on_worker_start(&mut self, descriptor: &StdDescriptor, _id: InstanceId) -> Result<()> {
         log::info!("Started worker {:?}", descriptor.worker_id());
         Ok(())
     }
 
     fn on_worker_termination(
         &mut self,
-        descriptor: &Self::Descriptor,
+        descriptor: &StdDescriptor,
         _termination_code: nix::sys::signal::Signal,
     ) -> Result<()> {
         log::info!("Started worker {:?}", descriptor.worker_id);
@@ -106,7 +108,7 @@ impl Controller for StdController {
     }
 }
 
-impl StdController {
+impl<I, SY> StdController<I, SY> {
     /// Create a new [`StdGlobalController`] and will use `root_dir` as the root directory.
     /// If overwrite is true, the `root_dir` will be removed before being created again.
     pub fn new(
@@ -136,6 +138,7 @@ impl StdController {
             worker_stats,
             workers: Vec::new(),
             id_ctr: 0,
+            phantom: PhantomData,
         })
     }
 

@@ -39,6 +39,7 @@ pub mod observers;
 pub mod runtimes;
 pub mod stages;
 pub mod states;
+pub mod synchronizer;
 
 /// The purpose of this module is to alleviate imports of many components by adding a glob import.
 pub mod prelude {
