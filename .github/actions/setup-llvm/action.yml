@@ -4,8 +4,7 @@ description: Setup LLVM
 inputs:
   version:
     description: LLVM version to install
-    required: false
-    default: "${{ vars.MAIN_LLVM_VERSION }}"
+    required: true
 
 runs:
   using: composite
