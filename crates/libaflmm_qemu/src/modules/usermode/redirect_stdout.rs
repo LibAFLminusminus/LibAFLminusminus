@@ -117,15 +117,15 @@ fn syscall_write_hook<F, ET, I, S>(
     _qemu: Qemu,
     emulator_modules: &mut EmulatorModules<ET, I, S>,
     _state: &mut S,
-    syscall: i32,
-    x0: GuestUlong,
-    x1: GuestUlong,
-    x2: GuestUlong,
-    _x3: GuestUlong,
-    _x4: GuestUlong,
-    _x5: GuestUlong,
-    _x6: GuestUlong,
-    _x7: GuestUlong,
+    syscall: &mut i32,
+    x0: &mut GuestUlong,
+    x1: &mut GuestUlong,
+    x2: &mut GuestUlong,
+    _x3: &mut GuestUlong,
+    _x4: &mut GuestUlong,
+    _x5: &mut GuestUlong,
+    _x6: &mut GuestUlong,
+    _x7: &mut GuestUlong,
 ) -> SyscallHookResult
 where
     ET: EmulatorModuleTuple<I, S>,
@@ -133,6 +133,10 @@ where
     S: Unpin,
     F: FnMut(&[u8]) + 'static,
 {
+    let syscall = *syscall;
+    let x0 = *x0;
+    let x1 = *x1;
+    let x2 = *x2;
     let h = emulator_modules
         .get_mut::<RedirectStdoutModule<F>>()
         .unwrap();
