@@ -80,7 +80,7 @@ pub mod prelude {
     };
 
     pub use crate::executors::{
-        BuiltForkserver, DiffExitKind, Executor, ExecutorsTuple, ExitKind, Forkserver,
+        BuiltForkserver, DiffExitKind, Executor, ExecutorsTuple, ExitKind, ForkserverChannel,
         ForkserverExecutor, NopExecutor, StdChildArgs, StdExecutor, common_signals,
     };
 
