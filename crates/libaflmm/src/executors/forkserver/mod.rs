@@ -49,7 +49,7 @@ const_assert_eq!(size_of::<ForkserverShmSize>(), SHMEM_FUZZ_HDR_SIZE);
 const KILL_SIGNAL_DEFAULT: Signal = Signal::SIGTERM;
 
 #[expect(clippy::struct_excessive_bools)]
-struct ForkserverSpawnConfig {
+pub struct ForkserverConfig {
     target: OsString,
     args: Vec<OsString>,
     envs: Vec<(OsString, OsString)>,
@@ -80,7 +80,6 @@ pub struct ForkserverExecutor<OT> {
     target: OsString,
     args: Vec<OsString>,
     uses_shmem_testcase: bool,
-    map_size: Option<usize>,
     min_input_size: usize,
     max_input_size: usize,
     timeout: TimeSpec,
@@ -200,7 +199,7 @@ impl<OT> ForkserverExecutor<OT> {
         self.forkserver.set_child_pid(Pid::from_raw(pid));
 
         let timeout = self.timeout;
-        if let Some(status) = self.forkserver.read_st_timed(&timeout)? {
+        if let Some(status) = self.forkserver.read_st_timeout(&timeout)? {
             self.forkserver.set_status(status);
             let exitcode_is_crash = if let Some(crash_exitcode) = self.crash_exitcode {
                 (libc::WEXITSTATUS(self.forkserver.status()) as i8) == crash_exitcode

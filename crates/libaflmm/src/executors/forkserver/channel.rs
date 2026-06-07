@@ -1,18 +1,17 @@
-use crate::executors::forkserver::ForkserverSpawnConfig;
+use crate::executors::forkserver::ForkserverConfig;
 use crate::{Result, executors::Config};
-use libaflmm_bolts::Pipe;
 use libaflmm_core::forkserver::{
     AFL_GCC_ONLY_FSRV_VAR, AFL_LLVM_ONLY_FSRV_VAR, AFL_MAP_SIZE_ENV_VAR,
 };
 use libaflmm_core::{forkserver::SHM_ENV_VAR, illegal_argument, unknown};
-use libaflmm_core::{illegal_state, os_error, runtime};
+use libaflmm_core::{illegal_state, runtime};
 use nix::sys::select::{FdSet, pselect};
 use nix::sys::signal::{SigSet, kill};
 use nix::sys::time::TimeSpec;
 use nix::sys::wait::waitpid;
 use nix::{sys::signal::Signal, unistd::Pid};
-use std::io::{self, ErrorKind, PipeReader, PipeWriter, Read, Write};
-use std::os::fd::{AsFd, AsRawFd, BorrowedFd, IntoRawFd};
+use std::io::{self, PipeReader, PipeWriter, Read, Write};
+use std::os::fd::{AsFd, AsRawFd};
 use std::{
     env,
     process::{Child, Command, Stdio},
@@ -74,13 +73,12 @@ impl Drop for ForkserverChannel {
     }
 }
 
-#[allow(unstable_name_collisions)]
 impl ForkserverChannel {
     /// Create a new [`Forkserver`] that will kill child processes
     /// with the given `kill_signal`.
     /// Using `Forkserver::new(..)` will default to [`Signal::SIGTERM`].
-    fn new(cfg: ForkserverSpawnConfig) -> Result<Self> {
-        let ForkserverSpawnConfig {
+    pub fn new(cfg: ForkserverConfig) -> Result<Self> {
+        let ForkserverConfig {
             target,
             args,
             envs,
@@ -98,6 +96,7 @@ impl ForkserverChannel {
             cwd,
             core,
         } = cfg;
+
         let Some(coverage_map_size) = coverage_map_size else {
             return Err(unknown!(
                 "Coverage map size unknown. Use coverage_map_size() to tell the forkserver about the map size.",
@@ -269,6 +268,7 @@ impl ForkserverChannel {
     }
 
     /// The kill signal
+    #[must_use]
     pub fn kill_signal(&self) -> Signal {
         self.kill_signal
     }
@@ -316,11 +316,9 @@ impl ForkserverChannel {
     }
 
     /// Read a message from the child process.
-    pub fn read_st_timed(&mut self, timeout: &TimeSpec) -> Result<Option<i32>> {
+    pub fn read_st_timeout(&mut self, timeout: &TimeSpec) -> Result<Option<i32>> {
         let mut buf: [u8; 4] = [0_u8; 4];
 
-        // # Safety
-        // The FDs are valid as this point in time.
         let st_read = self.st_reader.as_fd();
 
         let mut readfds = FdSet::new();

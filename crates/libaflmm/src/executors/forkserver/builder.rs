@@ -4,9 +4,7 @@ use crate::{
     Result,
     executors::{
         ForkserverChannel, ForkserverExecutor, StdChildArgs, StdChildArgsInner,
-        forkserver::{
-            ForkserverShm, ForkserverSpawnConfig, KILL_SIGNAL_DEFAULT, report_error_and_exit,
-        },
+        forkserver::{ForkserverConfig, ForkserverShm, KILL_SIGNAL_DEFAULT, report_error_and_exit},
     },
     mutators::Tokens,
     observers::{MapObserver, ObserversTuple},
@@ -87,30 +85,27 @@ impl<'a> ForkserverExecutorBuilder<'a> {
         OT: ObserversTuple<S>,
         (A, OT): ObserversTuple<S>,
     {
-        if let Some(dynamic_map_size) = built.map_size {
+        if let Some(dynamic_map_size) = self.map_size {
             map_observer.as_mut().truncate(dynamic_map_size);
         }
 
-        let forkserver = self.build(&other_observers)?;
+        let forkserver = self.build((map_observer, other_observers))?;
 
         log::info!(
             "ForkserverExecutor: program: {:?}, arguments: {:?}, use_stdin: {:?}, map_size: {:?}",
-            built.target,
-            built.args,
+            forkserver.target,
+            forkserver.args,
             self.use_stdin(),
-            built.map_size
+            self.map_size
         );
 
-        if built.uses_shmem_testcase && built.map.is_none() {
+        if self.uses_shmem_testcase && forkserver.map.is_none() {
             return Err(illegal_state!(
                 "Map must always be set for `uses_shmem_testcase`"
             ));
         }
 
-        Ok(ForkserverExecutor {
-            inner: built,
-            observers: (map_observer, other_observers),
-        })
+        Ok(forkserver)
     }
 
     /// Builds [`ForkserverExecutor`].
@@ -161,7 +156,7 @@ impl<'a> ForkserverExecutorBuilder<'a> {
             illegal_argument!("ForkserverExecutorBuilder::build: target file not found")
         })?;
 
-        let mut forkserver = ForkserverChannel::new(ForkserverSpawnConfig {
+        let mut forkserver = ForkserverChannel::new(ForkserverConfig {
             target: target.clone(),
             args: self.target_inner.arguments.clone(),
             envs: self.target_inner.envs.clone(),
@@ -227,7 +222,6 @@ impl<'a> ForkserverExecutorBuilder<'a> {
             target,
             args: self.target_inner.arguments.clone(),
             uses_shmem_testcase: self.uses_shmem_testcase,
-            map_size: self.map_size,
             min_input_size: self.min_input_size,
             max_input_size: self.max_input_size,
             timeout: self.child_env_inner.timeout.into(),
