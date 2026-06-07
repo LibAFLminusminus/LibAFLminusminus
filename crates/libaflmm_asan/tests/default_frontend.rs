@@ -13,11 +13,11 @@ mod tests {
         },
         tracking::guest::GuestTracking,
     };
-    use spin::{Lazy, Mutex, MutexGuard};
+    use spin::{LazyLock, Mutex, MutexGuard, Spin};
 
     const PAGE_SIZE: usize = 4096;
 
-    static INIT_ONCE: Lazy<Mutex<DF>> = Lazy::new(|| {
+    static INIT_ONCE: LazyLock<Mutex<DF>> = LazyLock::new(|| {
         Mutex::new({
             env_logger::init();
             let backend = DlmallocBackend::<MmapRegion>::new(PAGE_SIZE);
@@ -40,7 +40,7 @@ mod tests {
         GuestTracking,
     >;
 
-    fn frontend() -> MutexGuard<'static, DF> {
+    fn frontend() -> MutexGuard<'static, DF, Spin> {
         INIT_ONCE.lock()
     }
 

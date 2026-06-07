@@ -1,19 +1,10 @@
 //! The struct `TimerStruct` will absorb all the difference in timeout implementation in various system.
 use core::time::Duration;
-#[cfg(target_os = "linux")]
-use core::{mem::zeroed, ptr::null_mut};
-
-#[cfg(all(unix, not(target_os = "linux")))]
-pub(crate) const ITIMER_REAL: core::ffi::c_int = 0;
-
-#[cfg(windows)]
 use core::{
     ffi::c_void,
     ptr::write_volatile,
     sync::atomic::{Ordering, compiler_fence},
 };
-
-#[cfg(windows)]
 use windows::Win32::{
     Foundation::FILETIME,
     System::Threading::{
@@ -23,7 +14,6 @@ use windows::Win32::{
     },
 };
 
-#[cfg(windows)]
 use crate::executors::hooks::inprocess::GLOBAL_STATE;
 
 fn duration_to_itimerspec(duration: Duration) -> libc::itimerspec {
@@ -89,11 +79,8 @@ unsafe extern "C" {
 #[expect(missing_debug_implementations)]
 pub struct TimerStruct {
     // timeout time (windows)
-    #[cfg(windows)]
     milli_sec: i64,
-    #[cfg(windows)]
     ptp_timer: PTP_TIMER,
-    #[cfg(windows)]
     critical: CRITICAL_SECTION,
     #[cfg(all(unix, not(target_os = "linux")))]
     itimerval: Itimerval,
@@ -107,11 +94,8 @@ impl Clone for TimerStruct {
     fn clone(&self) -> Self {
         Self {
             // timeout time (windows)
-            #[cfg(windows)]
             milli_sec: self.milli_sec.clone(),
-            #[cfg(windows)]
             ptp_timer: PTP_TIMER,
-            #[cfg(windows)]
             critical: CRITICAL_SECTION,
             #[cfg(all(unix, not(target_os = "linux")))]
             itimerval: self.itimerval.clone(),
@@ -123,7 +107,6 @@ impl Clone for TimerStruct {
     }
 }
 
-#[cfg(windows)]
 #[expect(non_camel_case_types)]
 type PTP_TIMER_CALLBACK = unsafe extern "system" fn(
     param0: PTP_CALLBACK_INSTANCE,
@@ -133,39 +116,33 @@ type PTP_TIMER_CALLBACK = unsafe extern "system" fn(
 
 impl TimerStruct {
     /// Timeout value in milli seconds
-    #[cfg(windows)]
     #[must_use]
     pub fn milli_sec(&self) -> i64 {
         self.milli_sec
     }
 
-    #[cfg(windows)]
     /// Timeout value in milli seconds (mut ref)
     pub fn milli_sec_mut(&mut self) -> &mut i64 {
         &mut self.milli_sec
     }
 
     /// The timer object for windows
-    #[cfg(windows)]
     #[must_use]
     pub fn ptp_timer(&self) -> &PTP_TIMER {
         &self.ptp_timer
     }
 
-    #[cfg(windows)]
     /// The timer object for windows
     pub fn ptp_timer_mut(&mut self) -> &mut PTP_TIMER {
         &mut self.ptp_timer
     }
 
     /// The critical section, we need to use critical section to access the globals
-    #[cfg(windows)]
     #[must_use]
     pub fn critical(&self) -> &CRITICAL_SECTION {
         &self.critical
     }
 
-    #[cfg(windows)]
     /// The critical section (mut ref), we need to use critical section to access the globals
     pub fn critical_mut(&mut self) -> &mut CRITICAL_SECTION {
         &mut self.critical
@@ -194,7 +171,6 @@ impl TimerStruct {
     /// Constructor
     /// # Safety
     /// This function calls transmute to setup the timeout handler for windows
-    #[cfg(windows)]
     #[must_use]
     pub unsafe fn new(exec_tmout: Duration, timeout_handler: *const c_void) -> Self {
         let milli_sec = exec_tmout.as_millis() as i64;
@@ -260,7 +236,6 @@ impl TimerStruct {
         }
     }
 
-    #[cfg(windows)]
     #[expect(clippy::cast_sign_loss)]
     /// Set timer
     pub fn set_timer(&mut self) {
@@ -331,7 +306,6 @@ impl TimerStruct {
         }
     }
 
-    #[cfg(windows)]
     /// Disable the timer
     pub fn unset_timer(&mut self) {
         // # Safety

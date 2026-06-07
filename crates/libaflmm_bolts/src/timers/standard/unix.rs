@@ -1,30 +1,6 @@
 //! The struct `TimerStruct` will absorb all the difference in timeout implementation in various system.
 use core::time::Duration;
-#[cfg(target_os = "linux")]
-use core::{mem::zeroed, ptr::null_mut};
-
-#[cfg(all(unix, not(target_os = "linux")))]
 pub(crate) const ITIMER_REAL: core::ffi::c_int = 0;
-
-#[cfg(windows)]
-use core::{
-    ffi::c_void,
-    ptr::write_volatile,
-    sync::atomic::{Ordering, compiler_fence},
-};
-
-#[cfg(windows)]
-use windows::Win32::{
-    Foundation::FILETIME,
-    System::Threading::{
-        CRITICAL_SECTION, CreateThreadpoolTimer, EnterCriticalSection, InitializeCriticalSection,
-        LeaveCriticalSection, PTP_CALLBACK_INSTANCE, PTP_TIMER, SetThreadpoolTimer,
-        TP_CALLBACK_ENVIRON_V3,
-    },
-};
-
-#[cfg(windows)]
-use crate::executors::hooks::inprocess::GLOBAL_STATE;
 
 fn duration_to_itimerspec(duration: Duration) -> libc::itimerspec {
     let milli_sec = duration.as_millis();
@@ -88,13 +64,6 @@ unsafe extern "C" {
 /// This struct absorb all platform specific differences about timer.
 #[expect(missing_debug_implementations)]
 pub struct TimerStruct {
-    // timeout time (windows)
-    #[cfg(windows)]
-    milli_sec: i64,
-    #[cfg(windows)]
-    ptp_timer: PTP_TIMER,
-    #[cfg(windows)]
-    critical: CRITICAL_SECTION,
     #[cfg(all(unix, not(target_os = "linux")))]
     itimerval: Itimerval,
     #[cfg(target_os = "linux")]
@@ -106,13 +75,6 @@ pub struct TimerStruct {
 impl Clone for TimerStruct {
     fn clone(&self) -> Self {
         Self {
-            // timeout time (windows)
-            #[cfg(windows)]
-            milli_sec: self.milli_sec.clone(),
-            #[cfg(windows)]
-            ptp_timer: PTP_TIMER,
-            #[cfg(windows)]
-            critical: CRITICAL_SECTION,
             #[cfg(all(unix, not(target_os = "linux")))]
             itimerval: self.itimerval.clone(),
             #[cfg(target_os = "linux")]
@@ -123,54 +85,7 @@ impl Clone for TimerStruct {
     }
 }
 
-#[cfg(windows)]
-#[expect(non_camel_case_types)]
-type PTP_TIMER_CALLBACK = unsafe extern "system" fn(
-    param0: PTP_CALLBACK_INSTANCE,
-    param1: *mut c_void,
-    param2: PTP_TIMER,
-);
-
 impl TimerStruct {
-    /// Timeout value in milli seconds
-    #[cfg(windows)]
-    #[must_use]
-    pub fn milli_sec(&self) -> i64 {
-        self.milli_sec
-    }
-
-    #[cfg(windows)]
-    /// Timeout value in milli seconds (mut ref)
-    pub fn milli_sec_mut(&mut self) -> &mut i64 {
-        &mut self.milli_sec
-    }
-
-    /// The timer object for windows
-    #[cfg(windows)]
-    #[must_use]
-    pub fn ptp_timer(&self) -> &PTP_TIMER {
-        &self.ptp_timer
-    }
-
-    #[cfg(windows)]
-    /// The timer object for windows
-    pub fn ptp_timer_mut(&mut self) -> &mut PTP_TIMER {
-        &mut self.ptp_timer
-    }
-
-    /// The critical section, we need to use critical section to access the globals
-    #[cfg(windows)]
-    #[must_use]
-    pub fn critical(&self) -> &CRITICAL_SECTION {
-        &self.critical
-    }
-
-    #[cfg(windows)]
-    /// The critical section (mut ref), we need to use critical section to access the globals
-    pub fn critical_mut(&mut self) -> &mut CRITICAL_SECTION {
-        &mut self.critical
-    }
-
     /// Create a `TimerStruct` with the specified timeout
     #[cfg(all(unix, not(target_os = "linux")))]
     #[must_use]
@@ -189,35 +104,6 @@ impl TimerStruct {
             it_value,
         };
         Self { itimerval }
-    }
-
-    /// Constructor
-    /// # Safety
-    /// This function calls transmute to setup the timeout handler for windows
-    #[cfg(windows)]
-    #[must_use]
-    pub unsafe fn new(exec_tmout: Duration, timeout_handler: *const c_void) -> Self {
-        let milli_sec = exec_tmout.as_millis() as i64;
-
-        let timeout_handler: PTP_TIMER_CALLBACK = unsafe { core::mem::transmute(timeout_handler) };
-        let ptp_timer = unsafe {
-            CreateThreadpoolTimer(
-                Some(timeout_handler),
-                Some(&raw mut GLOBAL_STATE as *mut c_void),
-                Some(&TP_CALLBACK_ENVIRON_V3::default()),
-            )
-        }
-        .expect("CreateThreadpoolTimer failed!");
-
-        let mut critical = CRITICAL_SECTION::default();
-        unsafe {
-            InitializeCriticalSection(&raw mut critical);
-        }
-        Self {
-            milli_sec,
-            ptp_timer,
-            critical,
-        }
     }
 
     #[cfg(target_os = "linux")]
@@ -260,37 +146,6 @@ impl TimerStruct {
         }
     }
 
-    #[cfg(windows)]
-    #[expect(clippy::cast_sign_loss)]
-    /// Set timer
-    pub fn set_timer(&mut self) {
-        unsafe {
-            let data = &raw mut GLOBAL_STATE;
-
-            write_volatile(&raw mut (*data).ptp_timer, Some(*self.ptp_timer()));
-            write_volatile(
-                &raw mut (*data).critical,
-                &raw mut (*self.critical_mut()) as *mut c_void,
-            );
-            let tm: i64 = -self.milli_sec() * 10 * 1000;
-            let ft = FILETIME {
-                dwLowDateTime: (tm & 0xffffffff) as u32,
-                dwHighDateTime: (tm >> 32) as u32,
-            };
-
-            // enter critical section then set timer
-            compiler_fence(Ordering::SeqCst);
-            EnterCriticalSection(self.critical_mut());
-            compiler_fence(Ordering::SeqCst);
-            (*data).in_target = 1;
-            compiler_fence(Ordering::SeqCst);
-            LeaveCriticalSection(self.critical_mut());
-            compiler_fence(Ordering::SeqCst);
-
-            SetThreadpoolTimer(*self.ptp_timer(), Some(&raw const ft), 0, None);
-        }
-    }
-
     /// Set up timer
     #[cfg(target_os = "linux")]
     pub fn set_timer(&mut self, timeout: Duration) {
@@ -328,28 +183,6 @@ impl TimerStruct {
         unsafe {
             let disarmed: libc::itimerspec = zeroed();
             libc::timer_settime(self.timerid, 0, &raw const disarmed, null_mut());
-        }
-    }
-
-    #[cfg(windows)]
-    /// Disable the timer
-    pub fn unset_timer(&mut self) {
-        // # Safety
-        // The value accesses are guarded by a critical section.
-        unsafe {
-            let data = &raw mut GLOBAL_STATE;
-
-            compiler_fence(Ordering::SeqCst);
-            EnterCriticalSection(self.critical_mut());
-            compiler_fence(Ordering::SeqCst);
-            // Timeout handler will do nothing after we increment in_target value.
-            (*data).in_target = 0;
-            compiler_fence(Ordering::SeqCst);
-            LeaveCriticalSection(self.critical_mut());
-            compiler_fence(Ordering::SeqCst);
-
-            // previously this wa post_run_reset
-            SetThreadpoolTimer(*self.ptp_timer(), None, 0, None);
         }
     }
 }
