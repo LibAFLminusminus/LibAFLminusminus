@@ -1,13 +1,13 @@
 use libaflmm_qemu::{GuestAddr, elf::EasyElf, qemu::Qemu};
-use std::{env, fs, panic::Location, path::PathBuf, process::Command};
+use std::{env, fs, path::PathBuf, process::Command};
 
-const STUB: &str = r#"
+const STUB: &str = r"
 int target();
 
 int main() {
     return target();
 }
-"#;
+";
 
 fn cross_cc() -> String {
     if let Ok(cross_cc) = env::var("CROSS_CC") {
@@ -28,6 +28,7 @@ fn snippet_path(caller: &str) -> PathBuf {
     }
 }
 
+#[must_use]
 pub fn find_symbol(qemu: Qemu, symbol: &str) -> GuestAddr {
     let mut elf_buf = Vec::new();
     let elf = EasyElf::from_file(qemu.binary_path(), &mut elf_buf).unwrap();
@@ -35,8 +36,9 @@ pub fn find_symbol(qemu: Qemu, symbol: &str) -> GuestAddr {
 }
 
 #[track_caller]
+#[must_use]
 pub fn boot_qemu() -> Qemu {
-    let snippet = snippet_path(Location::caller().file());
+    let snippet = snippet_path(core::panic::Location::caller().file());
     assert!(
         snippet.is_file(),
         "missing snippet next to main.rs: {}",
