@@ -16,7 +16,7 @@ mod tests {
     };
     use log::{debug, info};
     use mockall::mock;
-    use spin::{Lazy, Mutex, MutexGuard};
+    use spin::{LazyLock, Mutex, MutexGuard, Spin};
 
     const MAX_ADDR: GuestAddr = 64 << 20;
 
@@ -48,7 +48,7 @@ mod tests {
         }
     }
 
-    static INIT_ONCE: Lazy<Mutex<DF>> = Lazy::new(|| {
+    static INIT_ONCE: LazyLock<Mutex<DF>> = LazyLock::new(|| {
         Mutex::new({
             env_logger::init();
             let backend = MockBackend::new();
@@ -65,12 +65,12 @@ mod tests {
         })
     });
 
-    static MAP: Lazy<MmapRegion> = Lazy::new(|| MmapRegion::map(MAX_ADDR).unwrap());
+    static MAP: LazyLock<MmapRegion> = LazyLock::new(|| MmapRegion::map(MAX_ADDR).unwrap());
 
     type DF =
         DefaultFrontend<MockBackend, GuestShadow<MmapRegion, DefaultShadowLayout>, GuestTracking>;
 
-    fn frontend() -> MutexGuard<'static, DF> {
+    fn frontend() -> MutexGuard<'static, DF, Spin> {
         INIT_ONCE.lock()
     }
 

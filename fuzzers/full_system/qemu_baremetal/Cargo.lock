@@ -1032,7 +1032,7 @@ dependencies = [
  "libm",
  "log",
  "meminterval",
- "nix 0.30.1",
+ "nix 0.31.3",
  "num-traits",
  "postcard",
  "quanta",
@@ -1064,7 +1064,7 @@ dependencies = [
  "libc",
  "log",
  "mach2",
- "nix 0.30.1",
+ "nix 0.31.3",
  "num-traits",
  "num_enum",
  "postcard",
@@ -1087,7 +1087,7 @@ dependencies = [
 name = "libaflmm_core"
 version = "0.16.0"
 dependencies = [
- "nix 0.30.1",
+ "nix 0.31.3",
  "postcard",
  "rustversion",
  "serde",
@@ -1126,10 +1126,10 @@ dependencies = [
  "libvharness_sys",
  "log",
  "meminterval",
- "nix 0.30.1",
+ "nix 0.31.3",
  "num-traits",
  "num_enum",
- "object 0.38.1",
+ "object 0.39.1",
  "paste",
  "rangemap",
  "rustversion",
@@ -1303,7 +1303,6 @@ dependencies = [
  "cfg-if",
  "cfg_aliases",
  "libc",
- "memoffset",
 ]
 
 [[package]]
@@ -1316,6 +1315,7 @@ dependencies = [
  "cfg-if",
  "cfg_aliases",
  "libc",
+ "memoffset",
 ]
 
 [[package]]
@@ -1382,9 +1382,9 @@ dependencies = [
 
 [[package]]
 name = "object"
-version = "0.38.1"
+version = "0.39.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "271638cd5fa9cca89c4c304675ca658efc4e64a66c716b7cfe1afb4b9611dbbc"
+checksum = "2e5a6c098c7a3b6547378093f5cc30bc54fd361ce711e05293a5cc589562739b"
 dependencies = [
  "flate2",
  "memchr",
