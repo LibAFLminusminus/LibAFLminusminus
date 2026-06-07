@@ -46,7 +46,7 @@ typed-builder = { workspace = true }
 
 [target.'cfg(target_os = "linux" )'.dependencies]
 caps = { version = "0.5.6" }
-perf-event-open-sys = { version = "5.0.0" }
+perf-event-open-sys = { version = "6.0.0" }
 
 [lints]
 workspace = true
