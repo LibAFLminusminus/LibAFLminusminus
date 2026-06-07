@@ -1,6 +1,6 @@
 use crate::Result;
 #[cfg(doc)]
-use crate::config::QemuConfig;
+use crate::qemu::QemuConfig;
 use crate::emu::NopInputWriter;
 use crate::emu::StdInputWriter;
 use crate::emu::snapshots::StdSnapshotManager;

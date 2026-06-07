@@ -10,7 +10,11 @@ int main() {
 "#;
 
 fn cross_cc() -> String {
-    env::var("CROSS_CC").unwrap()
+    if let Ok(cross_cc) = env::var("CROSS_CC") {
+        cross_cc
+    } else {
+        "gcc".to_string()
+    }
 }
 
 fn snippet_path(caller: &str) -> PathBuf {
