@@ -3,7 +3,7 @@
 `LibAFL--` can be used mainly through two main modes of execution: `Forkserver` and `In-process`.
 
 **Forkserver** is the default and less error-prone execution mode, at the price of worse performance.
-It is the default and recommanded mode for easy fuzzing.
+It is the default and recommended mode for easy fuzzing.
 Its architecture is split into two main parts: the fuzzer and the forkserver.
 The fuzzer contains the fuzzer state, sends inputs to the forkserver and receives feedback.
 The forkserver, compiled alongside the target, receives the input, forks, provides the input to the target, then sends back the feedback to the fuzzer.
