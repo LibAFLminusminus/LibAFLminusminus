@@ -33,6 +33,7 @@
 - [Targets](./targets/targets.md)
 
 - [Frida](./frida/frida.md)
+  - [Frida Example](./frida/frida_example.md)
 
 - [Nyx](./nyx/nyx.md)
   - [Nyx Example](./nyx/nyx_example.md)
@@ -48,11 +49,6 @@
 - [Examples](./examples/examples.md)
   - [Forkserver](./examples/forkserver.md)
   - [In-process](./examples/in_process.md)
-  - [Frida](./examples/frida.md)
-  - [Nyx](./examples/nyx.md)
-  - [QEMU](./examples/qemu.md)
-    - [Usermode](./examples/qemu_usermode.md)
-    - [Systemmode](./examples/qemu_systemmode.md)
 
 [//]: <> (Use cases: binary only, network, etc...)
 [//]: <> (Optimal configuration for most common scenarios)
