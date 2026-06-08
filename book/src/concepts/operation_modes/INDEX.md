@@ -1,4 +1,4 @@
-# Execution modes
+# Operation modes
 
 `LibAFL--` can be used mainly through two main modes of execution: `Forkserver` and `In-process`.
 
