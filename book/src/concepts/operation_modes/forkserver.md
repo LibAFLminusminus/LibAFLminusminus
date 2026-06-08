@@ -11,7 +11,8 @@ As the forkserver's name suggests, it forks itself between each target execution
 
 ## The fuzzer
 
-The fuzzer contains most of the `LibAFL--` logic. It includes (but is not bounded to): the launcher (notably for multi-core support), the fuzzer, the mutators, the feedbacks, the persistent state, etc...
+The fuzzer contains most of the `LibAFL--` logic.
+It includes (but is not bounded to): the launcher (notably for multi-core support), the fuzzer, the mutators, the feedbacks, the persistent state, etc...
 
 ## The forkserver
 
