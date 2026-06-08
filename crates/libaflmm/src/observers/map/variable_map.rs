@@ -5,8 +5,9 @@ use crate::{
     common::DependencyResolver,
     observers::{MapObserver, Observer},
 };
-use alloc::{borrow::Cow, fmt::Debug};
+use alloc::borrow::Cow;
 use core::{
+    fmt::Debug,
     hash::{Hash, Hasher},
     ops::{Deref, DerefMut},
 };
