@@ -6,7 +6,7 @@ use std::process::exit;
 use crate::{
     Result,
     common::{CompatibilityChecker, DependencyResolver, Registrator},
-    controllers::Worker,
+    controllers::{NopWorker, Worker},
     executors::Executor,
     fuzzers::Fuzzer,
     inputs::Input,
@@ -16,7 +16,7 @@ use crate::{
         utils::{PinnedPtr, unix::OsShmSender},
     },
     stages::StagesTuple,
-    states::State,
+    states::{NopState, State},
 };
 
 pub mod inprocess;
@@ -115,6 +115,19 @@ pub struct RuntimeHandle<S, W> {
     worker: W,
     termination_data_ptr: Option<PinnedPtr<TerminationHandlerData>>,
     state_shm_sender: Option<OsShmSender<S>>,
+}
+
+impl RuntimeHandle<NopState, NopWorker> {
+    pub unsafe fn empty() -> Self {
+        let worker = NopWorker;
+
+        Self {
+            runtime: NonNull::<NopRuntime>::dangling(),
+            worker,
+            termination_data_ptr: None,
+            state_shm_sender: None,
+        }
+    }
 }
 
 impl<S, W> RuntimeHandle<S, W> {
