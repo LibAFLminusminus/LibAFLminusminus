@@ -94,7 +94,7 @@ where
         .coverage_map_size(MAP_SIZE)
         .try_use_input_shmem()
         .timeout(Duration::from_millis(3000))
-        .build(tuple_list!(observer))
+        .build(tuple_list!(observer), rt_handle)
         .unwrap();
     // Generator of printable bytearrays of max size 32
     let mut generator = RandPrintablesGenerator::new(non_zero!(32));
