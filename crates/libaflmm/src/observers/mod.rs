@@ -19,7 +19,8 @@ pub use cmplog::{CmpLogMetadata, CmpLogObserver, CmpValues, CmplogBytes, StdCmpL
 pub mod map;
 pub use map::{
     ConstLenMapObserver, ConstMapObserver, HitcountsIterableMapObserver, HitcountsMapObserver,
-    MapObserver, MultiMapObserver, SizePtrMapObserver, VarLenMapObserver, VariableMapObserver,
+    MapObserver, MultiMapObserver, SizePtrMapObserver, StdMapObserver, VarLenMapObserver,
+    VariableMapObserver,
 };
 
 pub mod value;
