@@ -49,9 +49,9 @@
   - [In-process](./examples/in_process.md)
   - [Frida](./examples/frida.md)
   - [Nyx](./examples/nyx.md)
-  - [QEMU](./examples/INDEX.md)
-    - [Usermode](./examples/qemu_usermode.md)
-    - [Systemmode](./examples/qemu_systemmode.md)
+  - [QEMU](./examples/qemu/INDEX.md)
+    - [Usermode](./examples/qemu/usermode.md)
+    - [Systemmode](./examples/qemu/systemmode.md)
 
 [//]: <> (Use cases: binary only, network, etc...)
 [//]: <> (Optimal configuration for most common scenarios)
