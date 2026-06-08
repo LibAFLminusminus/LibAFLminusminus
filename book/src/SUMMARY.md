@@ -4,12 +4,12 @@
 
 [Introduction](./introduction.md)
 
-- [Getting Started](./getting_started/INDEX.md)
+- [Getting Started](./getting_started/index.md)
   - [Setup](./getting_started/setup.md)
   - [A first simple fuzzer](./getting_started/build.md)
 
-- [Concepts](./concepts/INDEX.md)
-  - [Operation Modes](./concepts/operation_modes/INDEX.md)
+- [Concepts](./concepts/index.md)
+  - [Operation Modes](./concepts/operation_modes/index.md)
     - [Forkserver](./concepts/operation_modes/forkserver.md)
     - [In-process](./concepts/operation_modes/in_process.md)
   - [Fuzzer Architecture](./concepts/architecture.md)
@@ -19,7 +19,7 @@
   - [Debugging](./concepts/debugging.md)
   - [Performance](./concepts/performance.md)
 
-- [Components](./components/INDEX.md)
+- [Components](./components/index.md)
   - [State](./components/state.md)
   - [Runtime](./components/runtime.md)
   - [Launcher](./components/launcher.md)
@@ -32,24 +32,24 @@
   - [Observer](./components/observer.md)
   - [Feedback](./components/feedback.md)
 
-- [Targets](./targets/INDEX.md)
+- [Targets](./targets/index.md)
 
-- [Frida](./frida/INDEX.md)
+- [Frida](./frida/index.md)
 
-- [Nyx](./nyx/INDEX.md)
+- [Nyx](./nyx/index.md)
 
-- [QEMU](./qemu/INDEX.md)
+- [QEMU](./qemu/index.md)
   - [Usermode](./qemu/usermode.md)
   - [Systemmode](./qemu/systemmode.md)
 
-- [Intel PT](./intel_pt/INDEX.md)
+- [Intel PT](./intel_pt/index.md)
 
-- [Examples](./examples/INDEX.md)
+- [Examples](./examples/index.md)
   - [Forkserver](./examples/forkserver.md)
   - [In-process](./examples/in_process.md)
   - [Frida](./examples/frida.md)
   - [Nyx](./examples/nyx.md)
-  - [QEMU](./examples/qemu/INDEX.md)
+  - [QEMU](./examples/qemu/index.md)
     - [Usermode](./examples/qemu/usermode.md)
     - [Systemmode](./examples/qemu/systemmode.md)
 
