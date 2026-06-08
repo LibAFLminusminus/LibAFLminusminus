@@ -2,7 +2,8 @@
 
 NYX supports both source-based and binary-only fuzzing.
 
-Currently, `libaflmm_nyx` only supports [afl++](https://github.com/AFLplusplus/AFLplusplus)'s instruction type. To install it, you can use `sudo apt install aflplusplus`. Or compile from the source:
+Currently, `libaflmm_nyx` only supports [afl++](https://github.com/AFLplusplus/AFLplusplus)'s instruction type.
+To install it, you can use `sudo apt install aflplusplus`. Or compile from the source:
 
 ```bash
 git clone https://github.com/AFLplusplus/AFLplusplus
@@ -24,7 +25,8 @@ For binary-only fuzzing, Nyx uses intel-PT(Intel® Processor Trace). You can fin
 
 ## Preparing the Nyx working directory
 
-This step is used to pack the target into Nyx's kernel. Don't worry, we have a template shell script in our [example](https://github.com/AFLplusplus/LibAFL/blob/main/fuzzers/full_system/nyx_libxml2_parallel/setup_libxml2.sh):
+This step is used to pack the target into Nyx's kernel.
+Don't worry, we have a template shell script in our [example](https://github.com/AFLplusplus/LibAFL/blob/main/fuzzers/full_system/nyx_libxml2_parallel/setup_libxml2.sh):
 
 the parameter's meaning is listed below:
 

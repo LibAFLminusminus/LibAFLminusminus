@@ -82,7 +82,7 @@ pub fn fuzz() -> Result<()> {
 
             // Create an observation channel using the coverage map
             let mut edges_observer = unsafe {
-                HitcountsMapObserver::new(VariableMapObserver::from_mut_slice(
+                HitcountsMapObserver::new(SizePtrMapObserver::from_mut_slice(
                     "edges",
                     OwnedMutSlice::from_raw_parts_mut(edges_map_mut_ptr(), EDGES_MAP_DEFAULT_SIZE),
                     &raw mut MAX_EDGES_FOUND,
