@@ -15,8 +15,7 @@
   - [Fuzzer Architecture](./concepts/architecture.md)
   - [Metadata](./concepts/metadata.md)
   - [Tuples](./concepts/tuples.md)
-  - [Errors](./concepts/errors.md)
-  - [Debugging](./concepts/debugging.md)
+  - [Errors and Debugging](./concepts/errors_and_debugging.md)
   - [Performance](./concepts/performance.md)
 
 - [Components](./components/components.md)
@@ -37,10 +36,13 @@
 - [Frida](./frida/frida.md)
 
 - [Nyx](./nyx/nyx.md)
+  - [Nyx Example](./nyx/nyx_example.md)
 
 - [QEMU](./qemu/qemu.md)
   - [Usermode](./qemu/usermode.md)
+    - [Usermode Example](./qemu/usermode_example.md)
   - [Systemmode](./qemu/systemmode.md)
+    - [Systemmode Example](./nyx/systemmode_example.md)
 
 - [Intel PT](./intel_pt/intel_pt.md)
 
