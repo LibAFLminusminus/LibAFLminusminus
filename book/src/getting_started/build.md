@@ -20,7 +20,7 @@ The best starting point for experienced rustaceans is to read through, and adapt
 We group these fuzzers in the [`./fuzzers`](https://github.com/AFLplusplus/LibAFL/tree/main/fuzzers) directory of the LibAFL repository.
 The directory contains a set of crates that are not part of the workspace.
 
-Each of these example fuzzers uses particular features of LibAFL, sometimes combined with different instrumentation backends (e.g. [SanitizerCoverage](https://clang.llvm.org/docs/SanitizerCoverage.html), [Frida](https://frida.re/), ...).
+Each of these example fuzzers uses particular features of LibAFL, sometimes combined with different instrumentation backends (for example, [SanitizerCoverage](https://clang.llvm.org/docs/SanitizerCoverage.html), [Frida](https://frida.re/), ...).
 
 You can use these crates as examples and as skeletons for custom fuzzers with similar feature sets.
 Each fuzzer will have a `README.md` file in its directory, describing the fuzzer and its features.
