@@ -8,4 +8,4 @@ This can depend also on other parameters, for instance, the length of the input 
 
 A stage can also be an analysis stage, for instance, the Colorization stage of REDQUEEN that aims to introduce more entropy in a testcase or the Trimming stage of AFL that aims to reduce the size of a testcase.
 
-There are several stages in the LibAFL codebase implementing the [`Stage`](https://docs.rs/libafl/latest/libafl/stages/trait.Stage.html) trait.
+Several stages in the `LibAFL--` codebase implement the [`Stage`](https://docs.rs/libafl/latest/libafl/stages/trait.Stage.html) trait.

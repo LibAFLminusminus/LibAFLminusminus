@@ -11,8 +11,8 @@ The concept of "interestingness" is abstract, but typically it is related to a n
 As an example, given an Observer that reports all the sizes of memory allocations, a maximization Feedback can be used to maximize these sizes to sport pathological inputs in terms of memory consumption.
 
 In terms of code, the library offers the [`Feedback`](https://docs.rs/libafl/latest/libafl/feedbacks/trait.Feedback.html) trait.
-It is used to implement functors that, given the state of the observers from the last execution, tells if the execution was interesting.
-So to speak, it reduces the observations to a boolean result of [`is_interesting`](https://docs.rs/libafl/latest/libafl/feedbacks/trait.Feedback.html#tymethod.is_interesting) - or not.
+It is used to define objects that, given the state of the observers from the last execution, tells if the execution was interesting.
+Ultimately, it reduces the observations to a boolean result of [`is_interesting`](https://docs.rs/libafl/latest/libafl/feedbacks/trait.Feedback.html#tymethod.is_interesting) - or not.
 For this, a `Feedback` can store anything it wants to persist in the fuzzers's state.
 This might be, for instance, the cumulative map of all edges seen so far, in the case of a feedback based on edge coverage.
 This can be achieved by adding `Metadata` in [`init_state`](https://docs.rs/libafl/latest/libafl/feedbacks/trait.Feedback.html#method.init_state) and accessing it later in `is_interesting`.

@@ -1,6 +1,6 @@
-# Building LibAFL
+# Building LibAFL--
 
-LibAFL, as most of the Rust projects, can be built using `cargo` from the root directory of the project with:
+`LibAFL--`, as most of the Rust projects, can be built using `cargo` from the root directory of the project with:
 
 ```sh
 $ cargo build --release

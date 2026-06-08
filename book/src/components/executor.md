@@ -5,7 +5,7 @@ For instance, for in-process fuzzers like libFuzzer an execution is a call to an
 
 In our model, an Executor is the entity that defines not only how to execute the target, but all the volatile operations that are related to just a single run of the target.
 
-So the Executor is for instance responsible to inform the program about the input that the fuzzer wants to use in the run, writing to a memory location for instance or passing it as a parameter to the harness function.
+Executors represent instances responsible for informing the program about the input that the fuzzer wants to use in the run, writing to a memory location for instance or passing it as a parameter to the harness function.
 
 In our model, it can also hold a set of Observers connected with each execution.
 
@@ -22,7 +22,9 @@ This executor executes the harness program (function) inside the fuzzer process.
 
 When you want to execute the harness as fast as possible, you will most probably want to use this `InprocessExecutor`.
 
-One thing to note here is, when your harness is likely to have heap corruption bugs, you want to use another allocator so that corrupted heap does not affect the fuzzer itself. (For example, we adopt MiMalloc in some of our fuzzers.). Alternatively you can compile your harness with address sanitizer to make sure you can catch these heap bugs.
+One thing to note here is, when your harness is likely to have heap corruption bugs, you want to use another allocator so that corrupted heap does not affect the fuzzer itself.
+For example, we adopt MiMalloc in some of our fuzzers.
+Alternatively you can compile your harness with address sanitizer to make sure you can catch these heap bugs.
 
 ## ForkserverExecutor
 
@@ -56,7 +58,7 @@ See AFL++'s [_documentation_](https://github.com/AFLplusplus/AFLplusplus/blob/st
 Finally, we'll talk about the `InProcessForkExecutor`.
 `InProcessForkExecutor` has only one difference from `InprocessExecutor`; It forks before running the harness and that's it.
 
-But why do we want to do so?
+Why do we want to do so?
 Well, under some circumstances, you may find your harness pretty unstable or your harness wreaks havoc on the global states.
 In this case, you want to fork it before executing the harness runs in the child process so that it doesn't break things.
 
