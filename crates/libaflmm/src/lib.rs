@@ -138,7 +138,7 @@ pub mod prelude {
         CmpLogMetadata, CmpLogObserver, ConstLenMapObserver, ConstMapObserver,
         HitcountsIterableMapObserver, HitcountsMapObserver, ListObserver, MapObserver,
         MultiMapObserver, Observer, ObserverWithHashField, ObserversTuple, OutputObserver,
-        StdCmpLogObserver, StdErrObserver, StdMapObserver, StdObserver, StdOutObserver,
+        SizePtrMapObserver, StdCmpLogObserver, StdErrObserver, StdObserver, StdOutObserver,
         TimeObserver, ValueObserver, VarLenMapObserver, VariableMapObserver,
     };
 
