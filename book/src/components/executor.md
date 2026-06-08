@@ -71,7 +71,7 @@ unsafe{
 
 Again, you can pass this shmem map to your `Observer` and `Feedback` to obtain coverage feedbacks.
 
-Additionaly to allow the fuzzer to know when the child has crashed, the program should abort instead of unwinding upon a panic.
+Additionally to allow the fuzzer to know when the child has crashed, the program should abort instead of unwinding upon a panic.
 Without it, no crashes are saved by the fuzzer.
 
 Cargo.toml:

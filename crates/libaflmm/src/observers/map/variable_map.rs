@@ -5,15 +5,14 @@ use crate::{
     common::DependencyResolver,
     observers::{MapObserver, Observer},
 };
-use libaflmm_bolts::OwnedMutSlice;
-use libaflmm_core::{AsSlice, AsSliceMut, HasLen, Named, Truncate};
-use serde::{Deserialize, Serialize, de::DeserializeOwned};
-use std::{
-    borrow::Cow,
-    fmt::Debug,
+use alloc::{borrow::Cow, fmt::Debug};
+use core::{
     hash::{Hash, Hasher},
     ops::{Deref, DerefMut},
 };
+use libaflmm_bolts::OwnedMutSlice;
+use libaflmm_core::{AsSlice, AsSliceMut, HasLen, Named, Truncate};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 /// The Map Observer retrieves the state of a map,
 /// that will get updated by the target.
