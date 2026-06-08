@@ -15,7 +15,6 @@
   - [Fuzzer Architecture](./concepts/architecture.md)
   - [Metadata](./concepts/metadata.md)
   - [Tuples](./concepts/tuples.md)
-  - [Errors and Debugging](./concepts/errors_and_debugging.md)
   - [Performance](./concepts/performance.md)
 
 - [Components](./components/components.md)
@@ -62,5 +61,6 @@
 [Development Tips](./development_tips.md)
 
 [Contributing](./contributing.md)
+[Debugging](./debugging.md)
 
 [Migrating from LibAFL](./libafl_migration.md)

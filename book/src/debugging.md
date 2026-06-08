@@ -5,7 +5,7 @@ You can use `libafl_core::Result<T>` (which is an alias of `Result<T, libafl_cor
 # Debugging
 In this section, we accumulated common debugging tips you can use to debug your fuzzer made with LibAFL--.
 
-## Q. My fuzzer crashed but the stack trace is useless (with all the call stacks pointing to Rust runtime.)
+## Q. My fuzzer crashed but the stack trace is incomplete (with all the call stacks pointing to Rust runtime.)
 
 You can enable the `errors_backtrace` feature of the `libafl--` crate. With this the stacktrace is more helpful, pinpointing the place the error was raised at.
 
@@ -24,8 +24,8 @@ In this case, again, what usually should do is to run the fuzzer with gdb and se
 
 First, check that you are not redirecting things to `/dev/null` else you will see nothing.
 To see the log that you added with `log::trace!();`, you need to initialize the logger (any logger, `env_logger` or `SimpleStdoutLogger` from `libafl_bolts`) before the fuzzer starts.
-Also you have to make sure that you are running with `RUST_LOG=<log_level>` and you are *NOT* using `release_max_level_info` feature of `log` crate in your `Cargo.toml` of your fuzzer
+Also, if you are using `env_logger`, you have to make sure that you are running with `RUST_LOG=<log_level>` and you are *NOT* using `release_max_level_info` feature of `log` crate in your `Cargo.toml` of your fuzzer
 
 ## Q. I still have problems with my fuzzer
 
-Finally, if you really have no idea what is going on, run your fuzzer with logging enabled. (You can use `env_logger`) (Don't forget to enable stdout and stderr), and you can open an issue or ask us in Zulip (https://fuzz.zulipchat.com/) and find @toka or @rmalmain
+Finally, if you really have no idea what is going on and none of the advices above helped,  you can open an issue or ask us in Zulip (https://fuzz.zulipchat.com/) and find @toka or @rmalmain
