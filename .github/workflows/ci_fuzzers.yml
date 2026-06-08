@@ -24,6 +24,8 @@ jobs:
         with:
           submodules: true
       - uses: ./.github/actions/apt
+        with:
+          aflplusplus: true # useful for forkserver
       - uses: ./.github/actions/setup-llvm
         with:
           version: ${{ vars.MAIN_LLVM_VERSION }}
