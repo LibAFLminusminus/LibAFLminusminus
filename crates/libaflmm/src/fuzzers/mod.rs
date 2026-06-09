@@ -35,18 +35,6 @@ pub trait HasObjective {
     fn objective_feedback_mut(&mut self) -> &mut Self::Objective;
 }
 
-/// Evaluates if an input is interesting using the feedback
-pub trait ExecutionProcessor<I, OT, S> {
-    /// Process `ExecuteInputResult`. Add to corpus, objective or ignore
-    fn process_execution(
-        &mut self,
-        state: &mut S,
-        input: &I,
-        eval_res: &EvaluationResult,
-        observers: &OT,
-    ) -> Result<Option<()>>;
-}
-
 /// Evaluate an input modifying the state of the fuzzer
 pub trait Evaluator<E, I, S, W> {
     /// Runs the input and triggers observers and feedback,

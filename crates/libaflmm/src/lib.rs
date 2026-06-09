@@ -97,8 +97,8 @@ pub mod prelude {
     pub use crate::feedbacks::NautilusFeedback;
 
     pub use crate::fuzzers::{
-        CalibrationHook, CustomNameHook, Evaluator, ExecutionProcessor, Fuzzer, FuzzerHook,
-        FuzzerHooksTuple, NopFuzzer, StdFuzzer,
+        CalibrationHook, CustomNameHook, Evaluator, Fuzzer, FuzzerHook, FuzzerHooksTuple,
+        NopFuzzer, StdFuzzer,
     };
 
     pub use crate::generators::{Generator, RandBytesGenerator, RandPrintablesGenerator};
