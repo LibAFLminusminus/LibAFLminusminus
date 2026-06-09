@@ -334,7 +334,17 @@ mod tests {
     use core::cell::RefCell;
     use frida_gum::Gum;
     use libaflmm::{
-        corpus::{Corpus, InMemoryCorpus, Testcase}, executors::ExitKind, feedback_and_fast, feedback_or_fast, feedbacks::ConstFeedback, fuzzers::{Fuzzer, StdFuzzer}, inputs::{BytesContext, BytesInput}, mutators::{HavocScheduledMutator, mutations::BitFlipMutator}, non_zero_const, runtimes::RuntimeHandle, stages::StdMutationalStage, states::StdState
+        corpus::{Corpus, InMemoryCorpus, Testcase},
+        executors::ExitKind,
+        feedback_and_fast, feedback_or_fast,
+        feedbacks::ConstFeedback,
+        fuzzers::{Fuzzer, StdFuzzer},
+        inputs::{BytesContext, BytesInput},
+        mutators::{HavocScheduledMutator, mutations::BitFlipMutator},
+        non_zero_const,
+        runtimes::RuntimeHandle,
+        stages::StdMutationalStage,
+        states::StdState,
     };
     use libaflmm_bolts::{AsSlice, SimpleStdoutLogger, rands::StdRand, tuples::tuple_list};
     use mimalloc::MiMalloc;
@@ -485,8 +495,6 @@ mod tests {
                         mutator,
                         non_zero_const!(1)
                     ));
-
-                    let rt_handle = RuntimeHandle::
 
                     let mut fuzzer =
                         StdFuzzer::new(feedback, objective, &mut stages, &mut executor, &mut state);
