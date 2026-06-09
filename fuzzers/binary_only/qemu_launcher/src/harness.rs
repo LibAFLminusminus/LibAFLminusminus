@@ -25,8 +25,8 @@ impl Harness {
         Ok(start_pc)
     }
 
-    fn coverage_filter(
-        emu: &mut impl Emulator,
+    fn coverage_filter<I, S>(
+        emu: &mut impl Emulator<I, S>,
         options: &CommonOptions,
     ) -> Result<StdAddressFilter> {
         /* Conversion is required on 32-bit targets, but not on 64-bit ones */
@@ -61,10 +61,10 @@ impl Harness {
     }
 
     /// Initialize the emulator, run to the entrypoint (or jump there) and return the [`Harness`] struct
-    pub fn init<E>(emu: &mut E, options: &CommonOptions) -> Result<Harness>
+    pub fn init<E, I, S>(emu: &mut E, options: &CommonOptions) -> Result<Harness>
     where
-        E: Emulator,
-        <E::CommandManager as CommandManager>::Commands: From<StdCommands> + 'static,
+        E: Emulator<I, S>,
+        <E::CommandManager as CommandManager<I, S>>::Commands: From<StdCommands> + 'static,
     {
         // get the start PC from the ELF
         let start_pc = Self::start_pc(emu.qemu())?;
@@ -134,7 +134,7 @@ impl Harness {
         &self,
         state: &mut S,
         input: &I,
-        emu: &mut impl Emulator<Input = I, State = S>,
+        emu: &mut impl Emulator<I, S>,
     ) -> Result<()> {
         let len = emu.max_input_size(state, input);
 

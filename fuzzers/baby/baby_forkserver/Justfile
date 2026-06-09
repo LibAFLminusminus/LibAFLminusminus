@@ -4,4 +4,28 @@ FUZZER_NAME := "baby_forkserver"
 build:
     cargo build --profile {{ PROFILE }}
 
-test: build
+target:
+    afl-cc program.c -o program
+
+run: build target
+    {{ FUZZER }} ./program seeds/seed
+
+test: build target
+    #!/bin/bash
+    set -eu
+
+    {{ FUZZER }} ./program seeds/seed --iters 5000 || true
+
+    STATS_FILE="./workdir/worker_0/fuzzer_stats"
+    if [ ! -f "$STATS_FILE" ]; then
+        echo "baby_forkserver: Stats file not found at $STATS_FILE"
+        exit 1
+    fi
+
+    OBJECTIVE=$(jq '.objective' "$STATS_FILE")
+    if [ "$OBJECTIVE" -eq 0 ]; then
+        echo "baby_forkserver: Fuzzer did not find any objective (stats: $STATS_FILE)"
+        exit 1
+    else
+        echo "baby_forkserver: Found $OBJECTIVE objective(s)."
+    fi

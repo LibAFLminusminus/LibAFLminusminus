@@ -6,17 +6,13 @@ use std::process::exit;
 use crate::{
     Result,
     common::{CompatibilityChecker, DependencyResolver, Registrator},
-    controllers::Worker,
-    executors::Executor,
-    fuzzers::Fuzzer,
-    inputs::Input,
+    controllers::{NopWorker, Worker},
     runtimes::{
         inprocess::{CrashStatus, TimeoutStatus},
         restarting::LIBAFLMM_EXIT_END,
         utils::{PinnedPtr, unix::OsShmSender},
     },
-    stages::StagesTuple,
-    states::State,
+    states::{NopState, State},
 };
 
 pub mod inprocess;
@@ -117,6 +113,25 @@ pub struct RuntimeHandle<S, W> {
     state_shm_sender: Option<OsShmSender<S>>,
 }
 
+impl RuntimeHandle<NopState, NopWorker> {
+    /// Create an empty runtime handle
+    ///
+    /// # Safety
+    ///
+    /// The inner runtime is a dangling pointer, it's unsafe to use it.
+    #[must_use]
+    pub unsafe fn empty() -> Self {
+        let worker = NopWorker::default();
+
+        Self {
+            runtime: NonNull::<NopRuntime>::dangling(),
+            worker,
+            termination_data_ptr: None,
+            state_shm_sender: None,
+        }
+    }
+}
+
 impl<S, W> RuntimeHandle<S, W> {
     unsafe fn new(runtime: *mut dyn Runtime<S, W>, worker: W) -> Self {
         Self {
@@ -198,20 +213,14 @@ impl<S, W> RuntimeHandle<S, W> {
     }
 
     /// Initialize the termination global data and handlers.
-    pub fn init_termination_handlers<E, I, R, ST, Z>(
+    pub fn init_termination_handlers<Z>(
         &mut self,
         fuzzer: &mut Z,
-        executor: &mut E,
         on_crash: fn(&mut TerminationHandlerData, &OsTerminationParams) -> Result<CrashStatus>,
         on_timeout: fn(&mut TerminationHandlerData, &OsTerminationParams) -> Result<TimeoutStatus>,
-    ) where
-        E: Executor<I, S>,
-        I: Input,
-        ST: StagesTuple<E, R, S, W, Z>,
-        Z: Fuzzer<E, I, R, S, ST, W>,
-    {
+    ) {
         if let Some(termination_data) = self.termination_data_ptr.as_mut() {
-            termination_data.init(fuzzer, executor, on_crash, on_timeout);
+            termination_data.init(fuzzer, on_crash, on_timeout);
 
             if let Some(ref mut saver) = self.state_shm_sender {
                 termination_data.set_saver_ptr(saver);

@@ -1,36 +1,56 @@
 //! Nop controller and workers.
 
 use crate::controllers::{Controller, Descriptor, Workdir, Worker};
+use alloc::sync::Arc;
 use libaflmm_bolts::CoreId;
 use libaflmm_core::{Result, WorkerId};
+use tempfile::TempDir;
 
 /// Nop [`Controller`]
 #[derive(Clone, Debug)]
 pub struct NopController;
 
 /// Nop [`Worker`]
-#[derive(Clone, Debug)]
-pub struct NopWorker;
+#[derive(Clone, Debug, Default)]
+pub struct NopWorker {
+    descriptor: NopDescriptor,
+}
 
 /// Nop [`Descriptor`]
 #[derive(Clone, Debug)]
-pub struct NopDescriptor;
+pub struct NopDescriptor {
+    workdir: Workdir,
+    _tmp_dir: Arc<TempDir>,
+}
+
+impl Default for NopDescriptor {
+    fn default() -> Self {
+        let tmp_dir = TempDir::new().expect("failed to create the nop worker temporary directory");
+        let workdir = Workdir::new(tmp_dir.path(), None, None, None)
+            .expect("the temporary directory should be a valid workdir root");
+
+        Self {
+            workdir,
+            _tmp_dir: Arc::new(tmp_dir),
+        }
+    }
+}
 
 impl Descriptor for NopDescriptor {
     fn workdir(&self) -> &Workdir {
-        panic!("No descriptor for NopDescriptor.");
+        &self.workdir
     }
 
     fn workdir_mut(&mut self) -> &mut Workdir {
-        panic!("No descriptor for NopDescriptor.");
+        &mut self.workdir
     }
 
     fn worker_id(&self) -> WorkerId {
-        panic!("No descriptor for NopDescriptor.");
+        WorkerId(0)
     }
 
     fn core_id(&self) -> CoreId {
-        panic!("No descriptor for NopDescriptor.");
+        CoreId(0)
     }
 }
 
@@ -39,7 +59,7 @@ impl Controller for NopController {
     type Descriptor = NopDescriptor;
 
     fn create_worker(&mut self, _core_id: CoreId) -> Result<Self::Worker> {
-        Ok(NopWorker)
+        Ok(NopWorker::default())
     }
 
     #[expect(refining_impl_trait)]
@@ -57,11 +77,11 @@ impl Worker for NopWorker {
     type Controller = NopController;
 
     fn descriptor(&self) -> &NopDescriptor {
-        unimplemented!("nop controller has no descriptor");
+        &self.descriptor
     }
 
     fn descriptor_mut(&mut self) -> &mut NopDescriptor {
-        unimplemented!("nop controller has no descriptor");
+        &mut self.descriptor
     }
 
     fn reconcile(&self) -> Result<()> {

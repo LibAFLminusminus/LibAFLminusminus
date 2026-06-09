@@ -11,42 +11,6 @@ pub use standard::{StdFuzzer, StdFuzzerBuilder};
 pub mod hooks;
 pub use hooks::{CalibrationHook, CustomNameHook, FuzzerHook, FuzzerHooksTuple};
 
-/// Holds an feedback
-pub trait HasFeedback {
-    /// The feedback type
-    type Feedback;
-
-    /// The feedback
-    fn feedback(&self) -> &Self::Feedback;
-
-    /// The feedback (mutable)
-    fn feedback_mut(&mut self) -> &mut Self::Feedback;
-}
-
-/// Holds an objective feedback
-pub trait HasObjective {
-    /// The type of the [`Feedback`] used to find objectives for this fuzzer
-    type Objective;
-
-    /// The objective feedback
-    fn objective(&self) -> &Self::Objective;
-
-    /// The objective feedback (mutable)
-    fn objective_feedback_mut(&mut self) -> &mut Self::Objective;
-}
-
-/// Evaluates if an input is interesting using the feedback
-pub trait ExecutionProcessor<I, OT, S> {
-    /// Process `ExecuteInputResult`. Add to corpus, objective or ignore
-    fn process_execution(
-        &mut self,
-        state: &mut S,
-        input: &I,
-        eval_res: &EvaluationResult,
-        observers: &OT,
-    ) -> Result<Option<()>>;
-}
-
 /// Evaluate an input modifying the state of the fuzzer
 pub trait Evaluator<E, I, S, W> {
     /// Runs the input and triggers observers and feedback,
@@ -54,7 +18,6 @@ pub trait Evaluator<E, I, S, W> {
     fn evaluate_input(
         &mut self,
         state: &mut S,
-        executor: &mut E,
         rt_handle: &mut RuntimeHandle<S, W>,
         input: &I,
     ) -> Result<EvaluationResult>;
@@ -74,7 +37,6 @@ pub trait Fuzzer<E, I, R, S, ST, W> {
     fn init(
         &mut self,
         stages: &mut ST,
-        executor: &mut E,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
     ) -> Result<()>;
@@ -95,7 +57,6 @@ pub trait Fuzzer<E, I, R, S, ST, W> {
     unsafe fn fuzz_one_initialized(
         &mut self,
         stages: &mut ST,
-        executor: &mut E,
         rand: &mut R,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
@@ -109,7 +70,6 @@ pub trait Fuzzer<E, I, R, S, ST, W> {
     fn fuzz_one(
         &mut self,
         stages: &mut ST,
-        executor: &mut E,
         rand: &mut R,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
@@ -120,14 +80,13 @@ pub trait Fuzzer<E, I, R, S, ST, W> {
             ));
         }
 
-        unsafe { self.fuzz_one_initialized(stages, executor, rand, state, rt_handle) }
+        unsafe { self.fuzz_one_initialized(stages, rand, state, rt_handle) }
     }
 
     /// Fuzz forever (or until stopped)
     fn fuzz_loop(
         &mut self,
         stages: &mut ST,
-        executor: &mut E,
         rand: &mut R,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
@@ -140,7 +99,7 @@ pub trait Fuzzer<E, I, R, S, ST, W> {
 
         loop {
             unsafe {
-                self.fuzz_one_initialized(stages, executor, rand, state, rt_handle)?;
+                self.fuzz_one_initialized(stages, rand, state, rt_handle)?;
             }
         }
     }
@@ -153,7 +112,6 @@ pub trait Fuzzer<E, I, R, S, ST, W> {
     fn fuzz_loop_for(
         &mut self,
         stages: &mut ST,
-        executor: &mut E,
         rand: &mut R,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
@@ -173,7 +131,7 @@ pub trait Fuzzer<E, I, R, S, ST, W> {
 
         for _ in 0..iters {
             unsafe {
-                self.fuzz_one_initialized(stages, executor, rand, state, rt_handle)?;
+                self.fuzz_one_initialized(stages, rand, state, rt_handle)?;
             }
         }
 
@@ -265,7 +223,6 @@ impl<E, I, R, S, ST, W> Fuzzer<E, I, R, S, ST, W> for NopFuzzer {
     fn init(
         &mut self,
         _stages: &mut ST,
-        _executor: &mut E,
         _state: &mut S,
         _rt_handle: &mut RuntimeHandle<S, W>,
     ) -> Result<()> {
@@ -279,7 +236,6 @@ impl<E, I, R, S, ST, W> Fuzzer<E, I, R, S, ST, W> for NopFuzzer {
     unsafe fn fuzz_one_initialized(
         &mut self,
         _stages: &mut ST,
-        _executor: &mut E,
         _rand: &mut R,
         _state: &mut S,
         _rt_handle: &mut RuntimeHandle<S, W>,

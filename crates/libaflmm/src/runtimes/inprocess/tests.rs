@@ -69,7 +69,7 @@ where
         + 'static,
 {
     let state = NopState::nop().unwrap();
-    let worker = NopWorker;
+    let worker = NopWorker::default();
 
     let std_timer = StdTimer::new();
 

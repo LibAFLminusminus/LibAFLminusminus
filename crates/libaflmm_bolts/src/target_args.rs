@@ -6,7 +6,7 @@ use std::{
     path::Path,
 };
 
-use crate::fs::{InputFile, get_unique_std_input_file};
+use crate::fs::InputFile;
 
 /// How to deliver input to an external program
 /// `StdIn`: The target reads from stdin
@@ -137,13 +137,6 @@ pub trait StdTargetArgs: Sized {
         moved
     }
 
-    /// Place the input at this position and set the default filename for the input.
-    #[must_use]
-    /// The filename includes the PID of the fuzzer to ensure that no two fuzzers write to the same file
-    fn arg_input_file_std(self) -> Self {
-        self.arg_input_file(get_unique_std_input_file())
-    }
-
     /// The harness
     #[must_use]
     fn program<O>(mut self, program: O) -> Self
@@ -219,7 +212,10 @@ pub trait StdTargetArgs: Sized {
                         moved = moved.arg_input_file(&out_file.path);
                     }
                     _ => {
-                        moved = moved.arg_input_file_std();
+                        // moved = moved.arg_input_file_std();
+                        panic!(
+                            "This should not happen, open an issue with the fuzzer that triggered this panic"
+                        );
                     }
                 }
             } else {
