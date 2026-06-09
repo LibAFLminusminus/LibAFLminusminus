@@ -7,6 +7,9 @@ build:
 target:
     afl-cc program.c -o program
 
+run: build target
+    {{ FUZZER }} ./program seeds/seed
+
 test: build target
     #!/bin/bash
     set -eu
