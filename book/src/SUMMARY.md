@@ -4,20 +4,20 @@
 
 [Introduction](./introduction.md)
 
-- [Getting Started](./getting_started/getting_started.md)
+- [Getting Started](./getting_started/index.md)
   - [Setup](./getting_started/setup.md)
   - [A first simple fuzzer](./getting_started/build.md)
 
-- [Concepts](./concepts/concepts.md)
-  - [Execution modes](./concepts/execution_modes/execution_modes.md)
-    - [Forkserver](./concepts/execution_modes/forkserver.md)
-    - [In-process](./concepts/execution_modes/in_process.md)
+- [Concepts](./concepts/index.md)
+  - [Operation Modes](./concepts/operation_modes/index.md)
+    - [Forkserver](./concepts/operation_modes/forkserver.md)
+    - [In-process](./concepts/operation_modes/in_process.md)
   - [Fuzzer Architecture](./concepts/architecture.md)
   - [Metadata](./concepts/metadata.md)
   - [Tuples](./concepts/tuples.md)
   - [Performance](./concepts/performance.md)
 
-- [Components](./components/components.md)
+- [Components](./components/index.md)
   - [State](./components/state.md)
   - [Runtime](./components/runtime.md)
   - [Launcher](./components/launcher.md)
@@ -30,25 +30,33 @@
   - [Observer](./components/observer.md)
   - [Feedback](./components/feedback.md)
 
-- [Targets](./targets/targets.md)
+- [Targets](./targets/index.md)
 
-- [Frida](./frida/frida.md)
+- [Frida](./frida/index.md)
   - [Frida Example](./frida/frida_example.md)
 
-- [Nyx](./nyx/nyx.md)
+- [Nyx](./nyx/index.md)
   - [Nyx Example](./nyx/nyx_example.md)
 
-- [QEMU](./qemu/qemu.md)
+- [QEMU](./qemu/index.md)
   - [Usermode](./qemu/usermode.md)
     - [Usermode Example](./qemu/usermode_example.md)
   - [Systemmode](./qemu/systemmode.md)
     - [Systemmode Example](./nyx/systemmode_example.md)
 
-- [Intel PT](./intel_pt/intel_pt.md)
+- [Intel PT](./intel_pt/index.md)
 
-- [Examples](./examples/examples.md)
+- [Examples](./examples/index.md)
   - [Forkserver](./examples/forkserver.md)
   - [In-process](./examples/in_process.md)
+<<<<<<< HEAD
+=======
+  - [Frida](./examples/frida.md)
+  - [Nyx](./examples/nyx.md)
+  - [QEMU](./examples/qemu/index.md)
+    - [Usermode](./examples/qemu/usermode.md)
+    - [Systemmode](./examples/qemu/systemmode.md)
+>>>>>>> main
 
 [//]: <> (Use cases: binary only, network, etc...)
 [//]: <> (Optimal configuration for most common scenarios)

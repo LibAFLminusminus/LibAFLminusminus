@@ -38,7 +38,7 @@ Normally, the `impl_serdeany` macro does that for the user creating a constructo
 
 ## Usage
 
-Metadata objects are primarly intended to be used inside [`SerdeAnyMap`](https://docs.rs/libafl_bolts/latest/libafl_bolts/serdeany/serdeany_registry/struct.SerdeAnyMap.html) and [`NamedSerdeAnyMap`](https://docs.rs/libafl_bolts/latest/libafl_bolts/serdeany/serdeany_registry/struct.NamedSerdeAnyMap.html).
+Metadata objects are primarily intended to be used inside [`SerdeAnyMap`](https://docs.rs/libafl_bolts/latest/libafl_bolts/serdeany/serdeany_registry/struct.SerdeAnyMap.html) and [`NamedSerdeAnyMap`](https://docs.rs/libafl_bolts/latest/libafl_bolts/serdeany/serdeany_registry/struct.NamedSerdeAnyMap.html).
 
 With these metadata maps, the user can retrieve instances by type and name. Internally, the instances are stored as SerdeAny trait objects.
 

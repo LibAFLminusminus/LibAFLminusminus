@@ -405,7 +405,7 @@ where
 #[cfg(any(test, doc))]
 mod tests {
 
-    use libaflmm::observers::{HitcountsMapObserver, VariableMapObserver};
+    use libaflmm::observers::{HitcountsMapObserver, SizePtrMapObserver};
     use libaflmm_bolts::ownedref::OwnedMutSlice;
     use libaflmm_targets::{
         constants::EDGES_MAP_DEFAULT_SIZE,
@@ -428,7 +428,7 @@ mod tests {
     #[test]
     pub fn does_build() {
         let mut edges_observer = unsafe {
-            HitcountsMapObserver::new(VariableMapObserver::from_mut_slice(
+            HitcountsMapObserver::new(SizePtrMapObserver::from_mut_slice(
                 "edges",
                 OwnedMutSlice::from_raw_parts_mut(edges_map_mut_ptr(), EDGES_MAP_DEFAULT_SIZE),
                 &raw mut MAX_EDGES_FOUND,

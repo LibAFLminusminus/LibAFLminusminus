@@ -1,2 +1,4 @@
 book
 !listings/**/*
+*.bkp
+src/mdbook-drawio/

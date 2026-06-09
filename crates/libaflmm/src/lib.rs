@@ -80,8 +80,8 @@ pub mod prelude {
     };
 
     pub use crate::executors::{
-        BuiltForkserver, DiffExitKind, Executor, ExecutorsTuple, ExitKind, Forkserver,
-        ForkserverExecutor, NopExecutor, StdChildArgs, StdExecutor, common_signals,
+        DiffExitKind, Executor, ExecutorsTuple, ExitKind, ForkserverChannel, ForkserverExecutor,
+        NopExecutor, StdChildArgs, StdExecutor, common_signals,
     };
 
     pub use crate::feedbacks::{
@@ -138,8 +138,8 @@ pub mod prelude {
         CmpLogMetadata, CmpLogObserver, ConstLenMapObserver, ConstMapObserver,
         HitcountsIterableMapObserver, HitcountsMapObserver, ListObserver, MapObserver,
         MultiMapObserver, Observer, ObserverWithHashField, ObserversTuple, OutputObserver,
-        StdCmpLogObserver, StdErrObserver, StdMapObserver, StdObserver, StdOutObserver,
-        TimeObserver, ValueObserver, VarLenMapObserver, VariableMapObserver,
+        SizePtrMapObserver, StdCmpLogObserver, StdErrObserver, StdMapObserver, StdObserver,
+        StdOutObserver, TimeObserver, ValueObserver, VarLenMapObserver, VariableMapObserver,
     };
 
     pub use crate::runtimes::{
