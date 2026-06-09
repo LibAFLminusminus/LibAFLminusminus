@@ -214,7 +214,6 @@ impl<S, W> RuntimeHandle<S, W> {
     pub fn init_termination_handlers<E, I, R, ST, Z>(
         &mut self,
         fuzzer: &mut Z,
-        executor: &mut E,
         on_crash: fn(&mut TerminationHandlerData, &OsTerminationParams) -> Result<CrashStatus>,
         on_timeout: fn(&mut TerminationHandlerData, &OsTerminationParams) -> Result<TimeoutStatus>,
     ) where
@@ -224,7 +223,7 @@ impl<S, W> RuntimeHandle<S, W> {
         Z: Fuzzer<E, I, R, S, ST, W>,
     {
         if let Some(termination_data) = self.termination_data_ptr.as_mut() {
-            termination_data.init(fuzzer, executor, on_crash, on_timeout);
+            termination_data.init(fuzzer, on_crash, on_timeout);
 
             if let Some(ref mut saver) = self.state_shm_sender {
                 termination_data.set_saver_ptr(saver);

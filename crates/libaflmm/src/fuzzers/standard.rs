@@ -31,10 +31,9 @@ use tuple_list::tuple_list;
 /// In practice, it's very hard to enforce, and most likely some allocations will happen there.
 /// If it is ever a real bug, investigate there.
 fn handle_objective_in_termination_handler<E, F, H, I, OF, S, W>(
-    executor: &mut E,
     state: &mut S,
     input: &I,
-    fuzzer: &mut StdFuzzer<F, H, OF>,
+    fuzzer: &mut StdFuzzer<E, F, H, OF>,
     rt_handle: &mut RuntimeHandle<S, W>,
     exit_kind: ExitKind,
 ) -> Result<()>
@@ -47,9 +46,12 @@ where
     S: State<Input = I>,
     W: Worker,
 {
-    executor.observers_mut().post_exec_all(state, &exit_kind)?;
+    fuzzer
+        .executor
+        .observers_mut()
+        .post_exec_all(state, &exit_kind)?;
 
-    fuzzer.post_execution(state, rt_handle, executor, input, exit_kind)?;
+    fuzzer.post_execution(state, rt_handle, input, exit_kind)?;
 
     Ok(())
 }
@@ -79,16 +81,18 @@ where
     // it is useful if subsequent code panics / raises another signal.
     let input = unsafe { data.take_input::<I>() };
     let state = unsafe { data.state::<S>() };
-    let fuzzer = unsafe { data.fuzzer::<StdFuzzer<F, H, OF>>() };
-    let executor = unsafe { data.executor::<E, I, S>() };
+    let fuzzer = unsafe { data.fuzzer::<StdFuzzer<E, F, H, OF>>() };
     let rt_handle = unsafe { data.rt_handle::<S, W>() };
 
-    let status = unsafe { executor.handle_crash(state, input.as_ref(), signal_params)? };
+    let status = unsafe {
+        fuzzer
+            .executor
+            .handle_crash(state, input.as_ref(), signal_params)?
+    };
 
     if let CrashStatus::TargetCrash = status {
         // if it is a target crash, handle crash termination as target objective.
         handle_objective_in_termination_handler(
-            executor,
             state,
             &input.unwrap(), // since it is a target crash, it must be during fuzzing.
             fuzzer,
@@ -125,14 +129,16 @@ where
     // it is useful if subsequent code panics / raises another signal.
     let input = unsafe { data.take_input::<I>() };
     let state = unsafe { data.state::<S>() };
-    let fuzzer = unsafe { data.fuzzer::<StdFuzzer<F, H, OF>>() };
-    let executor = unsafe { data.executor::<E, I, S>() };
+    let fuzzer = unsafe { data.fuzzer::<StdFuzzer<E, F, H, OF>>() };
     let rt_handle = unsafe { data.rt_handle::<S, W>() };
 
-    let status = unsafe { executor.handle_timeout(state, input.as_ref(), signal_params)? };
+    let status = unsafe {
+        fuzzer
+            .executor
+            .handle_timeout(state, input.as_ref(), signal_params)?
+    };
 
     handle_objective_in_termination_handler(
-        executor,
         state,
         &input.unwrap(), // since it is a target crash, it must be during fuzzing.
         fuzzer,
@@ -145,7 +151,9 @@ where
 
 /// Your default fuzzer instance, for everyday use.
 #[derive(Debug)]
-pub struct StdFuzzer<F, H, OF> {
+pub struct StdFuzzer<E, F, H, OF> {
+    /// The executor used by the fuzzer to evaluate inputs
+    executor: E,
     /// The [`Feedback`] that will store new testcases on if a run returns `is_interesting`.
     feedback: F,
     /// The [`Feedback`] that will store new testcases as solution (for example, a crash) if a run returns `is_interesting`.
@@ -156,7 +164,9 @@ pub struct StdFuzzer<F, H, OF> {
 
 /// The builder for std fuzzer
 #[derive(Debug)]
-pub struct StdFuzzerBuilder<F, H, OF> {
+pub struct StdFuzzerBuilder<E, F, H, OF> {
+    /// The [`Executor`] used by the fuzzer to run the target
+    executor: E,
     /// The [`Feedback`] that will store new testcases on if a run returns `is_interesting`.
     feedback: F,
     /// The [`Feedback`] that will store new testcases as solution (for example, a crash) if a run returns `is_interesting`.
@@ -165,7 +175,7 @@ pub struct StdFuzzerBuilder<F, H, OF> {
     hooks: H,
 }
 
-impl<F, H, OF> HasFeedback for StdFuzzer<F, H, OF> {
+impl<E, F, H, OF> HasFeedback for StdFuzzer<E, F, H, OF> {
     type Feedback = F;
 
     fn feedback(&self) -> &Self::Feedback {
@@ -177,7 +187,7 @@ impl<F, H, OF> HasFeedback for StdFuzzer<F, H, OF> {
     }
 }
 
-impl<F, H, OF> HasObjective for StdFuzzer<F, H, OF> {
+impl<E, F, H, OF> HasObjective for StdFuzzer<E, F, H, OF> {
     type Objective = OF;
 
     fn objective(&self) -> &OF {
@@ -189,30 +199,33 @@ impl<F, H, OF> HasObjective for StdFuzzer<F, H, OF> {
     }
 }
 
-impl<F, H, OF> StdFuzzer<F, H, OF> {
-    fn evaluate_execution<I, OT, S>(
+impl<E, F, H, OF> StdFuzzer<E, F, H, OF> {
+    fn evaluate_execution<I, S>(
         &mut self,
         state: &mut S,
         input: &I,
-        observers: &OT,
         exit_kind: ExitKind,
     ) -> Result<EvaluationResult>
     where
-        F: Feedback<I, OT, S>,
+        E: Executor<I, S>,
+        F: Feedback<I, E::Observers, S>,
         I: Input,
-        OF: Feedback<I, OT, S>,
+        OF: Feedback<I, E::Observers, S>,
         S: State<Input = I>,
     {
-        let is_solution = self
-            .objective
-            .is_interesting(state, input, observers, &exit_kind)?;
+        let is_solution =
+            self.objective
+                .is_interesting(state, input, &*self.executor.observers(), &exit_kind)?;
 
         let eval_res: EvaluationResult = if is_solution {
             EvaluationResult::new(exit_kind, Verdict::Objective)
         } else {
-            let corpus_worthy = self
-                .feedback
-                .is_interesting(state, input, observers, &exit_kind)?;
+            let corpus_worthy = self.feedback.is_interesting(
+                state,
+                input,
+                &*self.executor.observers(),
+                &exit_kind,
+            )?;
 
             if corpus_worthy {
                 EvaluationResult::new(exit_kind, Verdict::Corpus)
@@ -224,11 +237,10 @@ impl<F, H, OF> StdFuzzer<F, H, OF> {
         Ok(eval_res)
     }
 
-    fn post_execution<E, I, S, W>(
+    fn post_execution<I, S, W>(
         &mut self,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
-        executor: &mut E,
         input: &I,
         exit_kind: ExitKind,
     ) -> Result<EvaluationResult>
@@ -241,9 +253,7 @@ impl<F, H, OF> StdFuzzer<F, H, OF> {
         S: State<Input = I>,
         W: Worker,
     {
-        let observers = executor.observers();
-        let result =
-            self.evaluate_execution::<I, E::Observers, S>(state, input, &*observers, exit_kind)?;
+        let result = self.evaluate_execution::<I, S>(state, input, exit_kind)?;
 
         if result.is_objective_worthy() {
             // The input is a objective, add it to the respective corpus
@@ -251,7 +261,7 @@ impl<F, H, OF> StdFuzzer<F, H, OF> {
             let mut testcase = Testcase::new(Rc::new(input.clone()));
 
             self.fuzzer_hooks.pre_add_all(
-                executor,
+                &mut self.executor,
                 state,
                 rt_handle,
                 &mut testcase,
@@ -268,18 +278,15 @@ impl<F, H, OF> StdFuzzer<F, H, OF> {
             // TODO: keep parent id?
             // testcase.set_parent_id_optional(*state.corpus().current());
 
-            self.objective_feedback_mut().append_metadata(
-                state,
-                &*executor.observers(),
-                &testcase_id,
-            )?;
+            self.objective
+                .append_metadata(state, &*self.executor.observers(), &testcase_id)?;
 
             let stats = state.stats_mut();
             stats.last_found_time = current_time();
             stats.objective += 1;
 
             self.fuzzer_hooks.post_add_all(
-                executor,
+                &mut self.executor,
                 state,
                 rt_handle,
                 testcase_id,
@@ -293,7 +300,7 @@ impl<F, H, OF> StdFuzzer<F, H, OF> {
             let mut testcase = Testcase::new(Rc::new(input.clone()));
 
             self.fuzzer_hooks.pre_add_all(
-                executor,
+                &mut self.executor,
                 state,
                 rt_handle,
                 &mut testcase,
@@ -305,15 +312,15 @@ impl<F, H, OF> StdFuzzer<F, H, OF> {
                 .testcase_md_mut_from_id(&testcase_id)
                 .set_executions(executions);
 
-            self.feedback_mut()
-                .append_metadata(state, &*executor.observers(), &testcase_id)?;
+            self.feedback
+                .append_metadata(state, &*self.executor.observers(), &testcase_id)?;
 
             let stats = state.stats_mut();
             stats.last_found_time = current_time();
             stats.corpus += 1;
 
             self.fuzzer_hooks.post_add_all(
-                executor,
+                &mut self.executor,
                 state,
                 rt_handle,
                 testcase_id,
@@ -325,7 +332,7 @@ impl<F, H, OF> StdFuzzer<F, H, OF> {
     }
 }
 
-impl<E, F, H, I, OF, S, W> Evaluator<E, I, S, W> for StdFuzzer<F, H, OF>
+impl<E, F, H, I, OF, S, W> Evaluator<E, I, S, W> for StdFuzzer<E, F, H, OF>
 where
     E: Executor<I, S>,
     F: Feedback<I, E::Observers, S>,
@@ -340,17 +347,16 @@ where
     fn evaluate_input(
         &mut self,
         state: &mut S,
-        executor: &mut E,
         rt_handle: &mut RuntimeHandle<S, W>,
         input: &I,
     ) -> Result<EvaluationResult> {
-        let exit_kind = executor.execute(state, rt_handle, input)?;
+        let exit_kind = self.executor.execute(state, rt_handle, input)?;
 
-        self.post_execution(state, rt_handle, executor, input, exit_kind)
+        self.post_execution(state, rt_handle, input, exit_kind)
     }
 }
 
-impl<E, F, H, I, OF, R, S, ST, W> Fuzzer<E, I, R, S, ST, W> for StdFuzzer<F, H, OF>
+impl<E, F, H, I, OF, R, S, ST, W> Fuzzer<E, I, R, S, ST, W> for StdFuzzer<E, F, H, OF>
 where
     E: Executor<I, S>,
     F: Feedback<I, E::Observers, S>,
@@ -364,7 +370,6 @@ where
     fn init(
         &mut self,
         stages: &mut ST,
-        executor: &mut E,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
     ) -> Result<()> {
@@ -381,7 +386,7 @@ where
             self.fuzzer_hooks.register_with_ty(&mut registrator)?;
             stages.register_with_ty(&mut registrator)?;
             state.register_with_ty(&mut registrator)?;
-            executor.register_with_ty(&mut registrator)?;
+            self.executor.register_with_ty(&mut registrator)?;
 
             // 2 - check that types and mds for each object
             let checker = registrator.finish();
@@ -390,7 +395,7 @@ where
             self.objective.check(&checker)?;
             stages.check(&checker)?;
             state.check(&checker)?;
-            executor.check(&checker)?;
+            self.executor.check(&checker)?;
 
             // 3 - now state metadata get replaced by
             *state.metadata_map_mut() = checker.finish();
@@ -399,7 +404,6 @@ where
         // 4 - populate signal handler data if the runtime needs it
         rt_handle.init_termination_handlers::<E, I, R, ST, Self>(
             self,
-            executor,
             |data, signal_params| unsafe {
                 std_on_crash::<E, F, H, I, OF, S, W>(data, signal_params)
             },
@@ -409,7 +413,7 @@ where
         );
 
         // 5 - initialize executor
-        executor.init(state, rt_handle)?;
+        self.executor.init(state, rt_handle)?;
 
         // report empty start during init
         rt_handle
@@ -429,7 +433,6 @@ where
     unsafe fn fuzz_one_initialized(
         &mut self,
         stages: &mut ST,
-        executor: &mut E,
         rand: &mut R,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
@@ -437,7 +440,8 @@ where
         // start the timer for this loop
         state.perf_stats_mut().iter_begin();
 
-        self.fuzzer_hooks.pre_step_all(executor, state, rt_handle)?;
+        self.fuzzer_hooks
+            .pre_step_all(&mut self.executor, state, rt_handle)?;
 
         // Get the next index from the scheduler
 
@@ -453,17 +457,17 @@ where
         };
 
         self.fuzzer_hooks
-            .pre_perform_all(executor, state, rt_handle, testcase_id)?;
+            .pre_perform_all(&mut self.executor, state, rt_handle, testcase_id)?;
 
         // Execute all stages
-        stages.perform_all(self, executor, rand, state, rt_handle, &testcase_id)?;
+        stages.perform_all(self, rand, state, rt_handle, &testcase_id)?;
 
         state
             .testcase_md_mut_from_id(&testcase_id)
             .increase_scheduled_count();
 
         self.fuzzer_hooks
-            .post_step_all(executor, state, rt_handle)?;
+            .post_step_all(&mut self.executor, state, rt_handle)?;
 
         // timer end
         state.perf_stats_mut().iter_end();
@@ -472,11 +476,12 @@ where
     }
 }
 
-impl StdFuzzerBuilder<(), (), ()> {
+impl<E> StdFuzzerBuilder<E, (), (), ()> {
     /// Creates a new [`StdFuzzerBuilder`] with default (nop) types.
     #[must_use]
-    pub fn new() -> Self {
+    pub fn new(executor: E) -> Self {
         Self {
+            executor,
             feedback: (),
             objective_feedback: (),
             hooks: (),
@@ -484,52 +489,58 @@ impl StdFuzzerBuilder<(), (), ()> {
     }
 }
 
-impl Default for StdFuzzerBuilder<(), (), ()> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl<F, H, OF> StdFuzzerBuilder<F, H, OF> {
+impl<E, F, H, OF> StdFuzzerBuilder<E, F, H, OF> {
     /// Sets the feedback that will store new testcases on if a run returns `is_interesting`.
     #[must_use]
-    pub fn feedback<F2>(self, feedback: F2) -> StdFuzzerBuilder<F2, H, OF> {
+    pub fn feedback<F2>(self, feedback: F2) -> StdFuzzerBuilder<E, F2, H, OF> {
         StdFuzzerBuilder {
+            executor: self.executor,
             feedback,
             objective_feedback: self.objective_feedback,
             hooks: self.hooks,
         }
     }
-}
 
-impl<F, H, OF> StdFuzzerBuilder<F, H, OF> {
     /// Sets the feedback that will store new testcases as solution (for example, a crash) if a run returns `is_interesting`.
     #[must_use]
-    pub fn objective_feedback<OF2>(self, objective_feedback: OF2) -> StdFuzzerBuilder<F, H, OF2> {
+    pub fn objective_feedback<OF2>(
+        self,
+        objective_feedback: OF2,
+    ) -> StdFuzzerBuilder<E, F, H, OF2> {
         StdFuzzerBuilder {
+            executor: self.executor,
             feedback: self.feedback,
             objective_feedback,
             hooks: self.hooks,
         }
     }
-}
 
-impl<F, H, OF> StdFuzzerBuilder<F, H, OF> {
+    /// Sets the feedback that will store new testcases on if a run returns `is_interesting`.
+    #[must_use]
+    pub fn executor<E2>(self, executor: E2) -> StdFuzzerBuilder<E2, F, H, OF> {
+        StdFuzzerBuilder {
+            executor,
+            feedback: self.feedback,
+            objective_feedback: self.objective_feedback,
+            hooks: self.hooks,
+        }
+    }
+
     /// Sets the feedback that will store new testcases as solution (for example, a crash) if a run returns `is_interesting`.
     #[must_use]
-    pub fn fuzzer_hooks<H2>(self, fuzzer_hooks: H2) -> StdFuzzerBuilder<F, H2, OF> {
+    pub fn fuzzer_hooks<H2>(self, fuzzer_hooks: H2) -> StdFuzzerBuilder<E, F, H2, OF> {
         StdFuzzerBuilder {
+            executor: self.executor,
             feedback: self.feedback,
             objective_feedback: self.objective_feedback,
             hooks: fuzzer_hooks,
         }
     }
-}
 
-impl<F, H, OF> StdFuzzerBuilder<F, H, OF> {
     /// Build a [`StdFuzzer`] from this builder.
-    pub fn build(self) -> StdFuzzer<F, H, OF> {
+    pub fn build(self) -> StdFuzzer<E, F, H, OF> {
         StdFuzzer {
+            executor: self.executor,
             feedback: self.feedback,
             objective: self.objective_feedback,
             fuzzer_hooks: self.hooks,
@@ -538,16 +549,16 @@ impl<F, H, OF> StdFuzzerBuilder<F, H, OF> {
     }
 }
 
-impl<F, OF> StdFuzzer<F, (), OF> {
+impl<E, F, OF> StdFuzzer<E, F, (), OF> {
     /// Creates a new [`StdFuzzer`] with standard behavior.
-    pub fn new<E, I, R, S, ST, W>(
+    pub fn new<I, R, S, ST, W>(
+        executor: E,
         feedback: F,
         objective_feedback: OF,
         stages: &mut ST,
-        executor: &mut E,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
-    ) -> Result<StdFuzzer<F, (), OF>>
+    ) -> Result<StdFuzzer<E, F, (), OF>>
     where
         E: Executor<I, S>,
         F: Feedback<I, E::Observers, S>,
@@ -558,28 +569,28 @@ impl<F, OF> StdFuzzer<F, (), OF> {
         W: Worker,
     {
         Self::with_hooks(
+            executor,
             feedback,
             objective_feedback,
             tuple_list!(),
             stages,
-            executor,
             state,
             rt_handle,
         )
     }
 }
 
-impl<F, H, OF> StdFuzzer<F, H, OF> {
+impl<E, F, H, OF> StdFuzzer<E, F, H, OF> {
     /// Creates a new [`StdFuzzer`] with standard behavior.
-    pub fn with_hooks<E, I, R, S, ST, W>(
+    pub fn with_hooks<I, R, S, ST, W>(
+        executor: E,
         feedback: F,
         objective_feedback: OF,
         hooks: H,
         stages: &mut ST,
-        executor: &mut E,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
-    ) -> Result<StdFuzzer<F, H, OF>>
+    ) -> Result<StdFuzzer<E, F, H, OF>>
     where
         E: Executor<I, S>,
         F: Feedback<I, E::Observers, S>,
@@ -590,22 +601,22 @@ impl<F, H, OF> StdFuzzer<F, H, OF> {
         ST: StagesTuple<E, R, S, W, Self>,
         W: Worker,
     {
-        let mut fuzzer = StdFuzzerBuilder::new()
+        let mut fuzzer = StdFuzzerBuilder::new(executor)
             .feedback(feedback)
             .objective_feedback(objective_feedback)
             .fuzzer_hooks(hooks)
             .build();
 
-        fuzzer.init(stages, executor, state, rt_handle)?;
+        fuzzer.init(stages, state, rt_handle)?;
 
         Ok(fuzzer)
     }
 }
 
-impl StdFuzzer<(), (), ()> {
+impl<E> StdFuzzer<E, (), (), ()> {
     /// Creates a new [`StdFuzzerBuilder`] with default types.
     #[must_use]
-    pub fn builder() -> StdFuzzerBuilder<(), (), ()> {
-        StdFuzzerBuilder::new()
+    pub fn builder(executor: E) -> StdFuzzerBuilder<E, (), (), ()> {
+        StdFuzzerBuilder::new(executor)
     }
 }

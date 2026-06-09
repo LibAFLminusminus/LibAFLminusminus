@@ -779,7 +779,6 @@ where
     fn load_initial_inputs_custom_by_filenames<E, W, Z>(
         &mut self,
         fuzzer: &mut Z,
-        executor: &mut E,
         rt_handle: &mut RuntimeHandle<Self, W>,
         file_list: &[impl AsRef<Path>],
         load_config: LoadConfig<I, Self, Z>,
@@ -797,7 +796,7 @@ where
                 Some(file_list.iter().map(|p| p.as_ref().to_path_buf()).collect());
         }
 
-        self.continue_loading_initial_inputs_custom(fuzzer, executor, rt_handle, load_config)?;
+        self.continue_loading_initial_inputs_custom(fuzzer, rt_handle, load_config)?;
         Ok(())
     }
 
@@ -805,7 +804,6 @@ where
         &mut self,
         path: &Path,
         fuzzer: &mut Z,
-        executor: &mut E,
         rt_handle: &mut RuntimeHandle<Self, W>,
         config: &mut LoadConfig<I, Self, Z>,
     ) -> Result<EvaluationResult>
@@ -823,7 +821,7 @@ where
                 return Ok(EvaluationResult::not_interesting());
             }
         };
-        let res = fuzzer.evaluate_input(self, executor, rt_handle, &input)?;
+        let res = fuzzer.evaluate_input(self, rt_handle, &input)?;
         Ok(res)
     }
 
@@ -833,7 +831,6 @@ where
     fn continue_loading_initial_inputs_custom<E, W, Z>(
         &mut self,
         fuzzer: &mut Z,
-        executor: &mut E,
         rt_handle: &mut RuntimeHandle<Self, W>,
         mut config: LoadConfig<I, Self, Z>,
     ) -> Result<usize>
@@ -846,7 +843,7 @@ where
             match self.next_file() {
                 Ok(path) => {
                     nb_loaded += 1;
-                    let res = self.load_file(&path, fuzzer, executor, rt_handle, &mut config)?;
+                    let res = self.load_file(&path, fuzzer, rt_handle, &mut config)?;
                     if config.exit_on_solution && res.is_objective_worthy() {
                         return Err(Error::invalid_corpus(format!(
                             "Input {} resulted in a objective.",
@@ -892,7 +889,6 @@ where
     pub fn load_initial_inputs_by_filenames<E, W, Z>(
         &mut self,
         fuzzer: &mut Z,
-        executor: &mut E,
         rt_handle: &mut RuntimeHandle<Self, W>,
         file_list: &[impl AsRef<Path>],
     ) -> Result<()>
@@ -901,7 +897,6 @@ where
     {
         self.load_initial_inputs_custom_by_filenames(
             fuzzer,
-            executor,
             rt_handle,
             file_list,
             LoadConfig {
@@ -917,7 +912,6 @@ where
     pub fn load_initial_inputs_forced<E, W, Z>(
         &mut self,
         fuzzer: &mut Z,
-        executor: &mut E,
         rt_handle: &mut RuntimeHandle<Self, W>,
         in_dirs: &[impl AsRef<Path>],
     ) -> Result<()>
@@ -927,7 +921,6 @@ where
         self.canonicalize_input_dirs(in_dirs)?;
         self.continue_loading_initial_inputs_custom(
             fuzzer,
-            executor,
             rt_handle,
             LoadConfig {
                 loader: &mut |_, _, path| I::from_file(path),
@@ -942,7 +935,6 @@ where
     pub fn load_initial_inputs_by_filenames_forced<E, W, Z>(
         &mut self,
         fuzzer: &mut Z,
-        executor: &mut E,
         rt_handle: &mut RuntimeHandle<Self, W>,
         file_list: &[impl AsRef<Path>],
     ) -> Result<()>
@@ -951,7 +943,6 @@ where
     {
         self.load_initial_inputs_custom_by_filenames(
             fuzzer,
-            executor,
             rt_handle,
             file_list,
             LoadConfig {
@@ -965,7 +956,6 @@ where
     pub fn load_initial_inputs<E, W, Z>(
         &mut self,
         fuzzer: &mut Z,
-        executor: &mut E,
         rt_handle: &mut RuntimeHandle<Self, W>,
         in_dirs: &[impl AsRef<Path>],
     ) -> Result<()>
@@ -975,7 +965,6 @@ where
         self.canonicalize_input_dirs(in_dirs)?;
         let nb_loaded = self.continue_loading_initial_inputs_custom(
             fuzzer,
-            executor,
             rt_handle,
             LoadConfig {
                 loader: &mut |_, _, path| I::from_file(path),
@@ -997,7 +986,6 @@ where
     pub fn load_initial_inputs_disallow_solution<E, W, Z>(
         &mut self,
         fuzzer: &mut Z,
-        executor: &mut E,
         rt_handle: &mut RuntimeHandle<Self, W>,
         in_dirs: &[impl AsRef<Path>],
     ) -> Result<()>
@@ -1007,7 +995,6 @@ where
         self.canonicalize_input_dirs(in_dirs)?;
         self.continue_loading_initial_inputs_custom(
             fuzzer,
-            executor,
             rt_handle,
             LoadConfig {
                 loader: &mut |_, _, path| I::from_file(path),
@@ -1027,7 +1014,6 @@ where
     pub fn generate_initial_inputs<G, E, R, W, Z>(
         &mut self,
         fuzzer: &mut Z,
-        executor: &mut E,
         generator: &mut G,
         rand: &mut R,
         rt_handle: &mut RuntimeHandle<Self, W>,
@@ -1042,7 +1028,7 @@ where
 
         for _ in 0..num {
             let input = generator.generate(rand, self)?;
-            let res = fuzzer.evaluate_input(self, executor, rt_handle, &input)?;
+            let res = fuzzer.evaluate_input(self, rt_handle, &input)?;
             if res.is_corpus_worthy() {
                 added += 1;
             }

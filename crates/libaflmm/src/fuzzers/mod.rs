@@ -54,7 +54,6 @@ pub trait Evaluator<E, I, S, W> {
     fn evaluate_input(
         &mut self,
         state: &mut S,
-        executor: &mut E,
         rt_handle: &mut RuntimeHandle<S, W>,
         input: &I,
     ) -> Result<EvaluationResult>;
@@ -74,7 +73,6 @@ pub trait Fuzzer<E, I, R, S, ST, W> {
     fn init(
         &mut self,
         stages: &mut ST,
-        executor: &mut E,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
     ) -> Result<()>;
@@ -95,7 +93,6 @@ pub trait Fuzzer<E, I, R, S, ST, W> {
     unsafe fn fuzz_one_initialized(
         &mut self,
         stages: &mut ST,
-        executor: &mut E,
         rand: &mut R,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
@@ -109,7 +106,6 @@ pub trait Fuzzer<E, I, R, S, ST, W> {
     fn fuzz_one(
         &mut self,
         stages: &mut ST,
-        executor: &mut E,
         rand: &mut R,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
@@ -120,14 +116,13 @@ pub trait Fuzzer<E, I, R, S, ST, W> {
             ));
         }
 
-        unsafe { self.fuzz_one_initialized(stages, executor, rand, state, rt_handle) }
+        unsafe { self.fuzz_one_initialized(stages, rand, state, rt_handle) }
     }
 
     /// Fuzz forever (or until stopped)
     fn fuzz_loop(
         &mut self,
         stages: &mut ST,
-        executor: &mut E,
         rand: &mut R,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
@@ -140,7 +135,7 @@ pub trait Fuzzer<E, I, R, S, ST, W> {
 
         loop {
             unsafe {
-                self.fuzz_one_initialized(stages, executor, rand, state, rt_handle)?;
+                self.fuzz_one_initialized(stages, rand, state, rt_handle)?;
             }
         }
     }
@@ -153,7 +148,6 @@ pub trait Fuzzer<E, I, R, S, ST, W> {
     fn fuzz_loop_for(
         &mut self,
         stages: &mut ST,
-        executor: &mut E,
         rand: &mut R,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
@@ -173,7 +167,7 @@ pub trait Fuzzer<E, I, R, S, ST, W> {
 
         for _ in 0..iters {
             unsafe {
-                self.fuzz_one_initialized(stages, executor, rand, state, rt_handle)?;
+                self.fuzz_one_initialized(stages, rand, state, rt_handle)?;
             }
         }
 
@@ -265,7 +259,6 @@ impl<E, I, R, S, ST, W> Fuzzer<E, I, R, S, ST, W> for NopFuzzer {
     fn init(
         &mut self,
         _stages: &mut ST,
-        _executor: &mut E,
         _state: &mut S,
         _rt_handle: &mut RuntimeHandle<S, W>,
     ) -> Result<()> {
@@ -279,7 +272,6 @@ impl<E, I, R, S, ST, W> Fuzzer<E, I, R, S, ST, W> for NopFuzzer {
     unsafe fn fuzz_one_initialized(
         &mut self,
         _stages: &mut ST,
-        _executor: &mut E,
         _rand: &mut R,
         _state: &mut S,
         _rt_handle: &mut RuntimeHandle<S, W>,

@@ -45,7 +45,6 @@ pub struct TerminationHandlerData {
     // Data
     state_ptr: Option<NonNull<c_void>>,
     input_ptr: Option<NonNull<c_void>>,
-    executor_ptr: Option<NonNull<c_void>>,
     fuzzer_ptr: Option<NonNull<c_void>>,
     rt_handle_ptr: Option<NonNull<c_void>>,
     state_sender_ptr: Option<NonNull<c_void>>,
@@ -71,7 +70,6 @@ impl TerminationHandlerData {
         Self {
             state_ptr: None,
             input_ptr: None,
-            executor_ptr: None,
             fuzzer_ptr: None,
             rt_handle_ptr: None,
             state_sender_ptr: None,
@@ -98,7 +96,6 @@ impl TerminationHandlerData {
     pub fn init<E, I, R, S, ST, W, Z>(
         &mut self,
         fuzzer: &mut Z,
-        executor: &mut E,
         on_crash: fn(&mut Self, &OsTerminationParams) -> Result<CrashStatus>,
         on_timeout: fn(&mut Self, &OsTerminationParams) -> Result<TimeoutStatus>,
     ) where
@@ -116,7 +113,6 @@ impl TerminationHandlerData {
         );
 
         self.fuzzer_ptr = Some(NonNull::from(fuzzer).cast());
-        self.executor_ptr = Some(NonNull::from(executor).cast());
         self.crash_handler = Some(on_crash);
         self.timeout_handler = Some(on_timeout);
     }
@@ -141,19 +137,6 @@ impl TerminationHandlerData {
     pub unsafe fn fuzzer<Z>(&self) -> &mut Z {
         debug_assert!(self.fuzzer_ptr.is_some(), "fuzzer_ptr is not initialized");
         unsafe { self.fuzzer_ptr.unwrap_debug().cast().as_mut() }
-    }
-
-    /// # Safety
-    ///
-    /// O must be the same as the one used during init
-    /// In release mode, initialization is not checked.
-    #[must_use]
-    #[expect(clippy::mut_from_ref)]
-    pub unsafe fn executor<E, I, S>(&self) -> &mut E
-    where
-        E: Executor<I, S>,
-    {
-        unsafe { self.executor_ptr.unwrap_debug().cast().as_mut() }
     }
 
     /// # Safety
