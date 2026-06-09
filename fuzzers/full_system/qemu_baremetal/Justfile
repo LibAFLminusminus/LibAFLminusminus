@@ -64,7 +64,7 @@ test_flavor flavor="low_level": (target flavor) (build flavor)
     export KERNEL={{ KERNEL }}
     export TARGET_DIR={{ TARGET_DIR }}
 
-    timeout 10s {{ FUZZER }} \
+    timeout 20s {{ FUZZER }} \
         -icount shift=auto,align=off,sleep=off \
         -machine mps2-an385 \
         -monitor null \

@@ -43,6 +43,13 @@ struct Opt {
 
     #[arg(
         help = "Arguments passed to the target",
+        long = "iters",
+        default_value = "None"
+    )]
+    iters: Option<u64>,
+
+    #[arg(
+        help = "Arguments passed to the target",
         name = "arguments",
         num_args(1..),
         allow_hyphen_values = true,
@@ -113,7 +120,11 @@ where
     state.generate_initial_inputs(&mut fuzzer, &mut generator, &mut rand, rt_handle, 8)?;
 
     // Start the fuzzer
-    fuzzer.fuzz_loop(&mut stages, &mut rand, state, rt_handle)
+    if let Some(iters) = opt.iters {
+        fuzzer.fuzz_loop_for(&mut stages, &mut rand, state, rt_handle, iters)
+    } else {
+        fuzzer.fuzz_loop(&mut stages, &mut rand, state, rt_handle)
+    }
 }
 
 pub fn main() -> Result<()> {
