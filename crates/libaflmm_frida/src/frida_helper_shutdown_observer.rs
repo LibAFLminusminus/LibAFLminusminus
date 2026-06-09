@@ -1,8 +1,8 @@
 use alloc::{borrow::Cow, rc::Rc};
 use core::{cell::RefCell, fmt};
 
-use libafl::{executors::ExitKind, inputs::HasTargetBytes, observers::Observer};
-use libafl_bolts::{Error, Named};
+use libaflmm::{executors::ExitKind, observers::Observer};
+use libaflmm_bolts::{Error, Named};
 use serde::{
     Serialize,
     de::{self, Deserialize, Deserializer, MapAccess, Visitor},
@@ -34,12 +34,9 @@ where
     }
 }
 
-impl<'a, I, S, RT> Observer<I, S> for FridaHelperObserver<'a, RT>
+impl<'a, S, RT> Observer<S> for FridaHelperObserver<'a, RT>
 where
-    // S: UsesInput,
-    // S::Input: HasTargetBytes,
     RT: FridaRuntimeTuple + 'a,
-    I: HasTargetBytes,
 {
     fn post_exec(&mut self, _state: &mut S, input: &I, exit_kind: &ExitKind) -> Result<(), Error> {
         if *exit_kind == ExitKind::Crash {

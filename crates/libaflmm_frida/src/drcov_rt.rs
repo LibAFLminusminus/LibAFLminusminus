@@ -4,10 +4,10 @@ use ahash::RandomState;
 use alloc::rc::Rc;
 use core::hash::{BuildHasher, Hasher};
 use frida_gum::ModuleMap;
-use libafl::Error;
-use libafl_bolts::drcov::{DrCovBasicBlock, DrCovWriter};
+use libaflmm::Result;
+use libaflmm_bolts::drcov::{DrCovBasicBlock, DrCovWriter};
 use rangemap::RangeMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// Generates `DrCov` traces
 #[derive(Debug, Clone)]
@@ -35,13 +35,13 @@ impl FridaRuntime for DrCovRuntime {
     fn deinit(&mut self, _gum: &frida_gum::Gum) {}
 
     /// Called before execution, does nothing
-    fn pre_exec(&mut self, _input_bytes: &[u8]) -> Result<(), Error> {
+    fn pre_exec(&mut self, _input_bytes: &[u8]) -> Result<()> {
         Ok(())
     }
 
     /// Called after execution, writes the trace to a unique `DrCov` file for this trace
     /// into `./coverage/<input_hash>_<coverage_hash>.drcov`. Empty coverages will be skipped.
-    fn post_exec(&mut self, input_bytes: &[u8]) -> Result<(), Error> {
+    fn post_exec(&mut self, input_bytes: &[u8]) -> Result<()> {
         // We don't need empty coverage files
         if self.drcov_basic_blocks.is_empty() {
             return Ok(());

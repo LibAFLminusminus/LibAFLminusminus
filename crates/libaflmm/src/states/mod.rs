@@ -24,7 +24,7 @@ use core::{
     marker::PhantomData,
     time::Duration,
 };
-use libaflmm_bolts::{NamedSerdeAnyMap, SerdeAny, rands::Rand};
+use libaflmm_bolts::{NamedSerdeAnyMap, OwnedSlice, SerdeAny, rands::Rand};
 use libaflmm_core::illegal_argument;
 use nix::fcntl::{Flock, FlockArg};
 use num_traits::Zero;
@@ -251,6 +251,10 @@ pub trait State:
         value: impl FnOnce() -> T,
     ) -> &mut T {
         self.metadata_map_mut().get_or_insert_with(name, value)
+    }
+
+    fn input_to_bytes<'a>(&mut self, input: &'a Self::Input) -> OwnedSlice<'a, u8> {
+        self.context_mut().to_bytes(input)
     }
 }
 

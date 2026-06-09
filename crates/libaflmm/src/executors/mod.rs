@@ -1,18 +1,8 @@
 //! Executors take input, and run it in the target.
 
-use alloc::vec::Vec;
-use core::{fmt::Debug, time::Duration};
-
-use ::std::path::PathBuf;
-#[cfg(unix)]
-use libaflmm_bolts::os::unix_signals::Signal;
-use libaflmm_bolts::tuples::RefIndexable;
-use libaflmm_bolts::{core_affinity::CoreId, tuples::Handle};
-use serde::{Deserialize, Serialize};
-
 use crate::observers::{StdErrObserver, StdOutObserver};
 use crate::{
-    Error,
+    Result,
     common::DependencyResolver,
     controllers::Worker,
     observers::ObserversTuple,
@@ -23,6 +13,14 @@ use crate::{
     },
     states::State,
 };
+use ::std::path::PathBuf;
+use alloc::vec::Vec;
+use core::{fmt::Debug, time::Duration};
+#[cfg(unix)]
+use libaflmm_bolts::os::unix_signals::Signal;
+use libaflmm_bolts::tuples::RefIndexable;
+use libaflmm_bolts::{core_affinity::CoreId, tuples::Handle};
+use serde::{Deserialize, Serialize};
 
 pub mod hooks;
 pub use hooks::{ExecutorHook, ExecutorHooksTuple};
@@ -86,11 +84,8 @@ pub trait Executor<I, S>: DependencyResolver {
 
     /// The init function of the executor.
     /// It must be run once before the first execution of the executor.
-    fn init<W: Worker>(
-        &mut self,
-        state: &mut S,
-        rt_handle: &mut RuntimeHandle<S, W>,
-    ) -> Result<(), Error>;
+    fn init<W: Worker>(&mut self, state: &mut S, rt_handle: &mut RuntimeHandle<S, W>)
+    -> Result<()>;
 
     /// Run the target with the given input.
     /// This is a "raw" run: it only runs the target and nothing else is done.
@@ -107,7 +102,7 @@ pub trait Executor<I, S>: DependencyResolver {
     /// # Safety
     ///
     /// This function is subject to timeouts, and signals can be raised asynchronously from this point onwards.
-    unsafe fn execute_impl(&mut self, state: &mut S, input: &I) -> Result<ExitKind, Error>;
+    unsafe fn execute_impl(&mut self, state: &mut S, input: &I) -> Result<ExitKind>;
 
     /// Run the target with the given input.
     /// State and observers are updated accordingly.
@@ -118,7 +113,7 @@ pub trait Executor<I, S>: DependencyResolver {
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
         input: &I,
-    ) -> Result<ExitKind, Error>
+    ) -> Result<ExitKind>
     where
         S: State,
     {
@@ -170,7 +165,7 @@ pub trait Executor<I, S>: DependencyResolver {
         _state: &mut S,
         _input: Option<&I>,
         _params: &OsTerminationParams,
-    ) -> Result<CrashStatus, Error> {
+    ) -> Result<CrashStatus> {
         Ok(CrashStatus::TargetCrash)
     }
 
@@ -188,7 +183,7 @@ pub trait Executor<I, S>: DependencyResolver {
         _state: &mut S,
         _input: Option<&I>,
         _params: &OsTerminationParams,
-    ) -> Result<TimeoutStatus, Error> {
+    ) -> Result<TimeoutStatus> {
         Ok(TimeoutStatus::Exit)
     }
 }
@@ -202,7 +197,7 @@ pub trait ExecutorsTuple<EM, I, S, Z> {
         state: &mut S,
         mgr: &mut EM,
         input: &I,
-    ) -> Result<ExitKind, Error>;
+    ) -> Result<ExitKind>;
 }
 
 /// The common signals we want to handle

@@ -16,12 +16,9 @@ use frida_gum::{
     stalker::{StalkerIterator, StalkerOutput, Transformer},
 };
 use frida_gum_sys::gchar;
-use libafl::Error;
-use libafl_bolts::drcov::DrCovBasicBlock;
-use libafl_bolts::{
-    cli::{FridaScriptBackend, FuzzerOptions},
-    tuples::MatchFirstType,
-};
+use libaflmm::Error;
+use libaflmm_bolts::drcov::DrCovBasicBlock;
+use libaflmm_bolts::tuples::MatchFirstType;
 #[cfg(unix)]
 use nix::sys::mman::{MapFlags, ProtFlags, mmap_anonymous};
 use rangemap::RangeMap;

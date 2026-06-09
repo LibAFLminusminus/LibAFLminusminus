@@ -8,41 +8,8 @@ Additional documentation is available in [the `LibAFL` book](https://aflplus.plu
 */
 #![doc = include_str!("../README.md")]
 #![cfg_attr(feature = "document-features", doc = document_features::document_features!())]
-#![cfg_attr(not(test), warn(
-    missing_debug_implementations,
-    missing_docs,
-    //trivial_casts,
-    trivial_numeric_casts,
-    unused_extern_crates,
-    unused_import_braces,
-    unused_qualifications,
-    //unused_results
-))]
-#![cfg_attr(test, deny(
-    missing_debug_implementations,
-    //trivial_casts,
-    trivial_numeric_casts,
-    unused_extern_crates,
-    unused_import_braces,
-    unused_qualifications,
-    unfulfilled_lint_expectations,
-    unused_must_use,
-    bad_style,
-    dead_code,
-    improper_ctypes,
-    non_shorthand_field_patterns,
-    no_mangle_generic_items,
-    overflowing_literals,
-    path_statements,
-    patterns_in_fns_without_body,
-    unconditional_recursion,
-    unused,
-    unused_allocation,
-    unused_comparisons,
-    unused_parens,
-    while_true
-    )
-)]
+
+use libaflmm_bolts::core_affinity::{CoreId, Cores, get_core_ids};
 
 extern crate alloc;
 
@@ -64,13 +31,15 @@ pub mod pthread_hook;
 #[cfg(feature = "cmplog")]
 pub mod cmplog_rt;
 
-/// The `LibAFL` frida helper
-pub mod helper;
-
 pub mod drcov_rt;
 
 /// The frida executor
 pub mod executor;
+
+/// The `LibAFL` frida helper
+pub mod helper;
+
+pub mod options;
 
 /// Utilities
 pub mod utils;
@@ -78,9 +47,6 @@ pub mod utils;
 /// The frida helper shutdown observer, needed to remove the instrumentation upon crashing
 pub mod frida_helper_shutdown_observer;
 
-// for parsing asan and cmplog cores
-
-use libafl_bolts::core_affinity::{CoreId, Cores, get_core_ids};
 /// A representation of the various Frida options
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[expect(clippy::struct_excessive_bools)]
@@ -353,41 +319,28 @@ impl Default for FridaOptions {
 
 #[cfg(test)]
 mod tests {
-    use alloc::rc::Rc;
-    use core::{cell::RefCell, num::NonZero};
-    use std::sync::OnceLock;
-
-    use clap::Parser;
-    use frida_gum::Gum;
-    use libafl::{
-        Fuzzer, StdFuzzer,
-        corpus::{Corpus, InMemoryCorpus, Testcase},
-        events::NopEventManager,
-        executors::{ExitKind, InProcessExecutor},
-        feedback_and_fast, feedback_or_fast,
-        feedbacks::ConstFeedback,
-        inputs::{BytesInput, HasTargetBytes},
-        mutators::{HavocScheduledMutator, mutations::BitFlipMutator},
-        schedulers::StdScheduler,
-        stages::StdMutationalStage,
-        states::{HasSolutions, StdState},
-    };
-    use libafl_bolts::{
-        AsSlice, SimpleStdoutLogger, cli::FuzzerOptions, rands::StdRand, tuples::tuple_list,
-    };
-    use mimalloc::MiMalloc;
-    use serial_test::serial;
-
     use crate::{
         asan::{
             asan_rt::AsanRuntime,
             errors::{AsanErrors, AsanErrorsFeedback, AsanErrorsObserver},
         },
         coverage_rt::CoverageRuntime,
-        executor::FridaInProcessExecutor,
+        executor::FridaExecutor,
         frida_helper_shutdown_observer::FridaHelperObserver,
         helper::FridaInstrumentationHelper,
+        options::FuzzerOptions,
     };
+    use alloc::rc::Rc;
+    use core::cell::RefCell;
+    use frida_gum::Gum;
+    use libaflmm::{
+        corpus::{Corpus, InMemoryCorpus, Testcase}, executors::ExitKind, feedback_and_fast, feedback_or_fast, feedbacks::ConstFeedback, fuzzers::{Fuzzer, StdFuzzer}, inputs::{BytesContext, BytesInput}, mutators::{HavocScheduledMutator, mutations::BitFlipMutator}, non_zero_const, runtimes::RuntimeHandle, stages::StdMutationalStage, states::StdState
+    };
+    use libaflmm_bolts::{AsSlice, SimpleStdoutLogger, rands::StdRand, tuples::tuple_list};
+    use mimalloc::MiMalloc;
+    use serial_test::serial;
+    use std::sync::OnceLock;
+
     #[global_allocator]
     static GLOBAL: MiMalloc = MiMalloc;
 
@@ -494,18 +447,7 @@ mod tests {
                     )
                 );
 
-                let mut state = StdState::new(
-                    rand,
-                    corpus,
-                    InMemoryCorpus::<BytesInput>::new(),
-                    &mut feedback,
-                    &mut objective,
-                )
-                .unwrap();
-
-                let mut event_manager = NopEventManager::new();
-
-                let mut fuzzer = StdFuzzer::new(StdScheduler::new(), feedback, objective);
+                let mut state = StdState::new(BytesContext, corpus, InMemoryCorpus::new()).unwrap();
 
                 let observers = tuple_list!(
                     frida_helper_observer,
@@ -523,23 +465,17 @@ mod tests {
                         unsafe extern "C" fn(data: *const u8, size: usize) -> i32,
                     > = lib.get(function_name.as_bytes()).unwrap();
 
-                    let mut harness = |input: &BytesInput| {
-                        let target = input.target_bytes();
+                    let mut harness = |state: &mut _, input: &BytesInput| {
+                        let target = state.input_to_bytes(input);
                         let buf = target.as_slice();
                         (target_func)(buf.as_ptr(), buf.len());
                         ExitKind::Ok
                     };
 
-                    let mut executor = FridaInProcessExecutor::new(
+                    let mut executor = FridaExecutor::new(
+                        &mut harness,
+                        observers,
                         GUM.get().expect("Gum uninitialized"),
-                        InProcessExecutor::new(
-                            &mut harness,
-                            observers, // tuple_list!(),
-                            &mut fuzzer,
-                            &mut state,
-                            &mut event_manager,
-                        )
-                        .unwrap(),
                         // &mut frida_helper,
                         Rc::clone(&frida_helper),
                     );
@@ -547,12 +483,17 @@ mod tests {
                     let mutator = HavocScheduledMutator::new(tuple_list!(BitFlipMutator::new()));
                     let mut stages = tuple_list!(StdMutationalStage::with_max_iterations(
                         mutator,
-                        NonZero::new(1).unwrap()
+                        non_zero_const!(1)
                     ));
+
+                    let rt_handle = RuntimeHandle::
+
+                    let mut fuzzer =
+                        StdFuzzer::new(feedback, objective, &mut stages, &mut executor, &mut state);
 
                     log::info!("Starting fuzzing!");
                     fuzzer
-                        .fuzz_one(&mut stages, &mut executor, &mut state, &mut event_manager)
+                        .fuzz_one(&mut stages, &mut executor, &mut state)
                         .unwrap_or_else(|err| panic!("Error in fuzz_one: {err:?}"));
 
                     log::info!("Done fuzzing! Got {} solutions", state.solutions().count());

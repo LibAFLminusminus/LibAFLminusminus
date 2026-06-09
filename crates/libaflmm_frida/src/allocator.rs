@@ -23,7 +23,6 @@ use core::ffi::c_void;
 
 use backtrace::Backtrace;
 use frida_gum::{PageProtection, RangeDetails};
-use libafl_bolts::cli::FuzzerOptions;
 #[cfg(target_vendor = "apple")]
 use mach_sys::{
     kern_return::KERN_SUCCESS,
