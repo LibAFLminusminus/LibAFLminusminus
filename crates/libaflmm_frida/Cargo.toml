@@ -41,7 +41,6 @@ libaflmm_bolts = { workspace = true, features = ["derive"] }
 libaflmm_targets = { workspace = true, default-features = true, features = [
   "sancov_cmplog",
 ] }
-
 nix = { workspace = true, default-features = true, features = ["mman"] }
 libc = { workspace = true }
 hashbrown = { workspace = true, default-features = true }
@@ -58,7 +57,6 @@ frida-gum = { version = "0.17.2", features = [
   "backtrace",
 ] }
 dynasmrt = "4.0.2"
-
 color-backtrace = { version = "0.7.2", features = ["resolve-modules"] }
 termcolor = "1.4.1"
 serde = { workspace = true, default-features = true }
