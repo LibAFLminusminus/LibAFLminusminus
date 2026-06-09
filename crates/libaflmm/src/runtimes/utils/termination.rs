@@ -2,8 +2,6 @@
 
 use crate::{
     controllers::Worker,
-    executors::Executor,
-    fuzzers::Fuzzer,
     runtimes::{
         RuntimeHandle,
         inprocess::{CrashStatus, TimeoutStatus},
@@ -93,15 +91,12 @@ impl TerminationHandlerData {
     }
 
     /// Initialize the handler data.
-    pub fn init<E, I, R, S, ST, W, Z>(
+    pub fn init<Z>(
         &mut self,
         fuzzer: &mut Z,
         on_crash: fn(&mut Self, &OsTerminationParams) -> Result<CrashStatus>,
         on_timeout: fn(&mut Self, &OsTerminationParams) -> Result<TimeoutStatus>,
-    ) where
-        E: Executor<I, S>,
-        Z: Fuzzer<E, I, R, S, ST, W>,
-    {
+    ) {
         assert!(
             self.state_ptr.is_some(),
             "The early initialization function has not been called yet. `Self::early_init` should have already been called at this point."

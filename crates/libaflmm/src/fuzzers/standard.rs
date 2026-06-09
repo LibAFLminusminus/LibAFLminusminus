@@ -18,7 +18,8 @@ use crate::{
     stages::StagesTuple,
     states::State,
 };
-use alloc::rc::Rc;
+use alloc::{boxed::Box, rc::Rc};
+use core::{marker::PhantomPinned, pin::Pin};
 use libaflmm_bolts::current_time;
 use libaflmm_core::Result;
 use tuple_list::tuple_list;
@@ -31,7 +32,7 @@ use tuple_list::tuple_list;
 fn handle_objective_in_termination_handler<E, F, H, I, OF, S, W>(
     state: &mut S,
     input: &I,
-    fuzzer: &mut StdFuzzer<E, F, H, OF>,
+    fuzzer: &mut StdFuzzerInner<E, F, H, OF>,
     rt_handle: &mut RuntimeHandle<S, W>,
     exit_kind: ExitKind,
 ) -> Result<()>
@@ -79,7 +80,7 @@ where
     // it is useful if subsequent code panics / raises another signal.
     let input = unsafe { data.take_input::<I>() };
     let state = unsafe { data.state::<S>() };
-    let fuzzer = unsafe { data.fuzzer::<StdFuzzer<E, F, H, OF>>() };
+    let fuzzer = unsafe { data.fuzzer::<StdFuzzerInner<E, F, H, OF>>() };
     let rt_handle = unsafe { data.rt_handle::<S, W>() };
 
     let status = unsafe {
@@ -127,7 +128,7 @@ where
     // it is useful if subsequent code panics / raises another signal.
     let input = unsafe { data.take_input::<I>() };
     let state = unsafe { data.state::<S>() };
-    let fuzzer = unsafe { data.fuzzer::<StdFuzzer<E, F, H, OF>>() };
+    let fuzzer = unsafe { data.fuzzer::<StdFuzzerInner<E, F, H, OF>>() };
     let rt_handle = unsafe { data.rt_handle::<S, W>() };
 
     let status = unsafe {
@@ -150,6 +151,14 @@ where
 /// Your default fuzzer instance, for everyday use.
 #[derive(Debug)]
 pub struct StdFuzzer<E, F, H, OF> {
+    // do not put anything there, move it to StdFuzzerInner.
+    // this is necessary to avoid dangling pointers in signal handlers.
+    inner: Pin<Box<StdFuzzerInner<E, F, H, OF>>>,
+}
+
+/// The pinned state of a [`StdFuzzer`].
+#[derive(Debug)]
+struct StdFuzzerInner<E, F, H, OF> {
     /// The executor used by the fuzzer to evaluate inputs
     executor: E,
     /// The [`Feedback`] that will store new testcases on if a run returns `is_interesting`.
@@ -158,6 +167,7 @@ pub struct StdFuzzer<E, F, H, OF> {
     objective: OF,
     fuzzer_hooks: H,
     initialized: bool,
+    _pinned: PhantomPinned,
 }
 
 /// The builder for std fuzzer
@@ -173,7 +183,7 @@ pub struct StdFuzzerBuilder<E, F, H, OF> {
     hooks: H,
 }
 
-impl<E, F, H, OF> StdFuzzer<E, F, H, OF> {
+impl<E, F, H, OF> StdFuzzerInner<E, F, H, OF> {
     fn evaluate_execution<I, S>(
         &mut self,
         state: &mut S,
@@ -306,6 +316,13 @@ impl<E, F, H, OF> StdFuzzer<E, F, H, OF> {
     }
 }
 
+impl<E, F, H, OF> StdFuzzer<E, F, H, OF> {
+    /// Mutable ref to the mutable inner struct
+    fn inner_mut(&mut self) -> &mut StdFuzzerInner<E, F, H, OF> {
+        unsafe { self.inner.as_mut().get_unchecked_mut() }
+    }
+}
+
 impl<E, F, H, I, OF, S, W> Evaluator<E, I, S, W> for StdFuzzer<E, F, H, OF>
 where
     E: Executor<I, S>,
@@ -324,9 +341,11 @@ where
         rt_handle: &mut RuntimeHandle<S, W>,
         input: &I,
     ) -> Result<EvaluationResult> {
-        let exit_kind = self.executor.execute(state, rt_handle, input)?;
+        let inner = self.inner_mut();
 
-        let res = self.post_execution(state, rt_handle, input, exit_kind)?;
+        let exit_kind = inner.executor.execute(state, rt_handle, input)?;
+
+        let res = inner.post_execution(state, rt_handle, input, exit_kind)?;
 
         rt_handle
             .worker_mut()
@@ -354,37 +373,40 @@ where
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
     ) -> Result<()> {
-        if self.initialized {
+        if self.inner.initialized {
             return Ok(());
         }
 
         if state.should_initialize_metadata() {
+            let inner = self.inner_mut();
+
             // 1 - collect the required mds and involved types
             let mut registrator = Registrator::new(state.metadata_map().clone());
 
-            self.feedback.register_with_ty(&mut registrator)?;
-            self.objective.register_with_ty(&mut registrator)?;
-            self.fuzzer_hooks.register_with_ty(&mut registrator)?;
+            inner.feedback.register_with_ty(&mut registrator)?;
+            inner.objective.register_with_ty(&mut registrator)?;
+            inner.fuzzer_hooks.register_with_ty(&mut registrator)?;
             stages.register_with_ty(&mut registrator)?;
             state.register_with_ty(&mut registrator)?;
-            self.executor.register_with_ty(&mut registrator)?;
+            inner.executor.register_with_ty(&mut registrator)?;
 
             // 2 - check that types and mds for each object
             let checker = registrator.finish();
-            self.feedback.check(&checker)?;
-            self.objective.check(&checker)?;
-            self.objective.check(&checker)?;
+            inner.feedback.check(&checker)?;
+            inner.objective.check(&checker)?;
             stages.check(&checker)?;
             state.check(&checker)?;
-            self.executor.check(&checker)?;
+            inner.executor.check(&checker)?;
 
             // 3 - now state metadata get replaced by
             *state.metadata_map_mut() = checker.finish();
         }
 
+        let inner = self.inner_mut();
+
         // 4 - populate signal handler data if the runtime needs it
-        rt_handle.init_termination_handlers::<E, I, R, ST, Self>(
-            self,
+        rt_handle.init_termination_handlers(
+            inner,
             |data, signal_params| unsafe {
                 std_on_crash::<E, F, H, I, OF, S, W>(data, signal_params)
             },
@@ -394,7 +416,7 @@ where
         );
 
         // 5 - initialize executor
-        self.executor.init(state, rt_handle)?;
+        inner.executor.init(state, rt_handle)?;
 
         // report empty start during init
         rt_handle
@@ -402,13 +424,13 @@ where
             .workdir_mut()
             .report_stats(state.stats())?;
 
-        self.initialized = true;
+        inner.initialized = true;
 
         Ok(())
     }
 
     fn is_initialized(&self) -> bool {
-        self.initialized
+        self.inner.initialized
     }
 
     unsafe fn fuzz_one_initialized(
@@ -418,37 +440,50 @@ where
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
     ) -> Result<()> {
-        // start the timer for this loop
-        state.perf_stats_mut().iter_begin();
+        let testcase_id = {
+            let inner = self.inner_mut();
 
-        self.fuzzer_hooks
-            .pre_step_all(&mut self.executor, state, rt_handle)?;
+            // start the timer for this loop
+            state.perf_stats_mut().iter_begin();
 
-        // Get the next index from the scheduler
+            inner
+                .fuzzer_hooks
+                .pre_step_all(&mut inner.executor, state, rt_handle)?;
 
-        let testcase_id = match state.scheduler_mut().next() {
-            Ok(testcase_id) => testcase_id,
-            Err(Error::Empty(e, b)) => {
-                log::error!(
-                    "Scheduler is empty, which often indicates the target is incorrectly instrumented."
-                );
-                return Err(Error::Empty(e, b));
-            }
-            Err(e) => return Err(e),
+            // Get the next index from the scheduler
+            let testcase_id = match state.scheduler_mut().next() {
+                Ok(testcase_id) => testcase_id,
+                Err(Error::Empty(e, b)) => {
+                    log::error!(
+                        "Scheduler is empty, which often indicates the target is incorrectly instrumented."
+                    );
+                    return Err(Error::Empty(e, b));
+                }
+                Err(e) => return Err(e),
+            };
+
+            inner.fuzzer_hooks.pre_perform_all(
+                &mut inner.executor,
+                state,
+                rt_handle,
+                testcase_id,
+            )?;
+
+            testcase_id
         };
-
-        self.fuzzer_hooks
-            .pre_perform_all(&mut self.executor, state, rt_handle, testcase_id)?;
 
         // Execute all stages
         stages.perform_all(self, rand, state, rt_handle, &testcase_id)?;
+
+        let inner = self.inner_mut();
 
         state
             .testcase_md_mut_from_id(&testcase_id)
             .increase_scheduled_count();
 
-        self.fuzzer_hooks
-            .post_step_all(&mut self.executor, state, rt_handle)?;
+        inner
+            .fuzzer_hooks
+            .post_step_all(&mut inner.executor, state, rt_handle)?;
 
         // timer end
         state.perf_stats_mut().iter_end();
@@ -521,11 +556,14 @@ impl<E, F, H, OF> StdFuzzerBuilder<E, F, H, OF> {
     /// Build a [`StdFuzzer`] from this builder.
     pub fn build(self) -> StdFuzzer<E, F, H, OF> {
         StdFuzzer {
-            executor: self.executor,
-            feedback: self.feedback,
-            objective: self.objective_feedback,
-            fuzzer_hooks: self.hooks,
-            initialized: false,
+            inner: Box::pin(StdFuzzerInner {
+                executor: self.executor,
+                feedback: self.feedback,
+                objective: self.objective_feedback,
+                fuzzer_hooks: self.hooks,
+                initialized: false,
+                _pinned: PhantomPinned,
+            }),
         }
     }
 }

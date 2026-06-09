@@ -7,15 +7,11 @@ use crate::{
     Result,
     common::{CompatibilityChecker, DependencyResolver, Registrator},
     controllers::{NopWorker, Worker},
-    executors::Executor,
-    fuzzers::Fuzzer,
-    inputs::Input,
     runtimes::{
         inprocess::{CrashStatus, TimeoutStatus},
         restarting::LIBAFLMM_EXIT_END,
         utils::{PinnedPtr, unix::OsShmSender},
     },
-    stages::StagesTuple,
     states::{NopState, State},
 };
 
@@ -217,17 +213,12 @@ impl<S, W> RuntimeHandle<S, W> {
     }
 
     /// Initialize the termination global data and handlers.
-    pub fn init_termination_handlers<E, I, R, ST, Z>(
+    pub fn init_termination_handlers<Z>(
         &mut self,
         fuzzer: &mut Z,
         on_crash: fn(&mut TerminationHandlerData, &OsTerminationParams) -> Result<CrashStatus>,
         on_timeout: fn(&mut TerminationHandlerData, &OsTerminationParams) -> Result<TimeoutStatus>,
-    ) where
-        E: Executor<I, S>,
-        I: Input,
-        ST: StagesTuple<E, R, S, W, Z>,
-        Z: Fuzzer<E, I, R, S, ST, W>,
-    {
+    ) {
         if let Some(termination_data) = self.termination_data_ptr.as_mut() {
             termination_data.init(fuzzer, on_crash, on_timeout);
 
