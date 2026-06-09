@@ -326,7 +326,14 @@ where
     ) -> Result<EvaluationResult> {
         let exit_kind = self.executor.execute(state, rt_handle, input)?;
 
-        self.post_execution(state, rt_handle, input, exit_kind)
+        let res = self.post_execution(state, rt_handle, input, exit_kind)?;
+
+        rt_handle
+            .worker_mut()
+            .workdir_mut()
+            .maybe_report_stats(state.stats())?;
+
+        Ok(res)
     }
 }
 

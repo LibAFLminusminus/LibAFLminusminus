@@ -138,11 +138,6 @@ pub trait Executor<I, S>: DependencyResolver {
 
         rt_handle.disarm_timeout()?;
 
-        rt_handle
-            .worker_mut()
-            .workdir_mut()
-            .maybe_report_stats(state.stats())?;
-
         // start_timer!(state);
         self.observers_mut()
             .post_exec_all(state, &exit_kind)

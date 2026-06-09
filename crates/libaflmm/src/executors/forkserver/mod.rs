@@ -248,7 +248,7 @@ where
     fn execute<W: Worker>(
         &mut self,
         state: &mut S,
-        rt_handle: &mut RuntimeHandle<S, W>,
+        _rt_handle: &mut RuntimeHandle<S, W>,
         input: &I,
     ) -> Result<ExitKind> {
         state.increment_execs();
@@ -256,11 +256,6 @@ where
         self.observers_mut().pre_exec_all(state)?;
 
         let exit_kind = unsafe { self.execute_impl(state, input)? };
-
-        rt_handle
-            .worker_mut()
-            .workdir_mut()
-            .maybe_report_stats(state.stats())?;
 
         self.observers_mut()
             .post_exec_all(state, &exit_kind)
