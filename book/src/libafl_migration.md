@@ -4,7 +4,7 @@ This section servers as a quick migration guide from `LibAFL` for experienced us
 The main common parts and differences are briefly introduced here, helping users to port their existing `LibAFL` fuzzers as painlessly as possible.
 Thus, this part is NOT intended for beginners.
 
-Migrating from `LibAFL` to `LibAFL--` should be mostly straightforward, at least if you do not rely on some very specific parts of the library.
+Migrating from `LibAFL` to `LibAFL--` should be mostly straightforward, at least if you do not rely on some specific parts of the library.
 Most of the core API is largely similar, while only some parts truly differ from `LibAFL`
 Most users should be able to reuse most of their code, except for `Manager`, `Event` and `Executor` related things.
 For `Executor`s, the port should be moderately difficult, and often results in dropping most of the code, which has been generically moved to `Runtime` (especially for the inprocess / forkserver parts).
