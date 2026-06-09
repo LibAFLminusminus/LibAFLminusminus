@@ -1,9 +1,9 @@
 //! Nop controller and workers.
 
 use crate::controllers::{Controller, Descriptor, Workdir, Worker};
+use alloc::sync::Arc;
 use libaflmm_bolts::CoreId;
 use libaflmm_core::{Result, WorkerId};
-use std::sync::Arc;
 use tempfile::TempDir;
 
 /// Nop [`Controller`]
