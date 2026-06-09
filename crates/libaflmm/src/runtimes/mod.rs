@@ -118,6 +118,12 @@ pub struct RuntimeHandle<S, W> {
 }
 
 impl RuntimeHandle<NopState, NopWorker> {
+    /// Create an empty runtime handle
+    ///
+    /// # Safety
+    ///
+    /// The inner runtime is a dangling pointer, it's unsafe to use it.
+    #[must_use]
     pub unsafe fn empty() -> Self {
         let worker = NopWorker;
 
