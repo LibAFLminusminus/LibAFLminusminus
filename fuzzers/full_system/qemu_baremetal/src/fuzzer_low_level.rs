@@ -150,7 +150,7 @@ pub fn fuzz() -> Result<()> {
             let objective = feedback_or_fast!(CrashFeedback::new(), TimeoutFeedback::new());
 
             // Create a QEMU in-process executor
-            let mut executor = SimpleQemuExecutor::new(
+            let executor = SimpleQemuExecutor::new(
                 state,
                 emulator,
                 |state, input, qemu| {

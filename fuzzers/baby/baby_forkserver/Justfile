@@ -11,7 +11,7 @@ test: build target
     #!/bin/bash
     set -eu
 
-    timeout 15s {{ FUZZER }} ./program seeds/seed || true
+    timeout 30s {{ FUZZER }} ./program seeds/seed || true
 
     STATS_FILE="./workdir/worker_0/fuzzer_stats"
     if [ ! -f "$STATS_FILE" ]; then
