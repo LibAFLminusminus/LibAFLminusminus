@@ -7,9 +7,7 @@ use crate::{
     corpus::{Corpus, Scheduler, Testcase},
     executors::{Executor, ExitKind},
     feedbacks::Feedback,
-    fuzzers::{
-        EvaluationResult, Evaluator, Fuzzer, FuzzerHooksTuple, HasFeedback, HasObjective, Verdict,
-    },
+    fuzzers::{EvaluationResult, Evaluator, Fuzzer, FuzzerHooksTuple, Verdict},
     inputs::Input,
     observers::ObserversTuple,
     runtimes::{
@@ -173,30 +171,6 @@ pub struct StdFuzzerBuilder<E, F, H, OF> {
     objective_feedback: OF,
     /// the hooks to the fuzzer,
     hooks: H,
-}
-
-impl<E, F, H, OF> HasFeedback for StdFuzzer<E, F, H, OF> {
-    type Feedback = F;
-
-    fn feedback(&self) -> &Self::Feedback {
-        &self.feedback
-    }
-
-    fn feedback_mut(&mut self) -> &mut Self::Feedback {
-        &mut self.feedback
-    }
-}
-
-impl<E, F, H, OF> HasObjective for StdFuzzer<E, F, H, OF> {
-    type Objective = OF;
-
-    fn objective(&self) -> &OF {
-        &self.objective
-    }
-
-    fn objective_feedback_mut(&mut self) -> &mut OF {
-        &mut self.objective
-    }
 }
 
 impl<E, F, H, OF> StdFuzzer<E, F, H, OF> {

@@ -11,30 +11,6 @@ pub use standard::{StdFuzzer, StdFuzzerBuilder};
 pub mod hooks;
 pub use hooks::{CalibrationHook, CustomNameHook, FuzzerHook, FuzzerHooksTuple};
 
-/// Holds an feedback
-pub trait HasFeedback {
-    /// The feedback type
-    type Feedback;
-
-    /// The feedback
-    fn feedback(&self) -> &Self::Feedback;
-
-    /// The feedback (mutable)
-    fn feedback_mut(&mut self) -> &mut Self::Feedback;
-}
-
-/// Holds an objective feedback
-pub trait HasObjective {
-    /// The type of the [`Feedback`] used to find objectives for this fuzzer
-    type Objective;
-
-    /// The objective feedback
-    fn objective(&self) -> &Self::Objective;
-
-    /// The objective feedback (mutable)
-    fn objective_feedback_mut(&mut self) -> &mut Self::Objective;
-}
-
 /// Evaluate an input modifying the state of the fuzzer
 pub trait Evaluator<E, I, S, W> {
     /// Runs the input and triggers observers and feedback,
