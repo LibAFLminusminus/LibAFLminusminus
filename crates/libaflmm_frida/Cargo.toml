@@ -67,7 +67,7 @@ num-traits = { workspace = true, default-features = true }
 ahash = { workspace = true, default-features = true }
 paste = { workspace = true }
 log = { workspace = true }
-clap = { workspace = true }
+clap = { workspace = true, features = ["derive"] }
 mmap-rs = "0.7.0"
 yaxpeax-arch = "0.3.2"
 

@@ -6,6 +6,7 @@ even if the target would not have crashed under normal conditions.
 this helps finding mem errors early.
 */
 
+use crate::options::FuzzerOptions;
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 use crate::utils::frida_to_cs;
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
@@ -13,7 +14,6 @@ use crate::utils::{AccessType, operand_details};
 #[cfg(target_arch = "aarch64")]
 use crate::utils::{instruction_width, writer_register};
 use crate::{
-    Result,
     allocator::Allocator,
     asan::errors::{ASAN_ERRORS, AsanError, AsanErrors, AsanReadWriteError},
     helper::{FridaRuntime, SkipRange},
@@ -38,6 +38,7 @@ use frida_gum::{
 };
 use frida_gum_sys::Insn;
 use hashbrown::HashMap;
+use libaflmm::Result;
 use libaflmm_bolts::{get_thread_id, has_tls};
 use libc::wchar_t;
 use rangemap::RangeMap;

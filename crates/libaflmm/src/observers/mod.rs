@@ -1,5 +1,5 @@
 //! Observers give insights about runs of a target, such as coverage, timing, stack depth, and more.
-use crate::{Error, common::DependencyResolver, executors::ExitKind};
+use crate::{Result, common::DependencyResolver, executors::ExitKind};
 use alloc::borrow::Cow;
 use core::{fmt::Debug, time::Duration};
 use libaflmm_bolts::Named;
@@ -38,13 +38,13 @@ pub type StdObserver<'a, T> = VariableMapObserver<'a, T>;
 pub trait Observer<S>: DependencyResolver + Named {
     /// Called right before execution starts.
     #[inline]
-    fn pre_exec(&mut self, _state: &mut S) -> Result<(), Error> {
+    fn pre_exec(&mut self, _state: &mut S) -> Result<()> {
         Ok(())
     }
 
     /// Called right after execution finishes.
     #[inline]
-    fn post_exec(&mut self, _state: &mut S, _exit_kind: &ExitKind) -> Result<(), Error> {
+    fn post_exec(&mut self, _state: &mut S, _exit_kind: &ExitKind) -> Result<()> {
         Ok(())
     }
 }
@@ -52,18 +52,18 @@ pub trait Observer<S>: DependencyResolver + Named {
 /// A haskell-style tuple of observers
 pub trait ObserversTuple<S>: MatchName {
     /// This is called right before the next execution.
-    fn pre_exec_all(&mut self, state: &mut S) -> Result<(), Error>;
+    fn pre_exec_all(&mut self, state: &mut S) -> Result<()>;
 
     /// This is called right after the last execution
-    fn post_exec_all(&mut self, state: &mut S, exit_kind: &ExitKind) -> Result<(), Error>;
+    fn post_exec_all(&mut self, state: &mut S, exit_kind: &ExitKind) -> Result<()>;
 }
 
 impl<S> ObserversTuple<S> for () {
-    fn pre_exec_all(&mut self, _state: &mut S) -> Result<(), Error> {
+    fn pre_exec_all(&mut self, _state: &mut S) -> Result<()> {
         Ok(())
     }
 
-    fn post_exec_all(&mut self, _state: &mut S, _exit_kind: &ExitKind) -> Result<(), Error> {
+    fn post_exec_all(&mut self, _state: &mut S, _exit_kind: &ExitKind) -> Result<()> {
         Ok(())
     }
 }
@@ -73,12 +73,12 @@ where
     Head: Observer<S>,
     Tail: ObserversTuple<S>,
 {
-    fn pre_exec_all(&mut self, state: &mut S) -> Result<(), Error> {
+    fn pre_exec_all(&mut self, state: &mut S) -> Result<()> {
         self.0.pre_exec(state)?;
         self.1.pre_exec_all(state)
     }
 
-    fn post_exec_all(&mut self, state: &mut S, exit_kind: &ExitKind) -> Result<(), Error> {
+    fn post_exec_all(&mut self, state: &mut S, exit_kind: &ExitKind) -> Result<()> {
         self.0.post_exec(state, exit_kind)?;
         self.1.post_exec_all(state, exit_kind)
     }
@@ -152,13 +152,13 @@ impl TimeObserver {
 impl DependencyResolver for TimeObserver {}
 
 impl<S> Observer<S> for TimeObserver {
-    fn pre_exec(&mut self, _state: &mut S) -> Result<(), Error> {
+    fn pre_exec(&mut self, _state: &mut S) -> Result<()> {
         self.last_runtime = None;
         self.start_time = Instant::now();
         Ok(())
     }
 
-    fn post_exec(&mut self, _state: &mut S, _exit_kind: &ExitKind) -> Result<(), Error> {
+    fn post_exec(&mut self, _state: &mut S, _exit_kind: &ExitKind) -> Result<()> {
         self.last_runtime = Some(self.start_time.elapsed());
         Ok(())
     }
@@ -176,7 +176,7 @@ impl<O, S> Observer<S> for Option<O>
 where
     O: Observer<S>,
 {
-    fn pre_exec(&mut self, state: &mut S) -> Result<(), Error> {
+    fn pre_exec(&mut self, state: &mut S) -> Result<()> {
         if let Some(obs) = self {
             obs.pre_exec(state)
         } else {
@@ -184,7 +184,7 @@ where
         }
     }
 
-    fn post_exec(&mut self, state: &mut S, exit_kind: &ExitKind) -> Result<(), Error> {
+    fn post_exec(&mut self, state: &mut S, exit_kind: &ExitKind) -> Result<()> {
         if let Some(obs) = self {
             obs.post_exec(state, exit_kind)
         } else {

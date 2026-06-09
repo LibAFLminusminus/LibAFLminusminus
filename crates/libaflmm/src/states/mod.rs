@@ -24,7 +24,7 @@ use core::{
     marker::PhantomData,
     time::Duration,
 };
-use libaflmm_bolts::{NamedSerdeAnyMap, OwnedSlice, SerdeAny, rands::Rand};
+use libaflmm_bolts::{NamedSerdeAnyMap, OwnedSlice, SerdeAny, SerdeAnyMap, rands::Rand};
 use libaflmm_core::illegal_argument;
 use nix::fcntl::{Flock, FlockArg};
 use num_traits::Zero;
@@ -341,6 +341,8 @@ pub struct TestcaseMetadata {
     /// has found crash (or timeout) or not
     #[builder(default = 0)]
     objectives_found: usize,
+    /// A map of metadata, for custom stuff
+    map: SerdeAnyMap,
 }
 
 /// Add a named metadata to the metadata map
@@ -489,6 +491,14 @@ impl TestcaseMetadata {
     /// Set the filename of this [`Testcase`]
     pub fn set_filename(&mut self, filename: TestcaseFilenameFormat) {
         self.filename_format = filename;
+    }
+
+    pub fn md_map(&self) -> &SerdeAnyMap {
+        &self.map
+    }
+
+    pub fn md_map_mut(&mut self) -> &mut SerdeAnyMap {
+        &mut self.map
     }
 }
 

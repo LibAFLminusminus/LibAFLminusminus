@@ -7,12 +7,8 @@ use core::{fmt::Debug, marker::PhantomData};
 use frida_gum::interceptor::Interceptor;
 use frida_gum::{Gum, Process};
 use libaflmm::{
-    Error,
-    common::DependencyResolver,
-    corpus::{Testcase, TestcaseId},
-    executors::ExitKind,
-    feedbacks::Feedback,
-    observers::Observer,
+    Error, SerdeAny, common::DependencyResolver, corpus::TestcaseId, executors::ExitKind,
+    feedbacks::Feedback, observers::Observer, states::State,
 };
 use libaflmm_bolts::{
     Named,
@@ -609,8 +605,10 @@ pub enum AsanErrorsObserver {
     Static,
 }
 
-impl<I, S> Observer<S> for AsanErrorsObserver {
-    fn pre_exec(&mut self, _state: &mut S, _input: &I) -> Result<(), Error> {
+impl DependencyResolver for AsanErrorsObserver {}
+
+impl<S> Observer<S> for AsanErrorsObserver {
+    fn pre_exec(&mut self, _state: &mut S) -> Result<(), Error> {
         AsanErrors::get_mut_blocking().clear();
 
         Ok(())
@@ -682,7 +680,7 @@ impl<S> DependencyResolver for AsanErrorsFeedback<S> {}
 
 impl<I, OT, S> Feedback<I, OT, S> for AsanErrorsFeedback<S>
 where
-    S: Debug,
+    S: State,
     OT: MatchNameRef,
 {
     fn is_interesting(
@@ -706,12 +704,15 @@ where
 
     fn append_metadata(
         &mut self,
-        _state: &mut S,
+        state: &mut S,
         _observers: &OT,
         testcase: &TestcaseId,
     ) -> Result<(), Error> {
         if let Some(errors) = &self.errors {
-            testcase.add_metadata(errors.clone());
+            state
+                .testcase_md_mut_from_id(testcase)
+                .md_map_mut()
+                .insert(errors.clone());
         }
 
         Ok(())

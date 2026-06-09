@@ -24,7 +24,7 @@ use libaflmm::{
     executors::{Executor, ExitKind},
     inputs::Input,
     observers::ObserversTuple,
-    runtimes::RuntimeHandle,
+    runtimes::{RuntimeHandle, inprocess::CrashStatus},
     states::State,
 };
 use libaflmm_bolts::{AsSlice, tuples::RefIndexable};
@@ -135,6 +135,23 @@ where
 
     fn observers_mut(&mut self) -> RefIndexable<&mut Self::Observers, Self::Observers> {
         RefIndexable::from(&mut self.observers)
+    }
+
+    unsafe fn handle_crash(
+        &mut self,
+        state: &mut S,
+        input: Option<&I>,
+        _params: &libaflmm::runtimes::OsTerminationParams,
+    ) -> Result<CrashStatus> {
+        if let Some(input) = input {
+            let target_bytes = state.input_to_bytes(input);
+
+            // Add any custom logic specific to FridaInProcessExecutor
+            self.helper.borrow_mut().post_exec(target_bytes.as_ref())?;
+            Ok(CrashStatus::TargetCrash)
+        } else {
+            Ok(CrashStatus::FuzzerCrash)
+        }
     }
 }
 

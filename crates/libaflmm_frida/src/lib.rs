@@ -44,9 +44,6 @@ pub mod options;
 /// Utilities
 pub mod utils;
 
-/// The frida helper shutdown observer, needed to remove the instrumentation upon crashing
-pub mod frida_helper_shutdown_observer;
-
 /// A representation of the various Frida options
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[expect(clippy::struct_excessive_bools)]
@@ -326,15 +323,15 @@ mod tests {
         },
         coverage_rt::CoverageRuntime,
         executor::FridaExecutor,
-        frida_helper_shutdown_observer::FridaHelperObserver,
         helper::FridaInstrumentationHelper,
         options::FuzzerOptions,
     };
     use alloc::rc::Rc;
+    use clap::Parser;
     use core::cell::RefCell;
     use frida_gum::Gum;
     use libaflmm::{
-        corpus::{Corpus, InMemoryCorpus, Testcase},
+        corpus::{Corpus, InMemoryCorpus, QueueScheduler, Testcase},
         executors::ExitKind,
         feedback_and_fast, feedback_or_fast,
         feedbacks::ConstFeedback,
@@ -342,7 +339,6 @@ mod tests {
         inputs::{BytesContext, BytesInput},
         mutators::{HavocScheduledMutator, mutations::BitFlipMutator},
         non_zero_const,
-        runtimes::RuntimeHandle,
         stages::StdMutationalStage,
         states::StdState,
     };
@@ -435,10 +431,10 @@ mod tests {
                 let (function_name, expected_error) = test;
                 log::info!("Testing with harness function {function_name}");
 
-                let mut corpus = InMemoryCorpus::<BytesInput>::new();
+                let mut corpus = InMemoryCorpus::with_scheduler(QueueScheduler::new());
 
                 //TODO - make sure we use the right one
-                let testcase = Testcase::new(vec![0; 4].into());
+                let testcase = Testcase::new(Rc::new(vec![0; 4].into()));
                 corpus.add(testcase).unwrap();
 
                 let rand = StdRand::with_seed(0);
@@ -446,7 +442,6 @@ mod tests {
                 let mut feedback = ConstFeedback::new(true);
 
                 let asan_obs = AsanErrorsObserver::from_static_asan_errors();
-                let frida_helper_observer = FridaHelperObserver::new(Rc::clone(&frida_helper));
 
                 // Feedbacks to recognize an input as solution
                 let mut objective = feedback_or_fast!(

@@ -33,7 +33,12 @@ use yaxpeax_x86::protected_mode::InstDecoder;
 
 #[cfg(feature = "cmplog")]
 use crate::cmplog_rt::CmpLogRuntime;
-use crate::{asan::asan_rt::AsanRuntime, coverage_rt::CoverageRuntime, drcov_rt::DrCovRuntime};
+use crate::{
+    asan::asan_rt::AsanRuntime,
+    coverage_rt::CoverageRuntime,
+    drcov_rt::DrCovRuntime,
+    options::{FridaScriptBackend, FuzzerOptions},
+};
 
 /// The Runtime trait
 pub trait FridaRuntime: 'static + Debug + core::any::Any {
