@@ -125,7 +125,7 @@ impl RuntimeHandle<NopState, NopWorker> {
     /// The inner runtime is a dangling pointer, it's unsafe to use it.
     #[must_use]
     pub unsafe fn empty() -> Self {
-        let worker = NopWorker;
+        let worker = NopWorker::default();
 
         Self {
             runtime: NonNull::<NopRuntime>::dangling(),
