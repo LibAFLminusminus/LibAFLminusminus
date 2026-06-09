@@ -99,7 +99,7 @@ delegate = "0.13.4"
 document-features = "0.2.12"
 erased-serde = { version = "0.4.10", default-features = false } # erased serde
 glob = "0.3"
-hashbrown = { version = "0.16.1", default-features = false } # A faster hashmap, nostd compatible
+hashbrown = { version = "0.17.1", default-features = false } # A faster hashmap, nostd compatible
 just = "1.51.0"
 libc = "0.2.186" # For (*nix) libc
 libipt = { version = "0.4.0", features = ["libipt_master"] }
