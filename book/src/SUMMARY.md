@@ -12,7 +12,6 @@
   - [Operation Modes](./concepts/operation_modes/index.md)
     - [Forkserver](./concepts/operation_modes/forkserver.md)
     - [In-process](./concepts/operation_modes/in_process.md)
-  - [Fuzzer Architecture](./concepts/architecture.md)
   - [Metadata](./concepts/metadata.md)
   - [Tuples](./concepts/tuples.md)
   - [Errors](./concepts/errors.md)
