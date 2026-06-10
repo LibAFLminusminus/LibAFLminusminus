@@ -32,10 +32,6 @@ pub mod nautilus;
 #[cfg(feature = "nautilus")]
 pub use nautilus::*;
 
-pub mod new_hash_feedback;
-pub use new_hash_feedback::NewHashFeedback;
-pub use new_hash_feedback::NewHashFeedbackMetadata;
-
 pub mod bool;
 pub use bool::BoolValueFeedback;
 

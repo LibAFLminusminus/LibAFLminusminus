@@ -8,14 +8,13 @@ use core::{
     ops::{Deref, DerefMut},
 };
 
-use ahash::RandomState;
 use libaflmm_bolts::{AsIter, AsIterMut, AsSlice, AsSliceMut, HasLen, Named, ownedref::OwnedRef};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use crate::{
     Error,
     common::DependencyResolver,
-    observers::{MapObserver, Observer, ObserverWithHashField},
+    observers::{MapObserver, Observer},
 };
 
 /// A simple observer with a single value.
@@ -74,12 +73,6 @@ impl<S, T> Observer<S> for ValueObserver<'_, T> {}
 impl<T> Named for ValueObserver<'_, T> {
     fn name(&self) -> &Cow<'static, str> {
         &self.name
-    }
-}
-
-impl<T: Hash> ObserverWithHashField for ValueObserver<'_, T> {
-    fn hash(&self) -> Option<u64> {
-        Some(RandomState::with_seeds(1, 2, 3, 4).hash_one(self.value.as_ref()))
     }
 }
 
@@ -152,15 +145,6 @@ impl<S, T> Observer<S> for RefCellValueObserver<'_, T> {}
 impl<T> Named for RefCellValueObserver<'_, T> {
     fn name(&self) -> &Cow<'static, str> {
         &self.name
-    }
-}
-
-impl<T> ObserverWithHashField for RefCellValueObserver<'_, T>
-where
-    T: Hash,
-{
-    fn hash(&self) -> Option<u64> {
-        Some(RandomState::with_seeds(1, 2, 3, 4).hash_one(&*self.value.as_ref().borrow()))
     }
 }
 
