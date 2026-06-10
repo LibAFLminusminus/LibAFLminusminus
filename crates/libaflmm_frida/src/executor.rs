@@ -161,23 +161,38 @@ where
 {
     /// Creates a new [`FridaInProcessExecutor`].
     pub fn new(
+        state: &S,
         harness: H,
         observers: OT,
         gum: &'a Gum,
         helper: Rc<RefCell<FridaInstrumentationHelper<'a, RT>>>,
-    ) -> Self {
-        FridaExecutor::with_target_bytes_converter(harness, observers, gum, helper, None)
+    ) -> Self
+    where
+        H: FnMut(&mut S, &I) -> Result<ExitKind>,
+    {
+        FridaExecutor::with_target_bytes_converter(state, harness, observers, gum, helper, None)
     }
 
     /// Creates a new [`FridaInProcessExecutor`] tracking the given `thread_id`.
     pub fn on_thread(
+        state: &S,
         harness: H,
         observers: OT,
         gum: &'a Gum,
         helper: Rc<RefCell<FridaInstrumentationHelper<'a, RT>>>,
         thread_id: u32,
-    ) -> Self {
-        FridaExecutor::with_target_bytes_converter(harness, observers, gum, helper, Some(thread_id))
+    ) -> Self
+    where
+        H: FnMut(&mut S, &I) -> Result<ExitKind>,
+    {
+        FridaExecutor::with_target_bytes_converter(
+            state,
+            harness,
+            observers,
+            gum,
+            helper,
+            Some(thread_id),
+        )
     }
 }
 
@@ -187,12 +202,16 @@ where
 {
     /// Creates a new [`FridaInProcessExecutor`].
     pub fn with_target_bytes_converter(
+        _state: &S,
         harness: H,
         observers: OT,
         gum: &'a Gum,
         helper: Rc<RefCell<FridaInstrumentationHelper<'a, RT>>>,
         thread_id: Option<u32>,
-    ) -> Self {
+    ) -> Self
+    where
+        H: FnMut(&mut S, &I) -> Result<ExitKind>,
+    {
         let mut stalker = Stalker::new(gum);
         let ranges = helper.borrow_mut().ranges().clone();
         for module in frida_gum::Process::obtain(gum).enumerate_modules() {

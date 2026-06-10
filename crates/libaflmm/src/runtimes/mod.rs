@@ -12,7 +12,7 @@ use crate::{
         restarting::LIBAFLMM_EXIT_END,
         utils::{PinnedPtr, unix::OsShmSender},
     },
-    states::{NopState, State},
+    states::State,
 };
 
 pub mod inprocess;
@@ -113,14 +113,14 @@ pub struct RuntimeHandle<S, W> {
     state_shm_sender: Option<OsShmSender<S>>,
 }
 
-impl RuntimeHandle<NopState, NopWorker> {
+impl<S> RuntimeHandle<S, NopWorker> {
     /// Create an empty runtime handle
     ///
     /// # Safety
     ///
     /// The inner runtime is a dangling pointer, it's unsafe to use it.
     #[must_use]
-    pub unsafe fn empty() -> Self {
+    pub unsafe fn empty(_state: &S) -> Self {
         let worker = NopWorker::default();
 
         Self {

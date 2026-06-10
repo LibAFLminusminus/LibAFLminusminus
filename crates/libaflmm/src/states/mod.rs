@@ -493,6 +493,7 @@ impl TestcaseMetadata {
         self.filename_format = filename;
     }
 
+    #[must_use]
     pub fn md_map(&self) -> &SerdeAnyMap {
         &self.map
     }

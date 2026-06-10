@@ -339,8 +339,9 @@ mod tests {
         inputs::{BytesContext, BytesInput},
         mutators::{HavocScheduledMutator, mutations::BitFlipMutator},
         non_zero_const,
+        runtimes::RuntimeHandle,
         stages::StdMutationalStage,
-        states::StdState,
+        states::{State, StdState},
     };
     use libaflmm_bolts::{AsSlice, SimpleStdoutLogger, rands::StdRand, tuples::tuple_list};
     use mimalloc::MiMalloc;
@@ -437,14 +438,14 @@ mod tests {
                 let testcase = Testcase::new(Rc::new(vec![0; 4].into()));
                 corpus.add(testcase).unwrap();
 
-                let rand = StdRand::with_seed(0);
+                let mut rand = StdRand::with_seed(0);
 
-                let mut feedback = ConstFeedback::new(true);
+                let feedback = ConstFeedback::new(true);
 
                 let asan_obs = AsanErrorsObserver::from_static_asan_errors();
 
                 // Feedbacks to recognize an input as solution
-                let mut objective = feedback_or_fast!(
+                let objective = feedback_or_fast!(
                     // true enables the AsanErrorFeedback
                     feedback_and_fast!(
                         ConstFeedback::from(true),
@@ -453,11 +454,9 @@ mod tests {
                 );
 
                 let mut state = StdState::new(BytesContext, corpus, InMemoryCorpus::new()).unwrap();
+                let mut rt_handle = RuntimeHandle::empty(&state);
 
-                let observers = tuple_list!(
-                    frida_helper_observer,
-                    asan_obs //,
-                );
+                let observers = tuple_list!(asan_obs);
 
                 {
                     #[cfg(target_os = "linux")]
@@ -470,15 +469,14 @@ mod tests {
                         unsafe extern "C" fn(data: *const u8, size: usize) -> i32,
                     > = lib.get(function_name.as_bytes()).unwrap();
 
-                    let mut harness = |state: &mut _, input: &BytesInput| {
-                        let target = state.input_to_bytes(input);
-                        let buf = target.as_slice();
-                        (target_func)(buf.as_ptr(), buf.len());
-                        ExitKind::Ok
-                    };
-
-                    let mut executor = FridaExecutor::new(
-                        &mut harness,
+                    let executor = FridaExecutor::new(
+                        &state,
+                        |state: &mut _, input: &BytesInput| {
+                            let target = state.input_to_bytes(input);
+                            let buf = target.as_slice();
+                            (target_func)(buf.as_ptr(), buf.len());
+                            Ok(ExitKind::Ok)
+                        },
                         observers,
                         GUM.get().expect("Gum uninitialized"),
                         // &mut frida_helper,
@@ -491,22 +489,32 @@ mod tests {
                         non_zero_const!(1)
                     ));
 
-                    let mut fuzzer =
-                        StdFuzzer::new(feedback, objective, &mut stages, &mut executor, &mut state);
+                    let mut fuzzer = StdFuzzer::new(
+                        executor,
+                        feedback,
+                        objective,
+                        &mut stages,
+                        &mut state,
+                        &mut rt_handle,
+                    )
+                    .unwrap();
 
                     log::info!("Starting fuzzing!");
                     fuzzer
-                        .fuzz_one(&mut stages, &mut executor, &mut state)
+                        .fuzz_one(&mut stages, &mut rand, &mut state, &mut rt_handle)
                         .unwrap_or_else(|err| panic!("Error in fuzz_one: {err:?}"));
 
-                    log::info!("Done fuzzing! Got {} solutions", state.solutions().count());
+                    log::info!(
+                        "Done fuzzing! Got {} solutions",
+                        state.objective_corpus().count()
+                    );
                     if let Some(expected_error) = expected_error {
-                        assert_eq!(state.solutions().count(), 1);
+                        assert_eq!(state.objective_corpus().count(), 1);
                         if let Some(error) = AsanErrors::get_mut_blocking().errors.first() {
                             assert_eq!(error.description(), expected_error);
                         }
                     } else {
-                        assert_eq!(state.solutions().count(), 0);
+                        assert_eq!(state.objective_corpus().count(), 0);
                     }
                 }
             }

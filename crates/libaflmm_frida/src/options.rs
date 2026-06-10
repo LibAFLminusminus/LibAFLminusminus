@@ -1,9 +1,11 @@
 use clap::{Command, CommandFactory, Parser, ValueEnum};
 use core::error;
+use core::result;
+use core::time::Duration;
 use libaflmm::Result;
 use libaflmm_bolts::Cores;
 use serde::{Deserialize, Serialize};
-use std::{path::PathBuf, result, time::Duration};
+use std::path::PathBuf;
 
 /// helper function to go from a parsed cli string to a `Duration`
 fn parse_timeout(src: &str) -> Result<Duration> {
