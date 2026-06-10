@@ -36,7 +36,7 @@ if [ ! -f "Makefile" ]; then
     ./configure
 fi
 make sqlite3.c
-make -j$(nproc)
+make -j"$(nproc)"
 popd
 
 echo "Compiling 'ossfuzz' with profile '$1'..."
