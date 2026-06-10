@@ -94,6 +94,9 @@ jobs:
               apt-get install -y --no-install-recommends chromium
       - name: Run linkspector
         uses: umbrelladocs/action-linkspector@v1
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: "true"
+          PUPPETEER_EXECUTABLE_PATH: /usr/bin/chromium
         with:
           fail_on_error: "true"
           config_file: ".github/.linkspector.yml"
