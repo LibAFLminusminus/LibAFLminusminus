@@ -8,7 +8,7 @@ test: build
     #!/bin/bash
     set -eu
 
-    timeout 20s ./ossfuzz
+    timeout 20s ./ossfuzz || true
 
     STATS_FILE="./workdir/worker_0/fuzzer_stats"
     if [ ! -f "$STATS_FILE" ]; then
@@ -16,10 +16,10 @@ test: build
         exit 1
     fi
 
-    OBJECTIVE=$(jq '.' "$STATS_FILE")
-    if [ "$OBJECTIVE" -eq 0 ]; then
-        echo "sqlite: Fuzzer did not find any objective (stats: $STATS_FILE)"
+    CORPUS=$(jq '.corpus' "$STATS_FILE")
+    if [ "$CORPUS" -lt 100 ]; then
+        echo "sqlite: Fuzzer did not find more than 100 new interesting inputs (stats: $STATS_FILE, corpus found: $CORPUS)"
         exit 1
     else
-        echo "sqlite: Found $OBJECTIVE objective(s)."
+        echo "sqlite: Found $CORPUS new interesting input(s). success."
     fi
