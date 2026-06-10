@@ -37,7 +37,7 @@ On top, logic operators like `feedback_or` and `feedback_and` have a `_fast` var
 
 ## Objectives
 
-While feedbacks are commonly used to decide if an [`Input`](./input.md.md) should be kept for future mutations, they serve a double-purpose, as so-called `Objective Feedbacks`.
+While feedbacks are commonly used to decide if an [`Input`](./input.md) should be kept for future mutations, they serve a double-purpose, as so-called `Objective Feedbacks`.
 In this case, the `interestingness` of a feedback indicates if an `Objective` has been hit.
 Commonly, these objectives would be a crash or a timeout, but they can also be used to detect if specific parts of the program have been reached, for sanitization, or a differential fuzzing success.
 Objectives use the same trait as a normal `Feedback` and the implementations can be used interchangeably.
