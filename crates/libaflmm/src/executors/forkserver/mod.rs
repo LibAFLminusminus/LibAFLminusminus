@@ -304,6 +304,7 @@ mod tests {
             StdChildArgs, builder::FAILED_TO_START_FORKSERVER_MSG, forkserver::ForkserverExecutor,
         },
         observers::{ConstMapObserver, HitcountsMapObserver},
+        runtimes::RuntimeHandle,
     };
 
     #[test]
@@ -328,12 +329,14 @@ mod tests {
             shmem_buf,
         ));
 
+        let rt_handle = unsafe { RuntimeHandle::empty() };
+
         let executor = ForkserverExecutor::builder()
             .program(bin)
             .args(args)
             .coverage_map_size(MAP_SIZE)
             .debug_child(false)
-            .build::<_>(tuple_list!(edges_observer));
+            .build(tuple_list!(edges_observer), &rt_handle);
 
         // Since /usr/bin/echo is not a instrumented binary file, the test will just check if the forkserver has failed at the initial handshake
         let result = match executor {

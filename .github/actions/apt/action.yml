@@ -6,6 +6,10 @@ inputs:
     description: Install QEMU dependencies
     required: false
     default: false
+  aflplusplus:
+    description: Build and install AFLplusplus from the submodule
+    required: false
+    default: false
 
 runs:
   using: composite
@@ -51,6 +55,8 @@ runs:
           curl lsb-release wget software-properties-common gnupg
           shellcheck libc6-dev gcc g++ build-essential libfile-mimeinfo-perl
           python3-pip cmake python3 libpython3-dev mold yq libasan8
+          python3-dev automake flex bison
+          clang llvm llvm-dev lld
         )
 
         if ! dpkg -s "${packages[@]}" &>/dev/null; then
@@ -83,4 +89,13 @@ runs:
         if ! dpkg -s "${packages[@]}" &>/dev/null; then
           sudo flock --timeout 300 /var/lock/github-apt.lock \
             apt-get install -y --no-install-recommends "${packages[@]}"
+        fi
+
+    - name: Build and install AFLplusplus
+      if: ${{ inputs.aflplusplus == 'true' }}
+      shell: bash
+      run: |
+        if ! command -v afl-cc &>/dev/null; then
+          make -C "$GITHUB_WORKSPACE/AFLplusplus"
+          sudo make -C "$GITHUB_WORKSPACE/AFLplusplus" install
         fi

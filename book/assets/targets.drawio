@@ -1,0 +1,52 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="Page-1" id="UETAwtkGrCYC7TngJLUh">
+    <mxGraphModel dx="1218" dy="649" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="queTpZqW7a1qwmuSGx-M-1" parent="1" style="rounded=0;whiteSpace=wrap;html=1;verticalAlign=top;fontSize=18;" value="Fuzzer Binary (One process)" vertex="1">
+          <mxGeometry height="560" width="480" x="160" y="120" as="geometry" />
+        </mxCell>
+        <mxCell id="queTpZqW7a1qwmuSGx-M-2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;align=center;fontSize=18;" value="&lt;div&gt;Fuzzer Runtime&lt;/div&gt;" vertex="1">
+          <mxGeometry height="200" width="440" x="180" y="170" as="geometry" />
+        </mxCell>
+        <mxCell id="queTpZqW7a1qwmuSGx-M-4" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=18;" value="LibAFLmm crate" vertex="1">
+          <mxGeometry height="150" width="210" x="200" y="200" as="geometry" />
+        </mxCell>
+        <mxCell id="queTpZqW7a1qwmuSGx-M-5" parent="1" style="rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;align=center;fontSize=18;" value="Instrumented target" vertex="1">
+          <mxGeometry height="200" width="440" x="180" y="410" as="geometry" />
+        </mxCell>
+        <mxCell id="queTpZqW7a1qwmuSGx-M-6" parent="1" style="rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontSize=19;fillColor=#d5e8d4;strokeColor=#82b366;" value="Instrumented code" vertex="1">
+          <mxGeometry height="120" width="210" x="200" y="460" as="geometry" />
+        </mxCell>
+        <mxCell id="queTpZqW7a1qwmuSGx-M-7" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fontSize=18;verticalAlign=top;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="LibAFLmm targets" vertex="1">
+          <mxGeometry height="400" width="110" x="490" y="190" as="geometry" />
+        </mxCell>
+        <mxCell id="queTpZqW7a1qwmuSGx-M-8" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fontSize=18;" value="Runtime Callbacks" vertex="1">
+          <mxGeometry height="120" width="90" x="500" y="460" as="geometry" />
+        </mxCell>
+        <mxCell id="queTpZqW7a1qwmuSGx-M-9" edge="1" parent="1" source="queTpZqW7a1qwmuSGx-M-6" style="endArrow=classic;html=1;rounded=0;" target="queTpZqW7a1qwmuSGx-M-8" value="Call">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="380" y="430" as="sourcePoint" />
+            <mxPoint x="430" y="380" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="queTpZqW7a1qwmuSGx-M-11" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fontSize=18;" value="Static Data" vertex="1">
+          <mxGeometry height="120" width="90" x="500" y="280" as="geometry" />
+        </mxCell>
+        <mxCell id="queTpZqW7a1qwmuSGx-M-12" edge="1" parent="1" source="queTpZqW7a1qwmuSGx-M-8" style="endArrow=classic;html=1;rounded=0;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" target="queTpZqW7a1qwmuSGx-M-11" value="Write data">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="360" y="450" as="sourcePoint" />
+            <mxPoint x="410" y="400" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="queTpZqW7a1qwmuSGx-M-13" edge="1" parent="1" source="queTpZqW7a1qwmuSGx-M-4" style="endArrow=classic;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" target="queTpZqW7a1qwmuSGx-M-11" value="Observe data">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="360" y="430" as="sourcePoint" />
+            <mxPoint x="410" y="380" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

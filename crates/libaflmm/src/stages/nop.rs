@@ -37,7 +37,6 @@ where
     fn perform_impl(
         &mut self,
         _fuzzer: &mut Z,
-        _executor: &mut E,
         _rand: &mut R,
         _state: &mut S,
         _rt_handle: &mut RuntimeHandle<S, W>,

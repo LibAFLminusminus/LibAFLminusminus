@@ -1,35 +1,19 @@
 //! `LibAFL` functionality for filesystem interaction
 
-use alloc::{string::String, sync::Arc, vec::Vec};
-use core::{
-    sync::atomic::{AtomicU64, Ordering},
-    time::Duration,
-};
+use crate::Result;
+use alloc::{sync::Arc, vec::Vec};
+use core::time::Duration;
 #[cfg(unix)]
 use std::os::unix::prelude::{AsRawFd, RawFd};
 use std::{
     fs::{self, File, OpenOptions, remove_file},
     io::{Seek, Write},
     path::{Path, PathBuf},
-    sync::OnceLock,
     time::SystemTime,
 };
 
-use crate::Error;
-
 /// The default filename to use to deliver testcases to the target
 pub const INPUTFILE_STD: &str = ".cur_input";
-
-#[must_use]
-/// Derives a filename from [`INPUTFILE_STD`] that may be used to deliver testcases to the target.
-/// It ensures the filename is unique to the fuzzer process.
-pub fn get_unique_std_input_file() -> String {
-    static STD_COUNT: OnceLock<AtomicU64> = OnceLock::new();
-    let next = STD_COUNT
-        .get_or_init(|| AtomicU64::new(0))
-        .fetch_add(1, Ordering::SeqCst);
-    format!("{}_{}_{}", INPUTFILE_STD, std::process::id(), next)
-}
 
 /// Write a file atomically
 ///
@@ -40,7 +24,7 @@ pub fn get_unique_std_input_file() -> String {
 ///
 /// # Errors
 /// Can error if the file doesn't exist, or if the `.{file-name}.tmp` file already exists.
-pub fn write_file_atomic(path: impl AsRef<Path>, bytes: &[u8]) -> Result<(), Error> {
+pub fn write_file_atomic(path: impl AsRef<Path>, bytes: &[u8]) -> Result<()> {
     let path = path.as_ref();
     let mut tmpfile_name = path.to_path_buf();
     tmpfile_name.set_file_name(format!(
@@ -91,7 +75,7 @@ impl Clone for InputFile {
 
 impl InputFile {
     /// Creates a new [`InputFile`], or truncates if it already exists
-    pub fn create(filename: impl AsRef<Path>) -> Result<Self, Error> {
+    pub fn create(filename: impl AsRef<Path>) -> Result<Self> {
         let filename = filename.as_ref().to_path_buf();
         let f = OpenOptions::new()
             .create(true)
@@ -114,7 +98,7 @@ impl InputFile {
     }
 
     /// Writes the given buffer to the file
-    pub fn write_buf(&mut self, buf: &[u8]) -> Result<(), Error> {
+    pub fn write_buf(&mut self, buf: &[u8]) -> Result<()> {
         self.rewind()?;
         self.file.write_all(buf)?;
         self.file.set_len(buf.len() as u64)?;
@@ -125,7 +109,7 @@ impl InputFile {
 
     /// Rewinds the file to the beginning
     #[inline]
-    pub fn rewind(&mut self) -> Result<(), Error> {
+    pub fn rewind(&mut self) -> Result<()> {
         match self.file.rewind() {
             Err(err) => Err(err.into()),
             _ => Ok(()),
@@ -139,7 +123,7 @@ impl InputFile {
 pub fn find_new_files_rec(
     dir_path: impl AsRef<Path>,
     last_check: &Option<Duration>,
-) -> Result<Vec<PathBuf>, Error> {
+) -> Result<Vec<PathBuf>> {
     let mut new_files = Vec::<PathBuf>::new();
     for entry in fs::read_dir(dir_path)? {
         let entry = entry?;

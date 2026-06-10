@@ -52,14 +52,13 @@ where
     fn perform_impl(
         &mut self,
         fuzzer: &mut Z,
-        executor: &mut E,
         rand: &mut R,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
         _testcase_id: &TestcaseId,
     ) -> Result<()> {
         let input = self.0.generate(rand, state)?;
-        fuzzer.evaluate_input(state, executor, rt_handle, &input)?;
+        fuzzer.evaluate_input(state, rt_handle, &input)?;
         Ok(())
     }
 }

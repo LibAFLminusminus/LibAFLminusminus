@@ -6,13 +6,6 @@
 // The following line is needed for shared memeory testcase fuzzing
 __AFL_FUZZ_INIT();
 
-void vuln(const unsigned char* buf) {
-  if (strcmp((const char*) buf, "vuln") == 0) {
-    fprintf(stderr, "vuln strcmp\n");
-    abort();
-  }
-}
-
 int main(int argc, char **argv) {
   FILE *file = stdin;
   if (argc > 1) { file = fopen(argv[1], "rb"); }
@@ -30,15 +23,11 @@ int main(int argc, char **argv) {
   if (buf[0] == 'v') {
     if (buf[1] == 'u') {
       if (buf[2] == 'l') {
-        if (buf[3] == 'n') {
-          fprintf(stderr, "vuln bytes\n");
-          abort();
-	}
+        fprintf(stderr, "vuln bytes\n");
+        abort();
       }
     }
   }
-
-  vuln(buf);
 
   return 0;
 }

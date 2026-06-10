@@ -150,7 +150,7 @@ pub fn fuzz() -> Result<()> {
             let objective = feedback_or_fast!(CrashFeedback::new(), TimeoutFeedback::new());
 
             // Create a QEMU in-process executor
-            let mut executor = SimpleQemuExecutor::new(
+            let executor = SimpleQemuExecutor::new(
                 state,
                 emulator,
                 |state, input, qemu| {
@@ -213,30 +213,19 @@ pub fn fuzz() -> Result<()> {
             let mut stages = tuple_list!(StdStage::default());
 
             // A fuzzer with feedbacks and a corpus scheduler
-            let mut fuzzer = StdFuzzer::new(
-                feedback,
-                objective,
-                &mut stages,
-                &mut executor,
-                state,
-                rt_handle,
-            )?;
+            let mut fuzzer =
+                StdFuzzer::new(executor, feedback, objective, &mut stages, state, rt_handle)?;
 
             if state.must_load_initial_inputs() {
                 state
-                    .load_initial_inputs(
-                        &mut fuzzer,
-                        &mut executor,
-                        rt_handle,
-                        &[input_dir.clone()],
-                    )
+                    .load_initial_inputs(&mut fuzzer, rt_handle, &[input_dir.clone()])
                     .unwrap_or_else(|e| {
                         panic!("Failed to load initial corpus in {:?}: {e:?}", &input_dir);
                     });
                 println!("We imported {} inputs from disk.", state.corpus().count());
             }
 
-            fuzzer.fuzz_loop(&mut stages, &mut executor, &mut rand, state, rt_handle)
+            fuzzer.fuzz_loop(&mut stages, &mut rand, state, rt_handle)
         })?
         .launch()
 }

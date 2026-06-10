@@ -108,13 +108,12 @@ where
     fn perform_impl(
         &mut self,
         fuzzer: &mut Z,
-        executor: &mut E,
         rand: &mut R,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
         testcase_id: &TestcaseId,
     ) -> Result<(), Error> {
-        self.perform_mutational(fuzzer, executor, rand, state, rt_handle, *testcase_id)
+        self.perform_mutational(fuzzer, rand, state, rt_handle, *testcase_id)
     }
 }
 
@@ -155,7 +154,6 @@ where
     fn perform_mutational(
         &mut self,
         fuzzer: &mut Z,
-        executor: &mut E,
         rand: &mut R,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
@@ -174,7 +172,7 @@ where
                 continue;
             }
 
-            let eval_res = fuzzer.evaluate_input(state, executor, rt_handle, &input)?;
+            let eval_res = fuzzer.evaluate_input(state, rt_handle, &input)?;
 
             self.mutator_mut().post_exec(state, &eval_res)?;
         }

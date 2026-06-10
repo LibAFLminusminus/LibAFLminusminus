@@ -1,17 +1,19 @@
-use std::{env, ffi::OsString};
+use std::env;
 
 use crate::{
     Result,
+    controllers::{Descriptor, Worker},
     executors::{
         ForkserverChannel, ForkserverExecutor, StdChildArgs, StdChildArgsInner,
         forkserver::{ForkserverConfig, ForkserverShm, KILL_SIGNAL_DEFAULT, report_error_and_exit},
     },
     mutators::Tokens,
     observers::{MapObserver, ObserversTuple},
+    runtimes::RuntimeHandle,
 };
 use libaflmm_bolts::{
     InputLocation, StdTargetArgs, StdTargetArgsInner, SysVShm,
-    fs::{InputFile, get_unique_std_input_file},
+    fs::{INPUTFILE_STD, InputFile},
     tuples::MatchNameRef,
 };
 use libaflmm_core::{
@@ -74,22 +76,24 @@ impl StdTargetArgs for ForkserverExecutorBuilder<'_> {
 impl<'a> ForkserverExecutorBuilder<'a> {
     /// Builds [`ForkserverExecutor`] downsizing the coverage map to fit exactly the AFL++ map size.
     #[expect(clippy::pedantic)]
-    pub fn build_dynamic_map<A, MO, OT, S>(
+    pub fn build_dynamic_map<A, MO, OT, S, W>(
         mut self,
         mut map_observer: A,
         other_observers: OT,
+        rt_handle: &RuntimeHandle<S, W>,
     ) -> Result<ForkserverExecutor<(A, OT)>>
     where
         A: AsMut<MO>,
         MO: MapObserver + Truncate,
         OT: ObserversTuple<S>,
         (A, OT): ObserversTuple<S>,
+        W: Worker,
     {
         if let Some(dynamic_map_size) = self.map_size {
             map_observer.as_mut().truncate(dynamic_map_size);
         }
 
-        let forkserver = self.build((map_observer, other_observers))?;
+        let forkserver = self.build((map_observer, other_observers), rt_handle)?;
 
         log::info!(
             "ForkserverExecutor: program: {:?}, arguments: {:?}, use_stdin: {:?}, map_size: {:?}",
@@ -114,16 +118,24 @@ impl<'a> ForkserverExecutorBuilder<'a> {
     /// in case no input file is specified.
     /// If `debug_child` is set, the child will print to `stdout`/`stderr`.
     #[expect(clippy::pedantic)]
-    pub fn build<OT>(&mut self, observers: OT) -> Result<ForkserverExecutor<OT>>
+    pub fn build<OT, S, W>(
+        &mut self,
+        observers: OT,
+        rt_handle: &RuntimeHandle<S, W>,
+    ) -> Result<ForkserverExecutor<OT>>
     where
         OT: MatchNameRef,
+        W: Worker,
     {
         let input_file = match &self.target_inner.input_location {
             InputLocation::StdIn {
                 input_file: out_file,
             } => match out_file {
                 Some(out_file) => out_file.clone(),
-                None => InputFile::create(OsString::from(get_unique_std_input_file()))?,
+                None => {
+                    let root = rt_handle.worker().descriptor().workdir().root_dir();
+                    InputFile::create(root.join(INPUTFILE_STD))?
+                }
             },
             InputLocation::Arg { argnum: _ } => {
                 return Err(illegal_argument!(

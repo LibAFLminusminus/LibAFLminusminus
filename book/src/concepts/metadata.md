@@ -1,6 +1,6 @@
 # Metadata
 
-A metadata in LibAFL is a self-contained structure that holds associated data to the State or to a Testcase.
+A metadata in `LibAFL--` is a self-contained structure that holds associated data to the State.
 
 In terms of code, a metadata can be defined as a Rust struct registered in the SerdeAny register.
 
@@ -21,26 +21,86 @@ The struct must be static, so it cannot hold references to borrowed objects.
 
 As an alternative to `derive(SerdeAny)` which is a proc-macro in `libafl_derive` the user can use `libafl_bolts::impl_serdeany!(MyMetadata);`.
 
-## Usage
+## Why do we need metadata?
+This concept of metadata serves as a method to cope with the problem of `in-process` execution mode. 
+In `in-process` execution mode, a crash originating from the target also means the crash in the fuzzer process, because both the target and the fuzzer lives inside the same process. 
+After the crash happened, we must, of course restart the fuzzer process and continue fuzzing. 
+`Metadata` is a way to save and restore this metadata across restarts.
 
-Metadata objects are primarily intended to be used inside [`SerdeAnyMap`](https://docs.rs/libafl_bolts/latest/libafl_bolts/serdeany/serdeany_registry/struct.SerdeAnyMap.html) and [`NamedSerdeAnyMap`](https://docs.rs/libafl_bolts/latest/libafl_bolts/serdeany/serdeany_registry/struct.NamedSerdeAnyMap.html).
+Another aspect of the metadata is that it works like a "global variable" that can bridge across different modules. 
+Imagine that you observed the execution in `Observer/Feedback` but you want to use that data in another module `Scheduler`. 
+For this, you can store the data into the metadata map of `State` and then retrieve it later. 
 
-With these maps, the user can retrieve instances by type (and name). Internally, the instances are stored as SerdeAny trait objects.
+## Serialization and Deserialization
 
-Structs that want to have a set of metadata must implement the [`HasMetadata`](https://docs.rs/libafl/latest/libafl/common/trait.HasMetadata.html) trait.
-
-By default, Testcase and State implement it and hold a SerdeAnyMap testcase.
-
-## (De)Serialization
-
-We are interested to store State's Metadata to not lose them in case of crash or stop of a fuzzer.
+We are interested in storing the State's metadata so as not to lose them in case of a crash or stop of a fuzzer. 
 To do that, they must be serialized and unserialized using Serde.
 
 As Metadata is stored in a SerdeAnyMap as trait objects, they cannot be deserialized using Serde by default.
 
-To cope with this problem, in LibAFL each SerdeAny struct must be registered in a global registry that keeps track of types and allows the (de)serialization of the registered types.
+To cope with this problem, in `LibAFL--` each SerdeAny struct must be registered in a global registry that keeps track of types and allows the (de)serialization of the registered types.
 
-Normally, the `impl_serdeany` macro does that for the user creating a constructor function that fills the registry.
-However, when using LibAFL in no_std mode, this operation must be carried out manually before any other operation in the `main` function.
+Normally, the `impl_serdeany` macro does that for the user creating a constructor function that fills the registry, which will then be called automatically upon the start of the fuzzer.
 
-To do that, the developer needs to know each metadata type that is used inside the fuzzer and call `RegistryBuilder::register::<MyMetadata>()` for each of them at the beginning of `main`.
+## Usage
+
+Metadata objects are primarily intended to be used inside [`SerdeAnyMap`](https://docs.rs/libafl_bolts/latest/libafl_bolts/serdeany/serdeany_registry/struct.SerdeAnyMap.html) and [`NamedSerdeAnyMap`](https://docs.rs/libafl_bolts/latest/libafl_bolts/serdeany/serdeany_registry/struct.NamedSerdeAnyMap.html).
+
+With these metadata maps, the user can retrieve instances by type and name. 
+Internally, the instances are stored as SerdeAny trait objects.
+
+In `LibAFL--`, `StdState` holds an object of `NamedSerdeAnyMap`. 
+Anything that you store inside this metadata maps is persistent across restarts.
+On the other hand, if you don't store your data inside this metadata map, your data will be lost across restarts. 
+
+## Example
+Let's take a simple example.
+Conceptually, imagine that you want to save a "score" to represent the goodness of a testcase.
+
+In this case, you can define a structure to hold all these score for the testcases so that they are not lost during restarts
+```rust
+pub struct ScoreMetadata {
+    scores: HashMap<TestcaseId, f64>
+}
+
+libaflmm_bolts::impl_serdeany!(ScoreMetadata);
+```
+
+After, you can attach to this metadata to the state's metadata map.
+```rust
+let name = "example";
+named_metadata_mut::<ScoreMetadata>(state.metadata_map_mut(), name)?;
+```
+
+## Named metadata and Unnamed metadata.
+For historical reasons, we have two types of metadata map implemented; `SerdeAnyMap` and `NamedSerdeAnyMap`. 
+However, in `LibAFL--`, we only use `NamedSerdeAnyMap` for simplicity. 
+This means that the metadata map is indexed twice. 
+It is first indexed by using the user-given `name`, and secondly indexed by using the type (type id) of the stored object. 
+However, it is not always necessary that users want to use the `name` to index the name, and for this reason, we offer two sets of `API`s.
+The "named" metadata `API`s and the "unnamed" metadata `API`s.
+
+For example, `named_metadata_mut<'a, M>(map: &'a mut NamedSerdeAnyMap, name: &str)` finds the object that matches both the type `M` and the `name` from the `map`. 
+Similarly, `unnamed_metadata_mut<M>(map: &mut NamedSerdeAnyMap)` finds the object that matches the type `M` and doesn't care about the name. 
+Internally this `API` will just use the empty string `""` for matching against the name. 
+If you don't care the names, you can simply use this "un-named" type of `API`.
+
+# Dependency Resolver
+Thus far, we've seen that we maintain a metadata map to keep data persistent across restarts. 
+In reality, as your fuzzer gets more complex, one problem arises.
+
+## Why dependency resolver?
+Remember when we said that metadata could be used as "global variables" that bridge different modules?
+In that case, for example, one module X can produce the data later to be used by another module Y. 
+In that case, we have a dependency: the data consumed by the module Y **must** be generated by the module X.
+If, then, the user swapped module X with a similarly working module X2 that doesn't produce the metadata, we'll have an error or a runtime panic in the fuzzer.
+This is a pain to handle, and we can't easily resolve this problem with compile-time checkups.
+Thus, we bring the check during initialization.
+
+We introduce the trait `DependencyResolver` to address this problem. 
+This trait basically provides two `API`s, that most modules in `LibAFL--` will implement:
+`register()` allows the user to register any metadata used inside that specific module, and initialize it.
+`check()` allows the user to add checks to make sure certain conditions are met regarding the registered metadata. 
+For example, you can check that a specific metadata is registered already.
+
+At the start-up of a fuzzer, we will first call `register()` to register and initialize all the metadata requested, then call `check()` to see if they are in a healthy state. 

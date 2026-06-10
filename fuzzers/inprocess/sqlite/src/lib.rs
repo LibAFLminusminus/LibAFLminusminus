@@ -164,21 +164,14 @@ where
     let mut stages = tuple_list!(StdMutationalStage::new(mutator));
 
     // Create the executor for an in-process function with one observer for edge coverage and one for the execution time
-    let mut executor = StdExecutor::new(
+    let executor = StdExecutor::new(
         &mut harness,
         tuple_list!(edges_observer, time_observer),
         Some(Duration::new(10, 0)),
     );
 
     // A fuzzer with feedbacks and a corpus scheduler
-    let mut fuzzer = StdFuzzer::new(
-        feedback,
-        objective,
-        &mut stages,
-        &mut executor,
-        state,
-        rt_handle,
-    )?;
+    let mut fuzzer = StdFuzzer::new(executor, feedback, objective, &mut stages, state, rt_handle)?;
 
     // The actual target run starts here.
     // Call LLVMFuzzerInitialize() if present.
@@ -199,19 +192,12 @@ where
         let mut in_dirs = env::current_dir()?;
         in_dirs.push("corpus");
         state
-            .load_initial_inputs(&mut fuzzer, &mut executor, rt_handle, &[in_dirs.clone()])
+            .load_initial_inputs(&mut fuzzer, rt_handle, &[in_dirs.clone()])
             .unwrap_or_else(|_| panic!("Failed to load initial corpus at {:?}", &in_dirs));
         println!("We imported {} inputs from disk.", state.corpus().count());
     }
 
-    fuzzer.fuzz_loop_for(
-        &mut stages,
-        &mut executor,
-        &mut rand,
-        state,
-        rt_handle,
-        iters,
-    )?;
+    fuzzer.fuzz_loop_for(&mut stages, &mut rand, state, rt_handle, iters)?;
 
     Ok(())
 }
