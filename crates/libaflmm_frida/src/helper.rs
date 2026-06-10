@@ -16,7 +16,7 @@ use frida_gum::{
     stalker::{StalkerIterator, StalkerOutput, Transformer},
 };
 use frida_gum_sys::gchar;
-use libaflmm::Error;
+use libaflmm::Result;
 use libaflmm_bolts::drcov::DrCovBasicBlock;
 use libaflmm_bolts::tuples::MatchFirstType;
 #[cfg(unix)]
@@ -53,10 +53,10 @@ pub trait FridaRuntime: 'static + Debug + core::any::Any {
     fn deinit(&mut self, gum: &Gum);
 
     /// Method called before execution
-    fn pre_exec(&mut self, input_bytes: &[u8]) -> Result<(), Error>;
+    fn pre_exec(&mut self, input_bytes: &[u8]) -> Result<()>;
 
     /// Method called after execution
-    fn post_exec(&mut self, input_bytes: &[u8]) -> Result<(), Error>;
+    fn post_exec(&mut self, input_bytes: &[u8]) -> Result<()>;
 }
 
 /// Use the runtime if closure evaluates to true
@@ -90,7 +90,7 @@ impl<CB, FR1, FR2> IfElseRuntime<CB, FR1, FR2> {
 
 impl<CB, FR1, FR2> FridaRuntime for IfElseRuntime<CB, FR1, FR2>
 where
-    CB: FnMut() -> Result<bool, Error> + 'static,
+    CB: FnMut() -> Result<bool> + 'static,
     FR1: FridaRuntimeTuple + 'static,
     FR2: FridaRuntimeTuple + 'static,
 {
@@ -115,7 +115,7 @@ where
         }
     }
 
-    fn pre_exec(&mut self, input_bytes: &[u8]) -> Result<(), Error> {
+    fn pre_exec(&mut self, input_bytes: &[u8]) -> Result<()> {
         if (self.closure)()? {
             self.if_runtimes.pre_exec_all(input_bytes)
         } else {
@@ -123,7 +123,7 @@ where
         }
     }
 
-    fn post_exec(&mut self, input_bytes: &[u8]) -> Result<(), Error> {
+    fn post_exec(&mut self, input_bytes: &[u8]) -> Result<()> {
         if (self.closure)()? {
             self.if_runtimes.post_exec_all(input_bytes)
         } else {
@@ -145,10 +145,10 @@ pub trait FridaRuntimeTuple: MatchFirstType + Debug {
     fn deinit_all(&mut self, gum: &Gum);
 
     /// Method called before execution
-    fn pre_exec_all(&mut self, input_bytes: &[u8]) -> Result<(), Error>;
+    fn pre_exec_all(&mut self, input_bytes: &[u8]) -> Result<()>;
 
     /// Method called after execution
-    fn post_exec_all(&mut self, input_bytes: &[u8]) -> Result<(), Error>;
+    fn post_exec_all(&mut self, input_bytes: &[u8]) -> Result<()>;
 }
 
 impl FridaRuntimeTuple for () {
@@ -161,10 +161,10 @@ impl FridaRuntimeTuple for () {
     }
     fn deinit_all(&mut self, _gum: &Gum) {}
 
-    fn pre_exec_all(&mut self, _input_bytes: &[u8]) -> Result<(), Error> {
+    fn pre_exec_all(&mut self, _input_bytes: &[u8]) -> Result<()> {
         Ok(())
     }
-    fn post_exec_all(&mut self, _input_bytes: &[u8]) -> Result<(), Error> {
+    fn post_exec_all(&mut self, _input_bytes: &[u8]) -> Result<()> {
         Ok(())
     }
 }
@@ -189,12 +189,12 @@ where
         self.1.deinit_all(gum);
     }
 
-    fn pre_exec_all(&mut self, input_bytes: &[u8]) -> Result<(), Error> {
+    fn pre_exec_all(&mut self, input_bytes: &[u8]) -> Result<()> {
         self.0.pre_exec(input_bytes)?;
         self.1.pre_exec_all(input_bytes)
     }
 
-    fn post_exec_all(&mut self, input_bytes: &[u8]) -> Result<(), Error> {
+    fn post_exec_all(&mut self, input_bytes: &[u8]) -> Result<()> {
         self.0.post_exec(input_bytes)?;
         self.1.post_exec_all(input_bytes)
     }
@@ -246,14 +246,14 @@ impl FridaRuntimeTuple for FridaRuntimeVec {
         }
     }
 
-    fn pre_exec_all(&mut self, input_bytes: &[u8]) -> Result<(), Error> {
+    fn pre_exec_all(&mut self, input_bytes: &[u8]) -> Result<()> {
         for runtime in &mut self.0 {
             runtime.pre_exec(input_bytes)?;
         }
         Ok(())
     }
 
-    fn post_exec_all(&mut self, input_bytes: &[u8]) -> Result<(), Error> {
+    fn post_exec_all(&mut self, input_bytes: &[u8]) -> Result<()> {
         for runtime in &mut self.0 {
             runtime.post_exec(input_bytes)?;
         }
@@ -848,12 +848,12 @@ where
     }
 
     /// Method called before execution
-    pub fn pre_exec(&mut self, input_bytes: &[u8]) -> Result<(), Error> {
+    pub fn pre_exec(&mut self, input_bytes: &[u8]) -> Result<()> {
         (*self.runtimes).borrow_mut().pre_exec_all(input_bytes)
     }
 
     /// Method called after execution
-    pub fn post_exec(&mut self, input_bytes: &[u8]) -> Result<(), Error> {
+    pub fn post_exec(&mut self, input_bytes: &[u8]) -> Result<()> {
         (*self.runtimes).borrow_mut().post_exec_all(input_bytes)
     }
 

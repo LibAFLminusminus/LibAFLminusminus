@@ -1,17 +1,18 @@
 //! Utilities to parse and process ELFs
 
+use goblin::elf::{Elf, header::ET_DYN};
+use libaflmm::unknown;
+use libaflmm_qemu_sys::GuestAddr;
 use std::{fs::File, io::Read, ops::Range, path::Path, str};
 
-use goblin::elf::{Elf, header::ET_DYN};
-use libaflmm::Error;
-use libaflmm_qemu_sys::GuestAddr;
+use crate::Result;
 
 pub struct EasyElf<'a> {
     elf: Elf<'a>,
 }
 
 impl<'a> EasyElf<'a> {
-    pub fn get_needed(&self) -> Result<Vec<&'a str>, Error> {
+    pub fn get_needed(&self) -> Result<Vec<&'a str>> {
         let mut v: Vec<&str> = Vec::new();
         for dyn_lib in &self.elf.libraries {
             v.push(dyn_lib);
@@ -19,17 +20,17 @@ impl<'a> EasyElf<'a> {
         Ok(v)
     }
 
-    pub fn from_file(path: impl AsRef<Path>, buffer: &'a mut Vec<u8>) -> Result<Self, Error> {
+    pub fn from_file(path: impl AsRef<Path>, buffer: &'a mut Vec<u8>) -> Result<Self> {
         let elf = {
             let mut binary_file = File::open(path)?;
             binary_file.read_to_end(buffer)?;
-            Elf::parse(buffer).map_err(|e| Error::unknown(format!("{e}")))
+            Elf::parse(buffer).map_err(|e| unknown!("{e}"))
         }?;
         Ok(Self { elf })
     }
 
-    pub fn from_slice(buffer: &'a [u8]) -> Result<Self, Error> {
-        let elf = Elf::parse(buffer).map_err(|e| Error::unknown(format!("{e}")))?;
+    pub fn from_slice(buffer: &'a [u8]) -> Result<Self> {
+        let elf = Elf::parse(buffer).map_err(|e| unknown!("{e}"))?;
         Ok(Self { elf })
     }
 
