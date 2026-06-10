@@ -40,9 +40,9 @@
 
 - [QEMU](./qemu/index.md)
   - [Usermode](./qemu/usermode.md)
-    - [Usermode Example](./qemu/usermode_example.md)
+    - [Usermode Example](./qemu/usermode.md)
   - [Systemmode](./qemu/systemmode.md)
-    - [Systemmode Example](./nyx/systemmode_example.md)
+    - [Systemmode Example](./nyx/systemmode.md)
 
 - [Intel PT](./intel_pt/index.md)
 
