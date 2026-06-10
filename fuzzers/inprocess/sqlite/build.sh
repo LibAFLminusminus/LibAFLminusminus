@@ -9,13 +9,17 @@ fi
 
 if [ "$1" = "release" ]; then
   cargo build --release
-  export CC=`pwd`/target/release/libafl_cc
-  export CXX=`pwd`/target/release/libafl_cxx
-else
+  DIR=release
+elif [ "$1" = "dev" ]; then
   cargo build
-  export CC=`pwd`/target/debug/libafl_cc
-  export CXX=`pwd`/target/debug/libafl_cxx
+  DIR=debug
+else
+    echo "Incorrect profile: $1. Either use 'dev' or 'release'."
+    exit 1
 fi
+
+export CC="$PWD/target/$DIR/libafl_cc"
+export CXX="$PWD/target/$DIR/libafl_cxx"
 export CFLAGS='--libafl'
 export CXXFLAGS='--libafl'
 export CFLAGS="$CFLAGS -DSQLITE_MAX_LENGTH=128000000 \
@@ -35,10 +39,9 @@ make sqlite3.c
 make -j$(nproc)
 popd
 
-if [ "$1" = "release" ]; then
-  ./target/release/libafl_cc --libafl -I ./sqlite3 -c ./sqlite3/test/ossfuzz.c -o ./sqlite3/test/ossfuzz.o
-  ./target/release/libafl_cxx --libafl -o ossfuzz ./sqlite3/test/ossfuzz.o ./sqlite3/sqlite3.o -pthread -ldl -lz
-else
-  ./target/debug/libafl_cc --libafl -I ./sqlite3 -c ./sqlite3/test/ossfuzz.c -o ./sqlite3/test/ossfuzz.o
-  ./target/debug/libafl_cxx --libafl -o ossfuzz ./sqlite3/test/ossfuzz.o ./sqlite3/sqlite3.o -pthread -ldl -lz
-fi
+echo "Compiling 'ossfuzz' with profile '$1'..."
+
+eval "./target/$DIR/libafl_cc --libafl -I ./sqlite3 -c ./sqlite3/test/ossfuzz.c -o ./sqlite3/test/ossfuzz.o"
+eval "./target/$DIR/libafl_cxx --libafl -o ossfuzz ./sqlite3/test/ossfuzz.o ./sqlite3/sqlite3.o -pthread -ldl -lz"
+
+echo "'ossfuzz' is ready."

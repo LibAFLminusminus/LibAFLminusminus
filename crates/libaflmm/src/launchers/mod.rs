@@ -162,6 +162,22 @@ impl<CT, MT, RT, S, SB, TM> StdLauncherBuilder<CT, MT, RT, S, SB, TM> {
         }
     }
 
+    /// Set the timer used by the runtime built with [`Self::build_inprocess`].
+    pub fn timer<TM2>(self, timer: TM2) -> StdLauncherBuilder<CT, MT, RT, S, SB, TM2> {
+        StdLauncherBuilder {
+            controller: self.controller,
+            monitor: self.monitor,
+            cores: self.cores,
+            runtime: self.runtime,
+            state_builder: self.state_builder,
+            max_state_size_per_client: self.max_state_size_per_client,
+            monitor_refresh: self.monitor_refresh,
+            timeout: self.timeout,
+            timer,
+            phantom: self.phantom,
+        }
+    }
+
     /// Set the [`Monitor`].
     pub fn monitor<MT2>(self, monitor: MT2) -> StdLauncherBuilder<CT, MT2, RT, S, SB, TM> {
         StdLauncherBuilder {

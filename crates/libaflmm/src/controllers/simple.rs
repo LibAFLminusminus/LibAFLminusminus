@@ -121,6 +121,10 @@ impl Controller for SimpleController {
     type Worker = SimpleWorker;
     type Descriptor = SimpleDescriptor;
 
+    fn root_dir(&self) -> &Path {
+        self.root_dir.as_path()
+    }
+
     fn create_worker(&mut self, core_id: CoreId) -> Result<SimpleWorker> {
         let worker_id = WorkerId(self.id_ctr);
         self.id_ctr += 1;
