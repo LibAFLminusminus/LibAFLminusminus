@@ -97,7 +97,7 @@ where
         .program(opt.executable)
         .debug_child(false)
         .autotokens(&mut tokens)
-        .parse_afl_cmdline(args)
+        .args(args)
         .coverage_map_size(MAP_SIZE)
         .try_use_input_shmem()
         .timeout(Duration::from_millis(3000))

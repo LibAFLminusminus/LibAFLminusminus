@@ -14,8 +14,6 @@
     - [In-process](./concepts/operation_modes/in_process.md)
   - [Metadata](./concepts/metadata.md)
   - [Tuples](./concepts/tuples.md)
-  - [Errors](./concepts/errors.md)
-  - [Debugging](./concepts/debugging.md)
   - [Performance](./concepts/performance.md)
 
 - [Components](./components/index.md)
@@ -34,8 +32,10 @@
 - [Targets](./targets/index.md)
 
 - [Frida](./frida/index.md)
+  - [Frida Example](./frida/frida_example.md)
 
 - [Nyx](./nyx/index.md)
+  - [Nyx Example](./nyx/nyx_example.md)
 
 - [QEMU](./qemu/index.md)
   - [Usermode](./qemu/usermode.md)
@@ -46,11 +46,14 @@
 - [Examples](./examples/index.md)
   - [Forkserver](./examples/forkserver.md)
   - [In-process](./examples/in_process.md)
+<<<<<<< HEAD
+=======
   - [Frida](./examples/frida.md)
   - [Nyx](./examples/nyx.md)
   - [QEMU](./examples/qemu/index.md)
     - [Usermode](./examples/qemu/usermode.md)
     - [Systemmode](./examples/qemu/systemmode.md)
+>>>>>>> main
 
 [//]: <> (Use cases: binary only, network, etc...)
 [//]: <> (Optimal configuration for most common scenarios)
@@ -59,5 +62,6 @@
 [Development Tips](./development_tips.md)
 
 [Contributing](./contributing.md)
+[Debugging](./debugging.md)
 
 [Migrating from LibAFL](./libafl_migration.md)
