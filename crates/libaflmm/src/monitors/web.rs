@@ -70,7 +70,7 @@ impl WebMonitor {
             cwd.join(root_dir)
         };
 
-        let filename = format!("{}.json", WEBUI_PREFIX);
+        let filename = format!("{WEBUI_PREFIX}.json");
         let history_path = root_dir.join(filename);
         let _ = std::fs::remove_file(&history_path);
         let shared = Arc::new(RwLock::new(SharedState {

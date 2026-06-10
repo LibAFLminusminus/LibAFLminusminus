@@ -12,7 +12,8 @@ use crate::{
     },
     states::State,
 };
-use std::{pin::Pin, process::exit, ptr::NonNull, time::Duration};
+use core::{pin::Pin, ptr::NonNull, time::Duration};
+use std::process::exit;
 
 /// Object enabling interacting with a runtime's environment from the task.
 /// It can be used to perform runtime-level operations generically.
@@ -174,10 +175,10 @@ impl<S, W> RuntimeHandle<S, W> {
     where
         S: Serialize,
     {
-        if let Some(termination) = self.termination_data_ptr.as_mut() {
-            if let Some(saver) = unsafe { termination.saver() } {
-                saver.send(state).expect("State save failed");
-            }
+        if let Some(termination) = self.termination_data_ptr.as_mut()
+            && let Some(saver) = unsafe { termination.saver() }
+        {
+            saver.send(state).expect("State save failed");
         }
 
         exit(LIBAFLMM_EXIT_RESTART)
