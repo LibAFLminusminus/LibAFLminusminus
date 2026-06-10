@@ -148,7 +148,6 @@ impl<T> Named for RefCellValueObserver<'_, T> {
     }
 }
 
-
 /// [`Iterator`] over [`RefCellValueObserver`] of a [`Deref`] to `[T]`.
 #[derive(Debug)]
 pub struct RefCellValueObserverIter<'it, T> {
