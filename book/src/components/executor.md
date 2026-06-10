@@ -49,4 +49,4 @@ On your fuzzer side, you can pass this shmem map to your `Observer` to obtain co
 
 # Component relationship
 
-Executor is a component held by a [`Fuzzer`](./components/fuzzer.md)
+Executor is a component held by a [`Fuzzer`](./fuzzer.md)

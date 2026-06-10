@@ -1,7 +1,7 @@
 # Launcher
 
 Launcher is a module responsible for spawning and starting up the fuzzer instances and monitors them till they exit.
-Before launcher creates spawns each fuzzer, it will create `Worker`(./components/worker.md) for each of the fuzzer instance.
+Before launcher creates spawns each fuzzer, it will create [`Worker`](./components/worker.md) for each of the fuzzer instance.
 The `Worker` is a instance that holds all the data specific to a fuzzing process, such as `pid`, which core it is bound to, the working directory, and so on.
 We adopt a clear `Controller-Worker` model here. 
 Each fuzzer process will have their own resource space described by each `Worker`, and all the `Worker`s are managed by the `Controller` to have a centralized view of what is happening across all the fuzzers. 
@@ -23,4 +23,4 @@ For now, we have two modules.
 # Component relationship
 
 Launcher is a top-level module for process management.
-Launcher will contain a `Monitor` and a [`Controller`](./components/controller.md). Both objects are used for managing and monitoring multiple fuzzer processes involved.
+Launcher will contain a `Monitor` and a [`Controller`](./controller.md). Both objects are used for managing and monitoring multiple fuzzer processes involved.

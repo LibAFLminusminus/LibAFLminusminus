@@ -24,5 +24,5 @@ In a sense, you can "program" how you want to run the stages.
 
 # Component relationship
 
-We obviously want to run multiple stages, stages are often grouped inside a [`tuple_list!`](./concepts/tuples.md).
-This tuple list is held by a [Fuzzer](./components/fuzzer.md) object.
+We obviously want to run multiple stages, stages are often grouped inside a [`tuple_list!`](../concepts/tuples.md).
+This tuple list is held by a [Fuzzer](./fuzzer.md) object.

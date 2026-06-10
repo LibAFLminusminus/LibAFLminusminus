@@ -22,5 +22,5 @@ This trait defines a method `to_bytes` which you can implement in order to tell 
 
 # Component relationship
 
-Each input is stored as a `Testcase` in `Corpus`. (`Corpus` is stored in [`State`](./components/state.md)).
-Each state is associated with only one type of `Input` and [`State`](./components/state.md) also holds an object of `InputContext`.
+Each input is stored as a `Testcase` in `Corpus`. (`Corpus` is stored in [`State`](./state.md)).
+Each state is associated with only one type of `Input` and [`State`](./state.md) also holds an object of `InputContext`.

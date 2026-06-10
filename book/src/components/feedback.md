@@ -16,7 +16,7 @@ Ultimately, it reduces the observations to a boolean result of `is interesting` 
 
 Often, you want to store something to persist in the fuzzer's state when you use `Feedback`s.
 This might be, for instance, the cumulative map of all edges seen so far, in the case of a feedback based on edge coverage.
-This can be achieved by adding `Metadata`. We explain this concept in [another section](./concepts/metadata.md)
+This can be achieved by adding `Metadata`. We explain this concept in [another section](../concepts/metadata.md)
 Typically you want to add those metadata in `append_metadata` method of `Feedback` trait.
 
 Multiple Feedbacks can be combined into a boolean expression. 
@@ -37,7 +37,7 @@ On top, logic operators like `feedback_or` and `feedback_and` have a `_fast` var
 
 ## Objectives
 
-While feedbacks are commonly used to decide if an [`Input`](./components/input.md) should be kept for future mutations, they serve a double-purpose, as so-called `Objective Feedbacks`.
+While feedbacks are commonly used to decide if an [`Input`](./input.md.md) should be kept for future mutations, they serve a double-purpose, as so-called `Objective Feedbacks`.
 In this case, the `interestingness` of a feedback indicates if an `Objective` has been hit.
 Commonly, these objectives would be a crash or a timeout, but they can also be used to detect if specific parts of the program have been reached, for sanitization, or a differential fuzzing success.
 Objectives use the same trait as a normal `Feedback` and the implementations can be used interchangeably.
@@ -52,4 +52,4 @@ Usually they are the crashes and timeouts ready to be analyzed.
 
 # Component relationship
 
-Both `Feedback` and `Objective Feedback` is a object held by a [`Fuzzer`](./components/fuzzer.md) object.
+Both `Feedback` and `Objective Feedback` is a object held by a [`Fuzzer`](./fuzzer.md) object.

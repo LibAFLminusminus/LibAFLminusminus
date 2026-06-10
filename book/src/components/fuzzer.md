@@ -1,7 +1,7 @@
 # Fuzzer
 
 `Fuzzer` is a the top-level module to describe what a fuzzer does in a fuzzing loop.
-For example, our `StdFuzzer` is a `Fuzzer` implementation for mutational fuzzing will first pick a testcase chosen by the scheduler, then run the testcase with all the provided [`Stages`](./components/stages.md).
+For example, our `StdFuzzer` is a `Fuzzer` implementation for mutational fuzzing will first pick a testcase chosen by the scheduler, then run the testcase with all the provided [`Stages`](./stages.md).
 Just simple as that.
 
 Of course you can think of other form `Fuzzer` implementation. 
