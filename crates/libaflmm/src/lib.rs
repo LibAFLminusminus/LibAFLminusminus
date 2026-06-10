@@ -88,7 +88,7 @@ pub mod prelude {
         AflMapFeedback, AlwaysInterestingMapFeedback, BoolValueFeedback, ConstFeedback,
         CrashFeedback, DiffExitKindFeedback, EagerAndFeedback, EagerOrFeedback, ExitKindFeedback,
         Feedback, FeedbackFactory, ListFeedback, MapFeedback, MaxMapFeedback,
-        MaxMapOneOrFilledFeedback, MaxMapPow2Feedback, MinMapFeedback, NewHashFeedback,
+        MaxMapOneOrFilledFeedback, MaxMapPow2Feedback, MinMapFeedback,
         NotFeedback, StdFeedback, StdMapFeedback, StdObjectiveFeedback, TimeFeedback,
         TimeoutFeedback,
     };
@@ -137,7 +137,7 @@ pub mod prelude {
     pub use crate::observers::{
         CmpLogMetadata, CmpLogObserver, ConstLenMapObserver, ConstMapObserver,
         HitcountsIterableMapObserver, HitcountsMapObserver, ListObserver, MapObserver,
-        MultiMapObserver, Observer, ObserverWithHashField, ObserversTuple, OutputObserver,
+        MultiMapObserver, Observer, ObserversTuple, OutputObserver,
         SizePtrMapObserver, StdCmpLogObserver, StdErrObserver, StdMapObserver, StdObserver,
         StdOutObserver, TimeObserver, ValueObserver, VarLenMapObserver, VariableMapObserver,
     };

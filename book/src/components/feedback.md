@@ -35,6 +35,11 @@ will return true if 1. "a is true" or 2. "b is true and c is false".
 
 On top, logic operators like `feedback_or` and `feedback_and` have a `_fast` variant (e.g. `feedback_or_fast`) where the second feedback will not be evaluated, if the value of the first feedback operand already answers the `interestingness` question so as to save precious performance.
 
+Our collection of feedbacks includes:
+`StdMapFeedback`: the standard map feedback for max-map coverage evaluation. It automatically explot SIMD instructions for speedups.
+`BoolValueFeedback`: the feedback for evaluating a single boolean value.
+`ListFeedback`: the feedback for evaluating novelties with a hashset.
+
 ## Objectives
 
 While feedbacks are commonly used to decide if an [`Input`](./input.md) should be kept for future mutations, they serve a double-purpose, as so-called `Objective Feedbacks`.
