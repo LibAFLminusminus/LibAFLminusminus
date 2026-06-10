@@ -15,7 +15,8 @@ If you are on Windows, you'll need to install llvm tools.
 ## Harness & Instrumentation
 
 LibAFL uses Frida's [__Stalker__](https://frida.re/docs/stalker/) to trace the execution of your program and instrument your harness.
-Thus, you have to compile your harness to a dynamic library. Frida instruments your target after dynamically loading it.
+Thus, you have to compile your harness to a dynamic library.
+Frida instruments your target after dynamically loading it.
 
 In our `frida_libpng` example, we load the dynamic library and find the symbol to harness as follows:
 
@@ -30,7 +31,8 @@ In our `frida_libpng` example, we load the dynamic library and find the symbol t
 
 To use functionalities that Frida offers, we'll first need to obtain a `Gum` object by `Gum::obtain()`.
 
-In LibAFL, we use the `FridaInstrumentationHelper` struct to manage frida-related state. `FridaInstrumentationHelper` is a key component that sets up the [__Transformer__](https://frida.re/docs/stalker/#transformer) that is used to generate the instrumented code. It also initializes the `Runtimes` that offer various instrumentations.
+In LibAFL, we use the `FridaInstrumentationHelper` struct to manage frida-related state. `FridaInstrumentationHelper` is a key component that sets up the [__Transformer__](https://frida.re/docs/stalker/#transformer) that is used to generate the instrumented code.
+It also initializes the `Runtimes` that offer various instrumentations.
 
 We have `CoverageRuntime` that can track the edge coverage,  `AsanRuntime` for address sanitizer, `DrCovRuntime` that uses [__DrCov__](https://dynamorio.org/page_drcov.html) for coverage collection (to be imported in coverage tools like Lighthouse, bncov, dragondance,...), and `CmpLogRuntime` for cmplog instrumentation.
 All of these runtimes can be slotted into `FridaInstrumentationHelper` at build time.

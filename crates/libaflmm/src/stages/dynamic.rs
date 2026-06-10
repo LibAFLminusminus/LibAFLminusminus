@@ -52,15 +52,14 @@ where
     fn perform_impl(
         &mut self,
         fuzzer: &mut Z,
-        executor: &mut E,
         rand: &mut R,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
         testcase_id: &TestcaseId,
     ) -> Result<()> {
         match self {
-            Self::Stage1(st1) => st1.perform(fuzzer, executor, rand, state, rt_handle, testcase_id),
-            Self::Stage2(st2) => st2.perform(fuzzer, executor, rand, state, rt_handle, testcase_id),
+            Self::Stage1(st1) => st1.perform(fuzzer, rand, state, rt_handle, testcase_id),
+            Self::Stage2(st2) => st2.perform(fuzzer, rand, state, rt_handle, testcase_id),
         }
     }
 
@@ -68,12 +67,11 @@ where
     fn perform(
         &mut self,
         fuzzer: &mut Z,
-        executor: &mut E,
         rand: &mut R,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
         testcase_id: &TestcaseId,
     ) -> Result<()> {
-        self.perform_impl(fuzzer, executor, rand, state, rt_handle, testcase_id)
+        self.perform_impl(fuzzer, rand, state, rt_handle, testcase_id)
     }
 }

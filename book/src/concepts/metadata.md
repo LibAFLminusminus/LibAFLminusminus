@@ -23,7 +23,7 @@ As an alternative to `derive(SerdeAny)` which is a proc-macro in `libafl_derive`
 
 ## Usage
 
-Metadata objects are primarly intended to be used inside [`SerdeAnyMap`](https://docs.rs/libafl_bolts/latest/libafl_bolts/serdeany/serdeany_registry/struct.SerdeAnyMap.html) and [`NamedSerdeAnyMap`](https://docs.rs/libafl_bolts/latest/libafl_bolts/serdeany/serdeany_registry/struct.NamedSerdeAnyMap.html).
+Metadata objects are primarily intended to be used inside [`SerdeAnyMap`](https://docs.rs/libafl_bolts/latest/libafl_bolts/serdeany/serdeany_registry/struct.SerdeAnyMap.html) and [`NamedSerdeAnyMap`](https://docs.rs/libafl_bolts/latest/libafl_bolts/serdeany/serdeany_registry/struct.NamedSerdeAnyMap.html).
 
 With these maps, the user can retrieve instances by type (and name). Internally, the instances are stored as SerdeAny trait objects.
 
@@ -33,12 +33,14 @@ By default, Testcase and State implement it and hold a SerdeAnyMap testcase.
 
 ## (De)Serialization
 
-We are interested to store State's Metadata to not lose them in case of crash or stop of a fuzzer. To do that, they must be serialized and unserialized using Serde.
+We are interested to store State's Metadata to not lose them in case of crash or stop of a fuzzer.
+To do that, they must be serialized and unserialized using Serde.
 
 As Metadata is stored in a SerdeAnyMap as trait objects, they cannot be deserialized using Serde by default.
 
 To cope with this problem, in LibAFL each SerdeAny struct must be registered in a global registry that keeps track of types and allows the (de)serialization of the registered types.
 
-Normally, the `impl_serdeany` macro does that for the user creating a constructor function that fills the registry. However, when using LibAFL in no_std mode, this operation must be carried out manually before any other operation in the `main` function.
+Normally, the `impl_serdeany` macro does that for the user creating a constructor function that fills the registry.
+However, when using LibAFL in no_std mode, this operation must be carried out manually before any other operation in the `main` function.
 
 To do that, the developer needs to know each metadata type that is used inside the fuzzer and call `RegistryBuilder::register::<MyMetadata>()` for each of them at the beginning of `main`.

@@ -11,7 +11,8 @@ In other words, `Mutation` is the component representing each mutation operation
 
 Consider a generic Mutator for a byte stream, bit flip is just one of the possible mutations but not the only one, there is also, for instance, the random replacement of a byte of the copy of a chunk.
 
-There are also mutators that always produce valid inputs, say a mutator that generates valid JSON or code, but these grammar based mutators need a grammar to work.
+Some mutators can also always produce valid inputs, like a mutator that generates valid JSON or code.
+However, these grammar-based mutators need a grammar to work.
 
 # Generator
 

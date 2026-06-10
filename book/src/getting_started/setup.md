@@ -4,12 +4,11 @@ The first step is to download LibAFL and all dependencies that are not automatic
 
 > ### Command Line Notation
 >
-> In this chapter and throughout the book, we show some commands used in the
-> terminal. Lines that you should enter in a terminal all start with `$`. You
-> don’t need to type in the `$` character; it indicates the start of each
-> command. Lines that don’t start with `$` typically show the output of the
-> previous command. Additionally, PowerShell-specific examples will use `>`
-> rather than `$`.
+> In this chapter and throughout the book, we show some commands used in the terminal.
+> Lines that you should enter in a terminal all start with `$`.
+> You don’t need to type in the `$` character; it indicates the start of each command.
+> Lines that don’t start with `$` typically show the output of the previous command.
+> Additionally, PowerShell-specific examples will use `>` rather than `$`.
 
 While technically you do not need to install LibAFL, but can use the version from crates.io directly, we do recommend to download or clone the GitHub version.
 This gets you the example fuzzers, additional utilities, and latest patches.

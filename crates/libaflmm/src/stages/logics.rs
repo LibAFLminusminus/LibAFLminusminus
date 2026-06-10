@@ -44,22 +44,21 @@ impl<CB, ST> Named for WhileStage<CB, ST> {
 
 impl<CB, E, R, ST, S, W, Z> Stage<E, R, S, W, Z> for WhileStage<CB, ST>
 where
-    CB: FnMut(&mut RuntimeHandle<S, W>, &mut E, &mut R, &mut S, &mut Z) -> Result<bool>,
+    CB: FnMut(&mut RuntimeHandle<S, W>, &mut R, &mut S, &mut Z) -> Result<bool>,
     S: State,
     ST: StagesTuple<E, R, S, W, Z>,
 {
     fn perform_impl(
         &mut self,
         fuzzer: &mut Z,
-        executor: &mut E,
         rand: &mut R,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
         testcase_id: &TestcaseId,
     ) -> Result<()> {
-        while (self.closure)(rt_handle, executor, rand, state, fuzzer)? {
+        while (self.closure)(rt_handle, rand, state, fuzzer)? {
             self.stages
-                .perform_all(fuzzer, executor, rand, state, rt_handle, testcase_id)?;
+                .perform_all(fuzzer, rand, state, rt_handle, testcase_id)?;
         }
 
         Ok(())
@@ -69,13 +68,12 @@ where
     fn perform(
         &mut self,
         fuzzer: &mut Z,
-        executor: &mut E,
         rand: &mut R,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
         testcase_id: &TestcaseId,
     ) -> Result<()> {
-        self.perform_impl(fuzzer, executor, rand, state, rt_handle, testcase_id)
+        self.perform_impl(fuzzer, rand, state, rt_handle, testcase_id)
     }
 }
 
@@ -112,22 +110,21 @@ impl<CB, ST> IfStage<CB, ST> {
 
 impl<CB, E, R, ST, S, W, Z> Stage<E, R, S, W, Z> for IfStage<CB, ST>
 where
-    CB: FnMut(&mut RuntimeHandle<S, W>, &mut E, &mut R, &mut S, &mut Z) -> Result<bool>,
+    CB: FnMut(&mut RuntimeHandle<S, W>, &mut R, &mut S, &mut Z) -> Result<bool>,
     S: State,
     ST: StagesTuple<E, R, S, W, Z>,
 {
     fn perform_impl(
         &mut self,
         fuzzer: &mut Z,
-        executor: &mut E,
         rand: &mut R,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
         testcase_id: &TestcaseId,
     ) -> Result<()> {
-        if (self.closure)(rt_handle, executor, rand, state, fuzzer)? {
+        if (self.closure)(rt_handle, rand, state, fuzzer)? {
             self.if_stages
-                .perform_all(fuzzer, executor, rand, state, rt_handle, testcase_id)?;
+                .perform_all(fuzzer, rand, state, rt_handle, testcase_id)?;
         }
         Ok(())
     }
@@ -136,13 +133,12 @@ where
     fn perform(
         &mut self,
         fuzzer: &mut Z,
-        executor: &mut E,
         rand: &mut R,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
         testcase_id: &TestcaseId,
     ) -> Result<()> {
-        self.perform_impl(fuzzer, executor, rand, state, rt_handle, testcase_id)
+        self.perform_impl(fuzzer, rand, state, rt_handle, testcase_id)
     }
 }
 
@@ -185,7 +181,7 @@ impl<CB, ST1, ST2> IfElseStage<CB, ST1, ST2> {
 
 impl<CB, E, R, ST1, ST2, S, W, Z> Stage<E, R, S, W, Z> for IfElseStage<CB, ST1, ST2>
 where
-    CB: FnMut(&mut RuntimeHandle<S, W>, &mut E, &mut R, &mut S, &mut Z) -> Result<bool>,
+    CB: FnMut(&mut RuntimeHandle<S, W>, &mut R, &mut S, &mut Z) -> Result<bool>,
     S: State,
     ST1: StagesTuple<E, R, S, W, Z>,
     ST2: StagesTuple<E, R, S, W, Z>,
@@ -193,18 +189,17 @@ where
     fn perform_impl(
         &mut self,
         fuzzer: &mut Z,
-        executor: &mut E,
         rand: &mut R,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
         testcase_id: &TestcaseId,
     ) -> Result<()> {
-        if (self.closure)(rt_handle, executor, rand, state, fuzzer)? {
+        if (self.closure)(rt_handle, rand, state, fuzzer)? {
             self.if_stages
-                .perform_all(fuzzer, executor, rand, state, rt_handle, testcase_id)?;
+                .perform_all(fuzzer, rand, state, rt_handle, testcase_id)?;
         } else {
             self.else_stages
-                .perform_all(fuzzer, executor, rand, state, rt_handle, testcase_id)?;
+                .perform_all(fuzzer, rand, state, rt_handle, testcase_id)?;
         }
         Ok(())
     }
@@ -213,12 +208,11 @@ where
     fn perform(
         &mut self,
         fuzzer: &mut Z,
-        executor: &mut E,
         rand: &mut R,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
         testcase_id: &TestcaseId,
     ) -> Result<()> {
-        self.perform_impl(fuzzer, executor, rand, state, rt_handle, testcase_id)
+        self.perform_impl(fuzzer, rand, state, rt_handle, testcase_id)
     }
 }

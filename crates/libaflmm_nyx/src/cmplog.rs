@@ -119,7 +119,7 @@ impl RedqueenEvent {
 
         let captures = RE
             .captures(line)
-            .ok_or_else(|| format!("Failed to parse Redqueen line: '{line}'"))?;
+            .ok_or_else(|| format!("Failed to parse REDQUEEN line: '{line}'"))?;
 
         let addr_s = captures.get(1).ok_or("Missing address field")?.as_str();
         let type_s = captures.get(2).ok_or("Missing type field")?.as_str();
@@ -229,7 +229,7 @@ impl TryInto<CmpValues> for RedqueenEvent {
                 other_size => Err(format!("Invalid size {other_size}")),
             },
             // TODO: Add encoding for `STR` and `SUB`
-            other_type => Err(format!("Redqueen type {other_type:?} not implemented")),
+            other_type => Err(format!("REDQUEEN type {other_type:?} not implemented")),
         }
     }
 }

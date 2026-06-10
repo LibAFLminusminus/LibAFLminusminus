@@ -7,7 +7,13 @@ title = "The LibAFL-- Fuzzing Library"
 [preprocessor.vale]
 command = "./vale-check.py"
 
+[preprocessor.drawio]
+command = "mdbook-drawio"
+
+[preprocessor.lychee]
+command = "./lychee-check.py"
+
 [output.html]
 
-[output.linkcheck]
-optional = true
+# [output.linkcheck]
+# optional = true

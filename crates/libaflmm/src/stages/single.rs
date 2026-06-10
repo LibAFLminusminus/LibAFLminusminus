@@ -34,25 +34,24 @@ impl<E, I, Pre, Post, R, S, W, Z> Stage<E, R, S, W, Z> for SingleRunStage<I, Pre
 where
     S: State<Input = I>,
     Z: Evaluator<E, I, S, W>,
-    Pre: FnMut(&mut RuntimeHandle<S, W>, &mut E, &mut R, &mut S, &mut Z) -> Result<()>,
-    Post: FnMut(&mut RuntimeHandle<S, W>, &mut E, &mut R, &mut S, &mut Z) -> Result<()>,
+    Pre: FnMut(&mut RuntimeHandle<S, W>, &mut R, &mut S, &mut Z) -> Result<()>,
+    Post: FnMut(&mut RuntimeHandle<S, W>, &mut R, &mut S, &mut Z) -> Result<()>,
 {
     #[inline]
     fn perform_impl(
         &mut self,
         fuzzer: &mut Z,
-        executor: &mut E,
         rand: &mut R,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
         testcase_id: &TestcaseId,
     ) -> Result<()> {
-        (self.pre)(rt_handle, executor, rand, state, fuzzer)?;
+        (self.pre)(rt_handle, rand, state, fuzzer)?;
 
         let input = state.corpus().get(testcase_id)?.input();
-        fuzzer.evaluate_input(state, executor, rt_handle, &input)?;
+        fuzzer.evaluate_input(state, rt_handle, &input)?;
 
-        (self.post)(rt_handle, executor, rand, state, fuzzer)?;
+        (self.post)(rt_handle, rand, state, fuzzer)?;
 
         Ok(())
     }

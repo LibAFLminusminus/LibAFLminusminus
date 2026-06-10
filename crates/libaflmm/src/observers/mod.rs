@@ -19,7 +19,8 @@ pub use cmplog::{CmpLogMetadata, CmpLogObserver, CmpValues, CmplogBytes, StdCmpL
 pub mod map;
 pub use map::{
     ConstLenMapObserver, ConstMapObserver, HitcountsIterableMapObserver, HitcountsMapObserver,
-    MapObserver, MultiMapObserver, StdMapObserver, VarLenMapObserver, VariableMapObserver,
+    MapObserver, MultiMapObserver, SizePtrMapObserver, StdMapObserver, VarLenMapObserver,
+    VariableMapObserver,
 };
 
 pub mod value;
@@ -30,7 +31,7 @@ pub use value::{
 pub mod list;
 pub use list::ListObserver;
 
-pub type StdObserver<'a, T> = StdMapObserver<'a, T>;
+pub type StdObserver<'a, T> = VariableMapObserver<'a, T>;
 
 /// [`Observers`] observe different information about the target.
 /// They can then be used by various sorts of [`Feedback`](crate::feedbacks::Feedback).
@@ -201,7 +202,7 @@ mod tests {
         tuples::{tuple_list, tuple_list_type},
     };
 
-    use crate::observers::{StdMapObserver, TimeObserver};
+    use crate::observers::{TimeObserver, VariableMapObserver};
 
     static mut MAP: [u32; 4] = [0; 4];
 
@@ -210,14 +211,14 @@ mod tests {
         let map_ptr = &raw const MAP;
         let obv = tuple_list!(TimeObserver::new("time"), unsafe {
             let len = (*map_ptr).len();
-            StdMapObserver::from_ownedref(
+            VariableMapObserver::from_ownedref(
                 "map",
                 OwnedMutSlice::from_raw_parts_mut(&raw mut MAP as *mut u32, len),
             )
         });
         let vec = postcard::to_allocvec(&obv).unwrap();
         log::info!("{vec:?}");
-        let obv2: tuple_list_type!(TimeObserver, StdMapObserver<u32>) =
+        let obv2: tuple_list_type!(TimeObserver, VariableMapObserver<u32>) =
             postcard::from_bytes(&vec).unwrap();
         assert_eq!(obv.0.name(), obv2.0.name());
     }
