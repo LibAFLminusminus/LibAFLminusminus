@@ -94,7 +94,7 @@ bitbybit = "2.0.0" # bitfields, use this for bit fields and bit enums
 clap = "4.6.1"
 cc = "1.2.62"
 cmake = "0.1.58"
-ctor = "0.6.3"
+ctor = "1.0.7"
 delegate = "0.13.4"
 document-features = "0.2.12"
 erased-serde = { version = "0.4.10", default-features = false } # erased serde
