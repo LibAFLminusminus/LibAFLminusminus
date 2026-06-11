@@ -1,9 +1,9 @@
 use crate::Result;
-#[cfg(doc)]
-use crate::qemu::config::QemuConfig;
 use crate::emu::NopInputWriter;
 use crate::emu::StdInputWriter;
 use crate::emu::snapshots::StdSnapshotManager;
+#[cfg(doc)]
+use crate::qemu::config::QemuConfig;
 use crate::{
     command::{NopCommandManager, StdCommandManager},
     emu::{NopSnapshotManager, StdEmulator},
