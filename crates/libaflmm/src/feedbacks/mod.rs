@@ -127,9 +127,11 @@ where
     B: DependencyResolver,
 {
     fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
+        registrator.register_ty::<Self>();
+        self.register_impl(registrator)?;
+
         self.first.register(registrator)?;
-        self.second.register(registrator)?;
-        Ok(())
+        self.second.register(registrator)
     }
 }
 
@@ -370,7 +372,11 @@ where
     A: DependencyResolver,
 {
     fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
-        self.inner.register(registrator)
+        registrator.register_ty::<Self>();
+        self.register_impl(registrator)?;
+
+        self.inner.register(registrator)?;
+        Ok(())
     }
 }
 

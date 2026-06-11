@@ -450,9 +450,11 @@ where
     OC: DependencyResolver + Corpus<Input = I>,
 {
     fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
-        self.corpus_mut().register(registrator)?;
-        self.objective_corpus_mut().register(registrator)?;
+        registrator.register_ty::<Self>();
+        self.register_impl(registrator)?;
 
+        self.corpus.register(registrator)?;
+        self.objective_corpus.register(registrator)?;
         Ok(())
     }
 }

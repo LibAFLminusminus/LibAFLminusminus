@@ -110,7 +110,7 @@ pub struct CalibrationHook<C, O> {
 }
 
 impl<C, O> DependencyResolver for CalibrationHook<C, O> {
-    fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
+    fn register_impl(&mut self, registrator: &mut Registrator) -> Result<()> {
         registrator.register_md_default::<UnstableEntriesMetadata>(self.name());
         Ok(())
     }

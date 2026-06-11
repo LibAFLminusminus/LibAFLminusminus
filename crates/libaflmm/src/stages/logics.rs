@@ -31,6 +31,9 @@ where
     ST: DependencyResolver,
 {
     fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
+        registrator.register_ty::<Self>();
+        self.register_impl(registrator)?;
+
         self.stages.register(registrator)
     }
 }
@@ -90,6 +93,9 @@ where
     ST: DependencyResolver,
 {
     fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
+        registrator.register_ty::<Self>();
+        self.register_impl(registrator)?;
+
         self.if_stages.register(registrator)
     }
 }
@@ -156,6 +162,9 @@ where
     ST2: DependencyResolver,
 {
     fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
+        registrator.register_ty::<Self>();
+        self.register_impl(registrator)?;
+
         self.if_stages.register(registrator)?;
         self.else_stages.register(registrator)
     }

@@ -383,12 +383,12 @@ where
             // 1 - collect the required mds and involved types
             let mut registrator = Registrator::new(state.metadata_map().clone());
 
-            inner.feedback.register_with_ty(&mut registrator)?;
-            inner.objective.register_with_ty(&mut registrator)?;
-            inner.fuzzer_hooks.register_with_ty(&mut registrator)?;
-            stages.register_with_ty(&mut registrator)?;
-            state.register_with_ty(&mut registrator)?;
-            inner.executor.register_with_ty(&mut registrator)?;
+            inner.feedback.register(&mut registrator)?;
+            inner.objective.register(&mut registrator)?;
+            inner.fuzzer_hooks.register(&mut registrator)?;
+            stages.register(&mut registrator)?;
+            state.register(&mut registrator)?;
+            inner.executor.register(&mut registrator)?;
 
             // 2 - check that types and mds for each object
             let checker = registrator.finish();

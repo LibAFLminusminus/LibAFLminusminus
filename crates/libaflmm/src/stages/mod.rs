@@ -163,18 +163,12 @@ impl<E, R, S, W, Z> IntoVec<Box<dyn Stage<E, R, S, W, Z>>> for Vec<Box<dyn Stage
 
 impl<E, R, S, W, Z> DependencyResolver for Vec<Box<dyn Stage<E, R, S, W, Z>>> {
     fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
+        registrator.register_ty::<Self>();
+        self.register_impl(registrator)?;
+
         for st in self {
             st.register(registrator)?;
         }
-
-        Ok(())
-    }
-
-    fn register_with_ty(&mut self, registrator: &mut Registrator) -> Result<()> {
-        for st in self {
-            st.register_with_ty(registrator)?;
-        }
-
         Ok(())
     }
 

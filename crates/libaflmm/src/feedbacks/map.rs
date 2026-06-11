@@ -317,7 +317,7 @@ where
     O: MapObserver,
     O::Entry: 'static + Default + Debug + DeserializeOwned + Serialize,
 {
-    fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
+    fn register_impl(&mut self, registrator: &mut Registrator) -> Result<()> {
         registrator.register_md_default::<MapFeedbackMetadata<O::Entry>>(self.name());
         Ok(())
     }

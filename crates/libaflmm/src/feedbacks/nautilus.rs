@@ -71,7 +71,7 @@ impl Named for NautilusFeedback<'_> {
 }
 
 impl DependencyResolver for NautilusFeedback<'_> {
-    fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
+    fn register_impl(&mut self, registrator: &mut Registrator) -> Result<()> {
         registrator.register_md_default::<NautilusChunksMetadata>(self.name());
         Ok(())
     }
