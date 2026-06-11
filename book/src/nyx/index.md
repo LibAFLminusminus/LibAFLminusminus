@@ -11,7 +11,7 @@ Try to run `build_nyx_support.sh` first to install all the missing dependencies 
 ## Preparing the Nyx working directory
 
 The first step is to pack the target into Nyx's kernel.
-We have a template shell script in our `fuzzers/baby/baby_nyx` example:
+We have a template shell script in our [example](https://github.com/LibAFLminusminus/LibAFLminusminus/blob/main/fuzzers/baby/baby_nyx/setup_libxml2.sh):
 
 The important part is just to run the `nyx_packer.py` script with the correct arguments.
 
