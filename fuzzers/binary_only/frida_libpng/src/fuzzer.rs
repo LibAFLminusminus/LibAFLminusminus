@@ -3,17 +3,12 @@
 use std::{cell::RefCell, path::PathBuf, rc::Rc};
 
 use frida_gum::Gum;
-use libafl::{
+use libaflmm::{
     corpus::{CachedOnDiskCorpus, Corpus, OnDiskCorpus},
-    events::{
-        launcher::Launcher, llmp::LlmpRestartingEventManager, ClientDescription, EventConfig,
-    },
-    executors::{inprocess::InProcessExecutor, ExitKind, ShadowExecutor},
     feedback_or, feedback_or_fast,
     feedbacks::{CrashFeedback, MaxMapFeedback, TimeFeedback, TimeoutFeedback},
-    fuzzer::{Fuzzer, StdFuzzer},
-    inputs::{BytesInput, HasTargetBytes},
-    monitors::MultiMonitor,
+    fuzzers::{Fuzzer, StdFuzzer},
+    inputs::BytesInput,
     mutators::{
         havoc_mutations::havoc_mutations,
         scheduled::{tokens_mutations, HavocScheduledMutator},
@@ -25,14 +20,14 @@ use libafl::{
     state::{HasCorpus, StdState},
     Error, HasMetadata,
 };
-use libafl_bolts::{
+use libaflmm_bolts::{
     cli::{parse_args, FuzzerOptions},
     rands::StdRand,
     shmem::{ShMemProvider, StdShMemProvider},
     tuples::{tuple_list, Merge},
     AsSlice,
 };
-use libafl_frida::{
+use libaflmm_frida::{
     asan::{
         asan_rt::AsanRuntime,
         errors::{AsanErrorsFeedback, AsanErrorsObserver},
@@ -43,7 +38,7 @@ use libafl_frida::{
     frida_helper_shutdown_observer::FridaHelperObserver,
     helper::{FridaInstrumentationHelper, IfElseRuntime},
 };
-use libafl_targets::cmplog::CmpLogObserver;
+use libaflmm_targets::cmplog::CmpLogObserver;
 use mimalloc::MiMalloc;
 
 #[global_allocator]
