@@ -29,7 +29,9 @@ frida-gum = { version = "0.17.0", features = [
   "invocation-listener",
   "script",
 ] }
-libaflmm_frida = { path = "../../../crates/libaflmm_frida", features = ["cmplog"] }
+libaflmm_frida = { path = "../../../crates/libaflmm_frida", features = [
+  "cmplog",
+] }
 libaflmm_targets = { path = "../../../crates/libaflmm_targets", features = [
   "sancov_cmplog",
 ] }
