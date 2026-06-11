@@ -86,7 +86,7 @@ workspace = true
 yaxpeax-arm = "0.4.0"
 
 [target.'cfg(any(target_arch = "x86_64", target_arch = "x86"))'.dependencies]
-yaxpeax-x86 = "2.0.0"
+yaxpeax-x86 = "2.1.1"
 iced-x86 = { version = "1.21.0", features = ["code_asm"], optional = true }
 
 [target.'cfg(windows)'.dependencies]

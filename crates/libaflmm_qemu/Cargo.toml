@@ -118,7 +118,7 @@ hashbrown = { workspace = true, default-features = true, features = [
 ] } # A faster hashmap, nostd compatible
 num-traits = { workspace = true, default-features = true }
 num_enum = { workspace = true, default-features = true }
-goblin = "0.10.5"
+goblin = "0.10.7"
 libc = { workspace = true }
 strum = { workspace = true, features = ["derive"] }
 syscall-numbers = "4.0.3"
@@ -137,7 +137,7 @@ serde_yaml = { workspace = true, optional = true } # For parsing the injections 
 toml = { workspace = true, optional = true } # For parsing the injections toml file
 pyo3 = { workspace = true, optional = true, features = ["multiple-pymethods"] }
 typed-builder = { workspace = true }
-getset = "0.1.6"
+getset = "0.1.7"
 libvharness_sys = { workspace = true }
 nix = { workspace = true, features = ["mman"] }
 ctor = { workspace = true }
