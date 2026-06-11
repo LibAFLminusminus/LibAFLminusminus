@@ -113,7 +113,7 @@ pub trait Worker {
     /// Do the work related to reconciling between instances: sharing corpus, etc.
     fn reconcile(&self) -> Result<()>;
 
-    /// Hook called before the [`Runtime`] of the worker gets executed.
+    /// Hook called before the [`Runtime`](crate::runtimes::Runtime) of the worker gets executed.
     fn pre_runtime_exec(&mut self) -> Result<()> {
         Ok(())
     }
@@ -145,7 +145,7 @@ pub struct Workdir {
     last_stats_sync: Instant,
 }
 
-/// A workdir file is an abstract representation of a file owned by a [`Workir`].
+/// A workdir file is an abstract representation of a file owned by a [`Workdir`].
 /// It enables to get a file as a [`File`] or a [`PathBuf`] transparently.
 #[derive(Debug)]
 pub enum WorkdirFile {

@@ -226,7 +226,7 @@ impl<CT, MT, RT, S, SB, TM> StdLauncherBuilder<CT, MT, RT, S, SB, TM> {
         }
     }
 
-    /// Set the [`State`] builder closure.
+    /// Set the [`State`](crate::states::State) builder closure.
     pub fn state_builder<S2, SB2>(
         self,
         state_builder: SB2,

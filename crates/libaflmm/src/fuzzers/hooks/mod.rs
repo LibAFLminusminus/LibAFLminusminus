@@ -1,4 +1,4 @@
-//! This module provides the hooks to insert into fuzzers (most likely [`StdFuzzer`](crate::StdFuzzer))
+//! This module provides the hooks to insert into fuzzers (most likely [`StdFuzzer`](crate::fuzzers::StdFuzzer))
 //! hook is a specific sub-routine that you can inject into serveral points of the the fuzzing loops
 
 use crate::{

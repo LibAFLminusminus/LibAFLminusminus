@@ -74,7 +74,7 @@ impl Drop for ForkserverChannel {
 }
 
 impl ForkserverChannel {
-    /// Create a new [`Forkserver`] that will kill child processes
+    /// Create a new [`ForkserverChannel`] that will kill child processes
     /// with the given `kill_signal`.
     /// Using `Forkserver::new(..)` will default to [`Signal::SIGTERM`].
     pub fn new(cfg: ForkserverConfig) -> Result<Self> {

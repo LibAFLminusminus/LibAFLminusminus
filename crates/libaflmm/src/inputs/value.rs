@@ -13,7 +13,7 @@ use {
 
 use crate::inputs::{Input, InputContext};
 
-/// Functionality required for Numeric Mutators (see [`int_mutators`])
+/// Functionality required for Numeric Mutators (see [`int_mutators`](crate::mutators::int_mutators))
 pub trait Numeric {
     /// Flip all bits of the number.
     fn flip_all_bits(&mut self);
@@ -38,7 +38,7 @@ pub trait Numeric {
     fn randomize<R: Rand>(&mut self, rand: &mut R);
 }
 
-/// A wrapper that implements [`FromTargetBytesConverter`] for [`ValueInput`] of primitives
+/// A context for primitives of type [`ValueInput`].
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
 pub struct PrimitiveContext<T> {
     phantom: PhantomData<T>,
@@ -51,7 +51,7 @@ pub struct PrimitiveContext<T> {
 pub struct ValueInput<T>(T);
 
 impl<T> PrimitiveContext<T> {
-    /// Creates a new [`PrimitiveInputConverter`]
+    /// Creates a new [`PrimitiveContext`]
     #[must_use]
     pub fn new() -> Self {
         Self {

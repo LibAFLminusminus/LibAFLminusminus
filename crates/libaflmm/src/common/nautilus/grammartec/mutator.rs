@@ -20,7 +20,7 @@ pub struct GrammarMutator {
 }
 
 impl GrammarMutator {
-    /// Create a new [`Mutator`]
+    /// Create a new [`GrammarMutator`]
     #[must_use]
     pub fn new(ctx: &Context) -> Self {
         GrammarMutator {

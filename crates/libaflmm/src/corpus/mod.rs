@@ -74,7 +74,7 @@ pub trait Corpus: HasScheduler + Sized + DependencyResolver {
     /// It is allowed to add the same input multiple times.
     /// The corpus is responsible to handle that case without erroring out.
     ///
-    /// The default [`TestcaseMetadata`] will be instantiated.
+    /// The default [`TestcaseMetadata`](crate::states::TestcaseMetadata) will be instantiated.
     fn add(&mut self, testcase: Testcase<Self::Input>) -> Result<TestcaseId> {
         self.add_shared::<true>(testcase)
     }
@@ -83,7 +83,7 @@ pub trait Corpus: HasScheduler + Sized + DependencyResolver {
     /// It is allowed to add the same input multiple times.
     /// The corpus is responsible to handle that case without erroring out.
     ///
-    /// The default [`TestcaseMetadata`] will be instantiated.
+    /// The default [`TestcaseMetadata`](crate::states::TestcaseMetadata) will be instantiated.
     fn add_disabled(&mut self, testcase: Testcase<Self::Input>) -> Result<TestcaseId> {
         self.add_shared::<false>(testcase)
     }
@@ -93,7 +93,7 @@ pub trait Corpus: HasScheduler + Sized + DependencyResolver {
     /// It is allowed to add the same input multiple times.
     /// The corpus is responsible to handle that case without erroring out.
     ///
-    /// The input can be shared through [`Rc`].
+    /// The input can be shared through [`Rc`](alloc::rc::Rc).
     fn add_shared<const ENABLED: bool>(
         &mut self,
         testcase: Testcase<Self::Input>,

@@ -1,4 +1,4 @@
-//! Mutational stages and friends take one [`Input`] from the [`Corpus`] and apply mutations for a bunch of times then run against the targets
+//! Mutational stages and friends take one [`Input`](crate::inputs::Input) from the [`Corpus`](crate::corpus::Corpus) and apply mutations for a bunch of times then run against the targets
 
 use crate::{Result, common::PowerScheduleData, corpus::TestcaseId, states::State};
 use libaflmm_bolts::anymap::unnamed_metadata_mut;

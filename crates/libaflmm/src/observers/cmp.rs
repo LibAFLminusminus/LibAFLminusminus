@@ -1,6 +1,6 @@
 //! The [`CmpObserver`] provides access to the logged values of CMP instructions
 
-/// A [`CmpObserver`] observes the traced comparisons during the current execution using a [`CmpMap`]
+/// A [`CmpObserver`] observes the traced comparisons during the current execution using a [`Self::Map`]
 pub trait CmpObserver {
     /// The underlying map
     type Map;

@@ -86,10 +86,10 @@ pub mod prelude {
 
     pub use crate::feedbacks::{
         AflMapFeedback, AlwaysInterestingMapFeedback, BoolValueFeedback, ConstFeedback,
-        CrashFeedback, DiffExitKindFeedback, EagerAndFeedback, EagerOrFeedback, ExitKindFeedback,
-        Feedback, FeedbackFactory, ListFeedback, MapFeedback, MaxMapFeedback,
-        MaxMapOneOrFilledFeedback, MaxMapPow2Feedback, MinMapFeedback, NotFeedback, StdFeedback,
-        StdMapFeedback, StdObjectiveFeedback, TimeFeedback, TimeoutFeedback,
+        CrashFeedback, EagerAndFeedback, EagerOrFeedback, ExitKindFeedback, Feedback,
+        FeedbackFactory, ListFeedback, MapFeedback, MaxMapFeedback, MaxMapOneOrFilledFeedback,
+        MaxMapPow2Feedback, MinMapFeedback, NotFeedback, StdFeedback, StdMapFeedback,
+        StdObjectiveFeedback, TimeFeedback, TimeoutFeedback,
     };
 
     #[cfg(feature = "nautilus")]

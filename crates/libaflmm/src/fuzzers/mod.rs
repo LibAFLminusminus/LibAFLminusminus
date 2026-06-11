@@ -14,7 +14,7 @@ pub use hooks::{CalibrationHook, CustomNameHook, FuzzerHook, FuzzerHooksTuple};
 /// Evaluate an input modifying the state of the fuzzer
 pub trait Evaluator<E, I, S, W> {
     /// Runs the input and triggers observers and feedback,
-    /// returns if is interesting an (option) the index of the new [`Testcase`] in the corpus
+    /// returns if is interesting an (option) the index of the new [`Testcase`](crate::corpus::Testcase) in the corpus
     fn evaluate_input(
         &mut self,
         state: &mut S,
@@ -141,7 +141,7 @@ pub trait Fuzzer<E, I, R, S, ST, W> {
 
 /// The result of a fuzzer evaluation.
 ///
-/// It tells with which [`ExitKind`] the [`Executor`] ended (normally, with a timeout, etc...)
+/// It tells with which [`ExitKind`] the [`Executor`](crate::executors::Executor) ended (normally, with a timeout, etc...)
 /// and what [`Verdict`] the feedback gave.
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
 pub struct EvaluationResult {

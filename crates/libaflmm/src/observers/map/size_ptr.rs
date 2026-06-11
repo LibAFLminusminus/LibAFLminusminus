@@ -186,7 +186,7 @@ impl<'a, T> SizePtrMapObserver<'a, T>
 where
     T: Default,
 {
-    /// Creates a new [`struct@VariableMapObserver`] from an [`OwnedMutSlice`]
+    /// Creates a new [`VariableMapObserver`](super::VariableMapObserver) from an [`OwnedMutSlice`]
     ///
     /// # Safety
     /// The observer will dereference the owned slice, as well as the `map_ptr`.
@@ -204,7 +204,7 @@ where
         }
     }
 
-    /// Creates a new [`struct@VariableMapObserver`] from a raw pointer
+    /// Creates a new [`VariableMapObserver`](super::VariableMapObserver) from a raw pointer
     ///
     /// # Safety
     /// The observer will dereference the `size` ptr, as well as the `map_ptr`.

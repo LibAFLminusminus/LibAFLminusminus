@@ -39,7 +39,7 @@ pub trait Runtime<S, W>: DependencyResolver {
     /// This trait function should NEVER be called by a user directly.
     /// The user is intended to use `run`, as it will always perform the right action.
     ///
-    /// This function is only useful for trait writers to implement their custom [`runtime`].
+    /// This function is only useful for trait writers to implement their custom [`Runtime`].
     ///
     /// # Safety
     ///
@@ -66,8 +66,6 @@ pub trait Runtime<S, W>: DependencyResolver {
     }
 
     /// Set a timeout value for the runtime.
-    ///
-    /// Once set, [`on_timeout`] will be executed after the input duration.
     fn set_timeout(&mut self, _timeout: Duration) -> Result<()> {
         Ok(())
     }

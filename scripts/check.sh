@@ -125,8 +125,10 @@ for project in "${PROJECTS[@]}"; do
       echo "Warning: Directory $project does not exist. Skipping."
    fi
 done
+
 # Last run it on all
-eval "$DOC_CMD --workspace --exclude args_reorder --exclude generics_reorder --exclude use_after_mod"
 eval "$CLIPPY_CMD --workspace --exclude args_reorder --exclude generics_reorder --exclude use_after_mod -- ${RUSTC_FLAGS:-}"
+# check docs
+eval "$DOC_CMD --workspace --exclude args_reorder --exclude generics_reorder --exclude use_after_mod"
 
 echo "Clippy and doc checks completed for all specified projects."

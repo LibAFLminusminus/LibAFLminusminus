@@ -99,12 +99,12 @@ impl<I, TE> TracerStage<I, TE> {
         }
     }
 
-    /// Gets the underlying [`Self::tracer_executor`]
+    /// Gets the underlying `tracer_executor`
     pub fn executor(&self) -> &TE {
         &self.tracer_executor
     }
 
-    /// Gets mutable reference to the underlying [`Self::tracer_executor`]
+    /// Gets mutable reference to the underlying `tracer_executor`
     pub fn executor_mut(&mut self) -> &mut TE {
         &mut self.tracer_executor
     }

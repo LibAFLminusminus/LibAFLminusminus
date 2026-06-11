@@ -1,4 +1,4 @@
-//! Os-specific utilities to manage some [`Runtime`]s.
+//! Os-specific utilities to manage some [`Runtime`](crate::runtimes::Runtime)s.
 
 #[cfg(unix)]
 pub mod unix;

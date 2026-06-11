@@ -267,7 +267,7 @@ where
 {
     type Scheduler = C::Scheduler;
 
-    /// Ref to the [`Scheduler`]
+    /// Ref to the [`Scheduler`](crate::corpus::schedulers::Scheduler)
     fn scheduler(&self) -> &Self::Scheduler {
         self.corpus.scheduler()
     }
