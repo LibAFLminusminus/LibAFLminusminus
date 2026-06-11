@@ -71,8 +71,6 @@ pub extern "C" fn libafl_main() {
     env_logger::init();
 
     let controller = SimpleController::builder()
-        .worker_stdout(None)
-        .worker_stderr(None)
         .overwrite(true)
         .build()
         .expect("Failed to build the SimpleController");

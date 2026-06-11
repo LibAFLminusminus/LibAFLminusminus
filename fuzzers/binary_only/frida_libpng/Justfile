@@ -3,7 +3,7 @@ import "../../../just/libafl.just"
 FUZZER_NAME := "frida_fuzzer"
 FUZZER_NAME_WIN := "frida_fuzzer.exe"
 
-set unstable := true
+set unstable
 
 libpng:
     #!/bin/bash

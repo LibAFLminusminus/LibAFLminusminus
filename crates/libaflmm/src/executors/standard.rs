@@ -47,11 +47,11 @@ impl<EH, H, I, O, S> DependencyResolver for StdExecutor<EH, H, I, O, S>
 where
     O: ObserversTuple<S> + DependencyResolver,
 {
-    fn register_with_ty(&mut self, registrator: &mut Registrator) -> Result<()> {
+    fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
         registrator.register_ty::<Self>();
+        self.register_md(registrator)?;
 
-        self.register(registrator)?;
-        self.observers.register_with_ty(registrator)
+        self.observers.register(registrator)
     }
 
     fn check(&self, _checker: &CompatibilityChecker) -> Result<()> {

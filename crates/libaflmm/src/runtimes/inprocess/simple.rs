@@ -56,14 +56,10 @@ where
 
 impl<S, T, TM> DependencyResolver for SimpleInProcessRuntime<S, T, TM> {
     fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
-        self.0.register(registrator)
-    }
-
-    fn register_with_ty(&mut self, registrator: &mut Registrator) -> Result<()> {
         registrator.register_ty::<Self>();
-        registrator.register_ty::<InnerRuntime<S, T, TM>>();
+        self.register_md(registrator)?;
 
-        self.register(registrator)
+        self.0.register(registrator)
     }
 
     fn check(&self, checker: &CompatibilityChecker) -> Result<()> {
