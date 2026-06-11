@@ -57,7 +57,7 @@ where
 impl<S, T, TM> DependencyResolver for SimpleInProcessRuntime<S, T, TM> {
     fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
         registrator.register_ty::<Self>();
-        self.register_impl(registrator)?;
+        self.register_md(registrator)?;
 
         self.0.register(registrator)
     }

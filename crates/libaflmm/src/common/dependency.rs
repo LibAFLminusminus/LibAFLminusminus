@@ -99,7 +99,7 @@ pub trait DependencyResolver {
     ///
     /// TL;DR. In this function you just edit metadata.
     ///
-    fn register_impl(&mut self, _registrator: &mut Registrator) -> Result<()> {
+    fn register_md(&mut self, _registrator: &mut Registrator) -> Result<()> {
         Ok(())
     }
 
@@ -108,7 +108,7 @@ pub trait DependencyResolver {
     /// This should be overwritten when registering inner structures.
     /// So, if your structure has any other member that implements [`DependencyResolver`], then
     /// 1) `register_ty` for your own type first.
-    /// 2) Make a call into `register_impl`
+    /// 2) Make a call into `register_md`
     /// 3) Make recursive call into child members.
     ///
     /// The difference between this and [`Self::register`] is that [`Self::register`] is responsible only for the metadata registration.
@@ -116,7 +116,7 @@ pub trait DependencyResolver {
     fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
         registrator.register_ty::<Self>();
 
-        self.register_impl(registrator)
+        self.register_md(registrator)
     }
 
     /// Check that some types (not registered by the current type) are actually being used if necessary.

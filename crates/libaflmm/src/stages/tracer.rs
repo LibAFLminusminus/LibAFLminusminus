@@ -34,7 +34,7 @@ where
 {
     fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
         registrator.register_ty::<Self>();
-        self.register_impl(registrator)?;
+        self.register_md(registrator)?;
 
         self.tracer_executor.register(registrator)?;
         Ok(())

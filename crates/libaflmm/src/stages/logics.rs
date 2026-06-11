@@ -40,7 +40,7 @@ where
 {
     fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
         registrator.register_ty::<Self>();
-        self.register_impl(registrator)?;
+        self.register_md(registrator)?;
 
         self.stages.register(registrator)
     }
@@ -102,7 +102,7 @@ where
 {
     fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
         registrator.register_ty::<Self>();
-        self.register_impl(registrator)?;
+        self.register_md(registrator)?;
 
         self.if_stages.register(registrator)
     }
@@ -171,7 +171,7 @@ where
 {
     fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
         registrator.register_ty::<Self>();
-        self.register_impl(registrator)?;
+        self.register_md(registrator)?;
 
         self.if_stages.register(registrator)?;
         self.else_stages.register(registrator)

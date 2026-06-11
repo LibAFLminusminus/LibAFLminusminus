@@ -192,7 +192,7 @@ impl<S, W> DependencyResolver for RuntimeHandle<S, W> {
 
     fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
         registrator.register_ty::<Self>();
-        self.register_impl(registrator)?;
+        self.register_md(registrator)?;
 
         unsafe { self.runtime_mut().register(registrator) }
     }

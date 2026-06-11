@@ -61,7 +61,7 @@ where
 }
 
 impl<H, V> DependencyResolver for CmpLogObserver<H, V> {
-    fn register_impl(&mut self, registrator: &mut Registrator) -> Result<()> {
+    fn register_md(&mut self, registrator: &mut Registrator) -> Result<()> {
         registrator.register_md_default::<CmpLogMetadata>(EMPTY_MAP_KEY);
         Ok(())
     }
