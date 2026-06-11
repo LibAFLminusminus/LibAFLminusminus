@@ -31,7 +31,7 @@ where
     let mut stages = tuple_list!(StdStage::default());
 
     // Create the executor for an in-process function with just one observer
-    let mut executor = StdExecutor::new(target::target, tuple_list!(observer), None);
+    let executor = StdExecutor::new(target::target, tuple_list!(observer), None);
 
     // Generator of printable bytearrays of max size 32
     let mut generator = RandPrintablesGenerator::new(non_zero!(32));
@@ -40,27 +40,20 @@ where
 
     // A fuzzer with feedbacks and a corpus scheduler
     let mut fuzzer = StdFuzzer::with_hooks(
+        executor,
         feedback,
         objective_feedback,
         tuple_list!(calibration_hk),
         &mut stages,
-        &mut executor,
         state,
         rt_handle,
     )?;
 
     // Generate 8 initial inputs
-    state.generate_initial_inputs(
-        &mut fuzzer,
-        &mut executor,
-        &mut generator,
-        &mut rand,
-        rt_handle,
-        8,
-    )?;
+    state.generate_initial_inputs(&mut fuzzer, &mut generator, &mut rand, rt_handle, 8)?;
 
     // Start the fuzzer
-    fuzzer.fuzz_loop(&mut stages, &mut executor, &mut rand, state, rt_handle)
+    fuzzer.fuzz_loop(&mut stages, &mut rand, state, rt_handle)
 }
 
 pub fn main() -> Result<()> {

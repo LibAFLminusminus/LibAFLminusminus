@@ -19,12 +19,15 @@ use alloc::{
     vec::Vec,
 };
 use core::{
-    any::type_name,
     fmt::{self, Debug},
     marker::PhantomData,
     time::Duration,
 };
-use libaflmm_bolts::{NamedSerdeAnyMap, SerdeAny, rands::Rand};
+use libaflmm_bolts::{
+    NamedSerdeAnyMap, OwnedSlice, SerdeAny, SerdeAnyMap,
+    anymap::{named_metadata, named_metadata_mut, unnamed_metadata, unnamed_metadata_mut},
+    rands::Rand,
+};
 use libaflmm_core::illegal_argument;
 use nix::fcntl::{Flock, FlockArg};
 use num_traits::Zero;
@@ -252,6 +255,10 @@ pub trait State:
     ) -> &mut T {
         self.metadata_map_mut().get_or_insert_with(name, value)
     }
+
+    fn input_to_bytes<'a>(&mut self, input: &'a Self::Input) -> OwnedSlice<'a, u8> {
+        self.context_mut().to_bytes(input)
+    }
 }
 
 impl<C, CT, I, OC> HasScheduler for StdState<C, CT, I, OC>
@@ -337,55 +344,8 @@ pub struct TestcaseMetadata {
     /// has found crash (or timeout) or not
     #[builder(default = 0)]
     objectives_found: usize,
-}
-
-/// Add a named metadata to the metadata map
-#[inline]
-pub fn add_named_metadata<M>(map: &mut NamedSerdeAnyMap, name: &str, meta: M)
-where
-    M: SerdeAny,
-{
-    map.insert(name, meta);
-}
-
-/// To get named metadata from a [`NamedSerdeAnyMap`]
-#[inline]
-pub fn named_metadata<'a, M>(map: &'a NamedSerdeAnyMap, name: &str) -> Result<&'a M>
-where
-    M: SerdeAny,
-{
-    map.get::<M>(name)
-        .ok_or_else(|| Error::key_not_found(format!("{} not found", type_name::<M>())))
-}
-
-/// To get an unnamed metadata from a [`NamedSerdeAnyMap`]
-#[inline]
-pub fn unnamed_metadata<M>(map: &NamedSerdeAnyMap) -> Result<&M>
-where
-    M: SerdeAny,
-{
-    map.get::<M>("")
-        .ok_or_else(|| Error::key_not_found(format!("{} not found", type_name::<M>())))
-}
-
-/// To get mutable named metadata from a [`NamedSerdeAnyMap`]
-#[inline]
-pub fn named_metadata_mut<'a, M>(map: &'a mut NamedSerdeAnyMap, name: &str) -> Result<&'a mut M>
-where
-    M: SerdeAny,
-{
-    map.get_mut::<M>(name)
-        .ok_or_else(|| Error::key_not_found(format!("{} not found", type_name::<M>())))
-}
-
-/// To get mutable unnamed metadata from a [`NamedSerdeAnyMap`]
-#[inline]
-pub fn unnamed_metadata_mut<M>(map: &mut NamedSerdeAnyMap) -> Result<&mut M>
-where
-    M: SerdeAny,
-{
-    map.get_mut::<M>("")
-        .ok_or_else(|| Error::key_not_found(format!("{} not found", type_name::<M>())))
+    /// A map of metadata, for custom stuff
+    map: SerdeAnyMap,
 }
 
 impl TestcaseMetadata {
@@ -486,88 +446,16 @@ impl TestcaseMetadata {
     pub fn set_filename(&mut self, filename: TestcaseFilenameFormat) {
         self.filename_format = filename;
     }
-}
 
-/// The metadata for each testcase used in power schedules.
-#[derive(Serialize, Deserialize, Clone, Debug)]
-#[cfg_attr(miri, expect(clippy::unsafe_derive_deserialize))] // for SerdeAny
-pub struct PSMetadata {
-    /// Number of bits set in bitmap.
-    bitmap_size: u64,
-    /// Number of queue cycles behind
-    handicap: u64,
-    /// Path depth, initialized in `on_add`
-    depth: u64,
-    /// Cycles used to calibrate this.
-    cycle_and_time: (Duration, usize),
-}
-
-impl PSMetadata {
-    /// Create new [`struct@PSMetadata`]
     #[must_use]
-    pub fn new(depth: u64) -> Self {
-        Self {
-            bitmap_size: 0,
-            handicap: 0,
-            depth,
-            cycle_and_time: (Duration::default(), 0),
-        }
+    pub fn md_map(&self) -> &SerdeAnyMap {
+        &self.map
     }
 
-    /// Get the [`Self::bitmap_size`]
-    #[inline]
-    #[must_use]
-    pub fn bitmap_size(&self) -> u64 {
-        self.bitmap_size
-    }
-
-    /// Set the [`Self::bitmap_size`]
-    #[inline]
-    pub fn set_bitmap_size(&mut self, val: u64) {
-        self.bitmap_size = val;
-    }
-
-    /// Get the [`Self::handicap`]
-    #[inline]
-    #[must_use]
-    pub fn handicap(&self) -> u64 {
-        self.handicap
-    }
-
-    /// Set the [`Self::handicap`]
-    #[inline]
-    pub fn set_handicap(&mut self, val: u64) {
-        self.handicap = val;
-    }
-
-    /// Get the [`Self::depth`]
-    #[inline]
-    #[must_use]
-    pub fn depth(&self) -> u64 {
-        self.depth
-    }
-
-    /// Set the [`Self::depth`]
-    #[inline]
-    pub fn set_depth(&mut self, val: u64) {
-        self.depth = val;
-    }
-
-    /// Get the [`Self::cycle_and_time`]
-    #[inline]
-    #[must_use]
-    pub fn cycle_and_time(&self) -> (Duration, usize) {
-        self.cycle_and_time
-    }
-
-    #[inline]
-    /// Set the [`Self::cycle_and_time`]
-    pub fn set_cycle_and_time(&mut self, cycle_and_time: (Duration, usize)) {
-        self.cycle_and_time = cycle_and_time;
+    pub fn md_map_mut(&mut self) -> &mut SerdeAnyMap {
+        &mut self.map
     }
 }
-
-libaflmm_bolts::impl_serdeany!(PSMetadata);
 
 impl<C, CT, I, OC> DependencyResolver for StdState<C, CT, I, OC>
 where
@@ -779,7 +667,6 @@ where
     fn load_initial_inputs_custom_by_filenames<E, W, Z>(
         &mut self,
         fuzzer: &mut Z,
-        executor: &mut E,
         rt_handle: &mut RuntimeHandle<Self, W>,
         file_list: &[impl AsRef<Path>],
         load_config: LoadConfig<I, Self, Z>,
@@ -797,7 +684,7 @@ where
                 Some(file_list.iter().map(|p| p.as_ref().to_path_buf()).collect());
         }
 
-        self.continue_loading_initial_inputs_custom(fuzzer, executor, rt_handle, load_config)?;
+        self.continue_loading_initial_inputs_custom(fuzzer, rt_handle, load_config)?;
         Ok(())
     }
 
@@ -805,7 +692,6 @@ where
         &mut self,
         path: &Path,
         fuzzer: &mut Z,
-        executor: &mut E,
         rt_handle: &mut RuntimeHandle<Self, W>,
         config: &mut LoadConfig<I, Self, Z>,
     ) -> Result<EvaluationResult>
@@ -823,7 +709,7 @@ where
                 return Ok(EvaluationResult::not_interesting());
             }
         };
-        let res = fuzzer.evaluate_input(self, executor, rt_handle, &input)?;
+        let res = fuzzer.evaluate_input(self, rt_handle, &input)?;
         Ok(res)
     }
 
@@ -833,7 +719,6 @@ where
     fn continue_loading_initial_inputs_custom<E, W, Z>(
         &mut self,
         fuzzer: &mut Z,
-        executor: &mut E,
         rt_handle: &mut RuntimeHandle<Self, W>,
         mut config: LoadConfig<I, Self, Z>,
     ) -> Result<usize>
@@ -846,7 +731,7 @@ where
             match self.next_file() {
                 Ok(path) => {
                     nb_loaded += 1;
-                    let res = self.load_file(&path, fuzzer, executor, rt_handle, &mut config)?;
+                    let res = self.load_file(&path, fuzzer, rt_handle, &mut config)?;
                     if config.exit_on_solution && res.is_objective_worthy() {
                         return Err(Error::invalid_corpus(format!(
                             "Input {} resulted in a objective.",
@@ -892,7 +777,6 @@ where
     pub fn load_initial_inputs_by_filenames<E, W, Z>(
         &mut self,
         fuzzer: &mut Z,
-        executor: &mut E,
         rt_handle: &mut RuntimeHandle<Self, W>,
         file_list: &[impl AsRef<Path>],
     ) -> Result<()>
@@ -901,7 +785,6 @@ where
     {
         self.load_initial_inputs_custom_by_filenames(
             fuzzer,
-            executor,
             rt_handle,
             file_list,
             LoadConfig {
@@ -917,7 +800,6 @@ where
     pub fn load_initial_inputs_forced<E, W, Z>(
         &mut self,
         fuzzer: &mut Z,
-        executor: &mut E,
         rt_handle: &mut RuntimeHandle<Self, W>,
         in_dirs: &[impl AsRef<Path>],
     ) -> Result<()>
@@ -927,7 +809,6 @@ where
         self.canonicalize_input_dirs(in_dirs)?;
         self.continue_loading_initial_inputs_custom(
             fuzzer,
-            executor,
             rt_handle,
             LoadConfig {
                 loader: &mut |_, _, path| I::from_file(path),
@@ -942,7 +823,6 @@ where
     pub fn load_initial_inputs_by_filenames_forced<E, W, Z>(
         &mut self,
         fuzzer: &mut Z,
-        executor: &mut E,
         rt_handle: &mut RuntimeHandle<Self, W>,
         file_list: &[impl AsRef<Path>],
     ) -> Result<()>
@@ -951,7 +831,6 @@ where
     {
         self.load_initial_inputs_custom_by_filenames(
             fuzzer,
-            executor,
             rt_handle,
             file_list,
             LoadConfig {
@@ -965,7 +844,6 @@ where
     pub fn load_initial_inputs<E, W, Z>(
         &mut self,
         fuzzer: &mut Z,
-        executor: &mut E,
         rt_handle: &mut RuntimeHandle<Self, W>,
         in_dirs: &[impl AsRef<Path>],
     ) -> Result<()>
@@ -975,7 +853,6 @@ where
         self.canonicalize_input_dirs(in_dirs)?;
         let nb_loaded = self.continue_loading_initial_inputs_custom(
             fuzzer,
-            executor,
             rt_handle,
             LoadConfig {
                 loader: &mut |_, _, path| I::from_file(path),
@@ -997,7 +874,6 @@ where
     pub fn load_initial_inputs_disallow_solution<E, W, Z>(
         &mut self,
         fuzzer: &mut Z,
-        executor: &mut E,
         rt_handle: &mut RuntimeHandle<Self, W>,
         in_dirs: &[impl AsRef<Path>],
     ) -> Result<()>
@@ -1007,7 +883,6 @@ where
         self.canonicalize_input_dirs(in_dirs)?;
         self.continue_loading_initial_inputs_custom(
             fuzzer,
-            executor,
             rt_handle,
             LoadConfig {
                 loader: &mut |_, _, path| I::from_file(path),
@@ -1027,7 +902,6 @@ where
     pub fn generate_initial_inputs<G, E, R, W, Z>(
         &mut self,
         fuzzer: &mut Z,
-        executor: &mut E,
         generator: &mut G,
         rand: &mut R,
         rt_handle: &mut RuntimeHandle<Self, W>,
@@ -1042,7 +916,7 @@ where
 
         for _ in 0..num {
             let input = generator.generate(rand, self)?;
-            let res = fuzzer.evaluate_input(self, executor, rt_handle, &input)?;
+            let res = fuzzer.evaluate_input(self, rt_handle, &input)?;
             if res.is_corpus_worthy() {
                 added += 1;
             }

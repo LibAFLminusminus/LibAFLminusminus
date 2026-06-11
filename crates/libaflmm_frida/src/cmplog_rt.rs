@@ -6,10 +6,12 @@
 //! related to the input.
 //! Read the [`RedQueen`](https://www.ndss-symposium.org/ndss-paper/redqueen-fuzzing-with-input-to-state-correspondence/) paper for the general concepts.
 
+use crate::helper::FridaRuntime;
+#[cfg(all(feature = "cmplog", target_arch = "aarch64"))]
+use crate::utils::{disas_count, writer_register};
 use alloc::rc::Rc;
 #[cfg(target_arch = "aarch64")]
 use core::ffi::c_void;
-
 use dynasmrt::dynasm;
 #[cfg(target_arch = "aarch64")]
 use dynasmrt::{DynasmApi, DynasmLabelApi};
@@ -29,13 +31,9 @@ use iced_x86::{
     BlockEncoder, Code, DecoderOptions, Instruction, InstructionBlock, MemoryOperand, MemorySize,
     OpKind, Register,
 };
-use libafl::Error;
-use libafl_targets::{CMPLOG_MAP_W, cmps::__libaflmm_targets_cmplog_instructions};
+use libaflmm::Result;
+use libaflmm_targets::{cmps::__libaflmm_targets_cmplog_instructions, constants::CMPLOG_MAP_W};
 use rangemap::RangeMap;
-
-use crate::helper::FridaRuntime;
-#[cfg(all(feature = "cmplog", target_arch = "aarch64"))]
-use crate::utils::{disas_count, writer_register};
 
 #[cfg(all(feature = "cmplog", target_arch = "aarch64"))]
 /// Speciial `CmpLog` Cases for `aarch64`
@@ -129,11 +127,11 @@ impl FridaRuntime for CmpLogRuntime {
 
     fn deinit(&mut self, _gum: &frida_gum::Gum) {}
 
-    fn pre_exec(&mut self, _input_bytes: &[u8]) -> Result<(), Error> {
+    fn pre_exec(&mut self, _input_bytes: &[u8]) -> Result<()> {
         Ok(())
     }
 
-    fn post_exec(&mut self, _input_bytes: &[u8]) -> Result<(), Error> {
+    fn post_exec(&mut self, _input_bytes: &[u8]) -> Result<()> {
         Ok(())
     }
 }

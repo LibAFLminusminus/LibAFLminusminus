@@ -29,14 +29,7 @@ Cargo.lock
 *.dSYM
 *.obj
 
-.cur_input
-.cur_input_*
-cur_input
 .venv
-
-crashes
-corpus
-!**/src/corpus
 
 callgrind.out.*
 perf.data
@@ -59,9 +52,7 @@ __pycache__
 *.metadata
 
 *atomic_file_testfile*
-**/libxml2
 **/corpus_discovered
-**/libxml2-*.tar.gz
 
 **/libaflmm_nyx/QEMU-Nyx
 **/libaflmm_nyx/packer

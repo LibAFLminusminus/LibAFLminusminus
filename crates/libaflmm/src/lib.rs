@@ -80,25 +80,24 @@ pub mod prelude {
     };
 
     pub use crate::executors::{
-        BuiltForkserver, DiffExitKind, Executor, ExecutorsTuple, ExitKind, Forkserver,
-        ForkserverExecutor, NopExecutor, StdChildArgs, StdExecutor, common_signals,
+        DiffExitKind, Executor, ExecutorsTuple, ExitKind, ForkserverChannel, ForkserverExecutor,
+        NopExecutor, StdChildArgs, StdExecutor, common_signals,
     };
 
     pub use crate::feedbacks::{
         AflMapFeedback, AlwaysInterestingMapFeedback, BoolValueFeedback, ConstFeedback,
         CrashFeedback, DiffExitKindFeedback, EagerAndFeedback, EagerOrFeedback, ExitKindFeedback,
         Feedback, FeedbackFactory, ListFeedback, MapFeedback, MaxMapFeedback,
-        MaxMapOneOrFilledFeedback, MaxMapPow2Feedback, MinMapFeedback, NewHashFeedback,
-        NotFeedback, StdFeedback, StdMapFeedback, StdObjectiveFeedback, TimeFeedback,
-        TimeoutFeedback,
+        MaxMapOneOrFilledFeedback, MaxMapPow2Feedback, MinMapFeedback, NotFeedback, StdFeedback,
+        StdMapFeedback, StdObjectiveFeedback, TimeFeedback, TimeoutFeedback,
     };
 
     #[cfg(feature = "nautilus")]
     pub use crate::feedbacks::NautilusFeedback;
 
     pub use crate::fuzzers::{
-        CalibrationHook, CustomNameHook, Evaluator, ExecutionProcessor, Fuzzer, FuzzerHook,
-        FuzzerHooksTuple, NopFuzzer, StdFuzzer,
+        CalibrationHook, CustomNameHook, Evaluator, Fuzzer, FuzzerHook, FuzzerHooksTuple,
+        NopFuzzer, StdFuzzer,
     };
 
     pub use crate::generators::{Generator, RandBytesGenerator, RandPrintablesGenerator};
@@ -137,7 +136,7 @@ pub mod prelude {
     pub use crate::observers::{
         CmpLogMetadata, CmpLogObserver, ConstLenMapObserver, ConstMapObserver,
         HitcountsIterableMapObserver, HitcountsMapObserver, ListObserver, MapObserver,
-        MultiMapObserver, Observer, ObserverWithHashField, ObserversTuple, OutputObserver,
+        MultiMapObserver, Observer, ObserversTuple, OutputObserver, SizePtrMapObserver,
         StdCmpLogObserver, StdErrObserver, StdMapObserver, StdObserver, StdOutObserver,
         TimeObserver, ValueObserver, VarLenMapObserver, VariableMapObserver,
     };

@@ -6,7 +6,7 @@ Thus, this part is NOT intended for beginners.
 
 Migrating from `LibAFL` to `LibAFL--` should be mostly straightforward, at least if you do not rely on some specific parts of the library.
 Most of the core API is largely similar, while only some parts truly differ from `LibAFL`
-As a result, most users should be able to reuse most of their code, except for `Manager`, `Event` and `Executor` related things.
+Most users should be able to reuse most of their code, except for `Manager`, `Event` and `Executor` related things.
 For `Executor`s, the port should be moderately difficult, and often results in dropping most of the code, which has been generically moved to `Runtime` (especially for the inprocess / forkserver parts).
 
 ## What did actually change
@@ -55,12 +55,12 @@ Crashes and corpus entries are stored in separate directories, avoiding the conc
 ### Summary
 
 Here is a more exhaustive list of what changed between `LibAFL` and `LibAFL--`:
-- `controllers`: new.
+- `Controllers`: new.
 Does the synchronization between `workers` (previously `clients`) and the `controller`.
 Used for stat and corpus sharing, `workdir`, etc.
-- `events`: fully removed.
-- `executors`: split into `runtimes` (notably taking care of in-process and forkserver) and `executors` (run the target with a given `Input`).
-- `launchers`: kind of new.
+- `Events`: fully removed.
+- `Executors`: split into `runtimes` (notably taking care of in-process and forkserver) and `executors` (run the target with a given `Input`).
+- `Launchers`: kind of new.
 It used to be an optional part of `LibAFL`, resulting in important structural differences between fuzzers.
 To unify fuzzers design, we made it a core part of the library, with its own `StdLauncher`.
 Although it shares the same name and role as in `LibAFL`, the implementation has been completely rewritten.
@@ -69,6 +69,7 @@ Although it shares the same name and role as in `LibAFL`, the implementation has
 
 Here is a non-exhaustive list of the concepts that are similar, and will only require to make some trivial fixes:
 - `Feedbacks`
+- `Fuzzers`
 - `Generators`
 - `Inputs`
 - `Mutators`
@@ -83,11 +84,16 @@ The reason they are removed is mostly to keep the core library with the most imp
 We moved away from this when it made sense, and let the object carry the generics.
 That way, traits are much easier to use around, and helps the compiler for type inference.
 
+- **Trait's function arguments have been removed or changed**: we slightly changed most of the trait's function signatures.
+Most of the time, it should only require you to propagate some references or change the order of the arguments.
+
+In general, it's a good idea to check examples fuzzers to get an idea of how the API changed and which shape should fuzzers take.
+
 ## What should I do in practice to port my old fuzzer?
 
 This part will provide some concrete code snippets demonstrating how `LibAFL` fuzzers can be ported to `LibAFL--` with minimal effort.
 We will use some parts of `baby_inprocess` to do so.
-Please refer to `fuzzers/baby/baby_inprocess` for the full working example.
+Please refer to `fuzzers/baby/baby_inprocess` for a minimal working example.
 
 Let `fn target(input: &I) -> Result<ExitKind>` be the signature of the target function in the rest of the section.
 
@@ -153,15 +159,16 @@ StdLauncher::builder()?
 ```
 
 For completeness, we commented out the other possible ways to build the launcher, to adapt to your use case:
-- `build_inprocess(task)` will fire the task wrapped into a default `StdInProcessRuntime` and build the `StdLauncher`.
-- `build_forkserver(task)` will similarly spawn the task with a default `StdForkserverRuntime` and build the `StdLauncher`.
+- `build_inprocess(task)` will wrap the task into a default `StdInProcessRuntime` and build the `StdLauncher`.
+- `build_forkserver(task)` will similarly wrap the task with a default `StdForkserverRuntime` and build the `StdLauncher`.
 - `runtime(rt).build()` will finally set the runtime you configured beforehand (which will most likely embed the task) and build the `StdLauncher`.
+This option requires more boilerplate code, but lets you fully configure the runtime you would like to use.
 
 In other words, `build_*` are convenient short hands for `runtime(*).build()`.
 
 ### Running the fuzzer
 
-Now that the launcher is properly configured, we can configure the fuzzer as usual.
+Now that the launcher is properly set up, we can configure the fuzzer as usual.
 The most notable difference is that state is now provided as an argument of the task, instead of being created in the task.
 This is necessary because of the separation between `Runtime` and `Executor`.
 The rest of the setup should be familiar if you already wrote `LibAFL` fuzzers.

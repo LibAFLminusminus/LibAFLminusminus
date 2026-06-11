@@ -7,7 +7,7 @@ use alloc::{
 };
 use core::marker::PhantomData;
 
-use libaflmm_bolts::{Named, rands::Rand};
+use libaflmm_bolts::{Named, anymap::EMPTY_MAP_KEY, rands::Rand};
 
 use crate::{
     Result,
@@ -23,7 +23,7 @@ use crate::{
 
 impl<E, F, I, M, R, S, W, Z> DependencyResolver for PowerScheduleStage<E, F, I, M, R, S, W, Z> {
     fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
-        registrator.register_md_default::<PowerScheduleData>("");
+        registrator.register_md_default::<PowerScheduleData>(EMPTY_MAP_KEY);
         Ok(())
     }
 }
@@ -93,7 +93,6 @@ where
     fn perform_impl(
         &mut self,
         fuzzer: &mut Z,
-        executor: &mut E,
         rand: &mut R,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
@@ -112,7 +111,7 @@ where
                 continue;
             }
 
-            let eval_res = fuzzer.evaluate_input(state, executor, rt_handle, &input)?;
+            let eval_res = fuzzer.evaluate_input(state, rt_handle, &input)?;
 
             self.mutator_mut().post_exec(state, &eval_res)?;
         }

@@ -46,7 +46,7 @@ impl QemuFuzzer {
 
                 // Create an observation channel using the coverage map
                 let mut edges_observer = unsafe {
-                    HitcountsMapObserver::new(VariableMapObserver::from_mut_slice(
+                    HitcountsMapObserver::new(SizePtrMapObserver::from_mut_slice(
                         "edges",
                         OwnedMutSlice::from_raw_parts_mut(
                             edges_map_mut_ptr(),
@@ -108,7 +108,7 @@ impl QemuFuzzer {
 
                 let harness = Harness::init(&mut emulator, &options.common)?;
 
-                let mut executor = StdQemuExecutor::new(
+                let executor = StdQemuExecutor::new(
                     state,
                     emulator,
                     |state, input, emu| harness.pre_exec(state, input, emu),
@@ -120,11 +120,11 @@ impl QemuFuzzer {
                 let mut rand = StdRand::new();
 
                 let mut fuzzer = StdFuzzer::with_hooks(
+                    executor,
                     feedback,
                     objective,
                     tuple_list!(calibration),
                     &mut stages,
-                    &mut executor,
                     state,
                     rt_handle,
                 )?;
@@ -133,12 +133,12 @@ impl QemuFuzzer {
                     let corpus_dirs = [&options.common.input];
 
                     state
-                        .load_initial_inputs(&mut fuzzer, &mut executor, rt_handle, &corpus_dirs)
+                        .load_initial_inputs(&mut fuzzer, rt_handle, &corpus_dirs)
                         .expect(&format!("Failed to load initial corpus at {corpus_dirs:?}"));
                     println!("We imported {} inputs from disk.", state.corpus().count());
                 }
 
-                fuzzer.fuzz_loop(&mut stages, &mut executor, &mut rand, state, rt_handle)
+                fuzzer.fuzz_loop(&mut stages, &mut rand, state, rt_handle)
             })?
             .launch()
     }

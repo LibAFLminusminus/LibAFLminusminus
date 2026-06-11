@@ -1,16 +1,15 @@
 //! Functionality regarding binary-only coverage collection.
 
+use crate::helper::FridaRuntime;
 use alloc::rc::Rc;
 use core::{cell::RefCell, marker::PhantomPinned, pin::Pin};
-
 #[cfg(target_arch = "aarch64")]
 use dynasmrt::DynasmLabelApi;
 use dynasmrt::{DynasmApi, dynasm};
 use frida_gum::{ModuleMap, instruction_writer::InstructionWriter, stalker::StalkerOutput};
-use libafl_bolts::hash_std;
+use libaflmm::Result;
+use libaflmm_bolts::hash_std;
 use rangemap::RangeMap;
-
-use crate::helper::FridaRuntime;
 
 /// (Default) map size for frida coverage reporting
 pub const MAP_SIZE: usize = 64 * 1024;
@@ -45,11 +44,11 @@ impl FridaRuntime for CoverageRuntime {
 
     fn deinit(&mut self, _gum: &frida_gum::Gum) {}
 
-    fn pre_exec(&mut self, _input_bytes: &[u8]) -> Result<(), libafl::Error> {
+    fn pre_exec(&mut self, _input_bytes: &[u8]) -> Result<()> {
         Ok(())
     }
 
-    fn post_exec(&mut self, _input_bytes: &[u8]) -> Result<(), libafl::Error> {
+    fn post_exec(&mut self, _input_bytes: &[u8]) -> Result<()> {
         Ok(())
     }
 }

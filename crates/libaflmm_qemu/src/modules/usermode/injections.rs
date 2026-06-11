@@ -25,6 +25,7 @@ use crate::{
 };
 use hashbrown::HashMap;
 use libaflmm::illegal_argument;
+use libaflmm_core::serialize;
 use libaflmm_qemu_sys::{GuestAddr, GuestUlong};
 use serde::{Deserialize, Serialize};
 use std::{ffi::CStr, fs, os::raw::c_char, path::Path};
@@ -32,10 +33,10 @@ use std::{ffi::CStr, fs, os::raw::c_char, path::Path};
 /// Parses `injections.yaml`
 fn parse_yaml(path: impl AsRef<Path>) -> Result<Vec<YamlInjectionEntry>> {
     serde_yaml::from_str(&fs::read_to_string(&path)?).map_err(|e| {
-        libaflmm::Error::serialize(format!(
+        serialize!(
             "Failed to deserialize yaml at {}: {e}",
             path.as_ref().display()
-        ))
+        )
         .into()
     })
 }
@@ -43,10 +44,10 @@ fn parse_yaml(path: impl AsRef<Path>) -> Result<Vec<YamlInjectionEntry>> {
 /// Parses `injections.toml`
 fn parse_toml(path: impl AsRef<Path>) -> Result<HashMap<String, InjectionDefinition>> {
     toml::from_str(&fs::read_to_string(&path)?).map_err(|e| {
-        libaflmm::Error::serialize(format!(
+        serialize!(
             "Failed to deserialize toml at {}: {e}",
             path.as_ref().display()
-        ))
+        )
         .into()
     })
 }

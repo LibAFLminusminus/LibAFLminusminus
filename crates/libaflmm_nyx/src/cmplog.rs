@@ -8,9 +8,9 @@ use libaflmm::{
     common::{DependencyResolver, Registrator},
     executors::ExitKind,
     observers::{CmpValues, Observer, cmplog::CmpLogMetadata},
-    states::{State, named_metadata_mut},
+    states::State,
 };
-use libaflmm_bolts::Named;
+use libaflmm_bolts::{Named, anymap::EMPTY_MAP_KEY, anymap::unnamed_metadata_mut};
 use libaflmm_targets::exports::CMPLOG_ENABLED;
 use serde::{Deserialize, Serialize};
 
@@ -40,7 +40,7 @@ impl NyxCmpObserver {
 
 impl DependencyResolver for NyxCmpObserver {
     fn register(&mut self, registrator: &mut Registrator) -> Result<(), Error> {
-        registrator.register_md_default::<CmpLogMetadata>(self.name());
+        registrator.register_md_default::<CmpLogMetadata>(EMPTY_MAP_KEY);
         Ok(())
     }
 }
@@ -61,7 +61,7 @@ where
             CMPLOG_ENABLED = 0;
         }
         if self.add_meta {
-            let meta = named_metadata_mut::<CmpLogMetadata>(state.metadata_map_mut(), self.name())?;
+            let meta = unnamed_metadata_mut::<CmpLogMetadata>(state.metadata_map_mut())?;
             let rq_data = parse_redqueen_data(&std::fs::read_to_string(self.path.as_ref())?);
             for event in rq_data.bps {
                 if let Ok(cmp_value) = event.try_into() {
@@ -119,7 +119,7 @@ impl RedqueenEvent {
 
         let captures = RE
             .captures(line)
-            .ok_or_else(|| format!("Failed to parse Redqueen line: '{line}'"))?;
+            .ok_or_else(|| format!("Failed to parse REDQUEEN line: '{line}'"))?;
 
         let addr_s = captures.get(1).ok_or("Missing address field")?.as_str();
         let type_s = captures.get(2).ok_or("Missing type field")?.as_str();
@@ -229,7 +229,7 @@ impl TryInto<CmpValues> for RedqueenEvent {
                 other_size => Err(format!("Invalid size {other_size}")),
             },
             // TODO: Add encoding for `STR` and `SUB`
-            other_type => Err(format!("Redqueen type {other_type:?} not implemented")),
+            other_type => Err(format!("REDQUEEN type {other_type:?} not implemented")),
         }
     }
 }

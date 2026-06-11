@@ -9,11 +9,11 @@ use crate::{
     feedbacks::Feedback,
     generators::NautilusContext,
     inputs::NautilusInput,
-    states::{State, named_metadata_mut},
+    states::State,
 };
 use alloc::{borrow::Cow, string::String};
 use core::fmt::Debug;
-use libaflmm_bolts::Named;
+use libaflmm_bolts::{Named, anymap::named_metadata_mut};
 use libaflmm_core::Result;
 use serde::{Deserialize, Serialize};
 use std::fs::create_dir_all;

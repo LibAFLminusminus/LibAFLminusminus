@@ -25,7 +25,7 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
       "crates/libaflmm"
       "crates/libaflmm_bolts"
       "crates/libaflmm_cc"
-      # "crates/libaflmm_frida" TODO: restore when frida is up again.
+      "crates/libaflmm_frida"
       "crates/libaflmm_qemu"
       "crates/libaflmm_qemu/libaflmm_qemu_build"
       "crates/libaflmm_qemu/libaflmm_qemu_sys"
@@ -64,6 +64,6 @@ for project in "${PROJECTS[@]}"; do
    fi
 done
 # Last run it on all
-eval "$CLIPPY_CMD --workspace --exclude args_reorder --exclude generics_reorder --exclude use_after_mod --exclude libaflmm_frida -- $RUSTC_FLAGS"
+eval "$CLIPPY_CMD --workspace --exclude args_reorder --exclude generics_reorder --exclude use_after_mod -- $RUSTC_FLAGS"
 
 echo "Clippy run completed for all specified projects."

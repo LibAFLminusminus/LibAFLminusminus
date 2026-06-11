@@ -89,7 +89,7 @@ Please check out **[CONTRIBUTING.md](CONTRIBUTING.md)** for the contributing gui
 
 ## Debugging
 
-Your fuzzer doesn't work as expected? Try reading [DEBUGGING.md](./docs/DEBUGGING.md) to understand how to debug your problems.
+Your fuzzer doesn't work as expected? Try reading [DEBUGGING.md](./book/src/debugging.md) to understand how to debug your problems.
 
 ## License
 
