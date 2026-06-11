@@ -19,12 +19,15 @@ use alloc::{
     vec::Vec,
 };
 use core::{
-    any::type_name,
     fmt::{self, Debug},
     marker::PhantomData,
     time::Duration,
 };
-use libaflmm_bolts::{NamedSerdeAnyMap, SerdeAny, rands::Rand};
+use libaflmm_bolts::{
+    NamedSerdeAnyMap, SerdeAny,
+    anymap::{named_metadata, named_metadata_mut, unnamed_metadata, unnamed_metadata_mut},
+    rands::Rand,
+};
 use libaflmm_core::illegal_argument;
 use nix::fcntl::{Flock, FlockArg};
 use num_traits::Zero;
@@ -337,55 +340,6 @@ pub struct TestcaseMetadata {
     /// has found crash (or timeout) or not
     #[builder(default = 0)]
     objectives_found: usize,
-}
-
-/// Add a named metadata to the metadata map
-#[inline]
-pub fn add_named_metadata<M>(map: &mut NamedSerdeAnyMap, name: &str, meta: M)
-where
-    M: SerdeAny,
-{
-    map.insert(name, meta);
-}
-
-/// To get named metadata from a [`NamedSerdeAnyMap`]
-#[inline]
-pub fn named_metadata<'a, M>(map: &'a NamedSerdeAnyMap, name: &str) -> Result<&'a M>
-where
-    M: SerdeAny,
-{
-    map.get::<M>(name)
-        .ok_or_else(|| Error::key_not_found(format!("{} not found", type_name::<M>())))
-}
-
-/// To get an unnamed metadata from a [`NamedSerdeAnyMap`]
-#[inline]
-pub fn unnamed_metadata<M>(map: &NamedSerdeAnyMap) -> Result<&M>
-where
-    M: SerdeAny,
-{
-    map.get::<M>("")
-        .ok_or_else(|| Error::key_not_found(format!("{} not found", type_name::<M>())))
-}
-
-/// To get mutable named metadata from a [`NamedSerdeAnyMap`]
-#[inline]
-pub fn named_metadata_mut<'a, M>(map: &'a mut NamedSerdeAnyMap, name: &str) -> Result<&'a mut M>
-where
-    M: SerdeAny,
-{
-    map.get_mut::<M>(name)
-        .ok_or_else(|| Error::key_not_found(format!("{} not found", type_name::<M>())))
-}
-
-/// To get mutable unnamed metadata from a [`NamedSerdeAnyMap`]
-#[inline]
-pub fn unnamed_metadata_mut<M>(map: &mut NamedSerdeAnyMap) -> Result<&mut M>
-where
-    M: SerdeAny,
-{
-    map.get_mut::<M>("")
-        .ok_or_else(|| Error::key_not_found(format!("{} not found", type_name::<M>())))
 }
 
 impl TestcaseMetadata {

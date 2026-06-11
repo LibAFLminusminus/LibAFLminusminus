@@ -5,7 +5,7 @@ use crate::{
     common::{DependencyResolver, Registrator},
     executors::ExitKind,
     observers::{CmpObserver, CmpValues, CmplogBytes, Observer},
-    states::{State, named_metadata_mut},
+    states::State,
 };
 use alloc::{borrow::Cow, vec::Vec};
 use core::{
@@ -13,7 +13,11 @@ use core::{
     ops::{Deref, DerefMut},
     ptr,
 };
-use libaflmm_bolts::{EmptyShmHeader, Named, SysVShm, ownedref::OwnedMutPtr};
+use libaflmm_bolts::{
+    EmptyShmHeader, Named, SysVShm,
+    anymap::{EMPTY_MAP_KEY, unnamed_metadata_mut},
+    ownedref::OwnedMutPtr,
+};
 use libaflmm_core::Result;
 use libaflmm_targets::cmps::{
     CMPLOG_KIND_INS, CMPLOG_RTN_LEN, CmpLogHeader, CmpLogMap, CmpLogVals, Operand, Routine,
@@ -58,7 +62,7 @@ where
 
 impl<H, V> DependencyResolver for CmpLogObserver<H, V> {
     fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
-        registrator.register_md_default::<CmpLogMetadata>(self.name());
+        registrator.register_md_default::<CmpLogMetadata>(EMPTY_MAP_KEY);
         Ok(())
     }
 }
@@ -76,7 +80,7 @@ where
 
     fn post_exec(&mut self, state: &mut S, _exit_kind: &ExitKind) -> Result<()> {
         if self.add_meta {
-            let meta = named_metadata_mut::<CmpLogMetadata>(state.metadata_map_mut(), self.name())?;
+            let meta = unnamed_metadata_mut::<CmpLogMetadata>(state.metadata_map_mut())?;
 
             let usable_count = self.usable_count();
 

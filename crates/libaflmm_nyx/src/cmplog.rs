@@ -8,9 +8,9 @@ use libaflmm::{
     common::{DependencyResolver, Registrator},
     executors::ExitKind,
     observers::{CmpValues, Observer, cmplog::CmpLogMetadata},
-    states::{State, named_metadata_mut},
+    states::State,
 };
-use libaflmm_bolts::Named;
+use libaflmm_bolts::{Named, anymap::EMPTY_MAP_KEY, anymap::unnamed_metadata_mut};
 use libaflmm_targets::exports::CMPLOG_ENABLED;
 use serde::{Deserialize, Serialize};
 
@@ -40,7 +40,7 @@ impl NyxCmpObserver {
 
 impl DependencyResolver for NyxCmpObserver {
     fn register(&mut self, registrator: &mut Registrator) -> Result<(), Error> {
-        registrator.register_md_default::<CmpLogMetadata>(self.name());
+        registrator.register_md_default::<CmpLogMetadata>(EMPTY_MAP_KEY);
         Ok(())
     }
 }
@@ -61,7 +61,7 @@ where
             CMPLOG_ENABLED = 0;
         }
         if self.add_meta {
-            let meta = named_metadata_mut::<CmpLogMetadata>(state.metadata_map_mut(), self.name())?;
+            let meta = unnamed_metadata_mut::<CmpLogMetadata>(state.metadata_map_mut())?;
             let rq_data = parse_redqueen_data(&std::fs::read_to_string(self.path.as_ref())?);
             for event in rq_data.bps {
                 if let Ok(cmp_value) = event.try_into() {
