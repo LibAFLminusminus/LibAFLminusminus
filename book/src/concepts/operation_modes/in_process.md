@@ -19,3 +19,6 @@ crate-type = ["staticlib"]
 Lastly you can compile them together. 
 The fuzzer will enter `main()` from the code of the fuzzer runtime. 
 The runtime will call into the target that lives in the same binary and same process and do fuzzing.
+
+# Example
+We will explain a in-process fuzzer with a concrete example [another section](../../examples/in_process.md)
