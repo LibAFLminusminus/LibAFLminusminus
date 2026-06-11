@@ -13,12 +13,17 @@ use crate::{
     inputs::Input,
     observers::{MapObserver, ObserversTuple},
     runtimes::RuntimeHandle,
-    states::{STAT_CALIBRATION, State, named_metadata_mut, unnamed_metadata_mut},
+    states::{STAT_CALIBRATION, State},
 };
 use alloc::{borrow::Cow, string::ToString, vec::Vec};
 use core::{marker::PhantomData, time::Duration};
 use hashbrown::HashSet;
-use libaflmm_bolts::{Named, current_time, impl_serdeany, tuples::Handle};
+use libaflmm_bolts::{
+    Named,
+    anymap::{named_metadata_mut, unnamed_metadata_mut},
+    current_time, impl_serdeany,
+    tuples::Handle,
+};
 use libaflmm_core::illegal_state;
 use num_traits::Bounded;
 use serde::{Deserialize, Serialize};

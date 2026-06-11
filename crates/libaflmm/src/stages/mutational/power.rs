@@ -7,7 +7,7 @@ use alloc::{
 };
 use core::marker::PhantomData;
 
-use libaflmm_bolts::{Named, rands::Rand};
+use libaflmm_bolts::{Named, anymap::EMPTY_MAP_KEY, rands::Rand};
 
 use crate::{
     Result,
@@ -23,7 +23,7 @@ use crate::{
 
 impl<E, F, I, M, R, S, W, Z> DependencyResolver for PowerScheduleStage<E, F, I, M, R, S, W, Z> {
     fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
-        registrator.register_md_default::<PowerScheduleData>("");
+        registrator.register_md_default::<PowerScheduleData>(EMPTY_MAP_KEY);
         Ok(())
     }
 }

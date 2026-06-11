@@ -9,6 +9,8 @@ use core::any::TypeId;
 use core::any::type_name;
 use core::{any::Any, fmt::Debug};
 
+use crate::Error;
+
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de::DeserializeSeed};
 pub use serdeany_registry::*;
 
@@ -50,6 +52,61 @@ fn type_repr_owned<T>() -> TypeRepr {
 #[cfg(feature = "stable_anymap")]
 fn type_repr<T>() -> &'static str {
     type_name::<T>()
+}
+
+/// Key for unnamed map.
+pub static EMPTY_MAP_KEY: &str = "";
+
+/// Add a named metadata to the metadata map
+#[inline]
+pub fn add_named_metadata<M>(map: &mut NamedSerdeAnyMap, name: &str, meta: M)
+where
+    M: SerdeAny,
+{
+    map.insert(name, meta);
+}
+
+/// To get named metadata from a [`NamedSerdeAnyMap`]
+#[inline]
+pub fn named_metadata<'a, M>(map: &'a NamedSerdeAnyMap, name: &str) -> Result<&'a M, crate::Error>
+where
+    M: SerdeAny,
+{
+    map.get::<M>(name)
+        .ok_or_else(|| Error::key_not_found(format!("{} not found", type_repr::<M>())))
+}
+
+/// To get an unnamed metadata from a [`NamedSerdeAnyMap`]
+#[inline]
+pub fn unnamed_metadata<M>(map: &NamedSerdeAnyMap) -> Result<&M, Error>
+where
+    M: SerdeAny,
+{
+    map.get::<M>("")
+        .ok_or_else(|| Error::key_not_found(format!("{} not found", type_repr::<M>())))
+}
+
+/// To get mutable named metadata from a [`NamedSerdeAnyMap`]
+#[inline]
+pub fn named_metadata_mut<'a, M>(
+    map: &'a mut NamedSerdeAnyMap,
+    name: &str,
+) -> Result<&'a mut M, Error>
+where
+    M: SerdeAny,
+{
+    map.get_mut::<M>(name)
+        .ok_or_else(|| Error::key_not_found(format!("{} not found", type_repr::<M>())))
+}
+
+/// To get mutable unnamed metadata from a [`NamedSerdeAnyMap`]
+#[inline]
+pub fn unnamed_metadata_mut<M>(map: &mut NamedSerdeAnyMap) -> Result<&mut M, Error>
+where
+    M: SerdeAny,
+{
+    map.get_mut::<M>("")
+        .ok_or_else(|| Error::key_not_found(format!("{} not found", type_repr::<M>())))
 }
 
 /// A (de)serializable Any trait
