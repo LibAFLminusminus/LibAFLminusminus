@@ -70,7 +70,7 @@ jobs:
       - name: Installing python3 black
         run: command -v black &>/dev/null || pipx install black
       - name: Check formatting
-        run: ./scripts/fmt_all.sh check
+        run: ./scripts/fmt.sh check
 
   check-md-links:
     runs-on: ${{ fromJSON(vars.RUNS_ON || '["self-hosted","linux"]') }}

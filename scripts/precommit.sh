@@ -7,7 +7,7 @@ echo
 echo
 echo "[*] Formatting this beautiful code"
 echo
-"$SCRIPT_DIR"/fmt_all.sh || exit 1
+"$SCRIPT_DIR"/fmt.sh || exit 1
 echo
 echo "[*] Asking clippy how to excel"
 echo

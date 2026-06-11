@@ -8,13 +8,13 @@ if [ "$1" != "--no-clean" ]; then
    echo "[+] Cleaning up previous builds..."
    cargo clean -p libafl
 fi
-echo 
+echo
 
 echo "[+] Fixing build"
 cargo fix --release --workspace --all-features --allow-dirty --allow-staged
 
 echo "[+] Done fixing build"
-echo 
+echo
 
 echo 'Fixing clippy (might need a "git commit" and a rerun, if "cargo fix" changed the source)'
 RUST_BACKTRACE=full cargo clippy --fix --release --all --all-features --tests --examples --benches --allow-dirty --allow-staged --broken-code
@@ -29,4 +29,4 @@ echo "[+] Done fixing clippy"
 echo
 
 echo "Formatting all"
-"$SCRIPT_DIR/fmt_all.sh"
+"$SCRIPT_DIR/fmt.sh"
