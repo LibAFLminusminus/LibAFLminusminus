@@ -7,7 +7,7 @@ use capstone::arch::BuildsCapstone;
 use enum_map::{EnumMap, enum_map};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use std::sync::OnceLock;
-use strum_macros::EnumIter;
+use strum::EnumIter;
 
 pub mod syscalls {
     use core::ffi::c_long;

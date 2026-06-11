@@ -7,7 +7,7 @@ use capstone::arch::BuildsCapstone;
 use enum_map::{EnumMap, enum_map};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use std::{mem::size_of, sync::OnceLock};
-use strum_macros::EnumIter;
+use strum::EnumIter;
 
 #[cfg(feature = "usermode")]
 pub use syscall_numbers::x86_64 as syscalls;

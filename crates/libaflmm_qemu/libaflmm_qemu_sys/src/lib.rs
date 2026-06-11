@@ -12,7 +12,7 @@ use core::ffi::c_void;
 use core::ops::BitAnd;
 
 use num_enum::{IntoPrimitive, TryFromPrimitive};
-use strum_macros::EnumIter;
+use strum::EnumIter;
 
 mod bindings;
 pub use bindings::*;

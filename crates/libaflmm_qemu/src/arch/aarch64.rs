@@ -7,7 +7,7 @@ use capstone::arch::BuildsCapstone;
 use enum_map::{EnumMap, enum_map};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use std::sync::OnceLock;
-use strum_macros::EnumIter;
+use strum::EnumIter;
 
 pub use syscall_numbers::aarch64 as syscalls;
 

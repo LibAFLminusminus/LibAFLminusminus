@@ -1,7 +1,7 @@
 //! Low-level QEMU library
 //!
 //! This module exposes the low-level QEMU library through [`Qemu`].
-//! To access higher-level features of QEMU, it is recommended to use [`crate::Emulator`] instead.
+//! To access higher-level features of QEMU, it is recommended to use [`crate::emu::Emulator`] instead.
 
 use crate::{
     arch::{GuestReg, Regs},

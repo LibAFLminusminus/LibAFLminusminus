@@ -6,7 +6,7 @@ use crate::{
 use enum_map::{EnumMap, enum_map};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use std::sync::OnceLock;
-use strum_macros::EnumIter;
+use strum::EnumIter;
 
 /// Hexagon syscalls are not currently supported by the `syscall_numbers` crate, so we just paste this here for now.
 /// <https://github.com/qemu/qemu/blob/11be70677c70fdccd452a3233653949b79e97908/linux-user/hexagon/syscall_nr.h#L230>

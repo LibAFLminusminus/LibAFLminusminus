@@ -37,7 +37,7 @@ pub struct AnonShmReceiver<SZ: ShmHeader, T> {
 }
 
 impl AnonShmBuilder {
-    /// Same as [`build_with_hdr`], but the size is always the full shared memory.
+    /// Same as [`Self::build_with_hdr`], but the size is always the full shared memory.
     /// There is not size header.
     pub fn build<T>(
         size: usize,

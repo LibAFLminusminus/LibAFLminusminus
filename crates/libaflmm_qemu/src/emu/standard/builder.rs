@@ -1,6 +1,6 @@
 use crate::Result;
 #[cfg(doc)]
-use crate::config::QemuConfig;
+use crate::qemu::config::QemuConfig;
 use crate::emu::NopInputWriter;
 use crate::emu::StdInputWriter;
 use crate::emu::snapshots::StdSnapshotManager;
@@ -14,11 +14,11 @@ use libaflmm::{inputs::Input, states::State};
 use libaflmm_bolts::tuples::{Append, Prepend, tuple_list};
 use std::marker::PhantomData;
 
-/// An [`Emulator`] Builder.
+/// An [`Emulator`](crate::emu::Emulator) Builder.
 ///
-/// It is the most common way to create a new [`Emulator`].
-/// In addition to the main components of an [`Emulator`], it expects to receive a way to initialize [`Qemu`].
-/// It must be set through [`EmulatorBuilder::qemu_parameters`].
+/// It is the most common way to create a new [`Emulator`](crate::emu::Emulator).
+/// In addition to the main components of an [`Emulator`](crate::emu::Emulator), it expects to receive a way to initialize [`Qemu`].
+/// It must be set through [`StdEmulatorBuilder::qemu_parameters`].
 /// At the moment, there are two main ways to initialize QEMU:
 /// - with a QEMU-compatible CLI. It will be given to QEMU as-is. The first argument should always be a path to the running binary, as expected by execve.
 /// - with an instance of [`QemuConfig`]. It is a more programmatic way to configure [`Qemu`]. It should be built using [`QemuConfigBuilder`].
