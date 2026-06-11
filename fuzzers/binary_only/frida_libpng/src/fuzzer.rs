@@ -228,7 +228,8 @@ where
     // In case the corpus is empty (on first run), reset
     if state.must_load_initial_inputs() {
         state
-            .load_initial_inputs(&mut fuzzer, rt_handle, &options.input).unwrap();
+            .load_initial_inputs(&mut fuzzer, rt_handle, &options.input)
+            .unwrap();
         println!("We imported {} inputs from disk.", state.corpus().count());
     }
 
