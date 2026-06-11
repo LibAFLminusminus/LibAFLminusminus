@@ -29,8 +29,8 @@ document-features = ["dep:document-features"]
 #! # Feature Flags
 #! ### General Features
 
-## If set, libaflmm_bolt's `rand` implementations will implement `rand_core::CoreRng`
-## and, inversely, all seedable `rand_core::RngCore` types can be used as Rng for LibAFL.
+## If set, libaflmm_bolt's `rand` implementations will implement `rand_core::TryRng`
+## and, inversely, all seedable `rand_core::Rng` types can be used as Rng for LibAFL.
 rand_trait = []
 
 ## Will build the `pyo3` bindings
