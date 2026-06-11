@@ -71,7 +71,7 @@ vergen-git2 = "9.1.0"
 [dependencies]
 clap = { version = "4.6.1", features = ["derive", "string"] }
 env_logger = { version = "0.11.10" }
-log = { version = "0.4.29", features = ["release_max_level_info"] }
+log = { version = "0.4.32", features = ["release_max_level_info"] }
 readonly = { version = "0.2.13" }
 libaflmm_bolts = { path = "../../libaflmm_bolts" }
 libaflmm_qemu = { path = "../" }

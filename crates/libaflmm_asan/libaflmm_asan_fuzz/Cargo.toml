@@ -20,7 +20,7 @@ libaflmm_asan = { path = "../", default-features = false, features = [
 ] }
 env_logger = { version = "0.11.10" }
 libfuzzer-sys = { version = "0.4" }
-log = { version = "0.4.29", features = ["release_max_level_info"] }
+log = { version = "0.4.32", features = ["release_max_level_info"] }
 mockall = { version = "0.14.0" }
 thiserror = { version = "2.0.18" }
 
