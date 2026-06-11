@@ -1,11 +1,12 @@
 use std::borrow::Cow;
 
 use lain::traits::Mutatable;
-use libafl::{
+use libaflmm::{
+    fuzzers::EvaluationResult,
     mutators::{MutationResult, Mutator},
-    Error, EvaluationResult,
+    Error,
 };
-use libafl_bolts::{
+use libaflmm_bolts::{
     rands::{Rand, StdRand},
     Named,
 };

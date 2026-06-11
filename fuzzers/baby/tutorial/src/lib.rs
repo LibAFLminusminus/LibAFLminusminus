@@ -6,7 +6,8 @@
 use core::time::Duration;
 use std::env;
 
-use libafl::{
+use libaflmm::{
+    controllers::{SimpleController, SimpleWorker, Worker},
     corpus::{
         schedulers::{QueueScheduler, Scheduler},
         Corpus, InMemoryCorpus, OnDiskCorpus,
@@ -14,19 +15,21 @@ use libafl::{
     executors::{ExitKind, StdExecutor},
     feedback_or, feedback_or_fast,
     feedbacks::{CrashFeedback, MaxMapFeedback, TimeFeedback, TimeoutFeedback},
-    fuzzers::StdFuzzer,
+    fuzzers::{Fuzzer, StdFuzzer},
     inputs::InputContext,
     launchers::{StdLauncher, DEFAULT_MAX_STATE_SIZE_PER_WORKER},
     monitors::SimpleMonitor,
     observers::{HitcountsMapObserver, StdMapObserver, TimeObserver},
     runtimes::{RuntimeHandle, StdInProcessRuntime},
-    simple::{SimpleController, SimpleWorker},
     stages::StdMutationalStage,
-    states::{HasContext, HasCorpus, StdState},
-    Fuzzer, Result, Worker,
+    states::{State, StdState},
+    Result,
 };
-use libafl_bolts::{rands::StdRand, timers::FastTimer, tuples::tuple_list};
-use libafl_targets::{edges_map_mut_slice, libfuzzer_initialize, libfuzzer_test_one_input};
+use libaflmm_bolts::{rands::StdRand, timers::FastTimer, tuples::tuple_list};
+use libaflmm_targets::{
+    coverage::edges_map_mut_slice,
+    libfuzzer::{libfuzzer_initialize, libfuzzer_test_one_input},
+};
 
 mod input;
 use input::PacketData;
@@ -38,16 +41,16 @@ use crate::input::PacketDataContext;
 
 /// The actual fuzzer
 fn run_fuzzer<C, OC, SC>(
-    rt_handle: &mut RuntimeHandle<StdState<C, PacketDataContext, PacketData, OC, SC>, SimpleWorker>,
-    state: &mut StdState<C, PacketDataContext, PacketData, OC, SC>,
+    rt_handle: &mut RuntimeHandle<StdState<C, PacketDataContext, PacketData, OC>, SimpleWorker>,
+    state: &mut StdState<C, PacketDataContext, PacketData, OC>,
 ) -> Result<()>
 where
-    C: Corpus<PacketData>,
-    OC: Corpus<PacketData>,
+    C: Corpus<Input = PacketData>,
+    OC: Corpus<Input = PacketData>,
     SC: Scheduler,
 {
     // The wrapped harness function, calling out to the LLVM-style harness
-    let mut harness = |state: &mut StdState<_, PacketDataContext, PacketData, _, _>,
+    let mut harness = |state: &mut StdState<_, PacketDataContext, PacketData, _>,
                        input: &PacketData| {
         let context: &mut PacketDataContext = state.context_mut();
         let buf = context.to_bytes(input);
@@ -98,14 +101,7 @@ where
     );
 
     // A fuzzer with feedbacks and a corpus scheduler
-    let mut fuzzer = StdFuzzer::new(
-        feedback,
-        objective,
-        &mut stages,
-        &mut executor,
-        state,
-        rt_handle,
-    )?;
+    let mut fuzzer = StdFuzzer::new(executor, feedback, objective, &mut stages, state, rt_handle)?;
 
     // The actual target run starts here.
     // Call LLVMFUzzerInitialize() if present.
@@ -118,7 +114,6 @@ where
     // Each fuzz_one will internally do many executions of the target.
     // If your target is very instable, setting a low count here may help.
     // However, you will lose a lot of performance that way.
-    let iters = 1_000_000;
     let mut rand = StdRand::new();
     // Generator of printable bytearrays of max size 32
     // In case the corpus is empty (on first run), reset
@@ -126,25 +121,17 @@ where
         let mut in_dirs = env::current_dir()?;
         in_dirs.push("corpus");
         state
-            .load_initial_inputs(&mut fuzzer, &mut executor, rt_handle, &[in_dirs.clone()])
+            .load_initial_inputs(&mut fuzzer, rt_handle, &[in_dirs.clone()])
             .unwrap_or_else(|_| panic!("Failed to load initial corpus at {:?}", &in_dirs));
         println!("We imported {} inputs from disk.", state.corpus().count());
     }
 
-    fuzzer.fuzz_loop_for(
-        &mut stages,
-        &mut executor,
-        &mut rand,
-        state,
-        rt_handle,
-        iters,
-    )?;
+    fuzzer.fuzz_loop(&mut stages, &mut rand, state, rt_handle)?;
 
     Ok(())
 }
 
 /// The main fn, `no_mangle` as it is a C main
-#[cfg(not(test))]
 #[no_mangle]
 pub extern "C" fn libafl_main() {
     env_logger::init();

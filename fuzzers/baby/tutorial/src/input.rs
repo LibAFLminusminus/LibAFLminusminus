@@ -2,8 +2,8 @@
 use std::hash::Hash;
 
 use lain::prelude::*;
-use libafl::inputs::{Input, InputContext};
-use libafl_bolts::{ownedref::OwnedSlice, HasLen};
+use libaflmm::inputs::{Input, InputContext};
+use libaflmm_bolts::{ownedref::OwnedSlice, HasLen};
 use serde::{Deserialize, Serialize};
 
 #[derive(
@@ -50,11 +50,17 @@ impl Input for PacketData {}
 #[derive(Serialize, Deserialize, Default, Debug)]
 pub struct PacketDataContext {}
 
-impl InputContext<PacketData> for PacketDataContext {
+impl InputContext for PacketDataContext {
+    type Input = PacketData;
+
     fn to_bytes<'a>(&mut self, input: &'a PacketData) -> OwnedSlice<'a, u8> {
         let mut serialized_data = Vec::with_capacity(input.serialized_size());
         input.binary_serialize::<_, LittleEndian>(&mut serialized_data);
         OwnedSlice::from(serialized_data)
+    }
+
+    fn len(&self, input: &Self::Input) -> usize {
+        input.length as usize
     }
 }
 
