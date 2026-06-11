@@ -17,24 +17,8 @@ Thus, only `libaflmm_targets` depends on `AFL++`, there is no shared code for th
 
 ## LLM Contributions
 
-This repository does not accept LLM-generated pull requests in general.
-No independent code contribution submitted here can be written by LLMs.
-LLMs can be used for general tasks like:
-- searching the repository
-- applying simple patches or modifications that are obviously correct
-- debugging
-- reviewing your patches
-- anything that does not imply writing meaningful pieces of code in general
-
-In any case, anything done or written by an LLM is the user's responsibility.
-
-Writing full chunks of code is generally forbidden.
-This is not because LLMs are necessarily bad, but because it tends to result in less maintainable and lower quality code.
-This rule may change in the future if it becomes obsolete, but this is our current consensus.
-
-If you have some good reasons to do otherwise, please contact us BEFORE submitting Pull Requests.
-The only exception in this repository so far is the `WebMonitor`, because we do not know web stuff and it is not performance critical.
-Any help to replace it with a well-coded web interface would be greatly appreciated.
+The [`AGENTS.md`] file contains our LLM policy.
+Please check it carefully if you plan to use LLMs for this repository.
 
 ## Building and installing
 
