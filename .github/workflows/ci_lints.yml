@@ -20,8 +20,8 @@ jobs:
           cache-key: ubuntu
           cache: ${{ vars.RUNS_ON != '' }}
       - uses: ./.github/actions/cache-qemu-nyx
-      - name: Run clippy
-        run: ./scripts/clippy.sh
+      - name: Check repository
+        run: ./scripts/check.sh
 
   ubuntu-check:
     runs-on: ${{ fromJSON(vars.RUNS_ON || '["self-hosted","linux"]') }}

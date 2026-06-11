@@ -11,7 +11,7 @@ echo
 echo
 echo "[*] Asking clippy how to excel"
 echo
-"$SCRIPT_DIR"/clippy.sh || {
+"$SCRIPT_DIR"/check.sh || {
   echo "[!] Error: clippy wasn't succesful." >&2
   echo "[*] Hint: run scripts/autofix.sh to fix a bunch of errors automatically." >&2
   exit 1  # Exit the script with a non-zero status.
