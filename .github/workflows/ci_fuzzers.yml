@@ -14,8 +14,8 @@ jobs:
           - baby/baby_cmplog
           - baby/baby_forkserver
           - baby/baby_inprocess
-          - baby/Tutorial
-          
+          - baby/tutorial
+
           # In process
           - inprocess/sqlite
     steps:
