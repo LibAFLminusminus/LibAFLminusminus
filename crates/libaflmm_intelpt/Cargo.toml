@@ -39,7 +39,7 @@ libc = { workspace = true }
 log = { workspace = true }
 num_enum = { workspace = true, default-features = false }
 num-traits = { workspace = true, default-features = false }
-ptcov = { version = "0.0.6" }
+ptcov = { version = "0.1.1" }
 raw-cpuid = { version = "11.6.0" }
 serde = { workspace = true }
 typed-builder = { workspace = true }
