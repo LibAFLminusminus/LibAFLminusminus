@@ -273,7 +273,7 @@ impl FuzzerOptions {
 
 /// Parse from `std::env::args_os()`, exit on error
 ///
-/// For more information, see the [cli](super::cli) documentation
+/// For more information, see the [`FuzzerOptions`] documentation
 #[must_use]
 pub fn parse_args() -> FuzzerOptions {
     FuzzerOptions::parse()

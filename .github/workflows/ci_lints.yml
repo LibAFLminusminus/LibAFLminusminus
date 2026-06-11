@@ -20,8 +20,8 @@ jobs:
           cache-key: ubuntu
           cache: ${{ vars.RUNS_ON != '' }}
       - uses: ./.github/actions/cache-qemu-nyx
-      - name: Run clippy
-        run: ./scripts/clippy.sh
+      - name: Check repository
+        run: ./scripts/check.sh
 
   ubuntu-check:
     runs-on: ${{ fromJSON(vars.RUNS_ON || '["self-hosted","linux"]') }}
@@ -70,7 +70,7 @@ jobs:
       - name: Installing python3 black
         run: command -v black &>/dev/null || pipx install black
       - name: Check formatting
-        run: ./scripts/fmt_all.sh check
+        run: ./scripts/fmt.sh check
 
   check-md-links:
     runs-on: ${{ fromJSON(vars.RUNS_ON || '["self-hosted","linux"]') }}

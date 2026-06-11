@@ -113,7 +113,7 @@ pub trait Worker {
     /// Do the work related to reconciling between instances: sharing corpus, etc.
     fn reconcile(&self) -> Result<()>;
 
-    /// Hook called before the [`Runtime`] of the worker gets executed.
+    /// Hook called before the [`Runtime`](crate::runtimes::Runtime) of the worker gets executed.
     fn pre_runtime_exec(&mut self) -> Result<()> {
         Ok(())
     }

@@ -20,8 +20,6 @@ jobs:
           cache-key: ubuntu
           cache: ${{ vars.runs_on != '' }}
       - uses: ./.github/actions/cache-qemu-nyx
-      - name: check for blobs
-        run: ./scripts/check_for_blobs.sh
       - name: check for conflicting dependency versions
         run: cargo tree -d --workspace
       - name: build workspace (debug)

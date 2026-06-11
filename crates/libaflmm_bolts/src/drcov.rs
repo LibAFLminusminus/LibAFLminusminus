@@ -459,7 +459,7 @@ impl DrCovReader {
     }
 
     /// Gets a list of all basic blocks, as absolute addresses, for u32 targets.
-    /// Will return an [`Error`] if addresses are larger than 32 bit.
+    /// Will return an [`Error`](crate::Error) if addresses are larger than 32 bit.
     pub fn basic_block_addresses_u32(&self) -> Result<Vec<u32>> {
         let blocks = self.basic_blocks();
         let mut ret = Vec::with_capacity(blocks.len());

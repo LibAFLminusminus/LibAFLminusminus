@@ -156,7 +156,7 @@ where
     }
 }
 
-/// Perform [`Self::if_stages`] if the closure evaluates to true, else perfrom [`Self::else_stages`]
+/// Perform `if_stages` if the closure evaluates to true, else perfrom `else_stages`
 #[derive(Debug)]
 pub struct IfElseStage<CB, ST1, ST2> {
     closure: CB,

@@ -25,14 +25,6 @@ pub type StdMapObserver<'a, T> = VariableMapObserver<'a, T>;
 
 /// A [`MapObserver`] observes the static map, as oftentimes used for AFL-like coverage information
 ///
-/// When referring to this type in a constraint (e.g. `O: MapObserver`), ensure that you only refer
-/// to instances of a second type, e.g. `C: AsRef<O>` or `A: AsMut<O>`. Map observer instances are
-/// passed around in a way that may be potentially wrapped by e.g. [`ExplicitTracking`] as a way to
-/// encode metadata into the type. This is an unfortunate additional requirement that we can't get
-/// around without specialization.
-///
-/// See [`crate::require_index_tracking`] for an example of how to do so.
-///
 /// TODO: enforce `iter() -> AssociatedTypeIter` when generic associated types stabilize
 pub trait MapObserver:
     HasLen + Named + Serialize + DeserializeOwned + AsRef<Self> + AsMut<Self>

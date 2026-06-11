@@ -59,7 +59,7 @@ impl Registrator {
         self.types.insert(any::type_name::<T>())
     }
 
-    /// Finish the registration, and get the [`CompabilityChecker`].
+    /// Finish the registration, and get the [`CompatibilityChecker`].
     #[must_use]
     pub fn finish(self) -> CompatibilityChecker {
         CompatibilityChecker {

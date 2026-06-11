@@ -127,7 +127,6 @@ serde_yaml = { version = "0.9.34" } # For parsing the injections yaml file
 serial_test = { version = "3.4.0", default-features = false }
 static_assertions = "1.1.0"
 strum = "0.28.0"
-strum_macros = "0.27.2"
 tempfile = "3.27.0"
 thiserror = { version = "2.0.18", default-features = false }
 toml = "1.1.2" # For parsing the injections toml file
@@ -182,8 +181,13 @@ unsafe_derive_deserialize = "allow"
 used_underscore_binding = "allow"
 
 [workspace.lints.rustdoc]
-# Deny
 broken_intra_doc_links = "deny"
+private_intra_doc_links = "deny"
+invalid_codeblock_attributes = "deny"
+invalid_html_tags = "deny"
+invalid_rust_codeblocks = "deny"
+bare_urls = "deny"
+redundant_explicit_links = "deny"
 
 [workspace.metadata.dylint]
 libraries = [

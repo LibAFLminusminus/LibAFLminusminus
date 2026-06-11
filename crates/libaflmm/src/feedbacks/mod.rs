@@ -531,20 +531,8 @@ impl ExitKindLogic for TimeoutLogic {
     }
 }
 
-/// Logic which finds all [`ExitKind::Diff`] exits interesting
-#[derive(Debug, Copy, Clone)]
-pub struct GenericDiffLogic;
-
-impl ExitKindLogic for GenericDiffLogic {
-    const NAME: Cow<'static, str> = Cow::Borrowed("DiffExitKindFeedback");
-
-    fn check_exit_kind(kind: &ExitKind) -> Result<bool> {
-        Ok(matches!(kind, ExitKind::Diff { .. }))
-    }
-}
-
-/// A generic exit type checking feedback. Use [`CrashFeedback`], [`TimeoutFeedback`], or
-/// [`DiffExitKindFeedback`] directly instead.
+/// A generic exit type checking feedback.
+/// Use [`CrashFeedback`] or [`TimeoutFeedback`] directly instead.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ExitKindFeedback<L> {
     name: Cow<'static, str>,
@@ -612,8 +600,6 @@ where
 pub type CrashFeedback = ExitKindFeedback<CrashLogic>;
 /// A [`TimeoutFeedback`] reduces the timeout value of a run.
 pub type TimeoutFeedback = ExitKindFeedback<TimeoutLogic>;
-/// A [`DiffExitKindFeedback`] checks if there is a difference in the [`ExitKind`]s in a [`crate::executors::DiffExecutor`].
-pub type DiffExitKindFeedback = ExitKindFeedback<GenericDiffLogic>;
 
 /// A [`Feedback`] to track execution time.
 ///

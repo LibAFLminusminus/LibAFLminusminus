@@ -76,9 +76,9 @@ where
     }
 }
 
-/// A tuple holding all [`Stages`] used for fuzzing.
+/// A tuple holding all [`Stage`]s used for fuzzing.
 pub trait StagesTuple<E, R, S, W, Z>: DependencyResolver {
-    /// Performs all [`Stages`] in this tuple.
+    /// Performs all [`Stage`]s in this tuple.
     fn perform_all(
         &mut self,
         fuzzer: &mut Z,
@@ -108,7 +108,7 @@ where
     S: State,
     Tail: StagesTuple<E, R, S, W, Z> + HasConstLen,
 {
-    /// Performs all [`Stages`] in the tuple,
+    /// Performs all [`StagesTuple`] in the tuple,
     fn perform_all(
         &mut self,
         fuzzer: &mut Z,

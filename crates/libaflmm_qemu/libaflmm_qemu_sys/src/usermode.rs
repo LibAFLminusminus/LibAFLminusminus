@@ -12,7 +12,7 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 use pyo3::{Bound, IntoPyObject, Python, types::PyInt};
 #[cfg(all(feature = "python", target_os = "linux"))]
 use pyo3::{pyclass, pymethods};
-use strum_macros::EnumIter;
+use strum::EnumIter;
 
 use crate::MmapPerms;
 #[cfg(target_os = "linux")]

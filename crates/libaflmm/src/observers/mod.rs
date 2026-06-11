@@ -33,7 +33,7 @@ pub use list::ListObserver;
 
 pub type StdObserver<'a, T> = VariableMapObserver<'a, T>;
 
-/// [`Observers`] observe different information about the target.
+/// [`ObserversTuple`] observe different information about the target.
 /// They can then be used by various sorts of [`Feedback`](crate::feedbacks::Feedback).
 pub trait Observer<S>: DependencyResolver + Named {
     /// Called right before execution starts.

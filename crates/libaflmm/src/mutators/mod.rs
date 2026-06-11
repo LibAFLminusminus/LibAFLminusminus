@@ -360,8 +360,6 @@ impl Named for NopMutator {
 }
 
 /// [`Mutator`] that inverts a boolean value.
-///
-/// Mostly useful in combination with [`mapping::MappingMutator`]s to mutate parts of a complex input.
 #[derive(Debug)]
 pub struct BoolInvertMutator;
 

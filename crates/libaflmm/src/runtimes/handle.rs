@@ -86,7 +86,7 @@ impl<S, W> RuntimeHandle<S, W> {
         unsafe { self.runtime_mut().unset_timeout() }
     }
 
-    /// Set the termination handler (used by the [`InProcessRuntime`]).
+    /// Set the termination handler (used by the [`InProcessRuntime`](crate::runtimes::InProcessRuntime)).
     ///
     /// # Safety
     ///
@@ -116,7 +116,7 @@ impl<S, W> RuntimeHandle<S, W> {
         self.termination_data_ptr = Some(termination_data);
     }
 
-    /// Set the shared memory saver (used by the [`RestartingRuntime`]).
+    /// Set the shared memory saver (used by the [`RestartingRuntime`](crate::runtimes::RestartingRuntime)).
     pub fn set_saver(&mut self, state_shm_sender: OsShmSender<S>) {
         assert!(
             self.state_shm_sender.is_none(),

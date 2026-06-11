@@ -64,10 +64,7 @@ web_monitor = ["dep:axum", "dep:tokio"]
 #! ## LibAFL-Bolts Features
 
 ## Provide the `#[derive(SerdeAny)]` macro.
-derive = [
-  "libaflmm_derive",
-  "libaflmm_bolts/derive",
-] # provide `derive(SerdeAny) macro.
+derive = ["libaflmm_derive"] # provide `derive(SerdeAny) macro.
 
 ## If set, libaflmm_bolt's `rand` implementations will implement `rand::Rng`
 rand_trait = ["libaflmm_bolts/rand_trait"]
@@ -98,7 +95,6 @@ libaflmm_derive = { workspace = true, default-features = true, optional = true }
 libaflmm_targets = { workspace = true, default-features = true }
 
 quanta = "0.12.6"
-ahash = { workspace = true } # The hash function already used in hashbrown
 hashbrown = { workspace = true, features = [
   "serde",
   "default-hasher",

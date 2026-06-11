@@ -31,7 +31,7 @@ use libaflmm_bolts::{AsSlice, tuples::RefIndexable};
 #[cfg(all(windows, not(test)))]
 use std::process::abort;
 
-/// The [`FridaInProcessExecutor`] is an [`Executor`] that executes the target in the same process, usinig [`frida`](https://frida.re/) for binary-only instrumentation.
+/// The [`FridaExecutor`] is an [`Executor`] that executes the target in the same process, usinig [`frida`](https://frida.re/) for binary-only instrumentation.
 pub struct FridaExecutor<'a, H, I, OT, RT, S> {
     harness: H,
     observers: OT,
@@ -173,7 +173,7 @@ impl<'a, H, I, OT, RT, S> FridaExecutor<'a, H, I, OT, RT, S>
 where
     RT: FridaRuntimeTuple,
 {
-    /// Creates a new [`FridaInProcessExecutor`].
+    /// Creates a new [`FridaExecutor`].
     pub fn new(
         state: &S,
         harness: H,
@@ -187,7 +187,7 @@ where
         FridaExecutor::with_target_bytes_converter(state, harness, observers, gum, helper, None)
     }
 
-    /// Creates a new [`FridaInProcessExecutor`] tracking the given `thread_id`.
+    /// Creates a new [`FridaExecutor`] tracking the given `thread_id`.
     pub fn on_thread(
         state: &S,
         harness: H,
@@ -214,7 +214,7 @@ impl<'a, H, I, OT, RT, S> FridaExecutor<'a, H, I, OT, RT, S>
 where
     RT: FridaRuntimeTuple,
 {
-    /// Creates a new [`FridaInProcessExecutor`].
+    /// Creates a new [`FridaExecutor`].
     pub fn with_target_bytes_converter(
         _state: &S,
         harness: H,

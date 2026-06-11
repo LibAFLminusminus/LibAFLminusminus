@@ -43,13 +43,13 @@ impl PowerScheduleData {
         }
     }
 
-    /// The measured [`exec_time`] during calibration
+    /// The measured execution time during calibration
     #[must_use]
     pub fn exec_time(&self) -> Duration {
         self.exec_time
     }
 
-    /// Set the measured [`exec_time`]
+    /// Set the measured execution time.
     pub fn set_exec_time(&mut self, time: Duration) {
         self.exec_time = time;
     }

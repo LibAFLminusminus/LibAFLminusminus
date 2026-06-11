@@ -1,20 +1,51 @@
 #!/bin/bash
 
+set -eu
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
+LIBAFL_DIR=$(realpath "$SCRIPT_DIR/..")
+
 cd "$SCRIPT_DIR/.." || exit 1
 
 CLIPPY_CMD="RUST_BACKTRACE=full cargo clippy --no-deps --tests --examples --benches"
+DOC_CMD="cargo doc --no-deps"
 
-set -e
+check_md_links() {
+    echo "[*] Checking MD links..."
+
+    cd "$LIBAFL_DIR" || exit 1
+
+    if ! command -v linkspector > /dev/null; then
+        echo "Error: install linkspector to check MD file links."
+        exit 1
+    fi
+
+    linkspector check -c "$LIBAFL_DIR/.github/.linkspector.yml" || exit 1
+
+    echo "[*] Done :)"
+}
+
 # Function to run Clippy on a single directory
 run_clippy() {
    local dir="$1"
    local features="$2"
    echo "Running Clippy on $dir"
-   echo "$CLIPPY_CMD ${features:+"$features"} -- $RUSTC_FLAGS"
+   echo "$CLIPPY_CMD ${features:+"$features"} -- ${RUSTC_FLAGS:-}"
    pushd "$dir" || return 1
 
-   eval "$CLIPPY_CMD ${features:+"$features"} -- $RUSTC_FLAGS"
+   eval "$CLIPPY_CMD ${features:+"$features"} -- ${RUSTC_FLAGS:-}"
+
+   popd || return 1
+}
+
+run_doc() {
+   local dir="$1"
+   local features="$2"
+   echo "Building docs for $dir"
+   echo "$DOC_CMD ${features:+"$features"}"
+   pushd "$dir" || return 1
+
+   eval "$DOC_CMD ${features:+"$features"}"
 
    popd || return 1
 }
@@ -59,11 +90,15 @@ for project in "${PROJECTS[@]}"; do
    done
    if [ -d "$project" ]; then
       run_clippy "$project" "$features"
+      run_doc "$project" "$features"
    else
       echo "Warning: Directory $project does not exist. Skipping."
    fi
 done
-# Last run it on all
-eval "$CLIPPY_CMD --workspace --exclude args_reorder --exclude generics_reorder --exclude use_after_mod -- $RUSTC_FLAGS"
 
-echo "Clippy run completed for all specified projects."
+# Last run it on all
+eval "$CLIPPY_CMD --workspace --exclude args_reorder --exclude generics_reorder --exclude use_after_mod -- ${RUSTC_FLAGS:-}"
+# check docs
+eval "$DOC_CMD --workspace --exclude args_reorder --exclude generics_reorder --exclude use_after_mod"
+
+echo "Clippy and doc checks completed for all specified projects."

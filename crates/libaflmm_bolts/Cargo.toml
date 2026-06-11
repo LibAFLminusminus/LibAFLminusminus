@@ -23,14 +23,11 @@ features = ["document-features"]
 all-features = true
 
 [features]
-default = ["derive", "rand_trait", "xxh3", "simd"]
+default = ["rand_trait", "xxh3", "simd"]
 document-features = ["dep:document-features"]
 
 #! # Feature Flags
 #! ### General Features
-
-## Provide the `#[derive(SerdeAny)]` macro.
-derive = ["libaflmm_derive"]
 
 ## If set, libaflmm_bolt's `rand` implementations will implement `rand_core::CoreRng`
 ## and, inversely, all seedable `rand_core::RngCore` types can be used as Rng for LibAFL.
@@ -73,7 +70,6 @@ itertools = "0.14.0"
 [dependencies]
 rangemap = { workspace = true }
 libaflmm_core = { workspace = true, features = ["serde"] }
-libaflmm_derive = { workspace = true, default-features = true, optional = true }
 
 num_enum = { workspace = true }
 rand_core = { workspace = true }

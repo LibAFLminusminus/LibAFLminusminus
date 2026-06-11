@@ -1,4 +1,4 @@
-//! Unix-specific [`Runtime`] primitives.
+//! Unix-specific [`Runtime`](crate::runtimes::Runtime) primitives.
 
 use libaflmm_bolts::{AnonShmBuilder, AnonShmReceiver, AnonShmSender};
 

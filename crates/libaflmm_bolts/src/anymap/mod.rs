@@ -10,7 +10,6 @@ pub use serdeany::{
 };
 
 /// Unpack a [`TypeId`] to an `u128`
-/// Opposite of [`pack_type_id`].
 ///
 /// # Note
 /// Probably not safe for future compilers, fine for now.

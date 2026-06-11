@@ -432,7 +432,7 @@ impl TokenReplace {
 }
 
 /// A `I2SRandReplace` [`Mutator`] replaces a random matching input-2-state comparison operand with the other.
-/// It needs a valid [`CmpValuesMetadata`] in the state.
+/// It needs a valid [`CmpLogMetadata`] in the state.
 #[derive(Debug, Default)]
 pub struct I2SRandReplace;
 
@@ -626,7 +626,7 @@ impl I2SRandReplace {
 }
 
 // A `I2SRandReplaceBinonly` [`Mutator`] replaces a random matching input-2-state comparison operand with the other.
-/// It needs a valid [`CmpValuesMetadata`] in the state.
+/// It needs a valid [`CmpLogMetadata`] in the state.
 /// This version has been designed for binary-only fuzzing, for which cmp sized can be larger than necessary.
 #[derive(Debug, Default)]
 pub struct I2SRandReplaceBinonly;

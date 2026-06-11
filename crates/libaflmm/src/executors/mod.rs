@@ -48,13 +48,6 @@ pub enum ExitKind {
     Oom,
     /// The run timed out
     Timeout,
-    /// Special case for [`DiffExecutor`] when both exitkinds don't match
-    Diff {
-        /// The exitkind of the primary executor
-        primary: DiffExitKind,
-        /// The exitkind of the secondary executor
-        secondary: DiffExitKind,
-    },
 }
 libaflmm_bolts::impl_serdeany!(ExitKind);
 
@@ -79,7 +72,7 @@ libaflmm_bolts::impl_serdeany!(DiffExitKind);
 
 /// Runs the fuzzer harness.
 pub trait Executor<I, S>: DependencyResolver {
-    /// The [`Observer`]s owned by the [`Executor`].
+    /// The [`Observer`](crate::observers::Observer)s owned by the [`Executor`].
     type Observers: ObserversTuple<S>;
 
     /// The init function of the executor.

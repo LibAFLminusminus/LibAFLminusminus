@@ -105,7 +105,7 @@ pub trait StdTargetArgs: Sized {
 
     /// Sets the input mode to [`InputLocation::Arg`] and uses the current arg offset as `argnum`.
     /// During execution, at input will be provided _as argument_ at this position.
-    /// Use [`Self::arg_input_file_std`] if you want to provide the input as a file instead.
+    /// Use [`Self::arg_input_file`] if you want to provide the input as a file instead.
     #[must_use]
     fn arg_input_arg(mut self) -> Self {
         let argnum = self.inner().arguments.len();
