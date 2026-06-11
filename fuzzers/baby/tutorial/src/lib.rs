@@ -8,10 +8,7 @@ use std::env;
 
 use libaflmm::{
     controllers::{SimpleController, SimpleWorker, Worker},
-    corpus::{
-        schedulers::{QueueScheduler, Scheduler},
-        Corpus, InMemoryCorpus, OnDiskCorpus,
-    },
+    corpus::{schedulers::QueueScheduler, Corpus, InMemoryCorpus, OnDiskCorpus},
     executors::{ExitKind, StdExecutor},
     feedback_or, feedback_or_fast,
     feedbacks::{CrashFeedback, MaxMapFeedback, TimeFeedback, TimeoutFeedback},
@@ -40,14 +37,13 @@ use mutator::LainMutator;
 use crate::input::PacketDataContext;
 
 /// The actual fuzzer
-fn run_fuzzer<C, OC, SC>(
+fn run_fuzzer<C, OC>(
     rt_handle: &mut RuntimeHandle<StdState<C, PacketDataContext, PacketData, OC>, SimpleWorker>,
     state: &mut StdState<C, PacketDataContext, PacketData, OC>,
 ) -> Result<()>
 where
     C: Corpus<Input = PacketData>,
     OC: Corpus<Input = PacketData>,
-    SC: Scheduler,
 {
     // The wrapped harness function, calling out to the LLVM-style harness
     let mut harness = |state: &mut StdState<_, PacketDataContext, PacketData, _>,
@@ -94,7 +90,7 @@ where
     let mut stages = tuple_list!(mutational);
 
     // Create the executor for an in-process function with one observer for edge coverage and one for the execution time
-    let mut executor = StdExecutor::new(
+    let executor = StdExecutor::new(
         &mut harness,
         tuple_list!(edges_observer, time_observer),
         Some(Duration::new(10, 0)),
@@ -156,8 +152,6 @@ pub extern "C" fn libafl_main() {
 
     // The launcher supervises the fuzzer and communicates with the workers.
     let controller = SimpleController::builder()
-        .worker_stdout(None)
-        .worker_stderr(None)
         .overwrite(true)
         .build()
         .expect("Failed to build the SimpleController");
