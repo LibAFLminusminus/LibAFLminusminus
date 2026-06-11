@@ -22,7 +22,7 @@ use crate::{
 };
 
 impl<E, F, I, M, R, S, W, Z> DependencyResolver for PowerScheduleStage<E, F, I, M, R, S, W, Z> {
-    fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
+    fn register_md(&mut self, registrator: &mut Registrator) -> Result<()> {
         registrator.register_md_default::<PowerScheduleData>(EMPTY_MAP_KEY);
         Ok(())
     }

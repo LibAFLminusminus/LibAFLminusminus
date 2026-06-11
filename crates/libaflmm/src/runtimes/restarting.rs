@@ -50,6 +50,9 @@ where
     RT: DependencyResolver,
 {
     fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
+        registrator.register_ty::<Self>();
+        self.register_md(registrator)?;
+
         self.inner.register(registrator)
     }
 

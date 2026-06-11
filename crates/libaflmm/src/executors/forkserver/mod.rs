@@ -283,11 +283,11 @@ impl<OT> DependencyResolver for ForkserverExecutor<OT>
 where
     OT: DependencyResolver,
 {
-    fn register_with_ty(&mut self, registrator: &mut Registrator) -> Result<()> {
+    fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
         registrator.register_ty::<Self>();
+        self.register_md(registrator)?;
 
-        self.register(registrator)?;
-        self.observers.register_with_ty(registrator)
+        self.observers.register(registrator)
     }
 }
 
