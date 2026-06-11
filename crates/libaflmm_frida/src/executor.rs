@@ -61,11 +61,11 @@ impl<H, I, OT, RT, S> DependencyResolver for FridaExecutor<'_, H, I, OT, RT, S>
 where
     OT: DependencyResolver,
 {
-    fn register_with_ty(&mut self, registrator: &mut Registrator) -> Result<()> {
+    fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
         registrator.register_ty::<Self>();
 
         self.register(registrator)?;
-        self.observers.register_with_ty(registrator)
+        self.observers.register(registrator)
     }
 
     fn check(&self, _checker: &CompatibilityChecker) -> Result<()> {
