@@ -54,7 +54,6 @@ pub fn main() -> Result<()> {
     color_backtrace::install();
 
     log::info!("Frida fuzzer starting up.");
-    env_logger::init();
 
     // The state creation closure.
     let state_builder = |worker: &SimpleWorker| {
@@ -76,7 +75,11 @@ pub fn main() -> Result<()> {
     };
 
     // The launcher supervises the fuzzer and communicates with the workers.
-    let controller = StdController::builder().overwrite(true).build()?;
+    let controller = StdController::builder()
+        .worker_stdout(None)
+        .worker_stderr(None)
+        .overwrite(true)
+        .build()?;
 
     // The monitor tracks the fuzzing current status.
     let monitor = SimpleMonitor::new();
@@ -222,16 +225,14 @@ where
     let mut fuzzer = StdFuzzer::new(executor, feedback, objective, &mut stages, state, rt_handle)?;
 
     let mut rand = StdRand::new();
-
-    fuzzer.fuzz_loop(&mut stages, &mut rand, state, rt_handle)?;
-
     // In case the corpus is empty (on first run), reset
     if state.must_load_initial_inputs() {
         state
-            .load_initial_inputs(&mut fuzzer, rt_handle, &options.input)
-            .unwrap_or_else(|_| panic!("Failed to load initial corpus at {:?}", &options.input));
+            .load_initial_inputs(&mut fuzzer, rt_handle, &options.input).unwrap();
         println!("We imported {} inputs from disk.", state.corpus().count());
     }
+
+    fuzzer.fuzz_loop(&mut stages, &mut rand, state, rt_handle)?;
 
     Ok(())
 }

@@ -19,7 +19,7 @@ use frida_gum::{
 use libafl::executors::{hooks::inprocess::InProcessHooks, inprocess::HasInProcessHooks};
 use libaflmm::{
     Result,
-    common::DependencyResolver,
+    common::{CompatibilityChecker, DependencyResolver, Registrator},
     controllers::Worker,
     executors::{Executor, ExitKind},
     inputs::Input,
@@ -57,14 +57,28 @@ where
     }
 }
 
-impl<H, I, OT, RT, S> DependencyResolver for FridaExecutor<'_, H, I, OT, RT, S> {}
+impl<H, I, OT, RT, S> DependencyResolver for FridaExecutor<'_, H, I, OT, RT, S>
+where
+    OT: DependencyResolver,
+{
+    fn register_with_ty(&mut self, registrator: &mut Registrator) -> Result<()> {
+        registrator.register_ty::<Self>();
+
+        self.register(registrator)?;
+        self.observers.register_with_ty(registrator)
+    }
+
+    fn check(&self, _checker: &CompatibilityChecker) -> Result<()> {
+        Ok(())
+    }
+}
 
 impl<H, I, OT, RT, S> Executor<I, S> for FridaExecutor<'_, H, I, OT, RT, S>
 where
     H: FnMut(&mut S, &I) -> Result<ExitKind>,
     I: Input,
     S: State<Input = I>,
-    OT: ObserversTuple<S>,
+    OT: ObserversTuple<S> + DependencyResolver,
     RT: FridaRuntimeTuple,
 {
     type Observers = OT;
