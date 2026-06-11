@@ -84,12 +84,6 @@ where
     }
 }
 
-/// A trait for [`Observer`]`s` with a hash field
-pub trait ObserverWithHashField {
-    /// get the value of the hash field
-    fn hash(&self) -> Option<u64>;
-}
-
 /// A simple observer, just overlooking the runtime of the target.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TimeObserver {
