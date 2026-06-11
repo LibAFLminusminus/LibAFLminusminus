@@ -16,9 +16,9 @@ use std::{
 pub struct SimpleControllerBuilder {
     root_dir: PathBuf,
     overwrite: bool,
-    worker_stdout: Option<WorkdirFile>,
-    worker_stderr: Option<WorkdirFile>,
-    worker_stats: Option<WorkdirFile>,
+    worker_stdout: WorkdirFile,
+    worker_stderr: WorkdirFile,
+    worker_stats: WorkdirFile,
 }
 
 /// A simple [`Controller`].
@@ -27,9 +27,9 @@ pub struct SimpleController {
     root_dir: PathBuf,
     id_ctr: u32,
     workers: Vec<SimpleWorkerRepr>,
-    worker_stdout: Option<WorkdirFile>,
-    worker_stderr: Option<WorkdirFile>,
-    worker_stats: Option<WorkdirFile>,
+    worker_stdout: WorkdirFile,
+    worker_stderr: WorkdirFile,
+    worker_stats: WorkdirFile,
 }
 
 /// A simple [`Worker`].
@@ -61,9 +61,9 @@ impl SimpleDescriptor {
     /// Default constructor
     pub fn new(
         root_dir: impl AsRef<Path>,
-        stdout: Option<WorkdirFile>,
-        stderr: Option<WorkdirFile>,
-        stats: Option<WorkdirFile>,
+        stdout: WorkdirFile,
+        stderr: WorkdirFile,
+        stats: WorkdirFile,
         worker_id: WorkerId,
         core_id: CoreId,
     ) -> Result<Self> {
@@ -82,9 +82,9 @@ impl SimpleController {
     /// If overwrite is true, the `root_dir` will be removed before being created again.
     pub fn new(
         root_dir: PathBuf,
-        worker_stdout: Option<WorkdirFile>,
-        worker_stderr: Option<WorkdirFile>,
-        worker_stats: Option<WorkdirFile>,
+        worker_stdout: WorkdirFile,
+        worker_stderr: WorkdirFile,
+        worker_stats: WorkdirFile,
         overwrite: bool,
     ) -> Result<Self> {
         if root_dir.exists() {
@@ -172,7 +172,7 @@ impl Controller for SimpleController {
         descriptor: &Self::Descriptor,
         _termination_code: nix::sys::signal::Signal,
     ) -> Result<()> {
-        log::info!("Started worker {:?}", descriptor.worker_id);
+        log::info!("Worker {:?} terminated", descriptor.worker_id);
         Ok(())
     }
 }
@@ -194,13 +194,8 @@ impl Worker for SimpleWorker {
     }
 
     fn pre_runtime_exec(&mut self) -> Result<()> {
-        if let Some(f) = self.descriptor.workdir.stdout()? {
-            dup2_stdout(f)?;
-        }
-
-        if let Some(f) = self.descriptor.workdir.stderr()? {
-            dup2_stderr(f)?;
-        }
+        dup2_stdout(self.descriptor.workdir.stdout()?)?;
+        dup2_stderr(self.descriptor.workdir.stderr()?)?;
 
         Ok(())
     }
@@ -219,9 +214,9 @@ impl Default for SimpleControllerBuilder {
         Self {
             overwrite: false,
             root_dir: PathBuf::from("./workdir"),
-            worker_stdout: Some(WorkdirFile::Path(PathBuf::from("logs.out"))),
-            worker_stderr: Some(WorkdirFile::Path(PathBuf::from("logs.err"))),
-            worker_stats: Some(WorkdirFile::Path(PathBuf::from("fuzzer_stats"))),
+            worker_stdout: WorkdirFile::Stdout,
+            worker_stderr: WorkdirFile::Stderr,
+            worker_stats: WorkdirFile::Path(PathBuf::from("fuzzer_stats")),
         }
     }
 }
@@ -245,14 +240,14 @@ impl SimpleControllerBuilder {
 
     /// Set [`SimpleWorker`]'s stdout.
     #[must_use]
-    pub fn worker_stdout(mut self, file_output: Option<WorkdirFile>) -> Self {
+    pub fn worker_stdout(mut self, file_output: WorkdirFile) -> Self {
         self.worker_stdout = file_output;
         self
     }
 
     /// Set [`SimpleWorker`]'s stderr.
     #[must_use]
-    pub fn worker_stderr(mut self, file_output: Option<WorkdirFile>) -> Self {
+    pub fn worker_stderr(mut self, file_output: WorkdirFile) -> Self {
         self.worker_stderr = file_output;
         self
     }
@@ -260,21 +255,21 @@ impl SimpleControllerBuilder {
     /// Silence [`SimpleWorker`]'s stderr.
     #[must_use]
     pub fn silence_stderr(mut self) -> Self {
-        self.worker_stderr = Some(WorkdirFile::Null);
+        self.worker_stderr = WorkdirFile::Null;
         self
     }
 
     /// Silence [`SimpleWorker`]'s stderr.
     #[must_use]
     pub fn silence_stdout(mut self) -> Self {
-        self.worker_stdout = Some(WorkdirFile::Null);
+        self.worker_stdout = WorkdirFile::Null;
         self
     }
 
     /// Set [`SimpleWorker`]'s stats file.
     #[must_use]
     pub fn worker_stats(mut self, file_output: WorkdirFile) -> Self {
-        self.worker_stats = Some(file_output);
+        self.worker_stats = file_output;
         self
     }
 

@@ -138,18 +138,19 @@ pub trait Descriptor: Clone {
 #[derive(Debug, Clone)]
 pub struct Workdir {
     root_dir: PathBuf,
-    stdout: Option<WorkdirFile>,
-    stderr: Option<WorkdirFile>,
-    stats: Option<WorkdirFile>,
+    stdout: WorkdirFile,
+    stderr: WorkdirFile,
+    stats: WorkdirFile,
     clock: Clock,
     last_stats_sync: Instant,
 }
 
-/// A workdir file is an abstract representation of a file owned by a [`Workir`].
+/// A workdir file is an abstract representation of a file owned by a [`Workdir`].
 /// It enables to get a file as a [`File`] or a [`PathBuf`] transparently.
 #[derive(Debug)]
 pub enum WorkdirFile {
     /// File described as a [`PathBuf`].
+    /// If a relative path is used, it's relative to the worker's [`Workdir`].
     Path(PathBuf),
     /// File described as a [`File`].
     File(File),
@@ -248,9 +249,9 @@ impl Workdir {
     /// Create a new [`Workdir`].
     pub fn new(
         root_dir: impl AsRef<Path>,
-        stdout: Option<WorkdirFile>,
-        stderr: Option<WorkdirFile>,
-        stats: Option<WorkdirFile>,
+        stdout: WorkdirFile,
+        stderr: WorkdirFile,
+        stats: WorkdirFile,
     ) -> Result<Self> {
         if !root_dir.as_ref().is_dir() {
             return Err(Error::illegal_argument(
@@ -278,30 +279,18 @@ impl Workdir {
     }
 
     /// Get the file associated with stdout for the [`Workdir`].
-    pub fn stdout(&mut self) -> Result<Option<File>> {
-        if let Some(wd_f) = &mut self.stdout {
-            wd_f.get_file_wr(self.root_dir.as_path()).map(Some)
-        } else {
-            Ok(None)
-        }
+    pub fn stdout(&mut self) -> Result<File> {
+        self.stdout.get_file_wr(self.root_dir.as_path())
     }
 
     /// Get the file associated with stderr for the [`Workdir`].
-    pub fn stderr(&mut self) -> Result<Option<File>> {
-        if let Some(wd_f) = &mut self.stderr {
-            wd_f.get_file_wr(self.root_dir.as_path()).map(Some)
-        } else {
-            Ok(None)
-        }
+    pub fn stderr(&mut self) -> Result<File> {
+        self.stderr.get_file_wr(self.root_dir.as_path())
     }
 
     /// Get the [`Stats`] file of the [`Workdir`].
     pub fn get_stats(&mut self) -> Result<Option<File>> {
-        if let Some(stats_f) = &mut self.stats {
-            Ok(stats_f.get_file_rd(self.root_dir.as_path())?)
-        } else {
-            Ok(None)
-        }
+        self.stats.get_file_rd(self.root_dir.as_path())
     }
 
     /// Create a new directory, relative to the [`Workdir`].
@@ -316,10 +305,8 @@ impl Workdir {
 
     /// Update the [`Stats`] of the [`Workdir`].
     pub fn report_stats(&mut self, stats: &Stats) -> Result<()> {
-        if let Some(stats_f) = &mut self.stats {
-            let stats_ref = stats_f.get_file_wr(self.root_dir.as_path())?;
-            sync_stats(stats_ref, stats)?;
-        }
+        let stats_ref = self.stats.get_file_wr(self.root_dir.as_path())?;
+        sync_stats(stats_ref, stats)?;
 
         Ok(())
     }
