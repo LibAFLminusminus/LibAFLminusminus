@@ -39,10 +39,10 @@ test: build harness
 
     CORPUS=$(jq '.corpus' "$STATS_FILE")
     if [ "$CORPUS" -lt 100 ]; then
-        echo "sqlite: Fuzzer did not find more than 100 new interesting inputs (stats: $STATS_FILE, corpus found: $CORPUS)"
+        echo "libpng: Fuzzer did not find more than 100 new interesting inputs (stats: $STATS_FILE, corpus found: $CORPUS)"
         exit 1
     else
-        echo "sqlite: Found $CORPUS new interesting input(s). success."
+        echo "libpng: Found $CORPUS new interesting input(s). success."
     fi
 
 clean:
