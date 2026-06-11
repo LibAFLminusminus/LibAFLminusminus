@@ -2,3 +2,4 @@
 	path = AFLplusplus
 	url = https://github.com/AFLplusplus/AFLplusplus.git
 	branch = stable
+	update = none
