@@ -257,6 +257,20 @@ impl SimpleControllerBuilder {
         self
     }
 
+    /// Silence [`SimpleWorker`]'s stderr.
+    #[must_use]
+    pub fn silence_stderr(mut self) -> Self {
+        self.worker_stderr = Some(WorkdirFile::Null);
+        self
+    }
+
+    /// Silence [`SimpleWorker`]'s stderr.
+    #[must_use]
+    pub fn silence_stdout(mut self) -> Self {
+        self.worker_stdout = Some(WorkdirFile::Null);
+        self
+    }
+
     /// Set [`SimpleWorker`]'s stats file.
     #[must_use]
     pub fn worker_stats(mut self, file_output: WorkdirFile) -> Self {

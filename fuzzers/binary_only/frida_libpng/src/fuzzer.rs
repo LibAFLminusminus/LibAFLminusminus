@@ -13,7 +13,7 @@ use libaflmm::{
     fuzzers::{Fuzzer, StdFuzzer},
     inputs::{BytesContext, BytesInput, InputContext},
     launchers::{StdLauncher, DEFAULT_MAX_STATE_SIZE_PER_WORKER},
-    monitors::SimpleMonitor,
+    monitors::WebMonitor,
     mutators::{
         havoc_mutations::havoc_mutations,
         scheduled::{tokens_mutations, HavocScheduledMutator},
@@ -77,12 +77,12 @@ pub fn main() -> Result<()> {
     // The launcher supervises the fuzzer and communicates with the workers.
     let controller = StdController::builder()
         .worker_stdout(None)
-        .worker_stderr(None)
+        .silence_stderr()
         .overwrite(true)
         .build()?;
 
     // The monitor tracks the fuzzing current status.
-    let monitor = SimpleMonitor::new();
+    let monitor = WebMonitor::new("frida_libpng", &controller);
 
     // A fast timer, much faster than classic OS timers.
     let fast_timer = FastTimer::new();

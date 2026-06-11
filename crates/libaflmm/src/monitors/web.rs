@@ -131,6 +131,7 @@ async fn serve(shared: Arc<RwLock<SharedState>>, port: u16, html: String) {
         .await
         .expect("WebMonitor failed to bind");
     log::info!("WebMonitor listening on http://127.0.0.1:{port}");
+    println!("WebMonitor listening on http://127.0.0.1:{port}");
     axum::serve(listener, app).await.unwrap();
 }
 

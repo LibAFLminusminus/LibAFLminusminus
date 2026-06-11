@@ -21,6 +21,7 @@ panic = 'abort'
 [dependencies]
 libaflmm = { path = "../../../crates/libaflmm", features = [
   "errors_backtrace",
+  "web_monitor"
 ] }
 libaflmm_bolts = { path = "../../../crates/libaflmm_bolts" }
 frida-gum = { version = "0.17.0", features = [
