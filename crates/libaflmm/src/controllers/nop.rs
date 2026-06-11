@@ -1,6 +1,6 @@
 //! Nop controller and workers.
 
-use crate::controllers::{Controller, Descriptor, Workdir, Worker};
+use crate::controllers::{Controller, Descriptor, Workdir, WorkdirFile, Worker};
 use alloc::sync::Arc;
 use libaflmm_bolts::CoreId;
 use libaflmm_core::{Result, WorkerId};
@@ -26,8 +26,13 @@ pub struct NopDescriptor {
 impl Default for NopDescriptor {
     fn default() -> Self {
         let tmp_dir = TempDir::new().expect("failed to create the nop worker temporary directory");
-        let workdir = Workdir::new(tmp_dir.path(), None, None, None)
-            .expect("the temporary directory should be a valid workdir root");
+        let workdir = Workdir::new(
+            tmp_dir.path(),
+            WorkdirFile::Null,
+            WorkdirFile::Null,
+            WorkdirFile::Null,
+        )
+        .expect("the temporary directory should be a valid workdir root");
 
         Self {
             workdir,

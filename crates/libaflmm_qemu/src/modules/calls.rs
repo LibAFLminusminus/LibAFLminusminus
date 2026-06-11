@@ -303,6 +303,7 @@ where
                 #[cfg(feature = "systemmode")]
                 &mut [0; 512]
             };
+
             #[cfg(feature = "systemmode")]
             if let Err(err) = qemu.read_mem(pc, code) {
                 // TODO handle faults
