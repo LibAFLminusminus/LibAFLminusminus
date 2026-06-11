@@ -1,272 +1,239 @@
 //! A libfuzzer-like fuzzer with llmp-multithreading support and restarts
 //! The example harness is built for libpng.
-use std::{cell::RefCell, path::PathBuf, rc::Rc};
+use std::{cell::RefCell, rc::Rc};
 
+use core::time::Duration;
 use frida_gum::Gum;
-use libafl::{
-    corpus::{CachedOnDiskCorpus, Corpus, OnDiskCorpus},
-    events::{
-        launcher::Launcher, llmp::LlmpRestartingEventManager, ClientDescription, EventConfig,
-    },
-    executors::{inprocess::InProcessExecutor, ExitKind, ShadowExecutor},
+use libaflmm::{
+    controllers::{SimpleWorker, StdController, Worker},
+    corpus::{schedulers::QueueScheduler, Corpus, InMemoryCorpus, OnDiskCorpus},
+    executors::ExitKind,
     feedback_or, feedback_or_fast,
     feedbacks::{CrashFeedback, MaxMapFeedback, TimeFeedback, TimeoutFeedback},
-    fuzzer::{Fuzzer, StdFuzzer},
-    inputs::{BytesInput, HasTargetBytes},
-    monitors::MultiMonitor,
+    fuzzers::{Fuzzer, StdFuzzer},
+    inputs::{BytesContext, BytesInput, InputContext},
+    launchers::{StdLauncher, DEFAULT_MAX_STATE_SIZE_PER_WORKER},
+    monitors::WebMonitor,
     mutators::{
         havoc_mutations::havoc_mutations,
         scheduled::{tokens_mutations, HavocScheduledMutator},
-        token_mutations::{I2SRandReplace, Tokens},
+        token_mutations::I2SRandReplace,
     },
-    observers::{CanTrack, HitcountsMapObserver, StdMapObserver, TimeObserver},
-    schedulers::{IndexesLenTimeMinimizerScheduler, QueueScheduler},
-    stages::{IfElseStage, ShadowTracingStage, StdMutationalStage},
-    state::{HasCorpus, StdState},
-    Error, HasMetadata,
+    observers::{CmpLogObserver, HitcountsMapObserver, StdMapObserver, TimeObserver},
+    runtimes::{RuntimeHandle, StdInProcessRuntime},
+    stages::{
+        cmplog_post_hook, cmplog_pre_hook, constrain, IfElseStage, SingleRunStage,
+        StdMutationalStage,
+    },
+    states::{State, StdState},
 };
-use libafl_bolts::{
-    cli::{parse_args, FuzzerOptions},
+use libaflmm_bolts::{
     rands::StdRand,
-    shmem::{ShMemProvider, StdShMemProvider},
     tuples::{tuple_list, Merge},
-    AsSlice,
+    FastTimer, Result,
 };
-use libafl_frida::{
+use libaflmm_frida::{
     asan::{
         asan_rt::AsanRuntime,
         errors::{AsanErrorsFeedback, AsanErrorsObserver},
     },
     cmplog_rt::CmpLogRuntime,
     coverage_rt::{CoverageRuntime, MAP_SIZE},
-    executor::FridaInProcessExecutor,
-    frida_helper_shutdown_observer::FridaHelperObserver,
+    executor::FridaExecutor,
     helper::{FridaInstrumentationHelper, IfElseRuntime},
+    options::parse_args,
 };
-use libafl_targets::cmplog::CmpLogObserver;
 use mimalloc::MiMalloc;
 
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
 
 /// The main fn, usually parsing parameters, and starting the fuzzer
-pub fn main() {
+pub fn main() -> Result<()> {
     env_logger::init();
     color_backtrace::install();
-    let options = parse_args();
 
     log::info!("Frida fuzzer starting up.");
-    match fuzz(&options) {
-        Ok(()) | Err(Error::ShuttingDown) => println!("\nFinished fuzzing. Good bye."),
-        Err(e) => panic!("Error during fuzzing: {e:?}"),
-    }
+
+    // The state creation closure.
+    let state_builder = |worker: &SimpleWorker| {
+        // A scheduler following the queue policy
+        let scheduler = QueueScheduler::new();
+        // The default objective directory
+        let crash_dir = worker.workdir().objective_dir()?;
+
+        // create a State from scratch
+        StdState::new(
+            BytesContext,
+            // Corpus that will be evolved, we keep it in memory for performance
+            // It must have a scheduler
+            InMemoryCorpus::with_scheduler(scheduler),
+            // Corpus in which we store solutions (crashes in this example),
+            // on disk so the user can get them after stopping the fuzzer
+            OnDiskCorpus::builder().root_dir(crash_dir).build()?,
+        )
+    };
+
+    // The launcher supervises the fuzzer and communicates with the workers.
+    let controller = StdController::builder()
+        .worker_stdout(None)
+        .silence_stderr()
+        .overwrite(true)
+        .build()?;
+
+    // The monitor tracks the fuzzing current status.
+    let monitor = WebMonitor::new("frida_libpng", &controller);
+
+    // A fast timer, much faster than classic OS timers.
+    let fast_timer = FastTimer::new();
+    let runtime = StdInProcessRuntime::new(
+        run_fuzzer,
+        DEFAULT_MAX_STATE_SIZE_PER_WORKER,
+        fast_timer,
+        Some(Duration::from_secs(3)),
+    );
+
+    // Launch the fuzzer
+    StdLauncher::builder()?
+        .controller(controller)
+        .monitor(monitor)
+        .state_builder(state_builder)
+        .runtime(runtime)
+        .build()?
+        .launch()?;
+
+    Ok(())
 }
 
 /// The actual fuzzer
-#[expect(clippy::too_many_lines)]
-fn fuzz(options: &FuzzerOptions) -> Result<(), Error> {
+fn run_fuzzer<C, OC>(
+    rt_handle: &mut RuntimeHandle<StdState<C, BytesContext, BytesInput, OC>, SimpleWorker>,
+    state: &mut StdState<C, BytesContext, BytesInput, OC>,
+) -> Result<()>
+where
+    C: Corpus<Input = BytesInput>,
+    OC: Corpus<Input = BytesInput>,
+{
+    let options = parse_args();
+
     // 'While the stats are state, they are usually used in the broker - which is likely never restarted
-    let monitor = MultiMonitor::new(|s| println!("{s}"));
-
-    let shmem_provider = StdShMemProvider::new()?;
-    let is_asan = |options: &FuzzerOptions, client_description: &ClientDescription| {
-        options.asan && options.asan_cores.contains(client_description.core_id())
+    let is_asan = {
+        let core_id = rt_handle.worker().core_id();
+        options.asan && options.asan_cores.contains(core_id)
     };
-    let is_cmplog = |options: &FuzzerOptions, client_description: &ClientDescription| {
-        options.cmplog && options.cmplog_cores.contains(client_description.core_id())
-    };
-
-    let mut run_client = |state: Option<_>,
-                          mut mgr: LlmpRestartingEventManager<_, _, _, _, _>,
-                          client_description: ClientDescription| {
-        // The restarting state will spawn the same process again as child, then restarted it each time it crashes.
-
-        // println!("{:?}", mgr.mgr_id());
-
-        let lib = unsafe { libloading::Library::new(options.clone().harness.unwrap()).unwrap() };
-        let target_func: libloading::Symbol<
-            unsafe extern "C" fn(data: *const u8, size: usize) -> i32,
-        > = unsafe { lib.get(options.harness_function.as_bytes()).unwrap() };
-
-        let mut frida_harness = |input: &BytesInput| {
-            let target = input.target_bytes();
-            let buf = target.as_slice();
-            unsafe { (target_func)(buf.as_ptr(), buf.len()) };
-            ExitKind::Ok
-        };
-
-        let gum = Gum::obtain();
-
-        let coverage = CoverageRuntime::new();
-        let asan = AsanRuntime::new(options);
-        let cmplog = CmpLogRuntime::new();
-
-        let client_description_clone = client_description.clone();
-        let options_clone = options.clone();
-        let client_description_clone2 = client_description.clone();
-        let options_clone2 = options.clone();
-        let frida_helper = Rc::new(RefCell::new(FridaInstrumentationHelper::new(
-            &gum,
-            options,
-            tuple_list!(
-                IfElseRuntime::new(
-                    move || Ok(is_asan(&options_clone, &client_description_clone)),
-                    tuple_list!(asan),
-                    tuple_list!()
-                ),
-                IfElseRuntime::new(
-                    move || Ok(is_cmplog(&options_clone2, &client_description_clone2)),
-                    tuple_list!(cmplog),
-                    tuple_list!()
-                ),
-                coverage
-            ),
-        )));
-
-        // Create an observation channel using the coverage map
-        let edges_observer = HitcountsMapObserver::new(unsafe {
-            StdMapObserver::from_mut_ptr(
-                "edges",
-                frida_helper.borrow_mut().map_mut_ptr().unwrap(),
-                MAP_SIZE,
-            )
-        })
-        .track_indices();
-
-        // Create an observation channel to keep track of the execution time
-        let time_observer = TimeObserver::new("time");
-        let asan_observer = AsanErrorsObserver::from_static_asan_errors();
-        let frida_helper_observer = FridaHelperObserver::new(Rc::clone(&frida_helper));
-
-        // Feedback to rate the interestingness of an input
-        // This one is composed by two Feedbacks in OR
-        let mut feedback = feedback_or!(
-            // New maximization map feedback linked to the edges observer and the feedback state
-            MaxMapFeedback::new(&edges_observer),
-            // Time feedback, this one does not need a feedback state
-            TimeFeedback::new(&time_observer)
-        );
-
-        // Feedbacks to recognize an input as solution
-        let mut objective = feedback_or_fast!(
-            CrashFeedback::new(),
-            AsanErrorsFeedback::new(&asan_observer),
-            TimeoutFeedback::new(),
-        );
-
-        // If not restarting, create a State from scratch
-        let mut state = state.unwrap_or_else(|| {
-            StdState::new(
-                // RNG
-                StdRand::new(),
-                // Corpus that will be evolved, we keep it in memory for performance
-                CachedOnDiskCorpus::no_meta(PathBuf::from("./corpus_discovered"), 64).unwrap(),
-                // Corpus in which we store solutions (crashes in this example),
-                // on disk so the user can get them after stopping the fuzzer
-                OnDiskCorpus::new(options.output.clone()).unwrap(),
-                &mut feedback,
-                &mut objective,
-            )
-            .unwrap()
-        });
-
-        println!("We're a client, let's fuzz :)");
-
-        // Create a PNG dictionary if not existing
-        if state.metadata_map().get::<Tokens>().is_none() {
-            state.add_metadata(Tokens::from([
-                vec![137, 80, 78, 71, 13, 10, 26, 10], // PNG header
-                b"IHDR".to_vec(),
-                b"IDAT".to_vec(),
-                b"PLTE".to_vec(),
-                b"IEND".to_vec(),
-            ]));
-        }
-
-        // Setup a basic mutator with a mutational stage
-        let mutator = HavocScheduledMutator::new(havoc_mutations().merge(tokens_mutations()));
-
-        // A minimization+queue policy to get testcasess from the corpus
-        let scheduler =
-            IndexesLenTimeMinimizerScheduler::new(&edges_observer, QueueScheduler::new());
-
-        // A fuzzer with feedbacks and a corpus scheduler
-        let mut fuzzer = StdFuzzer::new(scheduler, feedback, objective);
-
-        let observers = tuple_list!(
-            frida_helper_observer,
-            edges_observer,
-            time_observer,
-            asan_observer
-        );
-
-        // Create the executor for an in-process function with just one observer for edge coverage
-        let executor = FridaInProcessExecutor::new(
-            &gum,
-            InProcessExecutor::with_timeout(
-                &mut frida_harness,
-                observers,
-                &mut fuzzer,
-                &mut state,
-                &mut mgr,
-                options.timeout,
-            )?,
-            Rc::clone(&frida_helper),
-        );
-        // Create an observation channel using cmplog map
-        let cmplog_observer = CmpLogObserver::new("cmplog", true);
-
-        let mut executor = ShadowExecutor::new(executor, tuple_list!(cmplog_observer));
-
-        let tracing = ShadowTracingStage::new();
-
-        // Setup a randomic Input2State stage
-        let i2s = StdMutationalStage::new(HavocScheduledMutator::new(tuple_list!(
-            I2SRandReplace::new()
-        )));
-
-        // In case the corpus is empty (on first run), reset
-        if state.must_load_initial_inputs() {
-            state
-                .load_initial_inputs_multicore(
-                    &mut fuzzer,
-                    &mut executor,
-                    &mut mgr,
-                    &options.input,
-                    &client_description.core_id(),
-                    &options.cores,
-                )
-                .unwrap_or_else(|_| {
-                    panic!("Failed to load initial corpus at {:?}", &options.input)
-                });
-            println!("We imported {} inputs from disk.", state.corpus().count());
-        }
-
-        let mut stages = tuple_list!(
-            IfElseStage::new(
-                |_, _, _, _| Ok(is_cmplog(options, &client_description)),
-                tuple_list!(tracing, i2s),
-                tuple_list!()
-            ),
-            StdMutationalStage::new(mutator)
-        );
-
-        fuzzer.fuzz_loop(&mut stages, &mut executor, &mut state, &mut mgr)?;
-
-        Ok(())
+    let is_cmplog = {
+        let core_id = rt_handle.worker().core_id();
+        options.cmplog && options.cmplog_cores.contains(core_id)
     };
 
-    let builder = Launcher::builder()
-        .configuration(EventConfig::AlwaysUnique)
-        .shmem_provider(shmem_provider)
-        .monitor(monitor)
-        .run_client(&mut run_client)
-        .cores(&options.cores)
-        .broker_port(options.broker_port)
-        .remote_broker_addr(options.remote_broker_addr);
+    // The restarting state will spawn the same process again as child, then restarted it each time it crashes.
 
-    #[cfg(not(windows))]
-    let builder = builder.stdout_file(Some(&options.stdout));
+    // println!("{:?}", mgr.mgr_id());
 
-    builder.build().launch()
+    let lib = unsafe { libloading::Library::new(options.clone().harness.unwrap()).unwrap() };
+    let target_func: libloading::Symbol<unsafe extern "C" fn(data: *const u8, size: usize) -> i32> =
+        unsafe { lib.get(options.harness_function.as_bytes()).unwrap() };
+
+    let frida_harness = |state: &mut StdState<_, BytesContext, BytesInput, _>,
+                         input: &BytesInput| {
+        let context: &mut BytesContext = state.context_mut();
+        let buf = context.to_bytes(input);
+        unsafe { (target_func)(buf.as_ptr(), buf.len()) };
+        Ok(ExitKind::Ok)
+    };
+
+    let gum = Gum::obtain();
+
+    let coverage = CoverageRuntime::new();
+    let asan = AsanRuntime::new(&options);
+    let cmplog = CmpLogRuntime::new();
+
+    let frida_helper = Rc::new(RefCell::new(FridaInstrumentationHelper::new(
+        &gum,
+        &options,
+        tuple_list!(
+            IfElseRuntime::new(move || Ok(is_asan), tuple_list!(asan), tuple_list!()),
+            IfElseRuntime::new(move || Ok(is_cmplog), tuple_list!(cmplog), tuple_list!()),
+            coverage
+        ),
+    )));
+
+    // Create an observation channel using the coverage map
+    let edges_observer = HitcountsMapObserver::new(unsafe {
+        StdMapObserver::from_mut_ptr(
+            "edges",
+            frida_helper.borrow_mut().map_mut_ptr().unwrap(),
+            MAP_SIZE,
+        )
+    });
+
+    // Create an observation channel to keep track of the execution time
+    let time_observer = TimeObserver::new("time");
+    let asan_observer = AsanErrorsObserver::from_static_asan_errors();
+    // Create an observation channel using cmplog map
+    let cmplog_observer = CmpLogObserver::new("cmplog", true);
+
+    // Feedback to rate the interestingness of an input
+    // This one is composed by two Feedbacks in OR
+    let feedback = feedback_or!(
+        // New maximization map feedback linked to the edges observer and the feedback state
+        MaxMapFeedback::new(&edges_observer),
+        // Time feedback, this one does not need a feedback state
+        TimeFeedback::new(&time_observer)
+    );
+
+    // Feedbacks to recognize an input as solution
+    let objective = feedback_or_fast!(
+        CrashFeedback::new(),
+        AsanErrorsFeedback::new(&asan_observer),
+        TimeoutFeedback::new(),
+    );
+
+    println!("We're a client, let's fuzz :)");
+
+    // Setup a basic mutator with a mutational stage
+    let mutator = HavocScheduledMutator::new(havoc_mutations().merge(tokens_mutations()));
+
+    // A minimization+queue policy to get testcasess from the corpus
+    // A fuzzer with feedbacks and a corpus scheduler
+
+    let observers = tuple_list!(
+        edges_observer,
+        time_observer,
+        cmplog_observer,
+        asan_observer
+    );
+
+    // Create the executor
+    let executor = FridaExecutor::new(state, frida_harness, observers, &gum, frida_helper);
+
+    // Setup a randomic Input2State stage
+    let i2s = StdMutationalStage::new(HavocScheduledMutator::new(tuple_list!(
+        I2SRandReplace::new()
+    )));
+
+    let tracing = SingleRunStage::new(cmplog_pre_hook, cmplog_post_hook);
+
+    let mut stages = tuple_list!(
+        IfElseStage::new(
+            constrain(move |_, _, _, _| Ok(is_cmplog)),
+            tuple_list!(tracing, i2s),
+            tuple_list!()
+        ),
+        StdMutationalStage::new(mutator)
+    );
+    let mut fuzzer = StdFuzzer::new(executor, feedback, objective, &mut stages, state, rt_handle)?;
+
+    let mut rand = StdRand::new();
+    // In case the corpus is empty (on first run), reset
+    if state.must_load_initial_inputs() {
+        state
+            .load_initial_inputs(&mut fuzzer, rt_handle, &options.input)
+            .unwrap();
+        println!("We imported {} inputs from disk.", state.corpus().count());
+    }
+
+    fuzzer.fuzz_loop(&mut stages, &mut rand, state, rt_handle)?;
+
+    Ok(())
 }

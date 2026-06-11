@@ -305,6 +305,7 @@ mod tests {
         },
         observers::{ConstMapObserver, HitcountsMapObserver},
         runtimes::RuntimeHandle,
+        states::NopState,
     };
 
     #[test]
@@ -329,7 +330,7 @@ mod tests {
             shmem_buf,
         ));
 
-        let rt_handle = unsafe { RuntimeHandle::empty() };
+        let rt_handle = unsafe { RuntimeHandle::empty(&NopState::nop()) };
 
         let executor = ForkserverExecutor::builder()
             .program(bin)

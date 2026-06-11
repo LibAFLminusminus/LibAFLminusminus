@@ -3,7 +3,7 @@ use frida_gum::instruction_writer::Aarch64Register;
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 use frida_gum::{CpuContext, instruction_writer::X86Register};
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-use libafl::Error;
+use libaflmm::{Result, illegal_state};
 #[cfg(target_arch = "aarch64")]
 use num_traits::cast::FromPrimitive;
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
@@ -259,7 +259,7 @@ pub fn writer_register(reg: RegSpec) -> X86Register {
 pub(crate) fn frida_to_cs(
     decoder: InstDecoder,
     frida_insn: &frida_gum_sys::Insn,
-) -> Result<Instruction, Error> {
+) -> Result<Instruction> {
     match decoder.decode_slice(frida_insn.bytes()) {
         Ok(result) => Ok(result),
         Err(error) => {
@@ -269,9 +269,7 @@ pub(crate) fn frida_to_cs(
                 frida_insn.address(),
                 frida_insn.bytes()
             );
-            Err(Error::illegal_state(
-                "Instruction did not disassemble properly",
-            ))
+            Err(illegal_state!("Instruction did not disassemble properly"))
         }
     }
 }

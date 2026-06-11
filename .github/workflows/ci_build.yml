@@ -25,9 +25,9 @@ jobs:
       - name: check for conflicting dependency versions
         run: cargo tree -d --workspace
       - name: build workspace (debug)
-        run: cargo build --workspace --all-targets --exclude libaflmm_asan_libc --exclude libaflmm_frida --exclude args_reorder --exclude generics_reorder --exclude use_after_mod
+        run: cargo build --workspace --all-targets --exclude libaflmm_asan_libc --exclude args_reorder --exclude generics_reorder --exclude use_after_mod
       - name: test examples
-        run: cargo test --workspace --all-targets --exclude libaflmm_asan --exclude libaflmm_asan_fuzz --exclude libaflmm_asan_libc --exclude libaflmm_frida --exclude args_reorder --exclude generics_reorder --exclude use_after_mod --examples
+        run: cargo test --workspace --all-targets --exclude libaflmm_asan --exclude libaflmm_asan_fuzz --exclude libaflmm_asan_libc --exclude args_reorder --exclude generics_reorder --exclude use_after_mod --examples
       - name: build docs
         run: ./scripts/doc_all.py
       - name: run tests serially

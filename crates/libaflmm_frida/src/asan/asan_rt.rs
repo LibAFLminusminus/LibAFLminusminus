@@ -6,39 +6,7 @@ even if the target would not have crashed under normal conditions.
 this helps finding mem errors early.
 */
 
-use alloc::rc::Rc;
-use core::{
-    cell::Cell,
-    ffi::{c_char, c_void},
-    fmt::{self, Debug, Formatter},
-    ptr::write_volatile,
-};
-use std::sync::{Mutex, MutexGuard};
-
-use backtrace::Backtrace;
-use dynasmrt::{DynasmApi, DynasmLabelApi, dynasm};
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-use frida_gum::instruction_writer::X86Register;
-#[cfg(target_arch = "aarch64")]
-use frida_gum::instruction_writer::{Aarch64Register, IndexMode};
-use frida_gum::{
-    Gum, Module, ModuleMap, NativePointer, PageProtection, Process, RangeDetails,
-    instruction_writer::InstructionWriter, interceptor::Interceptor, stalker::StalkerOutput,
-};
-use frida_gum_sys::Insn;
-use hashbrown::HashMap;
-use libafl_bolts::{cli::FuzzerOptions, get_thread_id, has_tls};
-use libc::wchar_t;
-use rangemap::RangeMap;
-#[cfg(target_arch = "aarch64")]
-use yaxpeax_arch::Arch;
-#[cfg(target_arch = "aarch64")]
-use yaxpeax_arm::armv8::a64::{ARMv8, InstDecoder, Opcode, Operand, ShiftStyle, SizeCode};
-#[cfg(target_arch = "x86_64")]
-use yaxpeax_x86::amd64::{DisplayStyle, InstDecoder, Instruction, Opcode};
-#[cfg(target_arch = "x86")]
-use yaxpeax_x86::protected_mode::{DisplayStyle, InstDecoder, Instruction, Opcode};
-
+use crate::options::FuzzerOptions;
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 use crate::utils::frida_to_cs;
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
@@ -51,6 +19,38 @@ use crate::{
     helper::{FridaRuntime, SkipRange},
     utils::disas_count,
 };
+use alloc::rc::Rc;
+use backtrace::Backtrace;
+use core::{
+    cell::Cell,
+    ffi::{c_char, c_void},
+    fmt::{self, Debug, Formatter},
+    ptr::write_volatile,
+};
+use dynasmrt::{DynasmApi, DynasmLabelApi, dynasm};
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+use frida_gum::instruction_writer::X86Register;
+#[cfg(target_arch = "aarch64")]
+use frida_gum::instruction_writer::{Aarch64Register, IndexMode};
+use frida_gum::{
+    Gum, Module, ModuleMap, NativePointer, PageProtection, Process, RangeDetails,
+    instruction_writer::InstructionWriter, interceptor::Interceptor, stalker::StalkerOutput,
+};
+use frida_gum_sys::Insn;
+use hashbrown::HashMap;
+use libaflmm::Result;
+use libaflmm_bolts::{get_thread_id, has_tls};
+use libc::wchar_t;
+use rangemap::RangeMap;
+use std::sync::{Mutex, MutexGuard};
+#[cfg(target_arch = "aarch64")]
+use yaxpeax_arch::Arch;
+#[cfg(target_arch = "aarch64")]
+use yaxpeax_arm::armv8::a64::{ARMv8, InstDecoder, Opcode, Operand, ShiftStyle, SizeCode};
+#[cfg(target_arch = "x86_64")]
+use yaxpeax_x86::amd64::{DisplayStyle, InstDecoder, Instruction, Opcode};
+#[cfg(target_arch = "x86")]
+use yaxpeax_x86::protected_mode::{DisplayStyle, InstDecoder, Instruction, Opcode};
 
 unsafe extern "C" {
     fn __register_frame(begin: *mut c_void);
@@ -109,6 +109,7 @@ impl Lock {
 
     fn lock(&self) -> LockResult {
         let current_thread_id = get_thread_id();
+
         loop {
             let current_lock = self.state.load(Ordering::Relaxed);
             if current_lock == u64::MAX {
@@ -368,13 +369,13 @@ impl FridaRuntime for AsanRuntime {
         self.deregister_hooks(gum);
     }
 
-    fn pre_exec(&mut self, input_bytes: &[u8]) -> Result<(), libafl::Error> {
+    fn pre_exec(&mut self, input_bytes: &[u8]) -> Result<()> {
         self.unpoison(input_bytes.as_ptr() as usize, input_bytes.len());
         self.enable_hooks();
         Ok(())
     }
 
-    fn post_exec(&mut self, input_bytes: &[u8]) -> Result<(), libafl::Error> {
+    fn post_exec(&mut self, input_bytes: &[u8]) -> Result<()> {
         self.disable_hooks();
         if self.check_for_leaks_enabled {
             self.check_for_leaks();

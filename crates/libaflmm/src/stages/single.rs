@@ -69,13 +69,11 @@ static mut SINGLE_RUN_STAGE_ID: usize = 0;
 pub static SINGLE_RUN_STAGE_NAME: &str = "single";
 
 /// short type for the hook type
-pub type RunHookFn<E, R, S, W, Z> =
-    fn(&mut RuntimeHandle<S, W>, &mut E, &mut R, &mut S, &mut Z) -> Result<()>;
+pub type RunHookFn<R, S, W, Z> = fn(&mut RuntimeHandle<S, W>, &mut R, &mut S, &mut Z) -> Result<()>;
 
 #[expect(clippy::unnecessary_wraps)]
-fn noop_hook<E, R, S, W, Z>(
+fn noop_hook<R, S, W, Z>(
     _: &mut RuntimeHandle<S, W>,
-    _: &mut E,
     _: &mut R,
     _: &mut S,
     _: &mut Z,
@@ -83,18 +81,15 @@ fn noop_hook<E, R, S, W, Z>(
     Ok(())
 }
 
-impl<I, E, R, S, W, Z> Default
-    for SingleRunStage<I, RunHookFn<E, R, S, W, Z>, RunHookFn<E, R, S, W, Z>>
-{
+impl<I, R, S, W, Z> Default for SingleRunStage<I, RunHookFn<R, S, W, Z>, RunHookFn<R, S, W, Z>> {
     fn default() -> Self {
         Self::new(noop_hook, noop_hook)
     }
 }
 
 /// The hook for cmplog where you toggles [`CMPLOG_ENABLED`] for turning on the instrumentation.
-pub fn cmplog_pre_hook<E, R, S, W, Z>(
+pub fn cmplog_pre_hook<R, S, W, Z>(
     _: &mut RuntimeHandle<S, W>,
-    _: &mut E,
     _: &mut R,
     _: &mut S,
     _: &mut Z,
@@ -106,9 +101,8 @@ pub fn cmplog_pre_hook<E, R, S, W, Z>(
 }
 
 /// The hook for cmplog where you toggles [`CMPLOG_ENABLED`] for disabling the instrumentation
-pub fn cmplog_post_hook<E, R, S, W, Z>(
+pub fn cmplog_post_hook<R, S, W, Z>(
     _: &mut RuntimeHandle<S, W>,
-    _: &mut E,
     _: &mut R,
     _: &mut S,
     _: &mut Z,
@@ -119,7 +113,7 @@ pub fn cmplog_post_hook<E, R, S, W, Z>(
     Ok(())
 }
 
-impl<I, E, R, S, W, Z> SingleRunStage<I, RunHookFn<E, R, S, W, Z>, RunHookFn<E, R, S, W, Z>> {
+impl<I, R, S, W, Z> SingleRunStage<I, RunHookFn<R, S, W, Z>, RunHookFn<R, S, W, Z>> {
     /// Construct the [`struct@SingleRunStage`] with cmplog hooks
     pub fn cmplog() -> Self {
         Self::new(cmplog_pre_hook, cmplog_post_hook)

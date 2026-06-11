@@ -24,7 +24,7 @@ use core::{
     time::Duration,
 };
 use libaflmm_bolts::{
-    NamedSerdeAnyMap, SerdeAny,
+    NamedSerdeAnyMap, OwnedSlice, SerdeAny, SerdeAnyMap,
     anymap::{named_metadata, named_metadata_mut, unnamed_metadata, unnamed_metadata_mut},
     rands::Rand,
 };
@@ -255,6 +255,10 @@ pub trait State:
     ) -> &mut T {
         self.metadata_map_mut().get_or_insert_with(name, value)
     }
+
+    fn input_to_bytes<'a>(&mut self, input: &'a Self::Input) -> OwnedSlice<'a, u8> {
+        self.context_mut().to_bytes(input)
+    }
 }
 
 impl<C, CT, I, OC> HasScheduler for StdState<C, CT, I, OC>
@@ -340,6 +344,8 @@ pub struct TestcaseMetadata {
     /// has found crash (or timeout) or not
     #[builder(default = 0)]
     objectives_found: usize,
+    /// A map of metadata, for custom stuff
+    map: SerdeAnyMap,
 }
 
 impl TestcaseMetadata {
@@ -439,6 +445,15 @@ impl TestcaseMetadata {
     /// Set the filename of this [`Testcase`]
     pub fn set_filename(&mut self, filename: TestcaseFilenameFormat) {
         self.filename_format = filename;
+    }
+
+    #[must_use]
+    pub fn md_map(&self) -> &SerdeAnyMap {
+        &self.map
+    }
+
+    pub fn md_map_mut(&mut self) -> &mut SerdeAnyMap {
+        &mut self.map
     }
 }
 

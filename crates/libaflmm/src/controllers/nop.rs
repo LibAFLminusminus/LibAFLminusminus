@@ -58,6 +58,10 @@ impl Controller for NopController {
     type Worker = NopWorker;
     type Descriptor = NopDescriptor;
 
+    fn root_dir(&self) -> &std::path::Path {
+        unimplemented!("nop controller has no root directory");
+    }
+
     fn create_worker(&mut self, _core_id: CoreId) -> Result<Self::Worker> {
         Ok(NopWorker::default())
     }

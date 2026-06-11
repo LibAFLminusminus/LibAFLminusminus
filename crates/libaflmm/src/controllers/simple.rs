@@ -121,6 +121,10 @@ impl Controller for SimpleController {
     type Worker = SimpleWorker;
     type Descriptor = SimpleDescriptor;
 
+    fn root_dir(&self) -> &Path {
+        self.root_dir.as_path()
+    }
+
     fn create_worker(&mut self, core_id: CoreId) -> Result<SimpleWorker> {
         let worker_id = WorkerId(self.id_ctr);
         self.id_ctr += 1;
@@ -250,6 +254,20 @@ impl SimpleControllerBuilder {
     #[must_use]
     pub fn worker_stderr(mut self, file_output: Option<WorkdirFile>) -> Self {
         self.worker_stderr = file_output;
+        self
+    }
+
+    /// Silence [`SimpleWorker`]'s stderr.
+    #[must_use]
+    pub fn silence_stderr(mut self) -> Self {
+        self.worker_stderr = Some(WorkdirFile::Null);
+        self
+    }
+
+    /// Silence [`SimpleWorker`]'s stderr.
+    #[must_use]
+    pub fn silence_stdout(mut self) -> Self {
+        self.worker_stdout = Some(WorkdirFile::Null);
         self
     }
 

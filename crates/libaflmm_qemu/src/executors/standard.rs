@@ -1,7 +1,5 @@
 //! A `QEMU`-based executor for binary-only instrumentation in `LibAFL`
 
-use std::marker::PhantomData;
-
 use crate::emu::Emulator;
 use libaflmm::{
     Result,
@@ -16,6 +14,7 @@ use libaflmm::{
     },
 };
 use libaflmm_bolts::tuples::RefIndexable;
+use std::marker::PhantomData;
 
 pub struct StdQemuExecutor<EMU, I, OT, PRE, POST, S> {
     emulator: EMU,

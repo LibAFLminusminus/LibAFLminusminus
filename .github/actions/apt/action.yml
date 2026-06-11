@@ -52,7 +52,7 @@ runs:
       shell: bash
       run: |
         packages=(
-          curl lsb-release wget software-properties-common gnupg
+          curl lsb-release wget software-properties-common gnupg unzip
           shellcheck libc6-dev gcc g++ build-essential libfile-mimeinfo-perl
           python3-pip cmake python3 libpython3-dev mold yq libasan8
           python3-dev automake flex bison

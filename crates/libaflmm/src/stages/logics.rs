@@ -12,6 +12,14 @@ use crate::{
     states::State,
 };
 
+/// help compiler infer hrtb bounds. useful when you have "closure with signature for any lifetime'1, but it actually implements ... for some specific lifetime '2" error.
+pub fn constrain<S, R, W, Z, F>(f: F) -> F
+where
+    F: FnMut(&mut RuntimeHandle<S, W>, &mut R, &mut S, &mut Z) -> Result<bool>,
+{
+    f
+}
+
 #[derive(Debug)]
 /// Perform the stage while the closure evaluates to true
 pub struct WhileStage<CB, ST> {
