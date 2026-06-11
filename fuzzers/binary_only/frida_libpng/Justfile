@@ -1,0 +1,50 @@
+import "../../../just/libafl.just"
+
+FUZZER_NAME := "frida_fuzzer"
+FUZZER_NAME_WIN := "frida_fuzzer.exe"
+
+set unstable := true
+
+libpng:
+    #!/bin/bash
+    if [ ! -f v1.6.37.tar.gz ]; then
+        wget https://github.com/glennrp/libpng/archive/refs/tags/v1.6.37.tar.gz
+    fi
+    tar -xvf v1.6.37.tar.gz
+
+lib: libpng
+    cd libpng-1.6.37 && ./configure --enable-shared=no --with-pic=yes --enable-hardware-optimizations=yes
+    make -j -C libpng-1.6.37
+
+harness: lib
+    clang++ -O3 -c -fPIC harness.cc -o harness.o
+    clang++ -O3 harness.o libpng-1.6.37/.libs/libpng16.a -shared -lz -o libpng-harness.so
+
+build:
+    cargo build --profile {{ PROFILE }}
+
+run: build harness
+    {{ FUZZER }} -F LLVMFuzzerTestOneInput -H ./libpng-harness.so -l ./libpng-harness.so --input ./corpus
+
+test: build harness
+    #!/bin/bash
+
+    timeout 30s {{ FUZZER }} -F LLVMFuzzerTestOneInput -H ./libpng-harness.so -l ./libpng-harness.so 2>/dev/null || true
+    STATS_FILE="./workdir/worker_0/fuzzer_stats"
+
+    if [ ! -f "$STATS_FILE" ]; then
+        echo "libpng: Stats file not found at $STATS_FILE"
+        exit 1
+    fi
+
+    CORPUS=$(jq '.corpus' "$STATS_FILE")
+    if [ "$CORPUS" -lt 100 ]; then
+        echo "libpng: Fuzzer did not find more than 100 new interesting inputs (stats: $STATS_FILE, corpus found: $CORPUS)"
+        exit 1
+    else
+        echo "libpng: Found $CORPUS new interesting input(s). success."
+    fi
+
+clean:
+    make -C libpng-1.6.37 clean
+    cargo clean

@@ -55,6 +55,9 @@ pub trait Controller {
     /// Get a mutable iterator over all [`Self::Worker`] descriptors.
     fn worker_descriptors_mut(&mut self) -> impl IntoIterator<Item = &mut Self::Descriptor>;
 
+    /// The root directory of the controller
+    fn root_dir(&self) -> &Path;
+
     /// Hook called when a [`Self::Worker`] actually starts, with its associated [`InstanceId`].
     fn on_worker_start(&mut self, _descriptor: &Self::Descriptor, _id: InstanceId) -> Result<()> {
         Ok(())

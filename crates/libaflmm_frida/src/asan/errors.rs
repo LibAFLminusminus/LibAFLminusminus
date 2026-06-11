@@ -1,26 +1,26 @@
 //! Errors that can be caught by the `libaflmm_frida` address sanitizer.
 use alloc::borrow::Cow;
-use core::{fmt::Debug, marker::PhantomData};
-use std::{
-    io::Write,
-    sync::{Mutex, MutexGuard},
-};
-
 use backtrace::Backtrace;
 use color_backtrace::{BacktracePrinter, Verbosity, default_output_stream};
+use core::{fmt::Debug, marker::PhantomData};
 #[cfg(target_arch = "aarch64")]
 use frida_gum::interceptor::Interceptor;
 use frida_gum::{Gum, Process};
-use libafl::{
-    Error, corpus::Testcase, executors::ExitKind, feedbacks::Feedback, observers::Observer,
+use libaflmm::{
+    Error, SerdeAny, common::DependencyResolver, corpus::TestcaseId, executors::ExitKind,
+    feedbacks::Feedback, observers::Observer, states::State,
 };
-use libafl_bolts::{
-    Named, SerdeAny,
+use libaflmm_bolts::{
+    Named,
     ownedref::OwnedPtr,
     tuples::{Handle, Handled, MatchNameRef},
 };
 use mmap_rs::MmapOptions;
 use serde::{Deserialize, Serialize};
+use std::{
+    io::Write,
+    sync::{Mutex, MutexGuard},
+};
 use termcolor::{Color, ColorSpec, WriteColor};
 #[cfg(target_arch = "aarch64")]
 use yaxpeax_arch::Arch;
@@ -605,8 +605,10 @@ pub enum AsanErrorsObserver {
     Static,
 }
 
-impl<I, S> Observer<I, S> for AsanErrorsObserver {
-    fn pre_exec(&mut self, _state: &mut S, _input: &I) -> Result<(), Error> {
+impl DependencyResolver for AsanErrorsObserver {}
+
+impl<S> Observer<S> for AsanErrorsObserver {
+    fn pre_exec(&mut self, _state: &mut S) -> Result<(), Error> {
         AsanErrors::get_mut_blocking().clear();
 
         Ok(())
@@ -674,15 +676,16 @@ pub struct AsanErrorsFeedback<S> {
     phantom: PhantomData<S>,
 }
 
-impl<EM, I, OT, S> Feedback<EM, I, OT, S> for AsanErrorsFeedback<S>
+impl<S> DependencyResolver for AsanErrorsFeedback<S> {}
+
+impl<I, OT, S> Feedback<I, OT, S> for AsanErrorsFeedback<S>
 where
-    S: Debug,
+    S: State,
     OT: MatchNameRef,
 {
     fn is_interesting(
         &mut self,
         _state: &mut S,
-        _manager: &mut EM,
         _input: &I,
         observers: &OT,
         _exit_kind: &ExitKind,
@@ -701,13 +704,15 @@ where
 
     fn append_metadata(
         &mut self,
-        _state: &mut S,
-        _manager: &mut EM,
+        state: &mut S,
         _observers: &OT,
-        testcase: &mut Testcase<I>,
+        testcase: &TestcaseId,
     ) -> Result<(), Error> {
         if let Some(errors) = &self.errors {
-            testcase.add_metadata(errors.clone());
+            state
+                .testcase_md_mut_from_id(testcase)
+                .md_map_mut()
+                .insert(errors.clone());
         }
 
         Ok(())

@@ -1,9 +1,8 @@
 /// [`NyxHelper`] is used to wrap `NyxProcess`
 use core::{fmt::Debug, time::Duration};
-use std::{fs::File, path::Path};
-
-use libaflmm::Error;
+use libaflmm::{Result, illegal_argument, illegal_state};
 use libnyx::{NyxConfig, NyxProcess, NyxProcessRole};
+use std::{fs::File, path::Path};
 
 use crate::settings::NyxSettings;
 
@@ -32,19 +31,18 @@ impl NyxHelper {
     /// Create [`NyxProcess`] and do basic settings. It will convert the
     /// instance to a parent or child using `parent_cpu_id` when
     /// `parallel_mode` is set.
-    pub fn new(share_dir: impl AsRef<Path>, settings: NyxSettings) -> Result<Self, Error> {
+    pub fn new(share_dir: impl AsRef<Path>, settings: NyxSettings) -> Result<Self> {
         let share_dir_str = share_dir
             .as_ref()
             .to_str()
-            .ok_or_else(|| Error::illegal_argument("`share_dir` contains invalid UTF-8"))?;
+            .ok_or_else(|| illegal_argument!("`share_dir` contains invalid UTF-8"))?;
 
-        let mut nyx_config = NyxConfig::load(share_dir_str).map_err(|e| {
-            Error::illegal_argument(format!("Failed to load Nyx config from share dir: {e}"))
-        })?;
+        let mut nyx_config = NyxConfig::load(share_dir_str)
+            .map_err(|e| illegal_argument!("Failed to load Nyx config from share dir: {e}"))?;
         nyx_config.set_input_buffer_size(settings.input_buffer_size);
         if !nyx_config.set_aux_buffer_size(settings.aux_buffer_size) {
-            return Err(Error::illegal_argument(
-                "aux_buffer_size must be multiple of 4KB and must be non-zero".to_string(),
+            return Err(illegal_argument!(
+                "aux_buffer_size must be multiple of 4KB and must be non-zero"
             ));
         }
         nyx_config.set_process_role(match settings.parent_cpu_id {
@@ -58,7 +56,7 @@ impl NyxHelper {
         }
 
         let mut nyx_process = NyxProcess::new(&mut nyx_config, settings.cpu_id)
-            .map_err(|e| Error::illegal_state(format!("Failed to create Nyx process: {e}")))?;
+            .map_err(|e| illegal_state!("Failed to create Nyx process: {e}"))?;
         nyx_process.option_set_reload_mode(settings.snap_mode);
         nyx_process.option_set_timeout(settings.timeout_secs, settings.timeout_micro_secs);
         nyx_process.option_apply();
@@ -71,7 +69,7 @@ impl NyxHelper {
             .create(true)
             .truncate(true)
             .open(path)
-            .map_err(|e| Error::illegal_state(format!("Failed to create Nyx stdout file: {e}")))?;
+            .map_err(|e| illegal_state!("Failed to create Nyx stdout file: {e}"))?;
 
         let bitmap_size = nyx_process.bitmap_buffer_size();
         let bitmap_buffer = nyx_process.bitmap_buffer_mut().as_mut_ptr();

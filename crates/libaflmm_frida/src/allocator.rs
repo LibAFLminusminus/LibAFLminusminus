@@ -23,7 +23,6 @@ use core::ffi::c_void;
 
 use backtrace::Backtrace;
 use frida_gum::{PageProtection, RangeDetails};
-use libafl_bolts::cli::FuzzerOptions;
 #[cfg(target_vendor = "apple")]
 use mach_sys::{
     kern_return::KERN_SUCCESS,
@@ -49,6 +48,17 @@ use rangemap::RangeSet;
 use serde::{Deserialize, Serialize};
 
 use crate::asan::errors::{AsanError, AsanErrors};
+#[cfg(any(
+    windows,
+    target_os = "linux",
+    target_os = "freebsd",
+    target_vendor = "apple",
+    all(
+        any(target_arch = "aarch64", target_arch = "x86_64"),
+        target_os = "android"
+    )
+))]
+use crate::options::FuzzerOptions;
 
 #[cfg(target_vendor = "apple")]
 const VM_REGION_SUBMAP_INFO_COUNT_64: mach_msg_type_number_t = 19;
