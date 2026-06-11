@@ -23,7 +23,11 @@ use core::{
     marker::PhantomData,
     time::Duration,
 };
-use libaflmm_bolts::{NamedSerdeAnyMap, OwnedSlice, SerdeAny, SerdeAnyMap, rands::Rand};
+use libaflmm_bolts::{
+    NamedSerdeAnyMap, SerdeAny,
+    anymap::{named_metadata, named_metadata_mut, unnamed_metadata, unnamed_metadata_mut},
+    rands::Rand,
+};
 use libaflmm_core::illegal_argument;
 use nix::fcntl::{Flock, FlockArg};
 use num_traits::Zero;
