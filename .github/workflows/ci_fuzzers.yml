@@ -62,6 +62,9 @@ jobs:
           toolchain: nightly
           cache-key: ubuntu-nightly
           cache: ${{ vars.RUNS_ON != '' }}
+      - uses: actions/checkout@v4
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
       - name: Run test
         shell: bash
         run: |
