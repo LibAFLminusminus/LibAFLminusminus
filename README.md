@@ -17,7 +17,7 @@ Thus, only `libaflmm_targets` depends on `AFL++`, there is no shared code for th
 
 ## LLM Contributions
 
-The [`AGENTS.md`] file contains our LLM policy.
+The [AGENTS.md](./AGENTS.md) file contains our LLM policy.
 Please check it carefully if you plan to use LLMs for this repository.
 In short, any use of LLMs for generating code is forbidden, the rest is allowed.
 
