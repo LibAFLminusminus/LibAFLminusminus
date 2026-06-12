@@ -3,7 +3,7 @@
 /*! */
 
 use core::str;
-use std::{path::Path, process::Command};
+use std::{path::Path, process::Command, result};
 
 pub mod ar;
 pub use ar::ArWrapper;
@@ -11,6 +11,163 @@ pub mod clang;
 pub use clang::{ClangWrapper, LLVMPasses};
 pub mod libtool;
 pub use libtool::LibtoolWrapper;
+
+pub type Result<T> = result::Result<T, Error>;
+
+pub mod prelude {
+    pub use crate::{
+        ArWrapper, ClangWrapper, CompilerWrapper, Configuration, LLVMPasses, LibtoolWrapper,
+        ToolWrapper,
+    };
+}
+
+// TODO macOS
+/// extension for static libraries
+#[cfg(windows)]
+pub const LIB_EXT: &str = "lib";
+/// extension for static libraries
+#[cfg(not(windows))]
+pub const LIB_EXT: &str = "a";
+
+/// prefix for static libraries
+#[cfg(windows)]
+pub const LIB_PREFIX: &str = "";
+/// prefix for static libraries
+#[cfg(not(windows))]
+pub const LIB_PREFIX: &str = "lib";
+
+/// Wrap a tool hijacking its arguments
+pub trait ToolWrapper {
+    /// Set the wrapper arguments parsing a command line set of arguments
+    fn parse_args<S>(&mut self, args: &[S]) -> Result<&'_ mut Self>
+    where
+        S: AsRef<str>;
+
+    /// Add an argument
+    fn add_arg<S>(&mut self, arg: S) -> &'_ mut Self
+    where
+        S: AsRef<str>;
+
+    /// Add arguments
+    fn add_args<S>(&mut self, args: &[S]) -> &'_ mut Self
+    where
+        S: AsRef<str>,
+    {
+        for arg in args {
+            self.add_arg(arg);
+        }
+        self
+    }
+
+    /// Add a `Configuration`
+    fn add_configuration(&mut self, configuration: Configuration) -> &'_ mut Self;
+
+    /// Command to run the compiler
+    fn command(&mut self) -> Result<Vec<String>>;
+
+    /// Command to run the compiler for a given `Configuration`
+    fn command_for_configuration(&mut self, configuration: Configuration) -> Result<Vec<String>>;
+
+    /// Get the list of requested `Configuration`s
+    fn configurations(&self) -> Result<Vec<Configuration>>;
+
+    /// Whether to ignore the configured `Configurations`. Useful for e.g. nested calls to
+    /// `libaflmm_cc` from `libaflmm_libtool`.
+    fn ignore_configurations(&self) -> Result<bool>;
+
+    /// Get if in linking mode
+    fn is_linking(&self) -> bool;
+
+    /// Filter out argumets
+    fn filter(&self, _args: &mut Vec<String>) {}
+
+    /// Silences `libaflmm_cc` output
+    fn silence(&mut self, value: bool) -> &'_ mut Self;
+
+    /// Returns `true` if `silence` was called with `true`
+    fn is_silent(&self) -> bool;
+
+    /// Run the tool
+    fn run(&mut self) -> Result<Option<i32>> {
+        let mut last_status = Ok(None);
+        let configurations = if self.ignore_configurations()? {
+            vec![Configuration::Default]
+        } else {
+            self.configurations()?
+        };
+        for configuration in configurations {
+            let mut args = self.command_for_configuration(configuration)?;
+            self.filter(&mut args);
+
+            if !self.is_silent() {
+                dbg!(args.clone());
+            }
+            if args.is_empty() {
+                last_status = Err(Error::InvalidArguments(
+                    "The number of arguments cannot be 0".into(),
+                ));
+                continue;
+            }
+            let status = match Command::new(&args[0]).args(&args[1..]).status() {
+                Ok(s) => s,
+                Err(e) => {
+                    last_status = Err(Error::Io(e));
+                    continue;
+                }
+            };
+            if !self.is_silent() {
+                dbg!(status);
+            }
+            last_status = Ok(status.code());
+        }
+        last_status
+    }
+}
+
+/// Wrap a compiler hijacking its arguments
+pub trait CompilerWrapper: ToolWrapper {
+    /// Add a compiler argument only when compiling
+    fn add_cc_arg(&mut self, arg: impl AsRef<str>) -> &'_ mut Self;
+
+    /// Add a compiler argument only when linking
+    fn add_link_arg(&mut self, arg: impl AsRef<str>) -> &'_ mut Self;
+
+    /// Add compiler arguments only when compiling
+    fn add_cc_args(&mut self, args: &[impl AsRef<str>]) -> &'_ mut Self {
+        for arg in args {
+            self.add_cc_arg(arg);
+        }
+        self
+    }
+
+    /// Add compiler arguments only when linking
+    fn add_link_args(&mut self, args: &[impl AsRef<str>]) -> &'_ mut Self {
+        for arg in args {
+            self.add_link_arg(arg);
+        }
+        self
+    }
+
+    /// Link static C lib
+    fn link_staticlib(&mut self, lib: impl AsRef<Path>) -> &'_ mut Self;
+
+    fn link_staticlibs(
+        &mut self,
+        libs: impl IntoIterator<Item = impl AsRef<Path>>,
+    ) -> &'_ mut Self {
+        for lib in libs.into_iter() {
+            self.link_staticlib(lib);
+        }
+
+        self
+    }
+
+    /// Finds the current `python3` version and adds `-lpython3.<version>` as linker argument.
+    /// Useful for fuzzers that need libpython, such as `nautilus`-based fuzzers.
+    fn link_libpython(&mut self) -> result::Result<&'_ mut Self, String> {
+        Ok(self.add_link_arg(format!("-l{}", find_python3_version()?)))
+    }
+}
 
 /// `LibAFL` CC Error Type
 #[derive(Debug)]
@@ -44,7 +201,7 @@ pub enum Configuration {
 
 impl Configuration {
     /// Get compiler flags for this `Configuration`
-    pub fn to_flags(&self) -> Result<Vec<String>, Error> {
+    pub fn to_flags(&self) -> Result<Vec<String>> {
         Ok(match self {
             Configuration::Default => vec![],
             // hardware asan is more memory efficient than asan on arm64
@@ -107,7 +264,7 @@ impl Configuration {
 
 impl str::FromStr for Configuration {
     type Err = ();
-    fn from_str(input: &str) -> Result<Configuration, Self::Err> {
+    fn from_str(input: &str) -> result::Result<Configuration, Self::Err> {
         Ok(match input {
             "asan" => Configuration::AddressSanitizer,
             "ubsan" => Configuration::UndefinedBehaviorSanitizer,
@@ -139,163 +296,11 @@ impl core::fmt::Display for Configuration {
     }
 }
 
-// TODO macOS
-/// extension for static libraries
-#[cfg(windows)]
-pub const LIB_EXT: &str = "lib";
-/// extension for static libraries
-#[cfg(not(windows))]
-pub const LIB_EXT: &str = "a";
-
-/// prefix for static libraries
-#[cfg(windows)]
-pub const LIB_PREFIX: &str = "";
-/// prefix for static libraries
-#[cfg(not(windows))]
-pub const LIB_PREFIX: &str = "lib";
-
-/// Wrap a tool hijacking its arguments
-pub trait ToolWrapper {
-    /// Set the wrapper arguments parsing a command line set of arguments
-    fn parse_args<S>(&mut self, args: &[S]) -> Result<&'_ mut Self, Error>
-    where
-        S: AsRef<str>;
-
-    /// Add an argument
-    fn add_arg<S>(&mut self, arg: S) -> &'_ mut Self
-    where
-        S: AsRef<str>;
-
-    /// Add arguments
-    fn add_args<S>(&mut self, args: &[S]) -> &'_ mut Self
-    where
-        S: AsRef<str>,
-    {
-        for arg in args {
-            self.add_arg(arg);
-        }
-        self
-    }
-
-    /// Add a `Configuration`
-    fn add_configuration(&mut self, configuration: Configuration) -> &'_ mut Self;
-
-    /// Command to run the compiler
-    fn command(&mut self) -> Result<Vec<String>, Error>;
-
-    /// Command to run the compiler for a given `Configuration`
-    fn command_for_configuration(
-        &mut self,
-        configuration: Configuration,
-    ) -> Result<Vec<String>, Error>;
-
-    /// Get the list of requested `Configuration`s
-    fn configurations(&self) -> Result<Vec<Configuration>, Error>;
-
-    /// Whether to ignore the configured `Configurations`. Useful for e.g. nested calls to
-    /// `libaflmm_cc` from `libaflmm_libtool`.
-    fn ignore_configurations(&self) -> Result<bool, Error>;
-
-    /// Get if in linking mode
-    fn is_linking(&self) -> bool;
-
-    /// Filter out argumets
-    fn filter(&self, _args: &mut Vec<String>) {}
-
-    /// Silences `libaflmm_cc` output
-    fn silence(&mut self, value: bool) -> &'_ mut Self;
-
-    /// Returns `true` if `silence` was called with `true`
-    fn is_silent(&self) -> bool;
-
-    /// Run the tool
-    fn run(&mut self) -> Result<Option<i32>, Error> {
-        let mut last_status = Ok(None);
-        let configurations = if self.ignore_configurations()? {
-            vec![Configuration::Default]
-        } else {
-            self.configurations()?
-        };
-        for configuration in configurations {
-            let mut args = self.command_for_configuration(configuration)?;
-            self.filter(&mut args);
-
-            if !self.is_silent() {
-                dbg!(args.clone());
-            }
-            if args.is_empty() {
-                last_status = Err(Error::InvalidArguments(
-                    "The number of arguments cannot be 0".into(),
-                ));
-                continue;
-            }
-            let status = match Command::new(&args[0]).args(&args[1..]).status() {
-                Ok(s) => s,
-                Err(e) => {
-                    last_status = Err(Error::Io(e));
-                    continue;
-                }
-            };
-            if !self.is_silent() {
-                dbg!(status);
-            }
-            last_status = Ok(status.code());
-        }
-        last_status
-    }
-}
-
-/// Wrap a compiler hijacking its arguments
-pub trait CompilerWrapper: ToolWrapper {
-    /// Add a compiler argument only when compiling
-    fn add_cc_arg<S>(&mut self, arg: S) -> &'_ mut Self
-    where
-        S: AsRef<str>;
-
-    /// Add a compiler argument only when linking
-    fn add_link_arg<S>(&mut self, arg: S) -> &'_ mut Self
-    where
-        S: AsRef<str>;
-
-    /// Add compiler arguments only when compiling
-    fn add_cc_args<S>(&mut self, args: &[S]) -> &'_ mut Self
-    where
-        S: AsRef<str>,
-    {
-        for arg in args {
-            self.add_cc_arg(arg);
-        }
-        self
-    }
-
-    /// Add compiler arguments only when linking
-    fn add_link_args<S>(&mut self, args: &[S]) -> &'_ mut Self
-    where
-        S: AsRef<str>,
-    {
-        for arg in args {
-            self.add_link_arg(arg);
-        }
-        self
-    }
-
-    /// Link static C lib
-    fn link_staticlib<S>(&mut self, dir: &Path, name: S) -> &'_ mut Self
-    where
-        S: AsRef<str>;
-
-    /// Finds the current `python3` version and adds `-lpython3.<version>` as linker argument.
-    /// Useful for fuzzers that need libpython, such as `nautilus`-based fuzzers.
-    fn link_libpython(&mut self) -> Result<&'_ mut Self, String> {
-        Ok(self.add_link_arg(format!("-l{}", find_python3_version()?)))
-    }
-}
-
 /// Helper function to find the current python3 version, if you need this information at link time.
 /// Example output: `python3.11`
 /// Example use: `.add_link_arg(format!("-l{}", find_python3_version()?))`
 /// Hint: you can use `link_libpython()` directly.
-fn find_python3_version() -> Result<String, String> {
+fn find_python3_version() -> result::Result<String, String> {
     match Command::new("python3").arg("--version").output() {
         Ok(output) => {
             let python_version = str::from_utf8(&output.stdout).unwrap_or_default().trim();

@@ -25,10 +25,18 @@ all-features = true
 
 
 [features]
-default = ["sanitizers_flags", "windows_asan", "cmplog", "coverage", "common"]
+default = ["sanitizers_flags", "windows_asan", "cmplog", "coverage", "common", "aflpp"]
 
 #! # Feature Flags
 #! ### General Features
+
+# Expose AFL++ instrumentation
+# We use a recent stable of AFL++, which serves as reference
+# for AFL-- forkserver support (especially for the protocol)
+#
+# be careful, some symbols collide with symbols exposed by other
+# flags. it is recommended to only enable this flag when using it.
+aflpp = []
 
 ## Support for the `sancov` 8-bit counters.
 ## This feature enables the `8-bit-counters` runtime for `LibAFL`, which uses a global `COUNTERS_MAPS` to store coverage maps.

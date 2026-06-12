@@ -13,6 +13,8 @@ extern crate std;
 #[macro_use]
 extern crate alloc;
 
+pub mod aflpp;
+
 pub mod constants {
     include!(concat!(env!("OUT_DIR"), "/constants.rs"));
 }

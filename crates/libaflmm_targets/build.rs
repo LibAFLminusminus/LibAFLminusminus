@@ -5,6 +5,9 @@ use std::{env, fs::File, io::Write, path::Path};
 const TWO_MIB: usize = 2_097_152;
 const SIXTY_FOUR_KIB: usize = 65_536;
 
+#[cfg(feature = "aflpp")]
+use std::{path::PathBuf, process::Command};
+
 #[expect(clippy::too_many_lines)]
 #[allow(unused_variables)]
 fn main() {
@@ -87,6 +90,50 @@ fn main() {
         }
 
         common.file(static_dir.join("common.c")).compile("common");
+    }
+
+    #[cfg(feature = "aflpp")]
+    {
+        let aflpp_dir = PathBuf::from("AFLplusplus");
+        let aflpp_instr = aflpp_dir.join("instrumentation");
+        let aflpp_include = aflpp_dir.join("include");
+
+        if !aflpp_instr.is_dir() {
+            Command::new("git")
+                .args([
+                    "submodule",
+                    "update",
+                    "--init",
+                    "--checkout",
+                    "--",
+                    "AFLplusplus",
+                ])
+                .status()
+                .expect("git submodule update failed");
+        }
+
+        assert!(aflpp_instr.is_dir());
+
+        println!("cargo:rerun-if-changed={}", aflpp_instr.display());
+
+        let mut aflpp_compiler_rt = cc::Build::new();
+
+        // libaflpp
+        aflpp_compiler_rt
+            .warnings(false)
+            .file(aflpp_instr.join("afl-compiler-rt.o.c"))
+            .file(aflpp_instr.join("afl-"))
+            .include(&aflpp_include)
+            .flag("-O2")
+            .compile("aflpp");
+
+        // llvm pass
+        aflpp_compiler_rt
+            .warnings(false)
+            .file(aflpp_instr.join("afl-llvm-pass.so.cc"))
+            .include(&aflpp_include)
+            .flag("-O2")
+            .compile("aflpp-llvm-pass");
     }
 
     #[cfg(any(feature = "sancov_value_profile", feature = "sancov_cmplog"))]
