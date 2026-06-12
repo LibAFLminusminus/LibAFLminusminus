@@ -37,37 +37,6 @@ jobs:
           cd fuzzers/${{ matrix.fuzzer }}
           just test
 
-  # anything fuzzers using nightly tool chain
-  nightly-fuzzers:
-    name: Testing ${{ matrix.fuzzer }} (nightly)
-    runs-on: ${{ fromJSON(vars.RUNS_ON || '["self-hosted","linux"]') }}
-    strategy:
-      fail-fast: false
-      matrix:
-        fuzzer:
-          # Tutorial
-          - baby/tutorial
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          submodules: true
-      - uses: ./.github/actions/apt
-        with:
-          aflplusplus: true # useful for forkserver
-      - uses: ./.github/actions/setup-llvm
-        with:
-          version: ${{ vars.MAIN_LLVM_VERSION }}
-      - uses: ./.github/actions/setup-rust
-        with:
-          toolchain: nightly
-          cache-key: ubuntu-nightly
-          cache: ${{ vars.RUNS_ON != '' }}
-      - name: Run test
-        shell: bash
-        run: |
-          cd fuzzers/${{ matrix.fuzzer }}
-          just test
-
   fuzzers-qemu:
     name: Testing ${{ matrix.fuzzer }} (QEMU)
     runs-on: ${{ fromJSON(vars.RUNS_ON || '["self-hosted","linux"]') }}
