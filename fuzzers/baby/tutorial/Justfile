@@ -1,0 +1,26 @@
+build:
+    cargo build --release
+    ./compile.sh
+
+run:
+    ./fuzzer
+
+test:
+    #!/bin/bash
+    set -eu
+
+    timeout 20s ./fuzzer || true
+
+    STATS_FILE="./workdir/worker_0/fuzzer_stats"
+    if [ ! -f "$STATS_FILE" ]; then
+        echo "tutorial: Stats file not found at $STATS_FILE"
+        exit 1
+    fi
+
+    CORPUS=$(jq '.corpus' "$STATS_FILE")
+    if [ "$CORPUS" -lt 3 ]; then
+        echo "tutorial: Fuzzer did not find more than 3 new interesting inputs (stats: $STATS_FILE, corpus found: $CORPUS)"
+        exit 1
+    else
+        echo "tutorial: Found $CORPUS new interesting input(s). success."
+    fi

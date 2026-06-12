@@ -43,3 +43,5 @@ Thanks to this, once you build your compiler pass and the fuzzer (as a static li
 If you are interested, you can check [this](https://clang.llvm.org/docs/SanitizerCoverage.html).
 
 All in all, the important thing to remember is that the compiler wrapper will automatically link the fuzzer code to the target.
+
+## The input.
