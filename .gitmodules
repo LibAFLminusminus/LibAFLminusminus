@@ -1,5 +1,5 @@
 [submodule "AFLplusplus"]
-	path = AFLplusplus
+	path = crates/libaflmm_targets/AFLplusplus
 	url = https://github.com/AFLplusplus/AFLplusplus.git
 	branch = stable
 	update = none
