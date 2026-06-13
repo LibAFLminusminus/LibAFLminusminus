@@ -122,18 +122,17 @@ fn main() {
         aflpp_compiler_rt
             .warnings(false)
             .file(aflpp_instr.join("afl-compiler-rt.o.c"))
-            .file(aflpp_instr.join("afl-"))
             .include(&aflpp_include)
             .flag("-O2")
             .compile("aflpp");
 
-        // llvm pass
-        aflpp_compiler_rt
-            .warnings(false)
-            .file(aflpp_instr.join("afl-llvm-pass.so.cc"))
-            .include(&aflpp_include)
-            .flag("-O2")
-            .compile("aflpp-llvm-pass");
+        // // llvm pass
+        // aflpp_compiler_rt
+        //     .warnings(false)
+        //     .file(aflpp_instr.join("afl-llvm-pass.so.cc"))
+        //     .include(&aflpp_include)
+        //     .flag("-O2")
+        //     .compile("aflpp-llvm-pass");
     }
 
     #[cfg(any(feature = "sancov_value_profile", feature = "sancov_cmplog"))]
