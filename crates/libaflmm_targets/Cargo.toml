@@ -25,7 +25,14 @@ all-features = true
 
 
 [features]
-default = ["sanitizers_flags", "windows_asan", "cmplog", "coverage", "common", "aflpp"]
+default = [
+  "sanitizers_flags",
+  "windows_asan",
+  "cmplog",
+  "coverage",
+  "common",
+  "aflpp",
+]
 
 #! # Feature Flags
 #! ### General Features

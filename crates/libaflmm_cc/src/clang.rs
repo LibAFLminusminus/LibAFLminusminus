@@ -1,27 +1,14 @@
 //! LLVM compiler Wrapper from `LibAFL`
 
-use crate::{CompilerWrapper, Error, LIB_EXT, LIB_PREFIX, ToolWrapper};
-use core::{env, str::FromStr};
-use std::{
-    fs,
-    path::{Path, PathBuf},
-    process::Command,
+use crate::{
+    CompilerWrapper, Configuration, Error, LlvmConfig, Result, ToolWrapper, dll_extension,
 };
-
-/// The `OUT_DIR` for `LLVM` compiler passes
-pub const OUT_DIR: &str = env!("OUT_DIR");
-
-fn dll_extension<'a>() -> &'a str {
-    if cfg!(target_os = "windows") {
-        "dll"
-    } else if cfg!(target_vendor = "apple") {
-        "dylib"
-    } else {
-        "so"
-    }
-}
-
-include!(concat!(env!("OUT_DIR"), "/clang_constants.rs"));
+use core::str::FromStr;
+use std::{
+    ffi::OsStr,
+    path::{Path, PathBuf},
+    process::{Command, Output},
+};
 
 /// The supported LLVM passes
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -47,26 +34,24 @@ pub enum LLVMPasses {
 impl LLVMPasses {
     /// Gets the path of the LLVM pass
     #[must_use]
-    pub fn path(&self) -> PathBuf {
+    pub fn path(&self, outdir: impl AsRef<Path>) -> PathBuf {
+        let outdir = outdir.as_ref();
         match self {
-            LLVMPasses::CmpLogRtn => PathBuf::from(env!("OUT_DIR"))
-                .join(format!("cmplog-routines-pass.{}", dll_extension())),
-            LLVMPasses::AutoTokens => {
-                PathBuf::from(env!("OUT_DIR")).join(format!("autotokens-pass.{}", dll_extension()))
+            LLVMPasses::CmpLogRtn => {
+                outdir.join(format!("cmplog-routines-pass.{}", dll_extension()))
             }
-            LLVMPasses::CoverageAccounting => PathBuf::from(env!("OUT_DIR"))
-                .join(format!("coverage-accounting-pass.{}", dll_extension())),
-            LLVMPasses::DumpCfg => {
-                PathBuf::from(env!("OUT_DIR")).join(format!("dump-cfg-pass.{}", dll_extension()))
+            LLVMPasses::AutoTokens => outdir.join(format!("autotokens-pass.{}", dll_extension())),
+            LLVMPasses::CoverageAccounting => {
+                outdir.join(format!("coverage-accounting-pass.{}", dll_extension()))
             }
+            LLVMPasses::DumpCfg => outdir.join(format!("dump-cfg-pass.{}", dll_extension())),
             #[cfg(unix)]
-            LLVMPasses::CmpLogInstructions => PathBuf::from(env!("OUT_DIR"))
-                .join(format!("cmplog-instructions-pass.{}", dll_extension())),
-            LLVMPasses::Ctx => {
-                PathBuf::from(env!("OUT_DIR")).join(format!("ctx-pass.{}", dll_extension()))
+            LLVMPasses::CmpLogInstructions => {
+                outdir.join(format!("cmplog-instructions-pass.{}", dll_extension()))
             }
+            LLVMPasses::Ctx => outdir.join(format!("ctx-pass.{}", dll_extension())),
             LLVMPasses::FunctionLogging => {
-                PathBuf::from(env!("OUT_DIR")).join(format!("function-logging.{}", dll_extension()))
+                outdir.join(format!("function-logging.{}", dll_extension()))
             }
         }
     }
@@ -74,12 +59,14 @@ impl LLVMPasses {
 
 /// Wrap Clang
 #[expect(clippy::struct_excessive_bools)]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ClangWrapper {
+    llvm_config: LlvmConfig,
+    wrapped_cc: PathBuf,
+    wrapped_cxx: PathBuf,
+
     is_silent: bool,
     optimize: bool,
-    wrapped_cc: String,
-    wrapped_cxx: String,
 
     name: String,
     is_cpp: bool,
@@ -88,11 +75,15 @@ pub struct ClangWrapper {
     shared: bool,
     x_set: bool,
     bit_mode: u32,
+    include_llvm_hdrs: bool,
+    includes: Vec<PathBuf>,
+    defines: Vec<(String, String)>,
     need_libaflmm_arg: bool,
     has_libaflmm_arg: bool,
 
+    dir: Option<PathBuf>,
     output: Option<PathBuf>,
-    configurations: Vec<crate::Configuration>,
+    configuration: crate::Configuration,
     ignoring_configurations: bool,
     parse_args_called: bool,
     base_args: Vec<String>,
@@ -106,10 +97,7 @@ pub struct ClangWrapper {
 #[expect(clippy::match_same_arms)] // for the linking = false wip for "shared"
 impl ToolWrapper for ClangWrapper {
     #[expect(clippy::too_many_lines)]
-    fn parse_args<S>(&mut self, args: &[S]) -> Result<&'_ mut Self, Error>
-    where
-        S: AsRef<str>,
-    {
+    fn parse_args(&mut self, args: &[impl AsRef<str>]) -> Result<&'_ mut Self> {
         let mut new_args: Vec<String> = vec![];
         if args.is_empty() {
             return Err(Error::InvalidArguments(
@@ -152,7 +140,7 @@ impl ToolWrapper for ClangWrapper {
             linking = false;
         }
 
-        let mut suppress_linking = 0;
+        // let mut suppress_linking = 0;
         let mut i = 1;
         while i < args.len() {
             let arg_as_path = Path::new(args[i].as_ref());
@@ -165,26 +153,26 @@ impl ToolWrapper for ClangWrapper {
             }
 
             match args[i].as_ref() {
-                "--libafl-no-link" => {
-                    suppress_linking += 1;
+                "--libaflmm-no-link" => {
+                    // suppress_linking += 1;
                     self.has_libaflmm_arg = true;
                     i += 1;
                     continue;
                 }
                 "--libafl" => {
-                    suppress_linking += 1337;
+                    // suppress_linking += 1337;
                     self.has_libaflmm_arg = true;
                     i += 1;
                     continue;
                 }
                 "-fsanitize=fuzzer-no-link" => {
-                    suppress_linking += 1;
+                    // suppress_linking += 1;
                     self.has_libaflmm_arg = true;
                     i += 1;
                     continue;
                 }
                 "-fsanitize=fuzzer" => {
-                    suppress_linking += 1337;
+                    // suppress_linking += 1337;
                     self.has_libaflmm_arg = true;
                     i += 1;
                     continue;
@@ -201,18 +189,14 @@ impl ToolWrapper for ClangWrapper {
                     i += 2;
                     continue;
                 }
-                "--libafl-ignore-configurations" | "-print-prog-name=ld" => {
+                "--libaflmm-ignore-configurations" | "-print-prog-name=ld" => {
                     self.ignoring_configurations = true;
                     i += 1;
                     continue;
                 }
                 "--libafl-configurations" if i + 1 < args.len() => {
-                    self.configurations.extend(
-                        args[i + 1]
-                            .as_ref()
-                            .split(',')
-                            .map(|x| crate::Configuration::from_str(x).unwrap()),
-                    );
+                    self.configuration =
+                        crate::Configuration::from_str(args[i + 1].as_ref()).unwrap();
                     i += 2;
                     continue;
                 }
@@ -234,19 +218,20 @@ impl ToolWrapper for ClangWrapper {
             new_args.push(args[i].as_ref().to_string());
             i += 1;
         }
-        if linking
-            && (suppress_linking > 0 || (self.has_libaflmm_arg && suppress_linking == 0))
-            && suppress_linking < 1337
-        {
-            linking = false;
-            new_args.push(
-                PathBuf::from(env!("OUT_DIR"))
-                    .join(format!("{LIB_PREFIX}no-link-rt.{LIB_EXT}"))
-                    .into_os_string()
-                    .into_string()
-                    .unwrap(),
-            );
-        }
+
+        // if linking
+        //     && (suppress_linking > 0 || (self.has_libaflmm_arg && suppress_linking == 0))
+        //     && suppress_linking < 1337
+        // {
+        //     linking = false;
+        //     new_args.push(
+        //         PathBuf::from(env!("OUT_DIR"))
+        //             .join(format!("{LIB_PREFIX}no-link-rt.{LIB_EXT}"))
+        //             .into_os_string()
+        //             .into_string()
+        //             .unwrap(),
+        //     );
+        // }
 
         self.linking = linking;
         self.shared = shared;
@@ -283,30 +268,35 @@ impl ToolWrapper for ClangWrapper {
         Ok(self)
     }
 
-    fn add_arg<S>(&mut self, arg: S) -> &'_ mut Self
-    where
-        S: AsRef<str>,
-    {
+    fn add_arg(&mut self, arg: impl AsRef<str>) -> &'_ mut Self {
         self.base_args.push(arg.as_ref().to_string());
         self
     }
 
-    fn add_configuration(&mut self, configuration: crate::Configuration) -> &'_ mut Self {
-        self.configurations.push(configuration);
+    fn set_dir(&mut self, dir: impl AsRef<Path>) -> &'_ mut Self {
+        self.dir = Some(dir.as_ref().to_path_buf());
         self
     }
 
-    fn configurations(&self) -> Result<Vec<crate::Configuration>, Error> {
-        let mut configs = self.configurations.clone();
-        configs.reverse();
-        Ok(configs)
+    fn dir(&self) -> Option<&Path> {
+        self.dir.as_ref().map(|p| p.as_path())
     }
 
-    fn ignore_configurations(&self) -> Result<bool, Error> {
+    fn set_configuration(&mut self, configuration: crate::Configuration) -> &'_ mut Self {
+        self.configuration = configuration;
+        self
+    }
+
+    fn configuration(&self) -> Result<crate::Configuration> {
+        let config = self.configuration.clone();
+        Ok(config)
+    }
+
+    fn ignore_configurations(&self) -> Result<bool> {
         Ok(self.ignoring_configurations)
     }
 
-    fn command(&mut self) -> Result<Vec<String>, Error> {
+    fn command(&mut self) -> Result<Vec<String>> {
         self.command_for_configuration(crate::Configuration::Default)
     }
 
@@ -314,14 +304,14 @@ impl ToolWrapper for ClangWrapper {
     fn command_for_configuration(
         &mut self,
         configuration: crate::Configuration,
-    ) -> Result<Vec<String>, Error> {
+    ) -> Result<Vec<String>> {
         let mut args = vec![];
         let mut use_pass = false;
 
         if self.is_cpp {
-            args.push(self.wrapped_cxx.clone());
+            args.push(self.wrapped_cxx.to_str().unwrap().to_string());
         } else {
-            args.push(self.wrapped_cc.clone());
+            args.push(self.wrapped_cc.to_str().unwrap().to_string());
         }
 
         let base_args = self
@@ -464,6 +454,60 @@ impl ToolWrapper for ClangWrapper {
     fn is_silent(&self) -> bool {
         self.is_silent
     }
+
+    fn run(&mut self) -> Result<Output> {
+        let configuration = if self.ignore_configurations()? {
+            Configuration::Default
+        } else {
+            self.configuration()?
+        };
+
+        let mut args = self.command_for_configuration(configuration)?;
+        self.filter(&mut args);
+
+        let mut cmd = Command::new(&args[0]);
+
+        cmd.args(&args[1..]);
+
+        if self.include_llvm_hdrs {
+            let headers = self.llvm_config.include_dir()?;
+
+            cmd.arg("-I");
+            cmd.arg(headers);
+        }
+
+        for incl in &self.includes {
+            cmd.arg("-I");
+            cmd.arg(incl);
+        }
+
+        for (def, value) in &self.defines {
+            cmd.arg(format!("-D{def}={value}"));
+        }
+
+        if let Some(dir) = self.dir() {
+            cmd.current_dir(dir);
+        }
+
+        if !self.is_silent() {
+            let args: Vec<&OsStr> = cmd.get_args().collect();
+            dbg!(args);
+        }
+
+        if cmd.get_args().count() == 0 {
+            return Err(Error::InvalidArguments(
+                "The number of arguments cannot be 0".into(),
+            ));
+        }
+
+        let output = cmd.output()?;
+
+        if !self.is_silent() {
+            dbg!(output.status);
+        }
+
+        Ok(output)
+    }
 }
 
 impl CompilerWrapper for ClangWrapper {
@@ -474,6 +518,17 @@ impl CompilerWrapper for ClangWrapper {
 
     fn add_link_arg(&mut self, arg: impl AsRef<str>) -> &'_ mut Self {
         self.link_args.push(arg.as_ref().to_string());
+        self
+    }
+
+    fn add_include(&mut self, include_dir: impl AsRef<Path>) -> &'_ mut Self {
+        self.includes.push(include_dir.as_ref().to_path_buf());
+        self
+    }
+
+    fn define(&mut self, define: impl AsRef<str>, value: impl AsRef<str>) -> &'_ mut Self {
+        self.defines
+            .push((define.as_ref().to_string(), value.as_ref().to_string()));
         self
     }
 
@@ -496,21 +551,26 @@ impl CompilerWrapper for ClangWrapper {
         }
     }
 }
-impl Default for ClangWrapper {
-    /// Create a new Clang Wrapper
-    fn default() -> Self {
-        Self::new()
+
+impl TryFrom<&LlvmConfig> for ClangWrapper {
+    type Error = Error;
+
+    fn try_from(llvm_config: &LlvmConfig) -> Result<Self> {
+        Self::new(llvm_config.clone())
     }
 }
 
 impl ClangWrapper {
     /// Create a new Clang Wrapper
     #[must_use]
-    pub fn new() -> Self {
-        Self {
+    pub fn new(llvm_config: LlvmConfig) -> Result<Self> {
+        let wrapped_cc = llvm_config.clang()?;
+        let wrapped_cxx = llvm_config.clangpp()?;
+
+        Ok(Self {
             optimize: true,
-            wrapped_cc: CLANG_PATH.into(),
-            wrapped_cxx: CLANGXX_PATH.into(),
+            wrapped_cc,
+            wrapped_cxx,
             name: String::new(),
             is_cpp: false,
             is_asm: false,
@@ -520,8 +580,13 @@ impl ClangWrapper {
             bit_mode: 0,
             need_libaflmm_arg: false,
             has_libaflmm_arg: false,
+            include_llvm_hdrs: false,
+            llvm_config,
+            includes: vec![],
+            defines: vec![],
+            dir: None,
             output: None,
-            configurations: vec![crate::Configuration::Default],
+            configuration: crate::Configuration::Default,
             ignoring_configurations: false,
             parse_args_called: false,
             base_args: vec![],
@@ -531,18 +596,24 @@ impl ClangWrapper {
             passes_args: vec![],
             passes_linking_args: vec![],
             is_silent: false,
-        }
+        })
     }
 
-    /// Sets the wrapped `cc` compiler
-    pub fn wrapped_cc(&mut self, cc: String) -> &'_ mut Self {
-        self.wrapped_cc = cc;
-        self
+    /// create a new [`Self`] from another one.
+    /// The resulting [`Self`] has the same defaults as
+    /// a normal default, but with the same llvm bin paths.
+    pub fn renew(&self) -> Result<Self> {
+        Self::new(self.llvm_config.clone())
     }
 
-    /// Sets the wrapped `cxx` compiler
-    pub fn wrapped_cxx(&mut self, cxx: String) -> &'_ mut Self {
-        self.wrapped_cxx = cxx;
+    /// Unique string identifying clang
+    pub fn version(&self) -> Result<String> {
+        let res = self.renew()?.add_arg("--version").run().unwrap();
+        Ok(String::from_utf8(res.stdout).unwrap())
+    }
+
+    pub fn output(&mut self, out: impl AsRef<Path>) -> &'_ mut Self {
+        self.output = Some(out.as_ref().to_path_buf());
         self
     }
 
@@ -558,11 +629,11 @@ impl ClangWrapper {
         self
     }
 
-    /// Add LLVM pass
-    pub fn add_pass(&mut self, pass: LLVMPasses) -> &'_ mut Self {
-        self.passes.push(pass.path());
-        self
-    }
+    // /// Add LLVM pass
+    // pub fn add_pass(&mut self, pass: LLVMPasses) -> &'_ mut Self {
+    //     self.passes.push(pass.path());
+    //     self
+    // }
 
     /// Add a pre-compiled LLVM pass .so file to the pipeline
     ///
@@ -601,86 +672,70 @@ impl ClangWrapper {
         self.need_libaflmm_arg = value;
         self
     }
-}
 
-/// Compile a given LLVM pass source code into a shared object (and return it)
-///
-/// this one is basically just the same as the `build_pass` in build.rs but just but the pass on-demand
-pub fn compile_custom_pass(src: &Path) -> Result<PathBuf, Error> {
-    let version = LIBAFL_CC_LLVM_VERSION.ok_or_else(|| {
-        Error::Unknown(
-            "LLVM was not found at libaflmm_cc build time; cannot compile custom passes"
-                .to_string(),
-        )
-    })?;
-
-    let stem = src.file_stem().and_then(|s| s.to_str()).ok_or_else(|| {
-        Error::InvalidArguments(format!("Invalid pass source path: {}", src.display()))
-    })?;
-
-    let cache_dir = PathBuf::from(OUT_DIR).join("custom-passes");
-    fs::create_dir_all(&cache_dir).map_err(Error::Io)?;
-    let ext = dll_extension();
-    let out_path = cache_dir.join(format!("{stem}-llvm{version}.{ext}"));
-    if out_path.exists() {
-        return Ok(out_path);
-    }
-
-    #[cfg(unix)]
-    let status = Command::new(CLANGXX_PATH)
-        .arg("-v")
-        .arg(format!("--target={HOST_TARGET}"))
-        .args(LLVM_CXXFLAGS)
-        .arg(src)
-        .args(LLVM_LDFLAGS)
-        .arg("-o")
-        .arg(&out_path)
-        .status()
-        .map_err(Error::Io)?;
-
-    #[cfg(windows)]
-    let status = Command::new(Path::new(LLVM_BINDIR).join("clang-cl.exe"))
-        .arg("-v")
-        .arg(format!("--target={HOST_TARGET}"))
-        .args(LLVM_CXXFLAGS)
-        .arg(src)
-        .arg("/link")
-        .args(LLVM_LDFLAGS)
-        .arg(format!("/OUT:{}", out_path.display()))
-        .status()
-        .map_err(Error::Io)?;
-
-    #[cfg(not(any(unix, windows)))]
-    return Err(Error::Unknown(
-        "Custom pass compilation is only supported on unix or windows".to_string(),
-    ));
-
-    #[cfg(any(unix, windows))]
-    {
-        if !status.success() {
-            let _ = fs::remove_file(&out_path);
-            return Err(Error::Unknown(format!(
-                "Failed to compile custom pass {}: exit status {status}",
-                src.display()
-            )));
-        }
-        Ok(out_path)
+    pub fn include_llvm_headers(&mut self, value: bool) -> &'_ mut Self {
+        self.include_llvm_hdrs = value;
+        self
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use crate::{ClangWrapper, ToolWrapper};
-
-    #[test]
-    #[cfg_attr(miri, ignore)]
-    fn test_clang_version() {
-        if let Err(res) = ClangWrapper::new()
-            .parse_args(&["my-clang", "-v"])
-            .unwrap()
-            .run()
-        {
-            println!("Ignored error {res:?} - clang is probably not installed.");
-        }
-    }
-}
+// /// Compile a given LLVM pass source code into a shared object (and return it)
+// ///
+// /// this one is basically just the same as the `build_pass` in build.rs but just but the pass on-demand
+// pub fn compile_custom_pass(src: &Path) -> Result<PathBuf, Error> {
+//     let version = self.
+//
+//     let stem = src.file_stem().and_then(|s| s.to_str()).ok_or_else(|| {
+//         Error::InvalidArguments(format!("Invalid pass source path: {}", src.display()))
+//     })?;
+//
+//     let cache_dir = PathBuf::from(OUT_DIR).join("custom-passes");
+//     fs::create_dir_all(&cache_dir).map_err(Error::Io)?;
+//     let ext = dll_extension();
+//     let out_path = cache_dir.join(format!("{stem}-llvm{version}.{ext}"));
+//     if out_path.exists() {
+//         return Ok(out_path);
+//     }
+//
+//     #[cfg(unix)]
+//     let status = Command::new(CLANGXX_PATH)
+//         .arg("-v")
+//         .arg(format!("--target={HOST_TARGET}"))
+//         .args(LLVM_CXXFLAGS)
+//         .arg(src)
+//         .args(LLVM_LDFLAGS)
+//         .arg("-o")
+//         .arg(&out_path)
+//         .status()
+//         .map_err(Error::Io)?;
+//
+//     #[cfg(windows)]
+//     let status = Command::new(Path::new(LLVM_BINDIR).join("clang-cl.exe"))
+//         .arg("-v")
+//         .arg(format!("--target={HOST_TARGET}"))
+//         .args(LLVM_CXXFLAGS)
+//         .arg(src)
+//         .arg("/link")
+//         .args(LLVM_LDFLAGS)
+//         .arg(format!("/OUT:{}", out_path.display()))
+//         .status()
+//         .map_err(Error::Io)?;
+//
+//     #[cfg(not(any(unix, windows)))]
+//     return Err(Error::Unknown(
+//         "Custom pass compilation is only supported on unix or windows".to_string(),
+//     ));
+//
+//     #[cfg(any(unix, windows))]
+//     {
+//         if !status.success() {
+//             let _ = fs::remove_file(&out_path);
+//             return Err(Error::Unknown(format!(
+//                 "Failed to compile custom pass {}: exit status {status}",
+//                 src.display()
+//             )));
+//         }
+//         Ok(out_path)
+//     }
+// }
+//

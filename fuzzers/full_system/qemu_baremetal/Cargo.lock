@@ -1111,20 +1111,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "libaflmm_build"
-version = "0.16.0"
-dependencies = [
- "glob",
- "which",
-]
-
-[[package]]
 name = "libaflmm_cc"
 version = "0.16.0"
 dependencies = [
  "cc",
  "glob",
- "libaflmm_build",
  "which",
 ]
 

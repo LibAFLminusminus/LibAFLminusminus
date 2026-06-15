@@ -3,14 +3,24 @@
 /*! */
 
 use core::str;
-use std::{path::Path, process::Command, result};
+use std::{
+    env, io,
+    path::Path,
+    process::{Command, Output},
+    result,
+};
 
 pub mod ar;
 pub use ar::ArWrapper;
+
 pub mod clang;
 pub use clang::{ClangWrapper, LLVMPasses};
+
 pub mod libtool;
 pub use libtool::LibtoolWrapper;
+
+pub mod llvm;
+pub use llvm::LlvmConfig;
 
 pub type Result<T> = result::Result<T, Error>;
 
@@ -19,6 +29,12 @@ pub mod prelude {
         ArWrapper, ClangWrapper, CompilerWrapper, Configuration, LLVMPasses, LibtoolWrapper,
         ToolWrapper,
     };
+}
+
+pub struct RunResult {
+    pub exit_code: i32,
+    pub stdout: String,
+    pub stderr: String,
 }
 
 // TODO macOS
@@ -39,14 +55,10 @@ pub const LIB_PREFIX: &str = "lib";
 /// Wrap a tool hijacking its arguments
 pub trait ToolWrapper {
     /// Set the wrapper arguments parsing a command line set of arguments
-    fn parse_args<S>(&mut self, args: &[S]) -> Result<&'_ mut Self>
-    where
-        S: AsRef<str>;
+    fn parse_args(&mut self, args: &[impl AsRef<str>]) -> Result<&'_ mut Self>;
 
     /// Add an argument
-    fn add_arg<S>(&mut self, arg: S) -> &'_ mut Self
-    where
-        S: AsRef<str>;
+    fn add_arg(&mut self, arg: impl AsRef<str>) -> &'_ mut Self;
 
     /// Add arguments
     fn add_args<S>(&mut self, args: &[S]) -> &'_ mut Self
@@ -59,8 +71,14 @@ pub trait ToolWrapper {
         self
     }
 
+    /// Set directory in which the tool ultimately runs
+    fn set_dir(&mut self, dir: impl AsRef<Path>) -> &'_ mut Self;
+
+    /// Directory in which the tool ultimately runs
+    fn dir(&self) -> Option<&Path>;
+
     /// Add a `Configuration`
-    fn add_configuration(&mut self, configuration: Configuration) -> &'_ mut Self;
+    fn set_configuration(&mut self, configuration: Configuration) -> &'_ mut Self;
 
     /// Command to run the compiler
     fn command(&mut self) -> Result<Vec<String>>;
@@ -68,8 +86,8 @@ pub trait ToolWrapper {
     /// Command to run the compiler for a given `Configuration`
     fn command_for_configuration(&mut self, configuration: Configuration) -> Result<Vec<String>>;
 
-    /// Get the list of requested `Configuration`s
-    fn configurations(&self) -> Result<Vec<Configuration>>;
+    /// Get the requested `Configuration`
+    fn configuration(&self) -> Result<Configuration>;
 
     /// Whether to ignore the configured `Configurations`. Useful for e.g. nested calls to
     /// `libaflmm_cc` from `libaflmm_libtool`.
@@ -88,39 +106,41 @@ pub trait ToolWrapper {
     fn is_silent(&self) -> bool;
 
     /// Run the tool
-    fn run(&mut self) -> Result<Option<i32>> {
-        let mut last_status = Ok(None);
-        let configurations = if self.ignore_configurations()? {
-            vec![Configuration::Default]
+    fn run(&mut self) -> Result<Output> {
+        let configuration = if self.ignore_configurations()? {
+            Configuration::Default
         } else {
-            self.configurations()?
+            self.configuration()?
         };
-        for configuration in configurations {
-            let mut args = self.command_for_configuration(configuration)?;
-            self.filter(&mut args);
 
-            if !self.is_silent() {
-                dbg!(args.clone());
-            }
-            if args.is_empty() {
-                last_status = Err(Error::InvalidArguments(
-                    "The number of arguments cannot be 0".into(),
-                ));
-                continue;
-            }
-            let status = match Command::new(&args[0]).args(&args[1..]).status() {
-                Ok(s) => s,
-                Err(e) => {
-                    last_status = Err(Error::Io(e));
-                    continue;
-                }
-            };
-            if !self.is_silent() {
-                dbg!(status);
-            }
-            last_status = Ok(status.code());
+        let mut args = self.command_for_configuration(configuration)?;
+        self.filter(&mut args);
+
+        if !self.is_silent() {
+            dbg!(args.clone());
         }
-        last_status
+
+        if args.is_empty() {
+            return Err(Error::InvalidArguments(
+                "The number of arguments cannot be 0".into(),
+            ));
+        }
+
+        let mut cmd = Command::new(&args[0]);
+
+        cmd.args(&args[1..]);
+
+        if let Some(dir) = self.dir() {
+            cmd.current_dir(dir);
+        }
+
+        let output = cmd.output()?;
+
+        if !self.is_silent() {
+            dbg!(output.status);
+        }
+
+        Ok(output)
     }
 }
 
@@ -147,6 +167,10 @@ pub trait CompilerWrapper: ToolWrapper {
         }
         self
     }
+
+    fn add_include(&mut self, include_dir: impl AsRef<Path>) -> &'_ mut Self;
+
+    fn define(&mut self, define: impl AsRef<str>, value: impl AsRef<str>) -> &'_ mut Self;
 
     /// Link static C lib
     fn link_staticlib(&mut self, lib: impl AsRef<Path>) -> &'_ mut Self;
@@ -197,6 +221,12 @@ pub enum Configuration {
     CmpLog,
     /// A compound `Configuration`, made up of a list of other `Configuration`s
     Compound(Vec<Self>),
+}
+
+impl From<io::Error> for Error {
+    fn from(err: io::Error) -> Self {
+        Error::Io(err)
+    }
 }
 
 impl Configuration {
@@ -317,5 +347,26 @@ fn find_python3_version() -> result::Result<String, String> {
             Ok(format!("python3.{version}"))
         }
         Err(err) => Err(format!("Could not execute python3 --version: {err:?}")),
+    }
+}
+
+/// Get the extension for a shared object (dll, so, dylib)
+///
+/// # Panics
+/// Panics if the target family is unsupported (not windows or unix).
+#[must_use]
+pub fn dll_extension<'a>() -> &'a str {
+    if let Ok(vendor) = env::var("CARGO_CFG_TARGET_VENDOR")
+        && vendor == "apple"
+    {
+        return "dylib";
+    }
+
+    let family = env::var("CARGO_CFG_TARGET_FAMILY").unwrap_or_else(|_| "unknown".into());
+
+    match family.as_str() {
+        "windows" => "dll",
+        "unix" => "so",
+        _ => panic!("Unsupported target family: {family}"),
     }
 }
