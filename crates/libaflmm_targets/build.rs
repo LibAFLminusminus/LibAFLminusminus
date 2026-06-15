@@ -6,21 +6,22 @@ const TWO_MIB: usize = 2_097_152;
 const SIXTY_FOUR_KIB: usize = 65_536;
 
 #[cfg(feature = "aflpp")]
+use sha2::Digest;
+#[cfg(feature = "aflpp")]
 use std::{path::PathBuf, process::Command};
 
 #[expect(clippy::too_many_lines)]
 #[allow(unused_variables)]
 fn main() {
     println!("cargo:rustc-check-cfg=cfg(nightly)");
-    let out_dir = env::var_os("OUT_DIR").unwrap();
-    let out_dir = out_dir.to_string_lossy().to_string();
+    let out_dir = PathBuf::from(env::var_os("OUT_DIR").unwrap());
     //let out_dir_path = Path::new(&out_dir);
     #[allow(unused_variables)] // feature dependent
     let src_dir = Path::new("src");
     #[allow(unused_variables)] // feature dependent
     let static_dir = src_dir.join("static");
 
-    let dest_path = Path::new(&out_dir).join("constants.rs");
+    let dest_path = out_dir.join("constants.rs");
     let mut constants_file = File::create(dest_path).expect("Could not create file");
 
     let edges_map_allocated_size: usize = option_env!("LIBAFL_EDGES_MAP_ALLOCATED_SIZE")
@@ -114,25 +115,43 @@ fn main() {
 
         assert!(aflpp_instr.is_dir());
 
+        let files = vec![
+            // includes
+            "include/config.h",
+            "include/types.h",
+            "include/debug.h",
+            // runtime
+            "instrumentation/afl-compiler-rt.o.c",
+            "instrumentation/afl-llvm-common.cc",
+            "instrumentation/afl-llvm-common.h",
+            "instrumentation/afl-llvm-pass.so.cc",
+            // PCGUARD
+            "instrumentation/SanitizerCoveragePCGUARD.so.cc",
+            // LTO
+            "instrumentation/afl-llvm-lto-instrumentlist.so.cc",
+            "instrumentation/afl-llvm-rt-lto.o.c",
+            "instrumentation/SanitizerCoverageLTO.so.cc",
+        ];
+
+        let f = File::create(out_dir.join("aflpp.tar.zst")).unwrap();
+        let zf = zstd::Encoder::new(f, 19).unwrap();
+        let mut tar = tar::Builder::new(zf);
+        let mut h = sha2::Sha256::new();
+        for f in &files {
+            let file = aflpp_dir.join(f);
+            tar.append_path_with_name(&file, f).unwrap();
+            h.update(file.to_string_lossy().as_bytes());
+            h.update(std::fs::read(&file).unwrap());
+        }
+        println!(
+            "cargo:rustc-env=AFLPP_SRC_HASH={}",
+            hex::encode(h.finalize())
+        );
+
+        tar.into_inner().unwrap().finish().unwrap();
+
         println!("cargo:rerun-if-changed={}", aflpp_instr.display());
-
-        let mut aflpp_compiler_rt = cc::Build::new();
-
-        // libaflpp
-        aflpp_compiler_rt
-            .warnings(false)
-            .file(aflpp_instr.join("afl-compiler-rt.o.c"))
-            .include(&aflpp_include)
-            .flag("-O2")
-            .compile("aflpp");
-
-        // // llvm pass
-        // aflpp_compiler_rt
-        //     .warnings(false)
-        //     .file(aflpp_instr.join("afl-llvm-pass.so.cc"))
-        //     .include(&aflpp_include)
-        //     .flag("-O2")
-        //     .compile("aflpp-llvm-pass");
+        println!("cargo:rerun-if-changed={}", aflpp_include.display());
     }
 
     #[cfg(any(feature = "sancov_value_profile", feature = "sancov_cmplog"))]
@@ -287,7 +306,7 @@ fn main() {
         }
     }
 
-    println!("cargo:rustc-link-search=native={}", &out_dir);
+    println!("cargo:rustc-link-search=native={}", out_dir.display());
 
     println!("cargo:rerun-if-changed=build.rs");
 }
