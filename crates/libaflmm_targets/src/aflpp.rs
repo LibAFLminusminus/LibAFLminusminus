@@ -38,6 +38,7 @@ pub fn compile_aflpp_pcguard(
         "include/types.h",
         "include/debug.h",
         "instrumentation/afl-llvm-common.h",
+        "instrumentation/PathCoverage.h",
     ];
 
     let mut pcguard_files = obj_files.to_vec();

@@ -127,6 +127,7 @@ fn main() {
             "instrumentation/afl-llvm-pass.so.cc",
             // PCGUARD
             "instrumentation/SanitizerCoveragePCGUARD.so.cc",
+            "instrumentation/PathCoverage.h",
             // LTO
             "instrumentation/afl-llvm-lto-instrumentlist.so.cc",
             "instrumentation/afl-llvm-rt-lto.o.c",
