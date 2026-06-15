@@ -265,6 +265,7 @@ impl ToolWrapper for ClangWrapper {
         }
 
         self.base_args.extend(new_args);
+
         Ok(self)
     }
 
@@ -306,7 +307,7 @@ impl ToolWrapper for ClangWrapper {
         configuration: crate::Configuration,
     ) -> Result<Vec<String>> {
         let mut args = vec![];
-        let mut use_pass = false;
+        // let mut use_pass = false;
 
         if self.is_cpp {
             args.push(self.wrapped_cxx.to_str().unwrap().to_string());
@@ -392,19 +393,6 @@ impl ToolWrapper for ClangWrapper {
             return Ok(args);
         }
 
-        for pass in &self.passes {
-            use_pass = true;
-            // https://github.com/llvm/llvm-project/issues/56137
-            // Need this -Xclang -load -Xclang -<pass>.so thing even with the new PM
-            // to pass the arguments to LLVM Passes
-            let pass_path = pass.clone().into_os_string().into_string().unwrap();
-            args.push("-Xclang".into());
-            args.push("-load".into());
-            args.push("-Xclang".into());
-            args.push(pass_path.clone());
-            args.push("-Xclang".into());
-            args.push(format!("-fpass-plugin={pass_path}"));
-        }
         if !self.is_asm && !self.passes.is_empty() {
             for passes_arg in &self.passes_args {
                 args.push("-mllvm".into());
@@ -419,9 +407,9 @@ impl ToolWrapper for ClangWrapper {
 
             args.extend_from_slice(self.link_args.as_slice());
 
-            if use_pass {
-                args.extend_from_slice(self.passes_linking_args.as_slice());
-            }
+            // if use_pass {
+            //     args.extend_from_slice(self.passes_linking_args.as_slice());
+            // }
 
             if cfg!(unix) {
                 args.push("-pthread".into());
@@ -483,6 +471,18 @@ impl ToolWrapper for ClangWrapper {
 
         for (def, value) in &self.defines {
             cmd.arg(format!("-D{def}={value}"));
+        }
+
+        for pass in &self.passes {
+            // https://github.com/llvm/llvm-project/issues/56137
+            // Need this -Xclang -load -Xclang -<pass>.so thing even with the new PM
+            // to pass the arguments to LLVM Passes
+            cmd.arg("-Xclang");
+            cmd.arg("-load");
+            cmd.arg("-Xclang");
+            cmd.arg(pass.clone());
+            cmd.arg("-Xclang");
+            cmd.arg(format!("-fpass-plugin={}", pass.display()));
         }
 
         if let Some(dir) = self.dir() {
@@ -608,7 +608,12 @@ impl ClangWrapper {
 
     /// Unique string identifying clang
     pub fn version(&self) -> Result<String> {
-        let res = self.renew()?.add_arg("--version").run().unwrap();
+        let res = self
+            .renew()?
+            .silence(true)
+            .add_arg("--version")
+            .run()
+            .unwrap();
         Ok(String::from_utf8(res.stdout).unwrap())
     }
 
@@ -638,9 +643,25 @@ impl ClangWrapper {
     /// Add a pre-compiled LLVM pass .so file to the pipeline
     ///
     /// Use [`compile_custom_pass`] first to build the `.so` from the source code first
-    pub fn add_raw_pass<P: AsRef<Path>>(&mut self, pass_so: P) -> &'_ mut Self {
-        self.passes.push(pass_so.as_ref().to_path_buf());
-        self
+    pub fn add_pass<P: AsRef<Path>>(&mut self, pass_so: P) -> Result<&'_ mut Self> {
+        let pass = pass_so.as_ref();
+        if !pass.is_file() {
+            return Err(Error::InvalidArguments(format!(
+                "Not a file: {}",
+                pass.display()
+            )));
+        }
+
+        if pass.extension().unwrap() != OsStr::new("so") {
+            return Err(Error::InvalidArguments(format!(
+                "Not a .so file: {}",
+                pass.display()
+            )));
+        }
+
+        self.passes.push(pass.to_path_buf());
+
+        Ok(self)
     }
 
     /// Add LLVM pass arguments

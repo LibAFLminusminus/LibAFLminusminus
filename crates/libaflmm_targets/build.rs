@@ -120,11 +120,15 @@ fn main() {
             "include/config.h",
             "include/types.h",
             "include/debug.h",
+            "include/cmplog.h",
+            "include/afl-ijon-min.h",
+            "include/bug-pass.h",
             // runtime
             "instrumentation/afl-compiler-rt.o.c",
             "instrumentation/afl-llvm-common.cc",
             "instrumentation/afl-llvm-common.h",
             "instrumentation/afl-llvm-pass.so.cc",
+            "instrumentation/llvm-alternative-coverage.h",
             // PCGUARD
             "instrumentation/SanitizerCoveragePCGUARD.so.cc",
             "instrumentation/PathCoverage.h",

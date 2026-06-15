@@ -1,6 +1,6 @@
 //! AFLplusplus provided symbols
 
-use libaflmm_cc::{LlvmConfig, prelude::*};
+use libaflmm_cc::{LlvmConfig, Result, prelude::*};
 use std::{
     io,
     os::unix::process::ExitStatusExt,
@@ -16,33 +16,29 @@ pub fn aflpp_hash() -> &'static str {
     AFLPP_SRC_HASH
 }
 
-/// Returns the pcguard shared library pass' path
-pub fn compile_aflpp_pcguard(
+enum OutputFmt {
+    Shared,
+    Object,
+}
+
+fn compile_aflpp_helper(
     llvm_config: &LlvmConfig,
     cache_dir: impl AsRef<Path>,
-) -> libaflmm_cc::Result<PathBuf> {
+    outfile: impl AsRef<str>,
+    obj_files: &[impl AsRef<str>],
+    hdr_files: &[impl AsRef<str>],
+    output_fmt: OutputFmt,
+    is_cpp: bool,
+) -> Result<PathBuf> {
     let root = cache_dir.as_ref();
-    let out = root.join("SanitizerCoveragePCGUARD.so");
+    let out = root.join(outfile.as_ref());
 
     if out.is_file() {
         return Ok(out);
     }
 
-    let obj_files = &[
-        "instrumentation/afl-llvm-common.cc",
-        "instrumentation/SanitizerCoveragePCGUARD.so.cc",
-    ];
-
-    let hdr_files = &[
-        "include/config.h",
-        "include/types.h",
-        "include/debug.h",
-        "instrumentation/afl-llvm-common.h",
-        "instrumentation/PathCoverage.h",
-    ];
-
-    let mut pcguard_files = obj_files.to_vec();
-    pcguard_files.extend(hdr_files);
+    let mut pcguard_files: Vec<&str> = obj_files.iter().map(|obj| obj.as_ref()).collect();
+    pcguard_files.extend(hdr_files.iter().map(|h| h.as_ref()));
 
     let mut archive = Archive::new(Decoder::new(AFLPP_SRC)?);
 
@@ -57,21 +53,30 @@ pub fn compile_aflpp_pcguard(
     let (llvm_major, llvm_minor) = llvm_config.version()?;
     let mut cc = ClangWrapper::try_from(llvm_config)?;
 
+    match output_fmt {
+        OutputFmt::Shared => {
+            cc.add_args(&["-fPIC", "-shared"]);
+        }
+        OutputFmt::Object => {
+            cc.add_arg("-c");
+        }
+    }
+
+    if is_cpp {
+        cc.add_args(&["-fno-rtti", "-fno-exceptions"]);
+    }
+
     let res = cc
-        .cpp(true)
-        .silence(false)
+        .cpp(false)
+        .silence(true)
         .set_dir(&cache_dir)
         .include_llvm_headers(true)
         .add_include(cache_dir.as_ref().join("include"))
         .define("LLVM_MAJOR", llvm_major.to_string())
         .define("LLVM_MINOR", llvm_minor.to_string())
         .add_args(&[
-            "-fno-rtti",
-            "-fno-exceptions",
-            "-fPIC",
-            "-shared",
             "-o",
-            "SanitizerCoveragePCGUARD.so",
+            outfile.as_ref(),
             "-Wno-deprecated-declarations",
             "-Wdeprecated",
             "-Wno-deprecated-copy-dtor",
@@ -92,4 +97,62 @@ pub fn compile_aflpp_pcguard(
     } else {
         Ok(out)
     }
+}
+
+pub fn compile_aflpp_compiler_rt(
+    llvm_config: &LlvmConfig,
+    cache_dir: impl AsRef<Path>,
+) -> Result<PathBuf> {
+    let obj_files = &["instrumentation/afl-compiler-rt.o.c"];
+
+    let hdr_files = &[
+        "include/config.h",
+        "include/types.h",
+        "include/debug.h",
+        "include/cmplog.h",
+        "include/afl-ijon-min.h",
+        "include/bug-pass.h",
+        "instrumentation/afl-llvm-common.h",
+        "instrumentation/llvm-alternative-coverage.h",
+        "instrumentation/PathCoverage.h",
+    ];
+
+    compile_aflpp_helper(
+        llvm_config,
+        cache_dir,
+        "afl-compiler-rt.o",
+        obj_files,
+        hdr_files,
+        OutputFmt::Object,
+        false,
+    )
+}
+
+/// Returns the pcguard shared library pass' path
+pub fn compile_aflpp_pcguard(
+    llvm_config: &LlvmConfig,
+    cache_dir: impl AsRef<Path>,
+) -> Result<PathBuf> {
+    let obj_files = &[
+        "instrumentation/afl-llvm-common.cc",
+        "instrumentation/SanitizerCoveragePCGUARD.so.cc",
+    ];
+
+    let hdr_files = &[
+        "include/config.h",
+        "include/types.h",
+        "include/debug.h",
+        "instrumentation/afl-llvm-common.h",
+        "instrumentation/PathCoverage.h",
+    ];
+
+    compile_aflpp_helper(
+        llvm_config,
+        cache_dir,
+        "SanitizerCoveragePCGUARD.so",
+        obj_files,
+        hdr_files,
+        OutputFmt::Shared,
+        true,
+    )
 }
