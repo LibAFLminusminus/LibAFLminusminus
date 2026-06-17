@@ -20,21 +20,17 @@ pub struct NopCorpus<I, S> {
     phantom: PhantomData<(I, S)>,
 }
 
-impl<I, S> HasScheduler for NopCorpus<I, S> {
-    type Scheduler = NopScheduler;
-
-    fn scheduler(&self) -> &Self::Scheduler {
+impl<I, S> HasScheduler<NopScheduler> for NopCorpus<I, S> {
+    fn scheduler(&self) -> &NopScheduler {
         &self.scheduler
     }
 
-    fn scheduler_mut(&mut self) -> &mut Self::Scheduler {
+    fn scheduler_mut(&mut self) -> &mut NopScheduler {
         &mut self.scheduler
     }
 }
 
-impl<I, S> Corpus for NopCorpus<I, S> {
-    type Input = I;
-
+impl<I, S> Corpus<I, NopScheduler> for NopCorpus<I, S> {
     /// Returns the number of all enabled entries
     #[inline]
     fn count(&self) -> usize {

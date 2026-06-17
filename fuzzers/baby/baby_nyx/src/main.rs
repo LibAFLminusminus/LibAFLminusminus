@@ -2,13 +2,16 @@ use libaflmm::{Result, prelude::*};
 use libaflmm_bolts::{non_zero, rands::StdRand, tuples::tuple_list};
 use libaflmm_nyx::{executor::NyxExecutor, helper::NyxHelper, settings::NyxSettings};
 
+type FuzzerScheduler = QueueScheduler;
+type FuzzerState<C, OC> = StdState<C, BytesContext, BytesInput, OC, QueueScheduler>;
+
 fn run_fuzzer<C, OC>(
-    rt_handle: &mut RuntimeHandle<StdState<C, BytesContext, BytesInput, OC>, SimpleWorker>,
-    state: &mut StdState<C, BytesContext, BytesInput, OC>,
+    rt_handle: &mut RuntimeHandle<FuzzerState<C, OC>, SimpleWorker>,
+    state: &mut FuzzerState<C, OC>,
 ) -> Result<()>
 where
-    C: Corpus<Input = BytesInput>,
-    OC: Corpus<Input = BytesInput>,
+    C: Corpus<BytesInput, FuzzerScheduler>,
+    OC: Corpus<BytesInput, NopScheduler>,
 {
     // nyx stuff
     let settings = NyxSettings::builder().cpu_id(0).parent_cpu_id(None).build();

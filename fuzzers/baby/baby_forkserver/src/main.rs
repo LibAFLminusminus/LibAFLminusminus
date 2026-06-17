@@ -57,13 +57,16 @@ struct Opt {
     arguments: Vec<String>,
 }
 
+type FuzzerScheduler = QueueScheduler;
+type FuzzerState<C, OC> = StdState<C, BytesContext, BytesInput, OC, QueueScheduler>;
+
 fn run_fuzzer<C, OC>(
-    rt_handle: &mut RuntimeHandle<StdState<C, BytesContext, BytesInput, OC>, SimpleWorker>,
-    state: &mut StdState<C, BytesContext, BytesInput, OC>,
+    rt_handle: &mut RuntimeHandle<FuzzerState<C, OC>, SimpleWorker>,
+    state: &mut StdState<C, BytesContext, BytesInput, OC, QueueScheduler>,
 ) -> Result<()>
 where
-    C: Corpus<Input = BytesInput>,
-    OC: Corpus<Input = BytesInput>,
+    C: Corpus<BytesInput, FuzzerScheduler>,
+    OC: Corpus<BytesInput, NopScheduler>,
 {
     const MAP_SIZE: usize = 65536;
     let opt = Opt::parse();

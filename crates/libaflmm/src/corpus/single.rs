@@ -48,29 +48,22 @@ impl<I, S, SC> SingleCorpus<I, S, SC> {
 
 impl<I, S, SC> DependencyResolver for SingleCorpus<I, S, SC> {}
 
-impl<I, S, SC> HasScheduler for SingleCorpus<I, S, SC>
-where
-    SC: Scheduler,
-{
-    type Scheduler = SC;
-
-    fn scheduler(&self) -> &Self::Scheduler {
+impl<I, S, SC> HasScheduler<SC> for SingleCorpus<I, S, SC> {
+    fn scheduler(&self) -> &SC {
         &self.scheduler
     }
 
-    fn scheduler_mut(&mut self) -> &mut Self::Scheduler {
+    fn scheduler_mut(&mut self) -> &mut SC {
         &mut self.scheduler
     }
 }
 
-impl<I, S, SC> Corpus for SingleCorpus<I, S, SC>
+impl<I, S, SC> Corpus<I, SC> for SingleCorpus<I, S, SC>
 where
     I: Input,
     S: Store<I>,
     SC: Scheduler,
 {
-    type Input = I;
-
     fn count(&self) -> usize {
         self.store.count()
     }

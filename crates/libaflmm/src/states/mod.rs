@@ -4,7 +4,7 @@ use crate::{
     Error, Result,
     common::{DependencyResolver, Registrator},
     corpus::{
-        Corpus, HasScheduler, InMemoryCorpus, Testcase, TestcaseFilenameFormat,
+        Corpus, HasScheduler, InMemoryCorpus, Scheduler, Testcase, TestcaseFilenameFormat,
         schedulers::NopScheduler, testcase::TestcaseId,
     },
     fuzzers::{EvaluationResult, Evaluator},
@@ -135,19 +135,19 @@ pub fn sync_stats(file: File, stats: &Stats) -> Result<()> {
 }
 
 /// The trait containing all the stuff that [`StdState`] implements. It's rather a shortcut for typing all the traits
-pub trait State:
-    HasScheduler<Scheduler = <Self::Corpus as HasScheduler>::Scheduler> + DependencyResolver
-{
+pub trait State: HasScheduler<Self::Scheduler> + DependencyResolver {
     type Input: Input;
+
+    type Scheduler: Scheduler;
 
     /// The associated [`InputContext`]
     type Context: InputContext<Input = Self::Input>;
 
     /// The associated [`Corpus`]
-    type Corpus: Corpus<Input = Self::Input>;
+    type Corpus: Corpus<Self::Input, Self::Scheduler>;
 
     /// The associated objective [`Corpus`]
-    type ObjectiveCorpus: Corpus<Input = Self::Input>;
+    type ObjectiveCorpus: Corpus<Self::Input, NopScheduler>;
 
     /// Get the reference to the [`InputContext`]
     fn context(&self) -> &Self::Context;
@@ -261,19 +261,17 @@ pub trait State:
     }
 }
 
-impl<C, CT, I, OC> HasScheduler for StdState<C, CT, I, OC>
+impl<C, CT, I, OC, SC> HasScheduler<SC> for StdState<C, CT, I, OC, SC>
 where
-    C: HasScheduler,
+    C: HasScheduler<SC>,
 {
-    type Scheduler = C::Scheduler;
-
     /// Ref to the [`Scheduler`](crate::corpus::schedulers::Scheduler)
-    fn scheduler(&self) -> &Self::Scheduler {
+    fn scheduler(&self) -> &SC {
         self.corpus.scheduler()
     }
 
     /// Mutable ref to the `Scheduler`
-    fn scheduler_mut(&mut self) -> &mut Self::Scheduler {
+    fn scheduler_mut(&mut self) -> &mut SC {
         self.corpus.scheduler_mut()
     }
 }
@@ -302,7 +300,7 @@ impl<I, S, Z> Debug for LoadConfig<'_, I, S, Z> {
         C: serde::Serialize + for<'a> serde::Deserialize<'a>,
         OC: serde::Serialize + for<'a> serde::Deserialize<'a>,
     ")]
-pub struct StdState<C, CT, I, OC> {
+pub struct StdState<C, CT, I, OC, SC> {
     /// the [`InputContext`]. helper to transform [`Input`] into a byte slice
     context: CT,
     /// The [`Corpus`]
@@ -321,7 +319,7 @@ pub struct StdState<C, CT, I, OC> {
     dont_reenter: Option<Vec<PathBuf>>,
     metadata_initialized: bool,
     stats: Stats,
-    phantom: PhantomData<I>,
+    phantom: PhantomData<(I, SC)>,
 }
 
 /// The [[`Testcase`]] metadata.
@@ -457,12 +455,12 @@ impl TestcaseMetadata {
     }
 }
 
-impl<C, CT, I, OC> DependencyResolver for StdState<C, CT, I, OC>
+impl<C, CT, I, OC, SC> DependencyResolver for StdState<C, CT, I, OC, SC>
 where
-    C: DependencyResolver + Corpus<Input = I>,
+    C: DependencyResolver + Corpus<I, SC>,
     CT: InputContext<Input = I>,
     I: Input,
-    OC: DependencyResolver + Corpus<Input = I>,
+    OC: DependencyResolver + Corpus<I, NopScheduler>,
 {
     fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
         registrator.register_ty::<Self>();
@@ -474,14 +472,16 @@ where
     }
 }
 
-impl<C, CT, I, OC> State for StdState<C, CT, I, OC>
+impl<C, CT, I, OC, SC> State for StdState<C, CT, I, OC, SC>
 where
-    C: Corpus<Input = I>,
+    C: Corpus<I, SC>,
     CT: InputContext<Input = I>,
     I: Input,
-    OC: Corpus<Input = I>,
+    OC: Corpus<I, NopScheduler>,
+    SC: Scheduler,
 {
     type Input = I;
+    type Scheduler = SC;
     type Context = CT;
     type Corpus = C;
     type ObjectiveCorpus = OC;
@@ -589,9 +589,9 @@ where
     }
 }
 
-impl<C, CT, I, OC> StdState<C, CT, I, OC>
+impl<C, CT, I, OC, SC> StdState<C, CT, I, OC, SC>
 where
-    C: Corpus<Input = I>,
+    C: Corpus<I, SC>,
     I: Input,
 {
     /// Decide if the state must load the inputs
@@ -895,7 +895,7 @@ where
     }
 }
 
-impl<C, CT, I, OC> StdState<C, CT, I, OC>
+impl<C, CT, I, OC, SC> StdState<C, CT, I, OC, SC>
 where
     I: Input,
     CT: InputContext<Input = I>,
@@ -928,12 +928,12 @@ where
     }
 }
 
-impl<C, CT, I, OC> StdState<C, CT, I, OC>
+impl<C, CT, I, OC, SC> StdState<C, CT, I, OC, SC>
 where
     I: Input,
-    C: Corpus<Input = I>,
+    C: Corpus<I, SC>,
     CT: InputContext<Input = I>,
-    OC: Corpus<Input = I>,
+    OC: Corpus<I, NopScheduler>,
 {
     /// Creates a new `StdState`, taking ownership of all of the individual components during fuzzing.
     pub fn new(context: CT, corpus: C, objective_corpus: OC) -> Result<Self>
@@ -973,6 +973,7 @@ impl
         NopContext,
         NopInput,
         InMemoryCorpus<NopInput, NopScheduler>,
+        NopScheduler,
     >
 {
     /// Create an empty [`StdState`] that has very minimal uses.
@@ -995,6 +996,7 @@ pub type NopState = StdState<
     NopContext,
     NopInput,
     InMemoryCorpus<NopInput, NopScheduler>,
+    NopScheduler,
 >;
 
 #[cfg(test)]

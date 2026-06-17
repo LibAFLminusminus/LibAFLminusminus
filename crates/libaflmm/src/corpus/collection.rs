@@ -226,28 +226,21 @@ impl<I> InMemoryCorpus<I, NopScheduler> {
 
 impl<I, SC> DependencyResolver for InMemoryCorpus<I, SC> {}
 
-impl<I, SC> HasScheduler for InMemoryCorpus<I, SC>
-where
-    SC: Scheduler,
-{
-    type Scheduler = SC;
-
-    fn scheduler(&self) -> &Self::Scheduler {
+impl<I, SC> HasScheduler<SC> for InMemoryCorpus<I, SC> {
+    fn scheduler(&self) -> &SC {
         self.0.scheduler()
     }
 
-    fn scheduler_mut(&mut self) -> &mut Self::Scheduler {
+    fn scheduler_mut(&mut self) -> &mut SC {
         self.0.scheduler_mut()
     }
 }
 
-impl<I, SC> Corpus for InMemoryCorpus<I, SC>
+impl<I, SC> Corpus<I, SC> for InMemoryCorpus<I, SC>
 where
     I: Input,
     SC: Scheduler,
 {
-    type Input = I;
-
     fn count(&self) -> usize {
         self.0.count()
     }
@@ -338,28 +331,21 @@ impl<I> OnDiskCorpus<I, NopScheduler> {
 
 impl<I, SC> DependencyResolver for OnDiskCorpus<I, SC> {}
 
-impl<I, SC> HasScheduler for OnDiskCorpus<I, SC>
-where
-    SC: Scheduler,
-{
-    type Scheduler = SC;
-
-    fn scheduler(&self) -> &Self::Scheduler {
+impl<I, SC> HasScheduler<SC> for OnDiskCorpus<I, SC> {
+    fn scheduler(&self) -> &SC {
         self.0.scheduler()
     }
 
-    fn scheduler_mut(&mut self) -> &mut Self::Scheduler {
+    fn scheduler_mut(&mut self) -> &mut SC {
         self.0.scheduler_mut()
     }
 }
 
-impl<I, SC> Corpus for OnDiskCorpus<I, SC>
+impl<I, SC> Corpus<I, SC> for OnDiskCorpus<I, SC>
 where
     I: Input,
     SC: Scheduler,
 {
-    type Input = I;
-
     fn count(&self) -> usize {
         self.0.count()
     }
@@ -381,30 +367,23 @@ where
     }
 }
 
-impl<I, SC> HasScheduler for InMemoryOnDiskCorpus<I, SC>
-where
-    SC: Scheduler,
-{
-    type Scheduler = SC;
-
-    fn scheduler(&self) -> &Self::Scheduler {
+impl<I, SC> HasScheduler<SC> for InMemoryOnDiskCorpus<I, SC> {
+    fn scheduler(&self) -> &SC {
         self.0.scheduler()
     }
 
-    fn scheduler_mut(&mut self) -> &mut Self::Scheduler {
+    fn scheduler_mut(&mut self) -> &mut SC {
         self.0.scheduler_mut()
     }
 }
 
 impl<I, SC> DependencyResolver for InMemoryOnDiskCorpus<I, SC> {}
 
-impl<I, SC> Corpus for InMemoryOnDiskCorpus<I, SC>
+impl<I, SC> Corpus<I, SC> for InMemoryOnDiskCorpus<I, SC>
 where
     I: Input,
     SC: Scheduler,
 {
-    type Input = I;
-
     fn count(&self) -> usize {
         self.0.count()
     }
@@ -481,30 +460,23 @@ impl<I, SC> InMemoryOnDiskCorpusBuilder<I, SC> {
     }
 }
 
-impl<I, SC> HasScheduler for CachedOnDiskCorpus<I, SC>
-where
-    SC: Scheduler,
-{
-    type Scheduler = SC;
-
-    fn scheduler(&self) -> &Self::Scheduler {
+impl<I, SC> HasScheduler<SC> for CachedOnDiskCorpus<I, SC> {
+    fn scheduler(&self) -> &SC {
         self.0.scheduler()
     }
 
-    fn scheduler_mut(&mut self) -> &mut Self::Scheduler {
+    fn scheduler_mut(&mut self) -> &mut SC {
         self.0.scheduler_mut()
     }
 }
 
 impl<I, SC> DependencyResolver for CachedOnDiskCorpus<I, SC> {}
 
-impl<I, SC> Corpus for CachedOnDiskCorpus<I, SC>
+impl<I, SC> Corpus<I, SC> for CachedOnDiskCorpus<I, SC>
 where
     I: Input,
     SC: Scheduler,
 {
-    type Input = I;
-
     fn count(&self) -> usize {
         self.0.count()
     }

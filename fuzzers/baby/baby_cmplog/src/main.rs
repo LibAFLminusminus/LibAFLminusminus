@@ -60,12 +60,15 @@ struct Opt {
 }
 
 fn run_fuzzer<C, OC>(
-    rt_handle: &mut RuntimeHandle<StdState<C, BytesContext, BytesInput, OC>, SimpleWorker>,
-    state: &mut StdState<C, BytesContext, BytesInput, OC>,
+    rt_handle: &mut RuntimeHandle<
+        StdState<C, BytesContext, BytesInput, OC, QueueScheduler>,
+        SimpleWorker,
+    >,
+    state: &mut StdState<C, BytesContext, BytesInput, OC, QueueScheduler>,
 ) -> Result<()>
 where
-    C: Corpus<Input = BytesInput>,
-    OC: Corpus<Input = BytesInput>,
+    C: Corpus<BytesInput, QueueScheduler>,
+    OC: Corpus<BytesInput, NopScheduler>,
 {
     const MAP_SIZE: usize = 65536;
     let opt = Opt::parse();

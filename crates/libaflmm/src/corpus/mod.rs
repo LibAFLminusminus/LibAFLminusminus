@@ -41,21 +41,16 @@ pub type StdCorpus<I, SC> = InMemoryCorpus<I, SC>;
 pub type StdObjectiveCorpus<I, SC> = OnDiskCorpus<I, SC>;
 
 /// This module has a [`Scheduler`]
-pub trait HasScheduler {
-    /// [`Scheduler`] type
-    type Scheduler: Scheduler;
-
+pub trait HasScheduler<SC> {
     /// Ref to the [`Scheduler`]
-    fn scheduler(&self) -> &Self::Scheduler;
+    fn scheduler(&self) -> &SC;
 
-    /// Mutable ref to the `Scheduler`
-    fn scheduler_mut(&mut self) -> &mut Self::Scheduler;
+    /// Mutable ref to the [`Scheduler`]
+    fn scheduler_mut(&mut self) -> &mut SC;
 }
 
 /// Corpus with all current [`Testcase`]s, or solutions
-pub trait Corpus: HasScheduler + Sized + DependencyResolver {
-    type Input;
-
+pub trait Corpus<I, SC>: HasScheduler<SC> + Sized + DependencyResolver {
     /// Returns the number of all enabled entries
     fn count(&self) -> usize;
 
@@ -75,7 +70,7 @@ pub trait Corpus: HasScheduler + Sized + DependencyResolver {
     /// The corpus is responsible to handle that case without erroring out.
     ///
     /// The default [`TestcaseMetadata`](crate::states::TestcaseMetadata) will be instantiated.
-    fn add(&mut self, testcase: Testcase<Self::Input>) -> Result<TestcaseId> {
+    fn add(&mut self, testcase: Testcase<I>) -> Result<TestcaseId> {
         self.add_shared::<true>(testcase)
     }
 
@@ -84,7 +79,7 @@ pub trait Corpus: HasScheduler + Sized + DependencyResolver {
     /// The corpus is responsible to handle that case without erroring out.
     ///
     /// The default [`TestcaseMetadata`](crate::states::TestcaseMetadata) will be instantiated.
-    fn add_disabled(&mut self, testcase: Testcase<Self::Input>) -> Result<TestcaseId> {
+    fn add_disabled(&mut self, testcase: Testcase<I>) -> Result<TestcaseId> {
         self.add_shared::<false>(testcase)
     }
 
@@ -94,23 +89,20 @@ pub trait Corpus: HasScheduler + Sized + DependencyResolver {
     /// The corpus is responsible to handle that case without erroring out.
     ///
     /// The input can be shared through [`Rc`](alloc::rc::Rc).
-    fn add_shared<const ENABLED: bool>(
-        &mut self,
-        testcase: Testcase<Self::Input>,
-    ) -> Result<TestcaseId>;
+    fn add_shared<const ENABLED: bool>(&mut self, testcase: Testcase<I>) -> Result<TestcaseId>;
 
     /// Get testcase by id; considers only enabled testcases
-    fn get(&self, id: &TestcaseId) -> Result<Testcase<Self::Input>> {
+    fn get(&self, id: &TestcaseId) -> Result<Testcase<I>> {
         Self::get_from::<true>(self, id)
     }
 
     /// Get testcase by id, looking at the enabled and disabled stores.
-    fn get_from_all(&self, id: &TestcaseId) -> Result<Testcase<Self::Input>> {
+    fn get_from_all(&self, id: &TestcaseId) -> Result<Testcase<I>> {
         Self::get_from::<false>(self, id)
     }
 
     /// Get testcase by id
-    fn get_from<const ENABLED: bool>(&self, id: &TestcaseId) -> Result<Testcase<Self::Input>>;
+    fn get_from<const ENABLED: bool>(&self, id: &TestcaseId) -> Result<Testcase<I>>;
 }
 
 /// Trait implemented by [`Corpus`]es able to disable an entry.

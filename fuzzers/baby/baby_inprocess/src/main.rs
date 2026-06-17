@@ -7,13 +7,16 @@ use std::time::Duration;
 
 mod target;
 
+type FuzzerScheduler = QueueScheduler;
+type FuzzerState<C, OC> = StdState<C, BytesContext, BytesInput, OC, QueueScheduler>;
+
 fn run_fuzzer<C, OC>(
-    rt_handle: &mut RuntimeHandle<StdState<C, BytesContext, BytesInput, OC>, SimpleWorker>,
-    state: &mut StdState<C, BytesContext, BytesInput, OC>,
+    rt_handle: &mut RuntimeHandle<FuzzerState<C, OC>, SimpleWorker>,
+    state: &mut StdState<C, BytesContext, BytesInput, OC, FuzzerScheduler>,
 ) -> Result<()>
 where
-    C: Corpus<Input = BytesInput>,
-    OC: Corpus<Input = BytesInput>,
+    C: Corpus<BytesInput, FuzzerScheduler>,
+    OC: Corpus<BytesInput, NopScheduler>,
 {
     // The source of randomness
     let mut rand = StdRand::with_seed(current_nanos());

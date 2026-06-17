@@ -276,12 +276,7 @@ mod tests {
 
         let mut input = corpus.get(&id1).unwrap().cloned_input();
 
-        let state = StdState::new(
-            BytesContext,
-            corpus,
-            InMemoryCorpus::with_scheduler(QueueScheduler::new()),
-        )
-        .unwrap();
+        let state = StdState::new(BytesContext, corpus, InMemoryCorpus::new()).unwrap();
 
         let mut splice = SpliceMutator::new();
         splice.mutate(&mut input, &mut rand, &state).unwrap();
@@ -303,12 +298,7 @@ mod tests {
         let mut input = corpus.get(&id1).unwrap().cloned_input();
         let input_prior = input.clone();
 
-        let state = StdState::new(
-            BytesContext,
-            corpus,
-            InMemoryCorpus::with_scheduler(QueueScheduler::new()),
-        )
-        .unwrap();
+        let state = StdState::new(BytesContext, corpus, InMemoryCorpus::new()).unwrap();
 
         let mut havoc = HavocScheduledMutator::new(havoc_mutations());
 
@@ -340,12 +330,7 @@ mod tests {
         let mut input = corpus.get(&id1).unwrap().cloned_input();
         let input_prior = input.clone();
 
-        let state = StdState::new(
-            BytesContext,
-            corpus,
-            InMemoryCorpus::with_scheduler(QueueScheduler::new()),
-        )
-        .unwrap();
+        let state = StdState::new(BytesContext, corpus, InMemoryCorpus::new()).unwrap();
 
         let mut mutator = SingleChoiceScheduledMutator::new(havoc_mutations());
 

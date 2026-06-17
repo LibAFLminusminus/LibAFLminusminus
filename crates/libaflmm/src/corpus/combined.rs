@@ -51,21 +51,16 @@ impl<C, CS, FS, I, SC> CombinedCorpus<C, CS, FS, I, SC> {
 
 impl<C, CS, FS, I, SC> DependencyResolver for CombinedCorpus<C, CS, FS, I, SC> {}
 
-impl<C, CS, FS, I, SC> HasScheduler for CombinedCorpus<C, CS, FS, I, SC>
-where
-    SC: Scheduler,
-{
-    type Scheduler = SC;
-
-    fn scheduler(&self) -> &Self::Scheduler {
+impl<C, CS, FS, I, SC> HasScheduler<SC> for CombinedCorpus<C, CS, FS, I, SC> {
+    fn scheduler(&self) -> &SC {
         &self.scheduler
     }
-    fn scheduler_mut(&mut self) -> &mut Self::Scheduler {
+    fn scheduler_mut(&mut self) -> &mut SC {
         &mut self.scheduler
     }
 }
 
-impl<C, CS, FS, I, SC> Corpus for CombinedCorpus<C, CS, FS, I, SC>
+impl<C, CS, FS, I, SC> Corpus<I, SC> for CombinedCorpus<C, CS, FS, I, SC>
 where
     C: Cache<CS, FS, I>,
     CS: Store<I>,
@@ -73,8 +68,6 @@ where
     I: Clone,
     SC: Scheduler,
 {
-    type Input = I;
-
     fn count(&self) -> usize {
         self.fallback_store.count()
     }
