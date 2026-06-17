@@ -68,7 +68,7 @@ baby-mimalloc = { version = "0.2.1", default-features = false, features = [
 bitflags = { version = "2.13.0", default-features = false }
 document-features = { workspace = true, optional = true }
 dlmalloc = { version = "0.2.14", default-features = false, optional = true }
-itertools = { version = "0.14.0", default-features = false }
+itertools = { version = "0.15.0", default-features = false }
 log = { version = "0.4.32", default-features = false, features = [
   "release_max_level_info",
 ] }
