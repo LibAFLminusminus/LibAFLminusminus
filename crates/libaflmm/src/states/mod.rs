@@ -1,17 +1,17 @@
 //! The fuzzer, and state are the core pieces of every good fuzzer
 
 use crate::{
+    Error, Result,
     common::{DependencyResolver, Registrator},
     corpus::{
-        schedulers::NopScheduler, testcase::TestcaseId, Corpus, HasScheduler, InMemoryCorpus,
-        Scheduler, Testcase, TestcaseFilenameFormat,
+        Corpus, HasScheduler, InMemoryCorpus, Scheduler, Testcase, TestcaseFilenameFormat,
+        schedulers::NopScheduler, testcase::TestcaseId,
     },
     fuzzers::{EvaluationResult, Evaluator},
     generators::Generator,
     inputs::{Input, InputContext, NopContext, NopInput},
     launchers::InstanceId,
     runtimes::RuntimeHandle,
-    Error, Result,
 };
 use alloc::{
     borrow::Cow,
@@ -24,14 +24,14 @@ use core::{
     time::Duration,
 };
 use libaflmm_bolts::{
+    NamedSerdeAnyMap, OwnedSlice, SerdeAny, SerdeAnyMap,
     anymap::{named_metadata, named_metadata_mut, unnamed_metadata, unnamed_metadata_mut},
     rands::Rand,
-    NamedSerdeAnyMap, OwnedSlice, SerdeAny, SerdeAnyMap,
 };
 use libaflmm_core::illegal_argument;
 use nix::fcntl::{Flock, FlockArg};
 use num_traits::Zero;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use std::{
     collections::HashMap,
     fs::{self, File},
