@@ -1,17 +1,17 @@
 //! The fuzzer, and state are the core pieces of every good fuzzer
 
 use crate::{
-    Error, Result,
     common::{DependencyResolver, Registrator},
     corpus::{
-        Corpus, HasScheduler, InMemoryCorpus, Scheduler, Testcase, TestcaseFilenameFormat,
-        schedulers::NopScheduler, testcase::TestcaseId,
+        schedulers::NopScheduler, testcase::TestcaseId, Corpus, HasScheduler, InMemoryCorpus,
+        Scheduler, Testcase, TestcaseFilenameFormat,
     },
     fuzzers::{EvaluationResult, Evaluator},
     generators::Generator,
     inputs::{Input, InputContext, NopContext, NopInput},
     launchers::InstanceId,
     runtimes::RuntimeHandle,
+    Error, Result,
 };
 use alloc::{
     borrow::Cow,
@@ -24,14 +24,14 @@ use core::{
     time::Duration,
 };
 use libaflmm_bolts::{
-    NamedSerdeAnyMap, OwnedSlice, SerdeAny, SerdeAnyMap,
     anymap::{named_metadata, named_metadata_mut, unnamed_metadata, unnamed_metadata_mut},
     rands::Rand,
+    NamedSerdeAnyMap, OwnedSlice, SerdeAny, SerdeAnyMap,
 };
 use libaflmm_core::illegal_argument;
 use nix::fcntl::{Flock, FlockArg};
 use num_traits::Zero;
-use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{
     collections::HashMap,
     fs::{self, File},
@@ -265,7 +265,7 @@ impl<C, CT, I, OC, SC> HasScheduler<SC> for StdState<C, CT, I, OC, SC>
 where
     C: HasScheduler<SC>,
 {
-    /// Ref to the [`Scheduler`](crate::corpus::schedulers::Scheduler)
+    /// Ref to the [`Scheduler`]
     fn scheduler(&self) -> &SC {
         self.corpus.scheduler()
     }
