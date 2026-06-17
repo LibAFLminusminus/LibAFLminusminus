@@ -1,9 +1,9 @@
 //! A cached corpus, using a given [`Cache`] policy and two [`Store`]s.
 
-use super::{Corpus, HasScheduler, Testcase, store::Store};
+use super::{Corpus, Testcase, store::Store};
 use crate::{
     common::DependencyResolver,
-    corpus::{Cache, Scheduler, TestcaseId, store::StorageResult},
+    corpus::{Cache, NopScheduler, ObjectiveCorpus, Scheduler, TestcaseId, store::StorageResult},
 };
 use alloc::{rc::Rc, vec::Vec};
 use core::{cell::RefCell, marker::PhantomData};
@@ -51,15 +51,6 @@ impl<C, CS, FS, I, SC> CombinedCorpus<C, CS, FS, I, SC> {
 
 impl<C, CS, FS, I, SC> DependencyResolver for CombinedCorpus<C, CS, FS, I, SC> {}
 
-impl<C, CS, FS, I, SC> HasScheduler<SC> for CombinedCorpus<C, CS, FS, I, SC> {
-    fn scheduler(&self) -> &SC {
-        &self.scheduler
-    }
-    fn scheduler_mut(&mut self) -> &mut SC {
-        &mut self.scheduler
-    }
-}
-
 impl<C, CS, FS, I, SC> Corpus<I, SC> for CombinedCorpus<C, CS, FS, I, SC>
 where
     C: Cache<CS, FS, I>,
@@ -102,4 +93,21 @@ where
 
         cache.get_from::<ENABLED>(id, cache_store, &self.fallback_store)
     }
+
+    fn scheduler(&self) -> &SC {
+        &self.scheduler
+    }
+
+    fn scheduler_mut(&mut self) -> &mut SC {
+        &mut self.scheduler
+    }
+}
+
+impl<C, CS, FS, I> ObjectiveCorpus<I> for CombinedCorpus<C, CS, FS, I, NopScheduler>
+where
+    C: Cache<CS, FS, I>,
+    CS: Store<I>,
+    FS: Store<I>,
+    I: Clone,
+{
 }

@@ -74,7 +74,7 @@ impl Default for QueueScheduler {
 mod tests {
     use crate::{
         corpus::{
-            Corpus, HasScheduler, InMemoryCorpus, OnDiskCorpus, Testcase,
+            Corpus, InMemoryCorpus, OnDiskCorpus, Testcase,
             schedulers::{QueueScheduler, Scheduler},
         },
         inputs::bytes::{BytesContext, BytesInput},

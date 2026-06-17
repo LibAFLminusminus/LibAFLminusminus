@@ -40,17 +40,8 @@ pub use cache::{Cache, FifoCache, IdentityCache};
 pub type StdCorpus<I, SC> = InMemoryCorpus<I, SC>;
 pub type StdObjectiveCorpus<I, SC> = OnDiskCorpus<I, SC>;
 
-/// This module has a [`Scheduler`]
-pub trait HasScheduler<SC> {
-    /// Ref to the [`Scheduler`]
-    fn scheduler(&self) -> &SC;
-
-    /// Mutable ref to the [`Scheduler`]
-    fn scheduler_mut(&mut self) -> &mut SC;
-}
-
 /// Corpus with all current [`Testcase`]s, or solutions
-pub trait Corpus<I, SC>: HasScheduler<SC> + Sized + DependencyResolver {
+pub trait Corpus<I, SC>: Sized + DependencyResolver {
     /// Returns the number of all enabled entries
     fn count(&self) -> usize;
 
@@ -103,7 +94,15 @@ pub trait Corpus<I, SC>: HasScheduler<SC> + Sized + DependencyResolver {
 
     /// Get testcase by id
     fn get_from<const ENABLED: bool>(&self, id: &TestcaseId) -> Result<Testcase<I>>;
+
+    /// Ref to the [`Scheduler`]
+    fn scheduler(&self) -> &SC;
+
+    /// Mutable ref to the [`Scheduler`]
+    fn scheduler_mut(&mut self) -> &mut SC;
 }
+
+pub trait ObjectiveCorpus<I>: Corpus<I, NopScheduler> {}
 
 /// Trait implemented by [`Corpus`]es able to disable an entry.
 pub trait DisableEntry {

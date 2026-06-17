@@ -2,8 +2,9 @@
 
 use crate::{
     common::DependencyResolver,
+    controllers::Worker,
     corpus::{
-        Corpus, FifoCache, HasScheduler, IdentityCache, InMemoryStore, OnDiskStore, Scheduler,
+        Corpus, FifoCache, IdentityCache, InMemoryStore, ObjectiveCorpus, OnDiskStore, Scheduler,
         SingleCorpus, Testcase, TestcaseFilenameFormat,
         combined::CombinedCorpus,
         maps::{self, InMemoryCorpusMap},
@@ -226,16 +227,6 @@ impl<I> InMemoryCorpus<I, NopScheduler> {
 
 impl<I, SC> DependencyResolver for InMemoryCorpus<I, SC> {}
 
-impl<I, SC> HasScheduler<SC> for InMemoryCorpus<I, SC> {
-    fn scheduler(&self) -> &SC {
-        self.0.scheduler()
-    }
-
-    fn scheduler_mut(&mut self) -> &mut SC {
-        self.0.scheduler_mut()
-    }
-}
-
 impl<I, SC> Corpus<I, SC> for InMemoryCorpus<I, SC>
 where
     I: Input,
@@ -260,7 +251,17 @@ where
     fn get_from<const ENABLED: bool>(&self, id: &TestcaseId) -> Result<Testcase<I>> {
         self.0.get_from::<ENABLED>(id)
     }
+
+    fn scheduler(&self) -> &SC {
+        self.0.scheduler()
+    }
+
+    fn scheduler_mut(&mut self) -> &mut SC {
+        self.0.scheduler_mut()
+    }
 }
+
+impl<I> ObjectiveCorpus<I> for InMemoryCorpus<I, NopScheduler> where I: Input {}
 
 impl<I> Default for OnDiskCorpusBuilder<I, NopScheduler> {
     fn default() -> Self {
@@ -322,24 +323,22 @@ impl<I, SC> OnDiskCorpus<I, SC> {
 }
 
 impl<I> OnDiskCorpus<I, NopScheduler> {
-    /// Get a [`OnDiskCorpus`] builder.
+    /// Get a [`OnDiskCorpus`] builder for a corpus.
     #[must_use]
-    pub fn builder() -> OnDiskCorpusBuilder<I, NopScheduler> {
-        OnDiskCorpusBuilder::default()
+    pub fn corpus_builder<W: Worker>(worker: &W) -> Result<OnDiskCorpusBuilder<I, NopScheduler>> {
+        Ok(OnDiskCorpusBuilder::default().root_dir(worker.workdir().corpus_dir()?))
+    }
+
+    /// Get a [`OnDiskCorpus`] builder for an objective corpus.
+    #[must_use]
+    pub fn objective_builder<W: Worker>(
+        worker: &W,
+    ) -> Result<OnDiskCorpusBuilder<I, NopScheduler>> {
+        Ok(OnDiskCorpusBuilder::default().root_dir(worker.workdir().objective_dir()?))
     }
 }
 
 impl<I, SC> DependencyResolver for OnDiskCorpus<I, SC> {}
-
-impl<I, SC> HasScheduler<SC> for OnDiskCorpus<I, SC> {
-    fn scheduler(&self) -> &SC {
-        self.0.scheduler()
-    }
-
-    fn scheduler_mut(&mut self) -> &mut SC {
-        self.0.scheduler_mut()
-    }
-}
 
 impl<I, SC> Corpus<I, SC> for OnDiskCorpus<I, SC>
 where
@@ -365,9 +364,7 @@ where
     fn get_from<const ENABLED: bool>(&self, id: &TestcaseId) -> Result<Testcase<I>> {
         self.0.get_from::<ENABLED>(id)
     }
-}
 
-impl<I, SC> HasScheduler<SC> for InMemoryOnDiskCorpus<I, SC> {
     fn scheduler(&self) -> &SC {
         self.0.scheduler()
     }
@@ -376,6 +373,8 @@ impl<I, SC> HasScheduler<SC> for InMemoryOnDiskCorpus<I, SC> {
         self.0.scheduler_mut()
     }
 }
+
+impl<I> ObjectiveCorpus<I> for OnDiskCorpus<I, NopScheduler> where I: Input {}
 
 impl<I, SC> DependencyResolver for InMemoryOnDiskCorpus<I, SC> {}
 
@@ -403,7 +402,17 @@ where
     fn get_from<const ENABLED: bool>(&self, id: &TestcaseId) -> Result<Testcase<I>> {
         self.0.get_from::<ENABLED>(id)
     }
+
+    fn scheduler(&self) -> &SC {
+        self.0.scheduler()
+    }
+
+    fn scheduler_mut(&mut self) -> &mut SC {
+        self.0.scheduler_mut()
+    }
 }
+
+impl<I> ObjectiveCorpus<I> for InMemoryOnDiskCorpus<I, NopScheduler> where I: Input {}
 
 impl<I> InMemoryOnDiskCorpus<I, NopScheduler> {
     /// Get a [`InMemoryOnDiskCorpus`] builder.
@@ -460,16 +469,6 @@ impl<I, SC> InMemoryOnDiskCorpusBuilder<I, SC> {
     }
 }
 
-impl<I, SC> HasScheduler<SC> for CachedOnDiskCorpus<I, SC> {
-    fn scheduler(&self) -> &SC {
-        self.0.scheduler()
-    }
-
-    fn scheduler_mut(&mut self) -> &mut SC {
-        self.0.scheduler_mut()
-    }
-}
-
 impl<I, SC> DependencyResolver for CachedOnDiskCorpus<I, SC> {}
 
 impl<I, SC> Corpus<I, SC> for CachedOnDiskCorpus<I, SC>
@@ -496,7 +495,17 @@ where
     fn get_from<const ENABLED: bool>(&self, id: &TestcaseId) -> Result<Testcase<I>> {
         self.0.get_from::<ENABLED>(id)
     }
+
+    fn scheduler(&self) -> &SC {
+        self.0.scheduler()
+    }
+
+    fn scheduler_mut(&mut self) -> &mut SC {
+        self.0.scheduler_mut()
+    }
 }
+
+impl<I> ObjectiveCorpus<I> for CachedOnDiskCorpus<I, NopScheduler> where I: Input {}
 
 impl<I, SC> CachedOnDiskCorpus<I, SC> {
     /// Get the fallback store

@@ -4,7 +4,7 @@ use crate::{
     Error, Result,
     common::{DependencyResolver, Registrator},
     corpus::{
-        Corpus, HasScheduler, InMemoryCorpus, Scheduler, Testcase, TestcaseFilenameFormat,
+        Corpus, InMemoryCorpus, ObjectiveCorpus, Scheduler, Testcase, TestcaseFilenameFormat,
         schedulers::NopScheduler, testcase::TestcaseId,
     },
     fuzzers::{EvaluationResult, Evaluator},
@@ -135,9 +135,11 @@ pub fn sync_stats(file: File, stats: &Stats) -> Result<()> {
 }
 
 /// The trait containing all the stuff that [`StdState`] implements. It's rather a shortcut for typing all the traits
-pub trait State: HasScheduler<Self::Scheduler> + DependencyResolver {
+pub trait State: DependencyResolver {
+    /// The [`Input`]
     type Input: Input;
 
+    /// The [`Scheduler`]
     type Scheduler: Scheduler;
 
     /// The associated [`InputContext`]
@@ -147,7 +149,7 @@ pub trait State: HasScheduler<Self::Scheduler> + DependencyResolver {
     type Corpus: Corpus<Self::Input, Self::Scheduler>;
 
     /// The associated objective [`Corpus`]
-    type ObjectiveCorpus: Corpus<Self::Input, NopScheduler>;
+    type ObjectiveCorpus: ObjectiveCorpus<Self::Input>;
 
     /// Get the reference to the [`InputContext`]
     fn context(&self) -> &Self::Context;
@@ -259,20 +261,15 @@ pub trait State: HasScheduler<Self::Scheduler> + DependencyResolver {
     fn input_to_bytes<'a>(&mut self, input: &'a Self::Input) -> OwnedSlice<'a, u8> {
         self.context_mut().to_bytes(input)
     }
-}
 
-impl<C, CT, I, OC, SC> HasScheduler<SC> for StdState<C, CT, I, OC, SC>
-where
-    C: HasScheduler<SC>,
-{
     /// Ref to the [`Scheduler`]
-    fn scheduler(&self) -> &SC {
-        self.corpus.scheduler()
+    fn scheduler(&self) -> &Self::Scheduler {
+        self.corpus().scheduler()
     }
 
     /// Mutable ref to the `Scheduler`
-    fn scheduler_mut(&mut self) -> &mut SC {
-        self.corpus.scheduler_mut()
+    fn scheduler_mut(&mut self) -> &mut Self::Scheduler {
+        self.corpus_mut().scheduler_mut()
     }
 }
 
@@ -477,7 +474,7 @@ where
     C: Corpus<I, SC>,
     CT: InputContext<Input = I>,
     I: Input,
-    OC: Corpus<I, NopScheduler>,
+    OC: ObjectiveCorpus<I>,
     SC: Scheduler,
 {
     type Input = I;

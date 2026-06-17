@@ -12,10 +12,9 @@ use super::{Corpus, Testcase, store::Store};
 use crate::{
     common::DependencyResolver,
     corpus::{
-        DisableEntry, HasScheduler, Scheduler, schedulers::RemovableScheduler,
+        DisableEntry, NopScheduler, ObjectiveCorpus, Scheduler, schedulers::RemovableScheduler,
         store::StorageResult, testcase::TestcaseId,
     },
-    inputs::Input,
 };
 
 /// You average corpus.
@@ -48,19 +47,8 @@ impl<I, S, SC> SingleCorpus<I, S, SC> {
 
 impl<I, S, SC> DependencyResolver for SingleCorpus<I, S, SC> {}
 
-impl<I, S, SC> HasScheduler<SC> for SingleCorpus<I, S, SC> {
-    fn scheduler(&self) -> &SC {
-        &self.scheduler
-    }
-
-    fn scheduler_mut(&mut self) -> &mut SC {
-        &mut self.scheduler
-    }
-}
-
 impl<I, S, SC> Corpus<I, SC> for SingleCorpus<I, S, SC>
 where
-    I: Input,
     S: Store<I>,
     SC: Scheduler,
 {
@@ -92,7 +80,17 @@ where
     fn get_from<const ENABLED: bool>(&self, id: &TestcaseId) -> Result<Testcase<I>> {
         self.store.get_from::<ENABLED>(id)
     }
+
+    fn scheduler(&self) -> &SC {
+        &self.scheduler
+    }
+
+    fn scheduler_mut(&mut self) -> &mut SC {
+        &mut self.scheduler
+    }
 }
+
+impl<I, S> ObjectiveCorpus<I> for SingleCorpus<I, S, NopScheduler> where S: Store<I> {}
 
 impl<I, S, SC> DisableEntry for SingleCorpus<I, S, SC>
 where
