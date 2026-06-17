@@ -165,9 +165,9 @@ pub extern "C" fn libafl_main() {
             if state.must_load_initial_inputs() {
                 state
                     .load_initial_inputs(&mut fuzzer, rt_handle, opt.input.as_slice())
-                    .unwrap_or_else(|_| {
+                    .unwrap_or_else(|e| {
                         panic!(
-                            "Failed to load initial corpus at {:?}",
+                            "Failed to load initial corpus at {:?}: {e:?}",
                             opt.input.as_slice()
                         )
                     });

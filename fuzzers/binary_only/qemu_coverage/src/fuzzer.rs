@@ -269,8 +269,11 @@ pub fn fuzz() {
         if state.must_load_initial_inputs() {
             state
                 .load_initial_inputs_by_filenames(&mut fuzzer, &mut executor, &mut mgr, &files)
-                .unwrap_or_else(|_| {
-                    println!("Failed to load initial corpus at {:?}", &options.input_dir);
+                .unwrap_or_else(|e| {
+                    println!(
+                        "Failed to load initial corpus at {:?}: {e:?}",
+                        &options.input_dir
+                    );
                     process::exit(0);
                 });
             log::info!("We imported {} inputs from disk.", state.corpus().count());
