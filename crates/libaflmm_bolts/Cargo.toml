@@ -65,7 +65,7 @@ rustversion = { workspace = true }
 clap = { workspace = true, features = ["derive", "env"] }
 rand = "0.10.1"
 chrono = "0.4.45"
-itertools = "0.14.0"
+itertools = "0.15.0"
 
 [dependencies]
 rangemap = { workspace = true }
