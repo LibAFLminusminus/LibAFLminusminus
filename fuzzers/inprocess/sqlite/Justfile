@@ -4,11 +4,14 @@ FUZZER_NAME := "sqlite3"
 build:
     ./build.sh {{ PROFILE }}
 
+run: build
+    ./ossfuzz
+
 test: build
     #!/bin/bash
     set -eu
 
-    timeout 20s ./ossfuzz || true
+    timeout 20s ./ossfuzz --input corpus || true
 
     STATS_FILE="./workdir/worker_0/fuzzer_stats"
     if [ ! -f "$STATS_FILE" ]; then
