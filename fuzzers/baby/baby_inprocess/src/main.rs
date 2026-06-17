@@ -34,7 +34,7 @@ where
     let mut stages = tuple_list!(StdStage::default());
 
     // Create the executor for an in-process function with just one observer
-    let executor = StdExecutor::new(target::target, tuple_list!(observer), None);
+    let executor = StdExecutor::new(state, target::target, tuple_list!(observer), None);
 
     // Generator of printable bytearrays of max size 32
     let mut generator = RandPrintablesGenerator::new(non_zero!(32));

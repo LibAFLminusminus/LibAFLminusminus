@@ -24,7 +24,16 @@ pub struct StdExecutor<EH, H, I, O, S> {
 
 impl<EH, H, I, O, S> StdExecutor<EH, H, I, O, S> {
     /// Create a new [`StdExecutor`] with hooks.
-    pub fn with_hooks(hooks: EH, harness: H, observers: O, timeout: Option<Duration>) -> Self {
+    pub fn with_hooks(
+        _state: &S,
+        hooks: EH,
+        harness: H,
+        observers: O,
+        timeout: Option<Duration>,
+    ) -> Self
+    where
+        H: FnMut(&mut S, &I) -> Result<ExitKind>,
+    {
         Self {
             hooks,
             harness,
@@ -38,8 +47,11 @@ impl<EH, H, I, O, S> StdExecutor<EH, H, I, O, S> {
 
 impl<H, I, O, S> StdExecutor<(), H, I, O, S> {
     /// Create a new [`StdExecutor`].
-    pub fn new(harness: H, observers: O, timeout: Option<Duration>) -> Self {
-        Self::with_hooks(tuple_list!(), harness, observers, timeout)
+    pub fn new(state: &S, harness: H, observers: O, timeout: Option<Duration>) -> Self
+    where
+        H: FnMut(&mut S, &I) -> Result<ExitKind>,
+    {
+        Self::with_hooks(state, tuple_list!(), harness, observers, timeout)
     }
 }
 

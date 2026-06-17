@@ -99,16 +99,6 @@ pub extern "C" fn libafl_main() {
             )
         })
         .build_inprocess(move |rt_handle, state| {
-            let mut harness = |state: &mut StdState<_, BytesContext, BytesInput, _>,
-                               input: &BytesInput| {
-                let context: &mut BytesContext = state.context_mut();
-                let buf = context.to_bytes(input);
-                unsafe {
-                    libfuzzer_test_one_input(&buf);
-                }
-                Ok(ExitKind::Ok)
-            };
-
             let map = unsafe { StdMapObserver::from_mut_slice("edges", edges_map_mut_slice()) };
 
             // Create an observation channel using the coverage map
@@ -138,7 +128,15 @@ pub extern "C" fn libafl_main() {
 
             // Create the executor for an in-process function with one observer for edge coverage and one for the execution time
             let executor = StdExecutor::new(
-                &mut harness,
+                state,
+                |state, input| {
+                    let context: &mut BytesContext = state.context_mut();
+                    let buf = context.to_bytes(input);
+                    unsafe {
+                        libfuzzer_test_one_input(&buf);
+                    }
+                    Ok(ExitKind::Ok)
+                },
                 tuple_list!(edges_observer, time_observer),
                 Some(Duration::new(10, 0)),
             );
