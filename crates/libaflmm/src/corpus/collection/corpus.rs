@@ -78,19 +78,10 @@ macro_rules! define_corpus {
         }
     };
 
-    (
-        inner = $inner:ident,
-        $(#[$smeta:meta])* scheduled = $sched:ident,
-        $(#[$ometa:meta])* objective = $obj:ident,
-        $(#[$sbmeta:meta])* scheduled_builder = $sbuilder:ident,
-        $(#[$obmeta:meta])* objective_builder = $obuilder:ident,
-        config = $cfg:ty,
-        $(workdir { scheduled = $sdir:ident, objective = $odir:ident },)?
-        build  = $build:expr $(,)?
+    (@builder_types
+        $sched:ident, $obj:ident, $inner:ident,
+        $sbuilder:ident, $obuilder:ident, $cfg:ty, $build:expr
     ) => {
-        define_corpus!(@roles $(#[$smeta])* $sched, $(#[$ometa])* $obj, $inner);
-
-        $(#[$sbmeta])*
         #[derive(Debug, Clone)]
         pub struct $sbuilder<I, SC> {
             config: $cfg,
@@ -106,6 +97,33 @@ macro_rules! define_corpus {
             }
         }
 
+        #[derive(Debug, Clone)]
+        pub struct $obuilder<I> {
+            config: $cfg,
+            _phantom: PhantomData<I>,
+        }
+
+        impl<I> $obuilder<I> {
+            pub fn build(self) -> Result<$obj<I>> {
+                let build: fn($cfg, NopScheduler) -> Result<$inner<I, NopScheduler>> = $build;
+                Ok($obj(build(self.config, NopScheduler)?))
+            }
+        }
+    };
+
+    // for in-memory stuff
+    (
+        inner = $inner:ident,
+        scheduled = $sched:ident,
+        objective = $obj:ident,
+        scheduled_builder = $sbuilder:ident,
+        objective_builder = $obuilder:ident,
+        config = $cfg:ty,
+        build = $build:expr $(,)?
+    ) => {
+        define_corpus!(@roles $sched, $obj, $inner);
+        define_corpus!(@builder_types $sched, $obj, $inner, $sbuilder, $obuilder, $cfg, $build);
+
         impl<I, SC> $sched<I, SC>
         where
             $cfg: Default,
@@ -117,51 +135,53 @@ macro_rules! define_corpus {
             }
         }
 
-        $(#[$obmeta])*
-        #[derive(Debug, Clone)]
-        pub struct $obuilder<I> {
-            config: $cfg,
-            _phantom: PhantomData<I>,
-        }
-
-        impl<I> Default for $obuilder<I>
+        impl<I> $obj<I>
         where
             $cfg: Default,
         {
-            fn default() -> Self {
-                Self { config: <$cfg>::default(), _phantom: PhantomData }
-            }
-        }
-
-        impl<I> $obuilder<I> {
-            /// Build the objective corpus.
-            pub fn build(self) -> Result<$obj<I>> {
-                let build: fn($cfg, NopScheduler) -> Result<$inner<I, NopScheduler>> = $build;
-                Ok($obj(build(self.config, NopScheduler)?))
-            }
-        }
-
-        impl<I> $obj<I> where $cfg: Default {
             /// Get a builder for this objective corpus.
             #[must_use]
-            pub fn builder() -> $obuilder<I> { $obuilder::default() }
+            pub fn builder() -> $obuilder<I> {
+                $obuilder { config: <$cfg>::default(), _phantom: PhantomData }
+            }
+        }
+    };
+
+    // for on-disk stuff
+    (
+        inner = $inner:ident,
+        scheduled = $sched:ident,
+        objective = $obj:ident,
+        scheduled_builder = $sbuilder:ident,
+        objective_builder = $obuilder:ident,
+        config = $cfg:ty,
+        workdir { scheduled = $sdir:ident, objective = $odir:ident },
+        build = $build:expr $(,)?
+    ) => {
+        define_corpus!(@roles $sched, $obj, $inner);
+        define_corpus!(@builder_types $sched, $obj, $inner, $sbuilder, $obuilder, $cfg, $build);
+
+        impl<I, SC> $sched<I, SC> {
+            pub fn builder<W: Worker>(worker: &W, scheduler: SC) -> Result<$sbuilder<I, SC>> {
+                Ok(Self::builder_from_dir(worker.workdir().$sdir()?, scheduler))
+            }
+
+            #[must_use]
+            pub fn builder_from_dir(root: impl AsRef<Path>, scheduler: SC) -> $sbuilder<I, SC> {
+                $sbuilder { config: <$cfg>::from_root(root), scheduler, _phantom: PhantomData }
+            }
         }
 
-        $(
-            impl<I, SC> $sbuilder<I, SC> {
-                /// Root this corpus at the worker's directory.
-                pub fn from_worker<W: Worker>(self, worker: &W) -> Result<Self> {
-                    Ok(self.root_dir(worker.workdir().$sdir()?))
-                }
+        impl<I> $obj<I> {
+            pub fn builder<W: Worker>(worker: &W) -> Result<$obuilder<I>> {
+                Ok(Self::builder_from_dir(worker.workdir().$odir()?))
             }
 
-            impl<I> $obuilder<I> {
-                /// Root this objective corpus at the worker's directory.
-                pub fn from_worker<W: Worker>(self, worker: &W) -> Result<Self> {
-                    Ok(self.root_dir(worker.workdir().$odir()?))
-                }
+            #[must_use]
+            pub fn builder_from_dir(root: impl AsRef<Path>) -> $obuilder<I> {
+                $obuilder { config: <$cfg>::from_root(root), _phantom: PhantomData }
             }
-        )?
+        }
     };
 }
 
@@ -246,14 +266,7 @@ define_corpus! {
 }
 
 impl<I, SC> OnDiskCorpusBuilder<I, SC> {
-    /// Set the root directory, where the testcases will be stored.
-    #[must_use]
-    pub fn root_dir(mut self, root_dir: impl AsRef<Path>) -> Self {
-        self.config.root_dir(root_dir);
-        self
-    }
-
-    /// Set the on-disk filename format
+    /// Set the on-disk filename format.
     #[must_use]
     pub fn filename_format(mut self, filename_format: TestcaseFilenameFormat) -> Self {
         self.config.filename_format(filename_format);
@@ -262,14 +275,7 @@ impl<I, SC> OnDiskCorpusBuilder<I, SC> {
 }
 
 impl<I, SC> InMemoryOnDiskCorpusBuilder<I, SC> {
-    /// Set the root directory, where the testcases will be stored.
-    #[must_use]
-    pub fn root_dir(mut self, root_dir: impl AsRef<Path>) -> Self {
-        self.config.root_dir(root_dir);
-        self
-    }
-
-    /// Set the on-disk filename format
+    /// Set the on-disk filename format.
     #[must_use]
     pub fn filename_format(mut self, filename_format: TestcaseFilenameFormat) -> Self {
         self.config.filename_format(filename_format);
@@ -278,37 +284,23 @@ impl<I, SC> InMemoryOnDiskCorpusBuilder<I, SC> {
 }
 
 impl<I, SC> CachedOnDiskCorpusBuilder<I, SC> {
+    /// Set the on-disk filename format.
+    #[must_use]
+    pub fn filename_format(mut self, filename_format: TestcaseFilenameFormat) -> Self {
+        self.config.store_builder.filename_format(filename_format);
+        self
+    }
+
     /// Set the cache max length.
     #[must_use]
     pub fn cache_max_len(mut self, cache_max_len: usize) -> Self {
         self.config.cache_max_len = cache_max_len;
         self
     }
-
-    /// Set the root directory, where the testcases will be stored.
-    #[must_use]
-    pub fn root_dir(mut self, root: impl AsRef<Path>) -> Self {
-        self.config.store_builder.root_dir(root);
-        self
-    }
-
-    /// Set the on-disk filename format
-    #[must_use]
-    pub fn filename_format(mut self, filename_format: TestcaseFilenameFormat) -> Self {
-        self.config.store_builder.filename_format(filename_format);
-        self
-    }
 }
 
 impl<I> ObjectiveOnDiskCorpusBuilder<I> {
-    /// Set the root directory, where the testcases will be stored.
-    #[must_use]
-    pub fn root_dir(mut self, root_dir: impl AsRef<Path>) -> Self {
-        self.config.root_dir(root_dir);
-        self
-    }
-
-    /// Set the on-disk filename format
+    /// Set the on-disk filename format.
     #[must_use]
     pub fn filename_format(mut self, filename_format: TestcaseFilenameFormat) -> Self {
         self.config.filename_format(filename_format);
@@ -317,14 +309,7 @@ impl<I> ObjectiveOnDiskCorpusBuilder<I> {
 }
 
 impl<I> ObjectiveInMemoryOnDiskCorpusBuilder<I> {
-    /// Set the root directory, where the testcases will be stored.
-    #[must_use]
-    pub fn root_dir(mut self, root_dir: impl AsRef<Path>) -> Self {
-        self.config.root_dir(root_dir);
-        self
-    }
-
-    /// Set the on-disk filename format
+    /// Set the on-disk filename format.
     #[must_use]
     pub fn filename_format(mut self, filename_format: TestcaseFilenameFormat) -> Self {
         self.config.filename_format(filename_format);
@@ -333,14 +318,7 @@ impl<I> ObjectiveInMemoryOnDiskCorpusBuilder<I> {
 }
 
 impl<I> ObjectiveCachedOnDiskCorpusBuilder<I> {
-    /// Set the root directory, where the testcases will be stored.
-    #[must_use]
-    pub fn root_dir(mut self, root: impl AsRef<Path>) -> Self {
-        self.config.store_builder.root_dir(root);
-        self
-    }
-
-    /// Set the on-disk filename format
+    /// Set the on-disk filename format.
     #[must_use]
     pub fn filename_format(mut self, filename_format: TestcaseFilenameFormat) -> Self {
         self.config.store_builder.filename_format(filename_format);
@@ -362,10 +340,11 @@ impl<I, SC> CachedOnDiskCorpus<I, SC> {
     }
 }
 
-impl Default for CachedOnDiskConfig {
-    fn default() -> Self {
+impl CachedOnDiskConfig {
+    /// Create a new config rooted at the given directory, with the default cache length.
+    fn from_root(root: impl AsRef<Path>) -> Self {
         Self {
-            store_builder: OnDiskStoreBuilder::default(),
+            store_builder: OnDiskStoreBuilder::from_root(root),
             cache_max_len: DEFAULT_CACHE_LEN,
         }
     }

@@ -59,16 +59,15 @@ pub fn fuzz() -> Result<()> {
         .controller(controller)
         .timeout(Some(Duration::from_secs(5)))
         .state_builder(|worker| {
-            let objective_dir = worker.workdir().create_dir("./crashes")?;
             let scheduler = QueueScheduler::new();
 
             StdState::new(
                 StdContext::default(),
                 // Corpus that will be evolved, we keep it in memory for performance
-                InMemoryCorpus::with_scheduler(scheduler),
+                InMemoryCorpus::new(scheduler),
                 // Corpus in which we store solutions (crashes in this example),
                 // on disk so the user can get them after stopping the fuzzer
-                OnDiskCorpus::builder().root_dir(objective_dir).build()?,
+                ObjectiveOnDiskCorpus::builder(worker)?.build()?,
             )
         })
         .monitor(monitor)

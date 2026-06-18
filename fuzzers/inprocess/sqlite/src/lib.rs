@@ -93,9 +93,7 @@ pub extern "C" fn libafl_main() {
                 InMemoryCorpus::new(scheduler),
                 // Corpus in which we store solutions (crashes in this example),
                 // on disk so the user can get them after stopping the fuzzer
-                ObjectiveOnDiskCorpus::builder()
-                    .from_worker(worker)?
-                    .build()?,
+                ObjectiveOnDiskCorpus::builder(worker)?.build()?,
             )
         })
         .build_inprocess(move |rt_handle, state| {

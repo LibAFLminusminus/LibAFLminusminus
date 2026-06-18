@@ -90,13 +90,11 @@ mod tests {
         let scheduler: QueueScheduler = QueueScheduler::new();
         let context = BytesContext;
 
-        let corpus = OnDiskCorpus::builder(scheduler)
-            .root_dir(PathBuf::from("/tmp"))
+        let corpus = OnDiskCorpus::builder_from_dir(PathBuf::from("/tmp"), scheduler)
             .build()
             .unwrap();
 
-        let objective = ObjectiveOnDiskCorpus::builder()
-            .root_dir(PathBuf::from("/tmp"))
+        let objective = ObjectiveOnDiskCorpus::builder_from_dir(PathBuf::from("/tmp"))
             .build()
             .unwrap();
 

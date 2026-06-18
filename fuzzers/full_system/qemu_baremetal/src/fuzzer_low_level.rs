@@ -62,7 +62,6 @@ pub fn fuzz() -> Result<()> {
         .controller(controller)
         .timeout(Some(timeout))
         .state_builder(|worker| {
-            let objective_dir = worker.workdir().create_dir("./crashes")?;
             let scheduler = QueueScheduler::new();
 
             StdState::new(
@@ -71,7 +70,7 @@ pub fn fuzz() -> Result<()> {
                 InMemoryCorpus::with_scheduler(scheduler),
                 // Corpus in which we store solutions (crashes in this example),
                 // on disk so the user can get them after stopping the fuzzer
-                OnDiskCorpus::builder().root_dir(objective_dir).build()?,
+                ObjectiveOnDiskCorpus::builder(worker)?.build()?,
             )
         })
         .monitor(monitor)

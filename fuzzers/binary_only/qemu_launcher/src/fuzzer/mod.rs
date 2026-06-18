@@ -23,21 +23,14 @@ impl QemuFuzzer {
             .controller(controller)
             .state_builder(move |worker| {
                 let scheduler = QueueScheduler::new();
-                let crash_dir = worker.workdir().create_dir("crashes")?;
-                let queue_dir = worker.workdir().create_dir("queue")?;
 
                 StdState::new(
                     BytesContext::default(),
                     // Corpus that will be evolved, we keep it in memory for performance
-                    InMemoryOnDiskCorpus::builder()
-                        .root_dir(queue_dir.as_path())
-                        .scheduler(scheduler)
-                        .build()?,
+                    InMemoryOnDiskCorpus::builder(worker, scheduler)?.build()?,
                     // Corpus in which we store solutions (crashes in this example),
                     // on disk so the user can get them after stopping the fuzzer
-                    OnDiskCorpus::<BytesInput, NopScheduler>::builder()
-                        .root_dir(crash_dir.as_path())
-                        .build()?,
+                    ObjectiveOnDiskCorpus::builder(worker)?.build()?,
                 )
             })
             .build_inprocess(move |rt_handle, state| {

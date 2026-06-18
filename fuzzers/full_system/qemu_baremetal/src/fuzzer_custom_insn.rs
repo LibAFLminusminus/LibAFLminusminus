@@ -33,7 +33,7 @@ pub fn fuzz() -> Result<()> {
                 InMemoryCorpus::new(scheduler),
                 // Corpus in which we store solutions (crashes in this example),
                 // on disk so the user can get them after stopping the fuzzer
-                OnDiskCorpus::builder().from_worker(worker)?.build()?,
+                ObjectiveOnDiskCorpus::builder(worker)?.build()?,
             )
         })
         .monitor(monitor)
