@@ -81,7 +81,7 @@ where
                 &mut *self.cache_store.borrow_mut(),
                 &mut self.fallback_store,
             )
-            .map(|stored| stored.into_testcase_id())
+            .map(StorageResult::into_testcase_id)
     }
 
     fn get_from<const ENABLED: bool>(&self, id: &TestcaseId) -> Result<Testcase<I>> {

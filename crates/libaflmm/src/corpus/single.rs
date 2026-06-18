@@ -66,7 +66,7 @@ where
     fn add_inner<const ENABLED: bool>(&mut self, testcase: Testcase<I>) -> Result<TestcaseId> {
         self.store
             .add_shared::<ENABLED>(testcase)
-            .map(|res| res.into_testcase_id())
+            .map(StorageResult::into_testcase_id)
     }
 
     /// Get testcase by id

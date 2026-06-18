@@ -50,9 +50,9 @@ pub struct Stats {
     pub(crate) executions: u64,
     /// At what time the fuzzing started
     pub(crate) start_time: Duration,
-    /// number of items in [`Corpus`]
+    /// number of items in [`Corpus`](crate::corpus::Corpus)
     pub(crate) corpus: usize,
-    /// number of items in objective [`Corpus`]
+    /// number of items in objective [`Corpus`](crate::corpus::Corpus)
     pub(crate) objective: usize,
     /// last time smth was found
     pub(crate) last_found_time: Duration,
@@ -89,12 +89,12 @@ impl fmt::Display for Stats {
 }
 
 impl Stats {
-    /// Update the counter of items in [`Corpus`].
+    /// Update the counter of items in [`Corpus`](crate::corpus::Corpus).
     pub fn update_corpus(&mut self, corpus: usize) {
         self.corpus = corpus;
     }
 
-    /// Update the counter of items in objective [`Corpus`].
+    /// Update the counter of items in objective [`Corpus`](crate::corpus::Corpus).
     pub fn update_objective(&mut self, objective: usize) {
         self.objective = objective;
     }
@@ -145,10 +145,10 @@ pub trait State: DependencyResolver {
     /// The associated [`InputContext`]
     type Context: InputContext<Input = Self::Input>;
 
-    /// The associated [`Corpus`]
+    /// The associated [`Corpus`](crate::corpus::Corpus)
     type Corpus: ScheduledCorpus<Self::Input, Self::Scheduler>;
 
-    /// The associated objective [`Corpus`]
+    /// The associated objective [`Corpus`](crate::corpus::Corpus)
     type ObjectiveCorpus: ObjectiveCorpus<Self::Input>;
 
     /// Get the reference to the [`InputContext`]
@@ -157,16 +157,16 @@ pub trait State: DependencyResolver {
     /// Get the mutable reference to the [`InputContext`]
     fn context_mut(&mut self) -> &mut Self::Context;
 
-    /// Get the reference to the [`Corpus`]
+    /// Get the reference to the [`Corpus`](crate::corpus::Corpus)
     fn corpus(&self) -> &Self::Corpus;
 
-    /// Get the mutable reference to the [`Corpus`]
+    /// Get the mutable reference to the [`Corpus`](crate::corpus::Corpus)
     fn corpus_mut(&mut self) -> &mut Self::Corpus;
 
-    /// Get the reference to the objective [`Corpus`]
+    /// Get the reference to the objective [`Corpus`](crate::corpus::Corpus)
     fn objective_corpus(&self) -> &Self::ObjectiveCorpus;
 
-    /// Get the mutable reference to the objective [`Corpus`]
+    /// Get the mutable reference to the objective [`Corpus`](crate::corpus::Corpus)
     fn objective_corpus_mut(&mut self) -> &mut Self::ObjectiveCorpus;
 
     /// Get reference to the [`Testcase`] attached to this [`Testcase`]
@@ -300,9 +300,9 @@ impl<I, S, Z> Debug for LoadConfig<'_, I, S, Z> {
 pub struct StdState<C, CT, I, OC, SC> {
     /// the [`InputContext`]. helper to transform [`Input`] into a byte slice
     context: CT,
-    /// The [`Corpus`]
+    /// The [`Corpus`](crate::corpus::Corpus)
     corpus: C,
-    // Objectives [`Corpus`]
+    // Objectives [`Corpus`](crate::corpus::Corpus)
     objective_corpus: OC,
     /// Metadata stored with names
     named_metadata: NamedSerdeAnyMap,

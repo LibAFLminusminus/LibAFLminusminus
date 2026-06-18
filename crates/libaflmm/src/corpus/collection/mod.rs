@@ -1,4 +1,4 @@
-//! A collection of various [`Corpus`].
+//! A collection of various [`Corpus`](crate::corpus::Corpus).
 
 pub mod maps;
 pub use maps::StdInMemoryCorpusMap;

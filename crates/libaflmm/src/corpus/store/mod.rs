@@ -69,10 +69,10 @@ pub trait RemovableStore<I>: Store<I> {
 }
 
 impl StorageResult {
+    #[must_use]
     pub fn into_testcase_id(self) -> TestcaseId {
         match self {
-            Self::Duplicate(tc_id) => tc_id,
-            Self::Stored(tc_id) => tc_id,
+            Self::Stored(tc_id) | Self::Duplicate(tc_id) => tc_id,
         }
     }
 }
