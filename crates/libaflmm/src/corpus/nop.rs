@@ -8,33 +8,21 @@ use serde::{Deserialize, Serialize};
 use crate::{
     Error,
     common::DependencyResolver,
-    corpus::{Corpus, HasScheduler, Testcase, TestcaseId, schedulers::NopScheduler},
+    corpus::{
+        Corpus, ObjectiveCorpus, ScheduledCorpus, Testcase, TestcaseId, schedulers::NopScheduler,
+    },
     inputs::NopContext,
 };
 
 /// A corpus which does not store any [`Testcase`]s.
 #[derive(Serialize, Deserialize, Debug)]
-pub struct NopCorpus<I, S> {
+pub struct NopCorpus<I> {
     scheduler: NopScheduler,
     context: NopContext,
-    phantom: PhantomData<(I, S)>,
+    phantom: PhantomData<I>,
 }
 
-impl<I, S> HasScheduler for NopCorpus<I, S> {
-    type Scheduler = NopScheduler;
-
-    fn scheduler(&self) -> &Self::Scheduler {
-        &self.scheduler
-    }
-
-    fn scheduler_mut(&mut self) -> &mut Self::Scheduler {
-        &mut self.scheduler
-    }
-}
-
-impl<I, S> Corpus for NopCorpus<I, S> {
-    type Input = I;
-
+impl<I> Corpus<I> for NopCorpus<I> {
     /// Returns the number of all enabled entries
     #[inline]
     fn count(&self) -> usize {
@@ -54,7 +42,7 @@ impl<I, S> Corpus for NopCorpus<I, S> {
 
     /// Add an enabled testcase to the corpus and return its index
     #[inline]
-    fn add_shared<const ENABLED: bool>(&mut self, _testcase: Testcase<I>) -> Result<TestcaseId> {
+    fn add_inner<const ENABLED: bool>(&mut self, _testcase: Testcase<I>) -> Result<TestcaseId> {
         Err(Error::unsupported("Unsupported by NopCorpus"))
     }
 
@@ -63,22 +51,34 @@ impl<I, S> Corpus for NopCorpus<I, S> {
     }
 }
 
-impl<I, S> DependencyResolver for NopCorpus<I, S> {}
+impl<I> ScheduledCorpus<I, NopScheduler> for NopCorpus<I> {
+    fn scheduler(&self) -> &NopScheduler {
+        &self.scheduler
+    }
 
-impl<I, S> Default for NopCorpus<I, S> {
+    fn scheduler_mut(&mut self) -> &mut NopScheduler {
+        &mut self.scheduler
+    }
+}
+
+impl<I> ObjectiveCorpus<I> for NopCorpus<I> {}
+
+impl<I> DependencyResolver for NopCorpus<I> {}
+
+impl<I> Default for NopCorpus<I> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<I, S> NopCorpus<I, S> {
+impl<I> NopCorpus<I> {
     /// Creates a new [`NopCorpus`].
     #[must_use]
     pub fn new() -> Self {
         Self {
-            context: NopContext {},
-            scheduler: NopScheduler {},
-            phantom: PhantomData {},
+            context: NopContext,
+            scheduler: NopScheduler,
+            phantom: PhantomData,
         }
     }
 }

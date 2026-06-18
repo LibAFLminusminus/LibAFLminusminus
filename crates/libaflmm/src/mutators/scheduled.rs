@@ -248,7 +248,10 @@ mod tests {
     use libaflmm_bolts::rands::{StdRand, XkcdRand};
 
     use crate::{
-        corpus::{Corpus, InMemoryCorpus, Testcase, schedulers::QueueScheduler},
+        corpus::{
+            Corpus, InMemoryCorpus, ObjectiveInMemoryCorpus, ScheduledCorpus, Testcase,
+            schedulers::QueueScheduler,
+        },
         inputs::{BytesInput, HasMutatorBytes, bytes::BytesContext},
         mutators::{
             Mutator,
@@ -262,7 +265,7 @@ mod tests {
     #[test]
     fn test_mut_scheduled() {
         let mut rand = XkcdRand::with_seed(0);
-        let mut corpus = InMemoryCorpus::with_scheduler(QueueScheduler::new());
+        let mut corpus = InMemoryCorpus::new(QueueScheduler::new());
         let id1 = corpus
             .add(Testcase::new(Rc::new(BytesInput::new(vec![
                 b'a', b'b', b'c',
@@ -276,12 +279,7 @@ mod tests {
 
         let mut input = corpus.get(&id1).unwrap().cloned_input();
 
-        let state = StdState::new(
-            BytesContext,
-            corpus,
-            InMemoryCorpus::with_scheduler(QueueScheduler::new()),
-        )
-        .unwrap();
+        let state = StdState::new(BytesContext, corpus, ObjectiveInMemoryCorpus::new()).unwrap();
 
         let mut splice = SpliceMutator::new();
         splice.mutate(&mut input, &mut rand, &state).unwrap();
@@ -295,7 +293,7 @@ mod tests {
     #[test]
     fn test_havoc() {
         let mut rand = StdRand::with_seed(0x1337);
-        let mut corpus = InMemoryCorpus::with_scheduler(QueueScheduler::new());
+        let mut corpus = InMemoryCorpus::new(QueueScheduler::new());
         let id1 = corpus
             .add(Testcase::new(Rc::new(BytesInput::new(b"abc".to_vec()))))
             .unwrap();
@@ -303,12 +301,7 @@ mod tests {
         let mut input = corpus.get(&id1).unwrap().cloned_input();
         let input_prior = input.clone();
 
-        let state = StdState::new(
-            BytesContext,
-            corpus,
-            InMemoryCorpus::with_scheduler(QueueScheduler::new()),
-        )
-        .unwrap();
+        let state = StdState::new(BytesContext, corpus, ObjectiveInMemoryCorpus::new()).unwrap();
 
         let mut havoc = HavocScheduledMutator::new(havoc_mutations());
 
@@ -332,7 +325,7 @@ mod tests {
     #[test]
     fn test_single_choice() {
         let mut rand = StdRand::with_seed(0x1337);
-        let mut corpus = InMemoryCorpus::with_scheduler(QueueScheduler::new());
+        let mut corpus = InMemoryCorpus::new(QueueScheduler::new());
         let id1 = corpus
             .add(Testcase::new(Rc::new(BytesInput::new(b"abc".to_vec()))))
             .unwrap();
@@ -340,12 +333,7 @@ mod tests {
         let mut input = corpus.get(&id1).unwrap().cloned_input();
         let input_prior = input.clone();
 
-        let state = StdState::new(
-            BytesContext,
-            corpus,
-            InMemoryCorpus::with_scheduler(QueueScheduler::new()),
-        )
-        .unwrap();
+        let state = StdState::new(BytesContext, corpus, ObjectiveInMemoryCorpus::new()).unwrap();
 
         let mut mutator = SingleChoiceScheduledMutator::new(havoc_mutations());
 

@@ -4,8 +4,8 @@ use crate::{
     Error, Result,
     common::{DependencyResolver, Registrator},
     corpus::{
-        Corpus, HasScheduler, InMemoryCorpus, Testcase, TestcaseFilenameFormat,
-        schedulers::NopScheduler, testcase::TestcaseId,
+        InMemoryCorpus, ObjectiveCorpus, ObjectiveInMemoryCorpus, ScheduledCorpus, Scheduler,
+        Testcase, TestcaseFilenameFormat, schedulers::NopScheduler, testcase::TestcaseId,
     },
     fuzzers::{EvaluationResult, Evaluator},
     generators::Generator,
@@ -50,9 +50,9 @@ pub struct Stats {
     pub(crate) executions: u64,
     /// At what time the fuzzing started
     pub(crate) start_time: Duration,
-    /// number of items in [`Corpus`]
+    /// number of items in [`Corpus`](crate::corpus::Corpus)
     pub(crate) corpus: usize,
-    /// number of items in objective [`Corpus`]
+    /// number of items in objective [`Corpus`](crate::corpus::Corpus)
     pub(crate) objective: usize,
     /// last time smth was found
     pub(crate) last_found_time: Duration,
@@ -89,12 +89,12 @@ impl fmt::Display for Stats {
 }
 
 impl Stats {
-    /// Update the counter of items in [`Corpus`].
+    /// Update the counter of items in [`Corpus`](crate::corpus::Corpus).
     pub fn update_corpus(&mut self, corpus: usize) {
         self.corpus = corpus;
     }
 
-    /// Update the counter of items in objective [`Corpus`].
+    /// Update the counter of items in objective [`Corpus`](crate::corpus::Corpus).
     pub fn update_objective(&mut self, objective: usize) {
         self.objective = objective;
     }
@@ -135,19 +135,21 @@ pub fn sync_stats(file: File, stats: &Stats) -> Result<()> {
 }
 
 /// The trait containing all the stuff that [`StdState`] implements. It's rather a shortcut for typing all the traits
-pub trait State:
-    HasScheduler<Scheduler = <Self::Corpus as HasScheduler>::Scheduler> + DependencyResolver
-{
+pub trait State: DependencyResolver {
+    /// The [`Input`]
     type Input: Input;
+
+    /// The [`Scheduler`]
+    type Scheduler: Scheduler;
 
     /// The associated [`InputContext`]
     type Context: InputContext<Input = Self::Input>;
 
-    /// The associated [`Corpus`]
-    type Corpus: Corpus<Input = Self::Input>;
+    /// The associated [`Corpus`](crate::corpus::Corpus)
+    type Corpus: ScheduledCorpus<Self::Input, Self::Scheduler>;
 
-    /// The associated objective [`Corpus`]
-    type ObjectiveCorpus: Corpus<Input = Self::Input>;
+    /// The associated objective [`Corpus`](crate::corpus::Corpus)
+    type ObjectiveCorpus: ObjectiveCorpus<Self::Input>;
 
     /// Get the reference to the [`InputContext`]
     fn context(&self) -> &Self::Context;
@@ -155,16 +157,16 @@ pub trait State:
     /// Get the mutable reference to the [`InputContext`]
     fn context_mut(&mut self) -> &mut Self::Context;
 
-    /// Get the reference to the [`Corpus`]
+    /// Get the reference to the [`Corpus`](crate::corpus::Corpus)
     fn corpus(&self) -> &Self::Corpus;
 
-    /// Get the mutable reference to the [`Corpus`]
+    /// Get the mutable reference to the [`Corpus`](crate::corpus::Corpus)
     fn corpus_mut(&mut self) -> &mut Self::Corpus;
 
-    /// Get the reference to the objective [`Corpus`]
+    /// Get the reference to the objective [`Corpus`](crate::corpus::Corpus)
     fn objective_corpus(&self) -> &Self::ObjectiveCorpus;
 
-    /// Get the mutable reference to the objective [`Corpus`]
+    /// Get the mutable reference to the objective [`Corpus`](crate::corpus::Corpus)
     fn objective_corpus_mut(&mut self) -> &mut Self::ObjectiveCorpus;
 
     /// Get reference to the [`Testcase`] attached to this [`Testcase`]
@@ -259,22 +261,15 @@ pub trait State:
     fn input_to_bytes<'a>(&mut self, input: &'a Self::Input) -> OwnedSlice<'a, u8> {
         self.context_mut().to_bytes(input)
     }
-}
 
-impl<C, CT, I, OC> HasScheduler for StdState<C, CT, I, OC>
-where
-    C: HasScheduler,
-{
-    type Scheduler = C::Scheduler;
-
-    /// Ref to the [`Scheduler`](crate::corpus::schedulers::Scheduler)
+    /// Ref to the [`Scheduler`]
     fn scheduler(&self) -> &Self::Scheduler {
-        self.corpus.scheduler()
+        self.corpus().scheduler()
     }
 
     /// Mutable ref to the `Scheduler`
     fn scheduler_mut(&mut self) -> &mut Self::Scheduler {
-        self.corpus.scheduler_mut()
+        self.corpus_mut().scheduler_mut()
     }
 }
 
@@ -302,12 +297,12 @@ impl<I, S, Z> Debug for LoadConfig<'_, I, S, Z> {
         C: serde::Serialize + for<'a> serde::Deserialize<'a>,
         OC: serde::Serialize + for<'a> serde::Deserialize<'a>,
     ")]
-pub struct StdState<C, CT, I, OC> {
+pub struct StdState<C, CT, I, OC, SC> {
     /// the [`InputContext`]. helper to transform [`Input`] into a byte slice
     context: CT,
-    /// The [`Corpus`]
+    /// The [`Corpus`](crate::corpus::Corpus)
     corpus: C,
-    // Objectives [`Corpus`]
+    // Objectives [`Corpus`](crate::corpus::Corpus)
     objective_corpus: OC,
     /// Metadata stored with names
     named_metadata: NamedSerdeAnyMap,
@@ -321,7 +316,7 @@ pub struct StdState<C, CT, I, OC> {
     dont_reenter: Option<Vec<PathBuf>>,
     metadata_initialized: bool,
     stats: Stats,
-    phantom: PhantomData<I>,
+    phantom: PhantomData<(I, SC)>,
 }
 
 /// The [[`Testcase`]] metadata.
@@ -457,12 +452,12 @@ impl TestcaseMetadata {
     }
 }
 
-impl<C, CT, I, OC> DependencyResolver for StdState<C, CT, I, OC>
+impl<C, CT, I, OC, SC> DependencyResolver for StdState<C, CT, I, OC, SC>
 where
-    C: DependencyResolver + Corpus<Input = I>,
+    C: DependencyResolver + ScheduledCorpus<I, SC>,
     CT: InputContext<Input = I>,
     I: Input,
-    OC: DependencyResolver + Corpus<Input = I>,
+    OC: DependencyResolver + ObjectiveCorpus<I>,
 {
     fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
         registrator.register_ty::<Self>();
@@ -474,14 +469,16 @@ where
     }
 }
 
-impl<C, CT, I, OC> State for StdState<C, CT, I, OC>
+impl<C, CT, I, OC, SC> State for StdState<C, CT, I, OC, SC>
 where
-    C: Corpus<Input = I>,
+    C: ScheduledCorpus<I, SC>,
     CT: InputContext<Input = I>,
     I: Input,
-    OC: Corpus<Input = I>,
+    OC: ObjectiveCorpus<I>,
+    SC: Scheduler,
 {
     type Input = I;
+    type Scheduler = SC;
     type Context = CT;
     type Corpus = C;
     type ObjectiveCorpus = OC;
@@ -589,9 +586,9 @@ where
     }
 }
 
-impl<C, CT, I, OC> StdState<C, CT, I, OC>
+impl<C, CT, I, OC, SC> StdState<C, CT, I, OC, SC>
 where
-    C: Corpus<Input = I>,
+    C: ScheduledCorpus<I, SC>,
     I: Input,
 {
     /// Decide if the state must load the inputs
@@ -895,7 +892,7 @@ where
     }
 }
 
-impl<C, CT, I, OC> StdState<C, CT, I, OC>
+impl<C, CT, I, OC, SC> StdState<C, CT, I, OC, SC>
 where
     I: Input,
     CT: InputContext<Input = I>,
@@ -928,18 +925,18 @@ where
     }
 }
 
-impl<C, CT, I, OC> StdState<C, CT, I, OC>
+impl<C, CT, I, OC, SC> StdState<C, CT, I, OC, SC>
 where
     I: Input,
-    C: Corpus<Input = I>,
+    C: ScheduledCorpus<I, SC>,
     CT: InputContext<Input = I>,
-    OC: Corpus<Input = I>,
+    OC: ObjectiveCorpus<I>,
 {
     /// Creates a new `StdState`, taking ownership of all of the individual components during fuzzing.
     pub fn new(context: CT, corpus: C, objective_corpus: OC) -> Result<Self>
     where
-        OC: Serialize + DeserializeOwned + DependencyResolver,
-        C: Serialize + DeserializeOwned + DependencyResolver,
+        OC: Serialize + DeserializeOwned,
+        C: Serialize + DeserializeOwned,
     {
         let state = Self {
             context,
@@ -967,25 +964,6 @@ where
     }
 }
 
-impl
-    StdState<
-        InMemoryCorpus<NopInput, NopScheduler>,
-        NopContext,
-        NopInput,
-        InMemoryCorpus<NopInput, NopScheduler>,
-    >
-{
-    /// Create an empty [`StdState`] that has very minimal uses.
-    /// Potentially good for testing.
-    pub fn nop() -> Result<Self> {
-        StdState::new(
-            NopContext,
-            InMemoryCorpus::<NopInput, NopScheduler>::new(),
-            InMemoryCorpus::new(),
-        )
-    }
-}
-
 /// A very simple [`State`] with minimal capabilities, for testing.
 ///
 /// It is a [`StdState`] backed by in-memory corpora and a [`NopContext`].
@@ -994,8 +972,21 @@ pub type NopState = StdState<
     InMemoryCorpus<NopInput, NopScheduler>,
     NopContext,
     NopInput,
-    InMemoryCorpus<NopInput, NopScheduler>,
+    ObjectiveInMemoryCorpus<NopInput>,
+    NopScheduler,
 >;
+
+impl NopState {
+    /// Create an empty [`StdState`] that has very minimal uses.
+    /// Potentially good for testing.
+    pub fn nop() -> Result<Self> {
+        StdState::new(
+            NopContext,
+            InMemoryCorpus::nop(),
+            ObjectiveInMemoryCorpus::new(),
+        )
+    }
+}
 
 #[cfg(test)]
 mod test {

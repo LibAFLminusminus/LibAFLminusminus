@@ -256,9 +256,8 @@ impl VectorType for wide::u8x16 {
         <Self>::blend(self, lhs, rhs)
     }
 
-    #[allow(deprecated)]
     fn simd_eq(self, rhs: Self) -> Self {
-        <Self as wide::CmpEq>::simd_eq(self, rhs)
+        self.simd_eq(rhs)
     }
 
     fn as_slice(&self) -> &[u8] {
@@ -302,9 +301,8 @@ impl VectorType for wide::u8x32 {
         self.blend(lhs, rhs)
     }
 
-    #[allow(deprecated)]
     fn simd_eq(self, rhs: Self) -> Self {
-        <Self as wide::CmpEq>::simd_eq(self, rhs)
+        self.simd_eq(rhs)
     }
 
     fn as_slice(&self) -> &[u8] {

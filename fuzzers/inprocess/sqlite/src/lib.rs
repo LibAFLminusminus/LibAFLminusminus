@@ -17,9 +17,9 @@ static GLOBAL: MiMalloc = MiMalloc;
 /// The commandline args this fuzzer accepts
 #[derive(Debug, Parser)]
 #[command(
-    name = "libfuzzer_libpng_launcher",
-    about = "A libfuzzer-like fuzzer for libpng with llmp-multithreading support and a launcher",
-    author = "Andrea Fioraldi <andreafioraldi@gmail.com>, Dominik Maier <domenukk@gmail.com>"
+    name = "sqlite_launcher",
+    about = "A fuzzer for ossfuzz with a launcher",
+    author = "tokatoka <tokazerkje@outlook.com>, rmalmain <rmalmain@pm.me>"
 )]
 struct Opt {
     #[arg(
@@ -27,7 +27,8 @@ struct Opt {
     long,
     value_parser = Cores::from_cmdline,
     help = "Spawn a client in each of the provided cores. Broker runs in the 0th core. 'all' to select all available cores. 'none' to run a client without binding to any core. eg: '1,2-4,6' selects the cores 1,2,3,4,6.",
-    name = "CORES"
+    name = "CORES",
+    default_value = "1",
     )]
     cores: Cores,
 
@@ -39,15 +40,6 @@ struct Opt {
         required = true
     )]
     input: Vec<PathBuf>,
-
-    #[arg(
-        short,
-        long,
-        help = "Set the output directory, default is ./out",
-        name = "OUTPUT",
-        default_value = "./out"
-    )]
-    output: PathBuf,
 
     #[arg(
     value_parser = timeout_from_millis_str,
@@ -69,6 +61,7 @@ fn timeout_from_millis_str(time: &str) -> Result<Duration> {
 #[no_mangle]
 pub extern "C" fn libafl_main() {
     env_logger::init();
+    let opt = Opt::parse();
 
     let controller = SimpleController::builder()
         .overwrite(true)
@@ -87,34 +80,23 @@ pub extern "C" fn libafl_main() {
         .controller(controller)
         .monitor(monitor)
         .timer(fast_timer)
-        .timeout(Some(Duration::from_secs(3)))
+        .timeout(Some(opt.timeout))
+        .cores(opt.cores)
         .state_builder(|worker: &SimpleWorker| {
-            // A queue policy to get testcasess from the corpus
+            // A queue policy to get testcases from the corpus
             let scheduler = QueueScheduler::new();
-            let crash_dir = worker.workdir().create_dir("crashes")?;
-            let context = BytesContext::default();
 
             // create a State from scratch
             StdState::new(
-                context,
+                BytesContext::default(),
                 // Corpus that will be evolved, we keep it in memory for performance
-                InMemoryCorpus::with_scheduler(scheduler),
+                InMemoryCorpus::new(scheduler),
                 // Corpus in which we store solutions (crashes in this example),
                 // on disk so the user can get them after stopping the fuzzer
-                OnDiskCorpus::builder().root_dir(crash_dir).build()?,
+                ObjectiveOnDiskCorpus::builder(worker)?.build()?,
             )
         })
-        .build_inprocess(|rt_handle, state| {
-            let mut harness = |state: &mut StdState<_, BytesContext, BytesInput, _>,
-                               input: &BytesInput| {
-                let context: &mut BytesContext = state.context_mut();
-                let buf = context.to_bytes(input);
-                unsafe {
-                    libfuzzer_test_one_input(&buf);
-                }
-                Ok(ExitKind::Ok)
-            };
-
+        .build_inprocess(move |rt_handle, state| {
             let map = unsafe { StdMapObserver::from_mut_slice("edges", edges_map_mut_slice()) };
 
             // Create an observation channel using the coverage map
@@ -144,7 +126,15 @@ pub extern "C" fn libafl_main() {
 
             // Create the executor for an in-process function with one observer for edge coverage and one for the execution time
             let executor = StdExecutor::new(
-                &mut harness,
+                state,
+                |state, input| {
+                    let context: &mut BytesContext = state.context_mut();
+                    let buf = context.to_bytes(input);
+                    unsafe {
+                        libfuzzer_test_one_input(&buf);
+                    }
+                    Ok(ExitKind::Ok)
+                },
                 tuple_list!(edges_observer, time_observer),
                 Some(Duration::new(10, 0)),
             );
@@ -169,11 +159,14 @@ pub extern "C" fn libafl_main() {
             // Generator of printable bytearrays of max size 32
             // In case the corpus is empty (on first run), reset
             if state.must_load_initial_inputs() {
-                let mut in_dirs = env::current_dir()?;
-                in_dirs.push("corpus");
                 state
-                    .load_initial_inputs(&mut fuzzer, rt_handle, &[in_dirs.clone()])
-                    .unwrap_or_else(|_| panic!("Failed to load initial corpus at {:?}", &in_dirs));
+                    .load_initial_inputs(&mut fuzzer, rt_handle, opt.input.as_slice())
+                    .unwrap_or_else(|e| {
+                        panic!(
+                            "Failed to load initial corpus at {:?}: {e:?}",
+                            opt.input.as_slice()
+                        )
+                    });
                 println!("We imported {} inputs from disk.", state.corpus().count());
             }
 

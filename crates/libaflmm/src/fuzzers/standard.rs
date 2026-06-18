@@ -4,7 +4,7 @@ use crate::{
     Error,
     common::Registrator,
     controllers::Worker,
-    corpus::{Corpus, Scheduler, Testcase},
+    corpus::{ObjectiveCorpus, ScheduledCorpus, Scheduler, Testcase},
     executors::{Executor, ExitKind},
     feedbacks::Feedback,
     fuzzers::{EvaluationResult, Evaluator, Fuzzer, FuzzerHooksTuple, Verdict},
@@ -252,7 +252,7 @@ impl<E, F, H, OF> StdFuzzerInner<E, F, H, OF> {
                 Verdict::Objective,
             )?;
 
-            let testcase_id = state.objective_corpus_mut().add(testcase)?;
+            let testcase_id = state.objective_corpus_mut().add_objective(testcase)?;
 
             let md = state.testcase_md_mut_from_id(&testcase_id);
 

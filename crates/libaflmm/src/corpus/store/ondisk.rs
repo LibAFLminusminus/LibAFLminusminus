@@ -31,9 +31,9 @@ pub struct OnDiskStore<I, M> {
 }
 
 /// A builder for [`OnDiskStore`]
-#[derive(Default, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct OnDiskStoreBuilder {
-    pub(crate) root_dir: Option<PathBuf>,
+    pub(crate) root_dir: PathBuf,
     pub(crate) filename_format: TestcaseFilenameFormat,
 }
 
@@ -121,10 +121,10 @@ where
 }
 
 impl<I, M> OnDiskStore<I, M> {
-    /// Instantiate an [`OnDiskStoreBuilder`].
+    /// Instantiate an [`OnDiskStoreBuilder`]
     #[must_use]
-    pub fn builder() -> OnDiskStoreBuilder {
-        OnDiskStoreBuilder::default()
+    pub fn builder(root_dir: impl AsRef<Path>) -> OnDiskStoreBuilder {
+        OnDiskStoreBuilder::from_root(root_dir)
     }
 
     /// Get the disk manager of the store
@@ -218,14 +218,11 @@ where
 impl OnDiskStoreBuilder {
     /// Create a new builder
     #[must_use]
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Set the root directory, where the testcases will be stored.
-    pub fn root_dir(&mut self, root_dir: impl AsRef<Path>) -> &mut Self {
-        self.root_dir = Some(root_dir.as_ref().to_path_buf());
-        self
+    pub fn from_root(root_dir: impl AsRef<Path>) -> Self {
+        Self {
+            root_dir: root_dir.as_ref().to_path_buf(),
+            filename_format: TestcaseFilenameFormat::default(),
+        }
     }
 
     /// Set the on-disk filename format
@@ -235,17 +232,10 @@ impl OnDiskStoreBuilder {
     }
 
     /// Build an [`OnDiskStore`].
-    /// The root directory must be set.
     pub fn build<I, M>(&self) -> Result<OnDiskStore<I, M>>
     where
         M: Default,
     {
-        OnDiskStore::new(
-            self.root_dir
-                .as_ref()
-                .ok_or_else(|| Error::illegal_argument("Root directory not set"))?
-                .clone(),
-            self.filename_format.clone(),
-        )
+        OnDiskStore::new(self.root_dir.clone(), self.filename_format.clone())
     }
 }

@@ -67,3 +67,12 @@ pub trait RemovableStore<I>: Store<I> {
     /// Removes an entry from the corpus, returning it; considers both enabled and disabled testcases
     fn remove(&mut self, id: &TestcaseId) -> Result<Testcase<I>>;
 }
+
+impl StorageResult {
+    #[must_use]
+    pub fn into_testcase_id(self) -> TestcaseId {
+        match self {
+            Self::Stored(tc_id) | Self::Duplicate(tc_id) => tc_id,
+        }
+    }
+}

@@ -71,12 +71,16 @@ pub mod prelude {
     };
 
     pub use crate::corpus::{
-        Cache, CachedOnDiskCorpus, CombinedCorpus, Corpus, DisableEntry, EnableDisableCorpus,
-        FifoCache, IdentityCache, InMemoryCorpus, InMemoryOnDiskCorpus, InMemoryStore, NopCorpus,
-        NopScheduler, OnDiskCorpus, OnDiskStore, QueueScheduler, RandScheduler, RemovableScheduler,
-        Scheduler, SingleCorpus, StdCorpus, StdInMemoryCorpusMap, StdInMemoryStore,
-        StdObjectiveCorpus, StdOnDiskStore, StdScheduler, Store, Testcase, TestcaseFilenameFormat,
-        TestcaseId,
+        Cache, CachedOnDiskConfig, CachedOnDiskCorpus, CachedOnDiskCorpusBuilder, CombinedCorpus,
+        Corpus, DisableEntry, EnableDisableCorpus, FifoCache, IdentityCache, InMemoryCorpus,
+        InMemoryCorpusBuilder, InMemoryOnDiskCorpus, InMemoryOnDiskCorpusBuilder, InMemoryStore,
+        NopCorpus, NopScheduler, ObjectiveCachedOnDiskCorpus, ObjectiveCachedOnDiskCorpusBuilder,
+        ObjectiveInMemoryCorpus, ObjectiveInMemoryCorpusBuilder, ObjectiveInMemoryOnDiskCorpus,
+        ObjectiveInMemoryOnDiskCorpusBuilder, ObjectiveOnDiskCorpus, ObjectiveOnDiskCorpusBuilder,
+        OnDiskCorpus, OnDiskCorpusBuilder, OnDiskStore, QueueScheduler, RandScheduler,
+        RemovableScheduler, Scheduler, SingleCorpus, StdCorpus, StdInMemoryCorpusMap,
+        StdInMemoryStore, StdObjectiveCorpus, StdOnDiskStore, StdScheduler, Store, Testcase,
+        TestcaseFilenameFormat, TestcaseId,
     };
 
     pub use crate::executors::{
