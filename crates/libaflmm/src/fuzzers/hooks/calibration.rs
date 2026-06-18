@@ -6,7 +6,7 @@ use crate::{
     Error, Result,
     common::{DependencyResolver, PowerScheduleData, Registrator, TestcasePowerScheduleData},
     controllers::Worker,
-    corpus::{Corpus, Scheduler, Testcase, TestcaseId},
+    corpus::{Corpus, ScheduledCorpus, Scheduler, Testcase, TestcaseId},
     executors::Executor,
     feedbacks::{HasObserverHandle, MapFeedbackMetadata},
     fuzzers::{ExitKind, FuzzerHook, Verdict},

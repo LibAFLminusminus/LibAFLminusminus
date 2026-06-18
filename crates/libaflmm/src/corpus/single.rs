@@ -12,8 +12,8 @@ use super::{Corpus, Testcase, store::Store};
 use crate::{
     common::DependencyResolver,
     corpus::{
-        DisableEntry, NopScheduler, ObjectiveCorpus, Scheduler, schedulers::RemovableScheduler,
-        store::StorageResult, testcase::TestcaseId,
+        DisableEntry, NopScheduler, ObjectiveCorpus, ScheduledCorpus, Scheduler,
+        schedulers::RemovableScheduler, store::StorageResult, testcase::TestcaseId,
     },
 };
 
@@ -47,10 +47,9 @@ impl<I, S, SC> SingleCorpus<I, S, SC> {
 
 impl<I, S, SC> DependencyResolver for SingleCorpus<I, S, SC> {}
 
-impl<I, S, SC> Corpus<I, SC> for SingleCorpus<I, S, SC>
+impl<I, S, SC> Corpus<I> for SingleCorpus<I, S, SC>
 where
     S: Store<I>,
-    SC: Scheduler,
 {
     fn count(&self) -> usize {
         self.store.count()
@@ -64,6 +63,25 @@ where
         self.store.count_all()
     }
 
+    fn add_inner<const ENABLED: bool>(&mut self, testcase: Testcase<I>) -> Result<TestcaseId> {
+        self.store
+            .add_shared::<ENABLED>(testcase)
+            .map(|res| res.into_testcase_id())
+    }
+
+    /// Get testcase by id
+    fn get_from<const ENABLED: bool>(&self, id: &TestcaseId) -> Result<Testcase<I>> {
+        self.store.get_from::<ENABLED>(id)
+    }
+}
+
+impl<I, S> ObjectiveCorpus<I> for SingleCorpus<I, S, NopScheduler> where S: Store<I> {}
+
+impl<I, S, SC> ScheduledCorpus<I, SC> for SingleCorpus<I, S, SC>
+where
+    S: Store<I>,
+    SC: Scheduler,
+{
     fn add_shared<const ENABLED: bool>(&mut self, testcase: Testcase<I>) -> Result<TestcaseId> {
         let id = match self.store.add_shared::<ENABLED>(testcase)? {
             StorageResult::Stored(id) => {
@@ -76,11 +94,6 @@ where
         Ok(id)
     }
 
-    /// Get testcase by id
-    fn get_from<const ENABLED: bool>(&self, id: &TestcaseId) -> Result<Testcase<I>> {
-        self.store.get_from::<ENABLED>(id)
-    }
-
     fn scheduler(&self) -> &SC {
         &self.scheduler
     }
@@ -89,8 +102,6 @@ where
         &mut self.scheduler
     }
 }
-
-impl<I, S> ObjectiveCorpus<I> for SingleCorpus<I, S, NopScheduler> where S: Store<I> {}
 
 impl<I, S, SC> DisableEntry for SingleCorpus<I, S, SC>
 where

@@ -74,7 +74,9 @@ impl Default for QueueScheduler {
 mod tests {
     use crate::{
         corpus::{
-            Corpus, InMemoryCorpus, OnDiskCorpus, Testcase,
+            InMemoryCorpus, ObjectiveInMemoryCorpus, ObjectiveOnDiskCorpus, ScheduledCorpus,
+            Testcase,
+            collection::OnDiskCorpus,
             schedulers::{QueueScheduler, Scheduler},
         },
         inputs::bytes::{BytesContext, BytesInput},
@@ -88,13 +90,12 @@ mod tests {
         let scheduler: QueueScheduler = QueueScheduler::new();
         let context = BytesContext;
 
-        let corpus = OnDiskCorpus::builder()
-            .scheduler(scheduler)
+        let corpus = OnDiskCorpus::builder(scheduler)
             .root_dir(PathBuf::from("/tmp"))
             .build()
             .unwrap();
 
-        let objective = OnDiskCorpus::builder()
+        let objective = ObjectiveOnDiskCorpus::builder()
             .root_dir(PathBuf::from("/tmp"))
             .build()
             .unwrap();
@@ -120,7 +121,7 @@ mod tests {
         let scheduler = QueueScheduler::new();
         let context = BytesContext;
 
-        let mut q = InMemoryCorpus::<BytesInput, QueueScheduler>::with_scheduler(scheduler);
+        let mut q = InMemoryCorpus::new(scheduler);
         let t1 = BytesInput::new(vec![0_u8; 4]);
         let t2 = BytesInput::new(vec![1_u8; 4]);
         let t3 = BytesInput::new(vec![2_u8; 4]);
@@ -129,7 +130,7 @@ mod tests {
         let id2 = q.add(Testcase::new(Rc::new(t2))).unwrap();
         let id3 = q.add(Testcase::new(Rc::new(t3))).unwrap();
 
-        let mut state = StdState::new(context, q, InMemoryCorpus::new()).unwrap();
+        let mut state = StdState::new(context, q, ObjectiveInMemoryCorpus::new()).unwrap();
 
         let next_id = state.corpus_mut().scheduler_mut().next().unwrap();
         assert_eq!(next_id, id1);

@@ -331,7 +331,10 @@ mod tests {
     use core::cell::RefCell;
     use frida_gum::Gum;
     use libaflmm::{
-        corpus::{Corpus, InMemoryCorpus, QueueScheduler, Testcase},
+        corpus::{
+            Corpus, InMemoryCorpus, ObjectiveInMemoryCorpus, QueueScheduler, ScheduledCorpus,
+            Testcase,
+        },
         executors::ExitKind,
         feedback_and_fast, feedback_or_fast,
         feedbacks::ConstFeedback,
@@ -432,7 +435,7 @@ mod tests {
                 let (function_name, expected_error) = test;
                 log::info!("Testing with harness function {function_name}");
 
-                let mut corpus = InMemoryCorpus::with_scheduler(QueueScheduler::new());
+                let mut corpus = InMemoryCorpus::new(QueueScheduler::new());
 
                 //TODO - make sure we use the right one
                 let testcase = Testcase::new(Rc::new(vec![0; 4].into()));
@@ -453,7 +456,8 @@ mod tests {
                     )
                 );
 
-                let mut state = StdState::new(BytesContext, corpus, InMemoryCorpus::new()).unwrap();
+                let mut state =
+                    StdState::new(BytesContext, corpus, ObjectiveInMemoryCorpus::new()).unwrap();
                 let mut rt_handle = RuntimeHandle::empty(&state);
 
                 let observers = tuple_list!(asan_obs);

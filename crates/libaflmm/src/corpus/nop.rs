@@ -8,7 +8,9 @@ use serde::{Deserialize, Serialize};
 use crate::{
     Error,
     common::DependencyResolver,
-    corpus::{Corpus, ObjectiveCorpus, Testcase, TestcaseId, schedulers::NopScheduler},
+    corpus::{
+        Corpus, ObjectiveCorpus, ScheduledCorpus, Testcase, TestcaseId, schedulers::NopScheduler,
+    },
     inputs::NopContext,
 };
 
@@ -20,7 +22,7 @@ pub struct NopCorpus<I> {
     phantom: PhantomData<I>,
 }
 
-impl<I> Corpus<I, NopScheduler> for NopCorpus<I> {
+impl<I> Corpus<I> for NopCorpus<I> {
     /// Returns the number of all enabled entries
     #[inline]
     fn count(&self) -> usize {
@@ -40,14 +42,16 @@ impl<I> Corpus<I, NopScheduler> for NopCorpus<I> {
 
     /// Add an enabled testcase to the corpus and return its index
     #[inline]
-    fn add_shared<const ENABLED: bool>(&mut self, _testcase: Testcase<I>) -> Result<TestcaseId> {
+    fn add_inner<const ENABLED: bool>(&mut self, _testcase: Testcase<I>) -> Result<TestcaseId> {
         Err(Error::unsupported("Unsupported by NopCorpus"))
     }
 
     fn get_from<const ENABLED: bool>(&self, _id: &TestcaseId) -> Result<Testcase<I>> {
         Err(Error::unsupported("Unsupported by NopCorpus"))
     }
+}
 
+impl<I> ScheduledCorpus<I, NopScheduler> for NopCorpus<I> {
     fn scheduler(&self) -> &NopScheduler {
         &self.scheduler
     }

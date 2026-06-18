@@ -26,9 +26,12 @@ pub use schedulers::{
 
 pub mod collection;
 pub use collection::{
-    CachedOnDiskCorpus, CachedOnDiskCorpusBuilder, InMemoryCorpus, InMemoryOnDiskCorpus,
-    InMemoryOnDiskCorpusBuilder, OnDiskCorpus, OnDiskCorpusBuilder, StdInMemoryCorpusMap,
-    StdInMemoryStore, StdOnDiskStore,
+    CachedOnDiskConfig, CachedOnDiskCorpus, CachedOnDiskCorpusBuilder, InMemoryCorpus,
+    InMemoryCorpusBuilder, InMemoryOnDiskCorpus, InMemoryOnDiskCorpusBuilder,
+    ObjectiveCachedOnDiskCorpus, ObjectiveCachedOnDiskCorpusBuilder, ObjectiveInMemoryCorpus,
+    ObjectiveInMemoryCorpusBuilder, ObjectiveInMemoryOnDiskCorpus,
+    ObjectiveInMemoryOnDiskCorpusBuilder, ObjectiveOnDiskCorpus, ObjectiveOnDiskCorpusBuilder,
+    OnDiskCorpus, OnDiskCorpusBuilder, StdInMemoryCorpusMap, StdInMemoryStore, StdOnDiskStore,
 };
 
 pub mod combined;
@@ -38,10 +41,10 @@ pub mod cache;
 pub use cache::{Cache, FifoCache, IdentityCache};
 
 pub type StdCorpus<I, SC> = InMemoryCorpus<I, SC>;
-pub type StdObjectiveCorpus<I, SC> = OnDiskCorpus<I, SC>;
+pub type StdObjectiveCorpus<I> = ObjectiveOnDiskCorpus<I>;
 
 /// Corpus with all current [`Testcase`]s, or solutions
-pub trait Corpus<I, SC>: Sized + DependencyResolver {
+pub trait Corpus<I>: Sized + DependencyResolver {
     /// Returns the number of all enabled entries
     fn count(&self) -> usize;
 
@@ -56,9 +59,38 @@ pub trait Corpus<I, SC>: Sized + DependencyResolver {
         self.count() == 0
     }
 
-    /// Add an enabled testcase to the corpus and return its index
+    /// Get testcase by id; considers only enabled testcases
+    fn get(&self, id: &TestcaseId) -> Result<Testcase<I>> {
+        Self::get_from::<true>(self, id)
+    }
+
+    /// Get testcase by id, looking at the enabled and disabled stores.
+    fn get_from_all(&self, id: &TestcaseId) -> Result<Testcase<I>> {
+        Self::get_from::<false>(self, id)
+    }
+
+    /// Add a testcase to the corpus, and returns its index.
+    /// The associated type tells whether the input should be added to the enabled or the disabled corpus.
     /// It is allowed to add the same input multiple times.
     /// The corpus is responsible to handle that case without erroring out.
+    ///
+    /// The input can be shared through [`Rc`](alloc::rc::Rc).
+    fn add_inner<const ENABLED: bool>(&mut self, testcase: Testcase<I>) -> Result<TestcaseId>;
+
+    /// Get testcase by id
+    fn get_from<const ENABLED: bool>(&self, id: &TestcaseId) -> Result<Testcase<I>>;
+}
+
+pub trait ScheduledCorpus<I, SC>: Corpus<I> {
+    /// Ref to the [`Scheduler`]
+    fn scheduler(&self) -> &SC;
+
+    /// Mutable ref to the [`Scheduler`]
+    fn scheduler_mut(&mut self) -> &mut SC;
+
+    /// Add an enabled [`Testcase`] to the corpus and return its index
+    /// It is allowed to add the same input multiple times.
+    /// The corpus is responsible for handling that case without erroring out.
     ///
     /// The default [`TestcaseMetadata`](crate::states::TestcaseMetadata) will be instantiated.
     fn add(&mut self, testcase: Testcase<I>) -> Result<TestcaseId> {
@@ -80,29 +112,21 @@ pub trait Corpus<I, SC>: Sized + DependencyResolver {
     /// The corpus is responsible to handle that case without erroring out.
     ///
     /// The input can be shared through [`Rc`](alloc::rc::Rc).
-    fn add_shared<const ENABLED: bool>(&mut self, testcase: Testcase<I>) -> Result<TestcaseId>;
-
-    /// Get testcase by id; considers only enabled testcases
-    fn get(&self, id: &TestcaseId) -> Result<Testcase<I>> {
-        Self::get_from::<true>(self, id)
+    fn add_shared<const ENABLED: bool>(&mut self, testcase: Testcase<I>) -> Result<TestcaseId> {
+        self.add_inner::<ENABLED>(testcase)
     }
-
-    /// Get testcase by id, looking at the enabled and disabled stores.
-    fn get_from_all(&self, id: &TestcaseId) -> Result<Testcase<I>> {
-        Self::get_from::<false>(self, id)
-    }
-
-    /// Get testcase by id
-    fn get_from<const ENABLED: bool>(&self, id: &TestcaseId) -> Result<Testcase<I>>;
-
-    /// Ref to the [`Scheduler`]
-    fn scheduler(&self) -> &SC;
-
-    /// Mutable ref to the [`Scheduler`]
-    fn scheduler_mut(&mut self) -> &mut SC;
 }
 
-pub trait ObjectiveCorpus<I>: Corpus<I, NopScheduler> {}
+pub trait ObjectiveCorpus<I>: Corpus<I> {
+    /// Add an enabled testcase to the corpus and return its index
+    /// It is allowed to add the same input multiple times.
+    /// The corpus is responsible to handle that case without erroring out.
+    ///
+    /// The default [`TestcaseMetadata`](crate::states::TestcaseMetadata) will be instantiated.
+    fn add_objective(&mut self, testcase: Testcase<I>) -> Result<TestcaseId> {
+        self.add_inner::<true>(testcase)
+    }
+}
 
 /// Trait implemented by [`Corpus`]es able to disable an entry.
 pub trait DisableEntry {

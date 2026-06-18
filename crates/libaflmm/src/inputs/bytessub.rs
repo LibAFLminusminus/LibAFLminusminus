@@ -207,7 +207,7 @@ mod tests {
     use libaflmm_bolts::{HasLen, rands::StdRand};
 
     use crate::{
-        corpus::{InMemoryCorpus, schedulers::QueueScheduler},
+        corpus::{InMemoryCorpus, ObjectiveInMemoryCorpus, schedulers::QueueScheduler},
         inputs::{BytesInput, HasMutatorBytes, ResizableMutator, bytes::BytesContext},
         mutators::{MutatorsTuple, havoc_mutations_no_crossover},
         states::StdState,
@@ -329,8 +329,8 @@ mod tests {
         // Note that if you want to use NopState in production like this, you should see the rng! :)
         let context = BytesContext;
         let corpus_sch = QueueScheduler::new();
-        let corpus: InMemoryCorpus<BytesInput, _> = InMemoryCorpus::with_scheduler(corpus_sch);
-        let objective_corpus = InMemoryCorpus::new();
+        let corpus: InMemoryCorpus<BytesInput, _> = InMemoryCorpus::new(corpus_sch);
+        let objective_corpus = ObjectiveInMemoryCorpus::new();
         let mut state = StdState::new(context, corpus, objective_corpus).unwrap();
         let mut rand = StdRand::new();
 

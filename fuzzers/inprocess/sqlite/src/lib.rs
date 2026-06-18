@@ -83,19 +83,19 @@ pub extern "C" fn libafl_main() {
         .timeout(Some(opt.timeout))
         .cores(opt.cores)
         .state_builder(|worker: &SimpleWorker| {
-            // A queue policy to get testcasess from the corpus
+            // A queue policy to get testcases from the corpus
             let scheduler = QueueScheduler::new();
-            let crash_dir = worker.workdir().create_dir("crashes")?;
-            let context = BytesContext::default();
 
             // create a State from scratch
             StdState::new(
-                context,
+                BytesContext::default(),
                 // Corpus that will be evolved, we keep it in memory for performance
-                InMemoryCorpus::with_scheduler(scheduler),
+                InMemoryCorpus::new(scheduler),
                 // Corpus in which we store solutions (crashes in this example),
                 // on disk so the user can get them after stopping the fuzzer
-                OnDiskCorpus::builder().root_dir(crash_dir).build()?,
+                ObjectiveOnDiskCorpus::builder()
+                    .from_worker(worker)?
+                    .build()?,
             )
         })
         .build_inprocess(move |rt_handle, state| {

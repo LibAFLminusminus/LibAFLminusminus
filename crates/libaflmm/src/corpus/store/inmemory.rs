@@ -17,6 +17,9 @@ pub struct InMemoryStore<I, M> {
     phantom: PhantomData<I>,
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct InMemoryStoreBuilder;
+
 impl<I, M> Default for InMemoryStore<I, M>
 where
     M: Default,
@@ -107,5 +110,19 @@ where
         } else {
             Err(key_not_found!("Index {id} not found for remove"))
         }
+    }
+}
+
+impl InMemoryStoreBuilder {
+    #[must_use]
+    pub fn new() -> Self {
+        Self
+    }
+
+    pub fn build<I, M>(&self) -> Result<InMemoryStore<I, M>>
+    where
+        M: Default,
+    {
+        Ok(InMemoryStore::default())
     }
 }

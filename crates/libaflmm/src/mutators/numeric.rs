@@ -344,7 +344,10 @@ mod tests {
 
     use super::{Numeric, int_mutators};
     use crate::{
-        corpus::{Corpus, InMemoryCorpus, Testcase, schedulers::QueueScheduler},
+        corpus::{
+            InMemoryCorpus, ObjectiveInMemoryCorpus, ScheduledCorpus, Testcase,
+            schedulers::QueueScheduler,
+        },
         inputs::value::{I16Input, PrimitiveContext},
         mutators::MutationResult,
         states::StdState,
@@ -379,12 +382,13 @@ mod tests {
 
     #[test]
     fn all_mutate_owned() {
-        let mut corpus = InMemoryCorpus::with_scheduler(QueueScheduler::new());
+        let mut corpus = InMemoryCorpus::new(QueueScheduler::new());
         corpus
             .add(Testcase::new(Rc::new(I16Input::new(42_i16))))
             .unwrap();
         let primitive_context: PrimitiveContext<i16> = PrimitiveContext::default();
-        let state = StdState::new(primitive_context, corpus, InMemoryCorpus::new()).unwrap();
+        let state =
+            StdState::new(primitive_context, corpus, ObjectiveInMemoryCorpus::new()).unwrap();
         let mut rand = XkcdRand::new();
 
         let mutators = int_mutators().into_vec();

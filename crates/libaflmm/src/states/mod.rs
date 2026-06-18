@@ -4,8 +4,8 @@ use crate::{
     Error, Result,
     common::{DependencyResolver, Registrator},
     corpus::{
-        Corpus, InMemoryCorpus, ObjectiveCorpus, Scheduler, Testcase, TestcaseFilenameFormat,
-        schedulers::NopScheduler, testcase::TestcaseId,
+        InMemoryCorpus, ObjectiveCorpus, ObjectiveInMemoryCorpus, ScheduledCorpus, Scheduler,
+        Testcase, TestcaseFilenameFormat, schedulers::NopScheduler, testcase::TestcaseId,
     },
     fuzzers::{EvaluationResult, Evaluator},
     generators::Generator,
@@ -146,7 +146,7 @@ pub trait State: DependencyResolver {
     type Context: InputContext<Input = Self::Input>;
 
     /// The associated [`Corpus`]
-    type Corpus: Corpus<Self::Input, Self::Scheduler>;
+    type Corpus: ScheduledCorpus<Self::Input, Self::Scheduler>;
 
     /// The associated objective [`Corpus`]
     type ObjectiveCorpus: ObjectiveCorpus<Self::Input>;
@@ -454,10 +454,10 @@ impl TestcaseMetadata {
 
 impl<C, CT, I, OC, SC> DependencyResolver for StdState<C, CT, I, OC, SC>
 where
-    C: DependencyResolver + Corpus<I, SC>,
+    C: DependencyResolver + ScheduledCorpus<I, SC>,
     CT: InputContext<Input = I>,
     I: Input,
-    OC: DependencyResolver + Corpus<I, NopScheduler>,
+    OC: DependencyResolver + ObjectiveCorpus<I>,
 {
     fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
         registrator.register_ty::<Self>();
@@ -471,7 +471,7 @@ where
 
 impl<C, CT, I, OC, SC> State for StdState<C, CT, I, OC, SC>
 where
-    C: Corpus<I, SC>,
+    C: ScheduledCorpus<I, SC>,
     CT: InputContext<Input = I>,
     I: Input,
     OC: ObjectiveCorpus<I>,
@@ -588,7 +588,7 @@ where
 
 impl<C, CT, I, OC, SC> StdState<C, CT, I, OC, SC>
 where
-    C: Corpus<I, SC>,
+    C: ScheduledCorpus<I, SC>,
     I: Input,
 {
     /// Decide if the state must load the inputs
@@ -928,15 +928,15 @@ where
 impl<C, CT, I, OC, SC> StdState<C, CT, I, OC, SC>
 where
     I: Input,
-    C: Corpus<I, SC>,
+    C: ScheduledCorpus<I, SC>,
     CT: InputContext<Input = I>,
-    OC: Corpus<I, NopScheduler>,
+    OC: ObjectiveCorpus<I>,
 {
     /// Creates a new `StdState`, taking ownership of all of the individual components during fuzzing.
     pub fn new(context: CT, corpus: C, objective_corpus: OC) -> Result<Self>
     where
-        OC: Serialize + DeserializeOwned + DependencyResolver,
-        C: Serialize + DeserializeOwned + DependencyResolver,
+        OC: Serialize + DeserializeOwned,
+        C: Serialize + DeserializeOwned,
     {
         let state = Self {
             context,
@@ -964,26 +964,6 @@ where
     }
 }
 
-impl
-    StdState<
-        InMemoryCorpus<NopInput, NopScheduler>,
-        NopContext,
-        NopInput,
-        InMemoryCorpus<NopInput, NopScheduler>,
-        NopScheduler,
-    >
-{
-    /// Create an empty [`StdState`] that has very minimal uses.
-    /// Potentially good for testing.
-    pub fn nop() -> Result<Self> {
-        StdState::new(
-            NopContext,
-            InMemoryCorpus::<NopInput, NopScheduler>::new(),
-            InMemoryCorpus::new(),
-        )
-    }
-}
-
 /// A very simple [`State`] with minimal capabilities, for testing.
 ///
 /// It is a [`StdState`] backed by in-memory corpora and a [`NopContext`].
@@ -992,9 +972,21 @@ pub type NopState = StdState<
     InMemoryCorpus<NopInput, NopScheduler>,
     NopContext,
     NopInput,
-    InMemoryCorpus<NopInput, NopScheduler>,
+    ObjectiveInMemoryCorpus<NopInput>,
     NopScheduler,
 >;
+
+impl NopState {
+    /// Create an empty [`StdState`] that has very minimal uses.
+    /// Potentially good for testing.
+    pub fn nop() -> Result<Self> {
+        StdState::new(
+            NopContext,
+            InMemoryCorpus::nop(),
+            ObjectiveInMemoryCorpus::new(),
+        )
+    }
+}
 
 #[cfg(test)]
 mod test {
