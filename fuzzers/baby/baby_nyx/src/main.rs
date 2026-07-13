@@ -11,10 +11,7 @@ pub fn main() -> Result<()> {
     // The monitor tracks the fuzzing current status.
     let monitor = SimpleMonitor::new();
 
-    // Launch the fuzzer
-    StdLauncher::builder()?
-        .controller(controller)
-        .monitor(monitor)
+    let group = StdGroup::builder(&controller)
         .state_builder(|worker| {
             // A queue policy to get testcasess from the corpus
             let scheduler = QueueScheduler::new();
@@ -55,6 +52,13 @@ pub fn main() -> Result<()> {
             state.generate_initial_inputs(&mut fuzzer, &mut generator, &mut rand, rt_handle, 8)?;
             // start fuzz
             fuzzer.fuzz_loop(&mut stages, &mut rand, state, rt_handle)
-        })?
+        })?;
+
+    // Launch the fuzzer
+    StdLauncher::builder()
+        .controller(controller)
+        .monitor(monitor)
+        .add_group(group)
+        .build()?
         .launch()
 }
