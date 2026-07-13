@@ -41,14 +41,14 @@ pub trait GroupTuple<W> {
         CT: Controller<Worker = W>;
 }
 
-pub struct StdGroupBuilder<RT, S, SB, TM> {
+pub struct StdGroupBuilder<RT, S, SB, TM, W> {
     cores: Cores,
     state_builder: SB,
     runtime: RT,
     max_state_size_per_client: Option<NonZeroUsize>,
     timer: TM,
     timeout: Option<Duration>,
-    phantom: PhantomData<S>,
+    phantom: PhantomData<(S, W)>,
 }
 
 #[derive(Debug)]
@@ -97,12 +97,16 @@ where
 }
 
 impl StdGroup<NopRuntime, NopState, fn() -> Result<NopState>> {
-    pub fn builder()
-    -> Result<StdGroupBuilder<NopRuntime, NopState, fn() -> Result<NopState>, StdTimer>> {
+    pub fn builder<CT>(
+        _controller: &CT,
+    ) -> StdGroupBuilder<NopRuntime, NopState, fn() -> Result<NopState>, StdTimer, CT::Worker>
+    where
+        CT: Controller,
+    {
         let runtime = NopRuntime;
         let cores = Cores::one();
 
-        Ok(StdGroupBuilder {
+        StdGroupBuilder {
             runtime,
             cores,
             state_builder: || NopState::nop(),
@@ -110,11 +114,11 @@ impl StdGroup<NopRuntime, NopState, fn() -> Result<NopState>> {
             timeout: Some(DEFAULT_TIMEOUT),
             timer: StdTimer::new(),
             phantom: PhantomData,
-        })
+        }
     }
 }
 
-impl<RT, S, SB, TM> StdGroupBuilder<RT, S, SB, TM> {
+impl<RT, S, SB, TM, W> StdGroupBuilder<RT, S, SB, TM, W> {
     /// Set the cores associated to each [`Instance`].
     #[must_use]
     pub fn cores(mut self, cores: Cores) -> Self {
@@ -124,7 +128,7 @@ impl<RT, S, SB, TM> StdGroupBuilder<RT, S, SB, TM> {
 
     /// Set the [`Runtime`].
     #[must_use]
-    pub fn runtime<RT2>(self, runtime: RT2) -> StdGroupBuilder<RT2, S, SB, TM> {
+    pub fn runtime<RT2>(self, runtime: RT2) -> StdGroupBuilder<RT2, S, SB, TM, W> {
         StdGroupBuilder {
             runtime,
             cores: self.cores,
@@ -138,10 +142,10 @@ impl<RT, S, SB, TM> StdGroupBuilder<RT, S, SB, TM> {
 
     /// Set the runtime as an [`InProcessRuntime`].
     #[must_use]
-    pub fn inprocess<T, W>(
+    pub fn inprocess<T>(
         self,
         task: T,
-    ) -> StdGroupBuilder<StdInProcessRuntime<S, T, TM>, S, SB, TM>
+    ) -> StdGroupBuilder<StdInProcessRuntime<S, T, TM>, S, SB, TM, W>
     where
         S: Serialize,
         T: FnMut(&mut RuntimeHandle<S, W>, &mut S) -> Result<()> + Clone,
@@ -167,7 +171,7 @@ impl<RT, S, SB, TM> StdGroupBuilder<RT, S, SB, TM> {
         }
     }
 
-    pub fn forkserver<T, W>(self, task: T) -> StdGroupBuilder<StdForkserverRuntime<T>, S, SB, TM>
+    pub fn forkserver<T>(self, task: T) -> StdGroupBuilder<StdForkserverRuntime<T>, S, SB, TM, W>
     where
         T: FnMut(&mut RuntimeHandle<S, W>, &mut S) -> Result<()> + Clone,
     {
@@ -184,7 +188,7 @@ impl<RT, S, SB, TM> StdGroupBuilder<RT, S, SB, TM> {
 
     /// Set the [`State`](crate::states::State) builder closure.
     #[must_use]
-    pub fn state_builder<S2, SB2, W>(self, state_builder: SB2) -> StdGroupBuilder<RT, S2, SB2, TM>
+    pub fn state_builder<S2, SB2>(self, state_builder: SB2) -> StdGroupBuilder<RT, S2, SB2, TM, W>
     where
         SB2: FnMut(&W) -> Result<S2>,
     {
@@ -201,7 +205,7 @@ impl<RT, S, SB, TM> StdGroupBuilder<RT, S, SB, TM> {
 
     /// Set the timer used by the runtime built with [`Self::build_inprocess`].
     #[must_use]
-    pub fn timer<TM2>(self, timer: TM2) -> StdGroupBuilder<RT, S, SB, TM2> {
+    pub fn timer<TM2>(self, timer: TM2) -> StdGroupBuilder<RT, S, SB, TM2, W> {
         StdGroupBuilder {
             cores: self.cores,
             runtime: self.runtime,
