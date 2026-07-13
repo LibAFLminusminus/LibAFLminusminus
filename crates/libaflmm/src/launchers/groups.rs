@@ -5,10 +5,10 @@ use crate::{
     runtimes::{NopRuntime, Runtime, RuntimeHandle, StdForkserverRuntime, StdInProcessRuntime},
     states::NopState,
 };
+use core::{fmt::Debug, marker::PhantomData, num::NonZeroUsize, time::Duration};
 use libaflmm_bolts::{Cores, StdTimer};
 use libaflmm_core::illegal_argument;
 use serde::Serialize;
-use std::{fmt::Debug, marker::PhantomData, num::NonZeroUsize, time::Duration};
 
 /// The default timeout for a fuzzer execution.
 pub const DEFAULT_TIMEOUT: Duration = Duration::from_secs(5);
@@ -97,9 +97,16 @@ where
 }
 
 impl StdGroup<NopRuntime, NopState, fn() -> Result<NopState>> {
+    #[expect(clippy::type_complexity)]
     pub fn builder<CT>(
         _controller: &CT,
-    ) -> StdGroupBuilder<NopRuntime, NopState, fn() -> Result<NopState>, StdTimer, CT::Worker>
+    ) -> StdGroupBuilder<
+        NopRuntime,
+        NopState,
+        fn(&CT::Worker) -> Result<NopState>,
+        StdTimer,
+        CT::Worker,
+    >
     where
         CT: Controller,
     {
@@ -109,7 +116,7 @@ impl StdGroup<NopRuntime, NopState, fn() -> Result<NopState>> {
         StdGroupBuilder {
             runtime,
             cores,
-            state_builder: || NopState::nop(),
+            state_builder: |_| NopState::nop(),
             max_state_size_per_client: None,
             timeout: Some(DEFAULT_TIMEOUT),
             timer: StdTimer::new(),
@@ -119,7 +126,7 @@ impl StdGroup<NopRuntime, NopState, fn() -> Result<NopState>> {
 }
 
 impl<RT, S, SB, TM, W> StdGroupBuilder<RT, S, SB, TM, W> {
-    /// Set the cores associated to each [`Instance`].
+    /// Set the cores associated to each [`Instance`](crate::launchers::Instance).
     #[must_use]
     pub fn cores(mut self, cores: Cores) -> Self {
         self.cores = cores;
@@ -131,52 +138,6 @@ impl<RT, S, SB, TM, W> StdGroupBuilder<RT, S, SB, TM, W> {
     pub fn runtime<RT2>(self, runtime: RT2) -> StdGroupBuilder<RT2, S, SB, TM, W> {
         StdGroupBuilder {
             runtime,
-            cores: self.cores,
-            state_builder: self.state_builder,
-            max_state_size_per_client: self.max_state_size_per_client,
-            timeout: self.timeout,
-            timer: self.timer,
-            phantom: self.phantom,
-        }
-    }
-
-    /// Set the runtime as an [`InProcessRuntime`].
-    #[must_use]
-    pub fn inprocess<T>(
-        self,
-        task: T,
-    ) -> StdGroupBuilder<StdInProcessRuntime<S, T, TM>, S, SB, TM, W>
-    where
-        S: Serialize,
-        T: FnMut(&mut RuntimeHandle<S, W>, &mut S) -> Result<()> + Clone,
-        TM: Clone,
-    {
-        let ram_limit = self
-            .max_state_size_per_client
-            .unwrap_or(DEFAULT_MAX_STATE_SIZE_PER_WORKER);
-
-        StdGroupBuilder {
-            runtime: StdInProcessRuntime::new(
-                task,
-                ram_limit,
-                self.timer.clone(),
-                self.timeout.clone(),
-            ),
-            cores: self.cores,
-            state_builder: self.state_builder,
-            max_state_size_per_client: self.max_state_size_per_client,
-            timeout: self.timeout,
-            timer: self.timer,
-            phantom: self.phantom,
-        }
-    }
-
-    pub fn forkserver<T>(self, task: T) -> StdGroupBuilder<StdForkserverRuntime<T>, S, SB, TM, W>
-    where
-        T: FnMut(&mut RuntimeHandle<S, W>, &mut S) -> Result<()> + Clone,
-    {
-        StdGroupBuilder {
-            runtime: StdForkserverRuntime::new(task),
             cores: self.cores,
             state_builder: self.state_builder,
             max_state_size_per_client: self.max_state_size_per_client,
@@ -217,30 +178,60 @@ impl<RT, S, SB, TM, W> StdGroupBuilder<RT, S, SB, TM, W> {
         }
     }
 
+    /// Set the timeout of the instance
+    #[must_use]
     pub fn timeout(mut self, timeout: Option<Duration>) -> Self {
         self.timeout = timeout;
         self
     }
 
+    /// Set the runtime as an [`StdInProcessRuntime`].
+    pub fn build_inprocess<T>(
+        self,
+        task: T,
+    ) -> Result<StdGroup<StdInProcessRuntime<S, T, TM>, S, SB>>
+    where
+        S: Serialize,
+        T: FnMut(&mut RuntimeHandle<S, W>, &mut S) -> Result<()> + Clone,
+    {
+        let ram_limit = self
+            .max_state_size_per_client
+            .unwrap_or(DEFAULT_MAX_STATE_SIZE_PER_WORKER);
+
+        let runtime = StdInProcessRuntime::new(task, ram_limit, self.timer, self.timeout);
+
+        StdGroup::new(self.cores, self.state_builder, runtime)
+    }
+
+    /// Set the runtime as an [`StdForkserverRuntime`].
+    pub fn build_forkserver<T>(self, task: T) -> Result<StdGroup<StdForkserverRuntime<T>, S, SB>>
+    where
+        T: FnMut(&mut RuntimeHandle<S, W>, &mut S) -> Result<()> + Clone,
+    {
+        let runtime = StdForkserverRuntime::new(task);
+
+        StdGroup::new(self.cores, self.state_builder, runtime)
+    }
+
     pub fn build(self) -> Result<StdGroup<RT, S, SB>> {
-        if self.cores.is_empty() {
+        StdGroup::new(self.cores, self.state_builder, self.runtime)
+    }
+}
+
+impl<RT, S, SB> StdGroup<RT, S, SB> {
+    pub fn new(cores: Cores, state_builder: SB, runtime: RT) -> Result<Self> {
+        if cores.is_empty() {
             return Err(illegal_argument!(
                 "No CPU cores have been allocated for the group."
             ));
         }
 
-        Ok(StdGroup::new(self.cores, self.state_builder, self.runtime))
-    }
-}
-
-impl<RT, S, SB> StdGroup<RT, S, SB> {
-    pub fn new(cores: Cores, state_builder: SB, runtime: RT) -> Self {
-        Self {
+        Ok(Self {
             cores,
             state_builder,
             runtime,
             phantom: PhantomData,
-        }
+        })
     }
 }
 

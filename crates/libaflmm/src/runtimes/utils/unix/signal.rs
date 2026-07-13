@@ -3,8 +3,9 @@
 use crate::{
     executors::common_signals,
     runtimes::{
+        LIBAFLMM_EXIT_TERMINATION_INFINITE_RECURSION,
         inprocess::{CrashStatus, TimeoutStatus},
-        restarting::{LIBAFLMM_EXIT_RESTART, LIBAFLMM_EXIT_TERMINATION_INFINITE_RECURSION},
+        restarting::LIBAFLMM_EXIT_RESTART,
         utils::{IntoTerminationHandlerData, PinnedPtr, TerminationHandler},
     },
 };

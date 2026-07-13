@@ -2,9 +2,8 @@ use crate::{
     controllers::NopWorker,
     inputs::NopInput,
     runtimes::{
-        Runtime, RuntimeHandle, TerminationHandlerData,
+        LIBAFLMM_EXIT_END, Runtime, RuntimeHandle, TerminationHandlerData,
         inprocess::{CrashStatus, InProcessRuntime, TimeoutStatus},
-        restarting::LIBAFLMM_EXIT_END,
         utils::OsTerminationParams,
     },
     states::NopState,

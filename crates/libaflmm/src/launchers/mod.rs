@@ -6,14 +6,19 @@ use crate::{
     controllers::{Controller, SimpleController, SimpleWorker, StdDescriptor, Worker},
     launchers::groups::GroupTuple,
     monitors::{Monitor, SimpleMonitor},
+    runtimes::RuntimeHandle,
+    states::State,
 };
 use core::time::Duration;
+use libaflmm_bolts::Cores;
 use libaflmm_core::illegal_argument;
 
 pub mod instances;
-pub use instances::{Instance, InstanceId, InstanceRepr, Instances};
+pub use instances::{Instance, InstanceId, Instances};
 
 pub mod groups;
+pub use groups::{StdGroup, StdGroupBuilder};
+use serde::{Deserialize, Serialize};
 
 /// The default time between each monitor refresh.
 pub const DEFAULT_MONITOR_REFRESH: Duration = Duration::from_secs(5);
@@ -40,7 +45,7 @@ impl StdLauncher<StdDescriptor, SimpleController, SimpleMonitor, SimpleWorker> {
     /// Create a default Launcher.
     /// It is configured with a very minimal configuration.
     /// It will spawn one fuzzing core on core 0 and run the provided task or runtime.
-    #[expect(clippy::type_complexity)]
+    #[must_use]
     pub fn builder() -> StdLauncherBuilder<SimpleController, (), SimpleMonitor> {
         StdLauncherBuilder {
             controller: None,
@@ -132,13 +137,68 @@ impl<CT, GT, MT> StdLauncherBuilder<CT, GT, MT> {
     }
 }
 
+impl<CT, MT> StdLauncherBuilder<CT, (), MT> {
+    /// Build a launcher with a single kind of in-process instance
+    pub fn build_inprocess<S, SB, T>(
+        self,
+        cores: Cores,
+        state_builder: SB,
+        task: T,
+    ) -> Result<StdLauncher<CT::Descriptor, CT, MT, CT::Worker>>
+    where
+        CT: Controller,
+        for<'de> S: State + Serialize + Deserialize<'de> + 'static,
+        SB: FnMut(&CT::Worker) -> Result<S>,
+        T: FnMut(&mut RuntimeHandle<S, CT::Worker>, &mut S) -> Result<()> + Clone + 'static,
+    {
+        let group = StdGroup::builder(
+            self.controller
+                .as_ref()
+                .expect("No controller have been defined"),
+        )
+        .cores(cores)
+        .state_builder(state_builder)
+        .build_inprocess(task)?;
+
+        let launcher_builder = self.add_group(group);
+
+        launcher_builder.build()
+    }
+
+    /// Build a launcher with a single kind of in-process instance
+    pub fn build_forkserver<S, SB, T>(
+        self,
+        cores: Cores,
+        state_builder: SB,
+        task: T,
+    ) -> Result<StdLauncher<CT::Descriptor, CT, MT, CT::Worker>>
+    where
+        CT: Controller,
+        S: 'static,
+        SB: FnMut(&CT::Worker) -> Result<S>,
+        T: FnMut(&mut RuntimeHandle<S, CT::Worker>, &mut S) -> Result<()> + Clone + 'static,
+    {
+        let group = StdGroup::builder(
+            self.controller
+                .as_ref()
+                .expect("No controller have been defined"),
+        )
+        .cores(cores)
+        .state_builder(state_builder)
+        .build_forkserver(task)?;
+
+        let launcher_builder = self.add_group(group);
+
+        launcher_builder.build()
+    }
+}
+
 impl<CT, GT, MT> StdLauncherBuilder<CT, GT, MT>
 where
     CT: Controller,
     GT: GroupTuple<CT::Worker>,
 {
     /// Build the [`StdLauncher`].
-    #[expect(clippy::type_complexity)]
     pub fn build(mut self) -> Result<StdLauncher<CT::Descriptor, CT, MT, CT::Worker>> {
         let monitor = self
             .monitor

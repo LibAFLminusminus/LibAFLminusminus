@@ -117,7 +117,9 @@ pub mod prelude {
     #[cfg(feature = "nautilus")]
     pub use crate::inputs::NautilusInput;
 
-    pub use crate::launchers::{Instance, InstanceId, Instances, StdLauncher};
+    pub use crate::launchers::{
+        Instance, InstanceId, Instances, StdGroup, StdGroupBuilder, StdLauncher,
+    };
 
     pub use crate::monitors::{Monitor, PerfStats, SimpleMonitor, StdMonitor};
 
