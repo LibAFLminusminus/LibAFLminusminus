@@ -1,11 +1,12 @@
 //! Unix instance
 
 use crate::{
-    Error, Result, controllers::Controller, controllers::Worker, monitors::Monitor,
-    runtimes::Runtime,
+    Error, Result,
+    controllers::{Controller, Worker},
+    monitors::Monitor,
 };
 use alloc::vec::Vec;
-use core::{borrow::Borrow, hash::Hash, time::Duration};
+use core::{borrow::Borrow, fmt, hash::Hash, time::Duration};
 use libaflmm_bolts::core_affinity::CoreId;
 use nix::{
     poll::{PollFd, PollFlags, PollTimeout, poll},
@@ -17,17 +18,17 @@ use nix::{
     },
     unistd::{ForkResult, Pid, fork, getpid, getppid},
 };
-use std::{collections::HashSet, os::fd::AsFd, process::exit};
+use std::{collections::HashSet, fmt::Debug, os::fd::AsFd, process::exit};
 
 /// An Instance ID, unique for each [`Instance`].
 pub type InstanceId = u32;
 
+pub type InstanceRunner<W> = Box<dyn FnOnce(W) -> Result<()>>;
+
 /// An instance, owning a running [`Runtime`].
-#[derive(Debug)]
-pub struct Instance<RT, S, W> {
-    runtime: Option<RT>,
-    state: Option<S>,
-    worker: Option<W>,
+pub struct Instance<W> {
+    runner: InstanceRunner<W>,
+    worker: W,
     core: CoreId,
 }
 
@@ -44,20 +45,29 @@ pub struct InstanceRepr<D> {
 ///
 /// It should contain all the instances being run.
 #[derive(Debug)]
-pub struct Instances<D, RT, S, W> {
-    instances: Vec<Instance<RT, S, W>>,
+pub struct Instances<D, W> {
+    instances: Vec<Instance<W>>,
     active_instances: HashSet<InstanceRepr<D>>,
 }
 
-impl<RT, S, W> Instance<RT, S, W>
+impl<W> Debug for Instance<W>
 where
-    RT: Runtime<S, W> + 'static,
+    W: Debug,
 {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Instance")
+            .field("worker", &self.worker)
+            .field("core", &self.core)
+            .finish()
+    }
+}
+
+impl<W> Instance<W> {
     /// # Safety
     ///
     /// This will spawn a new process, which could have side effects.
     /// Once spawned, the parent process will take back the hand on the control flow immediately.
-    pub unsafe fn spawn<CT>(&mut self, controller: &mut CT) -> Result<InstanceRepr<CT::Descriptor>>
+    pub unsafe fn spawn<CT>(self, controller: &mut CT) -> Result<InstanceRepr<CT::Descriptor>>
     where
         CT: Controller<Worker = W>,
         W: Worker<Controller = CT>,
@@ -66,15 +76,9 @@ where
         // the father process will be able to drop the controller in the
         // father process as well.
 
-        let state = self
-            .state
-            .take()
-            .expect("State is not in the instance. This is a fuzzer bug.");
-
-        let mut worker = self
-            .worker
-            .take()
-            .expect("Controller is not in the instance. This is a fuzzer bug.");
+        let runner = self.runner;
+        let core = self.core;
+        let mut worker = self.worker;
 
         let parent_pid = getpid();
 
@@ -93,12 +97,12 @@ where
                     exit(0);
                 }
 
-                self.core.set_affinity()?;
+                core.set_affinity()?;
 
                 worker.pre_runtime_exec()?;
 
                 // start the child runtime
-                self.runtime.take().expect("The instance runtime has already been consumed. A runtime can be run only once.").run(state, worker)?;
+                runner(worker)?;
 
                 // TODO: what should we do there in case it happens?
                 // i'll panic for now, but it's not the right solution
@@ -108,13 +112,13 @@ where
     }
 }
 
-impl<D, RT, S, W> Default for Instances<D, RT, S, W> {
+impl<D, W> Default for Instances<D, W> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<D, RT, S, W> Instances<D, RT, S, W> {
+impl<D, W> Instances<D, W> {
     /// Create a new [`Instances`] collection.
     #[must_use]
     pub fn new() -> Self {
@@ -125,15 +129,22 @@ impl<D, RT, S, W> Instances<D, RT, S, W> {
     }
 
     /// Add an [`Instance`] to the collection.
-    pub fn add_instance(&mut self, instance: Instance<RT, S, W>) {
-        self.instances.push(instance);
+    pub fn add<R>(&mut self, runner: R, worker: W, core: CoreId)
+    where
+        R: FnOnce(W) -> Result<()> + 'static,
+    {
+        self.instances
+            .push(Instance::new(Box::new(runner), worker, core));
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.instances.is_empty()
     }
 }
 
-impl<D, RT, S, W> Instances<D, RT, S, W>
+impl<D, W> Instances<D, W>
 where
     W: Worker,
-    RT: Runtime<S, W> + 'static,
 {
     /// Spawn all [`Instance`]s being owned by [`Self`].
     pub fn spawn_instances<CT>(&mut self, controller: &mut CT) -> Result<()>
@@ -141,10 +152,9 @@ where
         CT: Controller<Worker = W, Descriptor = D>,
         W: Worker<Controller = CT>,
     {
-        for instance in &mut self.instances {
-            unsafe {
-                self.active_instances.insert(instance.spawn(controller)?);
-            }
+        for instance in &mut self.instances.drain(..) {
+            let repr = unsafe { instance.spawn(controller)? };
+            self.active_instances.insert(repr);
         }
 
         Ok(())
@@ -267,13 +277,12 @@ impl<D> Hash for InstanceRepr<D> {
     }
 }
 
-impl<RT, S, W> Instance<RT, S, W> {
+impl<W> Instance<W> {
     /// Create a new instance.
-    pub fn new(runtime: RT, state: S, worker: W, core: CoreId) -> Self {
+    pub fn new(runner: InstanceRunner<W>, worker: W, core: CoreId) -> Self {
         Self {
-            runtime: Some(runtime),
-            state: Some(state),
-            worker: Some(worker),
+            runner,
+            worker,
             core,
         }
     }
