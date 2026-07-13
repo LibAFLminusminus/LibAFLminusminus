@@ -118,8 +118,11 @@ impl FuzzOptions {
 
     pub fn validate(&self) {
         if let Some(asan_host_cores) = &self.asan_host_cores {
-            for id in &asan_host_cores.ids {
-                if !self.cores.contains(*id) {
+            for id in asan_host_cores.iter() {
+                if !self
+                    .cores
+                    .contains(id.expect("Only pinned cores are supported"))
+                {
                     let mut cmd = Cli::command();
                     cmd.error(
                         ErrorKind::ValueValidation,
@@ -134,8 +137,11 @@ impl FuzzOptions {
         }
 
         if let Some(cmplog_cores) = &self.cmplog_cores {
-            for id in &cmplog_cores.ids {
-                if !self.cores.contains(*id) {
+            for id in cmplog_cores.iter() {
+                if !self
+                    .cores
+                    .contains(id.expect("Only pinned cores are supported"))
+                {
                     let mut cmd = Cli::command();
                     cmd.error(
                         ErrorKind::ValueValidation,

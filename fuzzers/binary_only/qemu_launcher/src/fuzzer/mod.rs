@@ -15,12 +15,9 @@ impl QemuFuzzer {
         // let monitor = WebMonitor::new("qemu_launcher");
         let monitor = StdMonitor::new();
         let controller = StdController::builder().overwrite(true).build()?;
-
-        StdLauncher::builder()?
+        let group = StdGroup::builder(&controller)
             .cores(options.cores.clone())
             .timeout(Some(options.timeout))
-            .monitor(monitor)
-            .controller(controller)
             .state_builder(move |worker| {
                 let scheduler = QueueScheduler::new();
 
@@ -35,7 +32,11 @@ impl QemuFuzzer {
             })
             .build_inprocess(move |rt_handle, state| {
                 let core_id = rt_handle.worker().core_id();
-                let profile = QemuProfile::new(&options, &options, core_id)?;
+                let profile = QemuProfile::new(
+                    &options,
+                    &options,
+                    core_id.expect("QemuLauncher does not support unpinned cores for now"),
+                )?;
 
                 // Create an observation channel using the coverage map
                 let mut edges_observer = unsafe {
@@ -132,7 +133,13 @@ impl QemuFuzzer {
                 }
 
                 fuzzer.fuzz_loop(&mut stages, &mut rand, state, rt_handle)
-            })?
+            })?;
+
+        StdLauncher::builder()
+            .monitor(monitor)
+            .controller(controller)
+            .add_group(group)
+            .build()?
             .launch()
     }
 }
