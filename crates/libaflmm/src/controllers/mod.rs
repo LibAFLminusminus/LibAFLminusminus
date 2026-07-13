@@ -47,7 +47,7 @@ pub trait Controller {
 
     /// Create a new [`Self::Worker`].
     /// The controller must keep track of the worker if necessary.
-    fn create_worker(&mut self, core_id: CoreId) -> Result<Self::Worker>;
+    fn create_worker(&mut self, core_id: Option<CoreId>) -> Result<Self::Worker>;
 
     /// Get an iterator over all [`Self::Worker`] descriptors.
     fn worker_descriptors(&self) -> impl IntoIterator<Item = &Self::Descriptor>;
@@ -106,7 +106,7 @@ pub trait Worker {
     }
 
     /// Returns the [`CoreId`] on which the worker is running
-    fn core_id(&self) -> CoreId {
+    fn core_id(&self) -> Option<CoreId> {
         self.descriptor().core_id()
     }
 
@@ -131,7 +131,7 @@ pub trait Descriptor: Clone {
     fn worker_id(&self) -> WorkerId;
 
     /// Get the [`CoreId`] of the [`Worker`].
-    fn core_id(&self) -> CoreId;
+    fn core_id(&self) -> Option<CoreId>;
 }
 
 /// A workdir contains information relative to the working environement of a [`Worker`].

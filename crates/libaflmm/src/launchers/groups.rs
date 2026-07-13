@@ -80,7 +80,7 @@ where
         // create an instance per core, ready to run.
         for core in &self.cores {
             // spawn a controller for the instance
-            let worker = controller.create_worker(*core)?;
+            let worker = controller.create_worker(core)?;
 
             // create the state for the instance
             let state: S = (self.state_builder)(&worker)?;
@@ -89,7 +89,7 @@ where
             let mut runtime = self.runtime.clone();
 
             // add the instance to the list
-            instances.add(move |worker| runtime.run(state, worker), worker, *core);
+            instances.add(move |worker| runtime.run(state, worker), worker, core);
         }
 
         Ok(())

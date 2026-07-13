@@ -32,7 +32,7 @@ pub type InstanceRunner<W> = Box<dyn FnOnce(W) -> Result<()>>;
 pub struct Instance<W> {
     runner: InstanceRunner<W>,
     worker: W,
-    core: CoreId,
+    core: Option<CoreId>,
 }
 
 /// [`Instance`] failure reason
@@ -100,7 +100,9 @@ impl<W> Instance<W> {
                     exit(0);
                 }
 
-                core.set_affinity()?;
+                if let Some(core_id) = core {
+                    core_id.set_affinity()?;
+                }
 
                 worker.pre_runtime_exec()?;
 
@@ -132,7 +134,7 @@ impl<D, W> Instances<D, W> {
     }
 
     /// Add an [`Instance`] to the collection.
-    pub fn add<R>(&mut self, runner: R, worker: W, core: CoreId)
+    pub fn add<R>(&mut self, runner: R, worker: W, core: Option<CoreId>)
     where
         R: FnOnce(W) -> Result<()> + 'static,
     {
@@ -275,7 +277,7 @@ where
 
 impl<W> Instance<W> {
     /// Create a new instance.
-    pub fn new(runner: InstanceRunner<W>, worker: W, core: CoreId) -> Self {
+    pub fn new(runner: InstanceRunner<W>, worker: W, core: Option<CoreId>) -> Self {
         Self {
             runner,
             worker,

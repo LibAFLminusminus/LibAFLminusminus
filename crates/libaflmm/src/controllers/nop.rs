@@ -54,8 +54,8 @@ impl Descriptor for NopDescriptor {
         WorkerId(0)
     }
 
-    fn core_id(&self) -> CoreId {
-        CoreId(0)
+    fn core_id(&self) -> Option<CoreId> {
+        None
     }
 }
 
@@ -67,7 +67,7 @@ impl Controller for NopController {
         unimplemented!("nop controller has no root directory");
     }
 
-    fn create_worker(&mut self, _core_id: CoreId) -> Result<Self::Worker> {
+    fn create_worker(&mut self, _core_id: Option<CoreId>) -> Result<Self::Worker> {
         Ok(NopWorker::default())
     }
 
