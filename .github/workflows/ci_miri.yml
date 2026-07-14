@@ -20,4 +20,4 @@ jobs:
           cache-key: ubuntu-miri
           cache: ${{ vars.RUNS_ON != '' }}
       - name: Run miri tests
-        run: RUST_BACKTRACE=1 MIRIFLAGS="-Zmiri-disable-isolation" cargo miri test
+        run: RUST_BACKTRACE=1 MIRIFLAGS="-Zmiri-disable-isolation" cargo miri test --locked

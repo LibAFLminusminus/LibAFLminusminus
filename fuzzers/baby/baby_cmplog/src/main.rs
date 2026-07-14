@@ -84,10 +84,7 @@ pub fn main() -> Result<()> {
     // The monitor tracks the fuzzing current status.
     let monitor = SimpleMonitor::new();
 
-    // Launch the fuzzer
-    StdLauncher::builder()?
-        .controller(controller)
-        .monitor(monitor)
+    let group = StdGroup::builder(&controller)
         .state_builder(state_builder)
         .build_forkserver(|rt_handle, state| {
             const MAP_SIZE: usize = 65536;
@@ -170,6 +167,13 @@ pub fn main() -> Result<()> {
 
             // Start the fuzzer
             fuzzer.fuzz_loop(&mut stages, &mut rand, state, rt_handle)
-        })?
+        })?;
+
+    // Launch the fuzzer
+    StdLauncher::builder()
+        .controller(controller)
+        .monitor(monitor)
+        .add_group(group)
+        .build()?
         .launch()
 }

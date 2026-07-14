@@ -53,7 +53,7 @@ pub struct SimpleDescriptor {
     /// client id of this process
     worker_id: WorkerId,
     /// core id of this process
-    core_id: CoreId,
+    core_id: Option<CoreId>,
 }
 
 /// The launcher should instantiate this alongside binding this instance to a specific core id
@@ -65,7 +65,7 @@ impl SimpleDescriptor {
         stderr: WorkdirFile,
         stats: WorkdirFile,
         worker_id: WorkerId,
-        core_id: CoreId,
+        core_id: Option<CoreId>,
     ) -> Result<Self> {
         let workdir = Workdir::new(root_dir, stdout, stderr, stats)?;
 
@@ -125,7 +125,7 @@ impl Controller for SimpleController {
         self.root_dir.as_path()
     }
 
-    fn create_worker(&mut self, core_id: CoreId) -> Result<SimpleWorker> {
+    fn create_worker(&mut self, core_id: Option<CoreId>) -> Result<SimpleWorker> {
         let worker_id = WorkerId(self.id_ctr);
         self.id_ctr += 1;
 
@@ -298,7 +298,7 @@ impl Descriptor for SimpleDescriptor {
         self.worker_id
     }
 
-    fn core_id(&self) -> CoreId {
+    fn core_id(&self) -> Option<CoreId> {
         self.core_id
     }
 }

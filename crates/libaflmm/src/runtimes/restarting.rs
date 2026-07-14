@@ -1,8 +1,13 @@
 //! The module for the [`RestartingRuntime`].
 
+use crate::{
+    common::{CompatibilityChecker, DependencyResolver, Registrator},
+    runtimes::{
+        LIBAFLMM_EXIT_END, LIBAFLMM_EXIT_TERMINATION_INFINITE_RECURSION, Runtime, RuntimeHandle,
+        SimpleInProcessRuntime, utils::unix::OsShmBuilder,
+    },
+};
 use core::{num::NonZeroUsize, time::Duration};
-use std::process::exit;
-
 use libaflmm_core::{Error, Result};
 use nix::{
     sys::{
@@ -13,20 +18,10 @@ use nix::{
     unistd::{ForkResult, fork, getpid, getppid},
 };
 use serde::{Deserialize, Serialize};
-
-use crate::{
-    common::{CompatibilityChecker, DependencyResolver, Registrator},
-    runtimes::{Runtime, RuntimeHandle, SimpleInProcessRuntime, utils::unix::OsShmBuilder},
-};
-
-/// End the restarter; the task is over.
-pub const LIBAFLMM_EXIT_END: i32 = 100;
+use std::process::exit;
 
 /// Restart the task
 pub const LIBAFLMM_EXIT_RESTART: i32 = 101;
-
-/// Infinite recursion bug in termination handlers.
-pub const LIBAFLMM_EXIT_TERMINATION_INFINITE_RECURSION: i32 = 102;
 
 /// A restarting [`Runtime`].
 ///

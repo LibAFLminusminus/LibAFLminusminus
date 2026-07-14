@@ -34,7 +34,8 @@
 //! *This file is a fork of <https://github.com/Elzair/core_affinity_rs>*
 
 use alloc::{slice, vec, vec::Vec};
-use libaflmm_core::{Error, Result};
+use core::num::NonZeroUsize;
+use libaflmm_core::{Error, Result, illegal_argument};
 use serde::{Deserialize, Serialize};
 
 /// This function tries to retrieve information
@@ -89,21 +90,48 @@ impl From<CoreId> for usize {
     }
 }
 
-/// A list of [`CoreId`] to use for fuzzing
+/// A list of cores, that can have different policies
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
-pub struct Cores {
-    /// Vec of core ids
-    pub ids: Vec<CoreId>,
+pub enum Cores {
+    /// Pinning is performed, according to the list of [`CoreId`]s
+    Pinned(Vec<CoreId>),
+    /// No pinning is performed
+    Unpinned(NonZeroUsize),
+    /// No cores selected
+    None,
+}
+
+/// Iterator over [`Cores`].
+///
+/// `Some(CoreId)` means the core should be pinned to `CoreId`, None means the instance should be unpinned.
+#[derive(Debug, Clone)]
+pub struct CoresIter<'a> {
+    pinned: slice::Iter<'a, CoreId>,
+    unpinned: usize,
 }
 
 impl Cores {
-    /// Create a list of [`CoreId`]
+    /// Declare a list of pinned cores
     #[must_use]
-    pub fn new(ids: Vec<CoreId>) -> Self {
-        Self { ids }
+    pub fn pinned(ids: Vec<CoreId>) -> Self {
+        if ids.is_empty() {
+            Self::None
+        } else {
+            Self::Pinned(ids)
+        }
     }
 
-    /// Pick all cores
+    /// Declare a list of unpinned cores
+    #[must_use]
+    pub fn unpinned(n: usize) -> Self {
+        if n == 0 {
+            Self::None
+        } else {
+            Self::Unpinned(NonZeroUsize::try_from(n).unwrap())
+        }
+    }
+
+    /// Pick all cores, pinned
     pub fn all() -> Result<Self> {
         let mut cores: Vec<CoreId> = vec![];
 
@@ -113,52 +141,70 @@ impl Cores {
             cores.push(x.into());
         }
 
-        Ok(Self { ids: cores })
+        Ok(Self::pinned(cores))
     }
 
     /// Pick no core
     #[must_use]
     pub fn none() -> Self {
-        Self { ids: vec![] }
+        Self::None
     }
 
-    /// Pick core 0
+    /// Pick core 0 (pinned)
     #[must_use]
     pub fn one() -> Self {
-        Self {
-            ids: vec![CoreId(0)],
-        }
+        Self::Pinned(vec![CoreId(0)])
     }
 
-    /// Pick cores in `0..nb_cores`
+    /// Pick pinned cores in `0..nb_cores`
     #[must_use]
     pub fn first(nb_cores: usize) -> Self {
-        Self {
-            ids: (0..nb_cores).map(CoreId).collect(),
-        }
+        Self::Pinned((0..nb_cores).map(CoreId).collect())
     }
 
     /// Are there cores?
     #[must_use]
     pub fn is_empty(&self) -> bool {
-        self.ids.is_empty()
+        matches!(self, Cores::None)
     }
 
     /// Trims the number of cores to the given value, dropping additional cores
-    pub fn trim(&mut self, count: usize) -> Result<()> {
-        if count > self.ids.len() {
-            return Err(Error::illegal_argument(format!(
-                "Core trim value {count} is larger than number of chosen cores of {}",
-                self.ids.len()
-            )));
+    pub fn trim(&mut self, count: NonZeroUsize) -> Result<()> {
+        match self {
+            Cores::Pinned(pinned) => {
+                if count > NonZeroUsize::try_from(pinned.len()).unwrap() {
+                    return Err(illegal_argument!(
+                        "Core trim value {count} is larger than number of chosen cores of {}",
+                        pinned.len()
+                    ));
+                }
+
+                pinned.resize(count.get(), CoreId(0));
+            }
+
+            Cores::Unpinned(unpinned) => {
+                if count > *unpinned {
+                    return Err(illegal_argument!(
+                        "Core trim value {count} is larger than number of chosen cores of {}",
+                        unpinned
+                    ));
+                }
+
+                *unpinned = count;
+            }
+
+            Cores::None => {
+                return Err(illegal_argument!(
+                    "Core trim value {count} for an empty core set",
+                ));
+            }
         }
 
-        self.ids.resize(count, CoreId(0));
         Ok(())
     }
 
     /// Parses core binding args from user input.
-    /// Returns a Vec of CPU IDs.
+    /// Returns a Vec of CPU IDs (pinned).
     /// * `./fuzzer --cores 1,2-4,6`: clients run in cores `1,2,3,4,6`
     /// * `./fuzzer --cores all`: one client runs on each available core
     pub fn from_cmdline(args: &str) -> Result<Self> {
@@ -183,56 +229,77 @@ impl Cores {
                 }
             }
 
-            Ok(Self::new(cores))
+            Ok(Self::pinned(cores))
         }
     }
 
     /// Checks if this [`Cores`] instance contains a given ``core_id``
     #[must_use]
     pub fn contains(&self, core_id: CoreId) -> bool {
-        self.ids.contains(&core_id)
-    }
-
-    /// Returns the index/position of the given [`CoreId`] in this cores.ids list.
-    /// Will return `None`, if [`CoreId`] wasn't found.
-    #[must_use]
-    pub fn position(&self, core_id: CoreId) -> Option<usize> {
-        // Since cores a low number, iterating is const-size,
-        // and should be faster than hashmap lookups.
-        // Prove me wrong.
-        self.ids
-            .iter()
-            .position(|&cur_core_id| cur_core_id == core_id)
+        match self {
+            Cores::Pinned(pinned) => pinned.contains(&core_id),
+            _ => false,
+        }
     }
 
     /// Cores iterator
-    pub fn iter(&self) -> slice::Iter<'_, CoreId> {
-        self.into_iter()
+    #[must_use]
+    pub fn iter(&self) -> CoresIter<'_> {
+        let (pinned, unpinned): (&[CoreId], usize) = match self {
+            Cores::Pinned(pinned) => (pinned, 0),
+            Cores::Unpinned(unpinned) => (&[], unpinned.get()),
+            Cores::None => (&[], 0),
+        };
+
+        CoresIter {
+            pinned: pinned.iter(),
+            unpinned,
+        }
     }
 }
 
-impl IntoIterator for Cores {
-    type Item = CoreId;
-    type IntoIter = vec::IntoIter<CoreId>;
+impl Iterator for CoresIter<'_> {
+    type Item = Option<CoreId>;
 
-    fn into_iter(self) -> Self::IntoIter {
-        self.ids.into_iter()
+    fn next(&mut self) -> Option<Self::Item> {
+        // remaining pinned cores
+        if let Some(core) = self.pinned.next() {
+            return Some(Some(*core));
+        }
+
+        // remaining unpinned cores.
+        // should be exclusive with regard to pinned.
+        if self.unpinned > 0 {
+            self.unpinned -= 1;
+            return Some(None);
+        }
+
+        // nothing remaining
+        None
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let bound = self.pinned.len() + self.unpinned;
+
+        (bound, Some(bound))
     }
 }
+
+impl ExactSizeIterator for CoresIter<'_> {}
 
 impl<'a> IntoIterator for &'a Cores {
-    type Item = &'a CoreId;
-    type IntoIter = slice::Iter<'a, CoreId>;
+    type Item = Option<CoreId>;
+    type IntoIter = CoresIter<'a>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.ids.iter()
+        self.iter()
     }
 }
 
 impl From<&[usize]> for Cores {
     fn from(cores: &[usize]) -> Self {
         let ids = cores.iter().map(|x| (*x).into()).collect();
-        Self { ids }
+        Self::pinned(ids)
     }
 }
 

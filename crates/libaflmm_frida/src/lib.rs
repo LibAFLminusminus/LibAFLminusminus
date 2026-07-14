@@ -168,7 +168,7 @@ impl FridaOptions {
                     "Client should only be bound to a single core"
                 );
                 let core_id: CoreId = core_ids[0];
-                options.enable_asan = asan_cores.ids.contains(&core_id);
+                options.enable_asan = asan_cores.contains(core_id);
             }
             #[cfg(feature = "cmplog")]
             if options.enable_cmplog
@@ -181,7 +181,7 @@ impl FridaOptions {
                     "Client should only be bound to a single core"
                 );
                 let core_id = core_ids[0];
-                options.enable_cmplog = cmplog_cores.ids.contains(&core_id);
+                options.enable_cmplog = cmplog_cores.contains(core_id);
             }
         }
         options

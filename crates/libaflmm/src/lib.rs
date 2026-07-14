@@ -118,7 +118,7 @@ pub mod prelude {
     pub use crate::inputs::NautilusInput;
 
     pub use crate::launchers::{
-        DEFAULT_MAX_STATE_SIZE_PER_WORKER, Instance, InstanceId, Instances, StdLauncher,
+        Instance, InstanceId, Instances, StdGroup, StdGroupBuilder, StdLauncher,
     };
 
     pub use crate::monitors::{Monitor, PerfStats, SimpleMonitor, StdMonitor};

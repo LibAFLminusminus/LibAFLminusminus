@@ -54,9 +54,8 @@ pub fn fuzz() -> Result<()> {
     // The launcher supervises the fuzzer and communicates with the workers.
     let controller = StdController::builder().overwrite(true).build()?;
 
-    // Build and run a Launcher
-    StdLauncher::builder()?
-        .controller(controller)
+    let group = StdGroup::builder(&controller)
+        .cores(cores)
         .timeout(Some(Duration::from_secs(5)))
         .state_builder(|worker| {
             let scheduler = QueueScheduler::new();
@@ -70,8 +69,6 @@ pub fn fuzz() -> Result<()> {
                 ObjectiveOnDiskCorpus::builder(worker)?.build()?,
             )
         })
-        .monitor(monitor)
-        .cores(cores)
         .build_inprocess(move |rt_handle, state| {
             // Initialize QEMU
             let args: Vec<String> = env::args().collect();
@@ -176,6 +173,13 @@ pub fn fuzz() -> Result<()> {
             }
 
             fuzzer.fuzz_loop(&mut stages, &mut rand, state, rt_handle)
-        })?
+        })?;
+
+    // Build and run a Launcher
+    StdLauncher::builder()
+        .controller(controller)
+        .monitor(monitor)
+        .add_group(group)
+        .build()?
         .launch()
 }

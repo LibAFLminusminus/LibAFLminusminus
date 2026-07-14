@@ -1,6 +1,6 @@
 //! Module defining [`Runtime`]s.
 
-use crate::{Result, common::DependencyResolver, runtimes::restarting::LIBAFLMM_EXIT_END};
+use crate::{Result, common::DependencyResolver};
 use core::time::Duration;
 use std::process::exit;
 
@@ -24,6 +24,12 @@ pub use utils::{
     IntoTerminationHandlerData, OsTerminationHandler, OsTerminationParams, TerminationHandler,
     TerminationHandlerData,
 };
+
+/// End the restarter; the task is over.
+pub const LIBAFLMM_EXIT_END: i32 = 100;
+
+/// Infinite recursion bug in termination handlers.
+pub const LIBAFLMM_EXIT_TERMINATION_INFINITE_RECURSION: i32 = 102;
 
 /// The standard forkserver [`Runtime`].
 pub type StdForkserverRuntime<T> = SimpleRuntime<T>;

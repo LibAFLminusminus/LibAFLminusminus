@@ -51,7 +51,7 @@ jobs:
           # check instance_idx if you change that to match
           CI_INSTANCES: 4
           LLVM_VERSION: ${{ vars.MAIN_LLVM_VERSION }}
-        run: cargo run --manifest-path utils/ci_splitter/Cargo.toml -- ${{ matrix.instance_idx }}
+        run: cargo run --locked --manifest-path utils/ci_splitter/Cargo.toml -- ${{ matrix.instance_idx }}
 
   cargo-fmt:
     runs-on: ${{ fromJSON(vars.RUNS_ON || '["self-hosted","linux"]') }}

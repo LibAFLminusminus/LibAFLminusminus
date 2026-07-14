@@ -74,11 +74,7 @@ pub extern "C" fn libafl_main() {
     // Use the new fast timer
     let fast_timer = FastTimer::new();
 
-    // Launch the fuzzer
-    StdLauncher::builder()
-        .expect("Failed to instantiate the builder for StdLauncher")
-        .controller(controller)
-        .monitor(monitor)
+    let group = StdGroup::builder(&controller)
         .timer(fast_timer)
         .timeout(Some(opt.timeout))
         .cores(opt.cores)
@@ -175,6 +171,14 @@ pub extern "C" fn libafl_main() {
             // Restart the runtime after fuzzer have completed all iterations
             unsafe { rt_handle.restart(state) }
         })
+        .unwrap();
+
+    // Launch the fuzzer
+    StdLauncher::builder()
+        .controller(controller)
+        .monitor(monitor)
+        .add_group(group)
+        .build()
         .unwrap()
         .launch()
         .unwrap()
