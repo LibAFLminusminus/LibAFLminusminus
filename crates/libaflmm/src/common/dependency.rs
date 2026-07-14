@@ -59,7 +59,7 @@ impl Registrator {
         self.types.insert(any::type_name::<T>())
     }
 
-    /// Finish the registration, and get the [`CompabilityChecker`].
+    /// Finish the registration, and get the [`CompatibilityChecker`].
     #[must_use]
     pub fn finish(self) -> CompatibilityChecker {
         CompatibilityChecker {
@@ -92,24 +92,31 @@ pub trait DependencyResolver {
     ///
     /// Any global metadata used during runtime MUST be registered there.
     ///
-    /// The only exception is Testcase metadata, which can be allocated lazily
-    /// at runtime.
-    ///
     /// Only register here the metadata.
     /// If you need to propagate this call to inner structucts, ALWAYS do it in
-    /// the implementation of [`Self::register_with_ty`] and NOT here. Otherwise, the subtypes
+    /// the implementation of [`Self::register`] and NOT here. Otherwise, the subtypes
     /// will not be registered correctly.
-    fn register(&mut self, _registrator: &mut Registrator) -> Result<()> {
+    ///
+    /// TL;DR. In this function you just edit metadata.
+    ///
+    fn register_md(&mut self, _registrator: &mut Registrator) -> Result<()> {
         Ok(())
     }
 
     /// Register in the resolver the types and metadata necessary during runtime.
     ///
     /// This should be overwritten when registering inner structures.
-    fn register_with_ty(&mut self, registrator: &mut Registrator) -> Result<()> {
+    /// So, if your structure has any other member that implements [`DependencyResolver`], then
+    /// 1) `register_ty` for your own type first.
+    /// 2) Make a call into `register_md`
+    /// 3) Make recursive call into child members.
+    ///
+    /// The difference between this and [`Self::register`] is that [`Self::register`] is responsible only for the metadata registration.
+    /// But this method is for anything other than that.
+    fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
         registrator.register_ty::<Self>();
 
-        self.register(registrator)
+        self.register_md(registrator)
     }
 
     /// Check that some types (not registered by the current type) are actually being used if necessary.
@@ -130,11 +137,6 @@ where
     fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
         self.0.register(registrator)?;
         self.1.register(registrator)
-    }
-
-    fn register_with_ty(&mut self, registrator: &mut Registrator) -> Result<()> {
-        self.0.register_with_ty(registrator)?;
-        self.1.register_with_ty(registrator)
     }
 
     fn check(&self, checker: &CompatibilityChecker) -> Result<()> {

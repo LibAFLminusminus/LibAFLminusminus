@@ -5,6 +5,7 @@ use core::fmt::Debug;
 
 use libaflmm_bolts::{
     Named,
+    anymap::named_metadata,
     rands::{Rand, RomuDuoJrRand},
 };
 
@@ -20,7 +21,7 @@ use crate::{
     generators::nautilus::NautilusContext,
     inputs::nautilus::NautilusInput,
     mutators::{MutationResult, Mutator},
-    states::{State, named_metadata},
+    states::State,
 };
 
 /// The randomic mutator for `Nautilus` grammar.

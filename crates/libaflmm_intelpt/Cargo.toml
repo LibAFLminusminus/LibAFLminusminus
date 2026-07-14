@@ -24,7 +24,7 @@ static_assertions = { workspace = true }
 
 [target.'cfg(target_os = "linux" )'.dev-dependencies]
 nix = { workspace = true }
-proc-maps = "0.4.0"
+proc-maps = "0.5.0"
 
 [dependencies]
 libaflmm = { workspace = true, default-features = false }
@@ -39,14 +39,14 @@ libc = { workspace = true }
 log = { workspace = true }
 num_enum = { workspace = true, default-features = false }
 num-traits = { workspace = true, default-features = false }
-ptcov = { version = "0.0.6" }
+ptcov = { version = "0.1.1" }
 raw-cpuid = { version = "11.6.0" }
 serde = { workspace = true }
 typed-builder = { workspace = true }
 
 [target.'cfg(target_os = "linux" )'.dependencies]
 caps = { version = "0.5.6" }
-perf-event-open-sys = { version = "5.0.0" }
+perf-event-open-sys = { version = "6.0.0" }
 
 [lints]
 workspace = true

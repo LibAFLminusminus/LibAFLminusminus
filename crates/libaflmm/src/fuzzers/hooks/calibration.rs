@@ -6,19 +6,24 @@ use crate::{
     Error, Result,
     common::{DependencyResolver, PowerScheduleData, Registrator, TestcasePowerScheduleData},
     controllers::Worker,
-    corpus::{Corpus, HasScheduler, Scheduler, Testcase, TestcaseId},
+    corpus::{Corpus, ScheduledCorpus, Scheduler, Testcase, TestcaseId},
     executors::Executor,
     feedbacks::{HasObserverHandle, MapFeedbackMetadata},
     fuzzers::{ExitKind, FuzzerHook, Verdict},
     inputs::Input,
     observers::{MapObserver, ObserversTuple},
     runtimes::RuntimeHandle,
-    states::{STAT_CALIBRATION, State, named_metadata_mut, unnamed_metadata_mut},
+    states::{STAT_CALIBRATION, State},
 };
 use alloc::{borrow::Cow, string::ToString, vec::Vec};
 use core::{marker::PhantomData, time::Duration};
 use hashbrown::HashSet;
-use libaflmm_bolts::{Named, current_time, impl_serdeany, tuples::Handle};
+use libaflmm_bolts::{
+    Named,
+    anymap::{named_metadata_mut, unnamed_metadata_mut},
+    current_time, impl_serdeany,
+    tuples::Handle,
+};
 use libaflmm_core::illegal_state;
 use num_traits::Bounded;
 use serde::{Deserialize, Serialize};
@@ -105,7 +110,7 @@ pub struct CalibrationHook<C, O> {
 }
 
 impl<C, O> DependencyResolver for CalibrationHook<C, O> {
-    fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
+    fn register_md(&mut self, registrator: &mut Registrator) -> Result<()> {
         registrator.register_md_default::<UnstableEntriesMetadata>(self.name());
         Ok(())
     }

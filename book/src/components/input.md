@@ -2,14 +2,25 @@
 
 Formally, the input of a program is the data taken from external sources that affect the program behavior.
 
-In our model of an abstract fuzzer, we define the Input as the internal representation of the program input (or a part of it).
+In our model of an abstract fuzzer, we define the `Input` as the internal representation of the program input (or a part of it).
 
-In the straightforward case, the input of the program is a byte array and in fuzzers such as AFL we store and manipulate exactly these byte arrays.
+In the straightforward case, the input of the program is a byte array and we store and manipulate exactly these byte arrays during mutational fuzzing.
 
-But it is not always the case. A program can expect inputs that are not linear byte arrays (e.g. a sequence of syscalls forming a use case or protocol) and the fuzzer does not represent the Input in the same way that the program consumes it.
+However, it is not always the case. 
+Your `Input` does not necessarily have to be a byte array.
+A program can expect inputs that are not linear byte arrays (e.g. a sequence of syscalls forming a use case or protocol) and the fuzzer does not represent the `Input` in the same way that the program consumes it.
 
-In case of a grammar fuzzer for instance, the Input is generally an Abstract Syntax Tree because it is a data structure that can be easily manipulated while maintaining the validity, but the program expects a byte array as input, so just before the execution, the tree is serialized to a sequence of bytes.
+In case of a grammar fuzzer for instance, the `Input` is generally an Abstract Syntax Tree because it is a data structure that can be easily manipulated while maintaining the validity
 
-In the Rust code, an [`Input`](https://docs.rs/libafl/latest/libafl/inputs/trait.Input.html) is a trait that can be implemented only by structures that are serializable and have only owned data as fields.
+# Input Context
 
-While most fuzzers use a normal `BytesInput`, more advanced ones use inputs that include special inputs for grammar fuzzing ([GramatronInput](https://docs.rs/libafl/latest/libafl/inputs/gramatron/struct.GramatronInput.html) or `NautilusInput` on Rust nightly), as well as the token-level [EncodedInput](https://docs.rs/libafl/latest/libafl/inputs/encoded/struct.EncodedInput.html).
+When the input can take any form other than a plain byte arrays, one thing that we have to consider is how to pass this `Input` to the program.
+Since the program (usually) expects the input to be a byte array, we need a way to serialize from your `Input` into a byte array.
+
+To this end, we provides a trait `InputContext`.
+This trait defines a method `to_bytes` which you can implement in order to tell the fuzzer how to serialize the original `Input` down to the byte arrays.
+
+# Component relationship
+
+Each input is stored as a `Testcase` in `Corpus`. (`Corpus` is stored in [`State`](./state.md)).
+Each state is associated with only one type of `Input` and [`State`](./state.md) also holds an object of `InputContext`.

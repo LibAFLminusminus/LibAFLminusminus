@@ -71,34 +71,37 @@ pub mod prelude {
     };
 
     pub use crate::corpus::{
-        Cache, CachedOnDiskCorpus, CombinedCorpus, Corpus, DisableEntry, EnableDisableCorpus,
-        FifoCache, IdentityCache, InMemoryCorpus, InMemoryOnDiskCorpus, InMemoryStore, NopCorpus,
-        NopScheduler, OnDiskCorpus, OnDiskStore, QueueScheduler, RandScheduler, RemovableScheduler,
-        Scheduler, SingleCorpus, StdCorpus, StdInMemoryCorpusMap, StdInMemoryStore,
-        StdObjectiveCorpus, StdOnDiskStore, StdScheduler, Store, Testcase, TestcaseFilenameFormat,
-        TestcaseId,
+        Cache, CachedOnDiskConfig, CachedOnDiskCorpus, CachedOnDiskCorpusBuilder, CombinedCorpus,
+        Corpus, DisableEntry, EnableDisableCorpus, FifoCache, IdentityCache, InMemoryCorpus,
+        InMemoryCorpusBuilder, InMemoryOnDiskCorpus, InMemoryOnDiskCorpusBuilder, InMemoryStore,
+        NopCorpus, NopScheduler, ObjectiveCachedOnDiskCorpus, ObjectiveCachedOnDiskCorpusBuilder,
+        ObjectiveInMemoryCorpus, ObjectiveInMemoryCorpusBuilder, ObjectiveInMemoryOnDiskCorpus,
+        ObjectiveInMemoryOnDiskCorpusBuilder, ObjectiveOnDiskCorpus, ObjectiveOnDiskCorpusBuilder,
+        OnDiskCorpus, OnDiskCorpusBuilder, OnDiskStore, QueueScheduler, RandScheduler,
+        RemovableScheduler, Scheduler, SingleCorpus, StdCorpus, StdInMemoryCorpusMap,
+        StdInMemoryStore, StdObjectiveCorpus, StdOnDiskStore, StdScheduler, Store, Testcase,
+        TestcaseFilenameFormat, TestcaseId,
     };
 
     pub use crate::executors::{
-        BuiltForkserver, DiffExitKind, Executor, ExecutorsTuple, ExitKind, Forkserver,
-        ForkserverExecutor, NopExecutor, StdChildArgs, StdExecutor, common_signals,
+        DiffExitKind, Executor, ExecutorsTuple, ExitKind, ForkserverChannel, ForkserverExecutor,
+        NopExecutor, StdChildArgs, StdExecutor, common_signals,
     };
 
     pub use crate::feedbacks::{
         AflMapFeedback, AlwaysInterestingMapFeedback, BoolValueFeedback, ConstFeedback,
-        CrashFeedback, DiffExitKindFeedback, EagerAndFeedback, EagerOrFeedback, ExitKindFeedback,
-        Feedback, FeedbackFactory, ListFeedback, MapFeedback, MaxMapFeedback,
-        MaxMapOneOrFilledFeedback, MaxMapPow2Feedback, MinMapFeedback, NewHashFeedback,
-        NotFeedback, StdFeedback, StdMapFeedback, StdObjectiveFeedback, TimeFeedback,
-        TimeoutFeedback,
+        CrashFeedback, EagerAndFeedback, EagerOrFeedback, ExitKindFeedback, Feedback,
+        FeedbackFactory, ListFeedback, MapFeedback, MaxMapFeedback, MaxMapOneOrFilledFeedback,
+        MaxMapPow2Feedback, MinMapFeedback, NotFeedback, StdFeedback, StdMapFeedback,
+        StdObjectiveFeedback, TimeFeedback, TimeoutFeedback,
     };
 
     #[cfg(feature = "nautilus")]
     pub use crate::feedbacks::NautilusFeedback;
 
     pub use crate::fuzzers::{
-        CalibrationHook, CustomNameHook, Evaluator, ExecutionProcessor, Fuzzer, FuzzerHook,
-        FuzzerHooksTuple, NopFuzzer, StdFuzzer,
+        CalibrationHook, CustomNameHook, Evaluator, Fuzzer, FuzzerHook, FuzzerHooksTuple,
+        NopFuzzer, StdFuzzer,
     };
 
     pub use crate::generators::{Generator, RandBytesGenerator, RandPrintablesGenerator};
@@ -115,7 +118,7 @@ pub mod prelude {
     pub use crate::inputs::NautilusInput;
 
     pub use crate::launchers::{
-        DEFAULT_MAX_STATE_SIZE_PER_WORKER, Instance, InstanceId, Instances, StdLauncher,
+        Instance, InstanceId, Instances, StdGroup, StdGroupBuilder, StdLauncher,
     };
 
     pub use crate::monitors::{Monitor, PerfStats, SimpleMonitor, StdMonitor};
@@ -137,7 +140,7 @@ pub mod prelude {
     pub use crate::observers::{
         CmpLogMetadata, CmpLogObserver, ConstLenMapObserver, ConstMapObserver,
         HitcountsIterableMapObserver, HitcountsMapObserver, ListObserver, MapObserver,
-        MultiMapObserver, Observer, ObserverWithHashField, ObserversTuple, OutputObserver,
+        MultiMapObserver, Observer, ObserversTuple, OutputObserver, SizePtrMapObserver,
         StdCmpLogObserver, StdErrObserver, StdMapObserver, StdObserver, StdOutObserver,
         TimeObserver, ValueObserver, VarLenMapObserver, VariableMapObserver,
     };

@@ -162,7 +162,7 @@ pub struct MapIndexes {
     pub tcref: isize,
 }
 
-/// A metadata mapping [`Testcase`]s to their respective [`MapIndexes`].
+/// A metadata mapping [`Testcase`](crate::corpus::Testcase)s to their respective [`MapIndexes`].
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct MapIndexesMetadata {
     /// The actual map.
@@ -317,7 +317,7 @@ where
     O: MapObserver,
     O::Entry: 'static + Default + Debug + DeserializeOwned + Serialize,
 {
-    fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
+    fn register_md(&mut self, registrator: &mut Registrator) -> Result<()> {
         registrator.register_md_default::<MapFeedbackMetadata<O::Entry>>(self.name());
         Ok(())
     }

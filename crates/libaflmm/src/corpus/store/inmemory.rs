@@ -1,16 +1,13 @@
 //! An in-memory store
 
-use core::marker::PhantomData;
-
-use libaflmm_bolts::Error;
-use libaflmm_core::Result;
-use serde::{Deserialize, Serialize};
-
 use super::{InMemoryCorpusMap, RemovableStore, Store};
 use crate::{
     corpus::{Testcase, store::StorageResult, testcase::TestcaseId},
     inputs::Input,
 };
+use core::marker::PhantomData;
+use libaflmm_core::{Result, key_not_found};
+use serde::{Deserialize, Serialize};
 
 /// The map type in which testcases are stored (disable the feature `corpus_btreemap` to use a `HashMap` instead of `BTreeMap`)
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -19,6 +16,9 @@ pub struct InMemoryStore<I, M> {
     disabled_map: M,
     phantom: PhantomData<I>,
 }
+
+#[derive(Debug, Clone, Default)]
+pub struct InMemoryStoreBuilder;
 
 impl<I, M> Default for InMemoryStore<I, M>
 where
@@ -73,7 +73,7 @@ where
             self.enabled_map
                 .get(id)
                 .cloned()
-                .ok_or_else(|| Error::key_not_found(format!("Index {id} not found")))
+                .ok_or_else(|| key_not_found!("Index {id} not found"))
         } else {
             let mut testcase = self.enabled_map.get(id);
 
@@ -83,7 +83,7 @@ where
 
             testcase
                 .cloned()
-                .ok_or_else(|| Error::key_not_found(format!("Index {id} not found")))
+                .ok_or_else(|| key_not_found!("Index {id} not found"))
         }
     }
 
@@ -91,7 +91,7 @@ where
         let tc = self
             .enabled_map
             .remove(id)
-            .ok_or_else(|| Error::key_not_found(format!("Index {id} not found")))?;
+            .ok_or_else(|| key_not_found!("Index {id} not found"))?;
         self.disabled_map.add(*id, tc);
         Ok(())
     }
@@ -108,9 +108,21 @@ where
         } else if let Some(tc) = self.disabled_map.remove(id) {
             Ok(tc)
         } else {
-            Err(Error::key_not_found(format!(
-                "Index {id} not found for remove"
-            )))
+            Err(key_not_found!("Index {id} not found for remove"))
         }
+    }
+}
+
+impl InMemoryStoreBuilder {
+    #[must_use]
+    pub fn new() -> Self {
+        Self
+    }
+
+    pub fn build<I, M>(&self) -> Result<InMemoryStore<I, M>>
+    where
+        M: Default,
+    {
+        Ok(InMemoryStore::default())
     }
 }

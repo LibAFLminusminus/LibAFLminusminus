@@ -64,7 +64,6 @@ fn main() -> Result<(), Box<dyn Error>> {
             --exclude libaflmm_qemu --exclude libaflmm_qemu_sys --exclude libaflmm_qemu_build \
             --exclude libaflmm_qemu_runner --exclude libvharness_sys \
             --exclude libaflmm_asan_libc --exclude libaflmm_asan_fuzz \
-            --exclude libaflmm_frida \
             --exclude args_reorder --exclude generics_reorder --exclude use_after_mod \
             --exclude pylibaflmm \
             --print-command-list; "

@@ -20,20 +20,18 @@ jobs:
           cache-key: ubuntu
           cache: ${{ vars.runs_on != '' }}
       - uses: ./.github/actions/cache-qemu-nyx
-      - name: check for blobs
-        run: ./scripts/check_for_blobs.sh
       - name: check for conflicting dependency versions
-        run: cargo tree -d --workspace
+        run: cargo tree --locked -d --workspace
       - name: build workspace (debug)
-        run: cargo build --workspace --all-targets --exclude libaflmm_asan_libc --exclude libaflmm_frida --exclude args_reorder --exclude generics_reorder --exclude use_after_mod
+        run: cargo build --locked --workspace --all-targets --exclude libaflmm_asan_libc --exclude args_reorder --exclude generics_reorder --exclude use_after_mod
       - name: test examples
-        run: cargo test --workspace --all-targets --exclude libaflmm_asan --exclude libaflmm_asan_fuzz --exclude libaflmm_asan_libc --exclude libaflmm_frida --exclude args_reorder --exclude generics_reorder --exclude use_after_mod --examples
+        run: cargo test --locked --workspace --all-targets --exclude libaflmm_asan --exclude libaflmm_asan_fuzz --exclude libaflmm_asan_libc --exclude args_reorder --exclude generics_reorder --exclude use_after_mod --examples
       - name: build docs
         run: ./scripts/doc_all.py
       - name: run tests serially
-        run: cargo test -- --test-threads 1
+        run: cargo test --locked -- --test-threads 1
       - name: check sancov pcguard edges
-        run: cargo check --features=sancov_pcguard_edges
+        run: cargo check --locked --features=sancov_pcguard_edges
       - name: shellcheck
         run: shellcheck ./scripts/*.sh
 
@@ -74,7 +72,7 @@ jobs:
           cache-key: ubuntu
           cache: ${{ vars.RUNS_ON != '' }}
       - name: Build LibAFLmm QEMU ${{ matrix.mode }} - ${{ matrix.arch }}
-        run: cargo build -p libaflmm_qemu --no-default-features --features ${{ matrix.mode }},${{ matrix.arch }}
+        run: cargo build --locked -p libaflmm_qemu --no-default-features --features ${{ matrix.mode }},${{ matrix.arch }}
 
   ubuntu-qemu-nyx:
     runs-on: ${{ fromjson(vars.runs_on || '["self-hosted","linux"]') }}
@@ -94,4 +92,4 @@ jobs:
           cache-key: ubuntu
           cache: ${{ vars.RUNS_ON != '' }}
       - name: Build LibAFLmm QEMU with Nyx API (systemmode - x86_64)
-        run: cargo build -p libaflmm_qemu --no-default-features --features systemmode,x86_64,nyx
+        run: cargo build --locked -p libaflmm_qemu --no-default-features --features systemmode,x86_64,nyx

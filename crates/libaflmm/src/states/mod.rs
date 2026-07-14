@@ -4,8 +4,8 @@ use crate::{
     Error, Result,
     common::{DependencyResolver, Registrator},
     corpus::{
-        Corpus, HasScheduler, InMemoryCorpus, Testcase, TestcaseFilenameFormat,
-        schedulers::NopScheduler, testcase::TestcaseId,
+        InMemoryCorpus, ObjectiveCorpus, ObjectiveInMemoryCorpus, ScheduledCorpus, Scheduler,
+        Testcase, TestcaseFilenameFormat, schedulers::NopScheduler, testcase::TestcaseId,
     },
     fuzzers::{EvaluationResult, Evaluator},
     generators::Generator,
@@ -19,12 +19,15 @@ use alloc::{
     vec::Vec,
 };
 use core::{
-    any::type_name,
     fmt::{self, Debug},
     marker::PhantomData,
     time::Duration,
 };
-use libaflmm_bolts::{NamedSerdeAnyMap, SerdeAny, rands::Rand};
+use libaflmm_bolts::{
+    NamedSerdeAnyMap, OwnedSlice, SerdeAny, SerdeAnyMap,
+    anymap::{named_metadata, named_metadata_mut, unnamed_metadata, unnamed_metadata_mut},
+    rands::Rand,
+};
 use libaflmm_core::illegal_argument;
 use nix::fcntl::{Flock, FlockArg};
 use num_traits::Zero;
@@ -47,9 +50,9 @@ pub struct Stats {
     pub(crate) executions: u64,
     /// At what time the fuzzing started
     pub(crate) start_time: Duration,
-    /// number of items in [`Corpus`]
+    /// number of items in [`Corpus`](crate::corpus::Corpus)
     pub(crate) corpus: usize,
-    /// number of items in objective [`Corpus`]
+    /// number of items in objective [`Corpus`](crate::corpus::Corpus)
     pub(crate) objective: usize,
     /// last time smth was found
     pub(crate) last_found_time: Duration,
@@ -86,12 +89,12 @@ impl fmt::Display for Stats {
 }
 
 impl Stats {
-    /// Update the counter of items in [`Corpus`].
+    /// Update the counter of items in [`Corpus`](crate::corpus::Corpus).
     pub fn update_corpus(&mut self, corpus: usize) {
         self.corpus = corpus;
     }
 
-    /// Update the counter of items in objective [`Corpus`].
+    /// Update the counter of items in objective [`Corpus`](crate::corpus::Corpus).
     pub fn update_objective(&mut self, objective: usize) {
         self.objective = objective;
     }
@@ -132,19 +135,21 @@ pub fn sync_stats(file: File, stats: &Stats) -> Result<()> {
 }
 
 /// The trait containing all the stuff that [`StdState`] implements. It's rather a shortcut for typing all the traits
-pub trait State:
-    HasScheduler<Scheduler = <Self::Corpus as HasScheduler>::Scheduler> + DependencyResolver
-{
+pub trait State: DependencyResolver {
+    /// The [`Input`]
     type Input: Input;
+
+    /// The [`Scheduler`]
+    type Scheduler: Scheduler;
 
     /// The associated [`InputContext`]
     type Context: InputContext<Input = Self::Input>;
 
-    /// The associated [`Corpus`]
-    type Corpus: Corpus<Input = Self::Input>;
+    /// The associated [`Corpus`](crate::corpus::Corpus)
+    type Corpus: ScheduledCorpus<Self::Input, Self::Scheduler>;
 
-    /// The associated objective [`Corpus`]
-    type ObjectiveCorpus: Corpus<Input = Self::Input>;
+    /// The associated objective [`Corpus`](crate::corpus::Corpus)
+    type ObjectiveCorpus: ObjectiveCorpus<Self::Input>;
 
     /// Get the reference to the [`InputContext`]
     fn context(&self) -> &Self::Context;
@@ -152,16 +157,16 @@ pub trait State:
     /// Get the mutable reference to the [`InputContext`]
     fn context_mut(&mut self) -> &mut Self::Context;
 
-    /// Get the reference to the [`Corpus`]
+    /// Get the reference to the [`Corpus`](crate::corpus::Corpus)
     fn corpus(&self) -> &Self::Corpus;
 
-    /// Get the mutable reference to the [`Corpus`]
+    /// Get the mutable reference to the [`Corpus`](crate::corpus::Corpus)
     fn corpus_mut(&mut self) -> &mut Self::Corpus;
 
-    /// Get the reference to the objective [`Corpus`]
+    /// Get the reference to the objective [`Corpus`](crate::corpus::Corpus)
     fn objective_corpus(&self) -> &Self::ObjectiveCorpus;
 
-    /// Get the mutable reference to the objective [`Corpus`]
+    /// Get the mutable reference to the objective [`Corpus`](crate::corpus::Corpus)
     fn objective_corpus_mut(&mut self) -> &mut Self::ObjectiveCorpus;
 
     /// Get reference to the [`Testcase`] attached to this [`Testcase`]
@@ -252,22 +257,19 @@ pub trait State:
     ) -> &mut T {
         self.metadata_map_mut().get_or_insert_with(name, value)
     }
-}
 
-impl<C, CT, I, OC> HasScheduler for StdState<C, CT, I, OC>
-where
-    C: HasScheduler,
-{
-    type Scheduler = C::Scheduler;
+    fn input_to_bytes<'a>(&mut self, input: &'a Self::Input) -> OwnedSlice<'a, u8> {
+        self.context_mut().to_bytes(input)
+    }
 
     /// Ref to the [`Scheduler`]
     fn scheduler(&self) -> &Self::Scheduler {
-        self.corpus.scheduler()
+        self.corpus().scheduler()
     }
 
     /// Mutable ref to the `Scheduler`
     fn scheduler_mut(&mut self) -> &mut Self::Scheduler {
-        self.corpus.scheduler_mut()
+        self.corpus_mut().scheduler_mut()
     }
 }
 
@@ -295,12 +297,12 @@ impl<I, S, Z> Debug for LoadConfig<'_, I, S, Z> {
         C: serde::Serialize + for<'a> serde::Deserialize<'a>,
         OC: serde::Serialize + for<'a> serde::Deserialize<'a>,
     ")]
-pub struct StdState<C, CT, I, OC> {
+pub struct StdState<C, CT, I, OC, SC> {
     /// the [`InputContext`]. helper to transform [`Input`] into a byte slice
     context: CT,
-    /// The [`Corpus`]
+    /// The [`Corpus`](crate::corpus::Corpus)
     corpus: C,
-    // Objectives [`Corpus`]
+    // Objectives [`Corpus`](crate::corpus::Corpus)
     objective_corpus: OC,
     /// Metadata stored with names
     named_metadata: NamedSerdeAnyMap,
@@ -314,7 +316,7 @@ pub struct StdState<C, CT, I, OC> {
     dont_reenter: Option<Vec<PathBuf>>,
     metadata_initialized: bool,
     stats: Stats,
-    phantom: PhantomData<I>,
+    phantom: PhantomData<(I, SC)>,
 }
 
 /// The [[`Testcase`]] metadata.
@@ -337,55 +339,8 @@ pub struct TestcaseMetadata {
     /// has found crash (or timeout) or not
     #[builder(default = 0)]
     objectives_found: usize,
-}
-
-/// Add a named metadata to the metadata map
-#[inline]
-pub fn add_named_metadata<M>(map: &mut NamedSerdeAnyMap, name: &str, meta: M)
-where
-    M: SerdeAny,
-{
-    map.insert(name, meta);
-}
-
-/// To get named metadata from a [`NamedSerdeAnyMap`]
-#[inline]
-pub fn named_metadata<'a, M>(map: &'a NamedSerdeAnyMap, name: &str) -> Result<&'a M>
-where
-    M: SerdeAny,
-{
-    map.get::<M>(name)
-        .ok_or_else(|| Error::key_not_found(format!("{} not found", type_name::<M>())))
-}
-
-/// To get an unnamed metadata from a [`NamedSerdeAnyMap`]
-#[inline]
-pub fn unnamed_metadata<M>(map: &NamedSerdeAnyMap) -> Result<&M>
-where
-    M: SerdeAny,
-{
-    map.get::<M>("")
-        .ok_or_else(|| Error::key_not_found(format!("{} not found", type_name::<M>())))
-}
-
-/// To get mutable named metadata from a [`NamedSerdeAnyMap`]
-#[inline]
-pub fn named_metadata_mut<'a, M>(map: &'a mut NamedSerdeAnyMap, name: &str) -> Result<&'a mut M>
-where
-    M: SerdeAny,
-{
-    map.get_mut::<M>(name)
-        .ok_or_else(|| Error::key_not_found(format!("{} not found", type_name::<M>())))
-}
-
-/// To get mutable unnamed metadata from a [`NamedSerdeAnyMap`]
-#[inline]
-pub fn unnamed_metadata_mut<M>(map: &mut NamedSerdeAnyMap) -> Result<&mut M>
-where
-    M: SerdeAny,
-{
-    map.get_mut::<M>("")
-        .ok_or_else(|| Error::key_not_found(format!("{} not found", type_name::<M>())))
+    /// A map of metadata, for custom stuff
+    map: SerdeAnyMap,
 }
 
 impl TestcaseMetadata {
@@ -486,112 +441,44 @@ impl TestcaseMetadata {
     pub fn set_filename(&mut self, filename: TestcaseFilenameFormat) {
         self.filename_format = filename;
     }
-}
 
-/// The metadata for each testcase used in power schedules.
-#[derive(Serialize, Deserialize, Clone, Debug)]
-#[cfg_attr(miri, expect(clippy::unsafe_derive_deserialize))] // for SerdeAny
-pub struct PSMetadata {
-    /// Number of bits set in bitmap.
-    bitmap_size: u64,
-    /// Number of queue cycles behind
-    handicap: u64,
-    /// Path depth, initialized in `on_add`
-    depth: u64,
-    /// Cycles used to calibrate this.
-    cycle_and_time: (Duration, usize),
-}
-
-impl PSMetadata {
-    /// Create new [`struct@PSMetadata`]
     #[must_use]
-    pub fn new(depth: u64) -> Self {
-        Self {
-            bitmap_size: 0,
-            handicap: 0,
-            depth,
-            cycle_and_time: (Duration::default(), 0),
-        }
+    pub fn md_map(&self) -> &SerdeAnyMap {
+        &self.map
     }
 
-    /// Get the [`Self::bitmap_size`]
-    #[inline]
-    #[must_use]
-    pub fn bitmap_size(&self) -> u64 {
-        self.bitmap_size
-    }
-
-    /// Set the [`Self::bitmap_size`]
-    #[inline]
-    pub fn set_bitmap_size(&mut self, val: u64) {
-        self.bitmap_size = val;
-    }
-
-    /// Get the [`Self::handicap`]
-    #[inline]
-    #[must_use]
-    pub fn handicap(&self) -> u64 {
-        self.handicap
-    }
-
-    /// Set the [`Self::handicap`]
-    #[inline]
-    pub fn set_handicap(&mut self, val: u64) {
-        self.handicap = val;
-    }
-
-    /// Get the [`Self::depth`]
-    #[inline]
-    #[must_use]
-    pub fn depth(&self) -> u64 {
-        self.depth
-    }
-
-    /// Set the [`Self::depth`]
-    #[inline]
-    pub fn set_depth(&mut self, val: u64) {
-        self.depth = val;
-    }
-
-    /// Get the [`Self::cycle_and_time`]
-    #[inline]
-    #[must_use]
-    pub fn cycle_and_time(&self) -> (Duration, usize) {
-        self.cycle_and_time
-    }
-
-    #[inline]
-    /// Set the [`Self::cycle_and_time`]
-    pub fn set_cycle_and_time(&mut self, cycle_and_time: (Duration, usize)) {
-        self.cycle_and_time = cycle_and_time;
+    pub fn md_map_mut(&mut self) -> &mut SerdeAnyMap {
+        &mut self.map
     }
 }
 
-libaflmm_bolts::impl_serdeany!(PSMetadata);
-
-impl<C, CT, I, OC> DependencyResolver for StdState<C, CT, I, OC>
+impl<C, CT, I, OC, SC> DependencyResolver for StdState<C, CT, I, OC, SC>
 where
-    C: DependencyResolver + Corpus<Input = I>,
+    C: DependencyResolver + ScheduledCorpus<I, SC>,
     CT: InputContext<Input = I>,
     I: Input,
-    OC: DependencyResolver + Corpus<Input = I>,
+    OC: DependencyResolver + ObjectiveCorpus<I>,
 {
     fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
-        self.corpus_mut().register(registrator)?;
-        self.objective_corpus_mut().register(registrator)?;
+        registrator.register_ty::<Self>();
+        self.register_md(registrator)?;
 
+        self.corpus.register(registrator)?;
+        self.objective_corpus.register(registrator)?;
         Ok(())
     }
 }
 
-impl<C, CT, I, OC> State for StdState<C, CT, I, OC>
+impl<C, CT, I, OC, SC> State for StdState<C, CT, I, OC, SC>
 where
-    C: Corpus<Input = I>,
+    C: ScheduledCorpus<I, SC>,
     CT: InputContext<Input = I>,
     I: Input,
-    OC: Corpus<Input = I>,
+    OC: ObjectiveCorpus<I>,
+    SC: Scheduler,
 {
     type Input = I;
+    type Scheduler = SC;
     type Context = CT;
     type Corpus = C;
     type ObjectiveCorpus = OC;
@@ -699,9 +586,9 @@ where
     }
 }
 
-impl<C, CT, I, OC> StdState<C, CT, I, OC>
+impl<C, CT, I, OC, SC> StdState<C, CT, I, OC, SC>
 where
-    C: Corpus<Input = I>,
+    C: ScheduledCorpus<I, SC>,
     I: Input,
 {
     /// Decide if the state must load the inputs
@@ -779,7 +666,6 @@ where
     fn load_initial_inputs_custom_by_filenames<E, W, Z>(
         &mut self,
         fuzzer: &mut Z,
-        executor: &mut E,
         rt_handle: &mut RuntimeHandle<Self, W>,
         file_list: &[impl AsRef<Path>],
         load_config: LoadConfig<I, Self, Z>,
@@ -797,7 +683,7 @@ where
                 Some(file_list.iter().map(|p| p.as_ref().to_path_buf()).collect());
         }
 
-        self.continue_loading_initial_inputs_custom(fuzzer, executor, rt_handle, load_config)?;
+        self.continue_loading_initial_inputs_custom(fuzzer, rt_handle, load_config)?;
         Ok(())
     }
 
@@ -805,7 +691,6 @@ where
         &mut self,
         path: &Path,
         fuzzer: &mut Z,
-        executor: &mut E,
         rt_handle: &mut RuntimeHandle<Self, W>,
         config: &mut LoadConfig<I, Self, Z>,
     ) -> Result<EvaluationResult>
@@ -823,7 +708,7 @@ where
                 return Ok(EvaluationResult::not_interesting());
             }
         };
-        let res = fuzzer.evaluate_input(self, executor, rt_handle, &input)?;
+        let res = fuzzer.evaluate_input(self, rt_handle, &input)?;
         Ok(res)
     }
 
@@ -833,7 +718,6 @@ where
     fn continue_loading_initial_inputs_custom<E, W, Z>(
         &mut self,
         fuzzer: &mut Z,
-        executor: &mut E,
         rt_handle: &mut RuntimeHandle<Self, W>,
         mut config: LoadConfig<I, Self, Z>,
     ) -> Result<usize>
@@ -846,7 +730,7 @@ where
             match self.next_file() {
                 Ok(path) => {
                     nb_loaded += 1;
-                    let res = self.load_file(&path, fuzzer, executor, rt_handle, &mut config)?;
+                    let res = self.load_file(&path, fuzzer, rt_handle, &mut config)?;
                     if config.exit_on_solution && res.is_objective_worthy() {
                         return Err(Error::invalid_corpus(format!(
                             "Input {} resulted in a objective.",
@@ -892,7 +776,6 @@ where
     pub fn load_initial_inputs_by_filenames<E, W, Z>(
         &mut self,
         fuzzer: &mut Z,
-        executor: &mut E,
         rt_handle: &mut RuntimeHandle<Self, W>,
         file_list: &[impl AsRef<Path>],
     ) -> Result<()>
@@ -901,7 +784,6 @@ where
     {
         self.load_initial_inputs_custom_by_filenames(
             fuzzer,
-            executor,
             rt_handle,
             file_list,
             LoadConfig {
@@ -917,7 +799,6 @@ where
     pub fn load_initial_inputs_forced<E, W, Z>(
         &mut self,
         fuzzer: &mut Z,
-        executor: &mut E,
         rt_handle: &mut RuntimeHandle<Self, W>,
         in_dirs: &[impl AsRef<Path>],
     ) -> Result<()>
@@ -927,7 +808,6 @@ where
         self.canonicalize_input_dirs(in_dirs)?;
         self.continue_loading_initial_inputs_custom(
             fuzzer,
-            executor,
             rt_handle,
             LoadConfig {
                 loader: &mut |_, _, path| I::from_file(path),
@@ -942,7 +822,6 @@ where
     pub fn load_initial_inputs_by_filenames_forced<E, W, Z>(
         &mut self,
         fuzzer: &mut Z,
-        executor: &mut E,
         rt_handle: &mut RuntimeHandle<Self, W>,
         file_list: &[impl AsRef<Path>],
     ) -> Result<()>
@@ -951,7 +830,6 @@ where
     {
         self.load_initial_inputs_custom_by_filenames(
             fuzzer,
-            executor,
             rt_handle,
             file_list,
             LoadConfig {
@@ -965,7 +843,6 @@ where
     pub fn load_initial_inputs<E, W, Z>(
         &mut self,
         fuzzer: &mut Z,
-        executor: &mut E,
         rt_handle: &mut RuntimeHandle<Self, W>,
         in_dirs: &[impl AsRef<Path>],
     ) -> Result<()>
@@ -975,7 +852,6 @@ where
         self.canonicalize_input_dirs(in_dirs)?;
         let nb_loaded = self.continue_loading_initial_inputs_custom(
             fuzzer,
-            executor,
             rt_handle,
             LoadConfig {
                 loader: &mut |_, _, path| I::from_file(path),
@@ -997,7 +873,6 @@ where
     pub fn load_initial_inputs_disallow_solution<E, W, Z>(
         &mut self,
         fuzzer: &mut Z,
-        executor: &mut E,
         rt_handle: &mut RuntimeHandle<Self, W>,
         in_dirs: &[impl AsRef<Path>],
     ) -> Result<()>
@@ -1007,7 +882,6 @@ where
         self.canonicalize_input_dirs(in_dirs)?;
         self.continue_loading_initial_inputs_custom(
             fuzzer,
-            executor,
             rt_handle,
             LoadConfig {
                 loader: &mut |_, _, path| I::from_file(path),
@@ -1018,7 +892,7 @@ where
     }
 }
 
-impl<C, CT, I, OC> StdState<C, CT, I, OC>
+impl<C, CT, I, OC, SC> StdState<C, CT, I, OC, SC>
 where
     I: Input,
     CT: InputContext<Input = I>,
@@ -1027,7 +901,6 @@ where
     pub fn generate_initial_inputs<G, E, R, W, Z>(
         &mut self,
         fuzzer: &mut Z,
-        executor: &mut E,
         generator: &mut G,
         rand: &mut R,
         rt_handle: &mut RuntimeHandle<Self, W>,
@@ -1042,7 +915,7 @@ where
 
         for _ in 0..num {
             let input = generator.generate(rand, self)?;
-            let res = fuzzer.evaluate_input(self, executor, rt_handle, &input)?;
+            let res = fuzzer.evaluate_input(self, rt_handle, &input)?;
             if res.is_corpus_worthy() {
                 added += 1;
             }
@@ -1052,18 +925,18 @@ where
     }
 }
 
-impl<C, CT, I, OC> StdState<C, CT, I, OC>
+impl<C, CT, I, OC, SC> StdState<C, CT, I, OC, SC>
 where
     I: Input,
-    C: Corpus<Input = I>,
+    C: ScheduledCorpus<I, SC>,
     CT: InputContext<Input = I>,
-    OC: Corpus<Input = I>,
+    OC: ObjectiveCorpus<I>,
 {
     /// Creates a new `StdState`, taking ownership of all of the individual components during fuzzing.
     pub fn new(context: CT, corpus: C, objective_corpus: OC) -> Result<Self>
     where
-        OC: Serialize + DeserializeOwned + DependencyResolver,
-        C: Serialize + DeserializeOwned + DependencyResolver,
+        OC: Serialize + DeserializeOwned,
+        C: Serialize + DeserializeOwned,
     {
         let state = Self {
             context,
@@ -1091,25 +964,6 @@ where
     }
 }
 
-impl
-    StdState<
-        InMemoryCorpus<NopInput, NopScheduler>,
-        NopContext,
-        NopInput,
-        InMemoryCorpus<NopInput, NopScheduler>,
-    >
-{
-    /// Create an empty [`StdState`] that has very minimal uses.
-    /// Potentially good for testing.
-    pub fn nop() -> Result<Self> {
-        StdState::new(
-            NopContext,
-            InMemoryCorpus::<NopInput, NopScheduler>::new(),
-            InMemoryCorpus::new(),
-        )
-    }
-}
-
 /// A very simple [`State`] with minimal capabilities, for testing.
 ///
 /// It is a [`StdState`] backed by in-memory corpora and a [`NopContext`].
@@ -1118,8 +972,21 @@ pub type NopState = StdState<
     InMemoryCorpus<NopInput, NopScheduler>,
     NopContext,
     NopInput,
-    InMemoryCorpus<NopInput, NopScheduler>,
+    ObjectiveInMemoryCorpus<NopInput>,
+    NopScheduler,
 >;
+
+impl NopState {
+    /// Create an empty [`StdState`] that has very minimal uses.
+    /// Potentially good for testing.
+    pub fn nop() -> Result<Self> {
+        StdState::new(
+            NopContext,
+            InMemoryCorpus::nop(),
+            ObjectiveInMemoryCorpus::new(),
+        )
+    }
+}
 
 #[cfg(test)]
 mod test {

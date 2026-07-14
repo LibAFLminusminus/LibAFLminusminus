@@ -144,8 +144,8 @@ where
     O::Entry: 'static + Default + Debug + DeserializeOwned + Serialize,
     R: SimdReducer<V>,
 {
-    fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
-        self.map.register(registrator)
+    fn register_md(&mut self, registrator: &mut Registrator) -> Result<()> {
+        self.map.register_md(registrator)
     }
 }
 

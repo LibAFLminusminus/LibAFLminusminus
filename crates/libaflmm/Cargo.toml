@@ -64,10 +64,7 @@ web_monitor = ["dep:axum", "dep:tokio"]
 #! ## LibAFL-Bolts Features
 
 ## Provide the `#[derive(SerdeAny)]` macro.
-derive = [
-  "libaflmm_derive",
-  "libaflmm_bolts/derive",
-] # provide `derive(SerdeAny) macro.
+derive = ["libaflmm_derive"] # provide `derive(SerdeAny) macro.
 
 ## If set, libaflmm_bolt's `rand` implementations will implement `rand::Rng`
 rand_trait = ["libaflmm_bolts/rand_trait"]
@@ -98,7 +95,6 @@ libaflmm_derive = { workspace = true, default-features = true, optional = true }
 libaflmm_targets = { workspace = true, default-features = true }
 
 quanta = "0.12.6"
-ahash = { workspace = true } # The hash function already used in hashbrown
 hashbrown = { workspace = true, features = [
   "serde",
   "default-hasher",
@@ -121,15 +117,16 @@ pyo3 = { workspace = true, optional = true }
 serde = { workspace = true, features = ["derive", "rc"] }
 serde_json = { workspace = true, default-features = true }
 static_assertions = { workspace = true }
+tempfile = { workspace = true }
 humantime = "2.3"
 tuple_list = { workspace = true }
 typed-builder = { workspace = true } # Implement the builder pattern at compiletime
 
 regex = { workspace = true, optional = true }
-regex-syntax = { version = "0.8.10", optional = true } # For nautilus
+regex-syntax = { version = "0.8.11", optional = true } # For nautilus
 
 axum = { version = "0.8", optional = true }
-tokio = { version = "1.40.0", optional = true, features = [
+tokio = { workspace = true, optional = true, features = [
   "sync",
   "net",
   "rt",

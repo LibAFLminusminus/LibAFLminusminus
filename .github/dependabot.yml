@@ -4,3 +4,13 @@ updates:
     directory: "/"
     schedule:
       interval: "daily"
+
+  - package-ecosystem: "cargo"
+    directories:
+      - "/fuzzers/**"
+    schedule:
+      interval: "weekly"
+    groups:
+      fuzzers:
+        patterns:
+          - "*"

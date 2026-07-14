@@ -1,4 +1,5 @@
 mod fuzzer;
-pub fn main() {
-    fuzzer::main();
+
+pub fn main() -> libaflmm_bolts::Result<()> {
+    fuzzer::main()
 }

@@ -1,9 +1,12 @@
 //! A cached corpus, using a given [`Cache`] policy and two [`Store`]s.
 
-use super::{Corpus, HasScheduler, Testcase, store::Store};
+use super::{Corpus, Testcase, store::Store};
 use crate::{
     common::DependencyResolver,
-    corpus::{Cache, Scheduler, TestcaseId, store::StorageResult},
+    corpus::{
+        Cache, NopScheduler, ObjectiveCorpus, ScheduledCorpus, Scheduler, TestcaseId,
+        store::StorageResult,
+    },
 };
 use alloc::{rc::Rc, vec::Vec};
 use core::{cell::RefCell, marker::PhantomData};
@@ -51,30 +54,13 @@ impl<C, CS, FS, I, SC> CombinedCorpus<C, CS, FS, I, SC> {
 
 impl<C, CS, FS, I, SC> DependencyResolver for CombinedCorpus<C, CS, FS, I, SC> {}
 
-impl<C, CS, FS, I, SC> HasScheduler for CombinedCorpus<C, CS, FS, I, SC>
-where
-    SC: Scheduler,
-{
-    type Scheduler = SC;
-
-    fn scheduler(&self) -> &Self::Scheduler {
-        &self.scheduler
-    }
-    fn scheduler_mut(&mut self) -> &mut Self::Scheduler {
-        &mut self.scheduler
-    }
-}
-
-impl<C, CS, FS, I, SC> Corpus for CombinedCorpus<C, CS, FS, I, SC>
+impl<C, CS, FS, I, SC> Corpus<I> for CombinedCorpus<C, CS, FS, I, SC>
 where
     C: Cache<CS, FS, I>,
     CS: Store<I>,
     FS: Store<I>,
     I: Clone,
-    SC: Scheduler,
 {
-    type Input = I;
-
     fn count(&self) -> usize {
         self.fallback_store.count()
     }
@@ -87,6 +73,33 @@ where
         self.fallback_store.count_all()
     }
 
+    fn add_inner<const ENABLED: bool>(&mut self, testcase: Testcase<I>) -> Result<TestcaseId> {
+        self.cache
+            .borrow_mut()
+            .add_shared::<ENABLED>(
+                testcase,
+                &mut *self.cache_store.borrow_mut(),
+                &mut self.fallback_store,
+            )
+            .map(StorageResult::into_testcase_id)
+    }
+
+    fn get_from<const ENABLED: bool>(&self, id: &TestcaseId) -> Result<Testcase<I>> {
+        let mut cache = self.cache.borrow_mut();
+        let cache_store = &mut *self.cache_store.borrow_mut();
+
+        cache.get_from::<ENABLED>(id, cache_store, &self.fallback_store)
+    }
+}
+
+impl<C, CS, FS, I, SC> ScheduledCorpus<I, SC> for CombinedCorpus<C, CS, FS, I, SC>
+where
+    C: Cache<CS, FS, I>,
+    CS: Store<I>,
+    FS: Store<I>,
+    I: Clone,
+    SC: Scheduler,
+{
     fn add_shared<const ENABLED: bool>(&mut self, testcase: Testcase<I>) -> Result<TestcaseId> {
         let id = match self.cache.borrow_mut().add_shared::<ENABLED>(
             testcase,
@@ -103,10 +116,20 @@ where
         Ok(id)
     }
 
-    fn get_from<const ENABLED: bool>(&self, id: &TestcaseId) -> Result<Testcase<I>> {
-        let mut cache = self.cache.borrow_mut();
-        let cache_store = &mut *self.cache_store.borrow_mut();
-
-        cache.get_from::<ENABLED>(id, cache_store, &self.fallback_store)
+    fn scheduler(&self) -> &SC {
+        &self.scheduler
     }
+
+    fn scheduler_mut(&mut self) -> &mut SC {
+        &mut self.scheduler
+    }
+}
+
+impl<C, CS, FS, I> ObjectiveCorpus<I> for CombinedCorpus<C, CS, FS, I, NopScheduler>
+where
+    C: Cache<CS, FS, I>,
+    CS: Store<I>,
+    FS: Store<I>,
+    I: Clone,
+{
 }

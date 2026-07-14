@@ -2,7 +2,7 @@
 //!
 //! These can be used standalone or in combination with other mutators to explore the input space more effectively.
 //! You can read more about mutators in the [LibAFL book](https://aflplus.plus/libafl-book/core_concepts/mutator.html)
-use crate::fuzzers::EvaluationResult;
+use crate::{Result, fuzzers::EvaluationResult};
 use alloc::{borrow::Cow, boxed::Box, vec::Vec};
 use core::fmt;
 use libaflmm_bolts::{HasLen, Named, rands::Rand, tuples::IntoVec};
@@ -91,26 +91,21 @@ pub enum MutationResult {
 /// Simple as that.
 pub trait Mutator<I, R, S>: Named {
     /// Mutate a given input
-    fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult, Error>;
+    fn mutate(&mut self, input: &mut I, rand: &mut R, state: &S) -> Result<MutationResult>;
 
     /// Post-process given the outcome of the execution
     /// `new_testcase_id` will be `Some` if a new [`crate::corpus::Testcase`] was created this execution.
-    fn post_exec(&mut self, _state: &mut S, _eval_res: &EvaluationResult) -> Result<(), Error>;
+    fn post_exec(&mut self, _state: &mut S, _eval_res: &EvaluationResult) -> Result<()>;
 }
 
 /// A `Tuple` of [`Mutator`]`s` that can execute multiple `Mutators` in a row.
 pub trait MutatorsTuple<I, R, S>: HasLen {
     /// Runs the [`Mutator::mutate`] function on all [`Mutator`]`s` in this `Tuple`.
-    fn mutate_all(
-        &mut self,
-        input: &mut I,
-        rand: &mut R,
-        state: &mut S,
-    ) -> Result<MutationResult, Error>;
+    fn mutate_all(&mut self, input: &mut I, rand: &mut R, state: &mut S) -> Result<MutationResult>;
 
     /// Runs the [`Mutator::post_exec`] function on all [`Mutator`]`s` in this `Tuple`.
     /// `new_testcase_id` will be `Some` if a new `Testcase` was created this execution.
-    fn post_exec_all(&mut self, state: &mut S, eval_res: &EvaluationResult) -> Result<(), Error>;
+    fn post_exec_all(&mut self, state: &mut S, eval_res: &EvaluationResult) -> Result<()>;
 
     /// Gets the [`Mutator`] at the given index and runs the `mutate` function on it.
     fn get_and_mutate(
@@ -119,7 +114,7 @@ pub trait MutatorsTuple<I, R, S>: HasLen {
         input: &mut I,
         rand: &mut R,
         state: &S,
-    ) -> Result<MutationResult, Error>;
+    ) -> Result<MutationResult>;
 
     /// Gets the [`Mutator`] at the given index and runs the `post_exec` function on it.
     /// `new_testcase_id` will be `Some` if a new `Testcase` was created this execution.
@@ -128,7 +123,7 @@ pub trait MutatorsTuple<I, R, S>: HasLen {
         index: usize,
         state: &mut S,
         eval_res: &EvaluationResult,
-    ) -> Result<(), Error>;
+    ) -> Result<()>;
 }
 
 impl<I, R: Rand, S> MutatorsTuple<I, R, S> for () {
@@ -138,12 +133,12 @@ impl<I, R: Rand, S> MutatorsTuple<I, R, S> for () {
         _input: &mut I,
         _rand: &mut R,
         _state: &mut S,
-    ) -> Result<MutationResult, Error> {
+    ) -> Result<MutationResult> {
         Ok(MutationResult::Skipped)
     }
 
     #[inline]
-    fn post_exec_all(&mut self, _state: &mut S, _eval_res: &EvaluationResult) -> Result<(), Error> {
+    fn post_exec_all(&mut self, _state: &mut S, _eval_res: &EvaluationResult) -> Result<()> {
         Ok(())
     }
 
@@ -154,7 +149,7 @@ impl<I, R: Rand, S> MutatorsTuple<I, R, S> for () {
         _input: &mut I,
         _rand: &mut R,
         _state: &S,
-    ) -> Result<MutationResult, Error> {
+    ) -> Result<MutationResult> {
         Ok(MutationResult::Skipped)
     }
 
@@ -164,7 +159,7 @@ impl<I, R: Rand, S> MutatorsTuple<I, R, S> for () {
         _index: usize,
         _state: &mut S,
         _eval_res: &EvaluationResult,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         Ok(())
     }
 }
@@ -174,12 +169,7 @@ where
     Head: Mutator<I, R, S>,
     Tail: MutatorsTuple<I, R, S>,
 {
-    fn mutate_all(
-        &mut self,
-        input: &mut I,
-        rand: &mut R,
-        state: &mut S,
-    ) -> Result<MutationResult, Error> {
+    fn mutate_all(&mut self, input: &mut I, rand: &mut R, state: &mut S) -> Result<MutationResult> {
         let r = self.0.mutate(input, rand, state)?;
         if self.1.mutate_all(input, rand, state)? == MutationResult::Mutated {
             Ok(MutationResult::Mutated)
@@ -188,7 +178,7 @@ where
         }
     }
 
-    fn post_exec_all(&mut self, state: &mut S, eval_res: &EvaluationResult) -> Result<(), Error> {
+    fn post_exec_all(&mut self, state: &mut S, eval_res: &EvaluationResult) -> Result<()> {
         self.0.post_exec(state, eval_res)?;
         self.1.post_exec_all(state, eval_res)
     }
@@ -199,7 +189,7 @@ where
         input: &mut I,
         rand: &mut R,
         state: &S,
-    ) -> Result<MutationResult, Error> {
+    ) -> Result<MutationResult> {
         if index.0 == 0 {
             self.0.mutate(input, rand, state)
         } else {
@@ -213,7 +203,7 @@ where
         index: usize,
         state: &mut S,
         eval_res: &EvaluationResult,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         if index == 0 {
             self.0.post_exec(state, eval_res)
         } else {
@@ -245,16 +235,11 @@ impl<Tail, I, R: Rand, S> MutatorsTuple<I, R, S> for (Tail,)
 where
     Tail: MutatorsTuple<I, R, S>,
 {
-    fn mutate_all(
-        &mut self,
-        input: &mut I,
-        rand: &mut R,
-        state: &mut S,
-    ) -> Result<MutationResult, Error> {
+    fn mutate_all(&mut self, input: &mut I, rand: &mut R, state: &mut S) -> Result<MutationResult> {
         self.0.mutate_all(input, rand, state)
     }
 
-    fn post_exec_all(&mut self, state: &mut S, eval_res: &EvaluationResult) -> Result<(), Error> {
+    fn post_exec_all(&mut self, state: &mut S, eval_res: &EvaluationResult) -> Result<()> {
         self.0.post_exec_all(state, eval_res)
     }
 
@@ -264,7 +249,7 @@ where
         input: &mut I,
         rand: &mut R,
         state: &S,
-    ) -> Result<MutationResult, Error> {
+    ) -> Result<MutationResult> {
         self.0.get_and_mutate(index, input, rand, state)
     }
 
@@ -273,7 +258,7 @@ where
         index: usize,
         state: &mut S,
         eval_res: &EvaluationResult,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         self.0.get_and_post_exec(index, state, eval_res)
     }
 }
@@ -288,12 +273,7 @@ where
 }
 
 impl<I, R: Rand, S> MutatorsTuple<I, R, S> for Vec<Box<dyn Mutator<I, R, S>>> {
-    fn mutate_all(
-        &mut self,
-        input: &mut I,
-        rand: &mut R,
-        state: &mut S,
-    ) -> Result<MutationResult, Error> {
+    fn mutate_all(&mut self, input: &mut I, rand: &mut R, state: &mut S) -> Result<MutationResult> {
         self.iter_mut()
             .try_fold(MutationResult::Skipped, |ret, mutator| {
                 if mutator.mutate(input, rand, state)? == MutationResult::Mutated {
@@ -304,7 +284,7 @@ impl<I, R: Rand, S> MutatorsTuple<I, R, S> for Vec<Box<dyn Mutator<I, R, S>>> {
             })
     }
 
-    fn post_exec_all(&mut self, state: &mut S, eval_res: &EvaluationResult) -> Result<(), Error> {
+    fn post_exec_all(&mut self, state: &mut S, eval_res: &EvaluationResult) -> Result<()> {
         for mutator in self.iter_mut() {
             mutator.post_exec(state, eval_res)?;
         }
@@ -317,7 +297,7 @@ impl<I, R: Rand, S> MutatorsTuple<I, R, S> for Vec<Box<dyn Mutator<I, R, S>>> {
         input: &mut I,
         rand: &mut R,
         state: &S,
-    ) -> Result<MutationResult, Error> {
+    ) -> Result<MutationResult> {
         let mutator = self
             .get_mut(index.0)
             .ok_or_else(|| Error::key_not_found(format!("Mutator with id {index:?} not found.")))?;
@@ -329,7 +309,7 @@ impl<I, R: Rand, S> MutatorsTuple<I, R, S> for Vec<Box<dyn Mutator<I, R, S>>> {
         index: usize,
         state: &mut S,
         eval_res: &EvaluationResult,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         let mutator = self
             .get_mut(index)
             .ok_or_else(|| Error::key_not_found(format!("Mutator with id {index:?} not found.")))?;
@@ -364,16 +344,11 @@ impl NopMutator {
 }
 
 impl<I, R: Rand, S> Mutator<I, R, S> for NopMutator {
-    fn mutate(
-        &mut self,
-        _input: &mut I,
-        _rand: &mut R,
-        _state: &S,
-    ) -> Result<MutationResult, Error> {
+    fn mutate(&mut self, _input: &mut I, _rand: &mut R, _state: &S) -> Result<MutationResult> {
         Ok(self.result)
     }
     #[inline]
-    fn post_exec(&mut self, _state: &mut S, _eval_res: &EvaluationResult) -> Result<(), Error> {
+    fn post_exec(&mut self, _state: &mut S, _eval_res: &EvaluationResult) -> Result<()> {
         Ok(())
     }
 }
@@ -385,23 +360,16 @@ impl Named for NopMutator {
 }
 
 /// [`Mutator`] that inverts a boolean value.
-///
-/// Mostly useful in combination with [`mapping::MappingMutator`]s to mutate parts of a complex input.
 #[derive(Debug)]
 pub struct BoolInvertMutator;
 
 impl<R: Rand, S> Mutator<bool, R, S> for BoolInvertMutator {
-    fn mutate(
-        &mut self,
-        input: &mut bool,
-        _rand: &mut R,
-        _state: &S,
-    ) -> Result<MutationResult, Error> {
+    fn mutate(&mut self, input: &mut bool, _rand: &mut R, _state: &S) -> Result<MutationResult> {
         *input = !*input;
         Ok(MutationResult::Mutated)
     }
     #[inline]
-    fn post_exec(&mut self, _state: &mut S, _eval_res: &EvaluationResult) -> Result<(), Error> {
+    fn post_exec(&mut self, _state: &mut S, _eval_res: &EvaluationResult) -> Result<()> {
         Ok(())
     }
 }

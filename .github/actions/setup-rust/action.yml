@@ -26,6 +26,10 @@ inputs:
     description: Comma-separated list of cargo binaries to install (e.g. cargo-hack,cargo-nextest).
     required: false
     default: ""
+  cargo-install-git:
+    description: Comma-separated list of git repos to install via `cargo install --git`.
+    required: false
+    default: ""
 
 runs:
   using: composite
@@ -107,4 +111,14 @@ runs:
       run: |
         for bin in $(echo "$BINARIES" | tr ',' ' '); do
           command -v "$bin" &>/dev/null || cargo install --locked "$bin"
+        done
+
+    - name: Install cargo binaries from git
+      if: inputs.cargo-install-git != ''
+      shell: bash
+      env:
+        REPOS: ${{ inputs.cargo-install-git }}
+      run: |
+        for repo in $(echo "$REPOS" | tr ',' ' '); do
+          command -v "$(basename "$repo" .git)" &>/dev/null || cargo install --locked --git "$repo"
         done

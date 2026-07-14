@@ -35,7 +35,7 @@ use std::{
     sync::Mutex,
 };
 
-#[ctor::ctor]
+#[ctor::ctor(unsafe)]
 fn reserve_asan_shadow() {
     let msg: &str = "ASan mapping failed, is the region free?";
 

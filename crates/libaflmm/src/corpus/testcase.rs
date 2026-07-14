@@ -1,4 +1,4 @@
-//! The [`Testcase`] is a struct embedded in each [`Corpus`].
+//! The [`Testcase`] is a struct embedded in each [`Corpus`](crate::corpus::Corpus).
 //! It will contain a respective input, and metadata.
 
 use crate::{Result, inputs::Input};

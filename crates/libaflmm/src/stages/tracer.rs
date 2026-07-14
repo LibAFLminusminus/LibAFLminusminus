@@ -1,7 +1,7 @@
 //! The [`TracerStage`] can trace the target with an alternate [`Executor`] and enrich a testcase with metadata, for example for `CmpLog`.
 
 use crate::{
-    Error,
+    Result,
     common::{DependencyResolver, Registrator},
     controllers::Worker,
     corpus::{Corpus, testcase::TestcaseId},
@@ -32,9 +32,11 @@ impl<I, TE> DependencyResolver for TracerStage<I, TE>
 where
     TE: DependencyResolver,
 {
-    fn register(&mut self, registrator: &mut Registrator) -> Result<(), Error> {
-        self.tracer_executor.register_with_ty(registrator)?;
+    fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
+        registrator.register_ty::<Self>();
+        self.register_md(registrator)?;
 
+        self.tracer_executor.register(registrator)?;
         Ok(())
     }
 }
@@ -50,12 +52,11 @@ where
     fn perform_impl(
         &mut self,
         _fuzzer: &mut Z,
-        _executor: &mut E,
         _rand: &mut R,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
         testcase_id: &TestcaseId,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         let tc = state.corpus().get(testcase_id)?;
 
         self.tracer_executor.observers_mut().pre_exec_all(state)?;
@@ -100,12 +101,12 @@ impl<I, TE> TracerStage<I, TE> {
         }
     }
 
-    /// Gets the underlying [`Self::tracer_executor`]
+    /// Gets the underlying `tracer_executor`
     pub fn executor(&self) -> &TE {
         &self.tracer_executor
     }
 
-    /// Gets mutable reference to the underlying [`Self::tracer_executor`]
+    /// Gets mutable reference to the underlying `tracer_executor`
     pub fn executor_mut(&mut self) -> &mut TE {
         &mut self.tracer_executor
     }

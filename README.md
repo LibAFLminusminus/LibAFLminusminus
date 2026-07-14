@@ -31,6 +31,12 @@ There is a section of the book dedicated to documenting the main differences wit
 We only use it to maintain compabitility and compare with target-side code like `forkserver` or LLVM passes.
 Thus, only `libaflmm_targets` depends on `AFL++`, there is no shared code for the fuzzing part.
 
+## LLM Contributions
+
+The [AGENTS.md](./AGENTS.md) file contains our LLM policy.
+Please check it carefully if you plan to use LLMs for this repository.
+In short, any use of LLMs for generating code is forbidden, the rest is allowed.
+
 ## Building and installing
 
 #### Install the Dependencies
@@ -105,7 +111,7 @@ Please check out **[CONTRIBUTING.md](CONTRIBUTING.md)** for the contributing gui
 
 ## Debugging
 
-Your fuzzer doesn't work as expected? Try reading [DEBUGGING.md](./docs/DEBUGGING.md) to understand how to debug your problems.
+Your fuzzer doesn't work as expected? Try reading [DEBUGGING.md](./book/src/debugging.md) to understand how to debug your problems.
 
 ## License
 

@@ -49,7 +49,6 @@ where
     fn perform_impl(
         &mut self,
         fuzzer: &mut Z,
-        executor: &mut E,
         rand: &mut R,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
@@ -63,14 +62,13 @@ where
     fn perform(
         &mut self,
         fuzzer: &mut Z,
-        executor: &mut E,
         rand: &mut R,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
         testcase_id: &TestcaseId,
     ) -> Result<()> {
         let start = current_time();
-        let res = self.perform_impl(fuzzer, executor, rand, state, rt_handle, testcase_id);
+        let res = self.perform_impl(fuzzer, rand, state, rt_handle, testcase_id);
         let elapsed = current_time().saturating_sub(start);
         let name = self.name().clone();
         state.perf_stats_mut().record_stage(name, elapsed);
@@ -78,13 +76,12 @@ where
     }
 }
 
-/// A tuple holding all [`Stages`] used for fuzzing.
+/// A tuple holding all [`Stage`]s used for fuzzing.
 pub trait StagesTuple<E, R, S, W, Z>: DependencyResolver {
-    /// Performs all [`Stages`] in this tuple.
+    /// Performs all [`Stage`]s in this tuple.
     fn perform_all(
         &mut self,
         fuzzer: &mut Z,
-        executor: &mut E,
         rand: &mut R,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
@@ -96,7 +93,6 @@ impl<E, R, S, W, Z> StagesTuple<E, R, S, W, Z> for () {
     fn perform_all(
         &mut self,
         _fuzzer: &mut Z,
-        _executor: &mut E,
         _rand: &mut R,
         _state: &mut S,
         _rt_handle: &mut RuntimeHandle<S, W>,
@@ -112,11 +108,10 @@ where
     S: State,
     Tail: StagesTuple<E, R, S, W, Z> + HasConstLen,
 {
-    /// Performs all [`Stages`] in the tuple,
+    /// Performs all [`StagesTuple`] in the tuple,
     fn perform_all(
         &mut self,
         fuzzer: &mut Z,
-        executor: &mut E,
         rand: &mut R,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
@@ -124,10 +119,10 @@ where
     ) -> Result<()> {
         let stage = &mut self.0;
 
-        stage.perform(fuzzer, executor, rand, state, rt_handle, testcase_id)?;
+        stage.perform(fuzzer, rand, state, rt_handle, testcase_id)?;
 
         self.1
-            .perform_all(fuzzer, executor, rand, state, rt_handle, testcase_id)
+            .perform_all(fuzzer, rand, state, rt_handle, testcase_id)
     }
 }
 
@@ -168,18 +163,12 @@ impl<E, R, S, W, Z> IntoVec<Box<dyn Stage<E, R, S, W, Z>>> for Vec<Box<dyn Stage
 
 impl<E, R, S, W, Z> DependencyResolver for Vec<Box<dyn Stage<E, R, S, W, Z>>> {
     fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
+        registrator.register_ty::<Self>();
+        self.register_md(registrator)?;
+
         for st in self {
             st.register(registrator)?;
         }
-
-        Ok(())
-    }
-
-    fn register_with_ty(&mut self, registrator: &mut Registrator) -> Result<()> {
-        for st in self {
-            st.register_with_ty(registrator)?;
-        }
-
         Ok(())
     }
 
@@ -200,15 +189,13 @@ where
     fn perform_all(
         &mut self,
         fuzzer: &mut Z,
-        executor: &mut E,
         rand: &mut R,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
         testcase_id: &TestcaseId,
     ) -> Result<()> {
-        self.iter_mut().try_for_each(|stage| {
-            stage.perform(fuzzer, executor, rand, state, rt_handle, testcase_id)
-        })
+        self.iter_mut()
+            .try_for_each(|stage| stage.perform(fuzzer, rand, state, rt_handle, testcase_id))
     }
 }
 

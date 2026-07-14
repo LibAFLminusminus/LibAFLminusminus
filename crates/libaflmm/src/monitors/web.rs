@@ -2,22 +2,6 @@
 //!
 //! Vibe-coding WARNING!! I fully vibe coded the frontend part with claude code Opus 4.7 since I know nothing about js and css.
 //! But we are always looking for somebody who can help us design a better & maintainable beautiful web UI!
-use alloc::{
-    string::{String, ToString},
-    sync::Arc,
-    vec::Vec,
-};
-use core::net::SocketAddr;
-use std::{
-    fs::OpenOptions,
-    io::Write,
-    path::{Path, PathBuf},
-    sync::RwLock,
-};
-
-use libaflmm_bolts::current_time;
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
 use crate::{
     Result,
@@ -25,6 +9,21 @@ use crate::{
     controllers::Descriptor,
     monitors::Monitor,
     states::{Stats, read_stats_json},
+};
+use alloc::{
+    string::{String, ToString},
+    sync::Arc,
+    vec::Vec,
+};
+use core::net::SocketAddr;
+use libaflmm_bolts::current_time;
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use std::{
+    fs::OpenOptions,
+    io::Write,
+    path::{Path, PathBuf},
+    sync::RwLock,
 };
 
 const FRONTEND_HTML: &str = include_str!("frontend/index.html");
@@ -42,8 +41,9 @@ struct SharedState {
     history: Vec<Value>,
 }
 
-pub static WEBUI_PREFIX: &str = "libaflmm-webui";
-const PORT: u16 = 13337;
+pub const WEBUI_PREFIX: &str = "libaflmm-webui";
+const DEFAULT_PORT: u16 = 13337;
+
 /// `WebUI` gathers data from fuzzers and show stats to users through a web interface
 #[derive(Debug)]
 pub struct WebMonitor {
@@ -54,16 +54,24 @@ pub struct WebMonitor {
 impl WebMonitor {
     /// constructor for [`struct@WebMonitor`]; `name` is displayed as the page title.
     #[must_use]
-    pub fn new(name: &str) -> Self {
-        Self::with_port(name, PORT)
+    pub fn new<CT: Controller>(name: &str, controller: &CT) -> Self {
+        Self::with_port(name, DEFAULT_PORT, controller)
     }
 
     /// constructor for [`struct@WebMonitor`] specifying an opening port
     #[must_use]
-    pub fn with_port(name: &str, port: u16) -> Self {
-        let cwd = std::env::current_dir().unwrap();
-        let filename = format!(".{}-{}.json", WEBUI_PREFIX, std::process::id());
-        let history_path = cwd.join(filename);
+    pub fn with_port<CT: Controller>(name: &str, port: u16, controller: &CT) -> Self {
+        let root_dir = controller.root_dir();
+
+        let root_dir = if root_dir.is_absolute() {
+            root_dir.to_path_buf()
+        } else {
+            let cwd = std::env::current_dir().unwrap();
+            cwd.join(root_dir)
+        };
+
+        let filename = format!("{WEBUI_PREFIX}.json");
+        let history_path = root_dir.join(filename);
         let _ = std::fs::remove_file(&history_path);
         let shared = Arc::new(RwLock::new(SharedState {
             history: Vec::new(),
@@ -123,6 +131,7 @@ async fn serve(shared: Arc<RwLock<SharedState>>, port: u16, html: String) {
         .await
         .expect("WebMonitor failed to bind");
     log::info!("WebMonitor listening on http://127.0.0.1:{port}");
+    println!("WebMonitor listening on http://127.0.0.1:{port}");
     axum::serve(listener, app).await.unwrap();
 }
 

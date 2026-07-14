@@ -336,8 +336,8 @@ pub fn fuzz() -> Result<(), Error> {
     if state.must_load_initial_inputs() {
         state
             .load_initial_inputs(&mut fuzzer, &mut executor, &mut mgr, &files)
-            .unwrap_or_else(|_| {
-                log::error!("Failed to load initial corpus");
+            .unwrap_or_else(|e| {
+                log::error!("Failed to load initial corpus: {e:?}");
                 process::exit(0);
             });
         log::info!("Imported {} seeds from disk.", state.corpus().count());

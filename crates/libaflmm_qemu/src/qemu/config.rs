@@ -6,11 +6,10 @@ use std::path::PathBuf;
 
 use getset::Getters;
 use libaflmm_derive;
-use strum_macros;
 use typed_builder::TypedBuilder;
 
 #[cfg(feature = "systemmode")]
-#[derive(Debug, strum_macros::Display, Clone)]
+#[derive(Debug, strum::Display, Clone)]
 #[strum(prefix = "-accel ", serialize_all = "lowercase")]
 pub enum Accelerator {
     #[strum(to_string = "kvm{0}")]
@@ -35,7 +34,7 @@ impl Display for KvmProperties {
     }
 }
 
-#[derive(Debug, strum_macros::Display, Clone)]
+#[derive(Debug, strum::Display, Clone)]
 #[strum(prefix = "if=", serialize_all = "lowercase")]
 pub enum DriveInterface {
     Floppy,
@@ -48,14 +47,14 @@ pub enum DriveInterface {
     Virtio,
 }
 
-#[derive(Debug, strum_macros::Display, Clone)]
+#[derive(Debug, strum::Display, Clone)]
 #[strum(prefix = "format=", serialize_all = "lowercase")]
 pub enum DiskImageFileFormat {
     Qcow2,
     Raw,
 }
 
-#[derive(Debug, strum_macros::Display, Clone)]
+#[derive(Debug, strum::Display, Clone)]
 #[strum(prefix = "cache=", serialize_all = "lowercase")]
 pub enum DriveCache {
     WriteBack,
@@ -351,7 +350,7 @@ impl<R: AsRef<str>> From<R> for Cpu {
     }
 }
 
-#[derive(Debug, Clone, strum_macros::Display)]
+#[derive(Debug, Clone, strum::Display)]
 pub enum Snapshot {
     #[strum(serialize = "-snapshot")]
     ENABLE,
@@ -370,7 +369,7 @@ impl From<bool> for Snapshot {
 }
 
 /// When set to DISABLE, corresponds to the `-S` option of QEMU.
-#[derive(Debug, Clone, strum_macros::Display)]
+#[derive(Debug, Clone, strum::Display)]
 pub enum StartCPU {
     #[strum(serialize = "")]
     ENABLE,
@@ -388,7 +387,7 @@ impl From<bool> for StartCPU {
     }
 }
 
-#[derive(Debug, Clone, strum_macros::Display)]
+#[derive(Debug, Clone, strum::Display)]
 pub enum NoGraphic {
     #[strum(serialize = "-nographic")]
     ENABLE,
@@ -432,7 +431,7 @@ impl Display for SmpCpus {
     }
 }
 
-#[derive(Debug, Clone, strum_macros::Display)]
+#[derive(Debug, Clone, strum::Display)]
 pub enum VgaPci {
     #[strum(serialize = "-device VGA")]
     ENABLE,
@@ -451,7 +450,7 @@ impl From<bool> for VgaPci {
 }
 
 #[cfg(feature = "systemmode")]
-#[derive(Debug, Clone, strum_macros::Display)]
+#[derive(Debug, Clone, strum::Display)]
 pub enum DefaultDevices {
     #[strum(serialize = "")]
     ENABLE,

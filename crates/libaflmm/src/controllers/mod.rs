@@ -48,7 +48,7 @@ pub trait Controller {
 
     /// Create a new [`Self::Worker`].
     /// The controller must keep track of the worker if necessary.
-    fn create_worker(&mut self, core_id: CoreId) -> Result<Self::Worker>;
+    fn create_worker(&mut self, core_id: Option<CoreId>) -> Result<Self::Worker>;
 
     /// Get an iterator over all [`Self::Worker`] descriptors.
     fn worker_descriptors(&self)
@@ -58,6 +58,9 @@ pub trait Controller {
     fn worker_descriptors_mut(
         &mut self,
     ) -> impl IntoIterator<Item = &mut <Self::Worker as Worker>::Descriptor>;
+
+    /// The root directory of the controller
+    fn root_dir(&self) -> &Path;
 
     /// Hook called when a [`Self::Worker`] actually starts, with its associated [`InstanceId`].
     fn on_worker_start(
@@ -133,14 +136,14 @@ pub trait Worker {
     }
 
     /// Returns the [`CoreId`] on which the worker is running
-    fn core_id(&self) -> CoreId {
+    fn core_id(&self) -> Option<CoreId> {
         self.descriptor().core_id()
     }
 
     /// Do the work related to reconciling between instances: sharing corpus, etc.
     fn reconcile(&self) -> Result<()>;
 
-    /// Hook called before the [`Runtime`] of the worker gets executed.
+    /// Hook called before the [`Runtime`](crate::runtimes::Runtime) of the worker gets executed.
     fn pre_runtime_exec(&mut self) -> Result<()> {
         Ok(())
     }
@@ -166,25 +169,26 @@ pub trait Descriptor: Clone {
     fn worker_id(&self) -> WorkerId;
 
     /// Get the [`CoreId`] of the [`Worker`].
-    fn core_id(&self) -> CoreId;
+    fn core_id(&self) -> Option<CoreId>;
 }
 
 /// A workdir contains information relative to the working environement of a [`Worker`].
 #[derive(Debug, Clone)]
 pub struct Workdir {
     root_dir: PathBuf,
-    stdout: Option<WorkdirFile>,
-    stderr: Option<WorkdirFile>,
-    stats: Option<WorkdirFile>,
+    stdout: WorkdirFile,
+    stderr: WorkdirFile,
+    stats: WorkdirFile,
     clock: Clock,
     last_stats_sync: Instant,
 }
 
-/// A workdir file is an abstract representation of a file owned by a [`Workir`].
+/// A workdir file is an abstract representation of a file owned by a [`Workdir`].
 /// It enables to get a file as a [`File`] or a [`PathBuf`] transparently.
 #[derive(Debug)]
 pub enum WorkdirFile {
     /// File described as a [`PathBuf`].
+    /// If a relative path is used, it's relative to the worker's [`Workdir`].
     Path(PathBuf),
     /// File described as a [`File`].
     File(File),
@@ -283,9 +287,9 @@ impl Workdir {
     /// Create a new [`Workdir`].
     pub fn new(
         root_dir: impl AsRef<Path>,
-        stdout: Option<WorkdirFile>,
-        stderr: Option<WorkdirFile>,
-        stats: Option<WorkdirFile>,
+        stdout: WorkdirFile,
+        stderr: WorkdirFile,
+        stats: WorkdirFile,
     ) -> Result<Self> {
         if !root_dir.as_ref().is_dir() {
             return Err(Error::illegal_argument(
@@ -313,30 +317,18 @@ impl Workdir {
     }
 
     /// Get the file associated with stdout for the [`Workdir`].
-    pub fn stdout(&mut self) -> Result<Option<File>> {
-        if let Some(wd_f) = &mut self.stdout {
-            wd_f.get_file_wr(self.root_dir.as_path()).map(Some)
-        } else {
-            Ok(None)
-        }
+    pub fn stdout(&mut self) -> Result<File> {
+        self.stdout.get_file_wr(self.root_dir.as_path())
     }
 
     /// Get the file associated with stderr for the [`Workdir`].
-    pub fn stderr(&mut self) -> Result<Option<File>> {
-        if let Some(wd_f) = &mut self.stderr {
-            wd_f.get_file_wr(self.root_dir.as_path()).map(Some)
-        } else {
-            Ok(None)
-        }
+    pub fn stderr(&mut self) -> Result<File> {
+        self.stderr.get_file_wr(self.root_dir.as_path())
     }
 
     /// Get the [`Stats`] file of the [`Workdir`].
     pub fn get_stats(&mut self) -> Result<Option<File>> {
-        if let Some(stats_f) = &mut self.stats {
-            Ok(stats_f.get_file_rd(self.root_dir.as_path())?)
-        } else {
-            Ok(None)
-        }
+        self.stats.get_file_rd(self.root_dir.as_path())
     }
 
     /// Create a new directory, relative to the [`Workdir`].
@@ -378,10 +370,8 @@ impl Workdir {
 
     /// Update the [`Stats`] of the [`Workdir`].
     pub fn report_stats(&mut self, stats: &Stats) -> Result<()> {
-        if let Some(stats_f) = &mut self.stats {
-            let stats_ref = stats_f.get_file_wr(self.root_dir.as_path())?;
-            sync_stats(stats_ref, stats)?;
-        }
+        let stats_ref = self.stats.get_file_wr(self.root_dir.as_path())?;
+        sync_stats(stats_ref, stats)?;
 
         Ok(())
     }

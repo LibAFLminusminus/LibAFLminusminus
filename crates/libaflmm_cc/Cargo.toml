@@ -37,11 +37,5 @@ which = { workspace = true }
 [target.'cfg(target_vendor = "apple")'.build-dependencies]
 glob = { workspace = true }
 
-[dependencies]
-serde = { workspace = true, default-features = false, features = [
-  "alloc",
-  "derive",
-] } # serialization lib
-
 [lints]
 workspace = true

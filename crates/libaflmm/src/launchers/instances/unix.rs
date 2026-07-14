@@ -1,12 +1,16 @@
 //! Unix instance
 
 use crate::{
-    Error, Result, controllers::Controller, controllers::Worker, monitors::Monitor,
-    runtimes::Runtime,
+    Error, Result,
+    controllers::{Controller, Worker},
+    monitors::Monitor,
+    runtimes::LIBAFLMM_EXIT_END,
 };
 use alloc::vec::Vec;
-use core::{borrow::Borrow, hash::Hash, time::Duration};
+use core::fmt::Debug;
+use core::{fmt, time::Duration};
 use libaflmm_bolts::core_affinity::CoreId;
+use libaflmm_core::runtime;
 use nix::{
     poll::{PollFd, PollFlags, PollTimeout, poll},
     sys::{
@@ -17,47 +21,56 @@ use nix::{
     },
     unistd::{ForkResult, Pid, fork, getpid, getppid},
 };
-use std::{collections::HashSet, os::fd::AsFd, process::exit};
+use std::{collections::HashMap, os::fd::AsFd, process::exit};
 
 /// An Instance ID, unique for each [`Instance`].
 pub type InstanceId = u32;
 
-/// An instance, owning a running [`Runtime`].
-#[derive(Debug)]
-pub struct Instance<RT, S, W> {
-    runtime: Option<RT>,
-    state: Option<S>,
-    worker: Option<W>,
-    core: CoreId,
+pub type InstanceRunner<W> = Box<dyn FnOnce(W) -> Result<()>>;
+
+/// An instance, owning a running [`Runtime`](crate::runtimes::Runtime).
+pub struct Instance<W> {
+    runner: InstanceRunner<W>,
+    worker: W,
+    core: Option<CoreId>,
 }
 
-/// An [`Instance`] representation, used to identify an instance.
+/// [`Instance`] failure reason
 #[derive(Debug)]
-pub struct InstanceRepr<D> {
-    // the PID of the instance
-    pid: Pid,
-    // the descriptor
-    descriptor: D,
+pub enum InstanceFailure {
+    /// Exit due to an unexpected exit code
+    Exited(i32),
+    /// Exit due to a signal
+    Signaled(Signal),
 }
 
 /// A collection of [`Instance`]s.
 ///
 /// It should contain all the instances being run.
 #[derive(Debug)]
-pub struct Instances<D, RT, S, W> {
-    instances: Vec<Instance<RT, S, W>>,
-    active_instances: HashSet<InstanceRepr<D>>,
+pub struct Instances<D, W> {
+    instances: Vec<Instance<W>>,
+    active_instances: HashMap<Pid, D>,
 }
 
-impl<RT, S, W> Instance<RT, S, W>
+impl<W> Debug for Instance<W>
 where
-    RT: Runtime<S, W> + 'static,
+    W: Debug,
 {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Instance")
+            .field("worker", &self.worker)
+            .field("core", &self.core)
+            .finish_non_exhaustive()
+    }
+}
+
+impl<W> Instance<W> {
     /// # Safety
     ///
     /// This will spawn a new process, which could have side effects.
     /// Once spawned, the parent process will take back the hand on the control flow immediately.
-    pub unsafe fn spawn<CT>(&mut self, controller: &mut CT) -> Result<InstanceRepr<CT::Descriptor>>
+    pub unsafe fn spawn<CT>(self, controller: &mut CT) -> Result<(Pid, CT::Descriptor)>
     where
         CT: Controller<Worker = W>,
         W: Worker<Controller = CT>,
@@ -66,15 +79,9 @@ where
         // the father process will be able to drop the controller in the
         // father process as well.
 
-        let state = self
-            .state
-            .take()
-            .expect("State is not in the instance. This is a fuzzer bug.");
-
-        let mut worker = self
-            .worker
-            .take()
-            .expect("Controller is not in the instance. This is a fuzzer bug.");
+        let runner = self.runner;
+        let core = self.core;
+        let mut worker = self.worker;
 
         let parent_pid = getpid();
 
@@ -83,7 +90,7 @@ where
                 controller
                     .on_worker_start(worker.descriptor(), child.as_raw().try_into().unwrap())?;
 
-                Ok(InstanceRepr::new(child, worker.descriptor().clone()))
+                Ok((child, worker.descriptor().clone()))
             }
             ForkResult::Child => {
                 set_pdeathsig(Signal::SIGKILL)?;
@@ -93,12 +100,14 @@ where
                     exit(0);
                 }
 
-                self.core.set_affinity()?;
+                if let Some(core_id) = core {
+                    core_id.set_affinity()?;
+                }
 
                 worker.pre_runtime_exec()?;
 
                 // start the child runtime
-                self.runtime.take().expect("The instance runtime has already been consumed. A runtime can be run only once.").run(state, worker)?;
+                runner(worker)?;
 
                 // TODO: what should we do there in case it happens?
                 // i'll panic for now, but it's not the right solution
@@ -108,32 +117,41 @@ where
     }
 }
 
-impl<D, RT, S, W> Default for Instances<D, RT, S, W> {
+impl<D, W> Default for Instances<D, W> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<D, RT, S, W> Instances<D, RT, S, W> {
+impl<D, W> Instances<D, W> {
     /// Create a new [`Instances`] collection.
     #[must_use]
     pub fn new() -> Self {
         Self {
             instances: Vec::new(),
-            active_instances: HashSet::new(),
+            active_instances: HashMap::new(),
         }
     }
 
     /// Add an [`Instance`] to the collection.
-    pub fn add_instance(&mut self, instance: Instance<RT, S, W>) {
-        self.instances.push(instance);
+    pub fn add<R>(&mut self, runner: R, worker: W, core: Option<CoreId>)
+    where
+        R: FnOnce(W) -> Result<()> + 'static,
+    {
+        self.instances
+            .push(Instance::new(Box::new(runner), worker, core));
+    }
+
+    /// Whether there are instances or not
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.instances.is_empty()
     }
 }
 
-impl<D, RT, S, W> Instances<D, RT, S, W>
+impl<D, W> Instances<D, W>
 where
     W: Worker,
-    RT: Runtime<S, W> + 'static,
 {
     /// Spawn all [`Instance`]s being owned by [`Self`].
     pub fn spawn_instances<CT>(&mut self, controller: &mut CT) -> Result<()>
@@ -141,10 +159,9 @@ where
         CT: Controller<Worker = W, Descriptor = D>,
         W: Worker<Controller = CT>,
     {
-        for instance in &mut self.instances {
-            unsafe {
-                self.active_instances.insert(instance.spawn(controller)?);
-            }
+        for instance in &mut self.instances.drain(..) {
+            let (pid, desc) = unsafe { instance.spawn(controller)? };
+            self.active_instances.insert(pid, desc);
         }
 
         Ok(())
@@ -172,8 +189,10 @@ where
         let sfd = SignalFd::with_flags(&sigset, SfdFlags::SFD_NONBLOCK | SfdFlags::SFD_CLOEXEC)
             .map_err(|e| Error::runtime(format!("signalfd failed: {e}")))?;
 
+        let mut failures: Vec<(Pid, InstanceFailure)> = Vec::new();
+
         // collect children that exited before we set up the signalfd.
-        self.drain_children(controller)?;
+        self.drain_children(controller, &mut failures)?;
 
         let poll_timeout = PollTimeout::try_from(timeout).expect("Incorrect poll timeout");
 
@@ -191,18 +210,34 @@ where
                     while matches!(sfd.read_signal(), Ok(Some(_))) {}
 
                     // collect children that exited
-                    self.drain_children(controller)?;
+                    self.drain_children(controller, &mut failures)?;
                 }
             }
         }
 
-        log::info!("All instances finished successfully.");
+        if failures.is_empty() {
+            log::info!("All instances finished successfully.");
+            Ok(())
+        } else {
+            Err(runtime!(
+                "{} instances ended with errors: {failures:?}",
+                failures.len()
+            ))
+        }
+    }
 
-        Ok(())
+    fn retire(&mut self, pid: Pid) -> D {
+        self.active_instances.remove(&pid).unwrap_or_else(|| {
+            panic!("Removed a PID ({pid}) not in the active PID list. This is a fuzzer bug.")
+        })
     }
 
     /// collect dead children correctly.
-    fn drain_children<CT>(&mut self, controller: &mut CT) -> Result<()>
+    fn drain_children<CT>(
+        &mut self,
+        controller: &mut CT,
+        failures: &mut Vec<(Pid, InstanceFailure)>,
+    ) -> Result<()>
     where
         CT: Controller<Worker = W, Descriptor = D>,
         W: Worker<Controller = CT>,
@@ -211,69 +246,41 @@ where
             match waitpid(Pid::from_raw(-1), Some(WaitPidFlag::WNOHANG)) {
                 Ok(WaitStatus::StillAlive) | Err(nix::errno::Errno::ECHILD) => break,
                 Ok(WaitStatus::Exited(pid, exit_code)) => {
-                    log::info!("Worker with PID {pid} exited with exit code {exit_code}");
+                    let desc = self.retire(pid);
 
-                    let instance_repr = self
-                        .active_instances
-                        .take(&pid)
-                        .unwrap_or_else(|| panic!("Removed a PID ({pid}) not in the active PID list. This is a fuzzer bug."));
+                    if exit_code == LIBAFLMM_EXIT_END {
+                        log::info!("Instance with PID {pid} finished its task correctly.");
+                    } else {
+                        log::warn!(
+                            "Instance with PID {pid} exited unexpectedly with code: {exit_code}."
+                        );
+                        failures.push((pid, InstanceFailure::Exited(exit_code)));
+                    }
 
-                    controller.on_worker_exit(&instance_repr.descriptor, exit_code)?;
-
-                    exit(exit_code);
+                    controller.on_worker_exit(&desc, exit_code)?;
                 }
                 Ok(WaitStatus::Signaled(pid, signal, _)) => {
-                    log::info!("Worker with PID {pid} exited because of signal {signal}");
+                    let desc = self.retire(pid);
 
-                    let instance_repr = self
-                        .active_instances
-                        .take(&pid)
-                        .unwrap_or_else(|| panic!("Removed a PID ({pid}) not in the active PID list. This is a fuzzer bug."));
+                    log::warn!("Instance with PID {pid} exited because of signal {signal}");
+                    failures.push((pid, InstanceFailure::Signaled(signal)));
 
-                    controller.on_worker_termination(&instance_repr.descriptor, signal)?;
+                    controller.on_worker_termination(&desc, signal)?;
                 }
                 Ok(_) => {}
-                Err(e) => return Err(Error::runtime(format!("waitpid failed: {e}"))),
+                Err(e) => return Err(runtime!("waitpid failed: {e}")),
             }
         }
         Ok(())
     }
 }
 
-impl<D> InstanceRepr<D> {
-    /// Create a new [`Instance`] representant.
-    pub fn new(pid: Pid, descriptor: D) -> Self {
-        Self { pid, descriptor }
-    }
-}
-
-impl<D> Borrow<Pid> for InstanceRepr<D> {
-    fn borrow(&self) -> &Pid {
-        &self.pid
-    }
-}
-
-impl<D> PartialEq for InstanceRepr<D> {
-    fn eq(&self, other: &Self) -> bool {
-        self.pid == other.pid
-    }
-}
-
-impl<D> Eq for InstanceRepr<D> {}
-
-impl<D> Hash for InstanceRepr<D> {
-    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
-        self.pid.hash(state);
-    }
-}
-
-impl<RT, S, W> Instance<RT, S, W> {
+impl<W> Instance<W> {
     /// Create a new instance.
-    pub fn new(runtime: RT, state: S, worker: W, core: CoreId) -> Self {
+    pub fn new(runner: InstanceRunner<W>, worker: W, core: Option<CoreId>) -> Self {
         Self {
-            runtime: Some(runtime),
-            state: Some(state),
-            worker: Some(worker),
+            runner,
+            worker,
             core,
         }
     }

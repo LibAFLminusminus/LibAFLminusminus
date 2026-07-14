@@ -20,8 +20,8 @@ jobs:
           cache-key: ubuntu
           cache: ${{ vars.RUNS_ON != '' }}
       - uses: ./.github/actions/cache-qemu-nyx
-      - name: Run clippy
-        run: ./scripts/clippy.sh
+      - name: Check repository
+        run: ./scripts/check.sh
 
   ubuntu-check:
     runs-on: ${{ fromJSON(vars.RUNS_ON || '["self-hosted","linux"]') }}
@@ -51,7 +51,7 @@ jobs:
           # check instance_idx if you change that to match
           CI_INSTANCES: 4
           LLVM_VERSION: ${{ vars.MAIN_LLVM_VERSION }}
-        run: cargo run --manifest-path utils/ci_splitter/Cargo.toml -- ${{ matrix.instance_idx }}
+        run: cargo run --locked --manifest-path utils/ci_splitter/Cargo.toml -- ${{ matrix.instance_idx }}
 
   cargo-fmt:
     runs-on: ${{ fromJSON(vars.RUNS_ON || '["self-hosted","linux"]') }}
@@ -70,7 +70,7 @@ jobs:
       - name: Installing python3 black
         run: command -v black &>/dev/null || pipx install black
       - name: Check formatting
-        run: ./scripts/fmt_all.sh check
+        run: ./scripts/fmt.sh check
 
   check-md-links:
     runs-on: ${{ fromJSON(vars.RUNS_ON || '["self-hosted","linux"]') }}
@@ -81,17 +81,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           submodules: true
-      - name: Install Chromium
-        shell: bash
-        run: |
-          APT_LOCK=/var/lock/github-apt.lock
-          cache_age=$(( $(date +%s) - $(stat -c %Y /var/cache/apt/pkgcache.bin 2>/dev/null || echo 0) ))
-          if [ ! -f /var/cache/apt/pkgcache.bin ] || [ "$cache_age" -gt 3600 ]; then
-            sudo flock --timeout 300 "$APT_LOCK" apt-get update
-          fi
-          dpkg -s chromium &>/dev/null || \
-            sudo flock --timeout 300 "$APT_LOCK" \
-              apt-get install -y --no-install-recommends chromium
+      - uses: ./.github/actions/apt
       - name: Run linkspector
         uses: umbrelladocs/action-linkspector@v1
         with:

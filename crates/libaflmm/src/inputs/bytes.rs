@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use super::ValueInput;
 use crate::inputs::{HasMutatorBytes, InputContext, ResizableMutator};
 
-/// A [`bytesInput`] is the basic input consisted of byte arrays
+/// A [`BytesInput`] is the basic input consisted of byte arrays
 pub type BytesInput = ValueInput<Vec<u8>>;
 
 #[derive(Debug, Default, Clone, Copy, Serialize, Deserialize)]

@@ -1,5 +1,5 @@
 //! Observers give insights about runs of a target, such as coverage, timing, stack depth, and more.
-use crate::{Error, common::DependencyResolver, executors::ExitKind};
+use crate::{Result, common::DependencyResolver, executors::ExitKind};
 use alloc::borrow::Cow;
 use core::{fmt::Debug, time::Duration};
 use libaflmm_bolts::Named;
@@ -19,7 +19,8 @@ pub use cmplog::{CmpLogMetadata, CmpLogObserver, CmpValues, CmplogBytes, StdCmpL
 pub mod map;
 pub use map::{
     ConstLenMapObserver, ConstMapObserver, HitcountsIterableMapObserver, HitcountsMapObserver,
-    MapObserver, MultiMapObserver, StdMapObserver, VarLenMapObserver, VariableMapObserver,
+    MapObserver, MultiMapObserver, SizePtrMapObserver, StdMapObserver, VarLenMapObserver,
+    VariableMapObserver,
 };
 
 pub mod value;
@@ -30,20 +31,20 @@ pub use value::{
 pub mod list;
 pub use list::ListObserver;
 
-pub type StdObserver<'a, T> = StdMapObserver<'a, T>;
+pub type StdObserver<'a, T> = VariableMapObserver<'a, T>;
 
-/// [`Observers`] observe different information about the target.
+/// [`ObserversTuple`] observe different information about the target.
 /// They can then be used by various sorts of [`Feedback`](crate::feedbacks::Feedback).
 pub trait Observer<S>: DependencyResolver + Named {
     /// Called right before execution starts.
     #[inline]
-    fn pre_exec(&mut self, _state: &mut S) -> Result<(), Error> {
+    fn pre_exec(&mut self, _state: &mut S) -> Result<()> {
         Ok(())
     }
 
     /// Called right after execution finishes.
     #[inline]
-    fn post_exec(&mut self, _state: &mut S, _exit_kind: &ExitKind) -> Result<(), Error> {
+    fn post_exec(&mut self, _state: &mut S, _exit_kind: &ExitKind) -> Result<()> {
         Ok(())
     }
 }
@@ -51,18 +52,18 @@ pub trait Observer<S>: DependencyResolver + Named {
 /// A haskell-style tuple of observers
 pub trait ObserversTuple<S>: MatchName {
     /// This is called right before the next execution.
-    fn pre_exec_all(&mut self, state: &mut S) -> Result<(), Error>;
+    fn pre_exec_all(&mut self, state: &mut S) -> Result<()>;
 
     /// This is called right after the last execution
-    fn post_exec_all(&mut self, state: &mut S, exit_kind: &ExitKind) -> Result<(), Error>;
+    fn post_exec_all(&mut self, state: &mut S, exit_kind: &ExitKind) -> Result<()>;
 }
 
 impl<S> ObserversTuple<S> for () {
-    fn pre_exec_all(&mut self, _state: &mut S) -> Result<(), Error> {
+    fn pre_exec_all(&mut self, _state: &mut S) -> Result<()> {
         Ok(())
     }
 
-    fn post_exec_all(&mut self, _state: &mut S, _exit_kind: &ExitKind) -> Result<(), Error> {
+    fn post_exec_all(&mut self, _state: &mut S, _exit_kind: &ExitKind) -> Result<()> {
         Ok(())
     }
 }
@@ -72,21 +73,15 @@ where
     Head: Observer<S>,
     Tail: ObserversTuple<S>,
 {
-    fn pre_exec_all(&mut self, state: &mut S) -> Result<(), Error> {
+    fn pre_exec_all(&mut self, state: &mut S) -> Result<()> {
         self.0.pre_exec(state)?;
         self.1.pre_exec_all(state)
     }
 
-    fn post_exec_all(&mut self, state: &mut S, exit_kind: &ExitKind) -> Result<(), Error> {
+    fn post_exec_all(&mut self, state: &mut S, exit_kind: &ExitKind) -> Result<()> {
         self.0.post_exec(state, exit_kind)?;
         self.1.post_exec_all(state, exit_kind)
     }
-}
-
-/// A trait for [`Observer`]`s` with a hash field
-pub trait ObserverWithHashField {
-    /// get the value of the hash field
-    fn hash(&self) -> Option<u64>;
 }
 
 /// A simple observer, just overlooking the runtime of the target.
@@ -151,13 +146,13 @@ impl TimeObserver {
 impl DependencyResolver for TimeObserver {}
 
 impl<S> Observer<S> for TimeObserver {
-    fn pre_exec(&mut self, _state: &mut S) -> Result<(), Error> {
+    fn pre_exec(&mut self, _state: &mut S) -> Result<()> {
         self.last_runtime = None;
         self.start_time = Instant::now();
         Ok(())
     }
 
-    fn post_exec(&mut self, _state: &mut S, _exit_kind: &ExitKind) -> Result<(), Error> {
+    fn post_exec(&mut self, _state: &mut S, _exit_kind: &ExitKind) -> Result<()> {
         self.last_runtime = Some(self.start_time.elapsed());
         Ok(())
     }
@@ -175,7 +170,7 @@ impl<O, S> Observer<S> for Option<O>
 where
     O: Observer<S>,
 {
-    fn pre_exec(&mut self, state: &mut S) -> Result<(), Error> {
+    fn pre_exec(&mut self, state: &mut S) -> Result<()> {
         if let Some(obs) = self {
             obs.pre_exec(state)
         } else {
@@ -183,7 +178,7 @@ where
         }
     }
 
-    fn post_exec(&mut self, state: &mut S, exit_kind: &ExitKind) -> Result<(), Error> {
+    fn post_exec(&mut self, state: &mut S, exit_kind: &ExitKind) -> Result<()> {
         if let Some(obs) = self {
             obs.post_exec(state, exit_kind)
         } else {
@@ -201,7 +196,7 @@ mod tests {
         tuples::{tuple_list, tuple_list_type},
     };
 
-    use crate::observers::{StdMapObserver, TimeObserver};
+    use crate::observers::{TimeObserver, VariableMapObserver};
 
     static mut MAP: [u32; 4] = [0; 4];
 
@@ -210,14 +205,14 @@ mod tests {
         let map_ptr = &raw const MAP;
         let obv = tuple_list!(TimeObserver::new("time"), unsafe {
             let len = (*map_ptr).len();
-            StdMapObserver::from_ownedref(
+            VariableMapObserver::from_ownedref(
                 "map",
                 OwnedMutSlice::from_raw_parts_mut(&raw mut MAP as *mut u32, len),
             )
         });
         let vec = postcard::to_allocvec(&obv).unwrap();
         log::info!("{vec:?}");
-        let obv2: tuple_list_type!(TimeObserver, StdMapObserver<u32>) =
+        let obv2: tuple_list_type!(TimeObserver, VariableMapObserver<u32>) =
             postcard::from_bytes(&vec).unwrap();
         assert_eq!(obv.0.name(), obv2.0.name());
     }

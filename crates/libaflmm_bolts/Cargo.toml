@@ -23,17 +23,14 @@ features = ["document-features"]
 all-features = true
 
 [features]
-default = ["derive", "rand_trait", "xxh3", "simd"]
+default = ["rand_trait", "xxh3", "simd"]
 document-features = ["dep:document-features"]
 
 #! # Feature Flags
 #! ### General Features
 
-## Provide the `#[derive(SerdeAny)]` macro.
-derive = ["libaflmm_derive"]
-
-## If set, libaflmm_bolt's `rand` implementations will implement `rand_core::CoreRng`
-## and, inversely, all seedable `rand_core::RngCore` types can be used as Rng for LibAFL.
+## If set, libaflmm_bolt's `rand` implementations will implement `rand_core::TryRng`
+## and, inversely, all seedable `rand_core::Rng` types can be used as Rng for LibAFL.
 rand_trait = []
 
 ## Will build the `pyo3` bindings
@@ -67,13 +64,12 @@ rustversion = { workspace = true }
 [dev-dependencies]
 clap = { workspace = true, features = ["derive", "env"] }
 rand = "0.10.1"
-chrono = "0.4.44"
-itertools = "0.14.0"
+chrono = "0.4.45"
+itertools = "0.15.0"
 
 [dependencies]
 rangemap = { workspace = true }
 libaflmm_core = { workspace = true, features = ["serde"] }
-libaflmm_derive = { workspace = true, default-features = true, optional = true }
 
 num_enum = { workspace = true }
 rand_core = { workspace = true }
@@ -103,7 +99,7 @@ pyo3 = { workspace = true, optional = true, features = ["serde", "macros"] }
 bytemuck = "1.25.0"
 
 # optional stable simd
-wide = { version = "1.4.0", optional = true }
+wide = { version = "1.5.0", optional = true }
 atomic = "0.6.1"
 num-traits = { workspace = true }
 ctor = { workspace = true }

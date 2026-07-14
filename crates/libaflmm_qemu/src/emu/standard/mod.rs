@@ -38,16 +38,16 @@ pub use builder::StdEmulatorBuilder;
 ///
 /// It embeds multiple structures aiming at making QEMU usage easier:
 ///
-/// - An [`IsSnapshotManager`] implementation, implementing the QEMU snapshot method to use.
+/// - A [`SnapshotManager`] implementation, implementing the QEMU snapshot method to use.
 /// - A [`CommandManager`] implementation, handling the commands received from the target.
-/// - [`EmulatorModules`], containing the [`EmulatorModule`] implementations' state.
+/// - [`EmulatorModules`], containing the [`EmulatorModule`](crate::modules::EmulatorModule) implementations' state.
 ///
 /// Each of these fields can be set manually to finely tune how QEMU is getting handled.
 /// It is highly encouraged to build [`Emulator`] using the associated [`StdEmulatorBuilder`].
 /// There are two main functions to access the builder:
 ///
-/// - [`Emulator::builder`] gives access to the standard [`StdEmulatorBuilder`], embedding all the standard components of an [`Emulator`].
-/// - [`Emulator::empty`] gives access to an empty [`StdEmulatorBuilder`]. This is mostly useful to create a more custom [`Emulator`].
+/// - [`StdEmulator::builder`] gives access to the standard [`StdEmulatorBuilder`], embedding all the standard components of an [`Emulator`].
+/// - [`StdEmulator::empty`] gives access to an empty [`StdEmulatorBuilder`]. This is mostly useful to create a more custom [`Emulator`].
 ///
 /// Please check the documentation of [`StdEmulatorBuilder`] for more details.
 #[derive(Debug)]

@@ -4,10 +4,12 @@
 use core::{any::TypeId, mem::size_of, ptr::read_unaligned};
 
 pub mod serdeany;
-pub use serdeany::{NamedSerdeAnyMap, SerdeAny, SerdeAnyMap};
+pub use serdeany::{
+    EMPTY_MAP_KEY, NamedSerdeAnyMap, SerdeAny, SerdeAnyMap, add_named_metadata, named_metadata,
+    named_metadata_mut, unnamed_metadata, unnamed_metadata_mut,
+};
 
 /// Unpack a [`TypeId`] to an `u128`
-/// Opposite of [`pack_type_id`].
 ///
 /// # Note
 /// Probably not safe for future compilers, fine for now.

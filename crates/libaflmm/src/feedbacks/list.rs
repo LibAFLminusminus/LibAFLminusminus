@@ -133,7 +133,7 @@ impl<T> DependencyResolver for ListFeedback<T>
 where
     T: Debug + Eq + Hash + for<'a> Deserialize<'a> + Serialize + Default + Copy + 'static,
 {
-    fn register(&mut self, registrator: &mut Registrator) -> Result<()> {
+    fn register_md(&mut self, registrator: &mut Registrator) -> Result<()> {
         registrator.register_md_default::<ListFeedbackMetadata<T>>(self.name());
         Ok(())
     }

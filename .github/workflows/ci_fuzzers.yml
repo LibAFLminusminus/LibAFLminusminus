@@ -17,13 +17,13 @@ jobs:
 
           # In process
           - inprocess/sqlite
-    env:
-      PROFILE: dev # build in debug mode to speed up the tests
     steps:
       - uses: actions/checkout@v6
         with:
           submodules: true
       - uses: ./.github/actions/apt
+        with:
+          aflplusplus: true # useful for forkserver
       - uses: ./.github/actions/setup-llvm
         with:
           version: ${{ vars.MAIN_LLVM_VERSION }}
@@ -49,8 +49,6 @@ jobs:
 
           # Full-system
           - full_system/qemu_baremetal
-    env:
-      PROFILE: dev # build in debug mode to speed up the tests
     steps:
       - uses: actions/checkout@v6
         with:

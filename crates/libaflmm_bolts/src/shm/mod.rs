@@ -54,7 +54,7 @@ pub trait ShmHeader {
     ///
     /// # Safety
     ///
-    /// Same requirements as [`write_size`].
+    /// Same requirements as [`Self::write_real_size`].
     unsafe fn invalidate(ptr: NonNull<u8>);
 }
 
@@ -210,10 +210,10 @@ impl<SZ: ShmHeader> SharedMemory<SZ> {
     ///
     /// # Safety
     ///
-    /// For numeric `SZ`, [`set_size`] must have been called after the last write through [`data_mut`] with
+    /// For numeric `SZ`, [`Self::set_size`] must have been called after the last write through [`Self::data_mut`] with
     /// the corresponding real data size.
     ///
-    /// Calling this before [`data_mut`] has been called in general has an undefined behavior.
+    /// Calling this before [`Self::data_mut`] has been called in general has an undefined behavior.
     #[must_use]
     pub unsafe fn data(&self) -> &[u8] {
         let data_size = unsafe { SZ::read_real_size(self.ptr, self.max_data_len()) }
@@ -226,8 +226,8 @@ impl<SZ: ShmHeader> SharedMemory<SZ> {
     ///
     /// # Safety
     ///
-    /// The caller must call [`set_size`] (or [`mark_invalid`]) before any subsequent
-    /// call to [`data`].
+    /// The caller must call [`Self::set_size`] (or [`Self::mark_invalid`]) before any subsequent
+    /// call to [`Self::data`].
     ///
     /// For [`EmptyShmHeader`], this is always safe to use.
     pub unsafe fn data_mut(&mut self) -> &mut [u8] {
@@ -245,7 +245,7 @@ impl<SZ: ShmHeader> SharedMemory<SZ> {
     ///
     /// # Safety
     ///
-    /// Must be called after every write through [`data_mut`].
+    /// Must be called after every write through [`Self::data_mut`].
     pub unsafe fn set_size(&mut self, size: usize) {
         unsafe { SZ::write_real_size(self.ptr, size) }
     }
