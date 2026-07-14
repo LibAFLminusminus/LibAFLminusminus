@@ -25,8 +25,10 @@ After the process is launched, the launcher will use a `Monitor` to monitor the 
 Obviously, it is a module to show the fuzzer's progress to the user as it goes on.
 
 For now, we have two main monitors:
-- `SimpleMonitor` for dumping basic stats to `stdout`. This is the simplest option available that provides a fair amount of information.
-- `WebMonitor` for a web-based UI that can be reached from a browser. It shows more interesting and various statistics in addition to what the `SimpleMonitor` provides.
+- `SimpleMonitor` for dumping basic stats to `stdout`.
+This is the simplest option available that provides a fair amount of information.
+- `WebMonitor` for a web-based UI that can be reached from a browser.
+It shows more interesting and various statistics in addition to what the `SimpleMonitor` provides.
 
 
 # Relationship
