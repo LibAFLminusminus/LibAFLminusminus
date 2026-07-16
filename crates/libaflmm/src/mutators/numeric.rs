@@ -87,7 +87,7 @@ where
 {
     fn mutate(&mut self, input: &mut I, rand: &mut R, _state: &S) -> Result<MutationResult, Error> {
         let offset = rand.choose(0..size_of::<I>()).unwrap();
-        input.flip_bit_at(offset);
+        input.flip_bit_at(offset * 8);
         Ok(MutationResult::Mutated)
     }
     #[inline]
