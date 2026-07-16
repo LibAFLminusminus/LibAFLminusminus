@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     controllers::{Controller, StdDescriptor, Workdir, Worker, standard::StdController},
-    synchronizer::Synchronizer,
+    sync::Synchronizer,
 };
 
 /// A simple [`Worker`].
@@ -25,11 +25,12 @@ pub enum StdNotification {
 
 /// A representation of a [`StdWorker`].
 #[derive(Debug)]
-pub struct StdWorkerRepr {
+pub struct StdWorkerRepr<IR> {
     descriptor: StdDescriptor,
+    phantom: PhantomData<IR>,
 }
 
-impl StdWorkerRepr {
+impl<IR> StdWorkerRepr<IR> {
     pub fn new(descriptor: StdDescriptor) -> Self {
         Self { descriptor }
     }

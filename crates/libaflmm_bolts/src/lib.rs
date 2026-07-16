@@ -70,11 +70,7 @@ pub mod time;
 pub use time::{current_milliseconds, current_nanos, current_time};
 
 pub mod timers;
-<<<<<<< HEAD
-pub use timers::StdTimer;
-=======
 pub use timers::{FastTimer, StdTimer};
->>>>>>> main
 
 pub mod core_affinity;
 pub use core_affinity::{CoreId, Cores};

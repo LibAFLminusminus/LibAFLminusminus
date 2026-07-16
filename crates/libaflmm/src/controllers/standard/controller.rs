@@ -4,7 +4,7 @@ use crate::{
         standard::builder::StdControllerBuilder,
     },
     launchers::InstanceId,
-    synchronizer::Synchronizer,
+    sync::Synchronizer,
 };
 use libaflmm_bolts::CoreId;
 use libaflmm_core::{Result, WorkerId, illegal_argument, internal_bug};
@@ -13,14 +13,15 @@ use std::{fs, marker::PhantomData, path::PathBuf};
 
 /// The standard controller.
 #[derive(Debug)]
-pub struct StdController<I, SY> {
+pub struct StdController<I, O> {
+    orchestrator: O,
     root_dir: PathBuf,
     id_ctr: u32,
     workers: Vec<StdWorkerRepr>,
     worker_stdout: Option<WorkdirFile>,
     worker_stderr: Option<WorkdirFile>,
     worker_stats: Option<WorkdirFile>,
-    phantom: PhantomData<(I, SY)>,
+    phantom: PhantomData<I>,
 }
 
 #[derive(Clone, Serialize, Deserialize)]

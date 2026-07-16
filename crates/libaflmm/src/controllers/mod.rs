@@ -4,6 +4,7 @@ use crate::{
     Result,
     launchers::InstanceId,
     states::{Stats, sync_stats},
+    sync::GroupId,
 };
 use core::time::Duration;
 use libaflmm_bolts::CoreId;
@@ -27,8 +28,8 @@ pub use standard::{
     StdWorkerRepr,
 };
 
-pub mod nop;
-pub use nop::{NopController, NopDescriptor, NopWorker};
+// pub mod nop;
+// pub use nop::{NopController, NopDescriptor, NopWorker};
 
 // how is that?
 pub trait Exchange {
@@ -170,6 +171,9 @@ pub trait Descriptor: Clone {
 
     /// Get the [`CoreId`] of the [`Worker`].
     fn core_id(&self) -> Option<CoreId>;
+
+    /// Get the [`GroupId`] of the [`Worker`].
+    fn group_id(&self) -> GroupId;
 }
 
 /// A workdir contains information relative to the working environement of a [`Worker`].
