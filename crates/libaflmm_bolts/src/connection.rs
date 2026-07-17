@@ -81,13 +81,31 @@ where
         assert!(self.in_msgs.is_empty()); // there should not be remaining In messages at this point
 
         loop {
-            match recv(self.fd.as_raw_fd(), &mut self.buf, MsgFlags::MSG_DONTWAIT) {
-                Ok(0) => break,
-                Ok(n) => self.in_msgs.push(postcard::from_bytes(&self.buf[..n])?),
-                Err(Errno::EAGAIN) => break,
-                Err(Errno::EINTR) => continue,
-                Err(e) => return Err(e.into()),
+            // peek size for now. a bit inefficient, but it should be fine.
+            let packet_len = recv(
+                self.fd.as_raw_fd(),
+                &mut [],
+                MsgFlags::MSG_PEEK | MsgFlags::MSG_TRUNC | MsgFlags::MSG_DONTWAIT,
+            )?;
+
+            if packet_len == 0 {
+                break;
             }
+
+            if self.buf.len() < packet_len {
+                self.buf.resize(packet_len, 0);
+            }
+
+            let real_len = recv(
+                self.fd.as_raw_fd(),
+                &mut self.buf[..packet_len],
+                MsgFlags::MSG_DONTWAIT,
+            )?;
+
+            assert!(real_len == packet_len);
+
+            self.in_msgs
+                .push(postcard::from_bytes(&self.buf[..real_len])?);
         }
 
         Ok(self.in_msgs.drain(..).into_iter())

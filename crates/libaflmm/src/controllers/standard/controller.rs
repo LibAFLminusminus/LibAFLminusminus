@@ -15,7 +15,7 @@ use std::{
     fs,
     marker::PhantomData,
     mem,
-    path::PathBuf,
+    path::{Path, PathBuf},
 };
 
 // get the synchronizer type out of a pair of <Input, Orchestrator>
@@ -36,9 +36,9 @@ where
     workers: HashMap<WorkerId, StdWorkerRepr>,
     pending_workers: HashMap<GroupId, Vec<StdWorker<I, SyncOf<I, O>>>>,
     pending_groups: HashMap<GroupId, Cores>,
-    worker_stdout: Option<WorkdirFile>,
-    worker_stderr: Option<WorkdirFile>,
-    worker_stats: Option<WorkdirFile>,
+    worker_stdout: WorkdirFile,
+    worker_stderr: WorkdirFile,
+    worker_stats: WorkdirFile,
     phantom: PhantomData<I>,
 }
 
@@ -57,6 +57,7 @@ where
     O: Orchestrator<StdDescriptor, I>,
 {
     type Worker = StdWorker<I, <O::Transporter as Transporter<StdDescriptor, I>>::Synchronizer>;
+    type GroupConfig = <O::Router as Router<StdDescriptor>>::GroupConfig;
 
     fn register_group(&mut self, config: Self::GroupConfig, cores: &Cores) -> Result<GroupId> {
         let group_id = self.orchestrator.router_mut().register_group(config)?;
@@ -178,6 +179,10 @@ where
     fn wait_notifications(&mut self, _timeout: Option<std::time::Duration>) -> Result<()> {
         todo!()
     }
+
+    fn root_dir(&self) -> &Path {
+        self.root_dir.as_path()
+    }
 }
 
 impl<I, O> StdController<I, O>
@@ -208,6 +213,7 @@ where
             self.worker_stats.clone(),
             worker_id,
             core_id,
+            group_id,
         )
     }
 }
@@ -221,9 +227,9 @@ where
     pub fn new(
         orchestrator: O,
         root_dir: PathBuf,
-        worker_stdout: Option<WorkdirFile>,
-        worker_stderr: Option<WorkdirFile>,
-        worker_stats: Option<WorkdirFile>,
+        worker_stdout: WorkdirFile,
+        worker_stderr: WorkdirFile,
+        worker_stats: WorkdirFile,
         overwrite: bool,
     ) -> Result<Self> {
         if root_dir.exists() {
@@ -245,8 +251,10 @@ where
             worker_stdout,
             worker_stderr,
             worker_stats,
-            workers: Vec::new(),
-            id_ctr: 0,
+            workers: HashMap::default(),
+            pending_groups: HashMap::default(),
+            pending_workers: HashMap::default(),
+            worker_id_ctr: 0,
             phantom: PhantomData,
         })
     }

@@ -1,6 +1,6 @@
 use crate::{
-    controllers::{StdController, WorkdirFile},
-    sync::StdOrchestrator,
+    controllers::{StdController, StdDescriptor, WorkdirFile},
+    sync::{Orchestrator, StdOrchestrator},
 };
 use libaflmm_core::Result;
 use std::path::PathBuf;
@@ -13,9 +13,9 @@ pub struct StdControllerBuilder<O> {
     orchestrator: O,
     root_dir: PathBuf,
     overwrite: bool,
-    worker_stdout: Option<WorkdirFile>,
-    worker_stderr: Option<WorkdirFile>,
-    worker_stats: Option<WorkdirFile>,
+    worker_stdout: WorkdirFile,
+    worker_stderr: WorkdirFile,
+    worker_stats: WorkdirFile,
 }
 
 impl Default for StdControllerBuilder<StdOrchestrator> {
@@ -24,22 +24,22 @@ impl Default for StdControllerBuilder<StdOrchestrator> {
             orchestrator: StdOrchestrator::default(),
             overwrite: false,
             root_dir: PathBuf::from("./workdir"),
-            worker_stdout: Some(WorkdirFile::Path(PathBuf::from("logs.out"))),
-            worker_stderr: Some(WorkdirFile::Path(PathBuf::from("logs.err"))),
-            worker_stats: Some(WorkdirFile::Path(PathBuf::from("fuzzer_stats"))),
+            worker_stdout: WorkdirFile::Stdout,
+            worker_stderr: WorkdirFile::Stderr,
+            worker_stats: WorkdirFile::Path(PathBuf::from("fuzzer_stats")),
         }
     }
 }
 
 impl<O> StdControllerBuilder<O> {
     pub fn orchestrator<O2>(self, orchestrator: O2) -> StdControllerBuilder<O2> {
-        Self {
+        StdControllerBuilder {
             orchestrator,
             overwrite: self.overwrite,
             root_dir: self.root_dir,
             worker_stats: self.worker_stats,
             worker_stderr: self.worker_stderr,
-            worker_stdout: self.worker.stdout,
+            worker_stdout: self.worker_stdout,
         }
     }
 
@@ -61,14 +61,14 @@ impl<O> StdControllerBuilder<O> {
 
     /// Set [`SimpleWorker`]'s stdout.
     #[must_use]
-    pub fn worker_stdout(mut self, file_output: Option<WorkdirFile>) -> Self {
+    pub fn worker_stdout(mut self, file_output: WorkdirFile) -> Self {
         self.worker_stdout = file_output;
         self
     }
 
     /// Set [`SimpleWorker`]'s stderr.
     #[must_use]
-    pub fn worker_stderr(mut self, file_output: Option<WorkdirFile>) -> Self {
+    pub fn worker_stderr(mut self, file_output: WorkdirFile) -> Self {
         self.worker_stderr = file_output;
         self
     }
@@ -76,13 +76,17 @@ impl<O> StdControllerBuilder<O> {
     /// Set [`SimpleWorker`]'s stats file.
     #[must_use]
     pub fn worker_stats(mut self, file_output: WorkdirFile) -> Self {
-        self.worker_stats = Some(file_output);
+        self.worker_stats = file_output;
         self
     }
 
     /// Build a [`SimpleController`].
-    pub fn build<I>(self) -> Result<StdController<I, O>> {
+    pub fn build<I>(self) -> Result<StdController<I, O>>
+    where
+        O: Orchestrator<StdDescriptor, I>,
+    {
         StdController::new(
+            self.orchestrator,
             self.root_dir,
             self.worker_stdout,
             self.worker_stderr,

@@ -96,13 +96,8 @@ where
     }
 
     fn pre_runtime_exec(&mut self) -> Result<()> {
-        if let Some(f) = self.descriptor.workdir.stdout()? {
-            dup2_stdout(f)?;
-        }
-
-        if let Some(f) = self.descriptor.workdir.stderr()? {
-            dup2_stderr(f)?;
-        }
+        dup2_stdout(self.descriptor.workdir.stdout()?)?;
+        dup2_stderr(self.descriptor.workdir.stderr()?)?;
 
         Ok(())
     }
@@ -134,6 +129,11 @@ where
     SY: Synchronizer<I>,
 {
     fn report_testcase(&mut self, testcase: &Testcase<I>) -> Result<()> {
+        // no destination to report to, skip
+        if !self.should_report {
+            return Ok(());
+        }
+
         if let Some(repr) = self.synchronizer.export(testcase)? {
             let serialized = postcard::to_allocvec(&repr)?;
             self.send_notification(StdNotification::NewTestcase {
