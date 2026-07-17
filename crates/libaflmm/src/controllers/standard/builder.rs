@@ -1,4 +1,7 @@
-use crate::controllers::{StdController, WorkdirFile};
+use crate::{
+    controllers::{StdController, WorkdirFile},
+    sync::StdOrchestrator,
+};
 use libaflmm_core::Result;
 use std::path::PathBuf;
 
@@ -6,7 +9,8 @@ pub struct ControllerBuilder;
 
 /// Builder for the [`SimpleController`].
 #[derive(Debug)]
-pub struct StdControllerBuilder {
+pub struct StdControllerBuilder<O> {
+    orchestrator: O,
     root_dir: PathBuf,
     overwrite: bool,
     worker_stdout: Option<WorkdirFile>,
@@ -14,9 +18,10 @@ pub struct StdControllerBuilder {
     worker_stats: Option<WorkdirFile>,
 }
 
-impl Default for StdControllerBuilder {
+impl Default for StdControllerBuilder<StdOrchestrator> {
     fn default() -> Self {
         Self {
+            orchestrator: StdOrchestrator::default(),
             overwrite: false,
             root_dir: PathBuf::from("./workdir"),
             worker_stdout: Some(WorkdirFile::Path(PathBuf::from("logs.out"))),
@@ -26,7 +31,18 @@ impl Default for StdControllerBuilder {
     }
 }
 
-impl StdControllerBuilder {
+impl<O> StdControllerBuilder<O> {
+    pub fn orchestrator<O2>(self, orchestrator: O2) -> StdControllerBuilder<O2> {
+        Self {
+            orchestrator,
+            overwrite: self.overwrite,
+            root_dir: self.root_dir,
+            worker_stats: self.worker_stats,
+            worker_stderr: self.worker_stderr,
+            worker_stdout: self.worker.stdout,
+        }
+    }
+
     /// Set to `true` if the [`Workdir`] should be overwritten.
     ///
     /// If set to `false` and the [`Workdir`] already exists, it will error out.
@@ -65,7 +81,7 @@ impl StdControllerBuilder {
     }
 
     /// Build a [`SimpleController`].
-    pub fn build(self) -> Result<StdController> {
+    pub fn build<I>(self) -> Result<StdController<I, O>> {
         StdController::new(
             self.root_dir,
             self.worker_stdout,

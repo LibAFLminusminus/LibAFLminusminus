@@ -1,6 +1,9 @@
 //! Nop controller and workers.
 
-use crate::controllers::{Controller, Descriptor, Workdir, WorkdirFile, Worker};
+use crate::{
+    controllers::{Controller, Descriptor, Workdir, WorkdirFile, Worker},
+    sync::GroupId,
+};
 use alloc::sync::Arc;
 use libaflmm_bolts::CoreId;
 use libaflmm_core::{Result, WorkerId};
@@ -43,6 +46,10 @@ impl Default for NopDescriptor {
 }
 
 impl Descriptor for NopDescriptor {
+    fn group_id(&self) -> GroupId {
+        GroupId { id: 0 }
+    }
+
     fn workdir(&self) -> &Workdir {
         &self.workdir
     }
@@ -68,14 +75,26 @@ pub struct NopNotification;
 
 impl Controller for NopController {
     type Worker = NopWorker;
-    type Command = NopCommand;
+    type GroupConfig = ();
 
     fn root_dir(&self) -> &std::path::Path {
         unimplemented!("nop controller has no root directory");
     }
 
-    fn create_worker(&mut self, _core_id: Option<CoreId>) -> Result<Self::Worker> {
-        Ok(NopWorker::default())
+    fn register_group(
+        &mut self,
+        config: Self::GroupConfig,
+        cores: &libaflmm_bolts::prelude::Cores,
+    ) -> Result<GroupId> {
+        unimplemented!("nop controller cannot register groups");
+    }
+
+    fn finalize_orchestration(&mut self) -> Result<()> {
+        unimplemented!("nop controller cannot finalize orchestration");
+    }
+
+    fn take_group_workers(&mut self, group: GroupId) -> Result<impl Iterator<Item = Self::Worker>> {
+        Ok([].into_iter())
     }
 
     #[expect(refining_impl_trait)]
@@ -88,30 +107,22 @@ impl Controller for NopController {
         unimplemented!("nop controller has no workers");
     }
 
-    fn send_command(&mut self, _command: Self::Command, _worker_id: WorkerId) -> Result<()> {
-        unimplemented!("nop controller has no workers");
-    }
-
-    fn send_command_all(&mut self, _command: Self::Command) -> Result<()> {
-        unimplemented!("nop controller has no workers");
-    }
-
-    fn send_command_all_but(
-        &mut self,
-        _command: Self::Command,
-        _worker_id: WorkerId,
-    ) -> Result<()> {
-        unimplemented!("nop controller has no workers");
-    }
-
     fn wait_notifications(&mut self, _timeout: Option<std::time::Duration>) -> Result<()> {
         unimplemented!("nop controller has no workers");
+    }
+
+    fn send_command(
+        &mut self,
+        command: <Self::Worker as Worker>::Command,
+        _worker_id: WorkerId,
+    ) -> Result<()> {
+        unimplemented!("nop controller cannot send commands");
     }
 }
 
 impl Worker for NopWorker {
-    type Controller = NopController;
     type Descriptor = NopDescriptor;
+    type Command = NopCommand;
     type Notification = NopNotification;
 
     fn descriptor(&self) -> &NopDescriptor {
@@ -130,7 +141,10 @@ impl Worker for NopWorker {
         unimplemented!("nop controller has no descriptor");
     }
 
-    fn poll_commands(&mut self) -> Result<impl Iterator<Item = NopCommand>> {
+    fn poll_commands_filtered(
+        &mut self,
+        filter: impl FnMut(&Self::Command) -> bool,
+    ) -> Result<impl Iterator<Item = Self::Command>> {
         Ok([].into_iter())
     }
 }

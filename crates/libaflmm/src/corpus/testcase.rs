@@ -1,25 +1,13 @@
 //! The [`Testcase`] is a struct embedded in each [`Corpus`](crate::corpus::Corpus).
 //! It will contain a respective input, and metadata.
 
-use crate::{Result, inputs::Input};
 use alloc::{rc::Rc, string::String};
 use core::{borrow::Borrow, fmt::Debug, hash::Hasher};
+
 use libaflmm_bolts::{HasLen, hasher_std};
 use serde::{Deserialize, Serialize};
 
-/// Describes how [`Testcase`]s get named.
-/// Only relevant when working with on-disk stores and corpus.
-pub trait TestcaseFilename<I, S> {
-    // Called on add to the store
-    //
-    // Guaranteed to be called in order of addition to the disk store it is attached to.
-    // Will be called only once per testcase added to the store.
-    fn on_add(&mut self, state: &mut S, tescase: &Testcase<I>) -> Result<String>;
-
-    /// Get the filename associated to the testcase.
-    /// It must have been added via `on_add` beforehand.
-    fn get_filename(&mut self, tescase_id: TestcaseId) -> Result<String>;
-}
+use crate::inputs::Input;
 
 /// Indicates how a [`Testcase`] should be named on-disk.
 #[derive(Default, Clone, Serialize, Deserialize, Debug)]

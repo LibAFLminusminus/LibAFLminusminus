@@ -1,9 +1,10 @@
 use crate::{
     Result,
-    controllers::Controller,
+    controllers::{Controller, Worker},
     launchers::Instances,
     runtimes::{NopRuntime, Runtime, RuntimeHandle, StdForkserverRuntime, StdInProcessRuntime},
     states::NopState,
+    sync::GroupId,
 };
 use core::{fmt::Debug, marker::PhantomData, num::NonZeroUsize, time::Duration};
 use libaflmm_bolts::{Cores, StdTimer};
@@ -17,28 +18,51 @@ pub const DEFAULT_TIMEOUT: Duration = Duration::from_secs(5);
 // TODO: use a proper heuristic to choose correct ram size
 pub const DEFAULT_MAX_STATE_SIZE_PER_WORKER: NonZeroUsize = NonZeroUsize::new(1 << 30).unwrap();
 
-pub trait Group<W> {
-    /// Cores Binded to the group
+pub trait Group<W>
+where
+    W: Worker,
+{
+    /// Cores binded to the group
     fn cores(&self) -> &Cores;
 
     /// Register instances the group contains
-    fn register_instances<CT>(
+    fn register_instances(
         self,
-        controller: &mut CT,
-        instances: &mut Instances<CT::Descriptor, W>,
-    ) -> Result<()>
-    where
-        CT: Controller<Worker = W>;
+        workers: Vec<W>,
+        instances: &mut Instances<W::Descriptor, W>,
+    ) -> Result<()>;
 }
 
-pub trait GroupTuple<W> {
-    fn register_all<CT>(
+pub trait GroupTuple<CT>
+where
+    CT: Controller,
+{
+    type Configured: ConfiguredGroupTuple<CT>;
+
+    /// Register all groups in the tuple
+    fn register_all(self, controller: &mut CT) -> Result<Self::Configured>;
+}
+
+pub trait ConfiguredGroupTuple<CT>
+where
+    CT: Controller,
+{
+    /// build instances from the configured groups
+    fn instantiate_all(
         self,
         controller: &mut CT,
-        instances: &mut Instances<CT::Descriptor, W>,
-    ) -> Result<()>
-    where
-        CT: Controller<Worker = W>;
+        instances: &mut Instances<<CT::Worker as Worker>::Descriptor, CT::Worker>,
+    ) -> Result<()>;
+}
+
+pub struct PendingGroup<C, G> {
+    group: G,
+    config: C,
+}
+
+pub struct ConfiguredGroup<G> {
+    group: G,
+    group_id: GroupId,
 }
 
 pub struct StdGroupBuilder<RT, S, SB, TM, W> {
@@ -64,23 +88,21 @@ where
     RT: Runtime<S, W> + Clone + 'static,
     S: 'static,
     SB: FnMut(&W) -> Result<S>,
+    W: Worker,
 {
     fn cores(&self) -> &Cores {
         &self.cores
     }
 
-    fn register_instances<CT>(
+    fn register_instances(
         mut self,
-        controller: &mut CT,
-        instances: &mut Instances<CT::Descriptor, W>,
-    ) -> Result<()>
-    where
-        CT: Controller<Worker = W>,
-    {
+        workers: Vec<W>,
+        instances: &mut Instances<W::Descriptor, W>,
+    ) -> Result<()> {
         // create an instance per core, ready to run.
-        for core in &self.cores {
-            // spawn a controller for the instance
-            let worker = controller.create_worker(core)?;
+        for worker in workers {
+            // get the core of the worker
+            let core = worker.core_id();
 
             // create the state for the instance
             let state: S = (self.state_builder)(&worker)?;
@@ -235,33 +257,71 @@ impl<RT, S, SB> StdGroup<RT, S, SB> {
     }
 }
 
-impl<W> GroupTuple<W> for () {
-    fn register_all<CT>(
+impl<CT> ConfiguredGroupTuple<CT> for ()
+where
+    CT: Controller,
+{
+    fn instantiate_all(
         self,
         _controller: &mut CT,
-        _instances: &mut Instances<CT::Descriptor, W>,
-    ) -> Result<()>
-    where
-        CT: Controller<Worker = W>,
-    {
+        _instances: &mut Instances<<CT::Worker as Worker>::Descriptor, CT::Worker>,
+    ) -> Result<()> {
         Ok(())
     }
 }
 
-impl<W, Head, Tail> GroupTuple<W> for (Head, Tail)
+impl<CT> GroupTuple<CT> for ()
 where
-    Head: Group<W>,
-    Tail: GroupTuple<W>,
+    CT: Controller,
 {
-    fn register_all<CT>(
+    type Configured = ();
+
+    fn register_all(self, _controller: &mut CT) -> Result<Self::Configured> {
+        Ok(())
+    }
+}
+
+impl<CT, Head, Tail> ConfiguredGroupTuple<CT> for (ConfiguredGroup<Head>, Tail)
+where
+    CT: Controller,
+    Head: Group<CT::Worker>,
+    Tail: ConfiguredGroupTuple<CT>,
+{
+    fn instantiate_all(
         self,
         controller: &mut CT,
-        instances: &mut Instances<CT::Descriptor, W>,
-    ) -> Result<()>
-    where
-        CT: Controller<Worker = W>,
-    {
-        self.0.register_instances(controller, instances)?;
-        self.1.register_all(controller, instances)
+        instances: &mut Instances<
+            <<CT as Controller>::Worker as Worker>::Descriptor,
+            <CT as Controller>::Worker,
+        >,
+    ) -> Result<()> {
+        let (ConfiguredGroup { group_id, group }, tail) = self;
+
+        // start instantiation with tail
+        tail.instantiate_all(controller, instances)?;
+
+        // get the works of the group being handled
+        let workers = controller.take_group_workers(group_id)?;
+
+        // register instances for the group's workers
+        group.register_instances(workers, instances)
+    }
+}
+
+impl<CT, Head, Tail> GroupTuple<CT> for (Head, Tail)
+where
+    CT: Controller,
+    Head: Group<CT::Worker>,
+    Tail: GroupTuple<CT>,
+{
+    type Configured = (ConfiguredGroup<Head>, Tail::Configured);
+
+    fn register_all(self, controller: &mut CT) -> Result<Self::Configured> {
+        let (PendingGroup { config, group }, tail) = self;
+
+        let configured_tail = tail.register_all(controller)?;
+        let group_id = controller.register_group(config, group.cores())?;
+
+        Ok((ConfiguredGroup { group_id, group }, configured_tail))
     }
 }

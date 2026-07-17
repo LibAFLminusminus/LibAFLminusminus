@@ -70,10 +70,10 @@ impl<W> Instance<W> {
     ///
     /// This will spawn a new process, which could have side effects.
     /// Once spawned, the parent process will take back the hand on the control flow immediately.
-    pub unsafe fn spawn<CT>(self, controller: &mut CT) -> Result<(Pid, CT::Descriptor)>
+    pub unsafe fn spawn<CT>(self, controller: &mut CT) -> Result<(Pid, W::Descriptor)>
     where
         CT: Controller<Worker = W>,
-        W: Worker<Controller = CT>,
+        W: Worker,
     {
         // take these out before fork, to mark these as used in the father.
         // the father process will be able to drop the controller in the
@@ -156,8 +156,8 @@ where
     /// Spawn all [`Instance`]s being owned by [`Self`].
     pub fn spawn_instances<CT>(&mut self, controller: &mut CT) -> Result<()>
     where
-        CT: Controller<Worker = W, Descriptor = D>,
-        W: Worker<Controller = CT>,
+        CT: Controller<Worker = W>,
+        W: Worker<Descriptor = D>,
     {
         for instance in &mut self.instances.drain(..) {
             let (pid, desc) = unsafe { instance.spawn(controller)? };
@@ -177,8 +177,8 @@ where
         timeout: Duration,
     ) -> Result<()>
     where
-        W: Worker<Controller = CT>,
-        CT: Controller<Worker = W, Descriptor = D>,
+        W: Worker<Descriptor = D>,
+        CT: Controller<Worker = W>,
         MT: Monitor,
     {
         let mut sigset = SigSet::empty();

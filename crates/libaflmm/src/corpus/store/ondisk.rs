@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{InMemoryCorpusMap, Store};
 use crate::{
-    corpus::{Testcase, TestcaseFilenameFormat, store::StorageResult, testcase::{TestcaseFilename, TestcaseId}},
+    corpus::{Testcase, TestcaseFilenameFormat, store::StorageResult, testcase::TestcaseId},
     inputs::Input,
 };
 
@@ -23,12 +23,11 @@ use crate::{
 /// In other words, multiple [`OnDiskStore`]s should not be instantiated concurrently with
 /// the same root directory.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct OnDiskStore<I, M, S, TF> {
-    root_dir: PathBuf,
-    testcase_format: TF,
+pub struct OnDiskStore<I, M> {
+    filename_format: TestcaseFilenameFormat,
+    disk_mgr: Rc<DiskMgr<I>>,
     enabled_map: M,
     disabled_map: M,
-    phantom: PhantomData<(I, S)>,
 }
 
 /// A builder for [`OnDiskStore`]
@@ -38,14 +37,46 @@ pub struct OnDiskStoreBuilder {
     pub(crate) filename_format: TestcaseFilenameFormat,
 }
 
-impl<I, M, S, TF> OnDiskStore<I, M, S, TF>
-where
-    TF: TestcaseFilename<I, S>,
-{
-    /// Instantiate an [`OnDiskStoreBuilder`].
-    #[must_use]
-    pub fn builder() -> OnDiskStoreBuilder {
-        OnDiskStoreBuilder::default()
+/// A Disk Manager, able to load and store [`Testcase`]s
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DiskMgr<I> {
+    root_dir: PathBuf,
+    file_fmt: TestcaseFilenameFormat,
+    phantom: PhantomData<I>,
+}
+
+impl<I> DiskMgr<I> {
+    /// Create a new [`DiskMgr`]
+    pub fn new(root_dir: impl AsRef<Path>) -> Result<Self> {
+        Self::new_with_format(root_dir, TestcaseFilenameFormat::default())
+    }
+
+    /// Create a new [`DiskMgr`]
+    pub fn new_with_format(
+        root_dir: impl AsRef<Path>,
+        file_fmt: TestcaseFilenameFormat,
+    ) -> Result<Self> {
+        let dir = root_dir.as_ref();
+
+        if !dir.is_dir() {
+            return Err(illegal_argument!(
+                "On-disk root directory is not a directory: {}",
+                dir.display()
+            ));
+        }
+
+        if !dir.exists() {
+            return Err(illegal_argument!(
+                "Corpus on-disk directory does not exist: {}",
+                dir.display()
+            ));
+        }
+
+        Ok(Self {
+            root_dir: dir.to_path_buf(),
+            file_fmt,
+            phantom: PhantomData,
+        })
     }
 
     /// Get the root path of the disk manager.
@@ -55,10 +86,14 @@ where
     }
 
     fn testcase_path(&self, id: TestcaseId) -> PathBuf {
-        let testcase_name = self.
         self.root_dir.join(self.file_fmt.to_filename(&id))
     }
+}
 
+impl<I> DiskMgr<I>
+where
+    I: Input,
+{
     /// Save the input and the metadata on disk
     pub fn save_testcase(&self, testcase: &Testcase<I>) -> Result<TestcaseId> {
         let testcase_id = *testcase.id();
@@ -103,22 +138,7 @@ where
     M: Default,
 {
     /// Create a new [`OnDiskStore`]
-    pub fn new(root: impl AsRef<Path>, testcase_format: TF) -> Result<Self> {
-        let dir = root.as_ref();
-
-        if !dir.is_dir() {
-            return Err(illegal_argument!(
-                "On-disk root directory is not a directory: {}",
-                dir.display()
-            ));
-        }
-
-        if !dir.exists() {
-            return Err(illegal_argument!(
-                "Corpus on-disk directory does not exist: {}",
-                dir.display()
-            ));
-        }
+    pub fn new(root: impl AsRef<Path>, filename_format: TestcaseFilenameFormat) -> Result<Self> {
         let disk_mgr = Rc::new(DiskMgr::new(root)?);
 
         Ok(Self {

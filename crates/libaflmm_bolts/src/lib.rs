@@ -94,6 +94,9 @@ pub use ownedref::{
     OwnedPtr, OwnedRef, OwnedRefMut, OwnedSlice, UnsafeMarker, subrange,
 };
 
+pub mod connection;
+pub use connection::Connection;
+
 pub use ctor;
 
 /// Unwrap a type (most likely an [`Option`]),

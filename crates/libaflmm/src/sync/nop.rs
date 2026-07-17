@@ -1,61 +1,74 @@
+use libaflmm_core::WorkerId;
+use serde::{Deserialize, Serialize};
+
 use crate::{
     Result,
     controllers::Worker,
+    corpus::{Testcase, TestcaseId},
     inputs::Input,
-    sync::{Orchestrator, Synchronizer},
+    sync::{GroupId, Orchestrator, Router, Synchronizer},
 };
-use std::path::PathBuf;
 
-pub struct NopInputRepr(PathBuf);
+#[derive(Debug, Default, Serialize, Deserialize, Clone, Copy)]
+pub struct NopInputRepr;
 
+#[derive(Debug, Default)]
 pub struct NopSynchronizer;
 
-pub struct StdOrchestrator;
+#[derive(Debug, Default)]
+pub struct NopTransporter;
 
-impl<I> InputRepr<I> for NopInputRepr
-where
-    I: Input,
-{
-    fn load_input(&self) -> Result<I> {
-        I::from_file(&self.0)
+#[derive(Debug, Default)]
+pub struct NopRouter;
+
+#[derive(Debug, Default)]
+pub struct NopOrchestrator {
+    router: NopRouter,
+    transporter: NopTransporter,
+}
+
+impl<I, W> Orchestrator<I, W> for NopOrchestrator {
+    type Router = NopRouter;
+    type Transporter = NopTransporter;
+
+    fn router(&self) -> &Self::Router {
+        &self.router
+    }
+
+    fn router_mut(&mut self) -> &mut Self::Router {
+        &mut self.router
+    }
+
+    fn transporter(&self) -> &Self::Transporter {
+        &self.transporter
+    }
+
+    fn transporter_mut(&mut self) -> &mut Self::Transporter {
+        &mut self.transporter
     }
 }
 
-impl<I, W> Orchestrator<I, W> for StdOrchestrator
+impl<I> Synchronizer<I> for NopSynchronizer
 where
     I: Input,
-    W: Worker,
-{
-    type Synchronizer = NopSynchronizer;
-}
-
-impl<I, W> Synchronizer<I, W> for NopSynchronizer
-where
-    I: Input,
-    W: Worker,
 {
     type InputRepr = NopInputRepr;
 
-    fn report_input(
-        &mut self,
-        _desc: &mut W::Descriptor,
-        _input_repr: Self::InputRepr,
-    ) -> Result<()> {
+    fn export(&mut self, testcase: &Testcase<I>) -> Result<Option<Self::InputRepr>> {
+        Ok(None)
+    }
+
+    fn import(&mut self, source: GroupId, id: TestcaseId, repr: Self::InputRepr) -> Result<()> {
         Ok(())
     }
 
-    fn sync_input(
-        &mut self,
-        _desc: &mut W::Descriptor,
-    ) -> Result<impl Iterator<Item = Self::InputRepr>> {
+    fn drain(&mut self) -> Result<impl Iterator<Item = Testcase<I>>> {
         Ok([].into_iter())
     }
+}
 
-    fn on_create(&mut self) -> Result<()> {
-        Ok(())
-    }
+impl<D> Router<D> for NopRouter {
+    type GroupConfig = ();
 
-    fn on_new_worker(&mut self, _desc: &<W as Worker>::Descriptor) -> Result<()> {
-        Ok(())
-    }
+    fn destinations(&self, worker: WorkerId) -> impl Iterator<Item = WorkerId> {}
 }

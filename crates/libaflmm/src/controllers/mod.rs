@@ -2,12 +2,13 @@
 
 use crate::{
     Result,
+    corpus::Testcase,
     launchers::InstanceId,
     states::{Stats, sync_stats},
     sync::GroupId,
 };
 use core::time::Duration;
-use libaflmm_bolts::CoreId;
+use libaflmm_bolts::{CoreId, Cores};
 use libaflmm_core::{Error, WorkerId, internal_bug};
 use nix::sys::signal::Signal;
 use quanta::{Clock, Instant};
@@ -28,8 +29,8 @@ pub use standard::{
     StdWorkerRepr,
 };
 
-// pub mod nop;
-// pub use nop::{NopController, NopDescriptor, NopWorker};
+pub mod nop;
+pub use nop::{NopController, NopDescriptor, NopWorker};
 
 // how is that?
 pub trait Exchange {
@@ -44,12 +45,19 @@ pub trait Exchange {
 pub trait Controller {
     /// The associated [`Worker`].
     type Worker: Worker;
-    /// The commands for the [`Worker`]s.
-    type Command: Clone + Serialize + DeserializeOwned;
+    /// Describes how a group should be configured
+    type GroupConfig;
 
-    /// Create a new [`Self::Worker`].
-    /// The controller must keep track of the worker if necessary.
-    fn create_worker(&mut self, core_id: Option<CoreId>) -> Result<Self::Worker>;
+    /// Register groups, giving back the descriptors of the workers created from the group.
+    fn register_group(&mut self, config: Self::GroupConfig, cores: &Cores) -> Result<GroupId>;
+
+    /// Called after every group have been registered.
+    /// It will resolve the final group configuration and create the workers as a result, for each group ID.
+    fn finalize_orchestration(&mut self) -> Result<()>;
+
+    /// Take the workers for a given group ID.
+    /// This will only work once `finalize_orchestration` has been called.
+    fn take_group_workers(&mut self, group: GroupId) -> Result<impl Iterator<Item = Self::Worker>>;
 
     /// Get an iterator over all [`Self::Worker`] descriptors.
     fn worker_descriptors(&self)
@@ -91,14 +99,11 @@ pub trait Controller {
     }
 
     /// Send a command to a given [`Worker`].
-    fn send_command(&mut self, _command: Self::Command, _worker_id: WorkerId) -> Result<()>;
-
-    /// Send a command to every [`Worker`].
-    fn send_command_all(&mut self, _command: Self::Command) -> Result<()>;
-
-    /// Send a command to every [`Worker`] except the given one.
-    fn send_command_all_but(&mut self, _command: Self::Command, _worker_id: WorkerId)
-    -> Result<()>;
+    fn send_command(
+        &mut self,
+        command: <Self::Worker as Worker>::Command,
+        _worker_id: WorkerId,
+    ) -> Result<()>;
 
     /// Wait for events sent by the [`Worker`]s.
     /// The function returns after a notification is received or the given timeout value has elapsed.
@@ -108,10 +113,10 @@ pub trait Controller {
 /// A worker is a representant of a fuzzing instance.
 /// It is linked to a [`Controller`], which holds a reference to all workers.
 pub trait Worker {
-    /// The associated [`Controller`].
-    type Controller: Controller<Worker = Self>;
     /// The associated [`Descriptor`].
     type Descriptor: Descriptor;
+    /// The commands being sent over the wire
+    type Command: Clone + Serialize + DeserializeOwned;
     /// Notifications for the [`Controller`]
     type Notification: Serialize + DeserializeOwned;
 
@@ -150,12 +155,27 @@ pub trait Worker {
     }
 
     /// Send a notification to the [`Controller`]
-    fn send_notification(&mut self, _notification: Self::Notification) -> Result<()>;
+    fn send_notification(&mut self, notification: Self::Notification) -> Result<()>;
 
-    /// Polls the list of commands received since the last call.
-    fn poll_commands(
+    /// Polls any command received since the last call.
+    fn poll_commands(&mut self) -> Result<impl Iterator<Item = Self::Command>> {
+        self.poll_commands_filtered(|_| true)
+    }
+
+    /// Polls the list of commands received since the last call according to the filter.
+    fn poll_commands_filtered(
         &mut self,
-    ) -> Result<impl Iterator<Item = <Self::Controller as Controller>::Command>>;
+        filter: impl FnMut(&Self::Command) -> bool,
+    ) -> Result<impl Iterator<Item = Self::Command>>;
+}
+
+pub trait SyncWorker<I>: Worker {
+    /// Report a [`Testcase`] that should be shared according to the [`Router`] policy.
+    fn report_testcase(&mut self, testcase: &Testcase<I>) -> Result<()>;
+
+    /// Fetch inputs that should be evaluated.
+    /// Pending inputs are returned and guaranteed to be removed from the worker buffer.
+    fn sync_pending_inputs(&mut self) -> Result<impl Iterator<Item = Testcase<I>>>;
 }
 
 /// A descriptor describes a [`Worker`].

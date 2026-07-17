@@ -1,77 +1,143 @@
 use crate::{
     controllers::{
-        Controller, Descriptor, StdDescriptor, StdWorker, StdWorkerRepr, WorkdirFile,
+        Controller, Descriptor, StdDescriptor, StdWorker, StdWorkerRepr, WorkdirFile, Worker,
         standard::builder::StdControllerBuilder,
     },
+    corpus::TestcaseId,
     launchers::InstanceId,
-    sync::Synchronizer,
+    sync::{GroupId, Orchestrator, Router, StdOrchestrator, Transporter},
 };
-use libaflmm_bolts::CoreId;
+use libaflmm_bolts::{CoreId, Cores};
 use libaflmm_core::{Result, WorkerId, illegal_argument, internal_bug};
 use serde::{Deserialize, Serialize};
-use std::{fs, marker::PhantomData, path::PathBuf};
+use std::{
+    collections::{HashMap, HashSet, hash_map::Entry},
+    fs,
+    marker::PhantomData,
+    mem,
+    path::PathBuf,
+};
+
+// get the synchronizer type out of a pair of <Input, Orchestrator>
+type SyncOf<I, O> = <<O as Orchestrator<StdDescriptor, I>>::Transporter as Transporter<
+    StdDescriptor,
+    I,
+>>::Synchronizer;
 
 /// The standard controller.
 #[derive(Debug)]
-pub struct StdController<I, O> {
+pub struct StdController<I, O>
+where
+    O: Orchestrator<StdDescriptor, I>,
+{
     orchestrator: O,
     root_dir: PathBuf,
-    id_ctr: u32,
-    workers: Vec<StdWorkerRepr>,
+    worker_id_ctr: u32,
+    workers: HashMap<WorkerId, StdWorkerRepr>,
+    pending_workers: HashMap<GroupId, Vec<StdWorker<I, SyncOf<I, O>>>>,
+    pending_groups: HashMap<GroupId, Cores>,
     worker_stdout: Option<WorkdirFile>,
     worker_stderr: Option<WorkdirFile>,
     worker_stats: Option<WorkdirFile>,
     phantom: PhantomData<I>,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum StdCommand {
     Shutdown,
-    NewInput(PathBuf),
+    Import {
+        source: GroupId,
+        id: TestcaseId,
+        serialized: Vec<u8>,
+    },
 }
 
-impl<I, SY> Controller for StdController<I, SY>
+impl<I, O> Controller for StdController<I, O>
 where
-    SY: Synchronizer<I> + Default,
+    O: Orchestrator<StdDescriptor, I>,
 {
-    type Worker = StdWorker<I, SY>;
-    type Command = StdCommand;
+    type Worker = StdWorker<I, <O::Transporter as Transporter<StdDescriptor, I>>::Synchronizer>;
 
-    fn create_worker(&mut self, core_id: CoreId) -> Result<StdWorker<I, SY>> {
-        let worker_id = WorkerId(self.id_ctr);
-        self.id_ctr += 1;
+    fn register_group(&mut self, config: Self::GroupConfig, cores: &Cores) -> Result<GroupId> {
+        let group_id = self.orchestrator.router_mut().register_group(config)?;
+        self.pending_groups.insert(group_id, cores.clone());
+        Ok(group_id)
+    }
 
-        let worker_dir = self.root_dir.join(format!("worker_{}", worker_id.0));
+    fn finalize_orchestration(&mut self) -> Result<()> {
+        let mut used_cores: HashSet<CoreId> = HashSet::new();
+        let mut worker_desc: HashMap<WorkerId, StdDescriptor> = HashMap::new();
 
-        if worker_dir.exists() {
-            return Err(internal_bug!(
-                "The worker dir \"{}\" already exists.",
-                worker_dir.display()
-            ));
+        for (group_id, cores) in mem::take(&mut self.pending_groups) {
+            for core_id in &cores {
+                if let Some(c) = core_id {
+                    if !used_cores.insert(c) {
+                        return Err(illegal_argument!(
+                            "core {c:?} is getting pinned on by multiple workers. Use unpinned cores instead."
+                        ));
+                    }
+                }
+
+                let worker_id = WorkerId(self.worker_id_ctr);
+                self.worker_id_ctr += 1;
+
+                let desc = self.new_descriptor(worker_id, group_id, core_id)?;
+                self.orchestrator.router_mut().register_worker(&desc)?;
+
+                worker_desc.insert(worker_id, desc);
+            }
         }
 
-        fs::create_dir(worker_dir.as_path())?;
+        self.orchestrator.router_mut().finalize()?;
 
-        let descriptor = StdDescriptor::new(
-            worker_dir,
-            self.worker_stdout.clone(),
-            self.worker_stderr.clone(),
-            self.worker_stats.clone(),
-            worker_id,
-            core_id,
-        )?;
+        for (wid, desc) in worker_desc.iter() {
+            let wid = desc.worker_id();
 
-        let cl = StdWorker::new(descriptor.clone());
-        self.workers.push(StdWorkerRepr::new(descriptor));
-        Ok(cl)
+            let source_wids: Vec<WorkerId> = self.orchestrator.router().sources(wid).collect();
+
+            let sources: Vec<&StdDescriptor> = source_wids
+                .into_iter()
+                .map(|src_wid| worker_desc.get(&src_wid).unwrap())
+                .collect();
+
+            let synchronizer = self
+                .orchestrator
+                .transporter_mut()
+                .create_synchronizer(desc, sources.iter())?;
+
+            let should_report = self.orchestrator.router().has_destinations(wid);
+
+            let (worker, worker_repr) = StdWorker::new(desc.clone(), synchronizer, should_report)?;
+
+            match self.pending_workers.entry(desc.group_id()) {
+                Entry::Occupied(entry) => entry.get_mut().push(worker),
+                Entry::Vacant(entry) => {
+                    entry.insert(vec![worker]);
+                }
+            }
+
+            self.workers.insert(wid, worker_repr);
+        }
+
+        Ok(())
+    }
+
+    fn take_group_workers(&mut self, group: GroupId) -> Result<impl Iterator<Item = Self::Worker>> {
+        Ok(self
+            .pending_workers
+            .remove(&group)
+            .ok_or(illegal_argument!(
+                "The group ID {group:?} has not been registered"
+            ))?
+            .into_iter())
     }
 
     fn worker_descriptors(&self) -> impl IntoIterator<Item = &StdDescriptor> {
-        self.workers.iter().map(|repr| repr.descriptor())
+        self.workers.values().map(|repr| repr.descriptor())
     }
 
     fn worker_descriptors_mut(&mut self) -> impl IntoIterator<Item = &mut StdDescriptor> {
-        self.workers.iter_mut().map(|repr| repr.descriptor_mut())
+        self.workers.values_mut().map(|repr| repr.descriptor_mut())
     }
 
     fn on_worker_start(&mut self, descriptor: &StdDescriptor, _id: InstanceId) -> Result<()> {
@@ -88,20 +154,25 @@ where
         Ok(())
     }
 
-    fn send_command(&mut self, _command: Self::Command, _worker_id: WorkerId) -> Result<()> {
-        todo!()
-    }
+    fn send_command(&mut self, command: StdCommand, worker_id: WorkerId) -> Result<()> {
+        let repr = self
+            .workers
+            .get_mut(&worker_id)
+            .ok_or(illegal_argument!("Unknown worker ID"))?;
 
-    fn send_command_all(&mut self, _command: Self::Command) -> Result<()> {
-        todo!()
-    }
+        match &command {
+            StdCommand::Shutdown => repr.connection_mut().send_blocking(&command),
+            _ => {
+                if !repr.connection_mut().send(&command)? {
+                    log::warn!(
+                        "Could not send command asynchronously to worker {worker_id:?}. The socket must be full. Falling back to synchronous send..."
+                    );
+                    repr.connection_mut().send_blocking(&command)?;
+                }
 
-    fn send_command_all_but(
-        &mut self,
-        _command: Self::Command,
-        _worker_id: WorkerId,
-    ) -> Result<()> {
-        todo!()
+                Ok(())
+            }
+        }
     }
 
     fn wait_notifications(&mut self, _timeout: Option<std::time::Duration>) -> Result<()> {
@@ -109,10 +180,46 @@ where
     }
 }
 
-impl<I, SY> StdController<I, SY> {
+impl<I, O> StdController<I, O>
+where
+    O: Orchestrator<StdDescriptor, I>,
+{
+    fn new_descriptor(
+        &self,
+        worker_id: WorkerId,
+        group_id: GroupId,
+        core_id: Option<CoreId>,
+    ) -> Result<StdDescriptor> {
+        let worker_dir = self.root_dir.join(format!("worker_{}", worker_id.0));
+
+        if worker_dir.exists() {
+            return Err(internal_bug!(
+                "The worker dir \"{}\" already exists.",
+                worker_dir.display()
+            ));
+        }
+
+        fs::create_dir(worker_dir.as_path())?;
+
+        StdDescriptor::new(
+            worker_dir,
+            self.worker_stdout.clone(),
+            self.worker_stderr.clone(),
+            self.worker_stats.clone(),
+            worker_id,
+            core_id,
+        )
+    }
+}
+
+impl<I, O> StdController<I, O>
+where
+    O: Orchestrator<StdDescriptor, I>,
+{
     /// Create a new [`StdGlobalController`] and will use `root_dir` as the root directory.
     /// If overwrite is true, the `root_dir` will be removed before being created again.
     pub fn new(
+        orchestrator: O,
         root_dir: PathBuf,
         worker_stdout: Option<WorkdirFile>,
         worker_stderr: Option<WorkdirFile>,
@@ -133,6 +240,7 @@ impl<I, SY> StdController<I, SY> {
         fs::create_dir(root_dir.as_path())?;
 
         Ok(Self {
+            orchestrator,
             root_dir,
             worker_stdout,
             worker_stderr,
@@ -145,7 +253,7 @@ impl<I, SY> StdController<I, SY> {
 
     /// Get a [`StdControllerBuilder`], to build a [`StdController`].
     #[must_use]
-    pub fn builder() -> StdControllerBuilder {
+    pub fn builder() -> StdControllerBuilder<StdOrchestrator> {
         StdControllerBuilder::default()
     }
 }

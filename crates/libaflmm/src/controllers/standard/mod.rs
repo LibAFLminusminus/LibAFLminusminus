@@ -1,7 +1,7 @@
 use crate::Result;
 use crate::controllers::{Descriptor, Workdir, WorkdirFile};
 use crate::sync::GroupId;
-use libaflmm_bolts::CoreId;
+use libaflmm_bolts::{Connection, CoreId};
 use libaflmm_core::WorkerId;
 use std::path::Path;
 
@@ -13,6 +13,12 @@ pub use controller::{StdCommand, StdController};
 
 pub mod worker;
 pub use worker::{StdNotification, StdWorker, StdWorkerRepr};
+
+/// controller receives notifs and sends commands to workers
+pub type StdControllerConnection = Connection<StdNotification, StdCommand>;
+
+/// worker receives commands and sends notifs to controller
+pub type StdWorkerConnection = Connection<StdCommand, StdNotification>;
 
 /// A Std descriptor for a [`StdWorker`].
 #[derive(Debug, Clone)]
