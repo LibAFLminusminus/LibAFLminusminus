@@ -63,12 +63,17 @@ impl Drop for ForkserverChannel {
             );
             let _ = kill(forkserver_pid, Signal::SIGKILL);
         } else if let Err(err) = waitpid(forkserver_pid, None) {
-            log::warn!(
-                "Waitpid on forkserver {} failed: {err} ({})",
-                forkserver_pid,
-                io::Error::last_os_error()
-            );
-            let _ = kill(forkserver_pid, Signal::SIGKILL);
+            self.ctl_pipe.close_write_end();
+            self.st_pipe.close_read_end();
+
+            if let Err(err) = waitpid(forkserver_pid, None) {
+                log::warn!(
+                    "Waitpid on forkserver {} failed: {err} ({})",
+                    forkserver_pid,
+                    io::Error::last_os_error()
+                );
+                let _ = kill(forkserver_pid, Signal::SIGKILL);
+            }
         }
     }
 }
