@@ -151,7 +151,7 @@ where
         descriptor: &StdDescriptor,
         _termination_code: nix::sys::signal::Signal,
     ) -> Result<()> {
-        log::info!("Started worker {:?}", descriptor.worker_id);
+        log::info!("Terminated worker {:?}", descriptor.worker_id);
         Ok(())
     }
 
