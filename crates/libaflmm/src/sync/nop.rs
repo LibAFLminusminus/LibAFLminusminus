@@ -3,10 +3,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     Result,
-    controllers::Worker,
     corpus::{Testcase, TestcaseId},
     inputs::Input,
-    sync::{GroupId, Orchestrator, Router, Synchronizer},
+    sync::{GroupId, Orchestrator, Router},
 };
 
 #[derive(Debug, Default, Serialize, Deserialize, Clone, Copy)]

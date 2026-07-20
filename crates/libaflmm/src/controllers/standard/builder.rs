@@ -7,7 +7,7 @@ use std::path::PathBuf;
 
 pub struct ControllerBuilder;
 
-/// Builder for the [`SimpleController`].
+/// Builder for the [`StdController`].
 #[derive(Debug)]
 pub struct StdControllerBuilder<O> {
     orchestrator: O,
@@ -22,7 +22,7 @@ impl Default for StdControllerBuilder<StdOrchestrator> {
     fn default() -> Self {
         Self {
             orchestrator: StdOrchestrator::default(),
-            overwrite: false,
+            overwrite: true,
             root_dir: PathBuf::from("./workdir"),
             worker_stdout: WorkdirFile::Stdout,
             worker_stderr: WorkdirFile::Stderr,

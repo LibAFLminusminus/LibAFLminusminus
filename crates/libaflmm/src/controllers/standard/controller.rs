@@ -1,11 +1,11 @@
 use crate::{
     controllers::{
-        Controller, Descriptor, StdDescriptor, StdWorker, StdWorkerRepr, WorkdirFile, Worker,
-        standard::builder::StdControllerBuilder,
+        Controller, Descriptor, StdCommand, StdDescriptor, StdNotification, StdWorker,
+        StdWorkerRepr, WorkdirFile, Worker, standard::builder::StdControllerBuilder,
     },
     corpus::TestcaseId,
     launchers::InstanceId,
-    sync::{GroupId, Orchestrator, Router, StdOrchestrator, Transporter},
+    sync::{GroupId, Orchestrator, Router, StdOrchestrator, Transport, Transporter},
 };
 use libaflmm_bolts::{CoreId, Cores};
 use libaflmm_core::{Result, WorkerId, illegal_argument, internal_bug};
@@ -19,10 +19,15 @@ use std::{
 };
 
 // get the synchronizer type out of a pair of <Input, Orchestrator>
-type SyncOf<I, O> = <<O as Orchestrator<StdDescriptor, I>>::Transporter as Transporter<
+type TransportOf<I, O> = <O as Orchestrator<StdDescriptor, I>>::Transport;
+type InputExchangerOf<I, O> = <<TransportOf<I, O> as Transport>::InputExchanger;
+type InputOf<I, O> = <<TransportOf<I, O> as Transport>::InputExchanger;
+type ControllerSyncOf<I, IH, O> = <TransportOf<I, O> as Transport<
+    StdCommand<IH>,
     StdDescriptor,
     I,
->>::Synchronizer;
+    StdNotification<IH>,
+>>::ControllerSync;
 
 /// The standard controller.
 #[derive(Debug)]
@@ -33,6 +38,7 @@ where
     orchestrator: O,
     root_dir: PathBuf,
     worker_id_ctr: u32,
+    sync: ControllerSyncOf<I, O>,
     workers: HashMap<WorkerId, StdWorkerRepr>,
     pending_workers: HashMap<GroupId, Vec<StdWorker<I, SyncOf<I, O>>>>,
     pending_groups: HashMap<GroupId, Cores>,
@@ -40,16 +46,6 @@ where
     worker_stderr: WorkdirFile,
     worker_stats: WorkdirFile,
     phantom: PhantomData<I>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum StdCommand {
-    Shutdown,
-    Import {
-        source: GroupId,
-        id: TestcaseId,
-        serialized: Vec<u8>,
-    },
 }
 
 impl<I, O> Controller for StdController<I, O>
@@ -69,7 +65,7 @@ where
         let mut used_cores: HashSet<CoreId> = HashSet::new();
         let mut worker_desc: HashMap<WorkerId, StdDescriptor> = HashMap::new();
 
-        for (group_id, cores) in mem::take(&mut self.pending_groups) {
+        for (_, cores) in &self.pending_groups {
             for core_id in &cores {
                 if let Some(c) = core_id {
                     if !used_cores.insert(c) {
@@ -78,7 +74,11 @@ where
                         ));
                     }
                 }
+            }
+        }
 
+        for (group_id, cores) in mem::take(&mut self.pending_groups) {
+            for core_id in &cores {
                 let worker_id = WorkerId(self.worker_id_ctr);
                 self.worker_id_ctr += 1;
 

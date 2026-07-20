@@ -32,12 +32,6 @@ pub use standard::{
 pub mod nop;
 pub use nop::{NopController, NopDescriptor, NopWorker};
 
-// how is that?
-pub trait Exchange {
-    type Command;
-    type Notification;
-}
-
 /// A controller is the glue between multiple [`Worker`]s.
 ///
 /// It is reponsible for creating and configurating workers.
@@ -115,10 +109,10 @@ pub trait Controller {
 pub trait Worker {
     /// The associated [`Descriptor`].
     type Descriptor: Descriptor;
-    /// The commands being sent over the wire
-    type Command: Clone + Serialize + DeserializeOwned;
-    /// Notifications for the [`Controller`]
-    type Notification: Serialize + DeserializeOwned;
+    // /// The commands being sent over the wire
+    // type Command: Clone + Serialize + DeserializeOwned;
+    // /// Notifications for the [`Controller`]
+    // type Notification: Serialize + DeserializeOwned;
 
     /// Returns the reference to the descriptor of the worker.
     fn descriptor(&self) -> &Self::Descriptor;
@@ -154,28 +148,30 @@ pub trait Worker {
         Ok(())
     }
 
-    /// Send a notification to the [`Controller`]
-    fn send_notification(&mut self, notification: Self::Notification) -> Result<()>;
+    // /// Send a notification to the [`Controller`]
+    // fn send_notification(&mut self, notification: Self::Notification) -> Result<()>;
 
-    /// Polls any command received since the last call.
-    fn poll_commands(&mut self) -> Result<impl Iterator<Item = Self::Command>> {
-        self.poll_commands_filtered(|_| true)
-    }
+    // /// Polls any command received since the last call.
+    // fn poll_commands(&mut self) -> Result<impl Iterator<Item = Self::Command>> {
+    //     self.poll_commands_filtered(|_| true)
+    // }
 
-    /// Polls the list of commands received since the last call according to the filter.
-    fn poll_commands_filtered(
-        &mut self,
-        filter: impl FnMut(&Self::Command) -> bool,
-    ) -> Result<impl Iterator<Item = Self::Command>>;
+    // /// Polls the list of commands received since the last call according to the filter.
+    // fn poll_commands_filtered(
+    //     &mut self,
+    //     filter: impl FnMut(&Self::Command) -> bool,
+    // ) -> Result<impl Iterator<Item = Self::Command>>;
 }
 
 pub trait SyncWorker<I>: Worker {
     /// Report a [`Testcase`] that should be shared according to the [`Router`] policy.
-    fn report_testcase(&mut self, testcase: &Testcase<I>) -> Result<()>;
+    fn send_testcase(&mut self, testcase: &Testcase<I>) -> Result<()>;
 
-    /// Fetch inputs that should be evaluated.
+    /// Poll for inputs that should be evaluated.
+    /// All the pending testcases are returned as an iterator.
+    ///
     /// Pending inputs are returned and guaranteed to be removed from the worker buffer.
-    fn sync_pending_inputs(&mut self) -> Result<impl Iterator<Item = Testcase<I>>>;
+    fn recv_testcases(&mut self) -> Result<impl Iterator<Item = Testcase<I>>>;
 }
 
 /// A descriptor describes a [`Worker`].

@@ -212,7 +212,7 @@ impl SimpleWorker {
 impl Default for SimpleControllerBuilder {
     fn default() -> Self {
         Self {
-            overwrite: false,
+            overwrite: tru,
             root_dir: PathBuf::from("./workdir"),
             worker_stdout: WorkdirFile::Stdout,
             worker_stderr: WorkdirFile::Stderr,

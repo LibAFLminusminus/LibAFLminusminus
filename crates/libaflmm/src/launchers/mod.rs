@@ -4,7 +4,7 @@
 use crate::{
     Error, Result,
     controllers::{Controller, StdController, StdDescriptor, StdWorker, Worker},
-    launchers::groups::{ConfiguredGroupTuple, GroupTuple},
+    launchers::groups::{GroupTuple, RegisteredGroupTuple},
     monitors::{Monitor, SimpleMonitor, StdMonitor},
     sync::{StdOrchestrator, StdSynchronizer},
 };

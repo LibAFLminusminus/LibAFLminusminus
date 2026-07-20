@@ -37,13 +37,13 @@ pub trait GroupTuple<CT>
 where
     CT: Controller,
 {
-    type Configured: ConfiguredGroupTuple<CT>;
+    type Configured: RegisteredGroupTuple<CT>;
 
     /// Register all groups in the tuple
     fn register_all(self, controller: &mut CT) -> Result<Self::Configured>;
 }
 
-pub trait ConfiguredGroupTuple<CT>
+pub trait RegisteredGroupTuple<CT>
 where
     CT: Controller,
 {
@@ -257,7 +257,7 @@ impl<RT, S, SB> StdGroup<RT, S, SB> {
     }
 }
 
-impl<CT> ConfiguredGroupTuple<CT> for ()
+impl<CT> RegisteredGroupTuple<CT> for ()
 where
     CT: Controller,
 {
@@ -281,11 +281,11 @@ where
     }
 }
 
-impl<CT, Head, Tail> ConfiguredGroupTuple<CT> for (ConfiguredGroup<Head>, Tail)
+impl<CT, Head, Tail> RegisteredGroupTuple<CT> for (ConfiguredGroup<Head>, Tail)
 where
     CT: Controller,
     Head: Group<CT::Worker>,
-    Tail: ConfiguredGroupTuple<CT>,
+    Tail: RegisteredGroupTuple<CT>,
 {
     fn instantiate_all(
         self,

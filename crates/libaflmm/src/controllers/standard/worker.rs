@@ -1,24 +1,24 @@
 use crate::{
     controllers::{
-        StdCommand, StdDescriptor, SyncWorker, Workdir, Worker,
+        StdCommand, StdDescriptor, StdNotification, SyncWorker, Workdir, Worker,
         standard::{StdControllerConnection, StdWorkerConnection},
     },
     corpus::{Testcase, TestcaseId},
-    sync::Synchronizer,
+    inputs::Input,
+    sync::{InputExchanger, Synchronizer, Transport, WorkerSync},
 };
-use libaflmm_core::{Result, WorkerId};
+use libaflmm_core::{Result, WorkerId, illegal_argument};
 use nix::unistd::{dup2_stderr, dup2_stdout};
-use serde::{Deserialize, Serialize};
-use std::{collections::HashSet, marker::PhantomData};
+use std::{collections::HashSet, marker::PhantomData, rc::Rc};
 
 /// The standard [`Worker`].
 #[derive(Debug)]
-pub struct StdWorker<I, SY> {
+pub struct StdWorker<I, IE, WS> {
     descriptor: StdDescriptor,
-    synchronizer: SY,
-    connection: StdWorkerConnection,
+    input_exchanger: IE,
+    sync: WS,
     imported_testcases: HashSet<TestcaseId>,
-    pending_commands: Vec<StdCommand>,
+    pending_commands: Vec<StdCommand<IH>>,
     pending_imports: Vec<Testcase<I>>,
     should_report: bool,
     phantom: PhantomData<I>,
@@ -26,22 +26,14 @@ pub struct StdWorker<I, SY> {
 
 /// A representation of a [`StdWorker`], to be used by [`StdController`].
 #[derive(Debug)]
-pub struct StdWorkerRepr {
+pub struct StdWorkerRepr<CS> {
     descriptor: StdDescriptor,
-    connection: StdControllerConnection,
+    sync: CS,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum StdNotification {
-    NewTestcase { id: TestcaseId, serialized: Vec<u8> },
-}
-
-impl StdWorkerRepr {
-    pub fn new(descriptor: StdDescriptor, connection: StdControllerConnection) -> Self {
-        Self {
-            descriptor,
-            connection,
-        }
+impl<CS> StdWorkerRepr<CS> {
+    pub fn new(descriptor: StdDescriptor, sync: CS) -> Self {
+        Self { descriptor, sync }
     }
 
     pub fn descriptor(&self) -> &StdDescriptor {
@@ -52,23 +44,17 @@ impl StdWorkerRepr {
         &mut self.descriptor
     }
 
-    pub fn connection(&self) -> &StdControllerConnection {
-        &self.connection
+    pub fn sync(&self) -> &CS {
+        &self.sync
     }
 
-    pub fn connection_mut(&mut self) -> &mut StdControllerConnection {
-        &mut self.connection
+    pub fn sync_mut(&mut self) -> &mut CS {
+        &mut self.sync
     }
 }
 
-impl<I, SY> Worker for StdWorker<I, SY>
-where
-    SY: Synchronizer<I>,
-{
+impl<I, IE, WS> Worker for StdWorker<I, IE, WS> {
     type Descriptor = StdDescriptor;
-
-    type Command = StdCommand;
-    type Notification = StdNotification;
 
     fn id(&self) -> WorkerId {
         self.descriptor.worker_id
@@ -102,77 +88,100 @@ where
         Ok(())
     }
 
-    fn poll_commands_filtered(
-        &mut self,
-        mut filter: impl FnMut(&Self::Command) -> bool,
-    ) -> Result<impl Iterator<Item = Self::Command>> {
-        // collect pending commands
-        self.pending_commands.extend(self.connection.poll()?);
+    // fn poll_commands_filtered(
+    //     &mut self,
+    //     mut filter: impl FnMut(&Self::Command) -> bool,
+    // ) -> Result<impl Iterator<Item = Self::Command>> {
+    //     // collect pending commands
+    //     self.pending_commands.extend(self.connection.poll()?);
 
-        Ok(self.pending_commands.extract_if(.., move |elt| filter(elt)))
-    }
+    //     Ok(self.pending_commands.extract_if(.., move |elt| filter(elt)))
+    // }
 
-    fn send_notification(&mut self, notification: Self::Notification) -> Result<()> {
-        if !self.connection.send(&notification)? {
-            log::warn!(
-                "Notification could not be sent, most likely because there is some congestion. Falling back to blocking send..."
-            );
-            self.connection.send_blocking(&notification)?;
-        }
+    // fn send_notification(&mut self, notification: Self::Notification) -> Result<()> {
+    //     if !self.connection.send(&notification)? {
+    //         log::warn!(
+    //             "Notification could not be sent, most likely because there is some congestion. Falling back to blocking send..."
+    //         );
+    //         self.connection.send_blocking(&notification)?;
+    //     }
 
-        Ok(())
-    }
+    //     Ok(())
+    // }
 }
 
-impl<I, SY> SyncWorker<I> for StdWorker<I, SY>
+impl<I, IE, WS> SyncWorker<I> for StdWorker<I, IE, WS>
 where
-    SY: Synchronizer<I>,
+    I: Input,
+    IE: InputExchanger<I>,
+    WS: WorkerSync<StdNotification<IE::InputHandle>, I, StdCommand<IE::InputHandle>>,
 {
-    fn report_testcase(&mut self, testcase: &Testcase<I>) -> Result<()> {
+    fn send_testcase(&mut self, testcase: &Testcase<I>) -> Result<()> {
         // no destination to report to, skip
         if !self.should_report {
             return Ok(());
         }
 
-        if let Some(repr) = self.synchronizer.export(testcase)? {
-            let serialized = postcard::to_allocvec(&repr)?;
-            self.send_notification(StdNotification::NewTestcase {
-                id: *testcase.id(),
-                serialized,
-            })?;
+        // no need to send a testcase already imported.
+        if self.imported_testcases.contains(testcase.id()) {
+            return Ok(());
         }
 
-        Ok(())
+        let repr = self.input_exchanger.create_handle(&testcase.input())?;
+
+        self.sync.send(StdNotification::NewTestcase {
+            id: *testcase.id(),
+            repr,
+        })
     }
 
-    fn sync_pending_inputs(&mut self) -> Result<impl Iterator<Item = Testcase<I>>> {
-        let imports =
-            self.poll_commands_filtered(|cmd| matches!(cmd, StdCommand::Import { .. }))?;
+    fn recv_testcases(&mut self) -> Result<impl Iterator<Item = Testcase<I>>> {
+        self.pending_commands.extend(self.sync.poll()?);
 
-        // import inputs from the representatives
-        for import in imports {
-            match import {
-                StdCommand::Import {
-                    id,
-                    serialized,
-                    source,
-                } => {
-                    if self.imported_testcases.insert(id) {
-                        let repr = postcard::from_bytes(&serialized)?;
-                        self.synchronizer.import(source, id, repr)?;
+        for cmd in self
+            .pending_commands
+            .extract_if(.., |c| matches!(c, StdCommand::Import { .. }))
+        {
+            if let StdCommand::Import { id, handle, .. } = cmd {
+                if !self.imported_testcases.contains(&id) {
+                    let input = self.input_exchanger.handle_to_input(handle)?;
+                    let tc = Testcase::new(Rc::new(input));
+                    if *tc.id() != id {
+                        return Err(illegal_argument!(
+                            "imported ID does not match input content"
+                        ));
                     }
+                    self.imported_testcases.insert(id);
+                    self.pending_imports.push(tc);
                 }
-                _ => unreachable!(),
             }
         }
 
-        // drain all pending inputs buffered in the synchronizer
-        for tc in self.synchronizer.drain()? {
-            if self.imported_testcases.insert(*tc.id()) {
-                self.pending_imports.push(tc);
-            }
-        }
+        // // import inputs from the representatives
+        // for import in imports {
+        //     match import {
+        //         StdCommand::Import {
+        //             id,
+        //             serialized,
+        //             source,
+        //         } => {
+        //             if self.imported_testcases.insert(id) {
+        //                 let repr = postcard::from_bytes(&serialized)?;
+        //                 self.synchronizer.import(source, id, repr)?;
+        //             }
+        //         }
+        //         _ => unreachable!(),
+        //     }
+        // }
 
+        // // drain all pending inputs buffered in the synchronizer
+        // for tc in self.synchronizer.drain()? {
+        //     if self.imported_testcases.insert(*tc.id()) {
+        //         self.pending_imports.push(tc);
+        //     }
+        // }
+
+        // Ok(self.pending_imports.drain(..))
         Ok(self.pending_imports.drain(..))
     }
 }
