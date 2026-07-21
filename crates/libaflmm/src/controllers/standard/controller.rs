@@ -1,15 +1,16 @@
 use crate::{
     controllers::{
-        Controller, Descriptor, StdCommand, StdDescriptor, StdNotification, StdWorker,
-        StdWorkerRepr, WorkdirFile, Worker, standard::builder::StdControllerBuilder,
+        Controller, Descriptor, StdDescriptor, StdWorker, StdWorkerRepr, WorkdirFile, Worker,
+        standard::builder::StdControllerBuilder,
     },
-    corpus::TestcaseId,
     launchers::InstanceId,
-    sync::{GroupId, Orchestrator, Router, StdOrchestrator, Transport, Transporter},
+    sync::{
+        GroupId, InputRepr, Orchestrator, Router, StdOrchestrator, Transport,
+        exchanges::standard::{StdCommand, StdNotification},
+    },
 };
 use libaflmm_bolts::{CoreId, Cores};
 use libaflmm_core::{Result, WorkerId, illegal_argument, internal_bug};
-use serde::{Deserialize, Serialize};
 use std::{
     collections::{HashMap, HashSet, hash_map::Entry},
     fs,
@@ -20,14 +21,19 @@ use std::{
 
 // get the synchronizer type out of a pair of <Input, Orchestrator>
 type TransportOf<I, O> = <O as Orchestrator<StdDescriptor, I>>::Transport;
-type InputExchangerOf<I, O> = <<TransportOf<I, O> as Transport>::InputExchanger;
-type InputOf<I, O> = <<TransportOf<I, O> as Transport>::InputExchanger;
-type ControllerSyncOf<I, IH, O> = <TransportOf<I, O> as Transport<
-    StdCommand<IH>,
-    StdDescriptor,
+type InputReprOf<I, O> = <O as Orchestrator<StdDescriptor, I>>::InputRepr;
+type InputHandleOf<I, O> = <InputReprOf<I, O> as InputRepr<I>>::InputHandle;
+
+type ControllerSyncOf<I, O> = <TransportOf<I, O> as Transport<
+    StdCommand<InputHandleOf<I, O>>,
     I,
-    StdNotification<IH>,
+    StdNotification<InputHandleOf<I, O>>,
 >>::ControllerSync;
+type WorkerSyncOf<I, O> = <TransportOf<I, O> as Transport<
+    StdCommand<InputHandleOf<I, O>>,
+    I,
+    StdNotification<InputHandleOf<I, O>>,
+>>::WorkerSync;
 
 /// The standard controller.
 #[derive(Debug)]
@@ -37,23 +43,24 @@ where
 {
     orchestrator: O,
     root_dir: PathBuf,
-    worker_id_ctr: u32,
-    sync: ControllerSyncOf<I, O>,
-    workers: HashMap<WorkerId, StdWorkerRepr>,
-    pending_workers: HashMap<GroupId, Vec<StdWorker<I, SyncOf<I, O>>>>,
-    pending_groups: HashMap<GroupId, Cores>,
+    workers: HashMap<WorkerId, StdWorkerRepr<ControllerSyncOf<I, O>>>,
     worker_stdout: WorkdirFile,
     worker_stderr: WorkdirFile,
     worker_stats: WorkdirFile,
     phantom: PhantomData<I>,
+
+    worker_id_ctr: u32,
+    pending_workers: HashMap<GroupId, Vec<StdWorker<I, InputReprOf<I, O>, WorkerSyncOf<I, O>>>>,
+    pending_groups: HashMap<GroupId, Cores>,
 }
 
 impl<I, O> Controller for StdController<I, O>
 where
     O: Orchestrator<StdDescriptor, I>,
 {
-    type Worker = StdWorker<I, <O::Transporter as Transporter<StdDescriptor, I>>::Synchronizer>;
-    type GroupConfig = <O::Router as Router<StdDescriptor>>::GroupConfig;
+    type Worker = StdWorker<I, InputReprOf<I, O>, WorkerSyncOf<I, O>>;
+    type GroupConfig =
+        <O::Router as Router<StdCommand<InputHandleOf<I, O>>, StdDescriptor>>::GroupConfig;
 
     fn register_group(&mut self, config: Self::GroupConfig, cores: &Cores) -> Result<GroupId> {
         let group_id = self.orchestrator.router_mut().register_group(config)?;
@@ -66,7 +73,7 @@ where
         let mut worker_desc: HashMap<WorkerId, StdDescriptor> = HashMap::new();
 
         for (_, cores) in &self.pending_groups {
-            for core_id in &cores {
+            for core_id in cores {
                 if let Some(c) = core_id {
                     if !used_cores.insert(c) {
                         return Err(illegal_argument!(

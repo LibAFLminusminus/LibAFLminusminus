@@ -1,10 +1,13 @@
-use crate::{Result, inputs::Input};
+use crate::Result;
 use libaflmm_core::WorkerId;
 use serde::{Serialize, de::DeserializeOwned};
 use std::fmt::Debug;
 
+/// A way to get a representation of an input.
+/// Think of a file on the filesystem, which can be represented by its [`Path`].
 pub trait InputRepr<I> {
-    type InputHandle: Debug + Serialize + DeserializeOwned + Clone;
+    /// An input handle, that represents a given input.
+    type InputHandle: Serialize + DeserializeOwned + Clone;
 
     /// Create a fresh [`Self::InputHandle`] from a given `input`
     fn create_handle(&mut self, input: &I) -> Result<Self::InputHandle>;
@@ -27,21 +30,22 @@ pub trait ControllerSync<SD, RCV> {
     fn send(&mut self, worker: WorkerId, val: SD) -> Result<()>;
 
     /// Poll for RCV values from all the the [`WorkerSync`] attached to [`Self`].
-    fn poll(&mut self) -> Result<(RCV, WorkerId)>;
+    fn poll(&mut self) -> Result<impl Iterator<Item = (RCV, WorkerId)>>;
 }
 
 /// The transfer mechanism for commands and notifications
-pub trait Transport<CMD, D, I, NOTIF> {
+pub trait Transport<CMD, D, NOTIF> {
+    /// Controller side of the sync mechanism
     type ControllerSync: ControllerSync<CMD, NOTIF>;
+    /// Worker side of the sync mechanism
     type WorkerSync: WorkerSync<NOTIF, CMD>;
-    type InputRepr: InputRepr<I>;
 
     /// Create a new worker synchronizer for the worker using a given descriptor
     fn create_worker_sync<'a>(
         &mut self,
         descriptor: &'a D,
         sources: impl Iterator<Item = &'a D>,
-    ) -> Result<(Self::InputRepr, Self::WorkerSync)>;
+    ) -> Result<Self::WorkerSync>;
 
     /// Finalize the transport lifetime with the creation of the controller-side synchronizer
     fn create_controller_sync(self) -> Result<Self::ControllerSync>;
@@ -59,35 +63,28 @@ pub struct NopWorkerSync;
 #[derive(Debug, Default)]
 pub struct IdentityInputRepr;
 
-impl<I> InputRepr<I> for IdentityInputRepr
-where
-    I: Input,
-{
-    type InputHandle = I;
+impl<I> InputRepr<I> for IdentityInputRepr {
+    type InputHandle = ();
 
-    fn create_handle(&mut self, input: &I) -> Result<Self::InputHandle> {
-        Ok(input.clone())
+    fn create_handle(&mut self, _input: &I) -> Result<Option<Self::InputHandle>> {
+        Ok(None)
     }
 
-    fn handle_to_input(&mut self, handle: Self::InputHandle) -> Result<I> {
-        Ok(handle)
+    fn handle_to_input(&mut self, _handle: Self::InputHandle) -> Result<Option<I>> {
+        Ok(None)
     }
 }
 
-impl<CMD, D, I, NOTIF> Transport<CMD, D, I, NOTIF> for NopTransport
-where
-    I: Input,
-{
+impl<CMD, D, NOTIF> Transport<CMD, D, NOTIF> for NopTransport {
     type ControllerSync = NopControllerSync;
     type WorkerSync = NopWorkerSync;
-    type InputRepr = IdentityInputRepr;
 
     fn create_worker_sync<'a>(
         &mut self,
-        descriptor: &'a D,
-        sources: impl Iterator<Item = &'a D>,
-    ) -> Result<(Self::InputRepr, Self::WorkerSync)> {
-        Ok((IdentityInputRepr, NopWorkerSync))
+        _descriptor: &'a D,
+        _sources: impl Iterator<Item = &'a D>,
+    ) -> Result<Self::WorkerSync> {
+        Ok(NopWorkerSync)
     }
 
     fn create_controller_sync(self) -> Result<Self::ControllerSync> {
@@ -96,17 +93,17 @@ where
 }
 
 impl<SD, RCV> ControllerSync<SD, RCV> for NopControllerSync {
-    fn send(&mut self, worker: WorkerId, val: SD) -> Result<()> {
+    fn send(&mut self, _worker: WorkerId, _val: SD) -> Result<()> {
         Ok(())
     }
 
-    fn poll(&mut self) -> Result<(RCV, WorkerId)> {
-        Err(unimplemented!("Not implemented"))
+    fn poll(&mut self) -> Result<impl Iterator<Item = (RCV, WorkerId)>> {
+        Ok([].into_iter())
     }
 }
 
 impl<SD, RCV> WorkerSync<SD, RCV> for NopWorkerSync {
-    fn send(&mut self, val: SD) -> Result<()> {
+    fn send(&mut self, _val: SD) -> Result<()> {
         Ok(())
     }
 

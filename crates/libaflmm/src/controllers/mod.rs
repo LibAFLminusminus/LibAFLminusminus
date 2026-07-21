@@ -12,7 +12,6 @@ use libaflmm_bolts::{CoreId, Cores};
 use libaflmm_core::{Error, WorkerId, internal_bug};
 use nix::sys::signal::Signal;
 use quanta::{Clock, Instant};
-use serde::{Serialize, de::DeserializeOwned};
 use std::{
     fs::{self, File, OpenOptions},
     io::{stderr, stdout},
@@ -24,10 +23,7 @@ use std::{
 const STATS_UPDATE_INTERVAL: Duration = Duration::from_secs(5);
 
 pub mod standard;
-pub use standard::{
-    StdCommand, StdController, StdControllerBuilder, StdDescriptor, StdNotification, StdWorker,
-    StdWorkerRepr,
-};
+pub use standard::{StdController, StdControllerBuilder, StdDescriptor, StdWorker, StdWorkerRepr};
 
 pub mod nop;
 pub use nop::{NopController, NopDescriptor, NopWorker};
@@ -92,12 +88,12 @@ pub trait Controller {
         Ok(())
     }
 
-    /// Send a command to a given [`Worker`].
-    fn send_command(
-        &mut self,
-        command: <Self::Worker as Worker>::Command,
-        _worker_id: WorkerId,
-    ) -> Result<()>;
+    // /// Send a command to a given [`Worker`].
+    // fn send_command(
+    //     &mut self,
+    //     command: <Self::Worker as Worker>::Command,
+    //     _worker_id: WorkerId,
+    // ) -> Result<()>;
 
     /// Wait for events sent by the [`Worker`]s.
     /// The function returns after a notification is received or the given timeout value has elapsed.
@@ -109,10 +105,6 @@ pub trait Controller {
 pub trait Worker {
     /// The associated [`Descriptor`].
     type Descriptor: Descriptor;
-    // /// The commands being sent over the wire
-    // type Command: Clone + Serialize + DeserializeOwned;
-    // /// Notifications for the [`Controller`]
-    // type Notification: Serialize + DeserializeOwned;
 
     /// Returns the reference to the descriptor of the worker.
     fn descriptor(&self) -> &Self::Descriptor;

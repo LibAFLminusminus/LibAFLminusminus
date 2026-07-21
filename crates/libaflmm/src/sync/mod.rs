@@ -1,3 +1,4 @@
+use crate::inputs::Input;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
@@ -15,7 +16,7 @@ pub use transports::{
     Transport, WorkerSync,
 };
 
-use crate::inputs::Input;
+pub type StdOrchestrator = NopOrchestrator;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct GroupId {
@@ -25,11 +26,13 @@ pub struct GroupId {
 pub trait Orchestrator<D, I> {
     type Exchange: Exchange<D>;
 
+    /// The input representation, that can turn an input into its handle and oppositely.
+    type InputRepr: InputRepr<I>;
+
     type Router: Router<<Self::Exchange as Exchange<D>>::Command, D>;
     type Transport: Transport<
             <Self::Exchange as Exchange<D>>::Command,
             D,
-            I,
             <Self::Exchange as Exchange<D>>::Notification,
         >;
 
@@ -40,30 +43,36 @@ pub trait Orchestrator<D, I> {
     fn transport_mut(&mut self) -> &mut Self::Transport;
 }
 
+/// A nop orchestrator, which does not perform any sharing between a controller and workers.
+/// No command / notification will be sent over, and no input will be shared between any
+/// worker.
 #[derive(Debug, Default)]
 pub struct NopOrchestrator {
     router: NopRouter,
-    transporter: NopTransport,
+    transport: NopTransport,
 }
 
 /// A general orchestrator
 ///
 /// Most complex orchestrators can be derived from this one.
-pub struct GenericOrchestrator<E, R, T> {
+pub struct GenericOrchestrator<E, IR, R, T> {
     exchange: E,
     router: R,
     transporter: T,
+    input_repr: IR,
 }
 
-impl<D, E, I, R, T> Orchestrator<D, I> for GenericOrchestrator<E, R, T>
+impl<D, E, I, IR, R, T> Orchestrator<D, I> for GenericOrchestrator<E, IR, R, T>
 where
     E: Exchange<D>,
+    IR: InputRepr<I>,
     R: Router<E::Command, D>,
-    T: Transport<E::Command, D, I, E::Notification>,
+    T: Transport<E::Command, D, E::Notification>,
 {
     type Exchange = E;
     type Router = R;
     type Transport = T;
+    type InputRepr = IR;
 
     fn router(&self) -> &Self::Router {
         &self.router
@@ -86,6 +95,7 @@ impl<D, I> Orchestrator<D, I> for NopOrchestrator
 where
     I: Input,
 {
+    type InputRepr = IdentityInputRepr;
     type Exchange = NopExchange;
     type Router = NopRouter;
     type Transport = NopTransport;

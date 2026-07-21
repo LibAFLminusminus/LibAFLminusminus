@@ -7,7 +7,6 @@ use crate::{
 use alloc::sync::Arc;
 use libaflmm_bolts::CoreId;
 use libaflmm_core::{Result, WorkerId};
-use serde::{Deserialize, Serialize};
 use tempfile::TempDir;
 
 /// Nop [`Controller`]
@@ -67,12 +66,6 @@ impl Descriptor for NopDescriptor {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NopCommand;
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NopNotification;
-
 impl Controller for NopController {
     type Worker = NopWorker;
     type GroupConfig = ();
@@ -83,8 +76,8 @@ impl Controller for NopController {
 
     fn register_group(
         &mut self,
-        config: Self::GroupConfig,
-        cores: &libaflmm_bolts::prelude::Cores,
+        _config: Self::GroupConfig,
+        _cores: &libaflmm_bolts::prelude::Cores,
     ) -> Result<GroupId> {
         unimplemented!("nop controller cannot register groups");
     }
@@ -93,7 +86,10 @@ impl Controller for NopController {
         unimplemented!("nop controller cannot finalize orchestration");
     }
 
-    fn take_group_workers(&mut self, group: GroupId) -> Result<impl Iterator<Item = Self::Worker>> {
+    fn take_group_workers(
+        &mut self,
+        _group: GroupId,
+    ) -> Result<impl Iterator<Item = Self::Worker>> {
         Ok([].into_iter())
     }
 
@@ -111,19 +107,17 @@ impl Controller for NopController {
         unimplemented!("nop controller has no workers");
     }
 
-    fn send_command(
-        &mut self,
-        command: <Self::Worker as Worker>::Command,
-        _worker_id: WorkerId,
-    ) -> Result<()> {
-        unimplemented!("nop controller cannot send commands");
-    }
+    // fn send_command(
+    //     &mut self,
+    //     command: <Self::Worker as Worker>::Command,
+    //     _worker_id: WorkerId,
+    // ) -> Result<()> {
+    //     unimplemented!("nop controller cannot send commands");
+    // }
 }
 
 impl Worker for NopWorker {
     type Descriptor = NopDescriptor;
-    type Command = NopCommand;
-    type Notification = NopNotification;
 
     fn descriptor(&self) -> &NopDescriptor {
         &self.descriptor
@@ -137,14 +131,14 @@ impl Worker for NopWorker {
         Ok(())
     }
 
-    fn send_notification(&mut self, _notification: Self::Notification) -> Result<()> {
-        unimplemented!("nop controller has no descriptor");
-    }
+    // fn send_notification(&mut self, _notification: Self::Notification) -> Result<()> {
+    //     unimplemented!("nop controller has no descriptor");
+    // }
 
-    fn poll_commands_filtered(
-        &mut self,
-        filter: impl FnMut(&Self::Command) -> bool,
-    ) -> Result<impl Iterator<Item = Self::Command>> {
-        Ok([].into_iter())
-    }
+    // fn poll_commands_filtered(
+    //     &mut self,
+    //     filter: impl FnMut(&Self::Command) -> bool,
+    // ) -> Result<impl Iterator<Item = Self::Command>> {
+    //     Ok([].into_iter())
+    // }
 }

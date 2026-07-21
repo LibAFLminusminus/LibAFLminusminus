@@ -35,6 +35,7 @@ pub struct StdExchange<IH> {
 impl<D, IH> Exchange<D> for StdExchange<IH>
 where
     D: Descriptor,
+    IH: Clone,
 {
     type Command = StdCommand<IH>;
     type Notification = StdNotification<IH>;
@@ -46,11 +47,10 @@ where
     ) -> Result<Option<Self::Command>> {
         Ok(match notif {
             StdNotification::NewTestcase { id, handle } => Some(StdCommand::Import {
-                source: source.group_idf(),
-                handle,
-                id,
+                source: source.group_id(),
+                handle: handle.clone(),
+                id: *id,
             }),
-            _ => None,
         })
     }
 }

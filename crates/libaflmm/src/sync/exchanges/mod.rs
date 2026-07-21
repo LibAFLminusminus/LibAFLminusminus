@@ -33,8 +33,8 @@ impl<D> Exchange<D> for NopExchange {
 
     fn notif_to_command(
         &mut self,
-        source: &D,
-        notif: &Self::Notification,
+        _source: &D,
+        _notif: &Self::Notification,
     ) -> Result<Option<Self::Command>> {
         Ok(None)
     }

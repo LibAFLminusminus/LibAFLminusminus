@@ -1,10 +1,9 @@
 use crate::Result;
 use crate::controllers::{Descriptor, Workdir, WorkdirFile};
-use crate::corpus::TestcaseId;
 use crate::sync::GroupId;
+use crate::sync::exchanges::standard::{StdCommand, StdNotification};
 use libaflmm_bolts::{Connection, CoreId};
 use libaflmm_core::WorkerId;
-use serde::{Deserialize, Serialize};
 use std::path::Path;
 
 pub mod builder;
@@ -17,10 +16,10 @@ pub mod worker;
 pub use worker::{StdWorker, StdWorkerRepr};
 
 /// controller receives notifs and sends commands to workers
-pub type StdControllerConnection<IR> = Connection<StdNotification<IR>, StdCommand<IR>>;
+type StdControllerConnection<IR> = Connection<StdNotification<IR>, StdCommand<IR>>;
 
 /// worker receives commands and sends notifs to controller
-pub type StdWorkerConnection<IR> = Connection<StdCommand<IR>, StdNotification<IR>>;
+type StdWorkerConnection<IR> = Connection<StdCommand<IR>, StdNotification<IR>>;
 
 /// A Std descriptor for a [`StdWorker`].
 #[derive(Debug, Clone)]
@@ -33,30 +32,6 @@ pub struct StdDescriptor {
     core_id: Option<CoreId>,
     /// groups ID of this process
     group_id: GroupId,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum TestcaseHandle<IH> {
-    Corpus(IH),
-    Objective(IH),
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum StdCommand<IH> {
-    Shutdown,
-    Import {
-        source: GroupId,
-        id: TestcaseId,
-        handle: IH,
-    },
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum StdNotification<IH> {
-    NewTestcase {
-        id: TestcaseId,
-        repr: TestcaseHandle<IH>,
-    },
 }
 
 /// The launcher should instantiate this alongside binding this instance to a specific core id

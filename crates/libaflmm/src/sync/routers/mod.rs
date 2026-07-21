@@ -35,7 +35,7 @@ pub struct NopRouter;
 impl<CMD, D> Router<CMD, D> for NopRouter {
     type GroupConfig = ();
 
-    fn destinations(&self, worker: WorkerId) -> impl Iterator<Item = WorkerId> {
+    fn destinations(&self, _worker: WorkerId) -> impl Iterator<Item = WorkerId> {
         [].into_iter()
     }
 
@@ -43,11 +43,23 @@ impl<CMD, D> Router<CMD, D> for NopRouter {
         Ok(())
     }
 
-    fn has_destinations(&self, worker: WorkerId) -> bool {
+    fn has_destinations(&self, _worker: WorkerId) -> bool {
         false
     }
-    
-    fn register_group(&mut self, config: Self::GroupConfig) -> Result<GroupId> {
-        Ok
+
+    fn register_group(&mut self, _config: Self::GroupConfig) -> Result<GroupId> {
+        Ok(GroupId::invalid())
+    }
+
+    fn register_worker(&mut self, _desc: &D) -> Result<()> {
+        Ok(())
+    }
+
+    fn route(&mut self, _source: WorkerId, _cmd: &CMD) -> Result<impl Iterator<Item = WorkerId>> {
+        Ok([].into_iter())
+    }
+
+    fn sources(&self, _worker: WorkerId) -> impl Iterator<Item = WorkerId> {
+        [].into_iter()
     }
 }

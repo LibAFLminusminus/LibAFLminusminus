@@ -1,27 +1,29 @@
 use crate::{
-    controllers::{
-        StdCommand, StdDescriptor, StdNotification, SyncWorker, Workdir, Worker,
-        standard::{StdControllerConnection, StdWorkerConnection},
-    },
+    controllers::{StdDescriptor, SyncWorker, Workdir, Worker},
     corpus::{Testcase, TestcaseId},
     inputs::Input,
-    sync::{InputExchanger, Synchronizer, Transport, WorkerSync},
+    sync::{
+        InputRepr, WorkerSync,
+        exchanges::standard::{StdCommand, StdNotification},
+    },
 };
 use libaflmm_core::{Result, WorkerId, illegal_argument};
 use nix::unistd::{dup2_stderr, dup2_stdout};
-use std::{collections::HashSet, marker::PhantomData, rc::Rc};
+use std::{collections::HashSet, rc::Rc};
 
 /// The standard [`Worker`].
 #[derive(Debug)]
-pub struct StdWorker<I, IE, WS> {
+pub struct StdWorker<I, IR, WS>
+where
+    IR: InputRepr<I>,
+{
     descriptor: StdDescriptor,
-    input_exchanger: IE,
+    input_repr: IR,
     sync: WS,
     imported_testcases: HashSet<TestcaseId>,
-    pending_commands: Vec<StdCommand<IH>>,
+    pending_commands: Vec<StdCommand<IR::InputHandle>>,
     pending_imports: Vec<Testcase<I>>,
     should_report: bool,
-    phantom: PhantomData<I>,
 }
 
 /// A representation of a [`StdWorker`], to be used by [`StdController`].
@@ -53,7 +55,10 @@ impl<CS> StdWorkerRepr<CS> {
     }
 }
 
-impl<I, IE, WS> Worker for StdWorker<I, IE, WS> {
+impl<I, IR, WS> Worker for StdWorker<I, IR, WS>
+where
+    IR: InputRepr<I>,
+{
     type Descriptor = StdDescriptor;
 
     fn id(&self) -> WorkerId {
@@ -110,11 +115,11 @@ impl<I, IE, WS> Worker for StdWorker<I, IE, WS> {
     // }
 }
 
-impl<I, IE, WS> SyncWorker<I> for StdWorker<I, IE, WS>
+impl<I, IR, WS> SyncWorker<I> for StdWorker<I, IR, WS>
 where
     I: Input,
-    IE: InputExchanger<I>,
-    WS: WorkerSync<StdNotification<IE::InputHandle>, I, StdCommand<IE::InputHandle>>,
+    IR: InputRepr<I>,
+    WS: WorkerSync<StdNotification<IR::InputHandle>, StdCommand<IR::InputHandle>>,
 {
     fn send_testcase(&mut self, testcase: &Testcase<I>) -> Result<()> {
         // no destination to report to, skip
@@ -127,11 +132,11 @@ where
             return Ok(());
         }
 
-        let repr = self.input_exchanger.create_handle(&testcase.input())?;
+        let handle = self.input_repr.create_handle(&testcase.input())?;
 
         self.sync.send(StdNotification::NewTestcase {
             id: *testcase.id(),
-            repr,
+            handle,
         })
     }
 
@@ -144,8 +149,10 @@ where
         {
             if let StdCommand::Import { id, handle, .. } = cmd {
                 if !self.imported_testcases.contains(&id) {
-                    let input = self.input_exchanger.handle_to_input(handle)?;
-                    let tc = Testcase::new(Rc::new(input));
+                    let tc = if let Some(input) = self.input_repr.handle_to_input(handle)? {
+                        Testcase::new(Rc::new(input))
+                    };
+                    let tc = ;
                     if *tc.id() != id {
                         return Err(illegal_argument!(
                             "imported ID does not match input content"
@@ -186,34 +193,28 @@ where
     }
 }
 
-impl<I, SY> StdWorker<I, SY>
+impl<I, IR, WS> StdWorker<I, IR, WS>
 where
-    SY: Synchronizer<I>,
+    IR: InputRepr<I>,
 {
     /// Get a new [`StdWorker`].
     #[must_use]
     pub fn new(
         descriptor: StdDescriptor,
-        synchronizer: SY,
+        input_repr: IR,
+        sync: WS,
         should_report: bool,
-    ) -> Result<(Self, StdWorkerRepr)> {
-        let (ctrl_conn, worker_conn) = StdControllerConnection::create()?;
+    ) -> Result<Self> {
+        // let (ctrl_conn, worker_conn) = StdControllerConnection::create()?;
 
-        Ok((
-            Self {
-                descriptor: descriptor.clone(),
-                synchronizer,
-                connection: worker_conn,
-                should_report,
-                imported_testcases: HashSet::new(),
-                pending_commands: Vec::new(),
-                pending_imports: Vec::new(),
-                phantom: PhantomData,
-            },
-            StdWorkerRepr {
-                descriptor: descriptor,
-                connection: ctrl_conn,
-            },
-        ))
+        Ok(Self {
+            descriptor: descriptor.clone(),
+            input_repr,
+            sync,
+            should_report,
+            imported_testcases: HashSet::new(),
+            pending_commands: Vec::new(),
+            pending_imports: Vec::new(),
+        })
     }
 }
