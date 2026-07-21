@@ -5,8 +5,8 @@ use crate::{
     },
     launchers::InstanceId,
     sync::{
-        GroupId, InputRepr, Orchestrator, Router, StdCommand, StdNotification, StdOrchestrator,
-        Transport,
+        Exchange, GroupId, InputRepr, Orchestrator, Router, StdCommand, StdNotification,
+        StdOrchestrator, Transport,
     },
 };
 use libaflmm_bolts::{CoreId, Cores};
@@ -23,18 +23,25 @@ use std::{
 pub(super) type TransportOf<I, O> = <O as Orchestrator<StdDescriptor, I>>::Transport;
 type InputReprOf<I, O> = <O as Orchestrator<StdDescriptor, I>>::InputRepr;
 type InputHandleOf<I, O> = <InputReprOf<I, O> as InputRepr<I>>::InputHandle;
-pub(super) type StdCommandOf<I, O> = StdCommand<InputHandleOf<I, O>>;
-pub(super) type StdNotificationOf<I, O> = StdNotification<InputHandleOf<I, O>>;
+pub(super) type CommandOf<I, O> = <<O as Orchestrator<StdDescriptor, I>>::Exchange as Exchange<
+    StdDescriptor,
+    InputHandleOf<I, O>,
+>>::Command;
+pub(super) type NotificationOf<I, O> =
+    <<O as Orchestrator<StdDescriptor, I>>::Exchange as Exchange<
+        StdDescriptor,
+        InputHandleOf<I, O>,
+    >>::Notification;
 
 type ControllerSyncOf<I, O> = <TransportOf<I, O> as Transport<
-    StdCommandOf<I, O>,
+    CommandOf<I, O>,
     StdDescriptor,
-    StdNotificationOf<I, O>,
+    NotificationOf<I, O>,
 >>::ControllerSync;
 type WorkerSyncOf<I, O> = <TransportOf<I, O> as Transport<
-    StdCommandOf<I, O>,
+    CommandOf<I, O>,
     StdDescriptor,
-    StdNotificationOf<I, O>,
+    NotificationOf<I, O>,
 >>::WorkerSync;
 
 /// The standard controller.
@@ -42,11 +49,17 @@ type WorkerSyncOf<I, O> = <TransportOf<I, O> as Transport<
 pub struct StdController<I, O>
 where
     O: Orchestrator<StdDescriptor, I>,
-    TransportOf<I, O>: Transport<StdCommandOf<I, O>, StdDescriptor, StdNotificationOf<I, O>>,
+    O::Exchange: Exchange<
+            StdDescriptor,
+            InputHandleOf<I, O>,
+            Command = StdCommand<InputHandleOf<I, O>>,
+            Notification = StdNotification<InputHandleOf<I, O>>,
+        >, // TransportOf<I, O>: Transport<StdCommandOf<I, O>, StdDescriptor, StdNotificationOf<I, O>>,
 {
     orchestrator: O,
     root_dir: PathBuf,
-    workers: HashMap<WorkerId, StdWorkerRepr<ControllerSyncOf<I, O>>>,
+    sync: ControllerSyncOf<I, O>,
+    workers: HashMap<WorkerId, StdDescriptor>,
     worker_stdout: WorkdirFile,
     worker_stderr: WorkdirFile,
     worker_stats: WorkdirFile,
@@ -60,11 +73,17 @@ where
 impl<I, O> Controller for StdController<I, O>
 where
     O: Orchestrator<StdDescriptor, I>,
-    O::Router: Router<StdCommandOf<I, O>, StdDescriptor>,
-    TransportOf<I, O>: Transport<StdCommandOf<I, O>, StdDescriptor, StdNotificationOf<I, O>>,
+    O::Exchange: Exchange<
+            StdDescriptor,
+            InputHandleOf<I, O>,
+            Command = StdCommand<InputHandleOf<I, O>>,
+            Notification = StdNotification<InputHandleOf<I, O>>,
+        >,
+    // O::Router: Router<StdCommandOf<I, O>, StdDescriptor>,
+    // TransportOf<I, O>: Transport<StdCommandOf<I, O>, StdDescriptor, StdNotificationOf<I, O>>,
 {
     type Worker = StdWorker<I, InputReprOf<I, O>, WorkerSyncOf<I, O>>;
-    type GroupConfig = <O::Router as Router<StdCommandOf<I, O>, StdDescriptor>>::GroupConfig;
+    type GroupConfig = <O::Router as Router<CommandOf<I, O>, StdDescriptor>>::GroupConfig;
 
     fn register_group(&mut self, config: Self::GroupConfig, cores: &Cores) -> Result<GroupId> {
         let group_id = self.orchestrator.router_mut().register_group(config)?;
@@ -199,7 +218,12 @@ where
 impl<I, O> StdController<I, O>
 where
     O: Orchestrator<StdDescriptor, I>,
-    TransportOf<I, O>: Transport<StdCommandOf<I, O>, StdDescriptor, StdNotificationOf<I, O>>,
+    O::Exchange: Exchange<
+            StdDescriptor,
+            InputHandleOf<I, O>,
+            Command = StdCommand<InputHandleOf<I, O>>,
+            Notification = StdNotification<InputHandleOf<I, O>>,
+        >,
 {
     fn new_descriptor(
         &self,
@@ -233,7 +257,12 @@ where
 impl<I, O> StdController<I, O>
 where
     O: Orchestrator<StdDescriptor, I>,
-    TransportOf<I, O>: Transport<StdCommandOf<I, O>, StdDescriptor, StdNotificationOf<I, O>>,
+    O::Exchange: Exchange<
+            StdDescriptor,
+            InputHandleOf<I, O>,
+            Command = StdCommand<InputHandleOf<I, O>>,
+            Notification = StdNotification<InputHandleOf<I, O>>,
+        >,
 {
     /// Create a new [`StdGlobalController`] and will use `root_dir` as the root directory.
     /// If overwrite is true, the `root_dir` will be removed before being created again.

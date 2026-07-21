@@ -5,7 +5,6 @@ use crate::{
     sync::{GroupId, exchanges::Exchange},
 };
 use serde::{Deserialize, Serialize};
-use std::marker::PhantomData;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum TestcaseHandle<IH> {
@@ -28,11 +27,9 @@ pub enum SimpleNotification<IH> {
     NewTestcase { id: TestcaseId, handle: IH },
 }
 
-pub struct SimpleExchange<IH> {
-    phantom: PhantomData<IH>,
-}
+pub struct SimpleExchange;
 
-impl<D, IH> Exchange<D> for SimpleExchange<IH>
+impl<D, IH> Exchange<D, IH> for SimpleExchange
 where
     D: Descriptor,
     IH: Clone,

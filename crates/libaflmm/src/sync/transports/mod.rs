@@ -48,7 +48,7 @@ pub trait Transport<CMD, D, NOTIF> {
     ) -> Result<Self::WorkerSync>;
 
     /// Finalize the transport lifetime with the creation of the controller-side synchronizer
-    fn create_controller_sync(self) -> Result<Self::ControllerSync>;
+    fn create_controller_sync(&mut self) -> Result<Self::ControllerSync>;
 }
 
 #[derive(Debug, Default)]
@@ -105,7 +105,7 @@ impl<CMD, D, NOTIF> Transport<CMD, D, NOTIF> for NopTransport {
         Ok(NopWorkerSync)
     }
 
-    fn create_controller_sync(self) -> Result<Self::ControllerSync> {
+    fn create_controller_sync(&mut self) -> Result<Self::ControllerSync> {
         Ok(NopControllerSync)
     }
 }

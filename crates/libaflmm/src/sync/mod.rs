@@ -1,4 +1,4 @@
-use crate::inputs::Input;
+use crate::{controllers::Descriptor, inputs::Input};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
@@ -31,16 +31,16 @@ pub struct GroupId {
 }
 
 pub trait Orchestrator<D, I> {
-    type Exchange: Exchange<D>;
-
     /// The input representation, that can turn an input into its handle and oppositely.
     type InputRepr: InputRepr<I>;
 
-    type Router: Router<<Self::Exchange as Exchange<D>>::Command, D>;
+    type Exchange: Exchange<D, <Self::InputRepr as InputRepr<I>>::InputHandle>;
+
+    type Router: Router<<Self::Exchange as Exchange<D, <Self::InputRepr as InputRepr<I>>::InputHandle>>::Command, D>;
     type Transport: Transport<
-            <Self::Exchange as Exchange<D>>::Command,
+            <Self::Exchange as Exchange<D, <Self::InputRepr as InputRepr<I>>::InputHandle>>::Command,
             D,
-            <Self::Exchange as Exchange<D>>::Notification,
+            <Self::Exchange as Exchange<D, <Self::InputRepr as InputRepr<I>>::InputHandle>>::Notification,
         >;
 
     fn router(&self) -> &Self::Router;
@@ -48,6 +48,9 @@ pub trait Orchestrator<D, I> {
 
     fn transport(&self) -> &Self::Transport;
     fn transport_mut(&mut self) -> &mut Self::Transport;
+
+    fn exchange(&self) -> &Self::Exchange;
+    fn exchange_mut(&mut self) -> &mut Self::Exchange;
 }
 
 /// A nop orchestrator, which does not perform any sharing between a controller and workers.
@@ -71,7 +74,7 @@ pub struct GenericOrchestrator<E, IR, R, T> {
 
 impl<D, E, I, IR, R, T> Orchestrator<D, I> for GenericOrchestrator<E, IR, R, T>
 where
-    E: Exchange<D>,
+    E: Exchange<D, IR::InputHandle>,
     IR: InputRepr<I>,
     R: Router<E::Command, D>,
     T: Transport<E::Command, D, E::Notification>,
@@ -100,10 +103,11 @@ where
 
 impl<D, I> Orchestrator<D, I> for NopOrchestrator
 where
+    D: Descriptor,
     I: Input,
 {
     type InputRepr = NopInputRepr;
-    type Exchange = NopExchange<()>;
+    type Exchange = StdExchange;
     type Router = NopRouter;
     type Transport = NopTransport;
 

@@ -6,13 +6,13 @@ use serde::{Deserialize, Serialize};
 pub mod simple;
 pub use simple::{SimpleCommand, SimpleExchange, SimpleNotification};
 
-pub type StdExchange<IH> = SimpleExchange<IH>;
+pub type StdExchange = SimpleExchange;
 pub type StdCommand<IH> = SimpleCommand<IH>;
 pub type StdNotification<IH> = SimpleNotification<IH>;
 
 /// An exchange system between [`Self::Command`] (produced on the controller side)
 /// and [`Self::Notification`] (produced on the worker side).
-pub trait Exchange<D> {
+pub trait Exchange<D, IH> {
     type Command;
     type Notification;
 
@@ -26,7 +26,7 @@ pub trait Exchange<D> {
     ) -> Result<Option<Self::Command>>;
 }
 
-pub struct NopExchange<IH>(PhantomData<IH>);
+pub struct NopExchange;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NopCommand<IH>(PhantomData<IH>);
@@ -34,7 +34,7 @@ pub struct NopCommand<IH>(PhantomData<IH>);
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NopNotification<IH>(PhantomData<IH>);
 
-impl<IH, D> Exchange<D> for NopExchange<IH> {
+impl<D, IH> Exchange<D, IH> for NopExchange {
     type Command = NopCommand<IH>;
     type Notification = NopNotification<IH>;
 
