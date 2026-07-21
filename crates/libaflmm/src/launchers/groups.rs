@@ -1,10 +1,10 @@
 use crate::{
-    Result,
     controllers::{Controller, Worker},
     launchers::Instances,
     runtimes::{NopRuntime, Runtime, RuntimeHandle, StdForkserverRuntime, StdInProcessRuntime},
     states::NopState,
     sync::GroupId,
+    Result,
 };
 use core::{fmt::Debug, marker::PhantomData, num::NonZeroUsize, time::Duration};
 use libaflmm_bolts::{Cores, StdTimer};
@@ -28,7 +28,7 @@ where
     /// Register instances the group contains
     fn register_instances(
         self,
-        workers: Vec<W>,
+        workers: impl Iterator<Item = W>,
         instances: &mut Instances<W::Descriptor, W>,
     ) -> Result<()>;
 }
@@ -83,6 +83,12 @@ pub struct StdGroup<RT, S, SB> {
     phantom: PhantomData<S>,
 }
 
+impl<C, G> PendingGroup<C, G> {
+    pub fn new(group: G, config: C) -> Self {
+        Self { group, config }
+    }
+}
+
 impl<RT, S, SB, W> Group<W> for StdGroup<RT, S, SB>
 where
     RT: Runtime<S, W> + Clone + 'static,
@@ -96,7 +102,7 @@ where
 
     fn register_instances(
         mut self,
-        workers: Vec<W>,
+        workers: impl Iterator<Item = W>,
         instances: &mut Instances<W::Descriptor, W>,
     ) -> Result<()> {
         // create an instance per core, ready to run.
@@ -308,7 +314,7 @@ where
     }
 }
 
-impl<CT, Head, Tail> GroupTuple<CT> for (Head, Tail)
+impl<CT, Head, Tail> GroupTuple<CT> for (PendingGroup<CT::GroupConfig, Head>, Tail)
 where
     CT: Controller,
     Head: Group<CT::Worker>,

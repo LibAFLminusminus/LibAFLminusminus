@@ -1,7 +1,14 @@
+use std::marker::PhantomData;
+
 use crate::Result;
 use serde::{Deserialize, Serialize};
 
-pub mod standard;
+pub mod simple;
+pub use simple::{SimpleCommand, SimpleExchange, SimpleNotification};
+
+pub type StdExchange<IH> = SimpleExchange<IH>;
+pub type StdCommand<IH> = SimpleCommand<IH>;
+pub type StdNotification<IH> = SimpleNotification<IH>;
 
 /// An exchange system between [`Self::Command`] (produced on the controller side)
 /// and [`Self::Notification`] (produced on the worker side).
@@ -19,17 +26,17 @@ pub trait Exchange<D> {
     ) -> Result<Option<Self::Command>>;
 }
 
-pub struct NopExchange;
+pub struct NopExchange<IH>(PhantomData<IH>);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NopCommand;
+pub struct NopCommand<IH>(PhantomData<IH>);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NopNotification;
+pub struct NopNotification<IH>(PhantomData<IH>);
 
-impl<D> Exchange<D> for NopExchange {
-    type Command = NopCommand;
-    type Notification = NopNotification;
+impl<IH, D> Exchange<D> for NopExchange<IH> {
+    type Command = NopCommand<IH>;
+    type Notification = NopNotification<IH>;
 
     fn notif_to_command(
         &mut self,

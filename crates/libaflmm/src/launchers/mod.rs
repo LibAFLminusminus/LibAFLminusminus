@@ -2,11 +2,12 @@
 //! Launchers start the fuzzing session, involving multiple instances.
 
 use crate::{
-    Error, Result,
     controllers::{Controller, StdController, StdDescriptor, StdWorker, Worker},
-    launchers::groups::{GroupTuple, RegisteredGroupTuple},
+    inputs::Input,
+    launchers::groups::{GroupTuple, PendingGroup, RegisteredGroupTuple},
     monitors::{Monitor, SimpleMonitor, StdMonitor},
-    sync::{StdOrchestrator, StdSynchronizer},
+    sync::{StdInputRepr, StdOrchestrator, StdWorkerSync},
+    Error, Result,
 };
 use core::time::Duration;
 use libaflmm_core::illegal_argument;
@@ -43,8 +44,10 @@ impl<I>
         StdDescriptor,
         StdController<I, StdOrchestrator>,
         StdMonitor,
-        StdWorker<I, StdSynchronizer>,
+        StdWorker<I, StdInputRepr, StdWorkerSync>,
     >
+where
+    I: Input,
 {
     /// Create a default Launcher.
     /// It is configured with a very minimal configuration.
@@ -135,7 +138,10 @@ where
     CT: Controller,
     CT::GroupConfig: Default,
 {
-    pub fn add_group<G>(self, group: G) -> StdLauncherBuilder<CT, (G, GT), MT> {
+    pub fn add_group<G>(
+        self,
+        group: G,
+    ) -> StdLauncherBuilder<CT, (PendingGroup<CT::GroupConfig, G>, GT), MT> {
         self.add_group_with(group, CT::GroupConfig::default())
     }
 }
@@ -148,12 +154,12 @@ where
         self,
         group: G,
         config: CT::GroupConfig,
-    ) -> StdLauncherBuilder<CT, (G, GT), MT> {
+    ) -> StdLauncherBuilder<CT, (PendingGroup<CT::GroupConfig, G>, GT), MT> {
         StdLauncherBuilder {
             controller: self.controller,
             monitor: self.monitor,
             monitor_refresh: self.monitor_refresh,
-            groups: (group, self.groups),
+            groups: (PendingGroup::new(group, config), self.groups),
         }
     }
 }

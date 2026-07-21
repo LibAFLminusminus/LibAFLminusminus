@@ -239,8 +239,8 @@ where
         failures: &mut Vec<(Pid, InstanceFailure)>,
     ) -> Result<()>
     where
-        CT: Controller<Worker = W, Descriptor = D>,
-        W: Worker<Controller = CT>,
+        CT: Controller<Worker = W>,
+        W: Worker<Descriptor = D>,
     {
         loop {
             match waitpid(Pid::from_raw(-1), Some(WaitPidFlag::WNOHANG)) {

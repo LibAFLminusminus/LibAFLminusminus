@@ -1,4 +1,4 @@
-use crate::Result;
+use crate::{Result, inputs::Input};
 use libaflmm_core::WorkerId;
 use serde::{Serialize, de::DeserializeOwned};
 use std::fmt::Debug;
@@ -61,17 +61,35 @@ pub struct NopControllerSync;
 pub struct NopWorkerSync;
 
 #[derive(Debug, Default)]
+pub struct NopInputRepr;
+
+#[derive(Debug, Default)]
 pub struct IdentityInputRepr;
 
-impl<I> InputRepr<I> for IdentityInputRepr {
+impl<I> InputRepr<I> for NopInputRepr {
     type InputHandle = ();
 
-    fn create_handle(&mut self, _input: &I) -> Result<Option<Self::InputHandle>> {
-        Ok(None)
+    fn create_handle(&mut self, _input: &I) -> Result<Self::InputHandle> {
+        panic!("Tried to create an input handle while using NopInputRepr")
     }
 
-    fn handle_to_input(&mut self, _handle: Self::InputHandle) -> Result<Option<I>> {
-        Ok(None)
+    fn handle_to_input(&mut self, _handle: Self::InputHandle) -> Result<I> {
+        panic!("Tried to get back an input from a handle while using NopInputRepr")
+    }
+}
+
+impl<I> InputRepr<I> for IdentityInputRepr
+where
+    I: Input,
+{
+    type InputHandle = I;
+
+    fn create_handle(&mut self, input: &I) -> Result<Self::InputHandle> {
+        Ok(input.clone())
+    }
+
+    fn handle_to_input(&mut self, handle: Self::InputHandle) -> Result<I> {
+        Ok(handle)
     }
 }
 

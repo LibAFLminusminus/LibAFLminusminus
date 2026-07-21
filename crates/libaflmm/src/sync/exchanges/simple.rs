@@ -14,7 +14,7 @@ pub enum TestcaseHandle<IH> {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum StdCommand<IH> {
+pub enum SimpleCommand<IH> {
     Shutdown,
     Import {
         source: GroupId,
@@ -24,21 +24,21 @@ pub enum StdCommand<IH> {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum StdNotification<IH> {
+pub enum SimpleNotification<IH> {
     NewTestcase { id: TestcaseId, handle: IH },
 }
 
-pub struct StdExchange<IH> {
+pub struct SimpleExchange<IH> {
     phantom: PhantomData<IH>,
 }
 
-impl<D, IH> Exchange<D> for StdExchange<IH>
+impl<D, IH> Exchange<D> for SimpleExchange<IH>
 where
     D: Descriptor,
     IH: Clone,
 {
-    type Command = StdCommand<IH>;
-    type Notification = StdNotification<IH>;
+    type Command = SimpleCommand<IH>;
+    type Notification = SimpleNotification<IH>;
 
     fn notif_to_command(
         &mut self,
@@ -46,7 +46,7 @@ where
         notif: &Self::Notification,
     ) -> Result<Option<Self::Command>> {
         Ok(match notif {
-            StdNotification::NewTestcase { id, handle } => Some(StdCommand::Import {
+            SimpleNotification::NewTestcase { id, handle } => Some(SimpleCommand::Import {
                 source: source.group_id(),
                 handle: handle.clone(),
                 id: *id,

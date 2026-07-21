@@ -1,12 +1,12 @@
 use crate::{
     controllers::{
-        Controller, Descriptor, StdDescriptor, StdWorker, StdWorkerRepr, WorkdirFile, Worker,
+        Controller, Descriptor, StdDescriptor, StdWorker, StdWorkerRepr, WorkdirFile,
         standard::builder::StdControllerBuilder,
     },
     launchers::InstanceId,
     sync::{
-        GroupId, InputRepr, Orchestrator, Router, StdOrchestrator, Transport,
-        exchanges::standard::{StdCommand, StdNotification},
+        GroupId, InputRepr, Orchestrator, Router, StdCommand, StdNotification, StdOrchestrator,
+        Transport,
     },
 };
 use libaflmm_bolts::{CoreId, Cores};
@@ -20,19 +20,21 @@ use std::{
 };
 
 // get the synchronizer type out of a pair of <Input, Orchestrator>
-type TransportOf<I, O> = <O as Orchestrator<StdDescriptor, I>>::Transport;
+pub(super) type TransportOf<I, O> = <O as Orchestrator<StdDescriptor, I>>::Transport;
 type InputReprOf<I, O> = <O as Orchestrator<StdDescriptor, I>>::InputRepr;
 type InputHandleOf<I, O> = <InputReprOf<I, O> as InputRepr<I>>::InputHandle;
+pub(super) type StdCommandOf<I, O> = StdCommand<InputHandleOf<I, O>>;
+pub(super) type StdNotificationOf<I, O> = StdNotification<InputHandleOf<I, O>>;
 
 type ControllerSyncOf<I, O> = <TransportOf<I, O> as Transport<
-    StdCommand<InputHandleOf<I, O>>,
-    I,
-    StdNotification<InputHandleOf<I, O>>,
+    StdCommandOf<I, O>,
+    StdDescriptor,
+    StdNotificationOf<I, O>,
 >>::ControllerSync;
 type WorkerSyncOf<I, O> = <TransportOf<I, O> as Transport<
-    StdCommand<InputHandleOf<I, O>>,
-    I,
-    StdNotification<InputHandleOf<I, O>>,
+    StdCommandOf<I, O>,
+    StdDescriptor,
+    StdNotificationOf<I, O>,
 >>::WorkerSync;
 
 /// The standard controller.
@@ -40,6 +42,7 @@ type WorkerSyncOf<I, O> = <TransportOf<I, O> as Transport<
 pub struct StdController<I, O>
 where
     O: Orchestrator<StdDescriptor, I>,
+    TransportOf<I, O>: Transport<StdCommandOf<I, O>, StdDescriptor, StdNotificationOf<I, O>>,
 {
     orchestrator: O,
     root_dir: PathBuf,
@@ -57,10 +60,11 @@ where
 impl<I, O> Controller for StdController<I, O>
 where
     O: Orchestrator<StdDescriptor, I>,
+    O::Router: Router<StdCommandOf<I, O>, StdDescriptor>,
+    TransportOf<I, O>: Transport<StdCommandOf<I, O>, StdDescriptor, StdNotificationOf<I, O>>,
 {
     type Worker = StdWorker<I, InputReprOf<I, O>, WorkerSyncOf<I, O>>;
-    type GroupConfig =
-        <O::Router as Router<StdCommand<InputHandleOf<I, O>>, StdDescriptor>>::GroupConfig;
+    type GroupConfig = <O::Router as Router<StdCommandOf<I, O>, StdDescriptor>>::GroupConfig;
 
     fn register_group(&mut self, config: Self::GroupConfig, cores: &Cores) -> Result<GroupId> {
         let group_id = self.orchestrator.router_mut().register_group(config)?;
@@ -110,7 +114,7 @@ where
 
             let synchronizer = self
                 .orchestrator
-                .transporter_mut()
+                .transport_mut()
                 .create_synchronizer(desc, sources.iter())?;
 
             let should_report = self.orchestrator.router().has_destinations(wid);
@@ -162,26 +166,26 @@ where
         Ok(())
     }
 
-    fn send_command(&mut self, command: StdCommand, worker_id: WorkerId) -> Result<()> {
-        let repr = self
-            .workers
-            .get_mut(&worker_id)
-            .ok_or(illegal_argument!("Unknown worker ID"))?;
+    // fn send_command(&mut self, command: StdCommand, worker_id: WorkerId) -> Result<()> {
+    //     let repr = self
+    //         .workers
+    //         .get_mut(&worker_id)
+    //         .ok_or(illegal_argument!("Unknown worker ID"))?;
 
-        match &command {
-            StdCommand::Shutdown => repr.connection_mut().send_blocking(&command),
-            _ => {
-                if !repr.connection_mut().send(&command)? {
-                    log::warn!(
-                        "Could not send command asynchronously to worker {worker_id:?}. The socket must be full. Falling back to synchronous send..."
-                    );
-                    repr.connection_mut().send_blocking(&command)?;
-                }
+    //     match &command {
+    //         StdCommand::Shutdown => repr.connection_mut().send_blocking(&command),
+    //         _ => {
+    //             if !repr.connection_mut().send(&command)? {
+    //                 log::warn!(
+    //                     "Could not send command asynchronously to worker {worker_id:?}. The socket must be full. Falling back to synchronous send..."
+    //                 );
+    //                 repr.connection_mut().send_blocking(&command)?;
+    //             }
 
-                Ok(())
-            }
-        }
-    }
+    //             Ok(())
+    //         }
+    //     }
+    // }
 
     fn wait_notifications(&mut self, _timeout: Option<std::time::Duration>) -> Result<()> {
         todo!()
@@ -195,6 +199,7 @@ where
 impl<I, O> StdController<I, O>
 where
     O: Orchestrator<StdDescriptor, I>,
+    TransportOf<I, O>: Transport<StdCommandOf<I, O>, StdDescriptor, StdNotificationOf<I, O>>,
 {
     fn new_descriptor(
         &self,
@@ -228,6 +233,7 @@ where
 impl<I, O> StdController<I, O>
 where
     O: Orchestrator<StdDescriptor, I>,
+    TransportOf<I, O>: Transport<StdCommandOf<I, O>, StdDescriptor, StdNotificationOf<I, O>>,
 {
     /// Create a new [`StdGlobalController`] and will use `root_dir` as the root directory.
     /// If overwrite is true, the `root_dir` will be removed before being created again.

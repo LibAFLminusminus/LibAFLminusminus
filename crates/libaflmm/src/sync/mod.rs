@@ -5,18 +5,25 @@ use std::fmt::Debug;
 // pub mod aflpp;
 
 pub mod exchanges;
-pub use exchanges::{Exchange, NopCommand, NopExchange, NopNotification};
+pub use exchanges::{
+    Exchange, NopCommand, NopExchange, NopNotification, SimpleCommand, SimpleExchange,
+    SimpleNotification, StdCommand, StdExchange, StdNotification,
+};
 
 pub mod routers;
 pub use routers::{NopRouter, Router};
 
 pub mod transports;
 pub use transports::{
-    ControllerSync, IdentityInputRepr, InputRepr, NopControllerSync, NopTransport, NopWorkerSync,
-    Transport, WorkerSync,
+    ControllerSync, IdentityInputRepr, InputRepr, NopControllerSync, NopInputRepr, NopTransport,
+    NopWorkerSync, Transport, WorkerSync,
 };
 
 pub type StdOrchestrator = NopOrchestrator;
+pub type StdControllerSync = NopControllerSync;
+pub type StdWorkerSync = NopWorkerSync;
+pub type StdTransport = NopTransport;
+pub type StdInputRepr = NopInputRepr;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct GroupId {
@@ -95,8 +102,8 @@ impl<D, I> Orchestrator<D, I> for NopOrchestrator
 where
     I: Input,
 {
-    type InputRepr = IdentityInputRepr;
-    type Exchange = NopExchange;
+    type InputRepr = NopInputRepr;
+    type Exchange = NopExchange<()>;
     type Router = NopRouter;
     type Transport = NopTransport;
 

@@ -2,10 +2,7 @@ use crate::{
     controllers::{StdDescriptor, SyncWorker, Workdir, Worker},
     corpus::{Testcase, TestcaseId},
     inputs::Input,
-    sync::{
-        InputRepr, WorkerSync,
-        exchanges::standard::{StdCommand, StdNotification},
-    },
+    sync::{InputRepr, StdCommand, StdNotification, WorkerSync},
 };
 use libaflmm_core::{Result, WorkerId, illegal_argument};
 use nix::unistd::{dup2_stderr, dup2_stdout};
@@ -141,6 +138,8 @@ where
     }
 
     fn recv_testcases(&mut self) -> Result<impl Iterator<Item = Testcase<I>>> {
+        
+        
         self.pending_commands.extend(self.sync.poll()?);
 
         for cmd in self
@@ -149,10 +148,9 @@ where
         {
             if let StdCommand::Import { id, handle, .. } = cmd {
                 if !self.imported_testcases.contains(&id) {
-                    let tc = if let Some(input) = self.input_repr.handle_to_input(handle)? {
-                        Testcase::new(Rc::new(input))
-                    };
-                    let tc = ;
+                    let input = self.input_repr.handle_to_input(handle)?;
+                    let tc = Testcase::new(Rc::new(input));
+
                     if *tc.id() != id {
                         return Err(illegal_argument!(
                             "imported ID does not match input content"

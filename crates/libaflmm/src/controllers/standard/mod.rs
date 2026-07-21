@@ -1,7 +1,6 @@
 use crate::Result;
 use crate::controllers::{Descriptor, Workdir, WorkdirFile};
-use crate::sync::GroupId;
-use crate::sync::exchanges::standard::{StdCommand, StdNotification};
+use crate::sync::{GroupId, StdCommand, StdNotification};
 use libaflmm_bolts::{Connection, CoreId};
 use libaflmm_core::WorkerId;
 use std::path::Path;
