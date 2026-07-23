@@ -132,7 +132,7 @@ addr2line = "0.27.0"
 paste = { workspace = true }
 delegate = { workspace = true }
 thiserror = { workspace = true }
-enum-map = "2.7.3"
+enum-map = "3.1.0"
 serde_yaml = { workspace = true, optional = true } # For parsing the injections yaml file
 toml = { workspace = true, optional = true } # For parsing the injections toml file
 pyo3 = { workspace = true, optional = true, features = ["multiple-pymethods"] }
