@@ -5,7 +5,6 @@ members = [
   "crates/libaflmm_asan",
   "crates/libaflmm_asan/libaflmm_asan_fuzz",
   "crates/libaflmm_bolts",
-  "crates/libaflmm_build",
   "crates/libaflmm_cc",
   "crates/libaflmm_core",
   "crates/libaflmm_derive",
@@ -26,7 +25,6 @@ members = [
   "utils/ci_splitter",
   "utils/drcov_utils",
   "utils/libaflmm_benches",
-  "utils/find_llvm_config",
   "utils/libaflmm_repo_tools",
 
   # linters
@@ -68,7 +66,6 @@ rust-version = "1.89"
 # Internal deps
 libaflmm = { path = "./crates/libaflmm", version = "0.16.0", default-features = false }
 libaflmm_bolts = { path = "./crates/libaflmm_bolts", version = "0.16.0", default-features = false }
-libaflmm_build = { path = "./crates/libaflmm_build", version = "0.16.0", default-features = false }
 libaflmm_cc = { path = "./crates/libaflmm_cc", version = "0.16.0", default-features = false }
 libaflmm_core = { path = "./crates/libaflmm_core", version = "0.16.0", default-features = false }
 libaflmm_derive = { path = "./crates/libaflmm_derive", version = "0.16.0", default-features = false }

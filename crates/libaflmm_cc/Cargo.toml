@@ -29,10 +29,11 @@ cmplog-routines = []
 autotokens = []
 cmplog-instructions = []
 
+[dependencies]
+which = { workspace = true }
+
 [build-dependencies]
 cc = { workspace = true, features = ["parallel"] }
-libaflmm_build = { workspace = true }
-which = { workspace = true }
 
 [target.'cfg(target_vendor = "apple")'.build-dependencies]
 glob = { workspace = true }

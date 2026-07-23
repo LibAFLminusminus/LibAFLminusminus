@@ -2,11 +2,9 @@
 // pass to e.g. cmake with -DCMAKE_AR=/path/to/fuzzer/target/release/libaflmm_ar
 
 use core::str::FromStr;
-use std::{env, path::PathBuf};
+use std::path::{Path, PathBuf};
 
-use crate::{Error, LIB_EXT, LIB_PREFIX, ToolWrapper};
-
-include!(concat!(env!("OUT_DIR"), "/clang_constants.rs"));
+use crate::{Error, LlvmConfig, Result, ToolWrapper};
 
 /// Wrap Clang
 #[expect(clippy::struct_excessive_bools)]
@@ -19,17 +17,16 @@ pub struct ArWrapper {
     need_libaflmm_arg: bool,
     has_libaflmm_arg: bool,
 
-    configurations: Vec<crate::Configuration>,
+    bin: PathBuf,
+    dir: Option<PathBuf>,
+    configuration: crate::Configuration,
     parse_args_called: bool,
     base_args: Vec<String>,
 }
 
 #[expect(clippy::match_same_arms)] // for the linking = false wip for "shared"
 impl ToolWrapper for ArWrapper {
-    fn parse_args<S>(&mut self, args: &[S]) -> Result<&'_ mut Self, Error>
-    where
-        S: AsRef<str>,
-    {
+    fn parse_args(&mut self, args: &[impl AsRef<str>]) -> Result<&'_ mut Self> {
         let mut new_args: Vec<String> = vec![];
         if args.is_empty() {
             return Err(Error::InvalidArguments(
@@ -62,41 +59,37 @@ impl ToolWrapper for ArWrapper {
             linking = false;
         }
 
-        let mut suppress_linking = 0;
+        // let mut suppress_linking = 0;
         let mut i = 1;
         while i < args.len() {
             match args[i].as_ref() {
                 "--libafl-no-link" => {
-                    suppress_linking += 1;
+                    // suppress_linking += 1;
                     self.has_libaflmm_arg = true;
                     i += 1;
                     continue;
                 }
                 "--libafl" => {
-                    suppress_linking += 1337;
+                    // suppress_linking += 1337;
                     self.has_libaflmm_arg = true;
                     i += 1;
                     continue;
                 }
                 "-fsanitize=fuzzer-no-link" => {
-                    suppress_linking += 1;
+                    // suppress_linking += 1;
                     self.has_libaflmm_arg = true;
                     i += 1;
                     continue;
                 }
                 "-fsanitize=fuzzer" => {
-                    suppress_linking += 1337;
+                    // suppress_linking += 1337;
                     self.has_libaflmm_arg = true;
                     i += 1;
                     continue;
                 }
                 "--libafl-configurations" if i + 1 < args.len() => {
-                    self.configurations.extend(
-                        args[i + 1]
-                            .as_ref()
-                            .split(',')
-                            .map(|x| crate::Configuration::from_str(x).unwrap()),
-                    );
+                    self.configuration =
+                        crate::Configuration::from_str(args[i + 1].as_ref()).unwrap();
                     i += 2;
                     continue;
                 }
@@ -105,19 +98,20 @@ impl ToolWrapper for ArWrapper {
             new_args.push(args[i].as_ref().to_string());
             i += 1;
         }
-        if linking
-            && (suppress_linking > 0 || (self.has_libaflmm_arg && suppress_linking == 0))
-            && suppress_linking < 1337
-        {
-            linking = false;
-            new_args.push(
-                PathBuf::from(env!("OUT_DIR"))
-                    .join(format!("{LIB_PREFIX}no-link-rt.{LIB_EXT}"))
-                    .into_os_string()
-                    .into_string()
-                    .unwrap(),
-            );
-        }
+
+        // if linking
+        //     && (suppress_linking > 0 || (self.has_libaflmm_arg && suppress_linking == 0))
+        //     && suppress_linking < 1337
+        // {
+        //     linking = false;
+        //     new_args.push(
+        //         PathBuf::from(env!("OUT_DIR"))
+        //             .join(format!("{LIB_PREFIX}no-link-rt.{LIB_EXT}"))
+        //             .into_os_string()
+        //             .into_string()
+        //             .unwrap(),
+        //     );
+        // }
 
         self.linking = linking;
 
@@ -126,36 +120,42 @@ impl ToolWrapper for ArWrapper {
         Ok(self)
     }
 
-    fn add_arg<S>(&mut self, arg: S) -> &'_ mut Self
-    where
-        S: AsRef<str>,
-    {
+    fn add_arg(&mut self, arg: impl AsRef<str>) -> &'_ mut Self {
         self.base_args.push(arg.as_ref().to_string());
         self
     }
 
-    fn add_configuration(&mut self, configuration: crate::Configuration) -> &'_ mut Self {
-        self.configurations.push(configuration);
+    fn set_dir(&mut self, dir: impl AsRef<Path>) -> &'_ mut Self {
+        self.dir = Some(dir.as_ref().to_path_buf());
         self
     }
 
-    fn configurations(&self) -> Result<Vec<crate::Configuration>, Error> {
-        let configs = self.configurations.clone();
-        Ok(configs)
+    fn dir(&self) -> Option<&Path> {
+        self.dir.as_ref().map(|p| p.as_path())
     }
 
-    fn ignore_configurations(&self) -> Result<bool, Error> {
+    fn set_configuration(&mut self, configuration: crate::Configuration) -> &'_ mut Self {
+        self.configuration = configuration;
+        self
+    }
+
+    fn configuration(&self) -> Result<crate::Configuration> {
+        let config = self.configuration.clone();
+        Ok(config)
+    }
+
+    fn ignore_configurations(&self) -> Result<bool> {
         Ok(false)
     }
 
-    fn command(&mut self) -> Result<Vec<String>, Error> {
+    fn command(&mut self) -> Result<Vec<String>> {
         self.command_for_configuration(crate::Configuration::Default)
     }
 
     fn command_for_configuration(
         &mut self,
         configuration: crate::Configuration,
-    ) -> Result<Vec<String>, Error> {
+    ) -> Result<Vec<String>> {
         let mut args = vec![];
 
         let base_args = self
@@ -185,7 +185,7 @@ impl ToolWrapper for ArWrapper {
             })
             .collect::<Vec<_>>();
 
-        args.push(LLVM_AR_PATH.to_string());
+        args.push(self.bin.as_path().to_str().unwrap().to_string());
 
         args.extend_from_slice(base_args.as_slice());
 
@@ -212,27 +212,24 @@ impl ToolWrapper for ArWrapper {
     }
 }
 
-impl Default for ArWrapper {
-    /// Create a new Clang Wrapper
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl ArWrapper {
     /// Create a new Clang Wrapper
     #[must_use]
-    pub fn new() -> Self {
-        Self {
+    pub fn new(llvm_config: &LlvmConfig) -> Result<Self> {
+        let bin = llvm_config.tool("ar")?;
+
+        Ok(Self {
             name: String::new(),
             linking: false,
             need_libaflmm_arg: false,
             has_libaflmm_arg: false,
-            configurations: vec![crate::Configuration::Default],
+            bin,
+            dir: None,
+            configuration: crate::Configuration::Default,
             parse_args_called: false,
             base_args: vec![],
             is_silent: false,
-        }
+        })
     }
 
     /// Set if linking
