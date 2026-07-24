@@ -28,7 +28,6 @@ use libaflmm_bolts::{
     anymap::{named_metadata, named_metadata_mut, unnamed_metadata, unnamed_metadata_mut},
     rands::Rand,
 };
-use libaflmm_core::illegal_argument;
 use nix::fcntl::{Flock, FlockArg};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
@@ -280,8 +279,6 @@ pub const DEFAULT_MAX_SIZE: usize = 1_048_576;
 pub struct LoadConfig<'a, I, S, Z> {
     /// Function to load input from a Path
     loader: &'a mut dyn FnMut(&mut Z, &mut S, &Path) -> Result<I>,
-    /// Error if Input leads to a Solution.
-    exit_on_solution: bool,
 }
 
 impl<I, S, Z> Debug for LoadConfig<'_, I, S, Z> {
@@ -591,18 +588,11 @@ where
     C: ScheduledCorpus<I, SC>,
     I: Input,
 {
-    /// Decide if the state must load the inputs
-    pub fn must_load_initial_inputs(&self) -> bool {
-        self.corpus.count() == 0
-            || (self.remaining_initial_files.is_some()
-                && !self.remaining_initial_files.as_ref().unwrap().is_empty())
-    }
-
     /// List initial inputs from a directory.
     fn next_file(&mut self) -> Result<PathBuf> {
         loop {
             if let Some(path) = self.remaining_initial_files.as_mut().and_then(Vec::pop) {
-                let attributes = fs::metadata(&path);
+                let attributes = fs::symlink_metadata(&path);
 
                 if attributes.is_err() {
                     continue;
@@ -634,60 +624,20 @@ where
         }
     }
 
-    /// Resets the state of initial files.
-    fn reset_initial_files_state(&mut self) {
-        self.remaining_initial_files = None;
-        self.dont_reenter = None;
-    }
-
     /// Sets canonical paths for provided inputs
     fn canonicalize_input_dirs(&mut self, in_dirs: &[impl AsRef<Path>]) -> Result<()> {
-        if let Some(remaining) = self.remaining_initial_files.as_ref() {
-            // everything was loaded
-            if remaining.is_empty() {
-                return Ok(());
-            }
-        } else {
-            let files = in_dirs.iter().try_fold(Vec::new(), |mut res, file| {
-                file.as_ref().canonicalize().map(|canonicalized| {
-                    res.push(canonicalized);
-                    res
-                })
-            })?;
-            self.dont_reenter = Some(files.clone());
-            self.remaining_initial_files = Some(files);
-        }
+        let files = in_dirs.iter().try_fold(Vec::new(), |mut res, file| {
+            file.as_ref().canonicalize().map(|canonicalized| {
+                res.push(canonicalized);
+                res
+            })
+        })?;
+        self.dont_reenter = Some(files.clone());
+        self.remaining_initial_files = Some(files);
         Ok(())
     }
 
-    /// Loads initial inputs from the passed-in `in_dirs`.
-    /// If `forced` is true, will add all testcases, no matter what.
-    /// This method takes a list of files.
-    fn load_initial_inputs_custom_by_filenames<E, W, Z>(
-        &mut self,
-        fuzzer: &mut Z,
-        rt_handle: &mut RuntimeHandle<Self, W>,
-        file_list: &[impl AsRef<Path>],
-        load_config: LoadConfig<I, Self, Z>,
-    ) -> Result<()>
-    where
-        Z: Evaluator<E, I, Self, W>,
-    {
-        if let Some(remaining) = self.remaining_initial_files.as_ref() {
-            // everything was loaded
-            if remaining.is_empty() {
-                return Ok(());
-            }
-        } else {
-            self.remaining_initial_files =
-                Some(file_list.iter().map(|p| p.as_ref().to_path_buf()).collect());
-        }
-
-        self.continue_loading_initial_inputs_custom(fuzzer, rt_handle, load_config)?;
-        Ok(())
-    }
-
-    fn load_file<E, W, Z>(
+    fn evaluate_file<E, W, Z>(
         &mut self,
         path: &Path,
         fuzzer: &mut Z,
@@ -715,23 +665,20 @@ where
     /// Loads initial inputs from the passed-in `in_dirs`.
     /// This method takes a list of files and a `LoadConfig`
     /// which specifies the special handling of initial inputs
-    fn continue_loading_initial_inputs_custom<E, W, Z>(
+    fn drain_initial_files<E, W, Z>(
         &mut self,
         fuzzer: &mut Z,
         rt_handle: &mut RuntimeHandle<Self, W>,
         mut config: LoadConfig<I, Self, Z>,
-    ) -> Result<usize>
+    ) -> Result<()>
     where
         Z: Evaluator<E, I, Self, W>,
     {
-        let mut nb_loaded = 0;
-
         loop {
             match self.next_file() {
                 Ok(path) => {
-                    nb_loaded += 1;
-                    let res = self.load_file(&path, fuzzer, rt_handle, &mut config)?;
-                    if config.exit_on_solution && res.is_objective_worthy() {
+                    let res = self.evaluate_file(&path, fuzzer, rt_handle, &mut config)?;
+                    if res.is_objective_worthy() {
                         return Err(Error::invalid_corpus(format!(
                             "Input {} resulted in a objective.",
                             path.display()
@@ -743,103 +690,10 @@ where
             }
         }
 
-        Ok(nb_loaded)
-    }
-
-    /// Recursively walk supplied corpus directories
-    pub fn walk_initial_inputs<F>(
-        &mut self,
-        in_dirs: &[impl AsRef<Path>],
-        mut closure: F,
-    ) -> Result<()>
-    where
-        F: FnMut(&Path) -> Result<()>,
-    {
-        self.canonicalize_input_dirs(in_dirs)?;
-        loop {
-            match self.next_file() {
-                Ok(path) => {
-                    closure(&path)?;
-                }
-                Err(Error::IteratorEnd(_, _)) => break,
-                Err(e) => return Err(e),
-            }
-        }
-        self.reset_initial_files_state();
         Ok(())
     }
 
-    /// Loads all intial inputs, even if they are not considered `interesting`.
-    /// This is rarely the right method, use `load_initial_inputs`,
-    /// and potentially fix your `Feedback`, instead.
-    /// This method takes a list of files, instead of folders.
-    pub fn load_initial_inputs_by_filenames<E, W, Z>(
-        &mut self,
-        fuzzer: &mut Z,
-        rt_handle: &mut RuntimeHandle<Self, W>,
-        file_list: &[impl AsRef<Path>],
-    ) -> Result<()>
-    where
-        Z: Evaluator<E, I, Self, W>,
-    {
-        self.load_initial_inputs_custom_by_filenames(
-            fuzzer,
-            rt_handle,
-            file_list,
-            LoadConfig {
-                loader: &mut |_, _, path| I::from_file(path),
-                exit_on_solution: false,
-            },
-        )
-    }
-
-    /// Loads all intial inputs, even if they are not considered `interesting`.
-    /// This is rarely the right method, use `load_initial_inputs`,
-    /// and potentially fix your `Feedback`, instead.
-    pub fn load_initial_inputs_forced<E, W, Z>(
-        &mut self,
-        fuzzer: &mut Z,
-        rt_handle: &mut RuntimeHandle<Self, W>,
-        in_dirs: &[impl AsRef<Path>],
-    ) -> Result<()>
-    where
-        Z: Evaluator<E, I, Self, W>,
-    {
-        self.canonicalize_input_dirs(in_dirs)?;
-        self.continue_loading_initial_inputs_custom(
-            fuzzer,
-            rt_handle,
-            LoadConfig {
-                loader: &mut |_, _, path| I::from_file(path),
-                exit_on_solution: false,
-            },
-        )?;
-        Ok(())
-    }
-    /// Loads initial inputs from the passed-in `in_dirs`.
-    /// If `forced` is true, will add all testcases, no matter what.
-    /// This method takes a list of files, instead of folders.
-    pub fn load_initial_inputs_by_filenames_forced<E, W, Z>(
-        &mut self,
-        fuzzer: &mut Z,
-        rt_handle: &mut RuntimeHandle<Self, W>,
-        file_list: &[impl AsRef<Path>],
-    ) -> Result<()>
-    where
-        Z: Evaluator<E, I, Self, W>,
-    {
-        self.load_initial_inputs_custom_by_filenames(
-            fuzzer,
-            rt_handle,
-            file_list,
-            LoadConfig {
-                loader: &mut |_, _, path| I::from_file(path),
-                exit_on_solution: false,
-            },
-        )
-    }
-
-    /// Loads initial inputs from the passed-in `in_dirs`.
+    /// Loads all intial inputs and evaluate them
     pub fn load_initial_inputs<E, W, Z>(
         &mut self,
         fuzzer: &mut Z,
@@ -850,44 +704,17 @@ where
         Z: Evaluator<E, I, Self, W>,
     {
         self.canonicalize_input_dirs(in_dirs)?;
-        let nb_loaded = self.continue_loading_initial_inputs_custom(
+        self.drain_initial_files(
             fuzzer,
             rt_handle,
             LoadConfig {
                 loader: &mut |_, _, path| I::from_file(path),
-                exit_on_solution: false,
             },
         )?;
 
-        if nb_loaded == 0 {
-            Err(illegal_argument!(
-                "0 inputs have been loaded. Are inputs directories correct?"
-            ))
-        } else {
-            Ok(())
-        }
-    }
-
-    /// Loads initial inputs from the passed-in `in_dirs`.
-    /// Will return a `CorpusError` if a solution is found
-    pub fn load_initial_inputs_disallow_solution<E, W, Z>(
-        &mut self,
-        fuzzer: &mut Z,
-        rt_handle: &mut RuntimeHandle<Self, W>,
-        in_dirs: &[impl AsRef<Path>],
-    ) -> Result<()>
-    where
-        Z: Evaluator<E, I, Self, W>,
-    {
-        self.canonicalize_input_dirs(in_dirs)?;
-        self.continue_loading_initial_inputs_custom(
-            fuzzer,
-            rt_handle,
-            LoadConfig {
-                loader: &mut |_, _, path| I::from_file(path),
-                exit_on_solution: true,
-            },
-        )?;
+        // clean up
+        self.remaining_initial_files = None;
+        self.dont_reenter = None;
         Ok(())
     }
 }
