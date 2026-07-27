@@ -1,4 +1,5 @@
 use crate::Result;
+use core::{fmt::Debug, marker::PhantomData};
 use nix::{
     errno::Errno,
     sys::socket::{
@@ -6,11 +7,7 @@ use nix::{
     },
 };
 use serde::{Serialize, de::DeserializeOwned};
-use std::{
-    fmt::Debug,
-    marker::PhantomData,
-    os::fd::{AsFd, AsRawFd, BorrowedFd, OwnedFd},
-};
+use std::os::fd::{AsFd, AsRawFd, BorrowedFd, OwnedFd};
 
 /// shortcut for transportable messages over the wire
 /// it is auto-impl for T enforcing these sub traits.
@@ -76,7 +73,7 @@ where
     /// # Safety
     ///
     /// The serialized msg must be the result of [`Self::serialize_msg`] for the same connection type.
-    /// So, calling [`Self::serialize_msg`] with `Connection<In1, Out1>` and [`Self::send_serialized`] with Connection<In2, Out2>` is undefined behaviour.
+    /// So, calling [`Self::serialize_msg`] with `Connection<In1, Out1>` and [`Self::send_serialized`] with `Connection<In2, Out2>` is undefined behaviour.
     pub unsafe fn send_serialized(
         &mut self,
         serialized_msg: impl AsRef<[u8]>,
@@ -147,6 +144,7 @@ where
     }
 
     /// Get the borrowed underlying file descriptor.
+    #[must_use]
     pub fn as_fd(&self) -> BorrowedFd<'_> {
         self.fd.as_fd()
     }
