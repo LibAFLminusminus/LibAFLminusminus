@@ -1,7 +1,6 @@
 use crate::Result;
 use nix::{
     errno::Errno,
-    poll::{PollFd, PollFlags, PollTimeout, poll},
     sys::socket::{
         AddressFamily, MsgFlags, SockFlag, SockType, recv, send, setsockopt, socketpair, sockopt,
     },
@@ -103,22 +102,6 @@ where
     pub fn send(&mut self, msg: &Out) -> Result<SendResult> {
         let serialized = Self::serialize_msg(msg)?;
         unsafe { self.send_serialized(serialized) }
-    }
-
-    /// same as `send`, but blocks until the message is actually sent.
-    pub fn send_blocking(&mut self, msg: &Out) -> Result<()> {
-        let serialized = postcard::to_allocvec(msg)?;
-        loop {
-            match send(self.fd.as_raw_fd(), &serialized, MsgFlags::empty()) {
-                Ok(_) => return Ok(()),
-                Err(Errno::EAGAIN) => {
-                    let mut fds = [PollFd::new(self.fd.as_fd(), PollFlags::POLLOUT)];
-                    poll(&mut fds, PollTimeout::NONE)?;
-                }
-                Err(Errno::EINTR) => {}
-                Err(e) => return Err(e.into()),
-            }
-        }
     }
 
     /// poll for messages from the other end of the wire.

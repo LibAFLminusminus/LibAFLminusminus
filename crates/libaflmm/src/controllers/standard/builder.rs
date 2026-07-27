@@ -44,9 +44,9 @@ impl<O> StdControllerBuilder<O> {
         }
     }
 
-    /// Set to `true` if the [`Workdir`](crate::Workdir) should be overwritten.
+    /// Set to `true` if the [`Workdir`](crate::controllers::Workdir) should be overwritten.
     ///
-    /// If set to `false` and the [`Workdir`](crate::Workdir) already exists, it will error out.
+    /// If set to `false` and the [`Workdir`](crate::controllers::Workdir) already exists, it will error out.
     #[must_use]
     pub fn overwrite(mut self, overwrite: bool) -> Self {
         self.overwrite = overwrite;
@@ -60,28 +60,28 @@ impl<O> StdControllerBuilder<O> {
         self
     }
 
-    /// Set [`SimpleWorker`]'s stdout.
+    /// Set [`StdWorker`](crate::controllers::StdWorker)'s stdout.
     #[must_use]
     pub fn worker_stdout(mut self, file_output: WorkdirFile) -> Self {
         self.worker_stdout = file_output;
         self
     }
 
-    /// Set [`SimpleWorker`]'s stderr.
+    /// Set [`StdWorker`](crate::controllers::StdWorker)'s stderr.
     #[must_use]
     pub fn worker_stderr(mut self, file_output: WorkdirFile) -> Self {
         self.worker_stderr = file_output;
         self
     }
 
-    /// Set [`SimpleWorker`]'s stats file.
+    /// Set [`StdWorker`](crate::controllers::StdWorker)'s stats file.
     #[must_use]
     pub fn worker_stats(mut self, file_output: WorkdirFile) -> Self {
         self.worker_stats = file_output;
         self
     }
 
-    /// Build a [`SimpleController`].
+    /// Build a [`StdController`].
     pub fn build<I>(self) -> Result<StdController<I, O>>
     where
         I: Debug,

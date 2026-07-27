@@ -272,7 +272,7 @@ where
             Notification = StdNotification<HandleOf<I, O>>,
         >,
 {
-    /// Create a new [`StdGlobalController`] and will use `root_dir` as the root directory.
+    /// Create a new [`StdController`] using `root_dir` as the root directory.
     /// If overwrite is true, the `root_dir` will be removed before being created again.
     pub fn new(
         orchestrator: O,

@@ -22,9 +22,9 @@ pub trait Router<CMD, D>: Debug {
         Ok(self.destinations(source))
     }
 
-    /// Get all the destination nodes of a [`Worker`]
+    /// Get all the destination nodes of a [`Worker`](crate::controllers::Worker).
     fn destinations(&self, worker: WorkerId) -> impl Iterator<Item = WorkerId>;
-    /// Get all the source nodes of a [`Worker`]
+    /// Get all the source nodes of a [`Worker`](crate::controllers::Worker).
     fn sources(&self, worker: WorkerId) -> impl Iterator<Item = WorkerId>;
     /// True iff the worker has destination workers
     fn has_destinations(&self, worker: WorkerId) -> bool {

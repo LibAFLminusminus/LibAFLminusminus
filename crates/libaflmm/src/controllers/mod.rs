@@ -156,7 +156,8 @@ pub trait Worker {
 }
 
 pub trait SyncWorker<I>: Worker {
-    /// Report a [`Testcase`] that should be shared according to the [`Router`] policy.
+    /// Report a [`Testcase`] that should be shared according to the
+    /// [`Router`](crate::sync::Router) policy.
     fn send_testcase(&mut self, testcase: &Testcase<I>) -> Result<()>;
 
     /// Poll for inputs that should be evaluated.

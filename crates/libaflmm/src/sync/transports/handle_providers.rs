@@ -7,15 +7,16 @@ pub type SerializedHandleProviderFactory = DefaultHandleProviderFactory<Serializ
 pub type UnreachableHandleProviderFactory = DefaultHandleProviderFactory<UnreachableHandleProvider>;
 
 /// A way to get a representation of an input.
-/// Think of a file on the filesystem, which can be represented by its [`Path`].
+/// Think of a file on the filesystem, which can be represented by its
+/// [`Path`](std::path::Path).
 pub trait HandleProvider<I>: Debug {
     /// An input handle, that represents a given input.
     type Handle: Transferable;
 
-    /// Create a fresh [`Self::InputHandle`] from a given `input`
+    /// Create a fresh [`Self::Handle`] from a given `input`.
     fn create_handle(&mut self, input: &I) -> Result<Self::Handle>;
 
-    /// Fetch back an input from its [`Self::InputHandle`]
+    /// Fetch back an input from its [`Self::Handle`].
     fn resolve_handle(&mut self, handle: Self::Handle) -> Result<I>;
 }
 

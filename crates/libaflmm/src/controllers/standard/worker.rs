@@ -24,7 +24,7 @@ where
     should_report: bool,
 }
 
-/// A representation of a [`StdWorker`], to be used by [`StdController`].
+/// A representation of a [`StdWorker`], to be used by [`StdController`](super::StdController).
 #[derive(Debug)]
 pub struct StdWorkerRepr<CS> {
     descriptor: StdDescriptor,

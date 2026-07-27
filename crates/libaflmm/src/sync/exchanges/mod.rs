@@ -17,7 +17,8 @@ pub trait Exchange<D, H>: Debug {
 
     /// Optionally converts a [`Self::Notification`] into a [`Self::Command`].
     /// Every notification received will go through this function.
-    /// If a command is produced, it will be routed through the [`Self::Router`].
+    /// If a command is produced, it will be routed through a
+    /// [`Router`](crate::sync::Router).
     fn notif_to_command(
         &mut self,
         source: &D,
