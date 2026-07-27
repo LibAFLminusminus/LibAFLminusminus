@@ -1,11 +1,9 @@
 use crate::{
-    controllers::{StdController, StdDescriptor, WorkdirFile},
-    sync::{Orchestrator, StdOrchestrator, Transport},
+    controllers::{StdController, StdDescriptor, WorkdirFile, standard::controller::HandleOf},
+    sync::{Orchestrator, StdCommand, StdNotification, StdOrchestrator},
 };
 use libaflmm_core::Result;
-use std::path::PathBuf;
-
-use super::controller::{StdCommandOf, StdNotificationOf, TransportOf};
+use std::{fmt::Debug, path::PathBuf};
 
 pub struct ControllerBuilder;
 
@@ -85,8 +83,13 @@ impl<O> StdControllerBuilder<O> {
     /// Build a [`SimpleController`].
     pub fn build<I>(self) -> Result<StdController<I, O>>
     where
-        O: Orchestrator<StdDescriptor, I>,
-        TransportOf<I, O>: Transport<StdCommandOf<I, O>, StdDescriptor, StdNotificationOf<I, O>>,
+        I: Debug,
+        O: Orchestrator<
+                StdDescriptor,
+                I,
+                Command = StdCommand<HandleOf<I, O>>,
+                Notification = StdNotification<HandleOf<I, O>>,
+            >,
     {
         StdController::new(
             self.orchestrator,

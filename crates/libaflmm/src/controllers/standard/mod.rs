@@ -15,10 +15,10 @@ pub mod worker;
 pub use worker::{StdWorker, StdWorkerRepr};
 
 /// controller receives notifs and sends commands to workers
-type StdControllerConnection<IR> = Connection<StdNotification<IR>, StdCommand<IR>>;
+pub type StdControllerConnection<IR> = Connection<StdNotification<IR>, StdCommand<IR>>;
 
 /// worker receives commands and sends notifs to controller
-type StdWorkerConnection<IR> = Connection<StdCommand<IR>, StdNotification<IR>>;
+pub type StdWorkerConnection<IR> = Connection<StdCommand<IR>, StdNotification<IR>>;
 
 /// A Std descriptor for a [`StdWorker`].
 #[derive(Debug, Clone)]

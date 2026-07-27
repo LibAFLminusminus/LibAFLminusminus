@@ -2,12 +2,12 @@
 //! Launchers start the fuzzing session, involving multiple instances.
 
 use crate::{
+    Error, Result,
     controllers::{Controller, StdController, StdDescriptor, StdWorker, Worker},
     inputs::Input,
     launchers::groups::{GroupTuple, PendingGroup, RegisteredGroupTuple},
     monitors::{Monitor, SimpleMonitor, StdMonitor},
-    sync::{StdInputRepr, StdOrchestrator, StdWorkerSync},
-    Error, Result,
+    sync::{StdHandleProvider, StdOrchestrator, StdWorkerSync},
 };
 use core::time::Duration;
 use libaflmm_core::illegal_argument;
@@ -44,7 +44,7 @@ impl<I>
         StdDescriptor,
         StdController<I, StdOrchestrator>,
         StdMonitor,
-        StdWorker<I, StdInputRepr, StdWorkerSync>,
+        StdWorker<StdHandleProvider, I, StdWorkerSync>,
     >
 where
     I: Input,

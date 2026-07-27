@@ -1,18 +1,19 @@
 use crate::{
     controllers::{
-        Controller, Descriptor, StdDescriptor, StdWorker, StdWorkerRepr, WorkdirFile,
+        Controller, Descriptor, StdDescriptor, StdWorker, WorkdirFile,
         standard::builder::StdControllerBuilder,
     },
     launchers::InstanceId,
     sync::{
-        Exchange, GroupId, InputRepr, Orchestrator, Router, StdCommand, StdNotification,
-        StdOrchestrator, Transport,
+        GroupId, HandleProvider, Orchestrator, Router, StdCommand, StdNotification,
+        StdOrchestrator, Transport, transports::HandleProviderFactory,
     },
 };
 use libaflmm_bolts::{CoreId, Cores};
-use libaflmm_core::{Result, WorkerId, illegal_argument, internal_bug};
+use libaflmm_core::{Result, WorkerId, illegal_argument, illegal_state, internal_bug};
 use std::{
     collections::{HashMap, HashSet, hash_map::Entry},
+    fmt::Debug,
     fs,
     marker::PhantomData,
     mem,
@@ -20,69 +21,63 @@ use std::{
 };
 
 // get the synchronizer type out of a pair of <Input, Orchestrator>
-pub(super) type TransportOf<I, O> = <O as Orchestrator<StdDescriptor, I>>::Transport;
-type InputReprOf<I, O> = <O as Orchestrator<StdDescriptor, I>>::InputRepr;
-type InputHandleOf<I, O> = <InputReprOf<I, O> as InputRepr<I>>::InputHandle;
-pub(super) type CommandOf<I, O> = <<O as Orchestrator<StdDescriptor, I>>::Exchange as Exchange<
-    StdDescriptor,
-    InputHandleOf<I, O>,
->>::Command;
-pub(super) type NotificationOf<I, O> =
-    <<O as Orchestrator<StdDescriptor, I>>::Exchange as Exchange<
-        StdDescriptor,
-        InputHandleOf<I, O>,
-    >>::Notification;
+pub(crate) type TransportOf<I, O> = <O as Orchestrator<StdDescriptor, I>>::Transport;
+pub(crate) type InputReprOf<I, O> = <O as Orchestrator<StdDescriptor, I>>::Provider;
+pub(crate) type HandleOf<I, O> = <InputReprOf<I, O> as HandleProvider<I>>::Handle;
+pub(crate) type CommandOf<I, O> = <O as Orchestrator<StdDescriptor, I>>::Command;
+pub(crate) type NotificationOf<I, O> = <O as Orchestrator<StdDescriptor, I>>::Notification;
 
-type ControllerSyncOf<I, O> = <TransportOf<I, O> as Transport<
+pub(crate) type ControllerSyncOf<I, O> = <TransportOf<I, O> as Transport<
     CommandOf<I, O>,
     StdDescriptor,
     NotificationOf<I, O>,
 >>::ControllerSync;
-type WorkerSyncOf<I, O> = <TransportOf<I, O> as Transport<
-    CommandOf<I, O>,
-    StdDescriptor,
-    NotificationOf<I, O>,
->>::WorkerSync;
+// pub(crate) type WorkerSyncOf<I, O> = <TransportOf<I, O> as Transport<
+//     CommandOf<I, O>,
+//     StdDescriptor,
+//     NotificationOf<I, O>,
+// >>::WorkerSync;
 
 /// The standard controller.
 #[derive(Debug)]
 pub struct StdController<I, O>
 where
-    O: Orchestrator<StdDescriptor, I>,
-    O::Exchange: Exchange<
+    I: Debug,
+    O: Orchestrator<
             StdDescriptor,
-            InputHandleOf<I, O>,
-            Command = StdCommand<InputHandleOf<I, O>>,
-            Notification = StdNotification<InputHandleOf<I, O>>,
-        >, // TransportOf<I, O>: Transport<StdCommandOf<I, O>, StdDescriptor, StdNotificationOf<I, O>>,
+            I,
+            Command = StdCommand<HandleOf<I, O>>,
+            Notification = StdNotification<HandleOf<I, O>>,
+        >,
 {
     orchestrator: O,
+    controller_sync: Option<ControllerSyncOf<I, O>>,
+    descriptors: HashMap<WorkerId, StdDescriptor>,
     root_dir: PathBuf,
-    sync: ControllerSyncOf<I, O>,
-    workers: HashMap<WorkerId, StdDescriptor>,
+    finalized: bool,
+
+    worker_id_ctr: u32,
+    pending_workers: HashMap<GroupId, Vec<StdWorker<O::Provider, I, O::WorkerSync>>>,
+    pending_groups: HashMap<GroupId, Cores>,
+
     worker_stdout: WorkdirFile,
     worker_stderr: WorkdirFile,
     worker_stats: WorkdirFile,
-    phantom: PhantomData<I>,
 
-    worker_id_ctr: u32,
-    pending_workers: HashMap<GroupId, Vec<StdWorker<I, InputReprOf<I, O>, WorkerSyncOf<I, O>>>>,
-    pending_groups: HashMap<GroupId, Cores>,
+    phantom: PhantomData<I>,
 }
 
 impl<I, O> Controller for StdController<I, O>
 where
-    O: Orchestrator<StdDescriptor, I>,
-    O::Exchange: Exchange<
+    I: Debug,
+    O: Orchestrator<
             StdDescriptor,
-            InputHandleOf<I, O>,
-            Command = StdCommand<InputHandleOf<I, O>>,
-            Notification = StdNotification<InputHandleOf<I, O>>,
+            I,
+            Command = StdCommand<HandleOf<I, O>>,
+            Notification = StdNotification<HandleOf<I, O>>,
         >,
-    // O::Router: Router<StdCommandOf<I, O>, StdDescriptor>,
-    // TransportOf<I, O>: Transport<StdCommandOf<I, O>, StdDescriptor, StdNotificationOf<I, O>>,
 {
-    type Worker = StdWorker<I, InputReprOf<I, O>, WorkerSyncOf<I, O>>;
+    type Worker = StdWorker<O::Provider, I, O::WorkerSync>;
     type GroupConfig = <O::Router as Router<CommandOf<I, O>, StdDescriptor>>::GroupConfig;
 
     fn register_group(&mut self, config: Self::GroupConfig, cores: &Cores) -> Result<GroupId> {
@@ -92,21 +87,29 @@ where
     }
 
     fn finalize_orchestration(&mut self) -> Result<()> {
+        if mem::replace(&mut self.finalized, true) {
+            return Err(illegal_state!(
+                "Trying to finalize a controller more than one time. This is not legal."
+            ));
+        }
+
         let mut used_cores: HashSet<CoreId> = HashSet::new();
         let mut worker_desc: HashMap<WorkerId, StdDescriptor> = HashMap::new();
 
+        // check core pinning correctness
         for (_, cores) in &self.pending_groups {
             for core_id in cores {
-                if let Some(c) = core_id {
-                    if !used_cores.insert(c) {
-                        return Err(illegal_argument!(
-                            "core {c:?} is getting pinned on by multiple workers. Use unpinned cores instead."
-                        ));
-                    }
+                if let Some(core) = core_id
+                    && !used_cores.insert(core)
+                {
+                    return Err(illegal_argument!(
+                        "core {core:?} is getting pinned on by multiple workers. Use unpinned cores instead."
+                    ));
                 }
             }
         }
 
+        // declare each worker, with the corresponding descriptors.
         for (group_id, cores) in mem::take(&mut self.pending_groups) {
             for core_id in &cores {
                 let worker_id = WorkerId(self.worker_id_ctr);
@@ -122,33 +125,39 @@ where
         self.orchestrator.router_mut().finalize()?;
 
         for (wid, desc) in worker_desc.iter() {
-            let wid = desc.worker_id();
-
-            let source_wids: Vec<WorkerId> = self.orchestrator.router().sources(wid).collect();
+            let source_wids: Vec<WorkerId> = self.orchestrator.router().sources(*wid).collect();
 
             let sources: Vec<&StdDescriptor> = source_wids
                 .into_iter()
                 .map(|src_wid| worker_desc.get(&src_wid).unwrap())
                 .collect();
 
-            let synchronizer = self
+            let handle_provider = self
+                .orchestrator
+                .handle_provider_factory_mut()
+                .create(desc, sources.iter().map(|src| *src))?;
+
+            let worker_sync = self
                 .orchestrator
                 .transport_mut()
-                .create_synchronizer(desc, sources.iter())?;
+                .create_worker_sync(desc, sources.iter().map(|src| *src))?;
 
-            let should_report = self.orchestrator.router().has_destinations(wid);
+            let should_report = self.orchestrator.router().has_destinations(*wid);
 
-            let (worker, worker_repr) = StdWorker::new(desc.clone(), synchronizer, should_report)?;
+            let worker = StdWorker::new(desc.clone(), handle_provider, worker_sync, should_report);
 
             match self.pending_workers.entry(desc.group_id()) {
-                Entry::Occupied(entry) => entry.get_mut().push(worker),
+                Entry::Occupied(mut entry) => entry.get_mut().push(worker),
                 Entry::Vacant(entry) => {
                     entry.insert(vec![worker]);
                 }
             }
 
-            self.workers.insert(wid, worker_repr);
+            self.descriptors.insert(*wid, desc.clone());
         }
+
+        self.orchestrator.handle_provider_factory_mut().finalize()?;
+        self.controller_sync = Some(self.orchestrator.transport_mut().create_controller_sync()?);
 
         Ok(())
     }
@@ -164,11 +173,11 @@ where
     }
 
     fn worker_descriptors(&self) -> impl IntoIterator<Item = &StdDescriptor> {
-        self.workers.values().map(|repr| repr.descriptor())
+        self.descriptors.values()
     }
 
     fn worker_descriptors_mut(&mut self) -> impl IntoIterator<Item = &mut StdDescriptor> {
-        self.workers.values_mut().map(|repr| repr.descriptor_mut())
+        self.descriptors.values_mut()
     }
 
     fn on_worker_start(&mut self, descriptor: &StdDescriptor, _id: InstanceId) -> Result<()> {
@@ -217,12 +226,12 @@ where
 
 impl<I, O> StdController<I, O>
 where
-    O: Orchestrator<StdDescriptor, I>,
-    O::Exchange: Exchange<
+    I: Debug,
+    O: Orchestrator<
             StdDescriptor,
-            InputHandleOf<I, O>,
-            Command = StdCommand<InputHandleOf<I, O>>,
-            Notification = StdNotification<InputHandleOf<I, O>>,
+            I,
+            Command = StdCommand<HandleOf<I, O>>,
+            Notification = StdNotification<HandleOf<I, O>>,
         >,
 {
     fn new_descriptor(
@@ -256,12 +265,12 @@ where
 
 impl<I, O> StdController<I, O>
 where
-    O: Orchestrator<StdDescriptor, I>,
-    O::Exchange: Exchange<
+    I: Debug,
+    O: Orchestrator<
             StdDescriptor,
-            InputHandleOf<I, O>,
-            Command = StdCommand<InputHandleOf<I, O>>,
-            Notification = StdNotification<InputHandleOf<I, O>>,
+            I,
+            Command = StdCommand<HandleOf<I, O>>,
+            Notification = StdNotification<HandleOf<I, O>>,
         >,
 {
     /// Create a new [`StdGlobalController`] and will use `root_dir` as the root directory.
@@ -290,13 +299,15 @@ where
         Ok(Self {
             orchestrator,
             root_dir,
+            controller_sync: None,
             worker_stdout,
             worker_stderr,
             worker_stats,
-            workers: HashMap::default(),
+            descriptors: HashMap::default(),
             pending_groups: HashMap::default(),
             pending_workers: HashMap::default(),
             worker_id_ctr: 0,
+            finalized: false,
             phantom: PhantomData,
         })
     }

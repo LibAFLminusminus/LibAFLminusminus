@@ -1,5 +1,5 @@
 use crate::{
-    controllers::StdWorker,
+    controllers::NopWorker,
     inputs::NopInput,
     runtimes::{
         LIBAFLMM_EXIT_END, Runtime, RuntimeHandle, TerminationHandlerData,

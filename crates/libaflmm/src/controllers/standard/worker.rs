@@ -2,7 +2,7 @@ use crate::{
     controllers::{StdDescriptor, SyncWorker, Workdir, Worker},
     corpus::{Testcase, TestcaseId},
     inputs::Input,
-    sync::{InputRepr, StdCommand, StdNotification, WorkerSync},
+    sync::{HandleProvider, StdCommand, StdNotification, WorkerSync},
 };
 use libaflmm_core::{Result, WorkerId, illegal_argument};
 use nix::unistd::{dup2_stderr, dup2_stdout};
@@ -10,15 +10,15 @@ use std::{collections::HashSet, rc::Rc};
 
 /// The standard [`Worker`].
 #[derive(Debug)]
-pub struct StdWorker<I, IR, WS>
+pub struct StdWorker<HP, I, WS>
 where
-    IR: InputRepr<I>,
+    HP: HandleProvider<I>,
 {
     descriptor: StdDescriptor,
-    input_repr: IR,
-    sync: WS,
+    handle_provider: HP,
+    worker_sync: WS,
     imported_testcases: HashSet<TestcaseId>,
-    pending_commands: Vec<StdCommand<IR::InputHandle>>,
+    pending_commands: Vec<StdCommand<HP::Handle>>,
     pending_imports: Vec<Testcase<I>>,
     should_report: bool,
 }
@@ -52,9 +52,9 @@ impl<CS> StdWorkerRepr<CS> {
     }
 }
 
-impl<I, IR, WS> Worker for StdWorker<I, IR, WS>
+impl<HP, I, WS> Worker for StdWorker<HP, I, WS>
 where
-    IR: InputRepr<I>,
+    HP: HandleProvider<I>,
 {
     type Descriptor = StdDescriptor;
 
@@ -112,11 +112,11 @@ where
     // }
 }
 
-impl<I, IR, WS> SyncWorker<I> for StdWorker<I, IR, WS>
+impl<HP, I, WS> SyncWorker<I> for StdWorker<HP, I, WS>
 where
     I: Input,
-    IR: InputRepr<I>,
-    WS: WorkerSync<StdNotification<IR::InputHandle>, StdCommand<IR::InputHandle>>,
+    HP: HandleProvider<I>,
+    WS: WorkerSync<StdCommand<HP::Handle>, StdNotification<HP::Handle>>,
 {
     fn send_testcase(&mut self, testcase: &Testcase<I>) -> Result<()> {
         // no destination to report to, skip
@@ -129,18 +129,16 @@ where
             return Ok(());
         }
 
-        let handle = self.input_repr.create_handle(&testcase.input())?;
+        let handle = self.handle_provider.create_handle(&testcase.input())?;
 
-        self.sync.send(StdNotification::NewTestcase {
+        self.worker_sync.send(StdNotification::NewTestcase {
             id: *testcase.id(),
             handle,
         })
     }
 
     fn recv_testcases(&mut self) -> Result<impl Iterator<Item = Testcase<I>>> {
-        
-        
-        self.pending_commands.extend(self.sync.poll()?);
+        self.pending_commands.extend(self.worker_sync.poll()?);
 
         for cmd in self
             .pending_commands
@@ -148,7 +146,7 @@ where
         {
             if let StdCommand::Import { id, handle, .. } = cmd {
                 if !self.imported_testcases.contains(&id) {
-                    let input = self.input_repr.handle_to_input(handle)?;
+                    let input = self.handle_provider.resolve_handle(handle)?;
                     let tc = Testcase::new(Rc::new(input));
 
                     if *tc.id() != id {
@@ -191,28 +189,26 @@ where
     }
 }
 
-impl<I, IR, WS> StdWorker<I, IR, WS>
+impl<HP, I, WS> StdWorker<HP, I, WS>
 where
-    IR: InputRepr<I>,
+    HP: HandleProvider<I>,
 {
     /// Get a new [`StdWorker`].
     #[must_use]
     pub fn new(
         descriptor: StdDescriptor,
-        input_repr: IR,
-        sync: WS,
+        handle_provider: HP,
+        worker_sync: WS,
         should_report: bool,
-    ) -> Result<Self> {
-        // let (ctrl_conn, worker_conn) = StdControllerConnection::create()?;
-
-        Ok(Self {
+    ) -> Self {
+        Self {
             descriptor: descriptor.clone(),
-            input_repr,
-            sync,
+            handle_provider,
+            worker_sync,
             should_report,
             imported_testcases: HashSet::new(),
             pending_commands: Vec::new(),
             pending_imports: Vec::new(),
-        })
+        }
     }
 }

@@ -1,23 +1,16 @@
-use crate::{Result, inputs::Input};
+use crate::Result;
 use libaflmm_core::WorkerId;
-use serde::{Serialize, de::DeserializeOwned};
 use std::fmt::Debug;
 
-/// A way to get a representation of an input.
-/// Think of a file on the filesystem, which can be represented by its [`Path`].
-pub trait InputRepr<I> {
-    /// An input handle, that represents a given input.
-    type InputHandle: Serialize + DeserializeOwned + Clone;
-
-    /// Create a fresh [`Self::InputHandle`] from a given `input`
-    fn create_handle(&mut self, input: &I) -> Result<Self::InputHandle>;
-
-    /// Fetch back an input from its [`Self::InputHandle`]
-    fn handle_to_input(&mut self, handle: Self::InputHandle) -> Result<I>;
-}
+pub mod handle_providers;
+pub use handle_providers::{
+    DefaultHandleProviderFactory, HandleProvider, HandleProviderFactory,
+    SeralizedHandleProviderFactory, SerializedHandleProvider, UnreachableHandlProvider,
+    UnreachableHandleProviderFactory,
+};
 
 /// The worker side of the synchronization mechanism
-pub trait WorkerSync<SD, RCV> {
+pub trait WorkerSync<RCV, SD>: Debug {
     /// Send a SD value to the [`ControllerSync`]
     fn send(&mut self, val: SD) -> Result<()>;
 
@@ -25,20 +18,23 @@ pub trait WorkerSync<SD, RCV> {
     fn poll(&mut self) -> Result<impl Iterator<Item = RCV>>;
 }
 
-pub trait ControllerSync<SD, RCV> {
-    /// Send a SD value to the [`WorkerSync`] with the [`WorkerId`] `worker`.
-    fn send(&mut self, worker: WorkerId, val: SD) -> Result<()>;
+pub trait ControllerSync<RCV, SD>: Debug {
+    /// Send a SD value to the [`WorkerSync`] with the [`WorkerId`]s in `workers`.
+    fn send(&mut self, workers: &impl Iterator<Item = WorkerId>, value: SD) -> Result<()>;
+
+    // /// Send a SD value to the [`WorkerSync`] with the [`WorkerId`] `worker`.
+    // fn send(&mut self, worker: WorkerId, val: SD) -> Result<()>;
 
     /// Poll for RCV values from all the the [`WorkerSync`] attached to [`Self`].
     fn poll(&mut self) -> Result<impl Iterator<Item = (RCV, WorkerId)>>;
 }
 
 /// The transfer mechanism for commands and notifications
-pub trait Transport<CMD, D, NOTIF> {
+pub trait Transport<CMD, D, NOTIF>: Debug {
     /// Controller side of the sync mechanism
-    type ControllerSync: ControllerSync<CMD, NOTIF>;
+    type ControllerSync: ControllerSync<NOTIF, CMD>;
     /// Worker side of the sync mechanism
-    type WorkerSync: WorkerSync<NOTIF, CMD>;
+    type WorkerSync: WorkerSync<CMD, NOTIF>;
 
     /// Create a new worker synchronizer for the worker using a given descriptor
     fn create_worker_sync<'a>(
@@ -60,39 +56,6 @@ pub struct NopControllerSync;
 #[derive(Debug, Default)]
 pub struct NopWorkerSync;
 
-#[derive(Debug, Default)]
-pub struct NopInputRepr;
-
-#[derive(Debug, Default)]
-pub struct IdentityInputRepr;
-
-impl<I> InputRepr<I> for NopInputRepr {
-    type InputHandle = ();
-
-    fn create_handle(&mut self, _input: &I) -> Result<Self::InputHandle> {
-        panic!("Tried to create an input handle while using NopInputRepr")
-    }
-
-    fn handle_to_input(&mut self, _handle: Self::InputHandle) -> Result<I> {
-        panic!("Tried to get back an input from a handle while using NopInputRepr")
-    }
-}
-
-impl<I> InputRepr<I> for IdentityInputRepr
-where
-    I: Input,
-{
-    type InputHandle = I;
-
-    fn create_handle(&mut self, input: &I) -> Result<Self::InputHandle> {
-        Ok(input.clone())
-    }
-
-    fn handle_to_input(&mut self, handle: Self::InputHandle) -> Result<I> {
-        Ok(handle)
-    }
-}
-
 impl<CMD, D, NOTIF> Transport<CMD, D, NOTIF> for NopTransport {
     type ControllerSync = NopControllerSync;
     type WorkerSync = NopWorkerSync;
@@ -110,8 +73,8 @@ impl<CMD, D, NOTIF> Transport<CMD, D, NOTIF> for NopTransport {
     }
 }
 
-impl<SD, RCV> ControllerSync<SD, RCV> for NopControllerSync {
-    fn send(&mut self, _worker: WorkerId, _val: SD) -> Result<()> {
+impl<RCV, SD> ControllerSync<RCV, SD> for NopControllerSync {
+    fn send(&mut self, _workers: &impl Iterator<Item = WorkerId>, _val: SD) -> Result<()> {
         Ok(())
     }
 
@@ -120,7 +83,7 @@ impl<SD, RCV> ControllerSync<SD, RCV> for NopControllerSync {
     }
 }
 
-impl<SD, RCV> WorkerSync<SD, RCV> for NopWorkerSync {
+impl<RCV, SD> WorkerSync<RCV, SD> for NopWorkerSync {
     fn send(&mut self, _val: SD) -> Result<()> {
         Ok(())
     }

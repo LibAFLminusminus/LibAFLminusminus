@@ -1,10 +1,11 @@
 use crate::{Result, sync::GroupId};
 use libaflmm_core::WorkerId;
+use std::fmt::Debug;
 
 /// The sharing policy implementation.
 ///
 /// It will take care of routing of commands.
-pub trait Router<CMD, D> {
+pub trait Router<CMD, D>: Debug {
     type GroupConfig;
 
     /// Register a group in the router

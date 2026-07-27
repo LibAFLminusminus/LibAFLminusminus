@@ -1,5 +1,4 @@
-use crate::{controllers::Descriptor, inputs::Input};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use std::fmt::Debug;
 
 // pub mod aflpp;
@@ -15,33 +14,50 @@ pub use routers::{NopRouter, Router};
 
 pub mod transports;
 pub use transports::{
-    ControllerSync, IdentityInputRepr, InputRepr, NopControllerSync, NopInputRepr, NopTransport,
-    NopWorkerSync, Transport, WorkerSync,
+    ControllerSync, DefaultHandleProviderFactory, HandleProvider, HandleProviderFactory,
+    NopControllerSync, NopTransport, NopWorkerSync, SeralizedHandleProviderFactory,
+    SerializedHandleProvider, Transport, UnreachableHandlProvider,
+    UnreachableHandleProviderFactory, WorkerSync,
 };
 
-pub type StdOrchestrator = NopOrchestrator;
-pub type StdControllerSync = NopControllerSync;
-pub type StdWorkerSync = NopWorkerSync;
+pub type StdRouter = NopRouter;
 pub type StdTransport = NopTransport;
-pub type StdInputRepr = NopInputRepr;
+pub type StdHandleProvider = UnreachableHandlProvider;
+pub type StdHandleProviderFactory = UnreachableHandleProviderFactory;
+pub type StdWorkerSync = NopWorkerSync;
+pub type StdOrchestrator =
+    GenericOrchestrator<StdExchange, StdHandleProviderFactory, StdRouter, StdTransport>;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct GroupId {
-    id: u64,
+    pub(crate) id: u64,
 }
 
+/// Shortcut for transportable messages over the wire
+/// It is auto-impl for T enforcing these sub traits.
+pub trait Transferable: Debug + Serialize + DeserializeOwned {}
+
 pub trait Orchestrator<D, I> {
-    /// The input representation, that can turn an input into its handle and oppositely.
-    type InputRepr: InputRepr<I>;
-
-    type Exchange: Exchange<D, <Self::InputRepr as InputRepr<I>>::InputHandle>;
-
-    type Router: Router<<Self::Exchange as Exchange<D, <Self::InputRepr as InputRepr<I>>::InputHandle>>::Command, D>;
+    type ProviderFactory: HandleProviderFactory<D, I, Provider = Self::Provider>;
+    type Exchange: Exchange<D, Self::Handle, Command = Self::Command, Notification = Self::Notification>;
+    type Router: Router<Self::Command, D>;
     type Transport: Transport<
-            <Self::Exchange as Exchange<D, <Self::InputRepr as InputRepr<I>>::InputHandle>>::Command,
+            Self::Command,
             D,
-            <Self::Exchange as Exchange<D, <Self::InputRepr as InputRepr<I>>::InputHandle>>::Notification,
+            Self::Notification,
+            WorkerSync = Self::WorkerSync,
+            ControllerSync = Self::ControllerSync,
         >;
+
+    // these types are not owned by orchestrator, but by the types above
+    // we explicitly go around the usual rule of the repo here for convenience.
+    type Handle: Transferable;
+    type Command: Transferable;
+    type Notification: Transferable;
+    type Provider: HandleProvider<I>;
+    type WorkerSync: WorkerSync<Self::Command, Self::Notification>;
+    type ControllerSync: ControllerSync<Self::Notification, Self::Command>;
+    type GroupConfig;
 
     fn router(&self) -> &Self::Router;
     fn router_mut(&mut self) -> &mut Self::Router;
@@ -51,38 +67,44 @@ pub trait Orchestrator<D, I> {
 
     fn exchange(&self) -> &Self::Exchange;
     fn exchange_mut(&mut self) -> &mut Self::Exchange;
-}
 
-/// A nop orchestrator, which does not perform any sharing between a controller and workers.
-/// No command / notification will be sent over, and no input will be shared between any
-/// worker.
-#[derive(Debug, Default)]
-pub struct NopOrchestrator {
-    router: NopRouter,
-    transport: NopTransport,
+    fn handle_provider_factory(&self) -> &Self::ProviderFactory;
+    fn handle_provider_factory_mut(&mut self) -> &mut Self::ProviderFactory;
 }
 
 /// A general orchestrator
 ///
 /// Most complex orchestrators can be derived from this one.
-pub struct GenericOrchestrator<E, IR, R, T> {
+pub struct GenericOrchestrator<E, HPF, R, T> {
     exchange: E,
     router: R,
     transporter: T,
-    input_repr: IR,
+    handle_provider_factory: HPF,
 }
 
-impl<D, E, I, IR, R, T> Orchestrator<D, I> for GenericOrchestrator<E, IR, R, T>
+impl<T> Transferable for T where T: Clone + Debug + Serialize + DeserializeOwned {}
+
+impl<D, E, H, HPF, I, R, T> Orchestrator<D, I> for GenericOrchestrator<E, HPF, R, T>
 where
-    E: Exchange<D, IR::InputHandle>,
-    IR: InputRepr<I>,
+    E: Exchange<D, H>,
+    H: Transferable,
+    HPF: HandleProviderFactory<D, I>,
+    HPF::Provider: HandleProvider<I, Handle = H>,
     R: Router<E::Command, D>,
     T: Transport<E::Command, D, E::Notification>,
 {
+    type ProviderFactory = HPF;
     type Exchange = E;
     type Router = R;
     type Transport = T;
-    type InputRepr = IR;
+
+    type Handle = H;
+    type Provider = HPF::Provider;
+    type Command = E::Command;
+    type Notification = E::Notification;
+    type WorkerSync = T::WorkerSync;
+    type ControllerSync = T::ControllerSync;
+    type GroupConfig = R::GroupConfig;
 
     fn router(&self) -> &Self::Router {
         &self.router
@@ -99,32 +121,32 @@ where
     fn transport_mut(&mut self) -> &mut Self::Transport {
         &mut self.transporter
     }
+
+    fn exchange(&self) -> &Self::Exchange {
+        &self.exchange
+    }
+
+    fn exchange_mut(&mut self) -> &mut Self::Exchange {
+        &mut self.exchange
+    }
+
+    fn handle_provider_factory(&self) -> &Self::ProviderFactory {
+        &self.handle_provider_factory
+    }
+
+    fn handle_provider_factory_mut(&mut self) -> &mut Self::ProviderFactory {
+        &mut self.handle_provider_factory
+    }
 }
 
-impl<D, I> Orchestrator<D, I> for NopOrchestrator
-where
-    D: Descriptor,
-    I: Input,
-{
-    type InputRepr = NopInputRepr;
-    type Exchange = StdExchange;
-    type Router = NopRouter;
-    type Transport = NopTransport;
-
-    fn router(&self) -> &Self::Router {
-        &self.router
-    }
-
-    fn router_mut(&mut self) -> &mut Self::Router {
-        &mut self.router
-    }
-
-    fn transport(&self) -> &Self::Transport {
-        &self.transport
-    }
-
-    fn transport_mut(&mut self) -> &mut Self::Transport {
-        &mut self.transport
+impl Default for StdOrchestrator {
+    fn default() -> Self {
+        Self {
+            exchange: StdExchange::default(),
+            handle_provider_factory: DefaultHandleProviderFactory::default(),
+            router: StdRouter::default(),
+            transporter: StdTransport::default(),
+        }
     }
 }
 
