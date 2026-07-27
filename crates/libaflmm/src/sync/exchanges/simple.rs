@@ -1,20 +1,19 @@
-use std::fmt::Debug;
-
 use crate::{
     Result,
     controllers::Descriptor,
     corpus::TestcaseId,
-    sync::{GroupId, exchanges::Exchange},
+    sync::{GroupId, Transferable, exchanges::Exchange},
 };
-use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use serde::{Deserialize, Serialize};
+use std::fmt::Debug;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum TestcaseHandle<H> {
-    Corpus(H),
-    Objective(H),
-}
+// #[derive(Debug, Clone, Serialize, Deserialize)]
+// pub enum TestcaseHandle<H> {
+//     Corpus(H),
+//     Objective(H),
+// }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum SimpleCommand<H> {
     Shutdown,
     Import {
@@ -24,7 +23,7 @@ pub enum SimpleCommand<H> {
     },
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum SimpleNotification<H> {
     NewTestcase { id: TestcaseId, handle: H },
 }
@@ -35,7 +34,7 @@ pub struct SimpleExchange;
 impl<D, H> Exchange<D, H> for SimpleExchange
 where
     D: Descriptor,
-    H: Clone + Debug + Serialize + DeserializeOwned,
+    H: Transferable,
 {
     type Command = SimpleCommand<H>;
     type Notification = SimpleNotification<H>;

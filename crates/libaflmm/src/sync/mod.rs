@@ -37,7 +37,7 @@ pub struct GroupId {
 /// It is auto-impl for T enforcing these sub traits.
 pub trait Transferable: Debug + Serialize + DeserializeOwned {}
 
-pub trait Orchestrator<D, I> {
+pub trait Orchestrator<D, I>: Debug {
     type ProviderFactory: HandleProviderFactory<D, I, Provider = Self::Provider>;
     type Exchange: Exchange<D, Self::Handle, Command = Self::Command, Notification = Self::Notification>;
     type Router: Router<Self::Command, D>;
@@ -54,7 +54,7 @@ pub trait Orchestrator<D, I> {
     type Handle: Transferable;
     type Command: Transferable;
     type Notification: Transferable;
-    type Provider: HandleProvider<I>;
+    type Provider: HandleProvider<I, Handle = Self::Handle>;
     type WorkerSync: WorkerSync<Self::Command, Self::Notification>;
     type ControllerSync: ControllerSync<Self::Notification, Self::Command>;
     type GroupConfig;
@@ -75,6 +75,7 @@ pub trait Orchestrator<D, I> {
 /// A general orchestrator
 ///
 /// Most complex orchestrators can be derived from this one.
+#[derive(Debug)]
 pub struct GenericOrchestrator<E, HPF, R, T> {
     exchange: E,
     router: R,

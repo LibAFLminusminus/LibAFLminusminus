@@ -18,7 +18,9 @@ pub trait Router<CMD, D>: Debug {
 
     /// Route a command from a source worker
     /// This is where the main routing logic lives
-    fn route(&mut self, source: WorkerId, cmd: &CMD) -> Result<impl Iterator<Item = WorkerId>>;
+    fn route(&mut self, source: WorkerId, _cmd: &CMD) -> Result<impl Iterator<Item = WorkerId>> {
+        Ok(self.destinations(source))
+    }
 
     /// Get all the destination nodes of a [`Worker`]
     fn destinations(&self, worker: WorkerId) -> impl Iterator<Item = WorkerId>;
