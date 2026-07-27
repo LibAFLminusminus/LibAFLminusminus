@@ -15,14 +15,14 @@ pub use routers::{NopRouter, Router};
 pub mod transports;
 pub use transports::{
     ControllerSync, DefaultHandleProviderFactory, HandleProvider, HandleProviderFactory,
-    NopControllerSync, NopTransport, NopWorkerSync, SeralizedHandleProviderFactory,
-    SerializedHandleProvider, Transport, UnreachableHandlProvider,
+    NopControllerSync, NopTransport, NopWorkerSync, SerializedHandleProvider,
+    SerializedHandleProviderFactory, Transport, UnreachableHandleProvider,
     UnreachableHandleProviderFactory, WorkerSync,
 };
 
 pub type StdRouter = NopRouter;
 pub type StdTransport = NopTransport;
-pub type StdHandleProvider = UnreachableHandlProvider;
+pub type StdHandleProvider = UnreachableHandleProvider;
 pub type StdHandleProviderFactory = UnreachableHandleProviderFactory;
 pub type StdWorkerSync = NopWorkerSync;
 pub type StdOrchestrator =

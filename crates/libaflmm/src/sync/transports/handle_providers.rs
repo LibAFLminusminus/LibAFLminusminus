@@ -2,8 +2,8 @@ use crate::{Result, inputs::Input, sync::Transferable};
 use libaflmm_core::internal_bug;
 use std::{fmt::Debug, marker::PhantomData};
 
-pub type SeralizedHandleProviderFactory = DefaultHandleProviderFactory<SerializedHandleProvider>;
-pub type UnreachableHandleProviderFactory = DefaultHandleProviderFactory<UnreachableHandlProvider>;
+pub type SerializedHandleProviderFactory = DefaultHandleProviderFactory<SerializedHandleProvider>;
+pub type UnreachableHandleProviderFactory = DefaultHandleProviderFactory<UnreachableHandleProvider>;
 
 /// A way to get a representation of an input.
 /// Think of a file on the filesystem, which can be represented by its [`Path`].
@@ -42,7 +42,7 @@ pub struct DefaultHandleProviderFactory<HP>(PhantomData<HP>);
 pub struct SerializedHandleProvider;
 
 #[derive(Debug, Default)]
-pub struct UnreachableHandlProvider;
+pub struct UnreachableHandleProvider;
 
 impl<D, HP, I> HandleProviderFactory<D, I> for DefaultHandleProviderFactory<HP>
 where
@@ -74,7 +74,7 @@ where
     }
 }
 
-impl<I> HandleProvider<I> for UnreachableHandlProvider {
+impl<I> HandleProvider<I> for UnreachableHandleProvider {
     type Handle = ();
 
     fn create_handle(&mut self, _input: &I) -> Result<Self::Handle> {

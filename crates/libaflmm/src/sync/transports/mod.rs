@@ -4,9 +4,8 @@ use std::fmt::Debug;
 
 pub mod handle_providers;
 pub use handle_providers::{
-    DefaultHandleProviderFactory, HandleProvider, HandleProviderFactory,
-    SeralizedHandleProviderFactory, SerializedHandleProvider, UnreachableHandlProvider,
-    UnreachableHandleProviderFactory,
+    DefaultHandleProviderFactory, HandleProvider, HandleProviderFactory, SerializedHandleProvider,
+    SerializedHandleProviderFactory, UnreachableHandleProvider, UnreachableHandleProviderFactory,
 };
 
 /// The worker side of the synchronization mechanism

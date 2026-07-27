@@ -1,10 +1,10 @@
 use crate::{
+    Result,
     controllers::{Controller, Worker},
     launchers::Instances,
     runtimes::{NopRuntime, Runtime, RuntimeHandle, StdForkserverRuntime, StdInProcessRuntime},
     states::NopState,
     sync::GroupId,
-    Result,
 };
 use core::{fmt::Debug, marker::PhantomData, num::NonZeroUsize, time::Duration};
 use libaflmm_bolts::{Cores, StdTimer};
