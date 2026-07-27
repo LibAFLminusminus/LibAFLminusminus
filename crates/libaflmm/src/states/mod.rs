@@ -271,6 +271,15 @@ pub trait State: DependencyResolver {
     fn scheduler_mut(&mut self) -> &mut Self::Scheduler {
         self.corpus_mut().scheduler_mut()
     }
+
+    /// Add testcases to evaluate later on
+    fn add_pending_testcases(
+        &mut self,
+        pending_testcases: impl Iterator<Item = Testcase<Self::Input>>,
+    );
+
+    /// Get the next testcase to evaluate
+    fn next_pending_testcase(&mut self) -> Option<Testcase<Self::Input>>;
 }
 
 /// The maximum size of a [`Testcase`]
@@ -293,6 +302,7 @@ impl<I, S, Z> Debug for LoadConfig<'_, I, S, Z> {
 /// The state a fuzz run.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(bound = "
+        I: serde::Serialize + for<'a> serde::Deserialize<'a>,
         CT: serde::Serialize + for<'a> serde::Deserialize<'a>,
         C: serde::Serialize + for<'a> serde::Deserialize<'a>,
         OC: serde::Serialize + for<'a> serde::Deserialize<'a>,
@@ -316,7 +326,8 @@ pub struct StdState<C, CT, I, OC, SC> {
     dont_reenter: Option<Vec<PathBuf>>,
     metadata_initialized: bool,
     stats: Stats,
-    phantom: PhantomData<(I, SC)>,
+    pending_testcases: Vec<Testcase<I>>,
+    phantom: PhantomData<SC>,
 }
 
 /// The [[`Testcase`]] metadata.
@@ -583,6 +594,17 @@ where
             self.metadata_initialized = true;
             true
         }
+    }
+
+    fn add_pending_testcases(
+        &mut self,
+        pending_testcases: impl Iterator<Item = Testcase<Self::Input>>,
+    ) {
+        self.pending_testcases.extend(pending_testcases);
+    }
+
+    fn next_pending_testcase(&mut self) -> Option<Testcase<Self::Input>> {
+        self.pending_testcases.pop()
     }
 }
 
@@ -958,6 +980,7 @@ where
             dont_reenter: None,
             testcase_metadata: HashMap::new(),
             metadata_initialized: false,
+            pending_testcases: Vec::new(),
             phantom: PhantomData,
         };
         Ok(state)

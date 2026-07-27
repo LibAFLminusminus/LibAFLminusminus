@@ -52,8 +52,8 @@ where
     CMD: Transferable,
     NOTIF: Transferable,
 {
-    fn send(&mut self, workers: impl Iterator<Item = WorkerId>, cmd: CMD) -> Result<()> {
-        let serialized = Connection::<NOTIF, CMD>::serialize_msg(&cmd)?;
+    fn send(&mut self, workers: impl Iterator<Item = WorkerId>, cmd: &CMD) -> Result<()> {
+        let serialized = Connection::<NOTIF, CMD>::serialize_msg(cmd)?;
 
         for worker in workers {
             let res = unsafe {

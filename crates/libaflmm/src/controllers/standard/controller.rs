@@ -219,10 +219,9 @@ where
                 };
 
                 let destinations = self.orchestrator.router_mut().route(source, &command)?;
-                self.controller_sync
-                    .as_mut()
-                    .unwrap()
-                    .send(destinations, command)?;
+                let sync = self.controller_sync.as_mut().unwrap();
+
+                sync.send(destinations, &command)?;
             }
         }
 
@@ -237,7 +236,7 @@ where
         self.controller_sync
             .as_mut()
             .unwrap()
-            .send_to(worker, StdCommand::Shutdown)
+            .send_to(worker, &StdCommand::Shutdown)
     }
 }
 

@@ -3,7 +3,7 @@
 use crate::{
     Error,
     common::Registrator,
-    controllers::Worker,
+    controllers::{SyncWorker, Worker},
     corpus::{ObjectiveCorpus, ScheduledCorpus, Scheduler, Testcase},
     executors::{Executor, ExitKind},
     feedbacks::Feedback,
@@ -365,7 +365,7 @@ where
     OF: Feedback<I, E::Observers, S>,
     S: State<Input = I>,
     ST: StagesTuple<E, R, S, W, Self>,
-    W: Worker,
+    W: Worker + SyncWorker<I>,
 {
     fn init(
         &mut self,
@@ -440,6 +440,12 @@ where
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
     ) -> Result<()> {
+        state.add_pending_testcases(rt_handle.worker_mut().recv_testcases()?);
+
+        while let Some(tc) = state.next_pending_testcase() {
+            self.evaluate_input(state, rt_handle, &*tc.input())?;
+        }
+
         let testcase_id = {
             let inner = self.inner_mut();
 
@@ -585,7 +591,7 @@ impl<E, F, OF> StdFuzzer<E, F, (), OF> {
         OF: Feedback<I, E::Observers, S>,
         S: State<Input = I>,
         ST: StagesTuple<E, R, S, W, Self>,
-        W: Worker,
+        W: Worker + SyncWorker<I>,
     {
         Self::with_hooks(
             executor,
@@ -618,7 +624,7 @@ impl<E, F, H, OF> StdFuzzer<E, F, H, OF> {
         OF: Feedback<I, E::Observers, S>,
         S: State<Input = I>,
         ST: StagesTuple<E, R, S, W, Self>,
-        W: Worker,
+        W: Worker + SyncWorker<I>,
     {
         let mut fuzzer = StdFuzzerBuilder::new(executor)
             .feedback(feedback)
