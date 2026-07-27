@@ -82,7 +82,7 @@ pub struct GenericOrchestrator<E, HPF, R, T> {
     handle_provider_factory: HPF,
 }
 
-impl<T> Transferable for T where T: Clone + Debug + Serialize + DeserializeOwned {}
+impl<T> Transferable for T where T: Debug + Serialize + DeserializeOwned {}
 
 impl<D, E, H, HPF, I, R, T> Orchestrator<D, I> for GenericOrchestrator<E, HPF, R, T>
 where
