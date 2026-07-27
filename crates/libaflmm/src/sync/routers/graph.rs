@@ -3,13 +3,9 @@ use crate::{
     controllers::Descriptor,
     sync::{GroupId, Router},
 };
-use core::mem;
+use core::{fmt::Debug, hash::Hash, mem};
 use libaflmm_core::{WorkerId, illegal_argument, illegal_state, internal_bug};
-use std::{
-    collections::{HashMap, HashSet},
-    fmt::Debug,
-    hash::Hash,
-};
+use std::collections::{HashMap, HashSet};
 
 #[derive(Debug)]
 pub struct GraphRouterBuilder<K> {
@@ -36,6 +32,7 @@ pub struct GraphRouter<K = usize> {
 }
 
 impl<K> GraphRouter<K> {
+    #[must_use]
     pub fn builder() -> GraphRouterBuilder<K> {
         GraphRouterBuilder::default()
     }
@@ -133,10 +130,10 @@ where
         for (src_key, dst_key) in &self.routes {
             let src = self
                 .group_keys
-                .get(&src_key)
+                .get(src_key)
                 .ok_or_else(|| illegal_argument!("using unregistered source group {src_key:?}"))?;
 
-            let dst = self.group_keys.get(&dst_key).ok_or_else(|| {
+            let dst = self.group_keys.get(dst_key).ok_or_else(|| {
                 illegal_argument!("using unregistered destination group {src_key:?}")
             })?;
 
