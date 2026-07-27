@@ -1,6 +1,8 @@
 use crate::Result;
 use core::fmt::Debug;
+use core::time::Duration;
 use libaflmm_core::WorkerId;
+use std::thread;
 
 pub mod handle_providers;
 pub use handle_providers::{
@@ -9,6 +11,11 @@ pub use handle_providers::{
 };
 
 pub mod socket;
+
+pub enum WaitResult {
+    NewMsg,
+    Timeout,
+}
 
 /// The worker side of the synchronization mechanism
 pub trait WorkerSync<RCV, SD>: Debug {
@@ -23,8 +30,9 @@ pub trait ControllerSync<RCV, SD>: Debug {
     /// Send a SD value to the [`WorkerSync`] with the [`WorkerId`]s in `workers`.
     fn send<'a>(&mut self, workers: impl Iterator<Item = &'a WorkerId>, value: SD) -> Result<()>;
 
-    // /// Send a SD value to the [`WorkerSync`] with the [`WorkerId`] `worker`.
-    // fn send(&mut self, worker: WorkerId, val: SD) -> Result<()>;
+    /// Wait until a message has been received, or `timeout` has been reached.
+    /// The return type give the reason why it returned.
+    fn wait(&mut self, timeout: Duration) -> Result<WaitResult>;
 
     /// Poll for RCV values from all the the [`WorkerSync`] attached to [`Self`].
     fn poll(&mut self) -> Result<impl Iterator<Item = (RCV, WorkerId)>>;
@@ -77,6 +85,12 @@ impl<CMD, D, NOTIF> Transport<CMD, D, NOTIF> for NopTransport {
 impl<RCV, SD> ControllerSync<RCV, SD> for NopControllerSync {
     fn send<'a>(&mut self, _workers: impl Iterator<Item = &'a WorkerId>, _val: SD) -> Result<()> {
         Ok(())
+    }
+
+    fn wait(&mut self, timeout: Duration) -> Result<WaitResult> {
+        // wait the timeout amount, then return
+        thread::sleep(timeout);
+        Ok(WaitResult::Timeout)
     }
 
     fn poll(&mut self) -> Result<impl Iterator<Item = (RCV, WorkerId)>> {

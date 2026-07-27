@@ -1,8 +1,12 @@
+use crate::sync::transports::WaitResult;
 use crate::sync::{Transferable, WorkerSync};
 use crate::{Result, sync::ControllerSync};
+use core::time::Duration;
 use libaflmm_bolts::Connection;
 use libaflmm_bolts::connection::SendResult;
 use libaflmm_core::{WorkerId, illegal_argument, runtime};
+use nix::errno::Errno;
+use nix::poll::{PollFd, PollFlags, PollTimeout, poll};
 use std::collections::HashMap;
 
 #[derive(Debug)]
@@ -69,6 +73,20 @@ where
         }
 
         Ok(())
+    }
+
+    fn wait(&mut self, timeout: Duration) -> Result<WaitResult> {
+        let mut fds: Vec<PollFd> = self
+            .workers
+            .values()
+            .map(|conn| PollFd::new(conn.as_fd(), PollFlags::POLLIN))
+            .collect();
+
+        match poll(&mut fds, PollTimeout::try_from(timeout).unwrap()) {
+            Ok(0) | Err(Errno::EINTR) => Ok(WaitResult::Timeout),
+            Ok(_) => Ok(WaitResult::NewMsg),
+            Err(e) => Err(e.into()),
+        }
     }
 
     fn poll(&mut self) -> Result<impl Iterator<Item = (NOTIF, WorkerId)>> {

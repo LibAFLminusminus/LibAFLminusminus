@@ -6,6 +6,8 @@
 //!
 //! Nodes discovery and inputs sharing is done through the filesystem.
 //! The same idea of remembering the already handled test cases is used to avoid loading already imported inputs.
+//!
+//! THIS IS OUTDATED, IT SHOULD USE THE NEW DESIGN
 
 use crate::{
     Result,
