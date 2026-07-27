@@ -1,3 +1,5 @@
+#![expect(clippy::std_instead_of_core)] // due to std::io::Cursor, to remove once it's stabilized.
+
 use alloc::vec::Vec;
 use core::{cmp, marker::Sized};
 use std::io::{Cursor, Write, stdout};
