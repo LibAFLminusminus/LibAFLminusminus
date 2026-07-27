@@ -11,9 +11,13 @@ pub use handle_providers::{
 };
 
 pub mod socket;
+pub use socket::{DirectTransport, SocketControllerSync, SocketWorkerSync};
 
+/// Possible results for a wait
 pub enum WaitResult {
+    /// A new message is ready, poll will surely return at least one output
     NewMsg,
+    /// Timeout triggered. poll may or may not return something.
     Timeout,
 }
 

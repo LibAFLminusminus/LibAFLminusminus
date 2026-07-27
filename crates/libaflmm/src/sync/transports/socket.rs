@@ -1,13 +1,21 @@
+use crate::controllers::Descriptor;
 use crate::sync::transports::WaitResult;
-use crate::sync::{Transferable, WorkerSync};
+use crate::sync::{Transferable, Transport, WorkerSync};
 use crate::{Result, sync::ControllerSync};
 use core::time::Duration;
 use libaflmm_bolts::Connection;
 use libaflmm_bolts::connection::SendResult;
-use libaflmm_core::{WorkerId, illegal_argument, runtime};
+use libaflmm_core::{WorkerId, illegal_argument, illegal_state, runtime};
 use nix::errno::Errno;
 use nix::poll::{PollFd, PollFlags, PollTimeout, poll};
 use std::collections::HashMap;
+
+/// socket-based transport between controller and workers.
+#[derive(Debug, Default)]
+pub struct DirectTransport<CMD, NOTIF> {
+    send_buf: Option<usize>,
+    controller_conns: Option<HashMap<WorkerId, Connection<NOTIF, CMD>>>,
+}
 
 #[derive(Debug)]
 pub struct SocketWorkerSync<CMD, NOTIF> {
@@ -98,5 +106,44 @@ where
         }
 
         Ok(self.pending_notifs.drain(..))
+    }
+}
+
+impl<CMD, D, NOTIF> Transport<CMD, D, NOTIF> for DirectTransport<CMD, NOTIF>
+where
+    CMD: Transferable,
+    D: Descriptor,
+    NOTIF: Transferable,
+{
+    type ControllerSync = SocketControllerSync<CMD, NOTIF>;
+    type WorkerSync = SocketWorkerSync<CMD, NOTIF>;
+
+    fn create_worker_sync<'a>(
+        &mut self,
+        descriptor: &'a D,
+        _sources: impl Iterator<Item = &'a D>,
+    ) -> Result<Self::WorkerSync> {
+        if let Some(conns) = &mut self.controller_conns {
+            let (worker_conn, controller_conn) = Connection::create(self.send_buf)?;
+
+            conns.insert(descriptor.worker_id(), controller_conn);
+
+            Ok(SocketWorkerSync { conn: worker_conn })
+        } else {
+            Err(illegal_state!(
+                "controller sync has already been created, no worker sync can be created anymore."
+            ))
+        }
+    }
+
+    fn create_controller_sync(&mut self) -> Result<Self::ControllerSync> {
+        if let Some(workers) = self.controller_conns.take() {
+            Ok(SocketControllerSync {
+                workers,
+                pending_notifs: Vec::new(),
+            })
+        } else {
+            Err(illegal_state!("controller sync has already been created."))
+        }
     }
 }
