@@ -18,9 +18,16 @@ where
     descriptor: StdDescriptor,
     handle_provider: HP,
     worker_sync: WS,
-    imported_testcases: HashSet<TestcaseId>,
+
+    // testcases that have been either sent or received
+    // it's to avoid loops in case the fuzzer is poorly configured
+    // (like if feedback is always true)
+    seen_testcases: HashSet<TestcaseId>,
+
+    // buffers
     pending_commands: Vec<StdCommand<HP::Handle>>,
     pending_imports: Vec<Testcase<I>>,
+
     should_report: bool,
 }
 
@@ -89,6 +96,9 @@ where
 
     fn poll_shutdown(&mut self) -> Result<bool> {
         let cmds_len = self.pending_commands.len();
+        // maybe this poll is too agressive (already done by recv_testcases)
+        // i guess we could skip it if this makes the fuzzer too slow, but it's
+        // unlikely
         self.pending_commands.extend(self.worker_sync.poll()?);
 
         for i in cmds_len..(cmds_len + self.pending_commands.len()) {
@@ -134,13 +144,10 @@ where
             return Ok(());
         }
 
-        // no need to send a testcase already imported.
-        if self.imported_testcases.contains(testcase.id()) {
-            return Ok(());
-        }
+        // mark a testcase as seen
+        self.seen_testcases.insert(*testcase.id());
 
         let handle = self.handle_provider.create_handle(&testcase.input())?;
-
         self.worker_sync.send(StdNotification::NewTestcase {
             id: *testcase.id(),
             handle,
@@ -154,47 +161,27 @@ where
             .pending_commands
             .extract_if(.., |c| matches!(c, StdCommand::Import { .. }))
         {
-            if let StdCommand::Import { id, handle, .. } = cmd
-                && !self.imported_testcases.contains(&id)
-            {
-                let input = self.handle_provider.resolve_handle(handle)?;
-                let tc = Testcase::new(Rc::new(input));
+            if let StdCommand::Import { id, handle, .. } = cmd {
+                if !self.seen_testcases.contains(&id) {
+                    let input = self.handle_provider.resolve_handle(handle)?;
+                    let tc = Testcase::new(Rc::new(input));
 
-                if *tc.id() != id {
-                    return Err(illegal_argument!(
-                        "imported ID does not match input content"
-                    ));
+                    if *tc.id() != id {
+                        return Err(illegal_argument!(
+                            "imported ID does not match input content"
+                        ));
+                    }
+
+                    self.seen_testcases.insert(id);
+                    self.pending_imports.push(tc);
                 }
-                self.imported_testcases.insert(id);
-                self.pending_imports.push(tc);
+            } else {
+                // we have previously filtered by Import, so it can only
+                // be import
+                unreachable!()
             }
         }
 
-        // // import inputs from the representatives
-        // for import in imports {
-        //     match import {
-        //         StdCommand::Import {
-        //             id,
-        //             serialized,
-        //             source,
-        //         } => {
-        //             if self.imported_testcases.insert(id) {
-        //                 let repr = postcard::from_bytes(&serialized)?;
-        //                 self.synchronizer.import(source, id, repr)?;
-        //             }
-        //         }
-        //         _ => unreachable!(),
-        //     }
-        // }
-
-        // // drain all pending inputs buffered in the synchronizer
-        // for tc in self.synchronizer.drain()? {
-        //     if self.imported_testcases.insert(*tc.id()) {
-        //         self.pending_imports.push(tc);
-        //     }
-        // }
-
-        // Ok(self.pending_imports.drain(..))
         Ok(self.pending_imports.drain(..))
     }
 }
@@ -216,7 +203,7 @@ where
             handle_provider,
             worker_sync,
             should_report,
-            imported_testcases: HashSet::new(),
+            seen_testcases: HashSet::new(),
             pending_commands: Vec::new(),
             pending_imports: Vec::new(),
         }

@@ -5,8 +5,9 @@ use crate::{
     },
     launchers::InstanceId,
     sync::{
-        ControllerSync, GroupId, HandleProvider, Orchestrator, Router, StdCommand, StdNotification,
-        StdOrchestrator, Transport, transports::HandleProviderFactory,
+        ControllerSync, Exchange, GroupId, HandleProvider, Orchestrator, Router, StdCommand,
+        StdNotification, StdOrchestrator, Transport,
+        transports::{HandleProviderFactory, WaitResult},
     },
 };
 use core::{fmt::Debug, marker::PhantomData, mem, time::Duration};
@@ -15,6 +16,7 @@ use libaflmm_core::{Result, WorkerId, illegal_argument, illegal_state, internal_
 use std::{
     collections::{HashMap, HashSet, hash_map::Entry},
     fs,
+    os::fd::BorrowedFd,
     path::{Path, PathBuf},
 };
 
@@ -56,8 +58,11 @@ where
     finalized: bool,
 
     worker_id_ctr: u32,
+
+    // buffers
     pending_workers: HashMap<GroupId, Vec<StdWorker<O::Provider, I, O::WorkerSync>>>,
     pending_groups: HashMap<GroupId, Cores>,
+    pending_notifications: Vec<(StdNotification<HandleOf<I, O>>, WorkerId)>,
 
     worker_stdout: WorkdirFile,
     worker_stderr: WorkdirFile,
@@ -193,8 +198,35 @@ where
         Ok(())
     }
 
-    fn wait_notifications(&mut self, _timeout: Option<Duration>) -> Result<()> {
-        todo!()
+    fn wait_notifications(&mut self, wake_fds: &[BorrowedFd<'_>], timeout: Duration) -> Result<()> {
+        let sync = self.controller_sync.as_mut().unwrap();
+
+        if matches!(sync.wait(wake_fds, timeout)?, WaitResult::Event) {
+            // notification ready to be handled
+            self.pending_notifications.extend(sync.poll()?);
+
+            for (notification, source) in self.pending_notifications.drain(..) {
+                let src_desc = self.descriptors.get(&source).unwrap();
+
+                // self.on_notification(src_desc, &notification)?;
+
+                let Some(command) = self
+                    .orchestrator
+                    .exchange_mut()
+                    .notif_to_command(src_desc, notification)?
+                else {
+                    continue;
+                };
+
+                let destinations = self.orchestrator.router_mut().route(source, &command)?;
+                self.controller_sync
+                    .as_mut()
+                    .unwrap()
+                    .send(destinations, command)?;
+            }
+        }
+
+        Ok(())
     }
 
     fn root_dir(&self) -> &Path {
@@ -291,6 +323,7 @@ where
             descriptors: HashMap::default(),
             pending_groups: HashMap::default(),
             pending_workers: HashMap::default(),
+            pending_notifications: Vec::new(),
             worker_id_ctr: 0,
             finalized: false,
             phantom: PhantomData,

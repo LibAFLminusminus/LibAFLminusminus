@@ -22,5 +22,9 @@ pub trait Monitor {
     ///
     /// This will be called regularly by the launcher to let the Monitor update its state
     /// and display updated information
+    ///
+    /// Keep in mind the exact time at which it will get called is not fixed.
+    /// If you would prefer to update at most every few seconds, the display is responsible for
+    /// implementing it by limiting the actual display with some timer.
     fn display<CT: Controller>(&mut self, controller: &mut CT) -> Result<()>;
 }

@@ -9,6 +9,7 @@ use libaflmm_core::{WorkerId, illegal_argument, illegal_state, runtime};
 use nix::errno::Errno;
 use nix::poll::{PollFd, PollFlags, PollTimeout, poll};
 use std::collections::HashMap;
+use std::os::fd::BorrowedFd;
 
 /// socket-based transport between controller and workers.
 #[derive(Debug, Default)]
@@ -79,16 +80,18 @@ where
         Ok(())
     }
 
-    fn wait(&mut self, timeout: Duration) -> Result<WaitResult> {
+    fn wait(&mut self, wake_fds: &[BorrowedFd<'_>], timeout: Duration) -> Result<WaitResult> {
         let mut fds: Vec<PollFd> = self
             .workers
             .values()
-            .map(|conn| PollFd::new(conn.as_fd(), PollFlags::POLLIN))
+            .map(|conn| conn.as_fd())
+            .chain(wake_fds.iter().copied())
+            .map(|fd| PollFd::new(fd, PollFlags::POLLIN))
             .collect();
 
         match poll(&mut fds, PollTimeout::try_from(timeout).unwrap()) {
             Ok(0) | Err(Errno::EINTR) => Ok(WaitResult::Timeout),
-            Ok(_) => Ok(WaitResult::NewMsg),
+            Ok(_) => Ok(WaitResult::Event),
             Err(e) => Err(e.into()),
         }
     }

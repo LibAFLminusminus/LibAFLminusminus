@@ -2,7 +2,11 @@ use crate::Result;
 use core::fmt::Debug;
 use core::time::Duration;
 use libaflmm_core::WorkerId;
-use std::thread;
+use nix::{
+    errno::Errno,
+    poll::{PollFd, PollFlags, PollTimeout, poll},
+};
+use std::os::fd::BorrowedFd;
 
 pub mod handle_providers;
 pub use handle_providers::{
@@ -16,7 +20,7 @@ pub use socket::{DirectTransport, SocketControllerSync, SocketWorkerSync};
 /// Possible results for a wait
 pub enum WaitResult {
     /// A new message is ready, poll will surely return at least one output
-    NewMsg,
+    Event,
     /// Timeout triggered. poll may or may not return something.
     Timeout,
 }
@@ -41,7 +45,7 @@ pub trait ControllerSync<RCV, SD>: Debug {
 
     /// Wait until a message has been received, or `timeout` has been reached.
     /// The return type give the reason why it returned.
-    fn wait(&mut self, timeout: Duration) -> Result<WaitResult>;
+    fn wait(&mut self, wake_fds: &[BorrowedFd<'_>], timeout: Duration) -> Result<WaitResult>;
 
     /// Poll for RCV values from all the the [`WorkerSync`] attached to [`Self`].
     fn poll(&mut self) -> Result<impl Iterator<Item = (RCV, WorkerId)>>;
@@ -96,10 +100,19 @@ impl<RCV, SD> ControllerSync<RCV, SD> for NopControllerSync {
         Ok(())
     }
 
-    fn wait(&mut self, timeout: Duration) -> Result<WaitResult> {
-        // wait the timeout amount, then return
-        thread::sleep(timeout);
-        Ok(WaitResult::Timeout)
+    fn wait(&mut self, wake_fds: &[BorrowedFd<'_>], timeout: Duration) -> Result<WaitResult> {
+        let timeout = PollTimeout::try_from(timeout).unwrap();
+
+        let mut fds: Vec<PollFd> = wake_fds
+            .iter()
+            .map(|fd| PollFd::new(*fd, PollFlags::POLLIN))
+            .collect();
+
+        match poll(&mut fds, timeout) {
+            Ok(0) | Err(Errno::EINTR) => Ok(WaitResult::Timeout),
+            Ok(_) => Ok(WaitResult::Event),
+            Err(e) => Err(e.into()),
+        }
     }
 
     fn poll(&mut self) -> Result<impl Iterator<Item = (RCV, WorkerId)>> {

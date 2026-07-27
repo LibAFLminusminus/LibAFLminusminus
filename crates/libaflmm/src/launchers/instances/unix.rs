@@ -12,7 +12,6 @@ use core::{fmt, time::Duration};
 use libaflmm_bolts::core_affinity::CoreId;
 use libaflmm_core::runtime;
 use nix::{
-    poll::{PollFd, PollFlags, PollTimeout, poll},
     sys::{
         prctl::set_pdeathsig,
         signal::{SigSet, SigmaskHow, Signal, sigprocmask},
@@ -194,26 +193,22 @@ where
         // collect children that exited before we set up the signalfd.
         self.drain_children(controller, &mut failures)?;
 
-        let poll_timeout = PollTimeout::try_from(timeout).expect("Incorrect poll timeout");
-
         while !self.active_instances.is_empty() {
+            // display loop
             monitor.display(controller)?;
 
-            let mut fds = [PollFd::new(sfd.as_fd(), PollFlags::POLLIN)];
-            match poll(&mut fds, poll_timeout) {
-                Err(nix::errno::Errno::EINTR) | Ok(0) => {
-                    // Interrupted by signal or timed out; retry.
-                }
-                Err(e) => return Err(Error::runtime(format!("poll failed: {e}"))),
-                Ok(_) => {
-                    // consume the pending signals
-                    while matches!(sfd.read_signal(), Ok(Some(_))) {}
+            // poll for notifications until timeout as the limit
+            controller.wait_notifications(&[sfd.as_fd()], timeout)?;
 
-                    // collect children that exited
-                    self.drain_children(controller, &mut failures)?;
-                }
-            }
+            // consume the pending signals
+            while matches!(sfd.read_signal(), Ok(Some(_))) {}
+
+            // collect children that exited
+            self.drain_children(controller, &mut failures)?;
         }
+
+        // final display, in case we want to do something at the end of the main loop
+        monitor.display(controller)?;
 
         if failures.is_empty() {
             log::info!("All instances finished successfully.");

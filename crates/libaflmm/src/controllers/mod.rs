@@ -15,7 +15,7 @@ use quanta::{Clock, Instant};
 use std::{
     fs::{self, File, OpenOptions},
     io::{stderr, stdout},
-    os::fd::{AsRawFd, FromRawFd},
+    os::fd::{AsRawFd, BorrowedFd, FromRawFd},
     path::{Path, PathBuf},
 };
 
@@ -97,7 +97,8 @@ pub trait Controller {
 
     /// Wait for events sent by the [`Worker`]s.
     /// The function returns after a notification is received or the given timeout value has elapsed.
-    fn wait_notifications(&mut self, _timeout: Option<Duration>) -> Result<()>;
+    fn wait_notifications(&mut self, wake_fds: &[BorrowedFd<'_>], _timeout: Duration)
+    -> Result<()>;
 
     /// Kindly ask to a worker to shut down.
     /// This is asynchronous, so the worker could still be alive for some time.

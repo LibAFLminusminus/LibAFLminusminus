@@ -9,6 +9,7 @@ use alloc::sync::Arc;
 use core::time::Duration;
 use libaflmm_bolts::CoreId;
 use libaflmm_core::{Result, WorkerId};
+use std::os::fd::BorrowedFd;
 use tempfile::TempDir;
 
 /// Nop [`Controller`]
@@ -105,7 +106,11 @@ impl Controller for NopController {
         unimplemented!("nop controller has no workers");
     }
 
-    fn wait_notifications(&mut self, _timeout: Option<Duration>) -> Result<()> {
+    fn wait_notifications(
+        &mut self,
+        _wake_fds: &[BorrowedFd<'_>],
+        _timeout: Duration,
+    ) -> Result<()> {
         unimplemented!("nop controller has no workers");
     }
 
