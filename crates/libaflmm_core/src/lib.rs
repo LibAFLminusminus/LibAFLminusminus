@@ -406,7 +406,7 @@ impl Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Self::Serialize(s, b) => {
-                write!(f, "Error in Serialization: `{0}`", &s)?;
+                write!(f, "Error in Serialization: `{s}`")?;
                 display_error_backtrace(f, b)
             }
             Self::Compression(b) => {
@@ -414,67 +414,66 @@ impl Display for Error {
                 display_error_backtrace(f, b)
             }
             Self::EmptyOptional(s, b) => {
-                write!(f, "Optional value `{0}` was not set", &s)?;
+                write!(f, "Optional value `{s}` was not set")?;
                 display_error_backtrace(f, b)
             }
             Self::KeyNotFound(s, b) => {
-                write!(f, "Key: `{0}` - not found", &s)?;
+                write!(f, "Key: `{s}` - not found")?;
                 display_error_backtrace(f, b)
             }
             Self::KeyExists(s, b) => {
-                write!(f, "Key: `{0}` - already exists", &s)?;
+                write!(f, "Key: `{s}` - already exists")?;
                 display_error_backtrace(f, b)
             }
             Self::Empty(s, b) => {
-                write!(f, "No items in {0}", &s)?;
+                write!(f, "No items in {s}")?;
                 display_error_backtrace(f, b)
             }
             Self::IteratorEnd(s, b) => {
-                write!(f, "All elements have been processed in {0} iterator", &s)?;
+                write!(f, "All elements have been processed in {s} iterator")?;
                 display_error_backtrace(f, b)
             }
             Self::NotImplemented(s, b) => {
-                write!(f, "Not implemented: {0}", &s)?;
+                write!(f, "Not implemented: {s}")?;
                 display_error_backtrace(f, b)
             }
             Self::IllegalState(s, b) => {
-                write!(f, "Illegal state: {0}", &s)?;
+                write!(f, "Illegal state: {s}")?;
                 display_error_backtrace(f, b)
             }
             Self::IllegalArgument(s, b) => {
-                write!(f, "Illegal argument: {0}", &s)?;
+                write!(f, "Illegal argument: {s}")?;
                 display_error_backtrace(f, b)
             }
             Self::Unsupported(s, b) => {
                 write!(
                     f,
-                    "The operation is not supported on the current platform: {0}",
-                    &s
+                    "The operation is not supported on the current platform: {s}",
                 )?;
                 display_error_backtrace(f, b)
             }
             Self::OsError(err, s, b) => {
-                write!(f, "OS error: {0}: {1}", &s, err)?;
+                write!(f, "OS error: {s}: {err}")?;
                 display_error_backtrace(f, b)
             }
             Self::Unknown(s, b) => {
-                write!(f, "Unknown error: {0}", &s)?;
+                write!(f, "Unknown error: {s}")?;
                 display_error_backtrace(f, b)
             }
             Self::InvalidCorpus(s, b) => {
-                write!(f, "Invalid corpus: {0}", &s)?;
+                write!(f, "Invalid corpus: {s}")?;
                 display_error_backtrace(f, b)
             }
             Self::Runtime(s, b) => {
-                write!(f, "Runtime error: {0}", &s)?;
+                write!(f, "Runtime error: {s}")?;
                 display_error_backtrace(f, b)
             }
             Self::InvalidInput(s, b) => {
-                write!(f, "Encountered an invalid input: {0}", &s)?;
+                write!(f, "Encountered an invalid input: {s}")?;
                 display_error_backtrace(f, b)
             }
             Self::InternalBug(s, b) => {
-                writeln!(f, "LibAFL internal bug: {0}", &s)?;
+                writeln!(f, "LibAFL internal bug: {s}")?;
                 write!(
                     f,
                     "This is a LibAFLmm bug, please open an issue at https://github.com/LibAFLminusminus/LibAFLminusminus.",
