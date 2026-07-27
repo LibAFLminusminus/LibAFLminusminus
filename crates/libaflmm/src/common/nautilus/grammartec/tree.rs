@@ -222,7 +222,7 @@ pub struct Tree {
     /// The sizes of the subtrees
     pub sizes: Vec<usize>,
     /// The parents of the nodes
-    pub paren: Vec<NodeId>,
+    pub parents: Vec<NodeId>,
 }
 
 impl TreeLike for Tree {
@@ -260,7 +260,7 @@ impl Tree {
         let mut res = Tree {
             rules,
             sizes,
-            paren,
+            parents: paren,
         };
         if !res.rules.is_empty() {
             res.calc_subtree_sizes_and_parents(ctx);
@@ -323,7 +323,7 @@ impl Tree {
             // This should never panic!
             let (nterm_id, node) = stack.pop().expect("Not a valid tree for unparsing!");
             if nterm_id == nonterm {
-                self.paren[i] = node;
+                self.parents[i] = node;
             } else {
                 panic!("Not a valid tree for unparsing!");
             }
@@ -340,7 +340,7 @@ impl Tree {
             *size = 1;
         }
         for i in (1..self.size()).rev() {
-            self.sizes[self.paren[i].to_i()] += self.sizes[i];
+            self.sizes[self.parents[i].to_i()] += self.sizes[i];
         }
     }
 
@@ -354,15 +354,15 @@ impl Tree {
         if n == NodeId::from(0) {
             None
         } else {
-            Some(self.paren[n.to_i()])
+            Some(self.parents[n.to_i()])
         }
     }
 
     /// Truncate the tree
     pub fn truncate(&mut self) {
-        self.rules.truncate(0);
-        self.sizes.truncate(0);
-        self.paren.truncate(0);
+        self.rules.clear();
+        self.sizes.clear();
+        self.parents.clear();
     }
 
     /// Generate a tree from a nonterminal
@@ -389,7 +389,7 @@ impl Tree {
             self.truncate();
             self.rules.push(RuleIdOrCustom::Rule(ruleid));
             self.sizes.push(0);
-            self.paren.push(NodeId::from(0));
+            self.parents.push(NodeId::from(0));
             ctx.get_rule(ruleid).generate(rand, self, ctx, max_len);
             self.sizes[0] = self.rules.len();
         };
@@ -402,7 +402,7 @@ impl Tree {
                 self.truncate();
                 self.rules.push(rid);
                 self.sizes.push(0);
-                self.paren.push(NodeId::from(0));
+                self.parents.push(NodeId::from(0));
                 self.sizes[0] = self.rules.len();
             }
         }
@@ -432,13 +432,13 @@ impl Tree {
         for i in 1..cmp::min(self.size(), 10000) {
             let node_id = NodeId::from(self.size() - i);
             let current_nterm: NTermId = self.get_rule(node_id, ctx).nonterm();
-            let mut current_node_id = self.paren[node_id.to_i()];
+            let mut current_node_id = self.parents[node_id.to_i()];
             let mut depth = 0;
             while current_node_id != NodeId::from(0) {
                 if self.get_rule(current_node_id, ctx).nonterm() == current_nterm {
                     found_recursions.push((current_node_id, node_id));
                 }
-                current_node_id = self.paren[current_node_id.to_i()];
+                current_node_id = self.parents[current_node_id.to_i()];
                 if depth > 15 {
                     break;
                 }
@@ -523,7 +523,7 @@ mod tests {
         let mut cur = n + 1;
         let mut size = 1;
         for _ in 0..tree.get_rule(n, ctx).number_of_nonterms() {
-            tree.paren[cur.to_i()] = n;
+            tree.parents[cur.to_i()] = n;
             let sub_size = calc_subtree_sizes_and_parents_rec_test(tree, cur, ctx);
             cur = cur + sub_size;
             size += sub_size;
@@ -575,9 +575,9 @@ mod tests {
             tree.truncate();
             tree.generate_from_nt(&mut rand, ctx.nt_id("C"), 50, &ctx);
             calc_subtree_sizes_and_parents_rec_test(&mut tree, NodeId::from(0), &ctx);
-            let vec1 = tree.paren.clone();
+            let vec1 = tree.parents.clone();
             tree.calc_parents(&ctx);
-            let vec2 = tree.paren.clone();
+            let vec2 = tree.parents.clone();
             assert_eq!(vec1, vec2);
         }
     }

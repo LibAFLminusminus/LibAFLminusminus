@@ -1,6 +1,5 @@
-use std::fmt::Debug;
-
 use crate::{Result, sync::Transferable};
+use core::fmt::Debug;
 use serde::{Deserialize, Serialize};
 
 pub mod simple;

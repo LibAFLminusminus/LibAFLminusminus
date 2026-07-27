@@ -1,6 +1,6 @@
 use crate::{Result, inputs::Input, sync::Transferable};
+use core::{fmt::Debug, marker::PhantomData};
 use libaflmm_core::internal_bug;
-use std::{fmt::Debug, marker::PhantomData};
 
 pub type SerializedHandleProviderFactory = DefaultHandleProviderFactory<SerializedHandleProvider>;
 pub type UnreachableHandleProviderFactory = DefaultHandleProviderFactory<UnreachableHandleProvider>;

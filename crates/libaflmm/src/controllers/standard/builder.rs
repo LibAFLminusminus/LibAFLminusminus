@@ -2,8 +2,9 @@ use crate::{
     controllers::{StdController, StdDescriptor, WorkdirFile, standard::controller::HandleOf},
     sync::{Orchestrator, StdCommand, StdNotification, StdOrchestrator},
 };
+use core::fmt::Debug;
 use libaflmm_core::Result;
-use std::{fmt::Debug, path::PathBuf};
+use std::path::PathBuf;
 
 pub struct ControllerBuilder;
 

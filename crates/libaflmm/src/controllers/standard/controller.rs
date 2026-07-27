@@ -9,14 +9,12 @@ use crate::{
         StdOrchestrator, Transport, transports::HandleProviderFactory,
     },
 };
+use core::{fmt::Debug, marker::PhantomData, mem, time::Duration};
 use libaflmm_bolts::{CoreId, Cores};
 use libaflmm_core::{Result, WorkerId, illegal_argument, illegal_state, internal_bug};
 use std::{
     collections::{HashMap, HashSet, hash_map::Entry},
-    fmt::Debug,
     fs,
-    marker::PhantomData,
-    mem,
     path::{Path, PathBuf},
 };
 
@@ -40,6 +38,7 @@ pub(crate) type ControllerSyncOf<I, O> = <TransportOf<I, O> as Transport<
 
 /// The standard controller.
 #[derive(Debug)]
+#[expect(clippy::type_complexity)]
 pub struct StdController<I, O>
 where
     I: Debug,
@@ -97,7 +96,7 @@ where
         let mut worker_desc: HashMap<WorkerId, StdDescriptor> = HashMap::new();
 
         // check core pinning correctness
-        for (_, cores) in &self.pending_groups {
+        for cores in self.pending_groups.values() {
             for core_id in cores {
                 if let Some(core) = core_id
                     && !used_cores.insert(core)
@@ -124,7 +123,7 @@ where
 
         self.orchestrator.router_mut().finalize()?;
 
-        for (wid, desc) in worker_desc.iter() {
+        for (wid, desc) in &worker_desc {
             let source_wids: Vec<WorkerId> = self.orchestrator.router().sources(*wid).collect();
 
             let sources: Vec<&StdDescriptor> = source_wids
@@ -135,12 +134,12 @@ where
             let handle_provider = self
                 .orchestrator
                 .handle_provider_factory_mut()
-                .create(desc, sources.iter().map(|src| *src))?;
+                .create(desc, sources.iter().copied())?;
 
             let worker_sync = self
                 .orchestrator
                 .transport_mut()
-                .create_worker_sync(desc, sources.iter().map(|src| *src))?;
+                .create_worker_sync(desc, sources.iter().copied())?;
 
             let should_report = self.orchestrator.router().has_destinations(*wid);
 
@@ -215,7 +214,7 @@ where
     //     }
     // }
 
-    fn wait_notifications(&mut self, _timeout: Option<std::time::Duration>) -> Result<()> {
+    fn wait_notifications(&mut self, _timeout: Option<Duration>) -> Result<()> {
         todo!()
     }
 

@@ -1,6 +1,6 @@
 use crate::{Result, sync::GroupId};
+use core::fmt::Debug;
 use libaflmm_core::WorkerId;
-use std::fmt::Debug;
 
 /// The sharing policy implementation.
 ///

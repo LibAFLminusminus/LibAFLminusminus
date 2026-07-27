@@ -138,6 +138,7 @@ where
     CT: Controller,
     CT::GroupConfig: Default,
 {
+    #[expect(clippy::type_complexity)]
     pub fn add_group<G>(
         self,
         group: G,
@@ -150,6 +151,7 @@ impl<CT, GT, MT> StdLauncherBuilder<CT, GT, MT>
 where
     CT: Controller,
 {
+    #[expect(clippy::type_complexity)]
     pub fn add_group_with<G>(
         self,
         group: G,
@@ -170,6 +172,7 @@ where
     GT: GroupTuple<CT>,
 {
     /// Build the [`StdLauncher`].
+    #[expect(clippy::type_complexity)]
     pub fn build(
         mut self,
     ) -> Result<StdLauncher<<CT::Worker as Worker>::Descriptor, CT, MT, CT::Worker>> {

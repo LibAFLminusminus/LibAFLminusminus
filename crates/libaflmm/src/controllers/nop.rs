@@ -5,6 +5,7 @@ use crate::{
     sync::GroupId,
 };
 use alloc::sync::Arc;
+use core::time::Duration;
 use libaflmm_bolts::CoreId;
 use libaflmm_core::{Result, WorkerId};
 use tempfile::TempDir;
@@ -103,7 +104,7 @@ impl Controller for NopController {
         unimplemented!("nop controller has no workers");
     }
 
-    fn wait_notifications(&mut self, _timeout: Option<std::time::Duration>) -> Result<()> {
+    fn wait_notifications(&mut self, _timeout: Option<Duration>) -> Result<()> {
         unimplemented!("nop controller has no workers");
     }
 

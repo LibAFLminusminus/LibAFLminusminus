@@ -1,6 +1,6 @@
 use crate::Result;
+use core::fmt::Debug;
 use libaflmm_core::WorkerId;
-use std::fmt::Debug;
 
 pub mod handle_providers;
 pub use handle_providers::{

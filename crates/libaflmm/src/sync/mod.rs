@@ -1,5 +1,5 @@
+use core::fmt::Debug;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
-use std::fmt::Debug;
 
 // pub mod aflpp;
 
@@ -152,6 +152,7 @@ impl Default for StdOrchestrator {
 }
 
 impl GroupId {
+    #[must_use]
     pub fn invalid() -> Self {
         Self { id: u64::MAX }
     }

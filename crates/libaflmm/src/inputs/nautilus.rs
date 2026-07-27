@@ -55,7 +55,7 @@ impl NautilusInput {
             tree: Tree {
                 rules: vec![],
                 sizes: vec![],
-                paren: vec![],
+                parents: vec![],
             },
         }
     }
@@ -81,7 +81,7 @@ impl NautilusInput {
 
 impl Hash for NautilusInput {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.tree().paren.hash(state);
+        self.tree().parents.hash(state);
         for r in &self.tree().rules {
             match r {
                 RuleIdOrCustom::Custom(a, b) => {

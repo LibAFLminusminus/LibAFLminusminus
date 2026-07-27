@@ -4,9 +4,10 @@ use crate::{
     inputs::Input,
     sync::{HandleProvider, StdCommand, StdNotification, WorkerSync},
 };
+use alloc::rc::Rc;
 use libaflmm_core::{Result, WorkerId, illegal_argument};
 use nix::unistd::{dup2_stderr, dup2_stdout};
-use std::{collections::HashSet, rc::Rc};
+use std::collections::HashSet;
 
 /// The standard [`Worker`].
 #[derive(Debug)]
@@ -144,19 +145,19 @@ where
             .pending_commands
             .extract_if(.., |c| matches!(c, StdCommand::Import { .. }))
         {
-            if let StdCommand::Import { id, handle, .. } = cmd {
-                if !self.imported_testcases.contains(&id) {
-                    let input = self.handle_provider.resolve_handle(handle)?;
-                    let tc = Testcase::new(Rc::new(input));
+            if let StdCommand::Import { id, handle, .. } = cmd
+                && !self.imported_testcases.contains(&id)
+            {
+                let input = self.handle_provider.resolve_handle(handle)?;
+                let tc = Testcase::new(Rc::new(input));
 
-                    if *tc.id() != id {
-                        return Err(illegal_argument!(
-                            "imported ID does not match input content"
-                        ));
-                    }
-                    self.imported_testcases.insert(id);
-                    self.pending_imports.push(tc);
+                if *tc.id() != id {
+                    return Err(illegal_argument!(
+                        "imported ID does not match input content"
+                    ));
                 }
+                self.imported_testcases.insert(id);
+                self.pending_imports.push(tc);
             }
         }
 
@@ -202,7 +203,7 @@ where
         should_report: bool,
     ) -> Self {
         Self {
-            descriptor: descriptor.clone(),
+            descriptor,
             handle_provider,
             worker_sync,
             should_report,

@@ -4,8 +4,8 @@ use crate::{
     corpus::TestcaseId,
     sync::{GroupId, Transferable, exchanges::Exchange},
 };
+use core::fmt::Debug;
 use serde::{Deserialize, Serialize};
-use std::fmt::Debug;
 
 // #[derive(Debug, Clone, Serialize, Deserialize)]
 // pub enum TestcaseHandle<H> {

@@ -328,6 +328,6 @@ where
         let configured_tail = tail.register_all(controller)?;
         let group_id = controller.register_group(config, group.cores())?;
 
-        Ok((ConfiguredGroup { group_id, group }, configured_tail))
+        Ok((ConfiguredGroup { group, group_id }, configured_tail))
     }
 }
