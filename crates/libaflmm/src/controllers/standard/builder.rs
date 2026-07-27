@@ -44,9 +44,9 @@ impl<O> StdControllerBuilder<O> {
         }
     }
 
-    /// Set to `true` if the [`Workdir`] should be overwritten.
+    /// Set to `true` if the [`Workdir`](crate::Workdir) should be overwritten.
     ///
-    /// If set to `false` and the [`Workdir`] already exists, it will error out.
+    /// If set to `false` and the [`Workdir`](crate::Workdir) already exists, it will error out.
     #[must_use]
     pub fn overwrite(mut self, overwrite: bool) -> Self {
         self.overwrite = overwrite;

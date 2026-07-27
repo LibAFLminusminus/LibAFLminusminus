@@ -8,6 +8,8 @@ pub use handle_providers::{
     SerializedHandleProviderFactory, UnreachableHandleProvider, UnreachableHandleProviderFactory,
 };
 
+pub mod socket;
+
 /// The worker side of the synchronization mechanism
 pub trait WorkerSync<RCV, SD>: Debug {
     /// Send a SD value to the [`ControllerSync`]

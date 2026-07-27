@@ -1,5 +1,6 @@
 use core::fmt::Debug;
-use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use libaflmm_bolts::connection::Transferable;
+use serde::{Deserialize, Serialize};
 
 // pub mod aflpp;
 
@@ -32,10 +33,6 @@ pub type StdOrchestrator =
 pub struct GroupId {
     pub(crate) id: u64,
 }
-
-/// Shortcut for transportable messages over the wire
-/// It is auto-impl for T enforcing these sub traits.
-pub trait Transferable: Debug + Serialize + DeserializeOwned {}
 
 pub trait Orchestrator<D, I>: Debug {
     type ProviderFactory: HandleProviderFactory<D, I, Provider = Self::Provider>;
@@ -82,8 +79,6 @@ pub struct GenericOrchestrator<E, HPF, R, T> {
     transporter: T,
     handle_provider_factory: HPF,
 }
-
-impl<T> Transferable for T where T: Debug + Serialize + DeserializeOwned {}
 
 impl<D, E, H, HPF, I, R, T> Orchestrator<D, I> for GenericOrchestrator<E, HPF, R, T>
 where
