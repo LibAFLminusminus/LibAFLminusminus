@@ -98,6 +98,12 @@ pub trait Controller {
     /// Wait for events sent by the [`Worker`]s.
     /// The function returns after a notification is received or the given timeout value has elapsed.
     fn wait_notifications(&mut self, _timeout: Option<Duration>) -> Result<()>;
+
+    /// Kindly ask to a worker to shut down.
+    /// This is asynchronous, so the worker could still be alive for some time.
+    ///
+    /// Depending on the orchestrator choice, shutdown may or may not do something.
+    fn shutdown(&mut self, worker: WorkerId) -> Result<()>;
 }
 
 /// A worker is a representant of a fuzzing instance.
@@ -132,13 +138,17 @@ pub trait Worker {
         self.descriptor().core_id()
     }
 
-    /// Do the work related to reconciling between instances: sharing corpus, etc.
-    fn reconcile(&self) -> Result<()>;
-
     /// Hook called before the [`Runtime`](crate::runtimes::Runtime) of the worker gets executed.
     fn pre_runtime_exec(&mut self) -> Result<()> {
         Ok(())
     }
+
+    /// Returns true if the worker should shutdown, false otherwise
+    ///
+    /// The next polls are not required to be consistent if shutdown is requested:
+    /// Any other poll-related commands have an undefined behaviour, since the fuzzer
+    /// should exit.
+    fn poll_shutdown(&mut self) -> Result<bool>;
 
     // /// Send a notification to the [`Controller`]
     // fn send_notification(&mut self, notification: Self::Notification) -> Result<()>;

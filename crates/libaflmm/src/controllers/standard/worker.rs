@@ -56,6 +56,7 @@ impl<CS> StdWorkerRepr<CS> {
 impl<HP, I, WS> Worker for StdWorker<HP, I, WS>
 where
     HP: HandleProvider<I>,
+    WS: WorkerSync<StdCommand<HP::Handle>, StdNotification<HP::Handle>>,
 {
     type Descriptor = StdDescriptor;
 
@@ -79,16 +80,24 @@ where
         &mut self.descriptor.workdir
     }
 
-    fn reconcile(&self) -> Result<()> {
-        // do nothing
-        Ok(())
-    }
-
     fn pre_runtime_exec(&mut self) -> Result<()> {
         dup2_stdout(self.descriptor.workdir.stdout()?)?;
         dup2_stderr(self.descriptor.workdir.stderr()?)?;
 
         Ok(())
+    }
+
+    fn poll_shutdown(&mut self) -> Result<bool> {
+        let cmds_len = self.pending_commands.len();
+        self.pending_commands.extend(self.worker_sync.poll()?);
+
+        for i in cmds_len..(cmds_len + self.pending_commands.len()) {
+            if matches!(self.pending_commands[i], StdCommand::Shutdown) {
+                return Ok(true);
+            }
+        }
+
+        Ok(false)
     }
 
     // fn poll_commands_filtered(

@@ -5,7 +5,7 @@ use crate::{
     },
     launchers::InstanceId,
     sync::{
-        GroupId, HandleProvider, Orchestrator, Router, StdCommand, StdNotification,
+        ControllerSync, GroupId, HandleProvider, Orchestrator, Router, StdCommand, StdNotification,
         StdOrchestrator, Transport, transports::HandleProviderFactory,
     },
 };
@@ -193,33 +193,19 @@ where
         Ok(())
     }
 
-    // fn send_command(&mut self, command: StdCommand, worker_id: WorkerId) -> Result<()> {
-    //     let repr = self
-    //         .workers
-    //         .get_mut(&worker_id)
-    //         .ok_or(illegal_argument!("Unknown worker ID"))?;
-
-    //     match &command {
-    //         StdCommand::Shutdown => repr.connection_mut().send_blocking(&command),
-    //         _ => {
-    //             if !repr.connection_mut().send(&command)? {
-    //                 log::warn!(
-    //                     "Could not send command asynchronously to worker {worker_id:?}. The socket must be full. Falling back to synchronous send..."
-    //                 );
-    //                 repr.connection_mut().send_blocking(&command)?;
-    //             }
-
-    //             Ok(())
-    //         }
-    //     }
-    // }
-
     fn wait_notifications(&mut self, _timeout: Option<Duration>) -> Result<()> {
         todo!()
     }
 
     fn root_dir(&self) -> &Path {
         self.root_dir.as_path()
+    }
+
+    fn shutdown(&mut self, worker: WorkerId) -> Result<()> {
+        self.controller_sync
+            .as_mut()
+            .unwrap()
+            .send_to(worker, StdCommand::Shutdown)
     }
 }
 

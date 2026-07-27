@@ -51,17 +51,13 @@ where
     CMD: Transferable,
     NOTIF: Transferable,
 {
-    fn send<'a>(
-        &mut self,
-        workers: impl Iterator<Item = &'a libaflmm_core::WorkerId>,
-        cmd: CMD,
-    ) -> Result<()> {
+    fn send(&mut self, workers: impl Iterator<Item = WorkerId>, cmd: CMD) -> Result<()> {
         let serialized = Connection::<NOTIF, CMD>::serialize_msg(&cmd)?;
 
         for worker in workers {
             let res = unsafe {
                 self.workers
-                    .get_mut(worker)
+                    .get_mut(&worker)
                     .ok_or(illegal_argument!("unknown worker {worker:?}"))?
                     .send_serialized(&serialized)?
             };
@@ -71,7 +67,7 @@ where
 
                 SendResult::Closed => {
                     log::info!("worker {worker:?} socket closed");
-                    self.workers.remove(worker);
+                    self.workers.remove(&worker);
                 }
 
                 SendResult::Full => {

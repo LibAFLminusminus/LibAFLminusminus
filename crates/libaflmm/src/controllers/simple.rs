@@ -188,11 +188,6 @@ impl Worker for SimpleWorker {
         &mut self.descriptor
     }
 
-    fn reconcile(&self) -> Result<()> {
-        // do nothing
-        Ok(())
-    }
-
     fn pre_runtime_exec(&mut self) -> Result<()> {
         dup2_stdout(self.descriptor.workdir.stdout()?)?;
         dup2_stderr(self.descriptor.workdir.stderr()?)?;

@@ -1,7 +1,8 @@
 //! Nop controller and workers.
 
 use crate::{
-    controllers::{Controller, Descriptor, Workdir, WorkdirFile, Worker},
+    controllers::{Controller, Descriptor, SyncWorker, Workdir, WorkdirFile, Worker},
+    corpus::Testcase,
     sync::GroupId,
 };
 use alloc::sync::Arc;
@@ -108,6 +109,10 @@ impl Controller for NopController {
         unimplemented!("nop controller has no workers");
     }
 
+    fn shutdown(&mut self, _worker: WorkerId) -> Result<()> {
+        Ok(())
+    }
+
     // fn send_command(
     //     &mut self,
     //     command: <Self::Worker as Worker>::Command,
@@ -128,8 +133,8 @@ impl Worker for NopWorker {
         &mut self.descriptor
     }
 
-    fn reconcile(&self) -> Result<()> {
-        Ok(())
+    fn poll_shutdown(&mut self) -> Result<bool> {
+        Ok(false)
     }
 
     // fn send_notification(&mut self, _notification: Self::Notification) -> Result<()> {
@@ -142,4 +147,14 @@ impl Worker for NopWorker {
     // ) -> Result<impl Iterator<Item = Self::Command>> {
     //     Ok([].into_iter())
     // }
+}
+
+impl<I> SyncWorker<I> for NopWorker {
+    fn send_testcase(&mut self, _testcase: &Testcase<I>) -> Result<()> {
+        Ok(())
+    }
+
+    fn recv_testcases(&mut self) -> Result<impl Iterator<Item = Testcase<I>>> {
+        Ok([].into_iter())
+    }
 }

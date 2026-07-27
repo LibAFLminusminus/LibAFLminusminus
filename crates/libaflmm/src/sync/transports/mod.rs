@@ -32,7 +32,12 @@ pub trait WorkerSync<RCV, SD>: Debug {
 
 pub trait ControllerSync<RCV, SD>: Debug {
     /// Send a SD value to the [`WorkerSync`] with the [`WorkerId`]s in `workers`.
-    fn send<'a>(&mut self, workers: impl Iterator<Item = &'a WorkerId>, value: SD) -> Result<()>;
+    fn send(&mut self, workers: impl Iterator<Item = WorkerId>, value: SD) -> Result<()>;
+
+    /// Send a SD value to the [`WorkerSync`] with the ID [`WorkerId`].
+    fn send_to(&mut self, worker: WorkerId, value: SD) -> Result<()> {
+        self.send([worker].into_iter(), value)
+    }
 
     /// Wait until a message has been received, or `timeout` has been reached.
     /// The return type give the reason why it returned.
@@ -87,7 +92,7 @@ impl<CMD, D, NOTIF> Transport<CMD, D, NOTIF> for NopTransport {
 }
 
 impl<RCV, SD> ControllerSync<RCV, SD> for NopControllerSync {
-    fn send<'a>(&mut self, _workers: impl Iterator<Item = &'a WorkerId>, _val: SD) -> Result<()> {
+    fn send(&mut self, _workers: impl Iterator<Item = WorkerId>, _val: SD) -> Result<()> {
         Ok(())
     }
 
