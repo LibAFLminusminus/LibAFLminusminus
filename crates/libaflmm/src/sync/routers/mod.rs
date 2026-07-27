@@ -2,6 +2,8 @@ use crate::{Result, sync::GroupId};
 use core::fmt::Debug;
 use libaflmm_core::WorkerId;
 
+pub mod graph;
+
 /// The sharing policy implementation.
 ///
 /// It will take care of routing of commands.
