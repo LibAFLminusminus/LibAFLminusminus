@@ -189,9 +189,7 @@ bare_urls = "deny"
 redundant_explicit_links = "deny"
 
 [workspace.metadata.dylint]
-libraries = [
-  { path = "./mmlint", pattern = "generics_reorder" },
-]
+libraries = [{ path = "./mmlint", pattern = "generics_reorder" }]
 
 [profile.release]
 lto = true
