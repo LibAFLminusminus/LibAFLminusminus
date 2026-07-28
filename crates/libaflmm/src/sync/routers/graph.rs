@@ -69,7 +69,7 @@ impl<K> GraphRouter<K> {
     }
 
     fn check_finalized(&self) -> Result<()> {
-        if self.finalized {
+        if !self.finalized {
             return Err(illegal_argument!("graph router has not been finalized yet"));
         }
 

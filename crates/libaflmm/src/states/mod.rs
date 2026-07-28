@@ -15,6 +15,7 @@ use crate::{
 };
 use alloc::{
     borrow::Cow,
+    collections::VecDeque,
     string::{String, ToString},
     vec::Vec,
 };
@@ -326,7 +327,7 @@ pub struct StdState<C, CT, I, OC, SC> {
     dont_reenter: Option<Vec<PathBuf>>,
     metadata_initialized: bool,
     stats: Stats,
-    pending_testcases: Vec<Testcase<I>>,
+    pending_testcases: VecDeque<Testcase<I>>,
     phantom: PhantomData<SC>,
 }
 
@@ -604,7 +605,7 @@ where
     }
 
     fn next_pending_testcase(&mut self) -> Option<Testcase<Self::Input>> {
-        self.pending_testcases.pop()
+        self.pending_testcases.pop_front()
     }
 }
 
@@ -980,7 +981,7 @@ where
             dont_reenter: None,
             testcase_metadata: HashMap::new(),
             metadata_initialized: false,
-            pending_testcases: Vec::new(),
+            pending_testcases: VecDeque::new(),
             phantom: PhantomData,
         };
         Ok(state)

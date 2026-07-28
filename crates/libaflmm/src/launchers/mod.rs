@@ -3,11 +3,9 @@
 
 use crate::{
     Error, Result,
-    controllers::{Controller, StdController, StdDescriptor, StdWorker, Worker},
-    inputs::Input,
+    controllers::{Controller, Worker},
     launchers::groups::{GroupTuple, PendingGroup, RegisteredGroupTuple},
-    monitors::{Monitor, SimpleMonitor, StdMonitor},
-    sync::{StdHandleProvider, StdOrchestrator, StdWorkerSync},
+    monitors::{Monitor, SimpleMonitor},
 };
 use core::time::Duration;
 use libaflmm_core::illegal_argument;
@@ -39,21 +37,12 @@ pub struct StdLauncher<D, CT, MT, W> {
     monitor_refresh: Duration,
 }
 
-impl<I>
-    StdLauncher<
-        StdDescriptor,
-        StdController<I, StdOrchestrator>,
-        StdMonitor,
-        StdWorker<StdHandleProvider, I, StdWorkerSync>,
-    >
-where
-    I: Input,
-{
+impl StdLauncher<(), (), (), ()> {
     /// Create a default Launcher.
     /// It is configured with a very minimal configuration.
     /// It will spawn one fuzzing core on core 0 and run the provided task or runtime.
     #[must_use]
-    pub fn builder() -> StdLauncherBuilder<StdController<I, StdOrchestrator>, (), SimpleMonitor> {
+    pub fn builder() -> StdLauncherBuilder<(), (), SimpleMonitor> {
         StdLauncherBuilder {
             controller: None,
             monitor: None,

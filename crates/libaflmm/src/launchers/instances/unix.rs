@@ -190,6 +190,9 @@ where
 
         let mut failures: Vec<(Pid, InstanceFailure)> = Vec::new();
 
+        // flush all pending notifications before children get removed during startup
+        controller.wait_notifications(&[sfd.as_fd()], Duration::ZERO)?;
+
         // collect children that exited before we set up the signalfd.
         self.drain_children(controller, &mut failures)?;
 

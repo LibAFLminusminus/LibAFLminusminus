@@ -65,6 +65,7 @@ pub struct ConfiguredGroup<G> {
     group_id: GroupId,
 }
 
+#[derive(Debug)]
 pub struct StdGroupBuilder<RT, S, SB, TM, W> {
     cores: Cores,
     state_builder: SB,
@@ -73,6 +74,25 @@ pub struct StdGroupBuilder<RT, S, SB, TM, W> {
     timer: TM,
     timeout: Option<Duration>,
     phantom: PhantomData<(S, W)>,
+}
+
+impl<RT, S, SB, TM, W> Clone for StdGroupBuilder<RT, S, SB, TM, W>
+where
+    RT: Clone,
+    SB: Clone,
+    TM: Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            cores: self.cores.clone(),
+            state_builder: self.state_builder.clone(),
+            runtime: self.runtime.clone(),
+            max_state_size_per_client: self.max_state_size_per_client,
+            timer: self.timer.clone(),
+            timeout: self.timeout,
+            phantom: PhantomData,
+        }
+    }
 }
 
 #[derive(Debug)]

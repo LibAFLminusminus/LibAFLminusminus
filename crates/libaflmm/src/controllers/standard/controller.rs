@@ -189,13 +189,27 @@ where
         Ok(())
     }
 
+    fn on_worker_exit(&mut self, descriptor: &StdDescriptor, exit_code: i32) -> Result<()> {
+        log::info!(
+            "Worker {:?} exited with code {exit_code}",
+            descriptor.worker_id()
+        );
+        self.controller_sync
+            .as_mut()
+            .unwrap()
+            .remove_worker(descriptor.worker_id())
+    }
+
     fn on_worker_termination(
         &mut self,
         descriptor: &StdDescriptor,
         _termination_code: nix::sys::signal::Signal,
     ) -> Result<()> {
         log::info!("Terminated worker {:?}", descriptor.worker_id);
-        Ok(())
+        self.controller_sync
+            .as_mut()
+            .unwrap()
+            .remove_worker(descriptor.worker_id())
     }
 
     fn wait_notifications(&mut self, wake_fds: &[BorrowedFd<'_>], timeout: Duration) -> Result<()> {
@@ -221,6 +235,7 @@ where
                 let destinations = self.orchestrator.router_mut().route(source, &command)?;
                 let sync = self.controller_sync.as_mut().unwrap();
 
+                log::debug!("routing command from worker {source:?}");
                 sync.send(destinations, &command)?;
             }
         }
@@ -328,10 +343,15 @@ where
             phantom: PhantomData,
         })
     }
+}
 
+impl<I> StdController<I, StdOrchestrator>
+where
+    I: Debug,
+{
     /// Get a [`StdControllerBuilder`], to build a [`StdController`].
     #[must_use]
-    pub fn builder() -> StdControllerBuilder<StdOrchestrator> {
+    pub fn builder() -> StdControllerBuilder<I, StdOrchestrator> {
         StdControllerBuilder::default()
     }
 }

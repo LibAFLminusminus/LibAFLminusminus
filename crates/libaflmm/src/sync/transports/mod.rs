@@ -49,6 +49,9 @@ pub trait ControllerSync<RCV, SD>: Debug {
 
     /// Poll for RCV values from all the the [`WorkerSync`] attached to [`Self`].
     fn poll(&mut self) -> Result<impl Iterator<Item = (RCV, WorkerId)>>;
+
+    /// Signal a worker has exited and should be removed.
+    fn remove_worker(&mut self, worker: WorkerId) -> Result<()>;
 }
 
 /// The transfer mechanism for commands and notifications
@@ -97,6 +100,10 @@ impl<CMD, D, NOTIF> Transport<CMD, D, NOTIF> for NopTransport {
 
 impl<RCV, SD> ControllerSync<RCV, SD> for NopControllerSync {
     fn send(&mut self, _workers: impl Iterator<Item = WorkerId>, _val: &SD) -> Result<()> {
+        Ok(())
+    }
+
+    fn remove_worker(&mut self, _worker: WorkerId) -> Result<()> {
         Ok(())
     }
 

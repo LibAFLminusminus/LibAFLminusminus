@@ -12,9 +12,9 @@ use std::collections::HashMap;
 use std::os::fd::BorrowedFd;
 
 /// socket-based transport between controller and workers.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct DirectTransport<CMD, NOTIF> {
-    send_buf: Option<usize>,
+    send_buf_bytes: Option<usize>,
     controller_conns: Option<HashMap<WorkerId, Connection<NOTIF, CMD>>>,
 }
 
@@ -27,6 +27,15 @@ pub struct SocketWorkerSync<CMD, NOTIF> {
 pub struct SocketControllerSync<CMD, NOTIF> {
     workers: HashMap<WorkerId, Connection<NOTIF, CMD>>,
     pending_notifs: Vec<(NOTIF, WorkerId)>,
+}
+
+impl<CMD, NOTIF> Default for DirectTransport<CMD, NOTIF> {
+    fn default() -> Self {
+        Self {
+            controller_conns: Some(HashMap::new()),
+            send_buf_bytes: None,
+        }
+    }
 }
 
 impl<CMD, NOTIF> WorkerSync<CMD, NOTIF> for SocketWorkerSync<CMD, NOTIF>
@@ -80,6 +89,11 @@ where
         Ok(())
     }
 
+    fn remove_worker(&mut self, worker: WorkerId) -> Result<()> {
+        self.workers.remove(&worker);
+        Ok(())
+    }
+
     fn wait(&mut self, wake_fds: &[BorrowedFd<'_>], timeout: Duration) -> Result<WaitResult> {
         let mut fds: Vec<PollFd> = self
             .workers
@@ -123,7 +137,7 @@ where
         _sources: impl Iterator<Item = &'a D>,
     ) -> Result<Self::WorkerSync> {
         if let Some(conns) = &mut self.controller_conns {
-            let (worker_conn, controller_conn) = Connection::create(self.send_buf)?;
+            let (worker_conn, controller_conn) = Connection::create(self.send_buf_bytes)?;
 
             conns.insert(descriptor.worker_id(), controller_conn);
 

@@ -10,7 +10,7 @@ use nix::unistd::{dup2_stderr, dup2_stdout};
 use std::collections::HashSet;
 
 /// The standard [`Worker`].
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct StdWorker<HP, I, WS>
 where
     HP: HandleProvider<I>,
@@ -146,6 +146,7 @@ where
 
         // mark a testcase as seen
         self.seen_testcases.insert(*testcase.id());
+        log::debug!("worker {:?} sends testcase {:?}", self.id(), testcase.id());
 
         let handle = self.handle_provider.create_handle(&testcase.input())?;
         self.worker_sync.send(StdNotification::NewTestcase {
@@ -156,6 +157,7 @@ where
 
     fn recv_testcases(&mut self) -> Result<impl Iterator<Item = Testcase<I>>> {
         self.pending_commands.extend(self.worker_sync.poll()?);
+        let worker_id = self.id();
 
         for cmd in self
             .pending_commands
@@ -163,6 +165,7 @@ where
         {
             if let StdCommand::Import { id, handle, .. } = cmd {
                 if !self.seen_testcases.contains(&id) {
+                    log::debug!("worker {worker_id:?} imports testcase {id:?}");
                     let input = self.handle_provider.resolve_handle(handle)?;
                     let tc = Testcase::new(Rc::new(input));
 

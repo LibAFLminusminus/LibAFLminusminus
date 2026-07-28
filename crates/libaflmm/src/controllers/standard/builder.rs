@@ -2,7 +2,7 @@ use crate::{
     controllers::{StdController, StdDescriptor, WorkdirFile, standard::controller::HandleOf},
     sync::{Orchestrator, StdCommand, StdNotification, StdOrchestrator},
 };
-use core::fmt::Debug;
+use core::{fmt::Debug, marker::PhantomData};
 use libaflmm_core::Result;
 use std::path::PathBuf;
 
@@ -10,16 +10,17 @@ pub struct ControllerBuilder;
 
 /// Builder for the [`StdController`].
 #[derive(Debug)]
-pub struct StdControllerBuilder<O> {
+pub struct StdControllerBuilder<I, O> {
     orchestrator: O,
     root_dir: PathBuf,
     overwrite: bool,
     worker_stdout: WorkdirFile,
     worker_stderr: WorkdirFile,
     worker_stats: WorkdirFile,
+    phantom: PhantomData<I>,
 }
 
-impl Default for StdControllerBuilder<StdOrchestrator> {
+impl<I> Default for StdControllerBuilder<I, StdOrchestrator> {
     fn default() -> Self {
         Self {
             orchestrator: StdOrchestrator::default(),
@@ -28,12 +29,13 @@ impl Default for StdControllerBuilder<StdOrchestrator> {
             worker_stdout: WorkdirFile::Stdout,
             worker_stderr: WorkdirFile::Stderr,
             worker_stats: WorkdirFile::Path(PathBuf::from("fuzzer_stats")),
+            phantom: PhantomData,
         }
     }
 }
 
-impl<O> StdControllerBuilder<O> {
-    pub fn orchestrator<O2>(self, orchestrator: O2) -> StdControllerBuilder<O2> {
+impl<I, O> StdControllerBuilder<I, O> {
+    pub fn orchestrator<O2>(self, orchestrator: O2) -> StdControllerBuilder<I, O2> {
         StdControllerBuilder {
             orchestrator,
             overwrite: self.overwrite,
@@ -41,6 +43,7 @@ impl<O> StdControllerBuilder<O> {
             worker_stats: self.worker_stats,
             worker_stderr: self.worker_stderr,
             worker_stdout: self.worker_stdout,
+            phantom: self.phantom,
         }
     }
 
@@ -82,7 +85,7 @@ impl<O> StdControllerBuilder<O> {
     }
 
     /// Build a [`StdController`].
-    pub fn build<I>(self) -> Result<StdController<I, O>>
+    pub fn build(self) -> Result<StdController<I, O>>
     where
         I: Debug,
         O: Orchestrator<

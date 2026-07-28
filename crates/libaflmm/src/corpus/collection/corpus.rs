@@ -27,7 +27,7 @@ macro_rules! define_corpus {
     ) => {
         $(#[$smeta])*
         #[repr(transparent)]
-        #[derive(Debug, Serialize, Deserialize)]
+        #[derive(Debug, Clone, Serialize, Deserialize)]
         pub struct $sched<I, SC>($inner<I, SC>);
 
         impl<I, SC> DependencyResolver for $sched<I, SC> {}

@@ -2,7 +2,7 @@
 
 use crate::{
     Error,
-    common::Registrator,
+    common::{DependencyResolver, Registrator},
     controllers::{SyncWorker, Worker},
     corpus::{ObjectiveCorpus, ScheduledCorpus, Scheduler, Testcase},
     executors::{Executor, ExitKind},
@@ -43,7 +43,7 @@ where
     I: Input,
     OF: Feedback<I, E::Observers, S>,
     S: State<Input = I>,
-    W: Worker,
+    W: Worker + SyncWorker<I>,
 {
     fuzzer
         .executor
@@ -68,7 +68,7 @@ where
     I: Input,
     OF: Feedback<I, E::Observers, S>,
     S: State<Input = I>,
-    W: Worker,
+    W: Worker + SyncWorker<I>,
 {
     // double check, not mandatory
     assert!(
@@ -116,7 +116,7 @@ where
     I: Input,
     OF: Feedback<I, E::Observers, S>,
     S: State<Input = I>,
-    W: Worker,
+    W: Worker + SyncWorker<I>,
 {
     // double check, not mandatory
     assert!(
@@ -235,7 +235,7 @@ impl<E, F, H, OF> StdFuzzerInner<E, F, H, OF> {
         I: Input,
         OF: Feedback<I, E::Observers, S>,
         S: State<Input = I>,
-        W: Worker,
+        W: Worker + SyncWorker<I>,
     {
         let result = self.evaluate_execution::<I, S>(state, input, exit_kind)?;
 
@@ -291,6 +291,7 @@ impl<E, F, H, OF> StdFuzzerInner<E, F, H, OF> {
                 Verdict::Corpus,
             )?;
 
+            rt_handle.worker_mut().send_testcase(&testcase)?;
             let testcase_id = state.corpus_mut().add(testcase)?;
             state
                 .testcase_md_mut_from_id(&testcase_id)
@@ -321,58 +322,23 @@ impl<E, F, H, OF> StdFuzzer<E, F, H, OF> {
     fn inner_mut(&mut self) -> &mut StdFuzzerInner<E, F, H, OF> {
         unsafe { self.inner.as_mut().get_unchecked_mut() }
     }
-}
 
-impl<E, F, H, I, OF, S, W> Evaluator<E, I, S, W> for StdFuzzer<E, F, H, OF>
-where
-    E: Executor<I, S>,
-    F: Feedback<I, E::Observers, S>,
-    H: FuzzerHooksTuple<E, I, S, W>,
-    OF: Feedback<I, E::Observers, S>,
-    I: Input,
-    S: State<Input = I>,
-    W: Worker,
-{
-    /// Process one input, adding to the respective corpora if needed and firing the right events
-    #[inline]
-    fn evaluate_input(
-        &mut self,
-        state: &mut S,
-        rt_handle: &mut RuntimeHandle<S, W>,
-        input: &I,
-    ) -> Result<EvaluationResult> {
-        let inner = self.inner_mut();
-
-        let exit_kind = inner.executor.execute(state, rt_handle, input)?;
-
-        let res = inner.post_execution(state, rt_handle, input, exit_kind)?;
-
-        rt_handle
-            .worker_mut()
-            .workdir_mut()
-            .maybe_report_stats(state.stats())?;
-
-        Ok(res)
-    }
-}
-
-impl<E, F, H, I, OF, R, S, ST, W> Fuzzer<E, I, R, S, ST, W> for StdFuzzer<E, F, H, OF>
-where
-    E: Executor<I, S>,
-    F: Feedback<I, E::Observers, S>,
-    H: FuzzerHooksTuple<E, I, S, W>,
-    I: Input,
-    OF: Feedback<I, E::Observers, S>,
-    S: State<Input = I>,
-    ST: StagesTuple<E, R, S, W, Self>,
-    W: Worker + SyncWorker<I>,
-{
-    fn init(
+    fn init_inner<I, S, ST, W>(
         &mut self,
         stages: &mut ST,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
-    ) -> Result<()> {
+    ) -> Result<()>
+    where
+        E: Executor<I, S>,
+        F: Feedback<I, E::Observers, S>,
+        H: FuzzerHooksTuple<E, I, S, W>,
+        I: Input,
+        OF: Feedback<I, E::Observers, S>,
+        S: State<Input = I>,
+        ST: DependencyResolver,
+        W: Worker + SyncWorker<I>,
+    {
         if self.inner.initialized {
             return Ok(());
         }
@@ -427,6 +393,60 @@ where
         inner.initialized = true;
 
         Ok(())
+    }
+}
+
+impl<E, F, H, I, OF, S, W> Evaluator<E, I, S, W> for StdFuzzer<E, F, H, OF>
+where
+    E: Executor<I, S>,
+    F: Feedback<I, E::Observers, S>,
+    H: FuzzerHooksTuple<E, I, S, W>,
+    OF: Feedback<I, E::Observers, S>,
+    I: Input,
+    S: State<Input = I>,
+    W: Worker + SyncWorker<I>,
+{
+    /// Process one input, adding to the respective corpora if needed and firing the right events
+    #[inline]
+    fn evaluate_input(
+        &mut self,
+        state: &mut S,
+        rt_handle: &mut RuntimeHandle<S, W>,
+        input: &I,
+    ) -> Result<EvaluationResult> {
+        let inner = self.inner_mut();
+
+        let exit_kind = inner.executor.execute(state, rt_handle, input)?;
+
+        let res = inner.post_execution(state, rt_handle, input, exit_kind)?;
+
+        rt_handle
+            .worker_mut()
+            .workdir_mut()
+            .maybe_report_stats(state.stats())?;
+
+        Ok(res)
+    }
+}
+
+impl<E, F, H, I, OF, R, S, ST, W> Fuzzer<E, I, R, S, ST, W> for StdFuzzer<E, F, H, OF>
+where
+    E: Executor<I, S>,
+    F: Feedback<I, E::Observers, S>,
+    H: FuzzerHooksTuple<E, I, S, W>,
+    I: Input,
+    OF: Feedback<I, E::Observers, S>,
+    S: State<Input = I>,
+    ST: StagesTuple<E, R, S, W, Self>,
+    W: Worker + SyncWorker<I>,
+{
+    fn init(
+        &mut self,
+        stages: &mut ST,
+        state: &mut S,
+        rt_handle: &mut RuntimeHandle<S, W>,
+    ) -> Result<()> {
+        self.init_inner(stages, state, rt_handle)
     }
 
     fn is_initialized(&self) -> bool {
@@ -576,7 +596,7 @@ impl<E, F, H, OF> StdFuzzerBuilder<E, F, H, OF> {
 
 impl<E, F, OF> StdFuzzer<E, F, (), OF> {
     /// Creates a new [`StdFuzzer`] with standard behavior.
-    pub fn new<I, R, S, ST, W>(
+    pub fn new<I, S, ST, W>(
         executor: E,
         feedback: F,
         objective_feedback: OF,
@@ -590,7 +610,7 @@ impl<E, F, OF> StdFuzzer<E, F, (), OF> {
         I: Input,
         OF: Feedback<I, E::Observers, S>,
         S: State<Input = I>,
-        ST: StagesTuple<E, R, S, W, Self>,
+        ST: DependencyResolver,
         W: Worker + SyncWorker<I>,
     {
         Self::with_hooks(
@@ -607,7 +627,7 @@ impl<E, F, OF> StdFuzzer<E, F, (), OF> {
 
 impl<E, F, H, OF> StdFuzzer<E, F, H, OF> {
     /// Creates a new [`StdFuzzer`] with standard behavior.
-    pub fn with_hooks<I, R, S, ST, W>(
+    pub fn with_hooks<I, S, ST, W>(
         executor: E,
         feedback: F,
         objective_feedback: OF,
@@ -623,7 +643,7 @@ impl<E, F, H, OF> StdFuzzer<E, F, H, OF> {
         I: Input,
         OF: Feedback<I, E::Observers, S>,
         S: State<Input = I>,
-        ST: StagesTuple<E, R, S, W, Self>,
+        ST: DependencyResolver,
         W: Worker + SyncWorker<I>,
     {
         let mut fuzzer = StdFuzzerBuilder::new(executor)
@@ -632,7 +652,7 @@ impl<E, F, H, OF> StdFuzzer<E, F, H, OF> {
             .fuzzer_hooks(hooks)
             .build();
 
-        fuzzer.init(stages, state, rt_handle)?;
+        fuzzer.init_inner(stages, state, rt_handle)?;
 
         Ok(fuzzer)
     }

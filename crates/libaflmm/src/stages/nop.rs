@@ -18,10 +18,12 @@ pub struct NopStage {
 }
 
 impl NopStage {
-    /// Create a [`struct@NopStage`]
-    #[must_use]
-    pub fn new(sleep: Option<Duration>) -> Self {
-        Self { sleep }
+    pub fn with_sleep(sleep: Duration) -> Self {
+        Self { sleep: Some(sleep) }
+    }
+
+    pub fn nop() -> Self {
+        Self { sleep: None }
     }
 }
 
