@@ -15,6 +15,7 @@
   - [Metadata](./concepts/metadata.md)
   - [Tuples](./concepts/tuples.md)
   - [Performance](./concepts/performance.md)
+  - [Corpus Sharing](./concepts/corpus_sharing.md)
 
 - [Components](./components/index.md)
   - [State](./components/state.md)

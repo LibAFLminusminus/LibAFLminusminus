@@ -7,7 +7,7 @@ use crate::{
     sync::{
         ControllerSync, Exchange, GroupId, HandleProvider, Orchestrator, Router, StdCommand,
         StdNotification, StdOrchestrator, Transfer,
-        transports::{HandleProviderFactory, WaitResult},
+        transfers::{HandleProviderFactory, WaitResult},
     },
 };
 use core::{fmt::Debug, marker::PhantomData, mem, time::Duration};
@@ -21,7 +21,7 @@ use std::{
 };
 
 // get the synchronizer type out of a pair of <Input, Orchestrator>
-pub(crate) type TransferOf<I, O> = <O as Orchestrator<StdDescriptor, I>>::Transport;
+pub(crate) type TransferOf<I, O> = <O as Orchestrator<StdDescriptor, I>>::Transfer;
 pub(crate) type InputReprOf<I, O> = <O as Orchestrator<StdDescriptor, I>>::Provider;
 pub(crate) type HandleOf<I, O> = <InputReprOf<I, O> as HandleProvider<I>>::Handle;
 pub(crate) type CommandOf<I, O> = <O as Orchestrator<StdDescriptor, I>>::Command;
@@ -143,7 +143,7 @@ where
 
             let worker_sync = self
                 .orchestrator
-                .transport_mut()
+                .transfer_mut()
                 .create_worker_sync(desc, sources.iter().copied())?;
 
             let should_report = self.orchestrator.router().has_destinations(*wid);
@@ -161,7 +161,7 @@ where
         }
 
         self.orchestrator.handle_provider_factory_mut().finalize()?;
-        self.controller_sync = Some(self.orchestrator.transport_mut().create_controller_sync()?);
+        self.controller_sync = Some(self.orchestrator.transfer_mut().create_controller_sync()?);
 
         Ok(())
     }

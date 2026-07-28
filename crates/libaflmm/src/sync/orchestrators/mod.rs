@@ -14,7 +14,7 @@ pub trait Orchestrator<D, I>: Debug {
     type ProviderFactory: HandleProviderFactory<D, I, Provider = Self::Provider>;
     type Exchange: Exchange<D, Self::Handle, Command = Self::Command, Notification = Self::Notification>;
     type Router: Router<Self::Command, D>;
-    type Transport: Transfer<
+    type Transfer: Transfer<
             Self::Command,
             D,
             Self::Notification,
@@ -35,8 +35,8 @@ pub trait Orchestrator<D, I>: Debug {
     fn router(&self) -> &Self::Router;
     fn router_mut(&mut self) -> &mut Self::Router;
 
-    fn transport(&self) -> &Self::Transport;
-    fn transport_mut(&mut self) -> &mut Self::Transport;
+    fn transfer(&self) -> &Self::Transfer;
+    fn transfer_mut(&mut self) -> &mut Self::Transfer;
 
     fn exchange(&self) -> &Self::Exchange;
     fn exchange_mut(&mut self) -> &mut Self::Exchange;
@@ -52,7 +52,7 @@ pub trait Orchestrator<D, I>: Debug {
 pub struct GenericOrchestrator<E, HPF, R, T> {
     exchange: E,
     router: R,
-    transporter: T,
+    transfer: T,
     handle_provider_factory: HPF,
 }
 
@@ -68,7 +68,7 @@ where
     type ProviderFactory = HPF;
     type Exchange = E;
     type Router = R;
-    type Transport = T;
+    type Transfer = T;
 
     type Handle = H;
     type Provider = HPF::Provider;
@@ -86,12 +86,12 @@ where
         &mut self.router
     }
 
-    fn transport(&self) -> &Self::Transport {
-        &self.transporter
+    fn transfer(&self) -> &Self::Transfer {
+        &self.transfer
     }
 
-    fn transport_mut(&mut self) -> &mut Self::Transport {
-        &mut self.transporter
+    fn transfer_mut(&mut self) -> &mut Self::Transfer {
+        &mut self.transfer
     }
 
     fn exchange(&self) -> &Self::Exchange {

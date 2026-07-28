@@ -15,7 +15,7 @@ pub use handle_providers::{
 };
 
 pub mod socket;
-pub use socket::{DirectTransport, SocketControllerSync, SocketWorkerSync};
+pub use socket::{DirectTransfer, SocketControllerSync, SocketWorkerSync};
 
 /// Possible results for a wait
 pub enum WaitResult {
@@ -68,12 +68,12 @@ pub trait Transfer<CMD, D, NOTIF>: Debug {
         sources: impl Iterator<Item = &'a D>,
     ) -> Result<Self::WorkerSync>;
 
-    /// Finalize the transport lifetime with the creation of the controller-side synchronizer
+    /// Finalize the transfer lifetime with the creation of the controller-side synchronizer
     fn create_controller_sync(&mut self) -> Result<Self::ControllerSync>;
 }
 
 #[derive(Debug, Default)]
-pub struct NopTransport;
+pub struct NopTransfer;
 
 #[derive(Debug, Default)]
 pub struct NopControllerSync;
@@ -81,7 +81,7 @@ pub struct NopControllerSync;
 #[derive(Debug, Default)]
 pub struct NopWorkerSync;
 
-impl<CMD, D, NOTIF> Transfer<CMD, D, NOTIF> for NopTransport {
+impl<CMD, D, NOTIF> Transfer<CMD, D, NOTIF> for NopTransfer {
     type ControllerSync = NopControllerSync;
     type WorkerSync = NopWorkerSync;
 

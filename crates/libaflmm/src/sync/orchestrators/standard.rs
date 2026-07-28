@@ -1,10 +1,10 @@
 use crate::sync::{
     DefaultHandleProviderFactory, GenericOrchestrator, StdExchange, StdHandleProviderFactory,
-    StdRouter, StdTransport,
+    StdRouter, StdTransfer,
 };
 
 pub type StdOrchestrator =
-    GenericOrchestrator<StdExchange, StdHandleProviderFactory, StdRouter, StdTransport>;
+    GenericOrchestrator<StdExchange, StdHandleProviderFactory, StdRouter, StdTransfer>;
 
 impl Default for StdOrchestrator {
     fn default() -> Self {
@@ -12,7 +12,7 @@ impl Default for StdOrchestrator {
             exchange: StdExchange::default(),
             handle_provider_factory: DefaultHandleProviderFactory::default(),
             router: StdRouter::default(),
-            transporter: StdTransport::default(),
+            transfer: StdTransfer::default(),
         }
     }
 }

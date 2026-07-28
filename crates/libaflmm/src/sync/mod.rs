@@ -16,16 +16,16 @@ pub use orchestrators::{GenericOrchestrator, GraphOrchestrator, Orchestrator, St
 pub mod routers;
 pub use routers::{NopRouter, Router};
 
-pub mod transports;
-pub use transports::{
-    ControllerSync, DefaultHandleProviderFactory, HandleProvider, HandleProviderFactory,
-    NopControllerSync, NopTransport, NopWorkerSync, SerializedHandleProvider,
-    SerializedHandleProviderFactory, Transfer, UnreachableHandleProvider,
-    UnreachableHandleProviderFactory, WorkerSync,
+pub mod transfers;
+pub use transfers::{
+    ControllerSync, DefaultHandleProviderFactory, DirectTransfer, HandleProvider,
+    HandleProviderFactory, NopControllerSync, NopTransfer, NopWorkerSync, SerializedHandleProvider,
+    SerializedHandleProviderFactory, SocketControllerSync, SocketWorkerSync, Transfer,
+    UnreachableHandleProvider, UnreachableHandleProviderFactory, WaitResult, WorkerSync,
 };
 
 pub type StdRouter = NopRouter;
-pub type StdTransport = NopTransport;
+pub type StdTransfer = NopTransfer;
 pub type StdHandleProvider = UnreachableHandleProvider;
 pub type StdHandleProviderFactory = UnreachableHandleProviderFactory;
 pub type StdWorkerSync = NopWorkerSync;

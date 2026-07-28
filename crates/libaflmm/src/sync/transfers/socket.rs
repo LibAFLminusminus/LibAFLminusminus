@@ -1,5 +1,5 @@
 use crate::controllers::Descriptor;
-use crate::sync::transports::WaitResult;
+use crate::sync::transfers::WaitResult;
 use crate::sync::{Transfer, Transferable, WorkerSync};
 use crate::{Result, sync::ControllerSync};
 use core::time::Duration;
@@ -11,9 +11,9 @@ use nix::poll::{PollFd, PollFlags, PollTimeout, poll};
 use std::collections::HashMap;
 use std::os::fd::BorrowedFd;
 
-/// socket-based transport between controller and workers.
+/// socket-based transfer between controller and workers.
 #[derive(Debug)]
-pub struct DirectTransport<CMD, NOTIF> {
+pub struct DirectTransfer<CMD, NOTIF> {
     send_buf_bytes: Option<usize>,
     controller_conns: Option<HashMap<WorkerId, Connection<NOTIF, CMD>>>,
 }
@@ -29,7 +29,7 @@ pub struct SocketControllerSync<CMD, NOTIF> {
     pending_notifs: Vec<(NOTIF, WorkerId)>,
 }
 
-impl<CMD, NOTIF> Default for DirectTransport<CMD, NOTIF> {
+impl<CMD, NOTIF> Default for DirectTransfer<CMD, NOTIF> {
     fn default() -> Self {
         Self {
             controller_conns: Some(HashMap::new()),
@@ -122,7 +122,7 @@ where
     }
 }
 
-impl<CMD, D, NOTIF> Transfer<CMD, D, NOTIF> for DirectTransport<CMD, NOTIF>
+impl<CMD, D, NOTIF> Transfer<CMD, D, NOTIF> for DirectTransfer<CMD, NOTIF>
 where
     CMD: Transferable,
     D: Descriptor,
