@@ -693,7 +693,7 @@ where
         Ok(())
     }
 
-    /// Loads all intial inputs and evaluate them
+    /// Loads all initial inputs and evaluate them
     pub fn load_initial_inputs<E, W, Z>(
         &mut self,
         fuzzer: &mut Z,
