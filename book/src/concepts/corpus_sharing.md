@@ -46,12 +46,43 @@ This is what is basically sent over the wire.
 
 ## Exchange
 
-## 
+An exchange is basically the protocol, which consists of a pair of `Command` / `Notification`.
+
+It also defines how received notifications get translated back into commands.
+Think of a notification for a newly found input received by the controller.
+It must then be turned into a proper command that will be sent back to all the workers that should receive it.
+
+The decider for "who receives from who" is decided by the `Router`, described below.
+
+## Transfer
+
+A transfer is basically defining the medium over which commands and notifications gets sent over.
+This is the low-level mechanism that concretely makes the transfer happen.
+It could take various forms, like sockets, pipes, shared memory, or whatever can be used to exchange information between workers and the controller.
 
 ## Routing
 
-We call routing the algorithm that 
+We call routing the algorithm that will decide which worker should send information to who.
+
+This is where the concept of group comes in handy: the usual way to define routing is through the `GraphRouter`: you can simply define groups with an associated identity, and create unidirectional or bidirectional edges between them.
+
+The easiest way to see it in action is with the `baby_corpus_sharing` example, which demonstrates how this router can be used in a simple setting.
 
 ## Orchestration
 
 An `Orchestrator` is a "super type" that will regroup all the previously described objects
+
+This is usually what the user will build first and set when selecting a corpus sharing strategy.
+
+In practice, most orchestators are simply concrete types over `GenericOrchestrator`, which is ready to be set for you use.
+
+Check out `StdOrchestrator` or `GraphOrchestrator` for concrete examples.
+
+# Standard Corpus Sharing
+
+As explained above, we it is currently unclear is corpus sharing is even useful, or in which configuration it would actually work
+.
+
+Thus, we decided to keep as the `StdOrchestrator` a non-sharing orchestrator: no input get ever sent over between workers.
+
+We will keep things that way until new work can properly show corpus sharing can improve coverage, and in which condition.

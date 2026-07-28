@@ -17,12 +17,22 @@ pub use handle_providers::{
 pub mod socket;
 pub use socket::{DirectTransfer, SocketControllerSync, SocketWorkerSync};
 
-/// Possible results for a wait
-pub enum WaitResult {
-    /// A new message is ready, poll will surely return at least one output
-    Event,
-    /// Timeout triggered. poll may or may not return something.
-    Timeout,
+/// The transfer mechanism for commands and notifications
+pub trait Transfer<CMD, D, NOTIF>: Debug {
+    /// Controller side of the sync mechanism
+    type ControllerSync: ControllerSync<NOTIF, CMD>;
+    /// Worker side of the sync mechanism
+    type WorkerSync: WorkerSync<CMD, NOTIF>;
+
+    /// Create a new worker synchronizer for the worker using a given descriptor
+    fn create_worker_sync<'a>(
+        &mut self,
+        descriptor: &'a D,
+        sources: impl Iterator<Item = &'a D>,
+    ) -> Result<Self::WorkerSync>;
+
+    /// Finalize the transfer lifetime with the creation of the controller-side synchronizer
+    fn create_controller_sync(&mut self) -> Result<Self::ControllerSync>;
 }
 
 /// The worker side of the synchronization mechanism
@@ -54,22 +64,12 @@ pub trait ControllerSync<RCV, SD>: Debug {
     fn remove_worker(&mut self, worker: WorkerId) -> Result<()>;
 }
 
-/// The transfer mechanism for commands and notifications
-pub trait Transfer<CMD, D, NOTIF>: Debug {
-    /// Controller side of the sync mechanism
-    type ControllerSync: ControllerSync<NOTIF, CMD>;
-    /// Worker side of the sync mechanism
-    type WorkerSync: WorkerSync<CMD, NOTIF>;
-
-    /// Create a new worker synchronizer for the worker using a given descriptor
-    fn create_worker_sync<'a>(
-        &mut self,
-        descriptor: &'a D,
-        sources: impl Iterator<Item = &'a D>,
-    ) -> Result<Self::WorkerSync>;
-
-    /// Finalize the transfer lifetime with the creation of the controller-side synchronizer
-    fn create_controller_sync(&mut self) -> Result<Self::ControllerSync>;
+/// Possible results for a wait
+pub enum WaitResult {
+    /// A new message is ready, poll will surely return at least one output
+    Event,
+    /// Timeout triggered. poll may or may not return something.
+    Timeout,
 }
 
 #[derive(Debug, Default)]
