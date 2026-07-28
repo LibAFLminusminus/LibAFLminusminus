@@ -3,7 +3,7 @@
 use crate::{
     Error,
     common::{DependencyResolver, Registrator},
-    controllers::{SyncWorker, Worker},
+    controllers::{SharingWorker, Worker},
     corpus::{ObjectiveCorpus, ScheduledCorpus, Scheduler, Testcase},
     executors::{Executor, ExitKind},
     feedbacks::Feedback,
@@ -43,7 +43,7 @@ where
     I: Input,
     OF: Feedback<I, E::Observers, S>,
     S: State<Input = I>,
-    W: Worker + SyncWorker<I>,
+    W: Worker + SharingWorker<I>,
 {
     fuzzer
         .executor
@@ -68,7 +68,7 @@ where
     I: Input,
     OF: Feedback<I, E::Observers, S>,
     S: State<Input = I>,
-    W: Worker + SyncWorker<I>,
+    W: Worker + SharingWorker<I>,
 {
     // double check, not mandatory
     assert!(
@@ -116,7 +116,7 @@ where
     I: Input,
     OF: Feedback<I, E::Observers, S>,
     S: State<Input = I>,
-    W: Worker + SyncWorker<I>,
+    W: Worker + SharingWorker<I>,
 {
     // double check, not mandatory
     assert!(
@@ -234,7 +234,7 @@ impl<E, F, H, OF> StdFuzzerInner<E, F, H, OF> {
         I: Input,
         OF: Feedback<I, E::Observers, S>,
         S: State<Input = I>,
-        W: Worker + SyncWorker<I>,
+        W: Worker + SharingWorker<I>,
     {
         let result = self.evaluate_execution::<I, S>(state, input, exit_kind)?;
 
@@ -336,7 +336,7 @@ impl<E, F, H, OF> StdFuzzer<E, F, H, OF> {
         OF: Feedback<I, E::Observers, S>,
         S: State<Input = I>,
         ST: DependencyResolver,
-        W: Worker + SyncWorker<I>,
+        W: Worker + SharingWorker<I>,
     {
         if state.should_initialize_metadata() {
             let inner = self.inner_mut();
@@ -397,7 +397,7 @@ where
     OF: Feedback<I, E::Observers, S>,
     I: Input,
     S: State<Input = I>,
-    W: Worker + SyncWorker<I>,
+    W: Worker + SharingWorker<I>,
 {
     /// Process one input, adding to the respective corpora if needed and firing the right events
     #[inline]
@@ -431,7 +431,7 @@ where
     OF: Feedback<I, E::Observers, S>,
     S: State<Input = I>,
     ST: StagesTuple<E, R, S, W, Self>,
-    W: Worker + SyncWorker<I>,
+    W: Worker + SharingWorker<I>,
 {
     fn fuzz_one(
         &mut self,
@@ -574,7 +574,7 @@ impl<E, F, H, OF> StdFuzzerBuilder<E, F, H, OF> {
         OF: Feedback<I, E::Observers, S>,
         S: State<Input = I>,
         ST: DependencyResolver,
-        W: Worker + SyncWorker<I>,
+        W: Worker + SharingWorker<I>,
     {
         let mut fuzzer = StdFuzzer {
             inner: Box::pin(StdFuzzerInner {
@@ -609,7 +609,7 @@ impl<E, F, OF> StdFuzzer<E, F, (), OF> {
         OF: Feedback<I, E::Observers, S>,
         S: State<Input = I>,
         ST: DependencyResolver,
-        W: Worker + SyncWorker<I>,
+        W: Worker + SharingWorker<I>,
     {
         Self::with_hooks(
             executor,
@@ -642,7 +642,7 @@ impl<E, F, H, OF> StdFuzzer<E, F, H, OF> {
         OF: Feedback<I, E::Observers, S>,
         S: State<Input = I>,
         ST: DependencyResolver,
-        W: Worker + SyncWorker<I>,
+        W: Worker + SharingWorker<I>,
     {
         StdFuzzerBuilder::new(executor)
             .feedback(feedback)

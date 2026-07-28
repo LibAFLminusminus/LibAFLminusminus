@@ -1,7 +1,7 @@
 //! Nop controller and workers.
 
 use crate::{
-    controllers::{Controller, Descriptor, SyncWorker, Workdir, WorkdirFile, Worker},
+    controllers::{Controller, Descriptor, SharingWorker, Workdir, WorkdirFile, Worker},
     corpus::Testcase,
     sync::GroupId,
 };
@@ -154,7 +154,7 @@ impl Worker for NopWorker {
     // }
 }
 
-impl<I> SyncWorker<I> for NopWorker {
+impl<I> SharingWorker<I> for NopWorker {
     fn send_testcase(&mut self, _testcase: &Testcase<I>) -> Result<()> {
         Ok(())
     }

@@ -1,6 +1,6 @@
 use crate::controllers::Descriptor;
 use crate::sync::transports::WaitResult;
-use crate::sync::{Transferable, Transport, WorkerSync};
+use crate::sync::{Transfer, Transferable, WorkerSync};
 use crate::{Result, sync::ControllerSync};
 use core::time::Duration;
 use libaflmm_bolts::Connection;
@@ -122,7 +122,7 @@ where
     }
 }
 
-impl<CMD, D, NOTIF> Transport<CMD, D, NOTIF> for DirectTransport<CMD, NOTIF>
+impl<CMD, D, NOTIF> Transfer<CMD, D, NOTIF> for DirectTransport<CMD, NOTIF>
 where
     CMD: Transferable,
     D: Descriptor,

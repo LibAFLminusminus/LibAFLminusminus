@@ -20,7 +20,7 @@ pub mod transports;
 pub use transports::{
     ControllerSync, DefaultHandleProviderFactory, HandleProvider, HandleProviderFactory,
     NopControllerSync, NopTransport, NopWorkerSync, SerializedHandleProvider,
-    SerializedHandleProviderFactory, Transport, UnreachableHandleProvider,
+    SerializedHandleProviderFactory, Transfer, UnreachableHandleProvider,
     UnreachableHandleProviderFactory, WorkerSync,
 };
 

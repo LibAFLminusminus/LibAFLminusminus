@@ -55,7 +55,7 @@ pub trait ControllerSync<RCV, SD>: Debug {
 }
 
 /// The transfer mechanism for commands and notifications
-pub trait Transport<CMD, D, NOTIF>: Debug {
+pub trait Transfer<CMD, D, NOTIF>: Debug {
     /// Controller side of the sync mechanism
     type ControllerSync: ControllerSync<NOTIF, CMD>;
     /// Worker side of the sync mechanism
@@ -81,7 +81,7 @@ pub struct NopControllerSync;
 #[derive(Debug, Default)]
 pub struct NopWorkerSync;
 
-impl<CMD, D, NOTIF> Transport<CMD, D, NOTIF> for NopTransport {
+impl<CMD, D, NOTIF> Transfer<CMD, D, NOTIF> for NopTransport {
     type ControllerSync = NopControllerSync;
     type WorkerSync = NopWorkerSync;
 

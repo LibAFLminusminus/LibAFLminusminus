@@ -1,5 +1,5 @@
 use crate::{
-    controllers::{StdDescriptor, SyncWorker, Workdir, Worker},
+    controllers::{SharingWorker, StdDescriptor, Workdir, Worker},
     corpus::{Testcase, TestcaseId},
     inputs::Input,
     sync::{HandleProvider, StdCommand, StdNotification, WorkerSync},
@@ -132,7 +132,7 @@ where
     // }
 }
 
-impl<HP, I, WS> SyncWorker<I> for StdWorker<HP, I, WS>
+impl<HP, I, WS> SharingWorker<I> for StdWorker<HP, I, WS>
 where
     I: Input,
     HP: HandleProvider<I>,

@@ -1,5 +1,5 @@
 use crate::sync::{
-    ControllerSync, Exchange, HandleProvider, HandleProviderFactory, Router, Transport, WorkerSync,
+    ControllerSync, Exchange, HandleProvider, HandleProviderFactory, Router, Transfer, WorkerSync,
 };
 use core::fmt::Debug;
 use libaflmm_bolts::connection::Transferable;
@@ -14,7 +14,7 @@ pub trait Orchestrator<D, I>: Debug {
     type ProviderFactory: HandleProviderFactory<D, I, Provider = Self::Provider>;
     type Exchange: Exchange<D, Self::Handle, Command = Self::Command, Notification = Self::Notification>;
     type Router: Router<Self::Command, D>;
-    type Transport: Transport<
+    type Transport: Transfer<
             Self::Command,
             D,
             Self::Notification,
@@ -63,7 +63,7 @@ where
     HPF: HandleProviderFactory<D, I>,
     HPF::Provider: HandleProvider<I, Handle = H>,
     R: Router<E::Command, D>,
-    T: Transport<E::Command, D, E::Notification>,
+    T: Transfer<E::Command, D, E::Notification>,
 {
     type ProviderFactory = HPF;
     type Exchange = E;

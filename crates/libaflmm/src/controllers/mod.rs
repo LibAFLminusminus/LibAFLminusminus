@@ -166,15 +166,16 @@ pub trait Worker {
     // ) -> Result<impl Iterator<Item = Self::Command>>;
 }
 
-pub trait SyncWorker<I>: Worker {
+/// A [`Worker`] able to share [`Testcase`]s.
+pub trait SharingWorker<I>: Worker {
     /// Report a [`Testcase`] that should be shared according to the
     /// [`Router`](crate::sync::Router) policy.
     fn send_testcase(&mut self, testcase: &Testcase<I>) -> Result<()>;
 
     /// Poll for inputs that should be evaluated.
-    /// All the pending testcases are returned as an iterator.
+    /// All the pending [`Testcase`]s are returned as an iterator.
     ///
-    /// Pending inputs are returned and guaranteed to be removed from the worker buffer.
+    /// Pending testcases are returned and guaranteed to be removed from the worker buffer.
     fn recv_testcases(&mut self) -> Result<impl Iterator<Item = Testcase<I>>>;
 }
 

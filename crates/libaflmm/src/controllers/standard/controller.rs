@@ -6,7 +6,7 @@ use crate::{
     launchers::InstanceId,
     sync::{
         ControllerSync, Exchange, GroupId, HandleProvider, Orchestrator, Router, StdCommand,
-        StdNotification, StdOrchestrator, Transport,
+        StdNotification, StdOrchestrator, Transfer,
         transports::{HandleProviderFactory, WaitResult},
     },
 };
@@ -21,13 +21,13 @@ use std::{
 };
 
 // get the synchronizer type out of a pair of <Input, Orchestrator>
-pub(crate) type TransportOf<I, O> = <O as Orchestrator<StdDescriptor, I>>::Transport;
+pub(crate) type TransferOf<I, O> = <O as Orchestrator<StdDescriptor, I>>::Transport;
 pub(crate) type InputReprOf<I, O> = <O as Orchestrator<StdDescriptor, I>>::Provider;
 pub(crate) type HandleOf<I, O> = <InputReprOf<I, O> as HandleProvider<I>>::Handle;
 pub(crate) type CommandOf<I, O> = <O as Orchestrator<StdDescriptor, I>>::Command;
 pub(crate) type NotificationOf<I, O> = <O as Orchestrator<StdDescriptor, I>>::Notification;
 
-pub(crate) type ControllerSyncOf<I, O> = <TransportOf<I, O> as Transport<
+pub(crate) type ControllerSyncOf<I, O> = <TransferOf<I, O> as Transfer<
     CommandOf<I, O>,
     StdDescriptor,
     NotificationOf<I, O>,
