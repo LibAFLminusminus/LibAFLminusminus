@@ -59,17 +59,13 @@ runs:
         # make rustup available for the commands below.
         export PATH="$CARGO_BIN:$PATH"
 
-        if ! rustup component list --toolchain "$TOOLCHAIN" >/dev/null 2>&1; then
-          flock --timeout 300 /var/lock/github-rust.lock \
-            bash -c 'rustup component list --toolchain "'"$TOOLCHAIN"'" >/dev/null 2>&1 && exit 0
-                     rustup toolchain uninstall "'"$TOOLCHAIN"'" >/dev/null 2>&1 || true
-                     rustup toolchain install "'"$TOOLCHAIN"'" --no-self-update'
-        fi
-
-        # install components. this is fast, so not dangerous.
-        for component in $(echo "$COMPONENTS" | tr ',' ' '); do
-          rustup component add --toolchain "$TOOLCHAIN" "$component"
-        done
+        flock --timeout 300 /var/lock/github-rust.lock bash -c '
+          set -eu
+          rustup toolchain install "$TOOLCHAIN" --no-self-update
+          for component in ${COMPONENTS//,/ }; do
+            rustup component add --toolchain "$TOOLCHAIN" "$component"
+          done
+        '
 
         # set the rustup toolchain through the env.
         # do NOT use rustup default <toolchain> as it would race with other jobs.
