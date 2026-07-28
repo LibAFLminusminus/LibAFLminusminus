@@ -18,7 +18,7 @@ We consider this a form of corpus sharing.
 Latest academic work does not conclude whether corpus sharing is always beneficial to the overall coverage.
 In other words, running `N` fuzzers in parallel without any input shared tends to be better than well-known corpus sharing strategies (like the AFL++ `1 to N` topology).
 It does not necessarily mean corpus sharing is useless, but it also means it's not trivial to conclude it will be useful if you goal is to maximize coverage.
-It is also very likely the effectiveness of corpus sharing will vary depending on the target, the fuzzer configuration, etc...
+It is also highly likely the effectiveness of corpus sharing will vary depending on the target, the fuzzer configuration, etc...
 
 This is the main reason why we let the possibility to fully configure corpus sharing in `LibAFL--`.
 We do not know what will work better for you, so you are responsible for finding the corpus sharing settings that work best for you.
@@ -74,7 +74,7 @@ An `Orchestrator` is a "super type" that will regroup all the previously describ
 
 This is usually what the user will build first and set when selecting a corpus sharing strategy.
 
-In practice, most orchestators are simply concrete types over `GenericOrchestrator`, which is ready to be set for you use.
+In practice, most orchestrators are simply concrete types over `GenericOrchestrator`, which is ready to be set for you use.
 
 Check out `StdOrchestrator` or `GraphOrchestrator` for concrete examples.
 
