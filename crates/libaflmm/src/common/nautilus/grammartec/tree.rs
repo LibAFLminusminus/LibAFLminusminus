@@ -1,4 +1,5 @@
-#![expect(clippy::std_instead_of_core)] // due to std::io::Cursor, to remove once it's stabilized.
+#![expect(clippy::std_instead_of_core)] // Cursor is still unstable in core::io, must be removed later on
+#![cfg_attr(test, allow(unfulfilled_lint_expectations))]
 
 use alloc::vec::Vec;
 use core::{cmp, marker::Sized};
