@@ -29,6 +29,7 @@
   - [Mutator / Generator](./components/mutator_generator.md)
   - [Observer](./components/observer.md)
   - [Feedback](./components/feedback.md)
+  - [Sync](./components/sync.md)
 
 - [Targets](./targets/index.md)
 
