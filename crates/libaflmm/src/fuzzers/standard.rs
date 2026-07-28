@@ -166,7 +166,6 @@ struct StdFuzzerInner<E, F, H, OF> {
     /// The [`Feedback`] that will store new testcases as solution (for example, a crash) if a run returns `is_interesting`.
     objective: OF,
     fuzzer_hooks: H,
-    initialized: bool,
     _pinned: PhantomPinned,
 }
 
@@ -323,7 +322,7 @@ impl<E, F, H, OF> StdFuzzer<E, F, H, OF> {
         unsafe { self.inner.as_mut().get_unchecked_mut() }
     }
 
-    fn init_inner<I, S, ST, W>(
+    fn initialize<I, S, ST, W>(
         &mut self,
         stages: &mut ST,
         state: &mut S,
@@ -339,10 +338,6 @@ impl<E, F, H, OF> StdFuzzer<E, F, H, OF> {
         ST: DependencyResolver,
         W: Worker + SyncWorker<I>,
     {
-        if self.inner.initialized {
-            return Ok(());
-        }
-
         if state.should_initialize_metadata() {
             let inner = self.inner_mut();
 
@@ -389,8 +384,6 @@ impl<E, F, H, OF> StdFuzzer<E, F, H, OF> {
             .worker_mut()
             .workdir_mut()
             .report_stats(state.stats())?;
-
-        inner.initialized = true;
 
         Ok(())
     }
@@ -440,20 +433,7 @@ where
     ST: StagesTuple<E, R, S, W, Self>,
     W: Worker + SyncWorker<I>,
 {
-    fn init(
-        &mut self,
-        stages: &mut ST,
-        state: &mut S,
-        rt_handle: &mut RuntimeHandle<S, W>,
-    ) -> Result<()> {
-        self.init_inner(stages, state, rt_handle)
-    }
-
-    fn is_initialized(&self) -> bool {
-        self.inner.initialized
-    }
-
-    unsafe fn fuzz_one_initialized(
+    fn fuzz_one(
         &mut self,
         stages: &mut ST,
         rand: &mut R,
@@ -580,17 +560,35 @@ impl<E, F, H, OF> StdFuzzerBuilder<E, F, H, OF> {
     }
 
     /// Build a [`StdFuzzer`] from this builder.
-    pub fn build(self) -> StdFuzzer<E, F, H, OF> {
-        StdFuzzer {
+    pub fn build<I, S, ST, W>(
+        self,
+        stages: &mut ST,
+        state: &mut S,
+        rt_handle: &mut RuntimeHandle<S, W>,
+    ) -> Result<StdFuzzer<E, F, H, OF>>
+    where
+        E: Executor<I, S>,
+        F: Feedback<I, E::Observers, S>,
+        H: FuzzerHooksTuple<E, I, S, W>,
+        I: Input,
+        OF: Feedback<I, E::Observers, S>,
+        S: State<Input = I>,
+        ST: DependencyResolver,
+        W: Worker + SyncWorker<I>,
+    {
+        let mut fuzzer = StdFuzzer {
             inner: Box::pin(StdFuzzerInner {
                 executor: self.executor,
                 feedback: self.feedback,
                 objective: self.objective_feedback,
                 fuzzer_hooks: self.hooks,
-                initialized: false,
                 _pinned: PhantomPinned,
             }),
-        }
+        };
+
+        fuzzer.initialize(stages, state, rt_handle)?;
+
+        Ok(fuzzer)
     }
 }
 
@@ -646,15 +644,11 @@ impl<E, F, H, OF> StdFuzzer<E, F, H, OF> {
         ST: DependencyResolver,
         W: Worker + SyncWorker<I>,
     {
-        let mut fuzzer = StdFuzzerBuilder::new(executor)
+        StdFuzzerBuilder::new(executor)
             .feedback(feedback)
             .objective_feedback(objective_feedback)
             .fuzzer_hooks(hooks)
-            .build();
-
-        fuzzer.init_inner(stages, state, rt_handle)?;
-
-        Ok(fuzzer)
+            .build(stages, state, rt_handle)
     }
 }
 
