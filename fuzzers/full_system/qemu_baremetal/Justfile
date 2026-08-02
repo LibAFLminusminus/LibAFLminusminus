@@ -27,14 +27,14 @@ target flavor="low_level": image target_dir (build flavor)
         -o {{ TARGET_DIR }}/example.elf
 
 build flavor="low_level": target_dir
-    cargo build \
+    cargo build --locked \
         --profile {{ PROFILE }} \
         --no-default-features \
         --features std,{{ flavor }},{{ ARCH }}  \
         --target-dir {{ TARGET_DIR }}
 
 build-multiarch flavor="low_level": target_dir
-    cargo build \
+    cargo build --locked \
         --profile {{ PROFILE }} \
         --no-default-features \
         --features std,{{ flavor }},{{ ARCH }} \

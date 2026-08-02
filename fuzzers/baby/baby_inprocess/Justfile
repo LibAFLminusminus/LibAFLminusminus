@@ -2,6 +2,6 @@ import "../../../just/libafl.just"
 FUZZER_NAME := "baby_inprocess"
 
 build:
-    cargo build --profile {{ PROFILE }}
+    cargo build --locked --profile {{ PROFILE }}
 
 test: build
