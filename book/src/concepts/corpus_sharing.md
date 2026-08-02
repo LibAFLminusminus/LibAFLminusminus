@@ -26,7 +26,7 @@ We do not know what will work better for you, so you are responsible for finding
 ## Groups
 
 In `LibAFL--`, workers are part of a `Group`.
-A group is as simple as it sounds: it's a set of workers, which will all run on a specified cores.
+A group is as simple as it sounds: it's a set of workers with the same configuration, which will all run on a specified cores.
 The number of cores (pinned or not) is the number of workers in the groups.
 All workers of a given groups share the same configuration (`task`).
 
