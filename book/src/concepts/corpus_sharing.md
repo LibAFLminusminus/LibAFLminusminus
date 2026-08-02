@@ -43,7 +43,7 @@ These are the information exchanged between `Worker`s and the `Controller`:
 
 This is what is basically sent over the wire.
 
-## Exchange
+## `Exchange` trait
 
 An exchange is basically the protocol, which consists of a pair of `Command` / `Notification`.
 
@@ -53,13 +53,13 @@ It must then be turned into a proper command that will be sent back to all the w
 
 The decider for "who receives from who" is decided by the `Router`, described below.
 
-## Transfer
+## `Transfer` trait
 
 A transfer is basically defining the medium over which commands and notifications gets sent over.
 This is the low-level mechanism that concretely makes the transfer happen.
 It could take various forms, like sockets, pipes, shared memory, or whatever can be used to exchange information between workers and the controller.
 
-## Routing
+## `Router` trait
 
 We call routing the algorithm that will decide which worker should send information to who.
 
