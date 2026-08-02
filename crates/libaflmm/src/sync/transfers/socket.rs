@@ -46,7 +46,13 @@ where
     fn send(&mut self, notif: NOTIF) -> Result<()> {
         match self.conn.send(&notif)? {
             SendResult::Sent => Ok(()),
-            SendResult::Full => Err(runtime!("The send socket is full")),
+            SendResult::Full => {
+                log::error!(
+                    "The send socket is full. Current socket buffer is {} bytes, either increase it or do not transfer the whole input.",
+                    self.conn.send_buf_bytes()?
+                );
+                Ok(())
+            }
             SendResult::Closed => Err(runtime!("The send socket is closed")),
         }
     }

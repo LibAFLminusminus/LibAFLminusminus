@@ -2,8 +2,6 @@ use core::fmt::Debug;
 use libaflmm_bolts::connection::Transferable;
 use serde::{Deserialize, Serialize};
 
-// pub mod aflpp;
-
 pub mod exchanges;
 pub use exchanges::{
     Exchange, NopCommand, NopExchange, NopNotification, SimpleCommand, SimpleExchange,

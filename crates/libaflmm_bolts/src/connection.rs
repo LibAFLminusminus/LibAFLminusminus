@@ -3,7 +3,8 @@ use core::{fmt::Debug, marker::PhantomData};
 use nix::{
     errno::Errno,
     sys::socket::{
-        AddressFamily, MsgFlags, SockFlag, SockType, recv, send, setsockopt, socketpair, sockopt,
+        AddressFamily, MsgFlags, SockFlag, SockType, getsockopt, recv, send, setsockopt,
+        socketpair, sockopt,
     },
 };
 use serde::{Serialize, de::DeserializeOwned};
@@ -53,6 +54,10 @@ where
         }
 
         Ok((Self::from_fd(in_out), Connection::from_fd(out_in)))
+    }
+
+    pub fn send_buf_bytes(&self) -> Result<usize> {
+        Ok(getsockopt(&self.as_fd(), sockopt::SndBuf)?)
     }
 
     fn from_fd(fd: OwnedFd) -> Self {
