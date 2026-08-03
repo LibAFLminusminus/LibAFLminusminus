@@ -2,7 +2,7 @@ import "../../../just/libafl.just"
 FUZZER_NAME := "sqlite3"
 
 build:
-    ./build.sh --locked {{ PROFILE }}
+    ./build.sh {{ PROFILE }}
 
 run: build
     ./ossfuzz --input corpus
