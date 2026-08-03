@@ -97,8 +97,8 @@ for project in "${PROJECTS[@]}"; do
 done
 
 # Last run it on all
-eval "$CLIPPY_CMD --workspace --exclude args_reorder --exclude generics_reorder --exclude use_after_mod -- ${RUSTC_FLAGS:-}"
+eval "$CLIPPY_CMD --workspace --exclude generics_reorder -- ${RUSTC_FLAGS:-}"
 # check docs
-eval "$DOC_CMD --workspace --exclude args_reorder --exclude generics_reorder --exclude use_after_mod"
+eval "$DOC_CMD --workspace --exclude generics_reorder"
 
 echo "Clippy and doc checks completed for all specified projects."

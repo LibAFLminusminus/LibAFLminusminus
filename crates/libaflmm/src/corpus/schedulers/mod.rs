@@ -122,7 +122,7 @@ impl Scheduler for NopScheduler {
     }
 
     fn next(&mut self) -> Result<TestcaseId> {
-        panic!("NopScheduler does not schedule")
+        Err(empty!("A NopCorpus is always empty"))
     }
 
     fn ids(&self) -> &[TestcaseId] {

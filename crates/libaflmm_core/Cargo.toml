@@ -34,9 +34,6 @@ errors_backtrace = []
 ## Enable python error conversion
 python = ["dep:pyo3"]
 
-## Enables Serde support for some types
-serde = ["dep:serde"]
-
 [build-dependencies]
 rustversion = { workspace = true }
 
@@ -47,7 +44,6 @@ document-features = { workspace = true, optional = true }
 postcard = { workspace = true }
 nix = { workspace = true }
 pyo3 = { workspace = true, optional = true }
-serde = { workspace = true, features = ["derive"], optional = true }
 
 [target.'cfg(windows)'.dependencies]
 windows-result = "0.4.1"

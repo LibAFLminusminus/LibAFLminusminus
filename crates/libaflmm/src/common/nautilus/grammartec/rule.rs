@@ -397,19 +397,19 @@ impl Rule {
             };
 
             assert_eq!(tree.rules.len(), tree.sizes.len());
-            assert_eq!(tree.sizes.len(), tree.paren.len());
+            assert_eq!(tree.sizes.len(), tree.parents.len());
             let offset = tree.rules.len();
 
             tree.rules.push(rule_or_custom);
             tree.sizes.push(0);
-            tree.paren.push(NodeId::from(0));
+            tree.parents.push(NodeId::from(0));
 
             //generate the subtree for this rule, return the total consumed len
             let consumed_len = ctx
                 .get_rule(rid)
                 .generate(rand, tree, ctx, cur_child_max_len - 1);
             tree.sizes[offset] = consumed_len;
-            tree.paren[offset] = paren;
+            tree.parents[offset] = paren;
 
             //println!("{}: min_needed_len: {}, Min-len: {} Consumed len: {} cur_child_max_len: {} remaining len: {}, total_size: {}, len: {}", ctx.nt_id_to_s(nt.clone()), minimal_needed_len, ctx.get_min_len_for_nt(*nt), consumed_len, cur_child_max_len, remaining_len, total_size, len);
             assert!(consumed_len <= cur_child_max_len);

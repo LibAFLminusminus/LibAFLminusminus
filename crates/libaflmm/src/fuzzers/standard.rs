@@ -2,8 +2,8 @@
 
 use crate::{
     Error,
-    common::Registrator,
-    controllers::Worker,
+    common::{DependencyResolver, Registrator},
+    controllers::{SharingWorker, Worker},
     corpus::{ObjectiveCorpus, ScheduledCorpus, Scheduler, Testcase},
     executors::{Executor, ExitKind},
     feedbacks::Feedback,
@@ -19,9 +19,10 @@ use crate::{
     states::State,
 };
 use alloc::{boxed::Box, rc::Rc};
-use core::{marker::PhantomPinned, pin::Pin};
+use core::{marker::PhantomPinned, pin::Pin, time::Duration};
 use libaflmm_bolts::current_time;
 use libaflmm_core::Result;
+use std::thread::sleep;
 use tuple_list::tuple_list;
 
 /// Note: this code should not allocate at all.
@@ -43,7 +44,7 @@ where
     I: Input,
     OF: Feedback<I, E::Observers, S>,
     S: State<Input = I>,
-    W: Worker,
+    W: Worker + SharingWorker<I>,
 {
     fuzzer
         .executor
@@ -68,7 +69,7 @@ where
     I: Input,
     OF: Feedback<I, E::Observers, S>,
     S: State<Input = I>,
-    W: Worker,
+    W: Worker + SharingWorker<I>,
 {
     // double check, not mandatory
     assert!(
@@ -116,7 +117,7 @@ where
     I: Input,
     OF: Feedback<I, E::Observers, S>,
     S: State<Input = I>,
-    W: Worker,
+    W: Worker + SharingWorker<I>,
 {
     // double check, not mandatory
     assert!(
@@ -166,7 +167,6 @@ struct StdFuzzerInner<E, F, H, OF> {
     /// The [`Feedback`] that will store new testcases as solution (for example, a crash) if a run returns `is_interesting`.
     objective: OF,
     fuzzer_hooks: H,
-    initialized: bool,
     _pinned: PhantomPinned,
 }
 
@@ -184,6 +184,29 @@ pub struct StdFuzzerBuilder<E, F, H, OF> {
 }
 
 impl<E, F, H, OF> StdFuzzerInner<E, F, H, OF> {
+    fn post_fuzz_one<I, S, W>(
+        &mut self,
+        state: &mut S,
+        rt_handle: &mut RuntimeHandle<S, W>,
+    ) -> Result<()>
+    where
+        H: FuzzerHooksTuple<E, I, S, W>,
+        S: State,
+        W: Worker,
+    {
+        self.fuzzer_hooks
+            .post_step_all(&mut self.executor, state, rt_handle)?;
+
+        // timer end
+        state.perf_stats_mut().iter_end();
+
+        // update stats if it should be updated
+        rt_handle
+            .worker_mut()
+            .workdir_mut()
+            .maybe_report_stats(state.stats())
+    }
+
     fn evaluate_execution<I, S>(
         &mut self,
         state: &mut S,
@@ -235,7 +258,7 @@ impl<E, F, H, OF> StdFuzzerInner<E, F, H, OF> {
         I: Input,
         OF: Feedback<I, E::Observers, S>,
         S: State<Input = I>,
-        W: Worker,
+        W: Worker + SharingWorker<I>,
     {
         let result = self.evaluate_execution::<I, S>(state, input, exit_kind)?;
 
@@ -291,6 +314,7 @@ impl<E, F, H, OF> StdFuzzerInner<E, F, H, OF> {
                 Verdict::Corpus,
             )?;
 
+            rt_handle.worker_mut().send_testcase(&testcase)?;
             let testcase_id = state.corpus_mut().add(testcase)?;
             state
                 .testcase_md_mut_from_id(&testcase_id)
@@ -321,62 +345,23 @@ impl<E, F, H, OF> StdFuzzer<E, F, H, OF> {
     fn inner_mut(&mut self) -> &mut StdFuzzerInner<E, F, H, OF> {
         unsafe { self.inner.as_mut().get_unchecked_mut() }
     }
-}
 
-impl<E, F, H, I, OF, S, W> Evaluator<E, I, S, W> for StdFuzzer<E, F, H, OF>
-where
-    E: Executor<I, S>,
-    F: Feedback<I, E::Observers, S>,
-    H: FuzzerHooksTuple<E, I, S, W>,
-    OF: Feedback<I, E::Observers, S>,
-    I: Input,
-    S: State<Input = I>,
-    W: Worker,
-{
-    /// Process one input, adding to the respective corpora if needed and firing the right events
-    #[inline]
-    fn evaluate_input(
-        &mut self,
-        state: &mut S,
-        rt_handle: &mut RuntimeHandle<S, W>,
-        input: &I,
-    ) -> Result<EvaluationResult> {
-        let inner = self.inner_mut();
-
-        let exit_kind = inner.executor.execute(state, rt_handle, input)?;
-
-        let res = inner.post_execution(state, rt_handle, input, exit_kind)?;
-
-        rt_handle
-            .worker_mut()
-            .workdir_mut()
-            .maybe_report_stats(state.stats())?;
-
-        Ok(res)
-    }
-}
-
-impl<E, F, H, I, OF, R, S, ST, W> Fuzzer<E, I, R, S, ST, W> for StdFuzzer<E, F, H, OF>
-where
-    E: Executor<I, S>,
-    F: Feedback<I, E::Observers, S>,
-    H: FuzzerHooksTuple<E, I, S, W>,
-    I: Input,
-    OF: Feedback<I, E::Observers, S>,
-    S: State<Input = I>,
-    ST: StagesTuple<E, R, S, W, Self>,
-    W: Worker,
-{
-    fn init(
+    fn initialize<I, S, ST, W>(
         &mut self,
         stages: &mut ST,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
-    ) -> Result<()> {
-        if self.inner.initialized {
-            return Ok(());
-        }
-
+    ) -> Result<()>
+    where
+        E: Executor<I, S>,
+        F: Feedback<I, E::Observers, S>,
+        H: FuzzerHooksTuple<E, I, S, W>,
+        I: Input,
+        OF: Feedback<I, E::Observers, S>,
+        S: State<Input = I>,
+        ST: DependencyResolver,
+        W: Worker + SharingWorker<I>,
+    {
         if state.should_initialize_metadata() {
             let inner = self.inner_mut();
 
@@ -424,22 +409,76 @@ where
             .workdir_mut()
             .report_stats(state.stats())?;
 
-        inner.initialized = true;
-
         Ok(())
     }
+}
 
-    fn is_initialized(&self) -> bool {
-        self.inner.initialized
+impl<E, F, H, I, OF, S, W> Evaluator<E, I, S, W> for StdFuzzer<E, F, H, OF>
+where
+    E: Executor<I, S>,
+    F: Feedback<I, E::Observers, S>,
+    H: FuzzerHooksTuple<E, I, S, W>,
+    OF: Feedback<I, E::Observers, S>,
+    I: Input,
+    S: State<Input = I>,
+    W: Worker + SharingWorker<I>,
+{
+    /// Process one input, adding to the respective corpora if needed and firing the right events
+    #[inline]
+    fn evaluate_input(
+        &mut self,
+        state: &mut S,
+        rt_handle: &mut RuntimeHandle<S, W>,
+        input: &I,
+    ) -> Result<EvaluationResult> {
+        let inner = self.inner_mut();
+
+        let exit_kind = inner.executor.execute(state, rt_handle, input)?;
+
+        let res = inner.post_execution(state, rt_handle, input, exit_kind)?;
+
+        rt_handle
+            .worker_mut()
+            .workdir_mut()
+            .maybe_report_stats(state.stats())?;
+
+        Ok(res)
     }
+}
 
-    unsafe fn fuzz_one_initialized(
+impl<E, F, H, I, OF, R, S, ST, W> Fuzzer<E, I, R, S, ST, W> for StdFuzzer<E, F, H, OF>
+where
+    E: Executor<I, S>,
+    F: Feedback<I, E::Observers, S>,
+    H: FuzzerHooksTuple<E, I, S, W>,
+    I: Input,
+    OF: Feedback<I, E::Observers, S>,
+    S: State<Input = I>,
+    ST: StagesTuple<E, R, S, W, Self>,
+    W: Worker + SharingWorker<I>,
+{
+    fn fuzz_one(
         &mut self,
         stages: &mut ST,
         rand: &mut R,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
     ) -> Result<()> {
+        if rt_handle.worker_mut().poll()? {
+            if rt_handle.worker_mut().should_shutdown() {
+                rt_handle.shutdown();
+            }
+
+            log::debug!("Adding pending testcases to state");
+            state.add_pending_testcases(rt_handle.worker_mut().recv_testcases()?);
+        }
+
+        while let Some(tc) = state.next_pending_testcase() {
+            log::debug!("Evaluating pending testcase: {:?}", tc.id());
+            let res = self.evaluate_input(state, rt_handle, &*tc.input())?;
+            log::debug!("Evaluation result: {res:?}");
+        }
+
         let testcase_id = {
             let inner = self.inner_mut();
 
@@ -453,11 +492,14 @@ where
             // Get the next index from the scheduler
             let testcase_id = match state.scheduler_mut().next() {
                 Ok(testcase_id) => testcase_id,
-                Err(Error::Empty(e, b)) => {
-                    log::error!(
+                Err(Error::Empty(_, _)) => {
+                    sleep(Duration::from_millis(500));
+
+                    log::warn!(
                         "Scheduler is empty, which often indicates the target is incorrectly instrumented."
                     );
-                    return Err(Error::Empty(e, b));
+
+                    return inner.post_fuzz_one(state, rt_handle);
                 }
                 Err(e) => return Err(e),
             };
@@ -481,14 +523,7 @@ where
             .testcase_md_mut_from_id(&testcase_id)
             .increase_scheduled_count();
 
-        inner
-            .fuzzer_hooks
-            .post_step_all(&mut inner.executor, state, rt_handle)?;
-
-        // timer end
-        state.perf_stats_mut().iter_end();
-
-        Ok(())
+        inner.post_fuzz_one(state, rt_handle)
     }
 }
 
@@ -554,23 +589,41 @@ impl<E, F, H, OF> StdFuzzerBuilder<E, F, H, OF> {
     }
 
     /// Build a [`StdFuzzer`] from this builder.
-    pub fn build(self) -> StdFuzzer<E, F, H, OF> {
-        StdFuzzer {
+    pub fn build<I, S, ST, W>(
+        self,
+        stages: &mut ST,
+        state: &mut S,
+        rt_handle: &mut RuntimeHandle<S, W>,
+    ) -> Result<StdFuzzer<E, F, H, OF>>
+    where
+        E: Executor<I, S>,
+        F: Feedback<I, E::Observers, S>,
+        H: FuzzerHooksTuple<E, I, S, W>,
+        I: Input,
+        OF: Feedback<I, E::Observers, S>,
+        S: State<Input = I>,
+        ST: DependencyResolver,
+        W: Worker + SharingWorker<I>,
+    {
+        let mut fuzzer = StdFuzzer {
             inner: Box::pin(StdFuzzerInner {
                 executor: self.executor,
                 feedback: self.feedback,
                 objective: self.objective_feedback,
                 fuzzer_hooks: self.hooks,
-                initialized: false,
                 _pinned: PhantomPinned,
             }),
-        }
+        };
+
+        fuzzer.initialize(stages, state, rt_handle)?;
+
+        Ok(fuzzer)
     }
 }
 
 impl<E, F, OF> StdFuzzer<E, F, (), OF> {
     /// Creates a new [`StdFuzzer`] with standard behavior.
-    pub fn new<I, R, S, ST, W>(
+    pub fn new<I, S, ST, W>(
         executor: E,
         feedback: F,
         objective_feedback: OF,
@@ -584,8 +637,8 @@ impl<E, F, OF> StdFuzzer<E, F, (), OF> {
         I: Input,
         OF: Feedback<I, E::Observers, S>,
         S: State<Input = I>,
-        ST: StagesTuple<E, R, S, W, Self>,
-        W: Worker,
+        ST: DependencyResolver,
+        W: Worker + SharingWorker<I>,
     {
         Self::with_hooks(
             executor,
@@ -601,7 +654,7 @@ impl<E, F, OF> StdFuzzer<E, F, (), OF> {
 
 impl<E, F, H, OF> StdFuzzer<E, F, H, OF> {
     /// Creates a new [`StdFuzzer`] with standard behavior.
-    pub fn with_hooks<I, R, S, ST, W>(
+    pub fn with_hooks<I, S, ST, W>(
         executor: E,
         feedback: F,
         objective_feedback: OF,
@@ -617,18 +670,14 @@ impl<E, F, H, OF> StdFuzzer<E, F, H, OF> {
         I: Input,
         OF: Feedback<I, E::Observers, S>,
         S: State<Input = I>,
-        ST: StagesTuple<E, R, S, W, Self>,
-        W: Worker,
+        ST: DependencyResolver,
+        W: Worker + SharingWorker<I>,
     {
-        let mut fuzzer = StdFuzzerBuilder::new(executor)
+        StdFuzzerBuilder::new(executor)
             .feedback(feedback)
             .objective_feedback(objective_feedback)
             .fuzzer_hooks(hooks)
-            .build();
-
-        fuzzer.init(stages, state, rt_handle)?;
-
-        Ok(fuzzer)
+            .build(stages, state, rt_handle)
     }
 }
 

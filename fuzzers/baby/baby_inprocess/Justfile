@@ -2,6 +2,24 @@ import "../../../just/libafl.just"
 FUZZER_NAME := "baby_inprocess"
 
 build:
-    cargo build --profile {{ PROFILE }}
+    cargo build --locked --profile {{ PROFILE }}
 
 test: build
+    #!/bin/bash
+    set -eu
+
+    timeout 10s {{ FUZZER }} || true
+
+    STATS_FILE="./workdir/worker_0/fuzzer_stats"
+    if [ ! -f "$STATS_FILE" ]; then
+        echo "baby_forkserver: Stats file not found at $STATS_FILE"
+        exit 1
+    fi
+
+    CORPUS=$(jq '.corpus' "$STATS_FILE")
+    if [ "$CORPUS" -eq 4 ]; then
+        echo "baby_inprocess: Found $CORPUS corpus(es)."
+    else
+        echo "baby_inprocess: Fuzzer did not find all corpuses entries (found $CORPUS entries in $STATS_FILE)"
+        exit 1
+    fi

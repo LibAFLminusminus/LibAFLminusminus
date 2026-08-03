@@ -5,7 +5,7 @@ HARNESS := TARGET_DIR / ("libpng-harness-" + PROFILE)
 
 [unix]
 build:
-    cargo build \
+    cargo build --locked \
       --profile {{ PROFILE }} \
       --features {{ ARCH }} \
       --target-dir {{ TARGET_DIR }}

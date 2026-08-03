@@ -31,8 +31,6 @@ members = [
 
   # linters
   "mmlint/generics_reorder",
-  "mmlint/args_reorder",
-  "mmlint/use_after_mod",
 
   # bindings
   "bindings/pylibaflmm",
@@ -191,11 +189,7 @@ bare_urls = "deny"
 redundant_explicit_links = "deny"
 
 [workspace.metadata.dylint]
-libraries = [
-  { path = "./mmlint", pattern = "generics_reorder" },
-  { path = "./mmlint", pattern = "args_reorder" },
-  { path = "./mmlint", pattern = "use_after_mod" },
-]
+libraries = [{ path = "./mmlint", pattern = "generics_reorder" }]
 
 [profile.release]
 lto = true

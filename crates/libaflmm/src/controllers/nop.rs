@@ -1,9 +1,16 @@
 //! Nop controller and workers.
 
-use crate::controllers::{Controller, Descriptor, Workdir, WorkdirFile, Worker};
+use crate::{
+    controllers::{Controller, Descriptor, SharingWorker, Workdir, WorkdirFile, Worker, WorkerId},
+    corpus::Testcase,
+    launchers::groups::Group,
+    sync::GroupId,
+};
 use alloc::sync::Arc;
+use core::time::Duration;
 use libaflmm_bolts::CoreId;
-use libaflmm_core::{Result, WorkerId};
+use libaflmm_core::Result;
+use std::os::fd::BorrowedFd;
 use tempfile::TempDir;
 
 /// Nop [`Controller`]
@@ -42,6 +49,14 @@ impl Default for NopDescriptor {
 }
 
 impl Descriptor for NopDescriptor {
+    fn name(&self) -> impl AsRef<str> {
+        "NopWorker"
+    }
+
+    fn group_id(&self) -> GroupId {
+        GroupId { id: 0 }
+    }
+
     fn workdir(&self) -> &Workdir {
         &self.workdir
     }
@@ -61,29 +76,63 @@ impl Descriptor for NopDescriptor {
 
 impl Controller for NopController {
     type Worker = NopWorker;
-    type Descriptor = NopDescriptor;
+    type GroupConfig = ();
 
     fn root_dir(&self) -> &std::path::Path {
         unimplemented!("nop controller has no root directory");
     }
 
-    fn create_worker(&mut self, _core_id: Option<CoreId>) -> Result<Self::Worker> {
-        Ok(NopWorker::default())
+    fn register_group<G>(&mut self, _config: Self::GroupConfig, _group: &mut G) -> Result<GroupId>
+    where
+        G: Group<NopWorker>,
+    {
+        unimplemented!("nop controller cannot register groups");
+    }
+
+    fn finalize_orchestration(&mut self) -> Result<()> {
+        unimplemented!("nop controller cannot finalize orchestration");
+    }
+
+    fn take_group_workers(
+        &mut self,
+        _group: GroupId,
+    ) -> Result<impl Iterator<Item = Self::Worker>> {
+        Ok([].into_iter())
     }
 
     #[expect(refining_impl_trait)]
-    fn worker_descriptors(&self) -> &[Self::Descriptor] {
+    fn worker_descriptors(&self) -> &[NopDescriptor] {
         unimplemented!("nop controller has no workers");
     }
 
     #[expect(refining_impl_trait)]
-    fn worker_descriptors_mut(&mut self) -> &mut [Self::Descriptor] {
+    fn worker_descriptors_mut(&mut self) -> &mut [NopDescriptor] {
         unimplemented!("nop controller has no workers");
     }
+
+    fn wait_notifications(
+        &mut self,
+        _wake_fds: &[BorrowedFd<'_>],
+        _timeout: Duration,
+    ) -> Result<()> {
+        unimplemented!("nop controller has no workers");
+    }
+
+    fn shutdown(&mut self, _worker: WorkerId) -> Result<()> {
+        Ok(())
+    }
+
+    // fn send_command(
+    //     &mut self,
+    //     command: <Self::Worker as Worker>::Command,
+    //     _worker_id: WorkerId,
+    // ) -> Result<()> {
+    //     unimplemented!("nop controller cannot send commands");
+    // }
 }
 
 impl Worker for NopWorker {
-    type Controller = NopController;
+    type Descriptor = NopDescriptor;
 
     fn descriptor(&self) -> &NopDescriptor {
         &self.descriptor
@@ -93,7 +142,21 @@ impl Worker for NopWorker {
         &mut self.descriptor
     }
 
-    fn reconcile(&self) -> Result<()> {
+    fn poll(&mut self) -> Result<bool> {
+        Ok(false)
+    }
+
+    fn should_shutdown(&mut self) -> bool {
+        false
+    }
+}
+
+impl<I> SharingWorker<I> for NopWorker {
+    fn send_testcase(&mut self, _testcase: &Testcase<I>) -> Result<()> {
         Ok(())
+    }
+
+    fn recv_testcases(&mut self) -> Result<impl Iterator<Item = Testcase<I>>> {
+        Ok([].into_iter())
     }
 }

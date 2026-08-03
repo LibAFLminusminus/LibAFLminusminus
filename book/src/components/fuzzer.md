@@ -21,7 +21,7 @@ For now, we provide five insertion points. `pre_step`, `pre_add`, `post_add`, `p
 Each of these insertion point represents different events, a function to be called before executing one loop, before adding an input, after adding an input, before executing the stage, and right before the loop ends.
 You can implement your customized hooks to add some functionalities when these event occurs.
 
-# Component relationship
+## Component relationship
 
 `Fuzzer` is a top-level module. 
 Typically, `Fuzzer` contains a `FuzzerHook` object.

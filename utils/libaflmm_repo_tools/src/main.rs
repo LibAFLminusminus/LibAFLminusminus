@@ -1,3 +1,6 @@
+#![expect(clippy::std_instead_of_core)] // ErrorKind is still unstable in core::io
+#![cfg_attr(test, allow(unfulfilled_lint_expectations))]
+
 /*!
  * # `LibAFLmm` repo tools
  *

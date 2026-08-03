@@ -7,12 +7,11 @@ use crate::{
     runtimes::LIBAFLMM_EXIT_END,
 };
 use alloc::vec::Vec;
-use core::fmt::Debug;
+use core::{convert::Infallible, fmt::Debug};
 use core::{fmt, time::Duration};
 use libaflmm_bolts::core_affinity::CoreId;
 use libaflmm_core::runtime;
 use nix::{
-    poll::{PollFd, PollFlags, PollTimeout, poll},
     sys::{
         prctl::set_pdeathsig,
         signal::{SigSet, SigmaskHow, Signal, sigprocmask},
@@ -26,7 +25,7 @@ use std::{collections::HashMap, os::fd::AsFd, process::exit};
 /// An Instance ID, unique for each [`Instance`].
 pub type InstanceId = u32;
 
-pub type InstanceRunner<W> = Box<dyn FnOnce(W) -> Result<()>>;
+pub type InstanceRunner<W> = Box<dyn FnOnce(W) -> Result<Infallible>>;
 
 /// An instance, owning a running [`Runtime`](crate::runtimes::Runtime).
 pub struct Instance<W> {
@@ -66,14 +65,24 @@ where
 }
 
 impl<W> Instance<W> {
+    /// Spawn a single instance.
+    /// The child guarantees to call `post_fork_child` after establishing parent-death handling,
+    /// before child-related operations (like hooks, core affinity, etc...).
+    ///
     /// # Safety
     ///
     /// This will spawn a new process, which could have side effects.
     /// Once spawned, the parent process will take back the hand on the control flow immediately.
-    pub unsafe fn spawn<CT>(self, controller: &mut CT) -> Result<(Pid, CT::Descriptor)>
+    pub unsafe fn spawn<CT, PS, F>(
+        self,
+        mut controller: CT,
+        parent_state: PS,
+        post_fork_child: F,
+    ) -> Result<(CT, PS, Pid, W::Descriptor)>
     where
         CT: Controller<Worker = W>,
-        W: Worker<Controller = CT>,
+        F: FnOnce(CT, PS) -> Result<()>,
+        W: Worker,
     {
         // take these out before fork, to mark these as used in the father.
         // the father process will be able to drop the controller in the
@@ -90,28 +99,40 @@ impl<W> Instance<W> {
                 controller
                     .on_worker_start(worker.descriptor(), child.as_raw().try_into().unwrap())?;
 
-                Ok((child, worker.descriptor().clone()))
+                Ok((controller, parent_state, child, worker.descriptor().clone()))
             }
             ForkResult::Child => {
-                set_pdeathsig(Signal::SIGKILL)?;
+                set_pdeathsig(Signal::SIGKILL).expect("pdeathsig failed");
 
                 if getppid() != parent_pid {
                     // race condition between set_pdeathsig call and parent dying.
                     exit(0);
                 }
 
+                // closes any process resources in the controller,
+                // like owned file descriptors.
+                post_fork_child(controller, parent_state).expect("post fork child failed");
+
                 if let Some(core_id) = core {
-                    core_id.set_affinity()?;
+                    core_id.set_affinity().expect("set affinity failed");
                 }
 
-                worker.pre_runtime_exec()?;
+                worker
+                    .pre_runtime_exec()
+                    .expect("Worker pre_runtime hook failed");
 
                 // start the child runtime
-                runner(worker)?;
-
-                // TODO: what should we do there in case it happens?
-                // i'll panic for now, but it's not the right solution
-                panic!("The runtime finished but did not exit cleanly.");
+                match runner(worker) {
+                    // this should never ever happen, as runner should return Infallible on success.
+                    // it is not exactly the meaning we want (we need `Result<!>`, but it's not stable yet).
+                    // i'll panic for now, but it's not the right solution
+                    // TODO: use `Result<!>` instead of Infallible when stabilized.
+                    Ok(infallible) => match infallible {},
+                    Err(error) => {
+                        eprintln!("runner task failed: {error}");
+                        exit(1)
+                    }
+                }
             }
         }
     }
@@ -136,7 +157,7 @@ impl<D, W> Instances<D, W> {
     /// Add an [`Instance`] to the collection.
     pub fn add<R>(&mut self, runner: R, worker: W, core: Option<CoreId>)
     where
-        R: FnOnce(W) -> Result<()> + 'static,
+        R: FnOnce(W) -> Result<Infallible> + 'static,
     {
         self.instances
             .push(Instance::new(Box::new(runner), worker, core));
@@ -154,17 +175,54 @@ where
     W: Worker,
 {
     /// Spawn all [`Instance`]s being owned by [`Self`].
-    pub fn spawn_instances<CT>(&mut self, controller: &mut CT) -> Result<()>
+    ///
+    /// Note the function takes owned values as parameters, as they are used to drop the
+    /// controller in child processes.
+    pub fn spawn_instances<CT, PS>(
+        mut self,
+        mut controller: CT,
+        mut parent_state: PS,
+    ) -> Result<(Self, CT, PS)>
     where
-        CT: Controller<Worker = W, Descriptor = D>,
-        W: Worker<Controller = CT>,
+        CT: Controller<Worker = W>,
+        W: Worker<Descriptor = D>,
     {
-        for instance in &mut self.instances.drain(..) {
-            let (pid, desc) = unsafe { instance.spawn(controller)? };
+        let mut pid;
+        let mut desc;
+
+        // unstack from 0 to N-1
+        self.instances.reverse();
+
+        while let Some(instance) = self.instances.pop() {
+            let remaining = &mut self.instances;
+            let active = &mut self.active_instances;
+
+            // this is the complex part
+            // the idea is to drop any object that owns FDs that should not be opened in the worker
+            //   - ct: controller, contains the controller-side FDs, which must be closed.
+            //   - parent_state: remaining state from the parent we wish to drop on fork, like the monitor.
+            //   - remaining: contains W (which typically is StdWorker), and also contains FDs from other workers
+            // remember the closure is only called in the child branch
+            (controller, parent_state, pid, desc) = unsafe {
+                instance.spawn(
+                    controller,
+                    parent_state,
+                    move |controller: CT, parent_state: PS| {
+                        drop(controller);
+                        drop(parent_state);
+
+                        remaining.clear();
+                        active.clear();
+
+                        Ok(())
+                    },
+                )?
+            };
+
             self.active_instances.insert(pid, desc);
         }
 
-        Ok(())
+        Ok((self, controller, parent_state))
     }
 
     /// Wait that all [`Instance`]s being owned by [`Self`] end.
@@ -177,8 +235,8 @@ where
         timeout: Duration,
     ) -> Result<()>
     where
-        W: Worker<Controller = CT>,
-        CT: Controller<Worker = W, Descriptor = D>,
+        W: Worker<Descriptor = D>,
+        CT: Controller<Worker = W>,
         MT: Monitor,
     {
         let mut sigset = SigSet::empty();
@@ -191,29 +249,28 @@ where
 
         let mut failures: Vec<(Pid, InstanceFailure)> = Vec::new();
 
+        // flush all pending notifications before children get removed during startup
+        controller.wait_notifications(&[sfd.as_fd()], Duration::ZERO)?;
+
         // collect children that exited before we set up the signalfd.
         self.drain_children(controller, &mut failures)?;
 
-        let poll_timeout = PollTimeout::try_from(timeout).expect("Incorrect poll timeout");
-
         while !self.active_instances.is_empty() {
+            // display loop
             monitor.display(controller)?;
 
-            let mut fds = [PollFd::new(sfd.as_fd(), PollFlags::POLLIN)];
-            match poll(&mut fds, poll_timeout) {
-                Err(nix::errno::Errno::EINTR) | Ok(0) => {
-                    // Interrupted by signal or timed out; retry.
-                }
-                Err(e) => return Err(Error::runtime(format!("poll failed: {e}"))),
-                Ok(_) => {
-                    // consume the pending signals
-                    while matches!(sfd.read_signal(), Ok(Some(_))) {}
+            // poll for notifications until timeout as the limit
+            controller.wait_notifications(&[sfd.as_fd()], timeout)?;
 
-                    // collect children that exited
-                    self.drain_children(controller, &mut failures)?;
-                }
-            }
+            // consume the pending signals
+            while matches!(sfd.read_signal(), Ok(Some(_))) {}
+
+            // collect children that exited
+            self.drain_children(controller, &mut failures)?;
         }
+
+        // final display, in case we want to do something at the end of the main loop
+        monitor.display(controller)?;
 
         if failures.is_empty() {
             log::info!("All instances finished successfully.");
@@ -239,8 +296,8 @@ where
         failures: &mut Vec<(Pid, InstanceFailure)>,
     ) -> Result<()>
     where
-        CT: Controller<Worker = W, Descriptor = D>,
-        W: Worker<Controller = CT>,
+        CT: Controller<Worker = W>,
+        W: Worker<Descriptor = D>,
     {
         loop {
             match waitpid(Pid::from_raw(-1), Some(WaitPidFlag::WNOHANG)) {

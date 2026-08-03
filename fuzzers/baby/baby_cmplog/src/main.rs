@@ -8,8 +8,8 @@ use std::{ops::DerefMut, path::PathBuf, time::Duration};
 /// The commandline args this fuzzer accepts
 #[derive(Debug, Parser)]
 #[command(
-    name = "forkserver_simple",
-    about = "This is a simple example fuzzer to fuzz a executable instrumented by afl-cc.",
+    name = "baby_cmplog",
+    about = "This is a simple example fuzzer to fuzz a executable instrumented by afl-cc with CmpLog instrumentation.",
     author = "tokatoka <tokazerkje@outlook.com>"
 )]
 struct Opt {
@@ -62,30 +62,27 @@ struct Opt {
 pub fn main() -> Result<()> {
     env_logger::init();
 
-    // The state creation closure.
-    let state_builder = |worker: &SimpleWorker| {
-        // A queue policy to get testcasess from the corpus
-        let scheduler = QueueScheduler::new();
-
-        // create a State from scratch
-        StdState::new(
-            BytesContext,
-            // Corpus that will be evolved, we keep it in memory for performance
-            InMemoryCorpus::new(scheduler),
-            // Corpus in which we store solutions (crashes in this example),
-            // on disk so the user can get them after stopping the fuzzer
-            ObjectiveOnDiskCorpus::builder(worker)?.build()?,
-        )
-    };
-
     // The launcher supervises the fuzzer and communicates with the workers.
-    let controller = SimpleController::builder().overwrite(true).build()?;
+    let controller = StdController::builder().overwrite(true).build()?;
 
     // The monitor tracks the fuzzing current status.
     let monitor = SimpleMonitor::new();
 
     let group = StdGroup::builder(&controller)
-        .state_builder(state_builder)
+        .state_builder(|worker| {
+            // A queue policy to get testcasess from the corpus
+            let scheduler = QueueScheduler::new();
+
+            // create a State from scratch
+            StdState::new(
+                BytesContext,
+                // Corpus that will be evolved, we keep it in memory for performance
+                InMemoryCorpus::new(scheduler),
+                // Corpus in which we store solutions (crashes in this example),
+                // on disk so the user can get them after stopping the fuzzer
+                ObjectiveOnDiskCorpus::builder(worker)?.build()?,
+            )
+        })
         .build_forkserver(|rt_handle, state| {
             const MAP_SIZE: usize = 65536;
             let opt = Opt::parse();

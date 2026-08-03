@@ -63,7 +63,7 @@ pub extern "C" fn libafl_main() {
     env_logger::init();
     let opt = Opt::parse();
 
-    let controller = SimpleController::builder()
+    let controller = StdController::builder()
         .overwrite(true)
         .build()
         .expect("Failed to build the SimpleController");
@@ -78,7 +78,7 @@ pub extern "C" fn libafl_main() {
         .timer(fast_timer)
         .timeout(Some(opt.timeout))
         .cores(opt.cores)
-        .state_builder(|worker: &SimpleWorker| {
+        .state_builder(|worker| {
             // A queue policy to get testcases from the corpus
             let scheduler = QueueScheduler::new();
 

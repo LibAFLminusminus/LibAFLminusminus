@@ -1,39 +1,33 @@
 //! Module defining [`Controller`]s.
 
+use crate::{
+    Result,
+    corpus::Testcase,
+    launchers::{InstanceId, groups::Group},
+    states::{Stats, sync_stats},
+    sync::GroupId,
+};
 use core::time::Duration;
+use libaflmm_bolts::CoreId;
+use libaflmm_core::{Error, internal_bug};
+use nix::sys::signal::Signal;
+use quanta::{Clock, Instant};
+use serde::{Deserialize, Serialize};
 use std::{
     fs::{self, File, OpenOptions},
     io::{stderr, stdout},
-    os::fd::{AsRawFd, FromRawFd},
+    os::fd::{AsRawFd, BorrowedFd, FromRawFd},
     path::{Path, PathBuf},
-};
-
-use libaflmm_bolts::CoreId;
-use libaflmm_core::{Error, WorkerId, internal_bug};
-use nix::sys::signal::Signal;
-use quanta::{Clock, Instant};
-
-use crate::{
-    Result,
-    launchers::InstanceId,
-    states::{Stats, sync_stats},
 };
 
 /// Default wait time between stats updates.
 const STATS_UPDATE_INTERVAL: Duration = Duration::from_secs(5);
 
-// pub mod aflpp;
+pub mod standard;
+pub use standard::{StdController, StdControllerBuilder, StdDescriptor, StdWorker, StdWorkerRepr};
+
 pub mod nop;
 pub use nop::{NopController, NopDescriptor, NopWorker};
-
-pub mod simple;
-pub use simple::{
-    SimpleController, SimpleControllerBuilder, SimpleDescriptor, SimpleWorker, SimpleWorkerRepr,
-};
-
-pub type StdController = SimpleController;
-pub type StdDescriptor = SimpleDescriptor;
-pub type StdWorker = SimpleWorker;
 
 /// A controller is the glue between multiple [`Worker`]s.
 ///
@@ -42,53 +36,91 @@ pub type StdWorker = SimpleWorker;
 pub trait Controller {
     /// The associated [`Worker`].
     type Worker: Worker;
-    /// The associated [`Descriptor`].
-    type Descriptor: Descriptor;
+    /// Describes how a group should be configured
+    type GroupConfig;
 
-    /// Create a new [`Self::Worker`].
-    /// The controller must keep track of the worker if necessary.
-    fn create_worker(&mut self, core_id: Option<CoreId>) -> Result<Self::Worker>;
+    /// Register groups, giving back the descriptors of the workers created from the group.
+    fn register_group<G>(&mut self, config: Self::GroupConfig, group: &mut G) -> Result<GroupId>
+    where
+        G: Group<Self::Worker>;
+
+    /// Called after every group have been registered.
+    /// It will resolve the final group configuration and create the workers as a result, for each group ID.
+    fn finalize_orchestration(&mut self) -> Result<()>;
+
+    /// Take the workers for a given group ID.
+    /// This will only work once `finalize_orchestration` has been called.
+    fn take_group_workers(&mut self, group: GroupId) -> Result<impl Iterator<Item = Self::Worker>>;
 
     /// Get an iterator over all [`Self::Worker`] descriptors.
-    fn worker_descriptors(&self) -> impl IntoIterator<Item = &Self::Descriptor>;
+    fn worker_descriptors(&self)
+    -> impl IntoIterator<Item = &<Self::Worker as Worker>::Descriptor>;
 
     /// Get a mutable iterator over all [`Self::Worker`] descriptors.
-    fn worker_descriptors_mut(&mut self) -> impl IntoIterator<Item = &mut Self::Descriptor>;
+    fn worker_descriptors_mut(
+        &mut self,
+    ) -> impl IntoIterator<Item = &mut <Self::Worker as Worker>::Descriptor>;
 
     /// The root directory of the controller
     fn root_dir(&self) -> &Path;
 
     /// Hook called when a [`Self::Worker`] actually starts, with its associated [`InstanceId`].
-    fn on_worker_start(&mut self, _descriptor: &Self::Descriptor, _id: InstanceId) -> Result<()> {
+    fn on_worker_start(
+        &mut self,
+        _descriptor: &<Self::Worker as Worker>::Descriptor,
+        _id: InstanceId,
+    ) -> Result<()> {
         Ok(())
     }
 
     /// Hook called when a controller exits with some exit code
-    fn on_worker_exit(&mut self, _descriptor: &Self::Descriptor, _exit_code: i32) -> Result<()> {
+    fn on_worker_exit(
+        &mut self,
+        _descriptor: &<Self::Worker as Worker>::Descriptor,
+        _exit_code: i32,
+    ) -> Result<()> {
         Ok(())
     }
 
     /// Hook called when a controller exits with a termination (e.g. signal / exception)
     fn on_worker_termination(
         &mut self,
-        _descriptor: &Self::Descriptor,
+        _descriptor: &<Self::Worker as Worker>::Descriptor,
         _termination_code: Signal, // TODO: make this os-agnostic
     ) -> Result<()> {
         Ok(())
     }
+
+    // /// Send a command to a given [`Worker`].
+    // fn send_command(
+    //     &mut self,
+    //     command: <Self::Worker as Worker>::Command,
+    //     _worker_id: WorkerId,
+    // ) -> Result<()>;
+
+    /// Wait for events sent by the [`Worker`]s.
+    /// The function returns after a notification is received or the given timeout value has elapsed.
+    fn wait_notifications(&mut self, wake_fds: &[BorrowedFd<'_>], _timeout: Duration)
+    -> Result<()>;
+
+    /// Kindly ask to a worker to shut down.
+    /// This is asynchronous, so the worker could still be alive for some time.
+    ///
+    /// Depending on the orchestrator choice, shutdown may or may not do something.
+    fn shutdown(&mut self, worker: WorkerId) -> Result<()>;
 }
 
 /// A worker is a representant of a fuzzing instance.
 /// It is linked to a [`Controller`], which holds a reference to all workers.
 pub trait Worker {
-    /// The associated [`Controller`].
-    type Controller: Controller<Worker = Self>;
+    /// The associated [`Descriptor`].
+    type Descriptor: Descriptor;
 
     /// Returns the reference to the descriptor of the worker.
-    fn descriptor(&self) -> &<Self::Controller as Controller>::Descriptor;
+    fn descriptor(&self) -> &Self::Descriptor;
 
     /// Returns the mutable reference to the descriptor of the worker.
-    fn descriptor_mut(&mut self) -> &mut <Self::Controller as Controller>::Descriptor;
+    fn descriptor_mut(&mut self) -> &mut Self::Descriptor;
 
     /// Returns the reference of the working directory of the worker.
     fn workdir(&self) -> &Workdir {
@@ -110,17 +142,44 @@ pub trait Worker {
         self.descriptor().core_id()
     }
 
-    /// Do the work related to reconciling between instances: sharing corpus, etc.
-    fn reconcile(&self) -> Result<()>;
-
     /// Hook called before the [`Runtime`](crate::runtimes::Runtime) of the worker gets executed.
     fn pre_runtime_exec(&mut self) -> Result<()> {
         Ok(())
     }
+
+    /// Poll for received commands
+    ///
+    /// Returns true if something has been received, false otherwise.
+    fn poll(&mut self) -> Result<bool>;
+
+    /// Returns true if the worker should shutdown, false otherwise
+    ///
+    /// It will only take into account requests since the last call to [`Self::poll`].
+    /// Any commands received after that would not be considered.
+    fn should_shutdown(&mut self) -> bool;
+}
+
+/// A [`Worker`] able to share [`Testcase`]s.
+pub trait SharingWorker<I>: Worker {
+    /// Report a [`Testcase`] that should be shared according to the
+    /// [`Router`](crate::sync::Router) policy.
+    fn send_testcase(&mut self, testcase: &Testcase<I>) -> Result<()>;
+
+    /// Check for inputs that should be evaluated.
+    /// All the pending [`Testcase`]s are returned as an iterator.
+    ///
+    /// It will only take into account requests since the last call to [`Worker::poll`].
+    /// Any commands received after that would not be considered.
+    ///
+    /// Pending testcases are returned and guaranteed to be removed from the worker buffer.
+    fn recv_testcases(&mut self) -> Result<impl Iterator<Item = Testcase<I>>>;
 }
 
 /// A descriptor describes a [`Worker`].
 pub trait Descriptor: Clone {
+    /// Name of the Worker.
+    fn name(&self) -> impl AsRef<str>;
+
     /// Get the reference to the workdir of the [`Worker`].
     fn workdir(&self) -> &Workdir;
 
@@ -132,7 +191,17 @@ pub trait Descriptor: Clone {
 
     /// Get the [`CoreId`] of the [`Worker`].
     fn core_id(&self) -> Option<CoreId>;
+
+    /// Get the [`GroupId`] of the [`Worker`].
+    fn group_id(&self) -> GroupId;
 }
+
+/// The worker ID for various use cases across `LibAFL`
+#[repr(transparent)]
+#[derive(
+    Debug, Default, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize,
+)]
+pub struct WorkerId(pub u32);
 
 /// A workdir contains information relative to the working environement of a [`Worker`].
 #[derive(Debug, Clone)]
@@ -160,6 +229,13 @@ pub enum WorkdirFile {
     Stderr,
     /// /dev/null
     Null,
+}
+
+impl WorkerId {
+    #[must_use]
+    pub fn id(&self) -> u32 {
+        self.0
+    }
 }
 
 impl Clone for WorkdirFile {
@@ -298,9 +374,36 @@ impl Workdir {
     /// Errors out if the directory already exists.
     pub fn create_dir(&self, path: impl AsRef<Path>) -> Result<PathBuf> {
         let full_path = self.root_dir.join(path.as_ref());
-        fs::create_dir(full_path.as_path())?;
+        fs::create_dir(&full_path)?;
 
         Ok(full_path)
+    }
+
+    /// Create a new file, relative to the [`Workdir`].
+    ///
+    /// Errors out if the file already exists.
+    pub fn create_file(&self, path: impl AsRef<Path>) -> Result<File> {
+        let full_path = self.root_dir.join(path.as_ref());
+        Ok(File::create_new(full_path)?)
+    }
+
+    /// Open a file in RW mode, relative to the [`Workdir`].
+    /// The file cursor is always at the beginning of the file.
+    ///
+    /// Errors out if the file does not exist.
+    pub fn open_file(&self, path: impl AsRef<Path>) -> Result<File> {
+        let full_path = self.root_dir.join(path.as_ref());
+
+        Ok(fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(full_path)?)
+    }
+
+    pub fn is_file(&self, path: impl AsRef<Path>) -> bool {
+        let full_path = self.root_dir.join(path.as_ref());
+
+        full_path.is_file()
     }
 
     /// Update the [`Stats`] of the [`Workdir`].

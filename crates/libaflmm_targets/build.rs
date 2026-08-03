@@ -241,7 +241,7 @@ fn main() {
         }
     }
 
-    println!("cargo:rustc-link-search=native={}", &out_dir);
+    println!("cargo:rustc-link-search=native={out_dir}");
 
     println!("cargo:rerun-if-changed=build.rs");
 }

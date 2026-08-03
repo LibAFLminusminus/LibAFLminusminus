@@ -3,8 +3,8 @@
 
 use crate::{
     Error, Result,
-    controllers::{Controller, SimpleController, SimpleWorker, StdDescriptor, Worker},
-    launchers::groups::GroupTuple,
+    controllers::{Controller, Worker},
+    launchers::groups::{GroupTuple, PendingGroup, RegisteredGroupTuple},
     monitors::{Monitor, SimpleMonitor},
 };
 use core::time::Duration;
@@ -37,12 +37,12 @@ pub struct StdLauncher<D, CT, MT, W> {
     monitor_refresh: Duration,
 }
 
-impl StdLauncher<StdDescriptor, SimpleController, SimpleMonitor, SimpleWorker> {
+impl StdLauncher<(), (), (), ()> {
     /// Create a default Launcher.
     /// It is configured with a very minimal configuration.
     /// It will spawn one fuzzing core on core 0 and run the provided task or runtime.
     #[must_use]
-    pub fn builder() -> StdLauncherBuilder<SimpleController, (), SimpleMonitor> {
+    pub fn builder() -> StdLauncherBuilder<(), (), SimpleMonitor> {
         StdLauncherBuilder {
             controller: None,
             monitor: None,
@@ -71,13 +71,17 @@ impl<D, CT, MT, W> StdLauncher<D, CT, MT, W> {
 
 impl<D, CT, MT, W> StdLauncher<D, CT, MT, W>
 where
-    W: Worker<Controller = CT>,
-    CT: Controller<Worker = W, Descriptor = D>,
+    W: Worker<Descriptor = D>,
+    CT: Controller<Worker = W>,
     MT: Monitor,
 {
     /// Launch the launcher [`Instance`]s.
     pub fn launch(mut self) -> Result<()> {
-        self.instances.spawn_instances(&mut self.controller)?;
+        (self.instances, self.controller, self.monitor) = self
+            .instances
+            .spawn_instances(self.controller, self.monitor)?;
+
+        self.monitor.start(&mut self.controller)?;
 
         self.instances.wait_instances(
             &mut self.controller,
@@ -122,13 +126,35 @@ impl<CT, GT, MT> StdLauncherBuilder<CT, GT, MT> {
     }
 }
 
-impl<CT, GT, MT> StdLauncherBuilder<CT, GT, MT> {
-    pub fn add_group<G>(self, group: G) -> StdLauncherBuilder<CT, (G, GT), MT> {
+impl<CT, GT, MT> StdLauncherBuilder<CT, GT, MT>
+where
+    CT: Controller,
+    CT::GroupConfig: Default,
+{
+    #[expect(clippy::type_complexity)]
+    pub fn add_group<G>(
+        self,
+        group: G,
+    ) -> StdLauncherBuilder<CT, (PendingGroup<CT::GroupConfig, G>, GT), MT> {
+        self.add_group_with(group, CT::GroupConfig::default())
+    }
+}
+
+impl<CT, GT, MT> StdLauncherBuilder<CT, GT, MT>
+where
+    CT: Controller,
+{
+    #[expect(clippy::type_complexity)]
+    pub fn add_group_with<G>(
+        self,
+        group: G,
+        config: CT::GroupConfig,
+    ) -> StdLauncherBuilder<CT, (PendingGroup<CT::GroupConfig, G>, GT), MT> {
         StdLauncherBuilder {
             controller: self.controller,
             monitor: self.monitor,
             monitor_refresh: self.monitor_refresh,
-            groups: (group, self.groups),
+            groups: (PendingGroup::new(group, config), self.groups),
         }
     }
 }
@@ -136,10 +162,13 @@ impl<CT, GT, MT> StdLauncherBuilder<CT, GT, MT> {
 impl<CT, GT, MT> StdLauncherBuilder<CT, GT, MT>
 where
     CT: Controller,
-    GT: GroupTuple<CT::Worker>,
+    GT: GroupTuple<CT>,
 {
     /// Build the [`StdLauncher`].
-    pub fn build(mut self) -> Result<StdLauncher<CT::Descriptor, CT, MT, CT::Worker>> {
+    #[expect(clippy::type_complexity)]
+    pub fn build(
+        mut self,
+    ) -> Result<StdLauncher<<CT::Worker as Worker>::Descriptor, CT, MT, CT::Worker>> {
         let monitor = self
             .monitor
             .take()
@@ -149,11 +178,15 @@ where
             "No global controller have been set.",
         ))?;
 
-        let mut instances: Instances<CT::Descriptor, CT::Worker> = Instances::new();
-        self.groups.register_all(&mut controller, &mut instances)?;
+        let mut instances = Instances::new();
+        let configured = self.groups.register_all(&mut controller)?;
+        controller.finalize_orchestration()?;
+        configured.instantiate_all(&mut controller, &mut instances)?;
 
         if instances.is_empty() {
-            return Err(illegal_argument!("No groups have been added"));
+            return Err(illegal_argument!(
+                "No instances have been created. Are groups correctly configured?"
+            ));
         }
 
         Ok(StdLauncher::new(

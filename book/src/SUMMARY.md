@@ -15,19 +15,21 @@
   - [Metadata](./concepts/metadata.md)
   - [Tuples](./concepts/tuples.md)
   - [Performance](./concepts/performance.md)
+  - [Corpus Sharing](./concepts/corpus_sharing.md)
 
 - [Components](./components/index.md)
   - [State](./components/state.md)
   - [Runtime](./components/runtime.md)
   - [Launcher](./components/launcher.md)
-  - [Controller](./components/controller.md)
+  - [Controller & Worker](./components/controller_worker.md)
   - [Fuzzer](./components/fuzzer.md)
   - [Input](./components/input.md)
   - [Executor](./components/executor.md)
   - [Stage](./components/stage.md)
-  - [Mutator / Generator](./components/mutator_generator.md)
+  - [Mutator & Generator](./components/mutator_generator.md)
   - [Observer](./components/observer.md)
   - [Feedback](./components/feedback.md)
+  - [Sync](./components/sync.md)
 
 - [Targets](./targets/index.md)
 

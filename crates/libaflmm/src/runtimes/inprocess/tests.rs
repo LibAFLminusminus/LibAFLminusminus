@@ -8,7 +8,7 @@ use crate::{
     },
     states::NopState,
 };
-use core::time::Duration;
+use core::{convert::Infallible, time::Duration};
 use libaflmm_bolts::StdTimer;
 use libaflmm_core::Error;
 use libc::SIGALRM;
@@ -53,7 +53,12 @@ fn test_runtime_create() {
 /// `set_input` is important:
 /// - if it is set, the runner considers we are in fuzzing loop, so crash / timeout is expected
 /// - if it is not set, the runner considers we are out of the fuzzing loop, so crash / timeout is unexpected (fuzzer bug)
-fn run_runtime<CH, T, TH>(task: T, crash_handler: CH, timeout_handler: TH, set_input: bool)
+fn run_runtime<CH, T, TH>(
+    task: T,
+    crash_handler: CH,
+    timeout_handler: TH,
+    set_input: bool,
+) -> Infallible
 where
     T: FnMut(&mut RuntimeHandle<NopState, NopWorker>, &mut NopState) -> Result<(), Error> + 'static,
     for<'a> CH: FnMut(&mut TerminationHandlerData, &OsTerminationParams<'a>) -> Result<CrashStatus, Error>
@@ -88,7 +93,7 @@ where
             .set_input(&NopInput);
     }
 
-    runtime.run(state, worker).unwrap();
+    runtime.run(state, worker).unwrap()
 }
 
 #[test]

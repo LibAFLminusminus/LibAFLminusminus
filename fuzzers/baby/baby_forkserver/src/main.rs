@@ -61,7 +61,7 @@ pub fn main() -> Result<()> {
     env_logger::init();
 
     // The launcher supervises the fuzzer and communicates with the workers.
-    let controller = SimpleController::builder().overwrite(true).build()?;
+    let controller = StdController::builder().overwrite(true).build()?;
 
     // The monitor tracks the fuzzing current status.
     let monitor = SimpleMonitor::new();

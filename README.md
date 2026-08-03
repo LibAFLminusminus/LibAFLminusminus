@@ -7,7 +7,23 @@ Add temp stuff to `IDEAS.md`, this is useless atm.
 
 # Why `LibAFL--`?
 
-### Core concepts
+After a few years maintaining `LibAFL`, we have come to realize maintainance cost was getting higher and higher.
+Many features and concepts got integrated into the main repository, representing a massive code base to take care of.
+In addition, multiple core components (like `Executor`) have conceptual flaws in `LibAFL`, for which any edition needs to be propagated in most parts of the project.
+Finally, we decided to deliberately make important breaking changes, which means `LibAFL` fuzzers cannot be instantly compatible out of the box.
+
+Since the changes we made are still quite early, we are unsure whether the community will prefer this version over the original design of `LibAFL`
+
+For all those reasons, we thought it was easier to fork the project completely to let the use choose which design they would prefer to use.
+We will keep these changes separated (at least for now), to have a clear comparison point between `LibAFL` and `LibAFL--`, allowing us to easily spot what works and what does not.
+
+### I just want to know what changed compared with `LibAFL`
+
+Everything have been carefully documented in the [`LibAFL--` book](./book).
+We strongly suggest you to take a look there first.
+Some concepts are similar, new components have been others, while others have been removed.
+
+There is a section of the book dedicated to documenting the main differences with `LibAFL`, which should be helpful if you are already familiar with it.
 
 ### `AFL++` dependency
 

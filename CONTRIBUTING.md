@@ -35,6 +35,17 @@ Even though we will gladly assist you in finishing up your PR, try to:
 
 You can also run ./scripts/precommit.sh to execute checks that will be performed on a PR.
 
+## What makes a good contribution
+
+The contribution policy of `LibAFL--` is a bit different from `LibAFL`:
+- `LibAFL` used to accept more easily new implementors for the main traits (`Executor`s, `Mutator`s, etc...).
+In `LibAFL--`, we are more picky about what exactly we accept to **add** to the library.
+For example, we won't merge a new mutator that enables better coverage for niche targets (like a `Unicode` mutator).
+But we will accept addition contributions that can be globally useful (like a generic concept that can be reasonably reused in many fuzzers) or have shown to improve results significantly in the general case (like for `CmpLog`).
+If your addition request does not get merged, it is most likely because it would fit better in a dedicated crate.
+
+- Of course, we accept more easily pull requests that address an open issue issue, improve the documentation or fix bugs.
+
 ### Pre-commit Hooks
 
 Some of these checks can be performed automatically during commit using [pre-commit](https://pre-commit.com/).
@@ -47,7 +58,7 @@ Check if the dependency to add is not already present in the root `Cargo.toml` f
 If it is the case, use the dependency using `workspace = true` when adding the dependency.
 As a rule of thumb, if a given dependency is used more than once, it should be added in the root `Cargo.toml` file.
 
-## LibAFL Code Rules
+## LibAFLmm Code Rules
 
 Before making your pull requests, try to see if your code follows these rules.
 
@@ -107,12 +118,20 @@ pub trait X<A>
 
 4. You should only declare an associated type on a trait when implementors of that trait actually hold a value of that type.
 In other words, the associated type needs to correspond to something concrete the struct owns or can return.
+Also, there should only be one associated type per trait declared across all the traits.
+A good rule of thumb is to have associated types for traits that "owns" the type.
 
 ```rust
-pub trait X {
-    type XXX; // OK to define. Because we are sure that implementors of X will hold a value of this type XXX.
+pub trait MyTrait {}
 
-    fn a(&self) -> Self::XXX;
+pub trait X {
+    type Trait: MyTrait; // OK to define. Because we are sure that implementors of X will hold a value of this type Trait.
+
+    fn a(&self) -> Self::Trait;
+}
+
+pub trait Y {
+    type Trait: MyTrait; // NOT OK. `Trait` is already owned by `X`, use a generic instead.
 }
 
 pub struct MyObject<A> {

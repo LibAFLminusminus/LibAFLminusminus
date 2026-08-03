@@ -39,6 +39,7 @@ pub mod observers;
 pub mod runtimes;
 pub mod stages;
 pub mod states;
+pub mod sync;
 
 /// The purpose of this module is to alleviate imports of many components by adding a glob import.
 pub mod prelude {
@@ -65,9 +66,8 @@ pub mod prelude {
     };
 
     pub use crate::controllers::{
-        Controller, Descriptor, NopController, NopDescriptor, NopWorker, SimpleController,
-        SimpleDescriptor, SimpleWorker, StdController, StdDescriptor, StdWorker, Workdir,
-        WorkdirFile, Worker,
+        Controller, Descriptor, StdController, StdDescriptor, StdWorker, Workdir, WorkdirFile,
+        Worker,
     };
 
     pub use crate::corpus::{
