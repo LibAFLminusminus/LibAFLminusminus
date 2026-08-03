@@ -10,8 +10,9 @@ use std::os::fd::BorrowedFd;
 
 pub mod handle_providers;
 pub use handle_providers::{
-    DefaultHandleProviderFactory, HandleProvider, HandleProviderFactory, SerializedHandleProvider,
-    SerializedHandleProviderFactory, UnreachableHandleProvider, UnreachableHandleProviderFactory,
+    DefaultInputHandleBackendFactory, InputHandleBackend, InputHandleBackendFactory,
+    SerializedInputHandleBackendFactory, SerializedInputhandleBackend,
+    UnreachableInputHandleBackend, UnreachableInputHandleBackendFactory,
 };
 
 pub mod socket;

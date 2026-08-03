@@ -1,5 +1,6 @@
 use crate::sync::{
-    ControllerSync, Exchange, HandleProvider, HandleProviderFactory, Router, Transfer, WorkerSync,
+    ControllerSync, Exchange, InputHandleBackend, InputHandleBackendFactory, Router, Transfer,
+    WorkerSync,
 };
 use core::fmt::Debug;
 use libaflmm_bolts::connection::Transferable;
@@ -11,7 +12,7 @@ pub mod standard;
 pub use standard::StdOrchestrator;
 
 pub trait Orchestrator<D, I>: Debug {
-    type ProviderFactory: HandleProviderFactory<D, I, Provider = Self::Provider>;
+    type ProviderFactory: InputHandleBackendFactory<D, I, Backend = Self::Provider>;
     type Exchange: Exchange<D, Self::Handle, Command = Self::Command, Notification = Self::Notification>;
     type Router: Router<Self::Command, D>;
     type Transfer: Transfer<
@@ -27,7 +28,7 @@ pub trait Orchestrator<D, I>: Debug {
     type Handle: Transferable;
     type Command: Transferable;
     type Notification: Transferable;
-    type Provider: HandleProvider<I, Handle = Self::Handle>;
+    type Provider: InputHandleBackend<I, Handle = Self::Handle>;
     type WorkerSync: WorkerSync<Self::Command, Self::Notification>;
     type ControllerSync: ControllerSync<Self::Notification, Self::Command>;
     type GroupConfig;
@@ -60,8 +61,8 @@ impl<D, E, H, HPF, I, R, T> Orchestrator<D, I> for GenericOrchestrator<E, HPF, R
 where
     E: Exchange<D, H>,
     H: Transferable,
-    HPF: HandleProviderFactory<D, I>,
-    HPF::Provider: HandleProvider<I, Handle = H>,
+    HPF: InputHandleBackendFactory<D, I>,
+    HPF::Backend: InputHandleBackend<I, Handle = H>,
     R: Router<E::Command, D>,
     T: Transfer<E::Command, D, E::Notification>,
 {
@@ -71,7 +72,7 @@ where
     type Transfer = T;
 
     type Handle = H;
-    type Provider = HPF::Provider;
+    type Provider = HPF::Backend;
     type Command = E::Command;
     type Notification = E::Notification;
     type WorkerSync = T::WorkerSync;

@@ -16,16 +16,17 @@ pub use routers::{NopRouter, Router};
 
 pub mod transfers;
 pub use transfers::{
-    ControllerSync, DefaultHandleProviderFactory, DirectTransfer, HandleProvider,
-    HandleProviderFactory, NopControllerSync, NopTransfer, NopWorkerSync, SerializedHandleProvider,
-    SerializedHandleProviderFactory, SocketControllerSync, SocketWorkerSync, Transfer,
-    UnreachableHandleProvider, UnreachableHandleProviderFactory, WaitResult, WorkerSync,
+    ControllerSync, DefaultInputHandleBackendFactory, DirectTransfer, InputHandleBackend,
+    InputHandleBackendFactory, NopControllerSync, NopTransfer, NopWorkerSync,
+    SerializedInputHandleBackendFactory, SerializedInputhandleBackend, SocketControllerSync,
+    SocketWorkerSync, Transfer, UnreachableInputHandleBackend,
+    UnreachableInputHandleBackendFactory, WaitResult, WorkerSync,
 };
 
 pub type StdRouter = NopRouter;
 pub type StdTransfer = NopTransfer;
-pub type StdHandleProvider = UnreachableHandleProvider;
-pub type StdHandleProviderFactory = UnreachableHandleProviderFactory;
+pub type StdHandleProvider = UnreachableInputHandleBackend;
+pub type StdHandleProviderFactory = UnreachableInputHandleBackendFactory;
 pub type StdWorkerSync = NopWorkerSync;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
