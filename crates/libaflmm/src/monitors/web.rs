@@ -44,11 +44,18 @@ struct SharedState {
 pub const WEBUI_PREFIX: &str = "libaflmm-webui";
 const DEFAULT_PORT: u16 = 13337;
 
+#[derive(Debug)]
+struct WebMonitorConfig {
+    port: u16,
+    html: String,
+}
+
 /// `WebUI` gathers data from fuzzers and show stats to users through a web interface
 #[derive(Debug)]
 pub struct WebMonitor {
     history_path: PathBuf,
     shared: Arc<RwLock<SharedState>>,
+    config: Option<WebMonitorConfig>,
 }
 
 impl WebMonitor {
@@ -78,24 +85,29 @@ impl WebMonitor {
         }));
         let html = FRONTEND_HTML.replace(NAME_PLACEHOLDER, name);
 
-        let shared_clone = shared.clone();
-        std::thread::spawn(move || {
-            tokio::runtime::Builder::new_current_thread()
-                .enable_all()
-                .build()
-                .expect("failed to build tokio runtime for WebMonitor")
-                .block_on(serve(shared_clone, port, html));
-        });
-
         WebMonitor {
             history_path,
             shared,
+            config: Some(WebMonitorConfig { port, html }),
         }
     }
 
     fn append_to_file(path: &Path, json: &str) {
         if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(path) {
             let _ = writeln!(file, "{json}");
+        }
+    }
+
+    fn start_server(&mut self) {
+        if let Some(WebMonitorConfig { port, html }) = self.config.take() {
+            let shared = self.shared.clone();
+            std::thread::spawn(move || {
+                tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()
+                    .expect("failed to build tokio runtime for WebMonitor")
+                    .block_on(serve(shared, port, html));
+            });
         }
     }
 }
@@ -136,6 +148,11 @@ async fn serve(shared: Arc<RwLock<SharedState>>, port: u16, html: String) {
 }
 
 impl Monitor for WebMonitor {
+    fn start<CT: Controller>(&mut self, _controller: &mut CT) -> Result<()> {
+        self.start_server();
+        Ok(())
+    }
+
     fn display<CT: Controller>(&mut self, controller: &mut CT) -> Result<()> {
         let mut all_stats: Vec<Stats> = Vec::new();
 

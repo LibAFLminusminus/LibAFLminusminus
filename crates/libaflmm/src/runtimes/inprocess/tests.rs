@@ -8,12 +8,12 @@ use crate::{
     },
     states::NopState,
 };
-use core::time::Duration;
+use core::{convert::Infallible, time::Duration};
 use libaflmm_bolts::StdTimer;
 use libaflmm_core::Error;
 use libc::SIGALRM;
 use rusty_fork::rusty_fork_id;
-use std::{convert::Infallible, thread};
+use std::thread;
 
 #[test]
 #[cfg_attr(miri, ignore)]

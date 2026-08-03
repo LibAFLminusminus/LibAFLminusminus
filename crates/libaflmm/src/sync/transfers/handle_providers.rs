@@ -38,7 +38,7 @@ pub type SerializedInputHandleBackendFactory =
 pub type UnreachableInputHandleBackendFactory =
     DefaultInputHandleBackendFactory<UnreachableInputHandleBackend>;
 
-/// Creates a [`Default`] [`HandleProvider`].
+/// Creates a [`Default`] [`InputHandleBackend`].
 #[derive(Debug, Default)]
 pub struct DefaultInputHandleBackendFactory<HP>(PhantomData<HP>);
 

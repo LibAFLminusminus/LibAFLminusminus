@@ -1,8 +1,8 @@
 //! Module defining [`Runtime`]s.
 
 use crate::{Result, common::DependencyResolver};
-use core::time::Duration;
-use std::{convert::Infallible, process::exit};
+use core::{convert::Infallible, time::Duration};
+use std::process::exit;
 
 pub mod handle;
 pub use handle::RuntimeHandle;

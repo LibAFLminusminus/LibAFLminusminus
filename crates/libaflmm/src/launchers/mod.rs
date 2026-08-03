@@ -77,7 +77,11 @@ where
 {
     /// Launch the launcher [`Instance`]s.
     pub fn launch(mut self) -> Result<()> {
-        self.instances.spawn_instances(&mut self.controller)?;
+        (self.instances, self.controller, self.monitor) = self
+            .instances
+            .spawn_instances(self.controller, self.monitor)?;
+
+        self.monitor.start(&mut self.controller)?;
 
         self.instances.wait_instances(
             &mut self.controller,

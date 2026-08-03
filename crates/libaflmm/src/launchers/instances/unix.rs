@@ -7,7 +7,7 @@ use crate::{
     runtimes::LIBAFLMM_EXIT_END,
 };
 use alloc::vec::Vec;
-use core::fmt::Debug;
+use core::{convert::Infallible, fmt::Debug};
 use core::{fmt, time::Duration};
 use libaflmm_bolts::core_affinity::CoreId;
 use libaflmm_core::runtime;
@@ -20,7 +20,7 @@ use nix::{
     },
     unistd::{ForkResult, Pid, fork, getpid, getppid},
 };
-use std::{collections::HashMap, convert::Infallible, os::fd::AsFd, process::exit};
+use std::{collections::HashMap, os::fd::AsFd, process::exit};
 
 /// An Instance ID, unique for each [`Instance`].
 pub type InstanceId = u32;
@@ -65,13 +65,23 @@ where
 }
 
 impl<W> Instance<W> {
+    /// Spawn a single instance.
+    /// The child guarantees to call `post_fork_child` after establishing parent-death handling,
+    /// before child-related operations (like hooks, core affinity, etc...).
+    ///
     /// # Safety
     ///
     /// This will spawn a new process, which could have side effects.
     /// Once spawned, the parent process will take back the hand on the control flow immediately.
-    pub unsafe fn spawn<CT>(self, controller: &mut CT) -> Result<(Pid, W::Descriptor)>
+    pub unsafe fn spawn<CT, PS, F>(
+        self,
+        mut controller: CT,
+        parent_state: PS,
+        post_fork_child: F,
+    ) -> Result<(CT, PS, Pid, W::Descriptor)>
     where
         CT: Controller<Worker = W>,
+        F: FnOnce(CT, PS) -> Result<()>,
         W: Worker,
     {
         // take these out before fork, to mark these as used in the father.
@@ -89,28 +99,40 @@ impl<W> Instance<W> {
                 controller
                     .on_worker_start(worker.descriptor(), child.as_raw().try_into().unwrap())?;
 
-                Ok((child, worker.descriptor().clone()))
+                Ok((controller, parent_state, child, worker.descriptor().clone()))
             }
             ForkResult::Child => {
-                set_pdeathsig(Signal::SIGKILL)?;
+                set_pdeathsig(Signal::SIGKILL).expect("pdeathsig failed");
 
                 if getppid() != parent_pid {
                     // race condition between set_pdeathsig call and parent dying.
                     exit(0);
                 }
 
+                // closes any process resources in the controller,
+                // like owned file descriptors.
+                post_fork_child(controller, parent_state).expect("post fork child failed");
+
                 if let Some(core_id) = core {
-                    core_id.set_affinity()?;
+                    core_id.set_affinity().expect("set affinity failed");
                 }
 
-                worker.pre_runtime_exec()?;
+                worker
+                    .pre_runtime_exec()
+                    .expect("Worker pre_runtime hook failed");
 
                 // start the child runtime
-                runner(worker)?;
-
-                // TODO: what should we do there in case it happens?
-                // i'll panic for now, but it's not the right solution
-                panic!("The runtime finished but did not exit cleanly.");
+                match runner(worker) {
+                    // this should never ever happen, as runner should return Infallible on success.
+                    // it is not exactly the meaning we want (we need `Result<!>`, but it's not stable yet).
+                    // i'll panic for now, but it's not the right solution
+                    // TODO: use `Result<!>` instead of Infallible when stabilized.
+                    Ok(infallible) => match infallible {},
+                    Err(error) => {
+                        eprintln!("runner task failed: {error}");
+                        exit(1)
+                    }
+                }
             }
         }
     }
@@ -153,17 +175,54 @@ where
     W: Worker,
 {
     /// Spawn all [`Instance`]s being owned by [`Self`].
-    pub fn spawn_instances<CT>(&mut self, controller: &mut CT) -> Result<()>
+    ///
+    /// Note the function takes owned values as parameters, as they are used to drop the
+    /// controller in child processes.
+    pub fn spawn_instances<CT, PS>(
+        mut self,
+        mut controller: CT,
+        mut parent_state: PS,
+    ) -> Result<(Self, CT, PS)>
     where
         CT: Controller<Worker = W>,
         W: Worker<Descriptor = D>,
     {
-        for instance in &mut self.instances.drain(..) {
-            let (pid, desc) = unsafe { instance.spawn(controller)? };
+        let mut pid;
+        let mut desc;
+
+        // unstack from 0 to N-1
+        self.instances.reverse();
+
+        while let Some(instance) = self.instances.pop() {
+            let remaining = &mut self.instances;
+            let active = &mut self.active_instances;
+
+            // this is the complex part
+            // the idea is to drop any object that owns FDs that should not be opened in the worker
+            //   - ct: controller, contains the controller-side FDs, which must be closed.
+            //   - parent_state: remaining state from the parent we wish to drop on fork, like the monitor.
+            //   - remaining: contains W (which typically is StdWorker), and also contains FDs from other workers
+            // remember the closure is only called in the child branch
+            (controller, parent_state, pid, desc) = unsafe {
+                instance.spawn(
+                    controller,
+                    parent_state,
+                    move |controller: CT, parent_state: PS| {
+                        drop(controller);
+                        drop(parent_state);
+
+                        remaining.clear();
+                        active.clear();
+
+                        Ok(())
+                    },
+                )?
+            };
+
             self.active_instances.insert(pid, desc);
         }
 
-        Ok(())
+        Ok((self, controller, parent_state))
     }
 
     /// Wait that all [`Instance`]s being owned by [`Self`] end.
