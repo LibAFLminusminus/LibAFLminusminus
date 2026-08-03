@@ -69,7 +69,7 @@ itertools = "0.15.0"
 
 [dependencies]
 rangemap = { workspace = true }
-libaflmm_core = { workspace = true, features = ["serde"] }
+libaflmm_core = { workspace = true }
 
 num_enum = { workspace = true }
 rand_core = { workspace = true }

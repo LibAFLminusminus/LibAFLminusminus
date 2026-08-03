@@ -51,6 +51,7 @@ where
         _testcase_id: &TestcaseId,
     ) -> Result<()> {
         if let Some(sleep) = self.sleep {
+            log::debug!("Sleeping...");
             thread::sleep(sleep);
         }
 

@@ -1,11 +1,11 @@
 use crate::{
-    controllers::{SharingWorker, StdDescriptor, Workdir, Worker},
+    controllers::{SharingWorker, StdDescriptor, Workdir, Worker, WorkerId},
     corpus::{Testcase, TestcaseId},
     inputs::Input,
     sync::{InputHandleBackend, StdCommand, StdNotification, WorkerSync},
 };
 use alloc::rc::Rc;
-use libaflmm_core::{Result, WorkerId, illegal_argument};
+use libaflmm_core::{Result, illegal_argument};
 use nix::unistd::{dup2_stderr, dup2_stdout};
 use std::collections::HashSet;
 

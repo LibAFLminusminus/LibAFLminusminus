@@ -1,10 +1,10 @@
 use crate::{
     Result,
-    controllers::Descriptor,
+    controllers::{Descriptor, WorkerId},
     sync::{GroupId, Router},
 };
 use core::{fmt::Debug, hash::Hash, mem};
-use libaflmm_core::{WorkerId, illegal_argument, illegal_state, internal_bug};
+use libaflmm_core::{illegal_argument, illegal_state, internal_bug};
 use std::collections::{HashMap, HashSet};
 
 #[derive(Debug)]

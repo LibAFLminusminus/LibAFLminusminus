@@ -1,7 +1,6 @@
-use crate::Result;
+use crate::{Result, controllers::WorkerId};
 use core::fmt::Debug;
 use core::time::Duration;
-use libaflmm_core::WorkerId;
 use nix::{
     errno::Errno,
     poll::{PollFd, PollFlags, PollTimeout, poll},

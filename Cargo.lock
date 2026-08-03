@@ -2427,7 +2427,6 @@ dependencies = [
  "postcard",
  "pyo3",
  "rustversion",
- "serde",
  "windows-result",
 ]
 

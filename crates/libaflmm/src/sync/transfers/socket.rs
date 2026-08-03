@@ -1,11 +1,11 @@
-use crate::controllers::Descriptor;
+use crate::controllers::{Descriptor, WorkerId};
 use crate::sync::transfers::WaitResult;
 use crate::sync::{Transfer, Transferable, WorkerSync};
 use crate::{Result, sync::ControllerSync};
 use core::time::Duration;
 use libaflmm_bolts::Connection;
 use libaflmm_bolts::connection::SendResult;
-use libaflmm_core::{WorkerId, illegal_argument, illegal_state, runtime};
+use libaflmm_core::{illegal_argument, illegal_state, runtime};
 use nix::errno::Errno;
 use nix::poll::{PollFd, PollFlags, PollTimeout, poll};
 use std::collections::HashMap;

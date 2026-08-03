@@ -12,8 +12,6 @@ use core::{
     num::{ParseIntError, TryFromIntError},
     ops::{Deref, DerefMut},
 };
-#[cfg(feature = "serde")]
-use serde::{Deserialize, Serialize};
 use std::{env::VarError, io};
 use {
     alloc::string::{FromUtf8Error, String},
@@ -26,12 +24,6 @@ pub mod forkserver;
 pub mod nonzero_macros;
 
 pub extern crate alloc;
-
-/// The client ID for various use cases across `LibAFL`
-#[repr(transparent)]
-#[derive(Debug, Default, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub struct WorkerId(pub u32);
 
 #[cfg(feature = "errors_backtrace")]
 /// Error Backtrace type when `errors_backtrace` feature is enabled (== [`Backtrace`](std::backtrace::Backtrace`))

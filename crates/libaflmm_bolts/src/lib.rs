@@ -35,7 +35,7 @@ pub mod prelude {
 
 pub use libaflmm_core::{
     AsIter, AsIterMut, AsSlice, AsSliceMut, Error, HasLen, HasRefCnt, Named, Result, Truncate,
-    WorkerId, non_zero, non_zero_const, non_zero_unchecked, nonnull_raw_mut,
+    non_zero, non_zero_const, non_zero_unchecked, nonnull_raw_mut,
 };
 
 pub mod shm;

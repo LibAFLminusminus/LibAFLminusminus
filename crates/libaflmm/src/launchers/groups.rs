@@ -1,6 +1,6 @@
 use crate::{
     Result,
-    controllers::{Controller, Worker},
+    controllers::{Controller, Worker, WorkerId},
     launchers::Instances,
     runtimes::{NopRuntime, Runtime, RuntimeHandle, StdForkserverRuntime, StdInProcessRuntime},
     states::NopState,
@@ -10,6 +10,7 @@ use core::{fmt::Debug, marker::PhantomData, num::NonZeroUsize, time::Duration};
 use libaflmm_bolts::{Cores, StdTimer};
 use libaflmm_core::illegal_argument;
 use serde::Serialize;
+use std::path::{Component, Path, PathBuf};
 
 /// The default timeout for a fuzzer execution.
 pub const DEFAULT_TIMEOUT: Duration = Duration::from_secs(5);
@@ -22,6 +23,9 @@ pub trait Group<W>
 where
     W: Worker,
 {
+    /// Layout of a worker in the group, given its group ID
+    fn layout(&mut self, group_id: GroupId, worker_id: WorkerId) -> Result<WorkerLayout>;
+
     /// Cores binded to the group
     fn cores(&self) -> &Cores;
 
@@ -65,8 +69,15 @@ pub struct ConfiguredGroup<G> {
     group_id: GroupId,
 }
 
+#[derive(Debug, Clone)]
+pub struct WorkerLayout {
+    name: String,
+    workdir: PathBuf,
+}
+
 #[derive(Debug)]
-pub struct StdGroupBuilder<RT, S, SB, TM, W> {
+pub struct StdGroupBuilder<L, RT, S, SB, TM, W> {
+    layout_fn: L,
     cores: Cores,
     state_builder: SB,
     runtime: RT,
@@ -76,14 +87,16 @@ pub struct StdGroupBuilder<RT, S, SB, TM, W> {
     phantom: PhantomData<(S, W)>,
 }
 
-impl<RT, S, SB, TM, W> Clone for StdGroupBuilder<RT, S, SB, TM, W>
+impl<L, RT, S, SB, TM, W> Clone for StdGroupBuilder<L, RT, S, SB, TM, W>
 where
+    L: Clone,
     RT: Clone,
     SB: Clone,
     TM: Clone,
 {
     fn clone(&self) -> Self {
         Self {
+            layout_fn: self.layout_fn.clone(),
             cores: self.cores.clone(),
             state_builder: self.state_builder.clone(),
             runtime: self.runtime.clone(),
@@ -96,7 +109,8 @@ where
 }
 
 #[derive(Debug)]
-pub struct StdGroup<RT, S, SB> {
+pub struct StdGroup<L, RT, S, SB> {
+    layout_fn: L,
     cores: Cores,
     state_builder: SB,
     runtime: RT,
@@ -109,13 +123,18 @@ impl<C, G> PendingGroup<C, G> {
     }
 }
 
-impl<RT, S, SB, W> Group<W> for StdGroup<RT, S, SB>
+impl<L, RT, S, SB, W> Group<W> for StdGroup<L, RT, S, SB>
 where
+    L: FnMut(GroupId, WorkerId) -> Result<WorkerLayout>,
     RT: Runtime<S, W> + Clone + 'static,
     S: 'static,
     SB: FnMut(&W) -> Result<S>,
     W: Worker,
 {
+    fn layout(&mut self, group_id: GroupId, worker_id: WorkerId) -> Result<WorkerLayout> {
+        (self.layout_fn)(group_id, worker_id)
+    }
+
     fn cores(&self) -> &Cores {
         &self.cores
     }
@@ -144,11 +163,19 @@ where
     }
 }
 
-impl StdGroup<NopRuntime, NopState, fn() -> Result<NopState>> {
+impl
+    StdGroup<
+        fn(GroupId, WorkerId) -> Result<String>,
+        NopRuntime,
+        NopState,
+        fn() -> Result<NopState>,
+    >
+{
     #[expect(clippy::type_complexity)]
     pub fn builder<CT>(
         _controller: &CT,
     ) -> StdGroupBuilder<
+        fn(GroupId, WorkerId) -> Result<WorkerLayout>,
         NopRuntime,
         NopState,
         fn(&CT::Worker) -> Result<NopState>,
@@ -162,6 +189,7 @@ impl StdGroup<NopRuntime, NopState, fn() -> Result<NopState>> {
         let cores = Cores::one();
 
         StdGroupBuilder {
+            layout_fn: |_, wid| WorkerLayout::flat(format!("worker_{:}", wid.id())),
             runtime,
             cores,
             state_builder: |_| NopState::nop(),
@@ -173,7 +201,22 @@ impl StdGroup<NopRuntime, NopState, fn() -> Result<NopState>> {
     }
 }
 
-impl<RT, S, SB, TM, W> StdGroupBuilder<RT, S, SB, TM, W> {
+impl<L, RT, S, SB, TM, W> StdGroupBuilder<L, RT, S, SB, TM, W> {
+    /// Set the [`Runtime`].
+    #[must_use]
+    pub fn worker_layout_fn<L2>(self, layout_fn: L2) -> StdGroupBuilder<L2, RT, S, SB, TM, W> {
+        StdGroupBuilder {
+            layout_fn,
+            runtime: self.runtime,
+            cores: self.cores,
+            state_builder: self.state_builder,
+            max_state_size_per_client: self.max_state_size_per_client,
+            timeout: self.timeout,
+            timer: self.timer,
+            phantom: self.phantom,
+        }
+    }
+
     /// Set the cores associated to each [`Instance`](crate::launchers::Instance).
     #[must_use]
     pub fn cores(mut self, cores: Cores) -> Self {
@@ -183,8 +226,9 @@ impl<RT, S, SB, TM, W> StdGroupBuilder<RT, S, SB, TM, W> {
 
     /// Set the [`Runtime`].
     #[must_use]
-    pub fn runtime<RT2>(self, runtime: RT2) -> StdGroupBuilder<RT2, S, SB, TM, W> {
+    pub fn runtime<RT2>(self, runtime: RT2) -> StdGroupBuilder<L, RT2, S, SB, TM, W> {
         StdGroupBuilder {
+            layout_fn: self.layout_fn,
             runtime,
             cores: self.cores,
             state_builder: self.state_builder,
@@ -197,11 +241,15 @@ impl<RT, S, SB, TM, W> StdGroupBuilder<RT, S, SB, TM, W> {
 
     /// Set the [`State`](crate::states::State) builder closure.
     #[must_use]
-    pub fn state_builder<S2, SB2>(self, state_builder: SB2) -> StdGroupBuilder<RT, S2, SB2, TM, W>
+    pub fn state_builder<S2, SB2>(
+        self,
+        state_builder: SB2,
+    ) -> StdGroupBuilder<L, RT, S2, SB2, TM, W>
     where
         SB2: FnMut(&W) -> Result<S2>,
     {
         StdGroupBuilder {
+            layout_fn: self.layout_fn,
             runtime: self.runtime,
             cores: self.cores,
             state_builder,
@@ -214,8 +262,9 @@ impl<RT, S, SB, TM, W> StdGroupBuilder<RT, S, SB, TM, W> {
 
     /// Set the timer used by the runtime built with [`Self::build_inprocess`].
     #[must_use]
-    pub fn timer<TM2>(self, timer: TM2) -> StdGroupBuilder<RT, S, SB, TM2, W> {
+    pub fn timer<TM2>(self, timer: TM2) -> StdGroupBuilder<L, RT, S, SB, TM2, W> {
         StdGroupBuilder {
+            layout_fn: self.layout_fn,
             cores: self.cores,
             runtime: self.runtime,
             state_builder: self.state_builder,
@@ -234,10 +283,11 @@ impl<RT, S, SB, TM, W> StdGroupBuilder<RT, S, SB, TM, W> {
     }
 
     /// Set the runtime as an [`StdInProcessRuntime`].
+    #[expect(clippy::type_complexity)]
     pub fn build_inprocess<T>(
         self,
         task: T,
-    ) -> Result<StdGroup<StdInProcessRuntime<S, T, TM>, S, SB>>
+    ) -> Result<StdGroup<L, StdInProcessRuntime<S, T, TM>, S, SB>>
     where
         S: Serialize,
         T: FnMut(&mut RuntimeHandle<S, W>, &mut S) -> Result<()> + Clone,
@@ -248,26 +298,26 @@ impl<RT, S, SB, TM, W> StdGroupBuilder<RT, S, SB, TM, W> {
 
         let runtime = StdInProcessRuntime::new(task, ram_limit, self.timer, self.timeout);
 
-        StdGroup::new(self.cores, self.state_builder, runtime)
+        StdGroup::new(self.layout_fn, self.cores, self.state_builder, runtime)
     }
 
     /// Set the runtime as an [`StdForkserverRuntime`].
-    pub fn build_forkserver<T>(self, task: T) -> Result<StdGroup<StdForkserverRuntime<T>, S, SB>>
+    pub fn build_forkserver<T>(self, task: T) -> Result<StdGroup<L, StdForkserverRuntime<T>, S, SB>>
     where
         T: FnMut(&mut RuntimeHandle<S, W>, &mut S) -> Result<()> + Clone,
     {
         let runtime = StdForkserverRuntime::new(task);
 
-        StdGroup::new(self.cores, self.state_builder, runtime)
+        StdGroup::new(self.layout_fn, self.cores, self.state_builder, runtime)
     }
 
-    pub fn build(self) -> Result<StdGroup<RT, S, SB>> {
-        StdGroup::new(self.cores, self.state_builder, self.runtime)
+    pub fn build(self) -> Result<StdGroup<L, RT, S, SB>> {
+        StdGroup::new(self.layout_fn, self.cores, self.state_builder, self.runtime)
     }
 }
 
-impl<RT, S, SB> StdGroup<RT, S, SB> {
-    pub fn new(cores: Cores, state_builder: SB, runtime: RT) -> Result<Self> {
+impl<L, RT, S, SB> StdGroup<L, RT, S, SB> {
+    pub fn new(name_fn: L, cores: Cores, state_builder: SB, runtime: RT) -> Result<Self> {
         if cores.is_empty() {
             return Err(illegal_argument!(
                 "No CPU cores have been allocated for the group."
@@ -275,6 +325,7 @@ impl<RT, S, SB> StdGroup<RT, S, SB> {
         }
 
         Ok(Self {
+            layout_fn: name_fn,
             cores,
             state_builder,
             runtime,
@@ -343,11 +394,56 @@ where
     type Configured = (ConfiguredGroup<Head>, Tail::Configured);
 
     fn register_all(self, controller: &mut CT) -> Result<Self::Configured> {
-        let (PendingGroup { config, group }, tail) = self;
+        let (PendingGroup { config, mut group }, tail) = self;
 
         let configured_tail = tail.register_all(controller)?;
-        let group_id = controller.register_group(config, group.cores())?;
+        let group_id = controller.register_group(config, &mut group)?;
 
         Ok((ConfiguredGroup { group, group_id }, configured_tail))
+    }
+}
+
+impl WorkerLayout {
+    pub fn new(name: impl AsRef<str>, workdir: impl AsRef<Path>) -> Result<Self> {
+        if name.as_ref().is_empty() {
+            return Err(illegal_argument!("Group name must not be empty"));
+        }
+
+        if workdir.as_ref().as_os_str().is_empty() || workdir.as_ref().file_name().is_none() {
+            return Err(illegal_argument!(
+                "Worker workdir must identify a directory"
+            ));
+        }
+
+        if workdir
+            .as_ref()
+            .components()
+            .any(|component| matches!(component, Component::ParentDir))
+        {
+            return Err(illegal_argument!(
+                "Worker workdir must not contain '..'. Use Absolute paths instead."
+            ));
+        }
+
+        Ok(Self {
+            name: name.as_ref().to_string(),
+            workdir: workdir.as_ref().to_path_buf(),
+        })
+    }
+
+    /// Create a flat Group layout: the name and the workdir are identical
+    pub fn flat(name: impl AsRef<str>) -> Result<Self> {
+        Self::new(name.as_ref(), name.as_ref())
+    }
+
+    #[must_use]
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    /// work directory relative to the root directory
+    #[must_use]
+    pub fn workdir(&self) -> &Path {
+        &self.workdir
     }
 }

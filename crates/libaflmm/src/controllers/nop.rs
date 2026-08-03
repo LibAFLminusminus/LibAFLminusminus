@@ -1,14 +1,15 @@
 //! Nop controller and workers.
 
 use crate::{
-    controllers::{Controller, Descriptor, SharingWorker, Workdir, WorkdirFile, Worker},
+    controllers::{Controller, Descriptor, SharingWorker, Workdir, WorkdirFile, Worker, WorkerId},
     corpus::Testcase,
+    launchers::groups::Group,
     sync::GroupId,
 };
 use alloc::sync::Arc;
 use core::time::Duration;
 use libaflmm_bolts::CoreId;
-use libaflmm_core::{Result, WorkerId};
+use libaflmm_core::Result;
 use std::os::fd::BorrowedFd;
 use tempfile::TempDir;
 
@@ -48,6 +49,10 @@ impl Default for NopDescriptor {
 }
 
 impl Descriptor for NopDescriptor {
+    fn name(&self) -> impl AsRef<str> {
+        "NopWorker"
+    }
+
     fn group_id(&self) -> GroupId {
         GroupId { id: 0 }
     }
@@ -77,11 +82,10 @@ impl Controller for NopController {
         unimplemented!("nop controller has no root directory");
     }
 
-    fn register_group(
-        &mut self,
-        _config: Self::GroupConfig,
-        _cores: &libaflmm_bolts::prelude::Cores,
-    ) -> Result<GroupId> {
+    fn register_group<G>(&mut self, _config: Self::GroupConfig, _group: &mut G) -> Result<GroupId>
+    where
+        G: Group<NopWorker>,
+    {
         unimplemented!("nop controller cannot register groups");
     }
 

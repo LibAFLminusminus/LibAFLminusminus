@@ -19,9 +19,10 @@ use crate::{
     states::State,
 };
 use alloc::{boxed::Box, rc::Rc};
-use core::{marker::PhantomPinned, pin::Pin};
+use core::{marker::PhantomPinned, pin::Pin, time::Duration};
 use libaflmm_bolts::current_time;
 use libaflmm_core::Result;
+use std::thread::sleep;
 use tuple_list::tuple_list;
 
 /// Note: this code should not allocate at all.
@@ -183,6 +184,29 @@ pub struct StdFuzzerBuilder<E, F, H, OF> {
 }
 
 impl<E, F, H, OF> StdFuzzerInner<E, F, H, OF> {
+    fn post_fuzz_one<I, S, W>(
+        &mut self,
+        state: &mut S,
+        rt_handle: &mut RuntimeHandle<S, W>,
+    ) -> Result<()>
+    where
+        H: FuzzerHooksTuple<E, I, S, W>,
+        S: State,
+        W: Worker,
+    {
+        self.fuzzer_hooks
+            .post_step_all(&mut self.executor, state, rt_handle)?;
+
+        // timer end
+        state.perf_stats_mut().iter_end();
+
+        // update stats if it should be updated
+        rt_handle
+            .worker_mut()
+            .workdir_mut()
+            .maybe_report_stats(state.stats())
+    }
+
     fn evaluate_execution<I, S>(
         &mut self,
         state: &mut S,
@@ -445,11 +469,14 @@ where
                 rt_handle.shutdown();
             }
 
+            log::debug!("Adding pending testcases to state");
             state.add_pending_testcases(rt_handle.worker_mut().recv_testcases()?);
         }
 
         while let Some(tc) = state.next_pending_testcase() {
-            self.evaluate_input(state, rt_handle, &*tc.input())?;
+            log::debug!("Evaluating pending testcase: {:?}", tc.id());
+            let res = self.evaluate_input(state, rt_handle, &*tc.input())?;
+            log::debug!("Evaluation result: {res:?}");
         }
 
         let testcase_id = {
@@ -465,11 +492,14 @@ where
             // Get the next index from the scheduler
             let testcase_id = match state.scheduler_mut().next() {
                 Ok(testcase_id) => testcase_id,
-                Err(Error::Empty(e, b)) => {
-                    log::error!(
+                Err(Error::Empty(_, _)) => {
+                    sleep(Duration::from_millis(500));
+
+                    log::warn!(
                         "Scheduler is empty, which often indicates the target is incorrectly instrumented."
                     );
-                    return Err(Error::Empty(e, b));
+
+                    return inner.post_fuzz_one(state, rt_handle);
                 }
                 Err(e) => return Err(e),
             };
@@ -493,14 +523,7 @@ where
             .testcase_md_mut_from_id(&testcase_id)
             .increase_scheduled_count();
 
-        inner
-            .fuzzer_hooks
-            .post_step_all(&mut inner.executor, state, rt_handle)?;
-
-        // timer end
-        state.perf_stats_mut().iter_end();
-
-        Ok(())
+        inner.post_fuzz_one(state, rt_handle)
     }
 }
 

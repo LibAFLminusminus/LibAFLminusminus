@@ -1,8 +1,7 @@
 use crate::Result;
-use crate::controllers::{Descriptor, Workdir, WorkdirFile};
+use crate::controllers::{Descriptor, Workdir, WorkdirFile, WorkerId};
 use crate::sync::GroupId;
 use libaflmm_bolts::CoreId;
-use libaflmm_core::WorkerId;
 use std::path::Path;
 
 pub mod builder;
@@ -17,6 +16,7 @@ pub use worker::{StdWorker, StdWorkerRepr};
 /// A Std descriptor for a [`StdWorker`].
 #[derive(Debug, Clone)]
 pub struct StdDescriptor {
+    name: String,
     /// workdir of the worker
     workdir: Workdir,
     /// client id of this process
@@ -30,7 +30,9 @@ pub struct StdDescriptor {
 /// The launcher should instantiate this alongside binding this instance to a specific core id
 impl StdDescriptor {
     /// Default constructor
+    #[expect(clippy::too_many_arguments)]
     pub fn new(
+        name: String,
         root_dir: impl AsRef<Path>,
         stdout: WorkdirFile,
         stderr: WorkdirFile,
@@ -42,6 +44,7 @@ impl StdDescriptor {
         let workdir = Workdir::new(root_dir, stdout, stderr, stats)?;
 
         Ok(StdDescriptor {
+            name,
             workdir,
             worker_id,
             core_id,
@@ -51,6 +54,10 @@ impl StdDescriptor {
 }
 
 impl Descriptor for StdDescriptor {
+    fn name(&self) -> impl AsRef<str> {
+        &self.name
+    }
+
     fn workdir(&self) -> &Workdir {
         &self.workdir
     }

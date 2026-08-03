@@ -1,6 +1,5 @@
-use crate::{Result, sync::GroupId};
+use crate::{Result, controllers::WorkerId, sync::GroupId};
 use core::fmt::Debug;
-use libaflmm_core::WorkerId;
 
 pub mod graph;
 

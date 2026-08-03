@@ -3,15 +3,16 @@
 use crate::{
     Result,
     corpus::Testcase,
-    launchers::InstanceId,
+    launchers::{InstanceId, groups::Group},
     states::{Stats, sync_stats},
     sync::GroupId,
 };
 use core::time::Duration;
-use libaflmm_bolts::{CoreId, Cores};
-use libaflmm_core::{Error, WorkerId, internal_bug};
+use libaflmm_bolts::CoreId;
+use libaflmm_core::{Error, internal_bug};
 use nix::sys::signal::Signal;
 use quanta::{Clock, Instant};
+use serde::{Deserialize, Serialize};
 use std::{
     fs::{self, File, OpenOptions},
     io::{stderr, stdout},
@@ -39,7 +40,9 @@ pub trait Controller {
     type GroupConfig;
 
     /// Register groups, giving back the descriptors of the workers created from the group.
-    fn register_group(&mut self, config: Self::GroupConfig, cores: &Cores) -> Result<GroupId>;
+    fn register_group<G>(&mut self, config: Self::GroupConfig, group: &mut G) -> Result<GroupId>
+    where
+        G: Group<Self::Worker>;
 
     /// Called after every group have been registered.
     /// It will resolve the final group configuration and create the workers as a result, for each group ID.
@@ -174,6 +177,9 @@ pub trait SharingWorker<I>: Worker {
 
 /// A descriptor describes a [`Worker`].
 pub trait Descriptor: Clone {
+    /// Name of the Worker.
+    fn name(&self) -> impl AsRef<str>;
+
     /// Get the reference to the workdir of the [`Worker`].
     fn workdir(&self) -> &Workdir;
 
@@ -189,6 +195,13 @@ pub trait Descriptor: Clone {
     /// Get the [`GroupId`] of the [`Worker`].
     fn group_id(&self) -> GroupId;
 }
+
+/// The worker ID for various use cases across `LibAFL`
+#[repr(transparent)]
+#[derive(
+    Debug, Default, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize,
+)]
+pub struct WorkerId(pub u32);
 
 /// A workdir contains information relative to the working environement of a [`Worker`].
 #[derive(Debug, Clone)]
@@ -216,6 +229,13 @@ pub enum WorkdirFile {
     Stderr,
     /// /dev/null
     Null,
+}
+
+impl WorkerId {
+    #[must_use]
+    pub fn id(&self) -> u32 {
+        self.0
+    }
 }
 
 impl Clone for WorkdirFile {

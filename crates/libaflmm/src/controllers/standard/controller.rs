@@ -1,9 +1,12 @@
 use crate::{
     controllers::{
-        Controller, Descriptor, StdDescriptor, StdWorker, WorkdirFile,
+        Controller, Descriptor, StdDescriptor, StdWorker, WorkdirFile, WorkerId,
         standard::builder::StdControllerBuilder,
     },
-    launchers::InstanceId,
+    launchers::{
+        InstanceId,
+        groups::{Group, WorkerLayout},
+    },
     sync::{
         ControllerSync, Exchange, GroupId, InputHandleBackend, Orchestrator, Router, StdCommand,
         StdNotification, StdOrchestrator, Transfer,
@@ -11,13 +14,13 @@ use crate::{
     },
 };
 use core::{fmt::Debug, marker::PhantomData, mem, time::Duration};
-use libaflmm_bolts::{CoreId, Cores};
-use libaflmm_core::{Result, WorkerId, illegal_argument, illegal_state, internal_bug};
+use libaflmm_bolts::CoreId;
+use libaflmm_core::{Result, illegal_argument, illegal_state};
 use std::{
     collections::{HashMap, HashSet, hash_map::Entry},
     fs,
     os::fd::BorrowedFd,
-    path::{Path, PathBuf},
+    path::{self, Path, PathBuf},
 };
 
 // get the synchronizer type out of a pair of <Input, Orchestrator>
@@ -54,14 +57,14 @@ where
     orchestrator: O,
     controller_sync: Option<ControllerSyncOf<I, O>>,
     descriptors: HashMap<WorkerId, StdDescriptor>,
+    workers: HashMap<GroupId, Vec<StdWorker<O::Provider, I, O::WorkerSync>>>,
     root_dir: PathBuf,
     finalized: bool,
 
     worker_id_ctr: u32,
+    used_cores: HashSet<CoreId>,
 
     // buffers
-    pending_workers: HashMap<GroupId, Vec<StdWorker<O::Provider, I, O::WorkerSync>>>,
-    pending_groups: HashMap<GroupId, Cores>,
     pending_notifications: Vec<(StdNotification<HandleOf<I, O>>, WorkerId)>,
 
     worker_stdout: WorkdirFile,
@@ -84,9 +87,43 @@ where
     type Worker = StdWorker<O::Provider, I, O::WorkerSync>;
     type GroupConfig = <O::Router as Router<CommandOf<I, O>, StdDescriptor>>::GroupConfig;
 
-    fn register_group(&mut self, config: Self::GroupConfig, cores: &Cores) -> Result<GroupId> {
+    fn register_group<G>(&mut self, config: Self::GroupConfig, group: &mut G) -> Result<GroupId>
+    where
+        G: Group<Self::Worker>,
+    {
+        if self.finalized {
+            return Err(illegal_state!(
+                "Trying to register a group in a finalized controller. This is not legal."
+            ));
+        }
+
         let group_id = self.orchestrator.router_mut().register_group(config)?;
-        self.pending_groups.insert(group_id, cores.clone());
+        let cores = group.cores().clone();
+
+        for core_id in &cores {
+            // check core pinning correctness
+            if let Some(core_id) = core_id
+                && !self.used_cores.insert(core_id)
+            {
+                return Err(illegal_argument!(
+                    "core {core_id:?} is getting pinned on by multiple workers. Use unpinned cores instead."
+                ));
+            }
+
+            let worker_id = WorkerId(self.worker_id_ctr);
+            self.worker_id_ctr += 1;
+            let desc = self.new_descriptor(
+                &group.layout(group_id, worker_id)?,
+                worker_id,
+                group_id,
+                core_id,
+            )?;
+
+            self.orchestrator.router_mut().register_worker(&desc)?;
+
+            self.descriptors.insert(worker_id, desc);
+        }
+
         Ok(group_id)
     }
 
@@ -97,43 +134,14 @@ where
             ));
         }
 
-        let mut used_cores: HashSet<CoreId> = HashSet::new();
-        let mut worker_desc: HashMap<WorkerId, StdDescriptor> = HashMap::new();
-
-        // check core pinning correctness
-        for cores in self.pending_groups.values() {
-            for core_id in cores {
-                if let Some(core) = core_id
-                    && !used_cores.insert(core)
-                {
-                    return Err(illegal_argument!(
-                        "core {core:?} is getting pinned on by multiple workers. Use unpinned cores instead."
-                    ));
-                }
-            }
-        }
-
-        // declare each worker, with the corresponding descriptors.
-        for (group_id, cores) in mem::take(&mut self.pending_groups) {
-            for core_id in &cores {
-                let worker_id = WorkerId(self.worker_id_ctr);
-                self.worker_id_ctr += 1;
-
-                let desc = self.new_descriptor(worker_id, group_id, core_id)?;
-                self.orchestrator.router_mut().register_worker(&desc)?;
-
-                worker_desc.insert(worker_id, desc);
-            }
-        }
-
         self.orchestrator.router_mut().finalize()?;
 
-        for (wid, desc) in &worker_desc {
+        for (wid, desc) in &self.descriptors {
             let source_wids: Vec<WorkerId> = self.orchestrator.router().sources(*wid).collect();
 
             let sources: Vec<&StdDescriptor> = source_wids
                 .into_iter()
-                .map(|src_wid| worker_desc.get(&src_wid).unwrap())
+                .map(|src_wid| self.descriptors.get(&src_wid).unwrap())
                 .collect();
 
             let handle_provider = self
@@ -150,14 +158,12 @@ where
 
             let worker = StdWorker::new(desc.clone(), handle_provider, worker_sync, should_report);
 
-            match self.pending_workers.entry(desc.group_id()) {
+            match self.workers.entry(desc.group_id()) {
                 Entry::Occupied(mut entry) => entry.get_mut().push(worker),
                 Entry::Vacant(entry) => {
                     entry.insert(vec![worker]);
                 }
             }
-
-            self.descriptors.insert(*wid, desc.clone());
         }
 
         self.orchestrator.handle_provider_factory_mut().finalize()?;
@@ -168,7 +174,7 @@ where
 
     fn take_group_workers(&mut self, group: GroupId) -> Result<impl Iterator<Item = Self::Worker>> {
         Ok(self
-            .pending_workers
+            .workers
             .remove(&group)
             .ok_or(illegal_argument!(
                 "The group ID {group:?} has not been registered"
@@ -265,16 +271,70 @@ where
             Notification = StdNotification<HandleOf<I, O>>,
         >,
 {
+    fn resolve_worker_layout(&self, layout: &WorkerLayout) -> Result<PathBuf> {
+        let path = layout.workdir();
+
+        let resolved = if path.is_absolute() {
+            path.to_owned()
+        } else {
+            self.root_dir.join(path)
+        };
+
+        Ok(path::absolute(resolved)?)
+    }
+
+    fn validate_worker_layout(&self, layout: &WorkerLayout) -> Result<PathBuf> {
+        let path = self.resolve_worker_layout(layout)?;
+
+        for desc in self.descriptors.values() {
+            if desc.name == layout.name() {
+                return Err(illegal_argument!(
+                    "Worker name {:?} is already in use.",
+                    desc.name
+                ));
+            }
+
+            let desc_dir = desc.workdir.root_dir();
+
+            if desc_dir == path {
+                return Err(illegal_argument!(
+                    "Worker directory {} is already in use.",
+                    path.display()
+                ));
+            }
+
+            if desc_dir.starts_with(&path) || path.starts_with(desc_dir) {
+                return Err(illegal_argument!(
+                    "Worker directory {} and {} are overlapping.",
+                    path.display(),
+                    desc_dir.display(),
+                ));
+            }
+        }
+
+        Ok(path)
+    }
+
     fn new_descriptor(
         &self,
+        layout: &WorkerLayout,
         worker_id: WorkerId,
         group_id: GroupId,
         core_id: Option<CoreId>,
     ) -> Result<StdDescriptor> {
-        let worker_dir = self.root_dir.join(format!("worker_{}", worker_id.0));
+        let worker_dir = self.validate_worker_layout(layout)?;
+
+        if let Some(parent) = worker_dir.parent()
+            && (!parent.exists() || !parent.is_dir())
+        {
+            return Err(illegal_argument!(
+                "The worker dir \"{}\"'s parent directory does not exist or is not a directory.",
+                worker_dir.display()
+            ));
+        }
 
         if worker_dir.exists() {
-            return Err(internal_bug!(
+            return Err(illegal_argument!(
                 "The worker dir \"{}\" already exists.",
                 worker_dir.display()
             ));
@@ -283,6 +343,7 @@ where
         fs::create_dir(worker_dir.as_path())?;
 
         StdDescriptor::new(
+            layout.name().to_string(),
             worker_dir,
             self.worker_stdout.clone(),
             self.worker_stderr.clone(),
@@ -334,9 +395,9 @@ where
             worker_stdout,
             worker_stderr,
             worker_stats,
+            used_cores: HashSet::default(),
             descriptors: HashMap::default(),
-            pending_groups: HashMap::default(),
-            pending_workers: HashMap::default(),
+            workers: HashMap::default(),
             pending_notifications: Vec::new(),
             worker_id_ctr: 0,
             finalized: false,

@@ -1,6 +1,7 @@
 use crate::target::SIGNALS;
 use libaflmm::{
     Result,
+    launchers::groups::WorkerLayout,
     prelude::*,
     sync::{GraphOrchestrator, routers::graph::GraphRouter},
 };
@@ -32,6 +33,9 @@ pub fn main() -> Result<()> {
     //
     // We attach the newly built router to the orchestrator.
     let orchestrator = GraphOrchestrator::new(router);
+
+    // The monitor tracks the fuzzing current status.
+    let monitor = StdMonitor::new();
 
     // Build the controller, which will use the orchestrator to deploy the new topology.
     let controller = StdController::builder()
@@ -106,6 +110,7 @@ pub fn main() -> Result<()> {
     //
     // Note we do not pin this group, as it will be mostly inactive.
     let receiving_group = group_builder
+        .worker_layout_fn(|_gid, _wid| WorkerLayout::flat("worker_receiving"))
         .cores(Cores::unpinned(1))
         .state_builder(|worker| {
             StdState::new(
@@ -147,6 +152,7 @@ pub fn main() -> Result<()> {
     // This is where we bind our group identifier to the actual groups that will be launched.
     StdLauncher::builder()
         .controller(controller)
+        .monitor(monitor)
         .add_group_with(fuzzing_group, Groups::Fuzzer)
         .add_group_with(receiving_group, Groups::Receiver)
         .build()?
