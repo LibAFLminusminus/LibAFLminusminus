@@ -5,6 +5,6 @@ LIBAFL_DIR=$(realpath "$SCRIPT_DIR/..")
 
 cd "${LIBAFL_DIR}" || exit 1
 
-cargo run --manifest-path "$LIBAFL_DIR/utils/libaflmm_repo_tools/Cargo.toml" --release -- --generate-lockfiles --verbose || exit 1
+cargo run --manifest-path "$LIBAFL_DIR/utils/libaflmm_repo_tools/Cargo.toml" -- --generate-lockfiles --verbose || exit 1
 
 echo "[*] Done :)"
