@@ -5,3 +5,4 @@ build:
     cargo build --locked --profile {{ PROFILE }}
 
 test: build
+    timeout 60s {{ FUZZER }}
