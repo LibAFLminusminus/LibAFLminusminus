@@ -2,7 +2,7 @@ use crate::{fuzzer::profile::QemuProfile, harness::Harness, options::FuzzOptions
 use libaflmm::Result;
 use libaflmm_qemu::prelude::*;
 
-mod profile;
+pub mod profile;
 
 pub struct QemuFuzzer;
 
@@ -31,12 +31,11 @@ impl QemuFuzzer {
                 )
             })
             .build_inprocess(move |rt_handle, state| {
-                let core_id = rt_handle.worker().core_id();
-                let profile = QemuProfile::new(
-                    &options,
-                    &options,
-                    core_id.expect("QemuLauncher does not support unpinned cores for now"),
-                )?;
+                let core_id = rt_handle
+                    .worker()
+                    .core_id()
+                    .expect("QemuLauncher does not support unpinned cores for now");
+                let profile = QemuProfile::new(&options.common, &options, core_id)?;
 
                 // Create an observation channel using the coverage map
                 let mut edges_observer = unsafe {
@@ -61,7 +60,7 @@ impl QemuFuzzer {
 
                 let mut tokens = Tokens::new();
 
-                let injection_module = profile.injection_module(&options)?;
+                let injection_module = profile.injection_module(&options.common)?;
 
                 if let Some(inj) = &injection_module {
                     for tok in &inj.tokens {
@@ -89,8 +88,13 @@ impl QemuFuzzer {
                     TimeFeedback::new(&time_observer)
                 );
 
-                let modules =
-                    profile.get_modules(&options, &env, &mut edges_observer, injection_module)?;
+                let modules = profile.get_modules(
+                    &options.common,
+                    Some(&options),
+                    &env,
+                    &mut edges_observer,
+                    injection_module,
+                )?;
 
                 let cmplog_observer = profile.cmplog();
                 let observers = tuple_list!(edges_observer, cmplog_observer, time_observer);

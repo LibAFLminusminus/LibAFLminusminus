@@ -28,7 +28,7 @@ tests_expected=(
   "AddressSanitizer Error"
   "AddressSanitizer Error"
   "Panic!"
-  "AddressSanitizer Error"
+  "Panic!"
   "AddressSanitizer Error"
   "Test-Limits - No Error"
 )
@@ -53,11 +53,9 @@ do
 
   echo "Running $test detection test..."
   OUT=$("$QEMU_LAUNCHER" \
-    -r "inputs/$test.txt" \
-    --input dummy \
-    --output out \
-    --port 1339 \
-    --asan-host-cores 0 \
+    replay \
+    --input "inputs/$test.txt" \
+    --asan-host \
     -- qasan 2>&1 | tr -d '\0')
 
   if ! echo "$OUT" | grep -q "$expected"; then

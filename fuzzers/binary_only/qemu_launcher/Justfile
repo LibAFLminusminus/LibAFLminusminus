@@ -64,7 +64,7 @@ test_inner: harness build
     export CUSTOM_LIBAFL_QEMU_ASAN_PATH={{ BUILD_DIR }}/$CROSS_TARGET/{{ PROFILE_DIR }}/libaflmm_qemu_asan_host.so
     ./tests/asan/host_test.sh || exit 1
 
-    export CUSTOM_LIBAFL_QEMU_ASAN_PATH={{ BUILD_DIR }}/$CROSS_TARGET/{{ PROFILE_DIR }}/libafl_qemu_asan_guest.so
+    export CUSTOM_LIBAFL_QEMU_ASAN_PATH={{ BUILD_DIR }}/$CROSS_TARGET/{{ PROFILE_DIR }}/libaflmm_qemu_asan_guest.so
     ./tests/asan/guest_test.sh || exit 1
 
 [unix]
@@ -72,9 +72,8 @@ test:
     CROSS_CC=gcc CROSS_CXX=g++ ARCH=x86_64 just test_inner
 
 single: harness build
-    {{ FUZZER }} \
+    {{ FUZZER }} fuzz \
         --input ./seeds \
-        --output {{ TARGET_DIR }}/output/ \
         --log {{ TARGET_DIR }}/output/log.txt \
         --cores 0 \
         -- \
@@ -85,9 +84,8 @@ asan_host: harness build
 
     source {{ DOTENV }}
     CUSTOM_LIBAFL_QEMU_ASAN_PATH={{ BUILD_DIR }}/$CROSS_TARGET/{{ PROFILE_DIR }}/libaflmm_qemu_asan_host.so \
-    {{ FUZZER }} \
+    {{ FUZZER }} fuzz \
         --input ./seeds \
-        --output {{ TARGET_DIR }}/output/ \
         --log {{ TARGET_DIR }}/output/log.txt \
         --cores 0 \
         --asan-host-cores 0 \
@@ -98,10 +96,9 @@ asan_guest: harness build
     #!/bin/bash
 
     source {{ DOTENV }}
-    CUSTOM_LIBAFL_QEMU_ASAN_PATH={{ BUILD_DIR }}/$CROSS_TARGET/{{ PROFILE_DIR }}/libafl_qemu_asan_guest.so \
-    {{ FUZZER }} \
+    CUSTOM_LIBAFL_QEMU_ASAN_PATH={{ BUILD_DIR }}/$CROSS_TARGET/{{ PROFILE_DIR }}/libaflmm_qemu_asan_guest.so \
+    {{ FUZZER }} fuzz \
         --input ./seeds \
-        --output {{ TARGET_DIR }}/output/ \
         --log {{ TARGET_DIR }}/output/log.txt \
         --cores 0 \
         --asan-guest-cores 0 \

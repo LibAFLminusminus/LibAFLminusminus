@@ -21,7 +21,7 @@ use libaflmm::{executors::ExitKind, observers::ObserversTuple};
 use libaflmm_bolts::os::unix_signals::Signal;
 use libaflmm_qemu_sys::{GuestAddr, GuestUlong, MapInfo};
 use meminterval::{Interval, IntervalTree};
-use nix::sys::mman::{MapFlags, ProtFlags, mmap_anonymous};
+use nix::sys::mman::{MapFlags, ProtFlags, mmap_anonymous, munmap};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use std::{
     env,
@@ -31,8 +31,9 @@ use std::{
     num::NonZeroUsize,
     path::PathBuf,
     pin::Pin,
+    ptr::NonNull,
     result,
-    sync::Mutex,
+    sync::{Mutex, Once},
 };
 
 #[ctor::ctor(unsafe)]
@@ -65,6 +66,8 @@ fn reserve_asan_shadow() {
         .expect(msg);
     }
 }
+
+static RELEASE_ASAN_SHADOW: Once = Once::new();
 
 // TODO at some point, merge parts with libaflmm_frida
 
@@ -445,6 +448,33 @@ impl AsanHostModule {
             asan_lib: None,
             asan_mappings: None,
         }
+    }
+
+    /// Release the shadow address space reserved by the constructor.
+    /// This may be necessary if guest ASan and host ASan must cohabitate.
+    /// In that case they may try to reserve the same addresses.
+    ///
+    /// # Safety
+    ///
+    /// No host ASan module may be constructed or used in this process.
+    pub unsafe fn release_shadow() {
+        RELEASE_ASAN_SHADOW.call_once(|| unsafe {
+            munmap(
+                NonNull::new(HIGH_SHADOW_ADDR.get() as *mut c_void).unwrap(),
+                HIGH_SHADOW_SIZE.get(),
+            )
+            .expect("Failed to release high ASan shadow");
+            munmap(
+                NonNull::new(LOW_SHADOW_ADDR.get() as *mut c_void).unwrap(),
+                LOW_SHADOW_SIZE.get(),
+            )
+            .expect("Failed to release low ASan shadow");
+            munmap(
+                NonNull::new(GAP_SHADOW_ADDR.get() as *mut c_void).unwrap(),
+                GAP_SHADOW_SIZE.get(),
+            )
+            .expect("Failed to release ASan shadow gap");
+        });
     }
 
     #[must_use]

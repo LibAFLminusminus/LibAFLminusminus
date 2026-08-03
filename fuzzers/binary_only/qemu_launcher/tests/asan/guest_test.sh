@@ -53,12 +53,9 @@ do
 
   echo "Running $test detection test..."
   OUT=$("$QEMU_LAUNCHER" \
-    -r "inputs/$test.txt" \
-    --input dummy \
-    --output out \
-    --port 1340 \
-    --asan-guest-cores 0 \
-    --cores 0 \
+    replay \
+    --input "inputs/$test.txt" \
+    --asan-guest \
     -- qasan 2>&1 | tr -d '\0')
 
   echo "$OUT"

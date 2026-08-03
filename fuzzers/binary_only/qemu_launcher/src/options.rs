@@ -53,6 +53,12 @@ pub struct CommonOptions {
 
     #[arg(long, help = "Log file")]
     pub log: Option<PathBuf>,
+
+    #[arg(long = "include-asan", help="Include asan address ranges", value_parser = Cli::parse_ranges)]
+    pub include_asan: Option<Vec<Range<GuestAddr>>>,
+
+    #[arg(long = "exclude-asan", help="Exclude asan address ranges", value_parser = Cli::parse_ranges, conflicts_with="include_asan")]
+    pub exclude_asan: Option<Vec<Range<GuestAddr>>>,
 }
 
 #[derive(clap::Args, Debug, Clone)]
@@ -83,18 +89,18 @@ pub struct FuzzOptions {
 
     #[arg(long = "iterations", help = "Maximum number of iterations")]
     pub iterations: Option<u64>,
-
-    #[arg(long = "include-asan", help="Include asan address ranges", value_parser = Cli::parse_ranges)]
-    pub include_asan: Option<Vec<Range<GuestAddr>>>,
-
-    #[arg(long = "exclude-asan", help="Exclude asan address ranges", value_parser = Cli::parse_ranges, conflicts_with="include_asan")]
-    pub exclude_asan: Option<Vec<Range<GuestAddr>>>,
 }
 
 #[derive(clap::Args, Debug, Clone)]
 pub struct ReplayOptions {
     #[command(flatten)]
     pub common: CommonOptions,
+
+    #[arg(long, help = "Enable host ASan", conflicts_with = "asan_guest")]
+    pub asan_host: bool,
+
+    #[arg(long, help = "Enable guest ASan", conflicts_with = "asan_host")]
+    pub asan_guest: bool,
 }
 
 impl FuzzOptions {
