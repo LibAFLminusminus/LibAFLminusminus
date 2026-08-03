@@ -55,6 +55,6 @@ The difference between these two `corpus` is that, the testcases in normal `corp
 The testcases in `objective corpus` won't be further mutated, it's a dead end. 
 Usually they are the crashes and timeouts ready to be analyzed.
 
-# Component relationship
+## Component Relationship
 
 Both `Feedback` and `Objective Feedback` is a object held by a [`Fuzzer`](./fuzzer.md) object.

@@ -1,8 +1,10 @@
 //! A [`NopStage`] does nothing
+//! It can optionally sleep before continuing.
 
 use alloc::borrow::Cow;
-
+use core::time::Duration;
 use libaflmm_bolts::Named;
+use std::thread;
 
 use super::Stage;
 use crate::{
@@ -11,13 +13,19 @@ use crate::{
 
 /// A [`Stage`] that does nothing
 #[derive(Debug, Copy, Clone, Default)]
-pub struct NopStage {}
+pub struct NopStage {
+    sleep: Option<Duration>,
+}
 
 impl NopStage {
-    /// Create a [`struct@NopStage`]
     #[must_use]
-    pub fn new() -> Self {
-        Self {}
+    pub fn with_sleep(sleep: Duration) -> Self {
+        Self { sleep: Some(sleep) }
+    }
+
+    #[must_use]
+    pub fn nop() -> Self {
+        Self { sleep: None }
     }
 }
 
@@ -42,6 +50,11 @@ where
         _rt_handle: &mut RuntimeHandle<S, W>,
         _testcase_id: &TestcaseId,
     ) -> Result<()> {
+        if let Some(sleep) = self.sleep {
+            log::debug!("Sleeping...");
+            thread::sleep(sleep);
+        }
+
         Ok(())
     }
 }

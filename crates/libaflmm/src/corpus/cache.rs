@@ -48,7 +48,7 @@ pub trait Cache<CS, FS, I> {
 }
 
 /// An identity cache, storing everything both in the cache and the backing store.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IdentityCache;
 
 /// A `First In / First Out` cache policy.

@@ -14,7 +14,7 @@ pub fn main() -> Result<()> {
     let controller = StdController::builder().overwrite(true).build()?;
 
     // The monitor tracks the fuzzing current status.
-    let monitor = SimpleMonitor::new();
+    let monitor = StdMonitor::new();
 
     let group = StdGroup::builder(&controller)
         .timeout(Some(Duration::from_secs(3)))

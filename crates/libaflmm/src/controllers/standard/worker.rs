@@ -1,0 +1,192 @@
+use crate::{
+    controllers::{SharingWorker, StdDescriptor, Workdir, Worker, WorkerId},
+    corpus::{Testcase, TestcaseId},
+    inputs::Input,
+    sync::{InputHandleBackend, StdCommand, StdNotification, WorkerSync},
+};
+use alloc::rc::Rc;
+use libaflmm_core::{Result, illegal_argument};
+use nix::unistd::{dup2_stderr, dup2_stdout};
+use std::collections::HashSet;
+
+/// The standard [`Worker`].
+#[derive(Debug, Clone)]
+pub struct StdWorker<HP, I, WS>
+where
+    HP: InputHandleBackend<I>,
+{
+    descriptor: StdDescriptor,
+    handle_provider: HP,
+    worker_sync: WS,
+
+    // testcases that have been either sent or received
+    // it's to avoid loops in case the fuzzer is poorly configured
+    // (like if feedback is always true)
+    seen_testcases: HashSet<TestcaseId>,
+
+    // buffers
+    pending_commands: Vec<StdCommand<HP::Handle>>,
+    pending_imports: Vec<Testcase<I>>,
+
+    should_report: bool,
+}
+
+/// A representation of a [`StdWorker`], to be used by [`StdController`](super::StdController).
+#[derive(Debug)]
+pub struct StdWorkerRepr<CS> {
+    descriptor: StdDescriptor,
+    sync: CS,
+}
+
+impl<CS> StdWorkerRepr<CS> {
+    pub fn new(descriptor: StdDescriptor, sync: CS) -> Self {
+        Self { descriptor, sync }
+    }
+
+    pub fn descriptor(&self) -> &StdDescriptor {
+        &self.descriptor
+    }
+
+    pub fn descriptor_mut(&mut self) -> &mut StdDescriptor {
+        &mut self.descriptor
+    }
+
+    pub fn sync(&self) -> &CS {
+        &self.sync
+    }
+
+    pub fn sync_mut(&mut self) -> &mut CS {
+        &mut self.sync
+    }
+}
+
+impl<HP, I, WS> Worker for StdWorker<HP, I, WS>
+where
+    HP: InputHandleBackend<I>,
+    WS: WorkerSync<StdCommand<HP::Handle>, StdNotification<HP::Handle>>,
+{
+    type Descriptor = StdDescriptor;
+
+    fn id(&self) -> WorkerId {
+        self.descriptor.worker_id
+    }
+
+    fn descriptor(&self) -> &StdDescriptor {
+        &self.descriptor
+    }
+
+    fn descriptor_mut(&mut self) -> &mut StdDescriptor {
+        &mut self.descriptor
+    }
+
+    fn workdir(&self) -> &Workdir {
+        &self.descriptor.workdir
+    }
+
+    fn workdir_mut(&mut self) -> &mut Workdir {
+        &mut self.descriptor.workdir
+    }
+
+    fn pre_runtime_exec(&mut self) -> Result<()> {
+        dup2_stdout(self.descriptor.workdir.stdout()?)?;
+        dup2_stderr(self.descriptor.workdir.stderr()?)?;
+
+        Ok(())
+    }
+
+    fn poll(&mut self) -> Result<bool> {
+        let len_before = self.pending_commands.len();
+        self.pending_commands.extend(self.worker_sync.poll()?);
+        Ok(len_before < self.pending_commands.len())
+    }
+
+    fn should_shutdown(&mut self) -> bool {
+        for cmd in &self.pending_commands {
+            if matches!(cmd, StdCommand::Shutdown) {
+                return true;
+            }
+        }
+
+        false
+    }
+}
+
+impl<HP, I, WS> SharingWorker<I> for StdWorker<HP, I, WS>
+where
+    I: Input,
+    HP: InputHandleBackend<I>,
+    WS: WorkerSync<StdCommand<HP::Handle>, StdNotification<HP::Handle>>,
+{
+    fn send_testcase(&mut self, testcase: &Testcase<I>) -> Result<()> {
+        // no destination to report to, skip
+        if !self.should_report {
+            return Ok(());
+        }
+
+        // mark a testcase as seen
+        self.seen_testcases.insert(*testcase.id());
+        log::debug!("worker {:?} sends testcase {:?}", self.id(), testcase.id());
+
+        let handle = self.handle_provider.create_handle(&testcase.input())?;
+        self.worker_sync.send(StdNotification::NewTestcase {
+            id: *testcase.id(),
+            handle,
+        })
+    }
+
+    fn recv_testcases(&mut self) -> Result<impl Iterator<Item = Testcase<I>>> {
+        let worker_id = self.id();
+
+        for cmd in self
+            .pending_commands
+            .extract_if(.., |c| matches!(c, StdCommand::Import { .. }))
+        {
+            if let StdCommand::Import { id, handle, .. } = cmd {
+                if !self.seen_testcases.contains(&id) {
+                    log::debug!("worker {worker_id:?} imports testcase {id:?}");
+                    let input = self.handle_provider.resolve_handle(handle)?;
+                    let tc = Testcase::new(Rc::new(input));
+
+                    if *tc.id() != id {
+                        return Err(illegal_argument!(
+                            "imported ID does not match input content"
+                        ));
+                    }
+
+                    self.seen_testcases.insert(id);
+                    self.pending_imports.push(tc);
+                }
+            } else {
+                // we have previously filtered by Import, so it can only
+                // be import
+                unreachable!()
+            }
+        }
+
+        Ok(self.pending_imports.drain(..))
+    }
+}
+
+impl<HP, I, WS> StdWorker<HP, I, WS>
+where
+    HP: InputHandleBackend<I>,
+{
+    /// Get a new [`StdWorker`].
+    #[must_use]
+    pub fn new(
+        descriptor: StdDescriptor,
+        handle_provider: HP,
+        worker_sync: WS,
+        should_report: bool,
+    ) -> Self {
+        Self {
+            descriptor,
+            handle_provider,
+            worker_sync,
+            should_report,
+            seen_testcases: HashSet::new(),
+            pending_commands: Vec::new(),
+            pending_imports: Vec::new(),
+        }
+    }
+}

@@ -8,10 +8,10 @@ if [ ! -d "sqlite3" ]; then
 fi
 
 if [ "$1" = "release" ]; then
-  cargo build --release
+  cargo build --locked --release
   DIR=release
 elif [ "$1" = "dev" ]; then
-  cargo build
+  cargo build --locked
   DIR=debug
 else
     echo "Incorrect profile: $1. Either use 'dev' or 'release'."

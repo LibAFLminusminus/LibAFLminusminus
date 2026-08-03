@@ -7,7 +7,7 @@ use crate::{
 use libaflmm_core::Result;
 
 /// Simplest runtime, just runs the task.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct NopRuntime;
 
 impl DependencyResolver for NopRuntime {}

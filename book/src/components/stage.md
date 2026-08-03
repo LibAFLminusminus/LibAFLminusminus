@@ -22,7 +22,7 @@ We provide `IfStage`, `IfElseStage`, and `WhileStage`.
 For example, with `IfStage`, the fuzzer will run the stage only if the closure you provided evaluates to be true.
 In a sense, you can "program" how you want to run the stages.
 
-# Component relationship
+## Component Relationship
 
 We obviously want to run multiple stages, stages are often grouped inside a [`tuple_list!`](../concepts/tuples.md).
 This tuple list is held by a [Fuzzer](./fuzzer.md) object.

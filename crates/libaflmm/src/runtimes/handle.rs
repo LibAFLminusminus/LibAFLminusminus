@@ -5,7 +5,7 @@ use crate::{
     common::{CompatibilityChecker, DependencyResolver, Registrator},
     controllers::{NopWorker, Worker},
     runtimes::{
-        NopRuntime, OsTerminationParams, Runtime, TerminationHandlerData,
+        LIBAFLMM_EXIT_END, NopRuntime, OsTerminationParams, Runtime, TerminationHandlerData,
         inprocess::{CrashStatus, TimeoutStatus},
         restarting::LIBAFLMM_EXIT_RESTART,
         utils::{PinnedPtr, unix::OsShmSender},
@@ -164,6 +164,13 @@ impl<S, W> RuntimeHandle<S, W> {
     /// Get a mutable reference to the [`Worker`].
     pub fn worker_mut(&mut self) -> &mut W {
         &mut self.worker
+    }
+
+    /// Stop the current worker
+    pub fn shutdown(&mut self) -> ! {
+        log::info!("Shutdown request received, shutting down...");
+
+        exit(LIBAFLMM_EXIT_END)
     }
 
     /// Restart the current worker
