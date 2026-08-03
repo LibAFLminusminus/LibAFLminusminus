@@ -165,7 +165,7 @@ pub trait SharingWorker<I>: Worker {
     /// Check for inputs that should be evaluated.
     /// All the pending [`Testcase`]s are returned as an iterator.
     ///
-    /// It will only take into account requests since the last call to [`Self::poll`].
+    /// It will only take into account requests since the last call to [`Worker::poll`].
     /// Any commands received after that would not be considered.
     ///
     /// Pending testcases are returned and guaranteed to be removed from the worker buffer.
