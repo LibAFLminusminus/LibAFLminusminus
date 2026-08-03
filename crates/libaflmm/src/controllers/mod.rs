@@ -144,26 +144,16 @@ pub trait Worker {
         Ok(())
     }
 
+    /// Poll for received commands
+    ///
+    /// Returns true if something has been received, false otherwise.
+    fn poll(&mut self) -> Result<bool>;
+
     /// Returns true if the worker should shutdown, false otherwise
     ///
-    /// The next polls are not required to be consistent if shutdown is requested:
-    /// Any other poll-related commands have an undefined behaviour, since the fuzzer
-    /// should exit.
-    fn poll_shutdown(&mut self) -> Result<bool>;
-
-    // /// Send a notification to the [`Controller`]
-    // fn send_notification(&mut self, notification: Self::Notification) -> Result<()>;
-
-    // /// Polls any command received since the last call.
-    // fn poll_commands(&mut self) -> Result<impl Iterator<Item = Self::Command>> {
-    //     self.poll_commands_filtered(|_| true)
-    // }
-
-    // /// Polls the list of commands received since the last call according to the filter.
-    // fn poll_commands_filtered(
-    //     &mut self,
-    //     filter: impl FnMut(&Self::Command) -> bool,
-    // ) -> Result<impl Iterator<Item = Self::Command>>;
+    /// It will only take into account requests since the last call to [`Self::poll`].
+    /// Any commands received after that would not be considered.
+    fn should_shutdown(&mut self) -> bool;
 }
 
 /// A [`Worker`] able to share [`Testcase`]s.
@@ -172,8 +162,11 @@ pub trait SharingWorker<I>: Worker {
     /// [`Router`](crate::sync::Router) policy.
     fn send_testcase(&mut self, testcase: &Testcase<I>) -> Result<()>;
 
-    /// Poll for inputs that should be evaluated.
+    /// Check for inputs that should be evaluated.
     /// All the pending [`Testcase`]s are returned as an iterator.
+    ///
+    /// It will only take into account requests since the last call to [`Self::poll`].
+    /// Any commands received after that would not be considered.
     ///
     /// Pending testcases are returned and guaranteed to be removed from the worker buffer.
     fn recv_testcases(&mut self) -> Result<impl Iterator<Item = Testcase<I>>>;

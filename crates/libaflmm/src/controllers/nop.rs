@@ -138,20 +138,13 @@ impl Worker for NopWorker {
         &mut self.descriptor
     }
 
-    fn poll_shutdown(&mut self) -> Result<bool> {
+    fn poll(&mut self) -> Result<bool> {
         Ok(false)
     }
 
-    // fn send_notification(&mut self, _notification: Self::Notification) -> Result<()> {
-    //     unimplemented!("nop controller has no descriptor");
-    // }
-
-    // fn poll_commands_filtered(
-    //     &mut self,
-    //     filter: impl FnMut(&Self::Command) -> bool,
-    // ) -> Result<impl Iterator<Item = Self::Command>> {
-    //     Ok([].into_iter())
-    // }
+    fn should_shutdown(&mut self) -> bool {
+        false
+    }
 }
 
 impl<I> SharingWorker<I> for NopWorker {

@@ -440,7 +440,13 @@ where
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
     ) -> Result<()> {
-        state.add_pending_testcases(rt_handle.worker_mut().recv_testcases()?);
+        if rt_handle.worker_mut().poll()? {
+            if rt_handle.worker_mut().should_shutdown() {
+                rt_handle.shutdown();
+            }
+
+            state.add_pending_testcases(rt_handle.worker_mut().recv_testcases()?);
+        }
 
         while let Some(tc) = state.next_pending_testcase() {
             self.evaluate_input(state, rt_handle, &*tc.input())?;

@@ -94,42 +94,21 @@ where
         Ok(())
     }
 
-    fn poll_shutdown(&mut self) -> Result<bool> {
-        let cmds_len = self.pending_commands.len();
-        // maybe this poll is too agressive (already done by recv_testcases)
-        // i guess we could skip it if this makes the fuzzer too slow, but it's
-        // unlikely
+    fn poll(&mut self) -> Result<bool> {
+        let len_before = self.pending_commands.len();
         self.pending_commands.extend(self.worker_sync.poll()?);
+        Ok(len_before < self.pending_commands.len())
+    }
 
-        for i in cmds_len..(cmds_len + self.pending_commands.len()) {
-            if matches!(self.pending_commands[i], StdCommand::Shutdown) {
-                return Ok(true);
+    fn should_shutdown(&mut self) -> bool {
+        for cmd in &self.pending_commands {
+            if matches!(cmd, StdCommand::Shutdown) {
+                return true;
             }
         }
 
-        Ok(false)
+        false
     }
-
-    // fn poll_commands_filtered(
-    //     &mut self,
-    //     mut filter: impl FnMut(&Self::Command) -> bool,
-    // ) -> Result<impl Iterator<Item = Self::Command>> {
-    //     // collect pending commands
-    //     self.pending_commands.extend(self.connection.poll()?);
-
-    //     Ok(self.pending_commands.extract_if(.., move |elt| filter(elt)))
-    // }
-
-    // fn send_notification(&mut self, notification: Self::Notification) -> Result<()> {
-    //     if !self.connection.send(&notification)? {
-    //         log::warn!(
-    //             "Notification could not be sent, most likely because there is some congestion. Falling back to blocking send..."
-    //         );
-    //         self.connection.send_blocking(&notification)?;
-    //     }
-
-    //     Ok(())
-    // }
 }
 
 impl<HP, I, WS> SharingWorker<I> for StdWorker<HP, I, WS>
@@ -156,7 +135,6 @@ where
     }
 
     fn recv_testcases(&mut self) -> Result<impl Iterator<Item = Testcase<I>>> {
-        self.pending_commands.extend(self.worker_sync.poll()?);
         let worker_id = self.id();
 
         for cmd in self
