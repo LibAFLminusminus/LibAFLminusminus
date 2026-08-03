@@ -30,7 +30,7 @@ This is the simplest option available that provides a fair amount of information
 - `WebMonitor` for a web-based UI that can be reached from a browser.
 It shows more interesting and various statistics in addition to what the `SimpleMonitor` provides.
 
-# Relationship
+## Component Relationship
 
 Launcher is the top-level module for fuzzing instances management.
 The launcher contains a `Monitor`, a [`Controller`](./controller_worker.md), and multiple `Group`s.

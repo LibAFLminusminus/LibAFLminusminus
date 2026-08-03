@@ -47,6 +47,6 @@ For example,
 Here we make a shared memory region; `shmem_buf`, and write this to environmental variable `__AFL_SHM_ID`. Then both the instrumented binary and the forkserver, finds this shared memory region (from the aforementioned env var) to record its coverage.
 On your fuzzer side, you can pass this shmem map to your `Observer` to obtain coverage feedbacks combined with any `Feedback`.
 
-# Component relationship
+## Component relationship
 
 Executor is a component held by a [`Fuzzer`](./fuzzer.md)

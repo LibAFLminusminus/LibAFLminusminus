@@ -14,13 +14,13 @@ Consider a generic Mutator for a byte stream, bit flip is just one of the possib
 Some mutators can also always produce valid inputs, like a mutator that generates valid JSON or code.
 However, these grammar-based mutators need a grammar to work.
 
-# Generator
+## Generator
 
 A `Generator` is a component designed to generate an Input from scratch.
 
 Generators are traditionally less used in Feedback-driven Fuzzing, but there are exceptions, like Nautilus, that uses a Grammar generator to create the initial corpus and a sub-tree Generator as a mutation of its grammar Mutator.
 
-# Component relationship
+## Component Relationship
 
 Both the `Mutator` and `Generator` are held by `Stages`. 
 Typically, mutational stages will contain a `Mutator` and generational stages will contain a `Generator`

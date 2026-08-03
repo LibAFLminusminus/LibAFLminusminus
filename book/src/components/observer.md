@@ -28,7 +28,7 @@ This is implemented as the `pre_exec` and `post_exec` API of the `Observer` trai
 
 The fuzzer will act based on these observers through a [`Feedback`](./feedback.md), that reduces the observation to the choice if a testcase is `interesting` for the fuzzer, or not.
 
-# Component relationship
+## Component Relationship
 
 Observers are grouped-up in a [`tuple_list!`](../concepts/tuples.md).
 This tuple list is then held by [Executors](./executor.md).

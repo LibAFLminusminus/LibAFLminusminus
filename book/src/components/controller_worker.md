@@ -7,13 +7,13 @@ A `Controller` and `Worker`s work in a 1-to-N architecture: a fuzzing run (launc
 `LibAFL--` exposes multiple mechanisms to make them communicate altogether, and possible share inputs.
 Check [`the synchronization documentation`](sync.md) for more information about that.
 
-# Worker
+## Worker
 
 A worker contains any information about the worker itself: its working directory, group and a unique identifier.
 The fuzzer can use it to know where on-disk corpuses should be stored, or on which file descriptor `stdout` and `stderr` should be redirected.
 It basically represents the bridge between a single fuzzing instance, and the more global fuzzing run.
 
-# Controller
+## Controller
 
 On the other side, a `Controller` spawns as many `Worker`s as necessary, and makes sure they are correctly configured.
 A controller usually have some form of connection (like a socket) with every other worker.

@@ -20,12 +20,12 @@ use nix::{
     },
     unistd::{ForkResult, Pid, fork, getpid, getppid},
 };
-use std::{collections::HashMap, os::fd::AsFd, process::exit};
+use std::{collections::HashMap, convert::Infallible, os::fd::AsFd, process::exit};
 
 /// An Instance ID, unique for each [`Instance`].
 pub type InstanceId = u32;
 
-pub type InstanceRunner<W> = Box<dyn FnOnce(W) -> Result<()>>;
+pub type InstanceRunner<W> = Box<dyn FnOnce(W) -> Result<Infallible>>;
 
 /// An instance, owning a running [`Runtime`](crate::runtimes::Runtime).
 pub struct Instance<W> {
@@ -135,7 +135,7 @@ impl<D, W> Instances<D, W> {
     /// Add an [`Instance`] to the collection.
     pub fn add<R>(&mut self, runner: R, worker: W, core: Option<CoreId>)
     where
-        R: FnOnce(W) -> Result<()> + 'static,
+        R: FnOnce(W) -> Result<Infallible> + 'static,
     {
         self.instances
             .push(Instance::new(Box::new(runner), worker, core));

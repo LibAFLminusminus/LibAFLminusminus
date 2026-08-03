@@ -2,7 +2,7 @@
 
 use crate::{Result, common::DependencyResolver};
 use core::time::Duration;
-use std::process::exit;
+use std::{convert::Infallible, process::exit};
 
 pub mod handle;
 pub use handle::RuntimeHandle;
@@ -39,7 +39,7 @@ pub type StdInProcessRuntime<S, T, TM> = RestartingRuntime<SimpleInProcessRuntim
 
 /// Environment used to run a task
 pub trait Runtime<S, W>: DependencyResolver {
-    /// Run the runtime.
+    /// Run the actual runtime task.
     /// A runtime task is terminal: it is called only once and the runtime will immediately exit when the task returns.
     ///
     /// This trait function should NEVER be called by a user directly.
@@ -54,8 +54,10 @@ pub trait Runtime<S, W>: DependencyResolver {
     /// Use [`Self::run`], this function should not need to be called directly.
     unsafe fn run_impl(&mut self, state: S, rt_handle: &mut RuntimeHandle<S, W>) -> Result<()>;
 
-    /// Run the runtime.
-    fn run(&mut self, state: S, worker: W) -> Result<()>
+    /// Setup the [`RuntimeHandle`] and run the runtime task.
+    ///
+    /// This function never returns: it should exit.
+    fn run(&mut self, state: S, worker: W) -> Result<Infallible>
     where
         Self: Sized + 'static,
     {
