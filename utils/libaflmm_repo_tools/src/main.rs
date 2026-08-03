@@ -11,7 +11,9 @@ use clap::Parser;
 use colored::Colorize;
 use core::str::from_utf8;
 use regex::{Regex, RegexSet};
+use serde::Deserialize;
 use std::{
+    collections::{HashMap, HashSet},
     fs::read_to_string,
     io,
     io::ErrorKind,
@@ -24,13 +26,63 @@ use which::which;
 const REF_LLVM_VERSION: u32 = 20;
 
 #[derive(Parser)]
+#[expect(clippy::struct_excessive_bools)]
 struct Cli {
     #[arg(short, long)]
     check: bool,
     #[arg(short, long)]
     generate_lockfiles: bool,
+    #[arg(long, conflicts_with_all = ["check", "generate_lockfiles", "verbose"])]
+    fuzzer_matrix: bool,
     #[arg(short, long)]
     verbose: bool,
+}
+
+#[derive(Default)]
+struct FuzzerLists {
+    standard: Vec<String>,
+    qemu: Vec<String>,
+}
+
+impl FuzzerLists {
+    fn iter(&self) -> impl Iterator<Item = (&'static str, &[String])> {
+        [
+            ("standard", self.standard.as_slice()),
+            ("qemu", self.qemu.as_slice()),
+        ]
+        .into_iter()
+    }
+
+    fn manifests(&self, project_root: &Path) -> HashSet<PathBuf> {
+        self.iter()
+            .flat_map(|(_, fuzzers)| fuzzers)
+            .map(|fuzzer| fuzzer_manifest(project_root, fuzzer))
+            .collect()
+    }
+}
+
+#[derive(Deserialize)]
+struct DependabotConfig {
+    updates: Vec<DependabotUpdate>,
+}
+
+#[derive(Deserialize)]
+struct DependabotUpdate {
+    #[serde(default)]
+    directories: Vec<String>,
+    #[serde(default)]
+    groups: HashMap<String, serde_yaml::Value>,
+}
+
+fn fuzzer_manifest(project_root: &Path, fuzzer: &str) -> PathBuf {
+    project_root.join("fuzzers").join(fuzzer).join("Cargo.toml")
+}
+
+fn project_root() -> &'static Path {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .and_then(Path::parent)
+        .expect("repo tools must be located in utils/libaflmm_repo_tools")
 }
 
 fn is_workspace_toml(path: &Path) -> bool {
@@ -56,17 +108,72 @@ fn is_binary_crate(crate_path: &Path) -> Result<bool, io::Error> {
     Ok(main_path.is_file())
 }
 
-async fn run_cargo_generate_lockfile(cargo_file_path: PathBuf, verbose: bool) -> io::Result<()> {
+fn dependabot_fuzzers(project_root: &Path) -> io::Result<FuzzerLists> {
+    let config = read_to_string(project_root.join(".github/dependabot.yml"))?;
+    let config: DependabotConfig = serde_yaml::from_str(&config).map_err(io::Error::other)?;
+    let mut fuzzers = FuzzerLists::default();
+
+    for update in config.updates {
+        let target = if update.groups.contains_key("qemu-fuzzers") {
+            &mut fuzzers.qemu
+        } else if update.groups.contains_key("standard-fuzzers") {
+            &mut fuzzers.standard
+        } else {
+            continue;
+        };
+
+        for directory in update.directories {
+            let Some(fuzzer) = directory.strip_prefix("/fuzzers/") else {
+                continue;
+            };
+            let manifest = fuzzer_manifest(project_root, fuzzer);
+            if !manifest.is_file() {
+                return Err(io::Error::new(
+                    ErrorKind::NotFound,
+                    format!("manifest does not exist: {}", manifest.display()),
+                ));
+            }
+            target.push(fuzzer.to_string());
+        }
+    }
+
+    if fuzzers.iter().any(|(_, fuzzers)| fuzzers.is_empty()) {
+        return Err(io::Error::new(
+            ErrorKind::InvalidData,
+            "Dependabot must define standard and qemu fuzzers",
+        ));
+    }
+
+    Ok(fuzzers)
+}
+
+fn should_generate_lockfile(
+    cargo_file_path: &Path,
+    fuzzers_dir: &Path,
+    dependabot_fuzzer_manifests: &HashSet<PathBuf>,
+) -> io::Result<bool> {
+    if cargo_file_path.starts_with(fuzzers_dir) {
+        return Ok(dependabot_fuzzer_manifests.contains(cargo_file_path));
+    }
+
+    let cargo_file_dir = cargo_file_path
+        .parent()
+        .expect("Cargo.toml should always have a parent directory");
+    is_binary_crate(cargo_file_dir)
+}
+
+async fn run_cargo_generate_lockfile(
+    cargo_file_path: PathBuf,
+    should_generate: bool,
+    verbose: bool,
+) -> io::Result<()> {
     // Make sure we parse the correct file
     assert_eq!(
         cargo_file_path.file_name().unwrap().to_str().unwrap(),
         "Cargo.toml"
     );
 
-    let mut cargo_file_dir = cargo_file_path.clone();
-    cargo_file_dir.pop();
-
-    if !is_binary_crate(cargo_file_dir.as_path())? {
+    if !should_generate {
         if verbose {
             println!(
                 "[*] \tSkipping Lockfile for {}...",
@@ -210,10 +317,15 @@ pub fn parse_llvm_fmt_version(fmt_str: &str) -> Option<(u32, u32, u32)> {
 #[tokio::main]
 async fn main() -> io::Result<()> {
     let cli = Cli::parse();
-    let libafl_root_dir = match project_root::get_project_root() {
-        Ok(p) => p,
-        Err(_) => std::env::current_dir().expect("Failed to get LibAFL root directory."),
-    };
+    let libafl_root_dir = project_root();
+
+    if cli.fuzzer_matrix {
+        let fuzzers = dependabot_fuzzers(libafl_root_dir)?;
+        for (name, fuzzers) in fuzzers.iter() {
+            println!("{name}={}", serde_json::to_string(fuzzers).unwrap());
+        }
+        return Ok(());
+    }
 
     println!(
         "Using \"{}\" as the project root",
@@ -252,7 +364,7 @@ async fn main() -> io::Result<()> {
     ])
     .expect("Could not create the regex set from the given regex");
 
-    let rust_projects_to_handle: Vec<PathBuf> = WalkDir::new(&libafl_root_dir)
+    let rust_projects_to_handle: Vec<PathBuf> = WalkDir::new(libafl_root_dir)
         .into_iter()
         .filter_map(Result::ok)
         .filter(|e| !rust_excluded_directories.is_match(e.path().as_os_str().to_str().unwrap()))
@@ -270,8 +382,18 @@ async fn main() -> io::Result<()> {
     let mut all_errors: Vec<String> = Vec::new();
 
     if cli.generate_lockfiles {
+        let fuzzers = dependabot_fuzzers(libafl_root_dir)?;
+        let dependabot_fuzzer_manifests = fuzzers.manifests(libafl_root_dir);
+        let fuzzers_dir = libafl_root_dir.join("fuzzers");
+
         for project in rust_projects_to_handle {
-            tokio_joinset.spawn(run_cargo_generate_lockfile(project, cli.verbose));
+            let should_generate =
+                should_generate_lockfile(&project, &fuzzers_dir, &dependabot_fuzzer_manifests)?;
+            tokio_joinset.spawn(run_cargo_generate_lockfile(
+                project,
+                should_generate,
+                cli.verbose,
+            ));
         }
     } else {
         // fallback is for formatting or checking
@@ -333,7 +455,7 @@ async fn main() -> io::Result<()> {
         }
 
         if let Some(clang) = clang {
-            let c_files_to_fmt: Vec<PathBuf> = WalkDir::new(&libafl_root_dir)
+            let c_files_to_fmt: Vec<PathBuf> = WalkDir::new(libafl_root_dir)
                 .into_iter()
                 .filter_map(Result::ok)
                 .filter(|e| {
