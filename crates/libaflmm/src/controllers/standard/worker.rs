@@ -127,9 +127,7 @@ where
         self.seen_testcases.insert(*testcase.id());
         log::debug!("worker {:?} sends testcase {:?}", self.id(), testcase.id());
 
-        let handle = self
-            .handle_provider
-            .create_input_handle(&testcase.input())?;
+        let handle = self.handle_provider.create_handle(&testcase.input())?;
         self.worker_sync.send(StdNotification::NewTestcase {
             id: *testcase.id(),
             handle,
@@ -146,7 +144,7 @@ where
             if let StdCommand::Import { id, handle, .. } = cmd {
                 if !self.seen_testcases.contains(&id) {
                     log::debug!("worker {worker_id:?} imports testcase {id:?}");
-                    let input = self.handle_provider.resolve_input_handle(handle)?;
+                    let input = self.handle_provider.resolve_handle(handle)?;
                     let tc = Testcase::new(Rc::new(input));
 
                     if *tc.id() != id {

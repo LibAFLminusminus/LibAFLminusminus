@@ -11,10 +11,10 @@ pub trait InputHandleBackend<I>: Debug {
     type Handle: Transferable;
 
     /// Create a fresh [`Self::Handle`] from a given `input`.
-    fn create_input_handle(&mut self, input: &I) -> Result<Self::Handle>;
+    fn create_handle(&mut self, input: &I) -> Result<Self::Handle>;
 
     /// Fetch back an input from its [`Self::Handle`].
-    fn resolve_input_handle(&mut self, handle: Self::Handle) -> Result<I>;
+    fn resolve_handle(&mut self, handle: Self::Handle) -> Result<I>;
 }
 
 pub trait InputHandleBackendFactory<D, I>: Debug {
@@ -78,11 +78,11 @@ where
 {
     type Handle = Vec<u8>;
 
-    fn create_input_handle(&mut self, input: &I) -> Result<Self::Handle> {
+    fn create_handle(&mut self, input: &I) -> Result<Self::Handle> {
         Ok(postcard::to_allocvec(input)?)
     }
 
-    fn resolve_input_handle(&mut self, handle: Self::Handle) -> Result<I> {
+    fn resolve_handle(&mut self, handle: Self::Handle) -> Result<I> {
         Ok(postcard::from_bytes(&handle)?)
     }
 }
@@ -90,13 +90,13 @@ where
 impl<I> InputHandleBackend<I> for UnreachableInputHandleBackend {
     type Handle = ();
 
-    fn create_input_handle(&mut self, _input: &I) -> Result<Self::Handle> {
+    fn create_handle(&mut self, _input: &I) -> Result<Self::Handle> {
         Err(internal_bug!(
             "The orchestrator is not supposed to share any testcase, this is an internal bug."
         ))
     }
 
-    fn resolve_input_handle(&mut self, _handle: Self::Handle) -> Result<I> {
+    fn resolve_handle(&mut self, _handle: Self::Handle) -> Result<I> {
         Err(internal_bug!(
             "The orchestrator is not supposed to share any testcase, this is an internal bug."
         ))
@@ -106,11 +106,11 @@ impl<I> InputHandleBackend<I> for UnreachableInputHandleBackend {
 impl<I> InputHandleBackend<I> for PathInputHandleBackend {
     type Handle = PathBuf;
 
-    fn create_input_handle(&mut self, _input: &I) -> Result<Self::Handle> {
+    fn create_handle(&mut self, _input: &I) -> Result<Self::Handle> {
         todo!()
     }
 
-    fn resolve_input_handle(&mut self, _handle: Self::Handle) -> Result<I> {
+    fn resolve_handle(&mut self, _handle: Self::Handle) -> Result<I> {
         todo!()
     }
 }
