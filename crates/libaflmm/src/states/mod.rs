@@ -611,6 +611,13 @@ where
     C: ScheduledCorpus<I, SC>,
     I: Input,
 {
+    /// Decide if the state must load the inputs
+    pub fn must_load_initial_inputs(&self) -> bool {
+        self.corpus.count() == 0
+            || (self.remaining_initial_files.is_some()
+                && !self.remaining_initial_files.as_ref().unwrap().is_empty())
+    }
+
     /// List initial inputs from a directory.
     fn next_file(&mut self) -> Result<PathBuf> {
         loop {
