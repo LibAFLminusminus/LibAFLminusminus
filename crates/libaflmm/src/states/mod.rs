@@ -655,8 +655,15 @@ where
     }
 
     /// Sets canonical paths for provided inputs
-    fn canonicalize_input_dirs(&mut self, in_dirs: &[impl AsRef<Path>]) -> Result<()> {
-        let files = in_dirs.iter().try_fold(Vec::new(), |mut res, file| {
+    fn canonicalize_input_dirs<P>(&mut self, in_dirs: impl IntoIterator<Item = P>) -> Result<()>
+    where
+        P: AsRef<Path>,
+    {
+        if self.remaining_initial_files.is_some() {
+            return Ok(());
+        }
+
+        let files = in_dirs.into_iter().try_fold(Vec::new(), |mut res, file| {
             file.as_ref().canonicalize().map(|canonicalized| {
                 res.push(canonicalized);
                 res
@@ -723,14 +730,28 @@ where
         Ok(())
     }
 
-    /// Loads all initial inputs and evaluate them
-    pub fn load_initial_inputs<E, W, Z>(
+    /// Loads initial inputs from one file or directory, and evaluate them
+    pub fn load_initial_inputs_from<E, W, Z>(
         &mut self,
         fuzzer: &mut Z,
         rt_handle: &mut RuntimeHandle<Self, W>,
-        in_dirs: &[impl AsRef<Path>],
+        in_dir: impl AsRef<Path>,
     ) -> Result<()>
     where
+        Z: Evaluator<E, I, Self, W>,
+    {
+        self.load_initial_inputs(fuzzer, rt_handle, core::iter::once(in_dir))
+    }
+
+    /// Loads initial inputs from the given list of files and directories.
+    pub fn load_initial_inputs<E, P, W, Z>(
+        &mut self,
+        fuzzer: &mut Z,
+        rt_handle: &mut RuntimeHandle<Self, W>,
+        in_dirs: impl IntoIterator<Item = P>,
+    ) -> Result<()>
+    where
+        P: AsRef<Path>,
         Z: Evaluator<E, I, Self, W>,
     {
         self.canonicalize_input_dirs(in_dirs)?;

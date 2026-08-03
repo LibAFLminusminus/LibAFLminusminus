@@ -19,13 +19,12 @@ impl QemuReplay {
                 let scheduler = QueueScheduler::new();
 
                 StdState::new(
-                    BytesContext::default(),
+                    BytesContext,
                     InMemoryOnDiskCorpus::builder(worker, scheduler)?.build()?,
                     ObjectiveOnDiskCorpus::builder(worker)?.build()?,
                 )
             })
             .build_inprocess(move |rt_handle, state| {
-                let input = BytesInput::from_file(&options.common.input)?;
                 let profile = QemuProfile::replay(&options.common, &options)?;
 
                 let mut edges_observer = unsafe {
@@ -72,8 +71,8 @@ impl QemuReplay {
                     rt_handle,
                 )?;
 
-                let result = fuzzer.evaluate_input(state, rt_handle, &input)?;
-                log::info!("Replay exited with {result:?}");
+                state.load_initial_inputs_from(&mut fuzzer, rt_handle, &options.common.input)?;
+                log::info!("Replay finished");
                 Ok(())
             })?;
 
