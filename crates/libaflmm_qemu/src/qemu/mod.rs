@@ -18,8 +18,8 @@ use libaflmm_qemu_sys::{
     libafl_get_exit_reason, libafl_page_from_addr, libafl_qemu_add_gdb_cmd, libafl_qemu_cpu_index,
     libafl_qemu_current_cpu, libafl_qemu_gdb_reply, libafl_qemu_get_cpu, libafl_qemu_init,
     libafl_qemu_num_cpus, libafl_qemu_num_regs, libafl_qemu_read_reg,
-    libafl_qemu_remove_breakpoint, libafl_qemu_set_breakpoint, libafl_qemu_trigger_breakpoint,
-    libafl_qemu_write_reg,
+    libafl_qemu_remove_breakpoint, libafl_qemu_set_breakpoint, libafl_qemu_set_pc,
+    libafl_qemu_trigger_breakpoint, libafl_qemu_write_reg,
 };
 use std::{
     ffi::{CString, c_void},
@@ -217,6 +217,15 @@ where
     }
 }
 
+impl<T, const N: usize> From<&[T; N]> for QemuParams
+where
+    T: AsRef<str>,
+{
+    fn from(cli: &[T; N]) -> Self {
+        cli.as_slice().into()
+    }
+}
+
 impl<T> From<&Vec<T>> for QemuParams
 where
     T: AsRef<str>,
@@ -353,8 +362,14 @@ impl CPU {
         #[cfg(not(feature = "be"))]
         let val = GuestReg::to_le(val.into());
 
-        let success =
-            unsafe { libafl_qemu_write_reg(self.cpu_ptr, reg_id, &raw const val as *mut u8) };
+        let pc_reg_id: i32 = Regs::Pc.into();
+
+        let success = if reg_id == pc_reg_id {
+            unsafe { libafl_qemu_set_pc(self.cpu_ptr, val as GuestVirtAddr) }
+        } else {
+            unsafe { libafl_qemu_write_reg(self.cpu_ptr, reg_id, &raw const val as *mut u8) }
+        };
+
         if success == 0 {
             Err(QemuRWError::wrong_reg(
                 QemuRWErrorKind::Write,
@@ -544,10 +559,7 @@ impl From<u8> for HookData {
 
 impl Qemu {
     #[expect(clippy::similar_names)]
-    pub fn init<T>(params: T) -> Result<Self, QemuInitError>
-    where
-        T: Into<QemuParams>,
-    {
+    pub fn init(params: impl Into<QemuParams>) -> Result<Self, QemuInitError> {
         let params: QemuParams = params.into();
 
         match &params {

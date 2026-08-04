@@ -885,21 +885,24 @@ pub fn filter_mmap_snapshot<ET, I, S>(
     _qemu: Qemu,
     emulator_modules: &mut EmulatorModules<ET, I, S>,
     _state: &mut S,
-    sys_num: i32,
-    a0: GuestUlong,
-    a1: GuestUlong,
-    _a2: GuestUlong,
-    _a3: GuestUlong,
-    _a4: GuestUlong,
-    _a5: GuestUlong,
-    _a6: GuestUlong,
-    _a7: GuestUlong,
+    sys_num: &mut i32,
+    a0: &mut GuestUlong,
+    a1: &mut GuestUlong,
+    _a2: &mut GuestUlong,
+    _a3: &mut GuestUlong,
+    _a4: &mut GuestUlong,
+    _a5: &mut GuestUlong,
+    _a6: &mut GuestUlong,
+    _a7: &mut GuestUlong,
 ) -> SyscallHookResult
 where
     ET: EmulatorModuleTuple<I, S>,
     I: Unpin,
     S: Unpin,
 {
+    let sys_num = *sys_num;
+    let a0 = *a0;
+    let a1 = *a1;
     if i64::from(sys_num) == SYS_munmap {
         let h = get_snapshot_module_mut(emulator_modules).unwrap();
         if !h.is_unmap_allowed(a0 as GuestAddr, a1 as usize) {
