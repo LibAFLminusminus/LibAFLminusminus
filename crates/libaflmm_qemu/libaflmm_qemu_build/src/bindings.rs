@@ -46,6 +46,7 @@ const WRAPPER_HEADER: &str = r#"
 #include "qemu/selfmap.h"
 
 #include "libafl/user.h"
+#include "libafl/sigaction.h"
 
 #else
 
