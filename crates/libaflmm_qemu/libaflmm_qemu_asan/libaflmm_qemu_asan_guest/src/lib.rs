@@ -1,13 +1,19 @@
 #![cfg_attr(not(feature = "test"), no_std)]
 extern crate alloc;
 
-use core::ffi::{CStr, c_char, c_void};
+use core::{
+    ffi::{CStr, c_char, c_void},
+    ptr::null_mut,
+};
 
 use libaflmm_asan::{
     GuestAddr,
     allocator::{
         backend::{dlmalloc::DlmallocBackend, mimalloc::MimallocBackend},
-        frontend::{AllocatorFrontend, default::DefaultFrontend},
+        frontend::{
+            AllocatorFrontend,
+            default::{DefaultFrontend, DefaultFrontendError},
+        },
     },
     env::Env,
     file::libc::LibcFileReader,
@@ -86,7 +92,7 @@ pub unsafe extern "C" fn asan_load(addr: *const c_void, size: usize) {
         .is_poison(addr as GuestAddr, size)
         .unwrap()
     {
-        panic!("Poisoned - addr: {:p}, size: {:#x}", addr, size);
+        panic!("AddressSanitizer Error: Invalid {size} bytes read at {addr:p}");
     }
 }
 
@@ -100,7 +106,7 @@ pub unsafe extern "C" fn asan_store(addr: *const c_void, size: usize) {
         .is_poison(addr as GuestAddr, size)
         .unwrap()
     {
-        panic!("Poisoned - addr: {:p}, size: {:#x}", addr, size);
+        panic!("AddressSanitizer Error: Invalid {size} bytes write at {addr:p}");
     }
 }
 
@@ -108,7 +114,15 @@ pub unsafe extern "C" fn asan_store(addr: *const c_void, size: usize) {
 /// # Safety
 pub unsafe extern "C" fn asan_alloc(len: usize, align: usize) -> *mut c_void {
     trace!("alloc - len: {:#x}, align: {:#x}", len, align);
-    let ptr = FRONTEND.lock().alloc(len, align).unwrap() as *mut c_void;
+    let ptr = match FRONTEND.lock().alloc(len, align) {
+        Ok(addr) => addr as *mut c_void,
+        // A request we cannot serve is reported the way the target expects it,
+        // by returning `NULL`. Anything else is a bug in the runtime itself.
+        Err(DefaultFrontendError::AllocationTooLarge(_) | DefaultFrontendError::AllocatorError) => {
+            null_mut()
+        }
+        Err(err) => panic!("AddressSanitizer Error: {err}"),
+    };
     trace!(
         "alloc - len: {:#x}, align: {:#x}, ptr: {:p}",
         len, align, ptr
@@ -120,7 +134,9 @@ pub unsafe extern "C" fn asan_alloc(len: usize, align: usize) -> *mut c_void {
 /// # Safety
 pub unsafe extern "C" fn asan_dealloc(addr: *const c_void) {
     trace!("free - addr: {:p}", addr);
-    FRONTEND.lock().dealloc(addr as GuestAddr).unwrap();
+    if let Err(err) = FRONTEND.lock().dealloc(addr as GuestAddr) {
+        panic!("AddressSanitizer Error: {err}");
+    }
 }
 
 #[unsafe(no_mangle)]

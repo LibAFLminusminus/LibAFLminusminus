@@ -593,13 +593,19 @@ impl Qemu {
             libafl_qemu_init(argc, argv.as_ptr() as *mut *mut ::std::os::raw::c_char);
         }
 
+        #[cfg(feature = "usermode")]
+        unsafe {
+            Qemu::get_unchecked().set_target_crash_handling(&TargetSignalHandling::default());
+        }
+
         #[cfg(feature = "systemmode")]
         unsafe {
             libaflmm_qemu_sys::syx_snapshot_init(true);
             libc::atexit(qemu_cleanup_atexit);
         }
 
-        Ok(Qemu { _private: () })
+        // Safe: QEMU has just been initialized above.
+        Ok(unsafe { Qemu::get_unchecked() })
     }
 
     #[must_use]

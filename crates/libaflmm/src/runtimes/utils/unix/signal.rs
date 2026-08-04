@@ -171,8 +171,18 @@ where
             if D::termination_handler_data(Pin::new(&mut self.inner.termination_data))
                 .is_some_and(|p| p.in_fuzzing())
             {
-                // fuzzing in progress, propagate crash
-                log::error!("Target crashed with signal {signal}");
+                let status =
+                    (self.inner.crash_handler)(&mut self.inner.termination_data, &signal_params)
+                        .expect("Error while handling crash handler");
+
+                match status {
+                    CrashStatus::TargetCrash => {
+                        log::info!("target crashed  with signal: {signal}");
+                    }
+                    CrashStatus::FuzzerCrash => {
+                        log::error!("fuzzer crashed  with signal: {signal}. this is a fuzzer bug.");
+                    }
+                }
 
                 {
                     let mut bsod = Vec::new();
@@ -195,35 +205,15 @@ where
                     }
                 }
 
-                (self.inner.crash_handler)(&mut self.inner.termination_data, &signal_params)
-                    .expect("Error while handling crash handler");
-
-                exit(LIBAFLMM_EXIT_RESTART);
+                if let CrashStatus::TargetCrash = status {
+                    // target crash -> restart
+                    exit(LIBAFLMM_EXIT_RESTART);
+                }
             } else {
                 // not in fuzzing loop, this is a fuzzer bug.
                 let si_addr = { siginfo.si_addr() as usize };
 
                 log::error!("Fuzzer crashed at 0x{si_addr:x}. This is a fuzzer bug.");
-
-                // {
-                //     let mut bsod = Vec::new();
-                //     {
-                //         let mut writer = std::io::BufWriter::new(&mut bsod);
-                //         let bsod = libaflmm_bolts::minibsod::generate_minibsod(
-                //             &mut writer,
-                //             signal,
-                //             siginfo,
-                //             context,
-                //         );
-                //         if bsod.is_err() {
-                //             log::error!("generate_minibsod failed");
-                //         }
-                //         let _ = writer.flush();
-                //     }
-                //     if let Ok(r) = core::str::from_utf8(&bsod) {
-                //         log::error!("\n{r}");
-                //     }
-                // }
             }
 
             // offset by 128 to signal a fuzzer crash

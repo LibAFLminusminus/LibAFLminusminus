@@ -71,8 +71,15 @@ impl QemuReplay {
                     rt_handle,
                 )?;
 
-                state.load_initial_inputs_from(&mut fuzzer, rt_handle, &options.common.input)?;
-                log::info!("Replay finished");
+                let input = BytesInput::from_file(&options.common.input)?;
+                let result = fuzzer.evaluate_input(state, rt_handle, &input)?;
+
+                println!(
+                    "Replay verdict: {:?} ({:?})",
+                    result.exit_kind(),
+                    result.vertict()
+                );
+
                 Ok(())
             })?;
 
