@@ -354,10 +354,11 @@ impl CPU {
     ///
     /// `sync` tells whether the emulator should immediately sync with the new PC value.
     /// If `sync` is true, the emulator will start back from the new PC value when going back to QEMU.
-    /// Otherwise, QEMU will finish the current translation block before going to the new PC.
+    /// Otherwise, it's only writing to the "visible" PC register: in practice the register will be
+    /// overwritten when restarting QEMU execution, and will be discarded.
     ///
     /// Waring: having `sync` set to `true` in `cmp`, `read` or `write` hooks is not supported.
-    /// It will result in an error.
+    /// It will be discarded and won't change anything.
     pub fn write_pc(&self, val: impl Into<GuestReg>, sync: bool) -> Result<(), QemuRWError> {
         if sync {
             let addr: GuestReg = val.into();
