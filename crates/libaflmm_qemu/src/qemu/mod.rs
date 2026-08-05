@@ -350,25 +350,56 @@ impl CPU {
         }
     }
 
+    /// Overwrite the Program Counter (PC)
+    ///
+    /// `sync` tells whether the emulator should immediately sync with the new PC value.
+    /// If `sync` is true, the emulator will start back from the new PC value when going back to QEMU.
+    /// Otherwise, QEMU will finish the current translation block before going to the new PC.
+    ///
+    /// Waring: having `sync` set to `true` in `cmp`, `read` or `write` hooks is not supported.
+    /// It will result in an error.
+    pub fn write_pc(&self, val: impl Into<GuestReg>, sync: bool) -> Result<(), QemuRWError> {
+        if sync {
+            let addr: GuestReg = val.into();
+            unsafe {
+                libafl_qemu_set_pc(self.cpu_ptr, addr as GuestVirtAddr);
+            }
+            Ok(())
+        } else {
+            self.write_reg_inner(Regs::Pc, val)
+        }
+    }
+
     /// Write a value to a guest register.
     ///
-    /// Note: writing to PC in cmp and read or write hooks is not supported.
-    /// Other cases should work as intended.
+    /// Warning: using [`Regs::Pc`] as register is an error.
+    /// Use [`Self::write_pc`] to write to PC instead.
     pub fn write_reg(
         &self,
         reg: impl Into<i32>,
         val: impl Into<GuestReg>,
     ) -> Result<(), QemuRWError> {
         let reg_id: i32 = reg.into();
-        let val = val.into();
         let pc_reg_id: i32 = Regs::Pc.into();
 
         if reg_id == pc_reg_id {
-            unsafe {
-                libafl_qemu_set_pc(self.cpu_ptr, val as GuestVirtAddr);
-            }
-            return Ok(());
+            Err(QemuRWError::wrong_reg(
+                QemuRWErrorKind::Write,
+                Regs::Pc.into(),
+                Some(self.cpu_ptr),
+            ))
+        } else {
+            self.write_reg_inner(reg_id, val)
         }
+    }
+
+    fn write_reg_inner(
+        &self,
+        reg: impl Into<i32>,
+        val: impl Into<GuestReg>,
+    ) -> Result<(), QemuRWError> {
+        let reg_id: i32 = reg.into();
+        let val = val.into();
 
         #[cfg(feature = "be")]
         let val = GuestReg::to_be(val);
@@ -894,6 +925,26 @@ impl Qemu {
         self.current_cpu().unwrap().num_regs()
     }
 
+    /// Overwrite the Program Counter (PC)
+    ///
+    /// `sync` tells whether the emulator should immediately sync with the new PC value.
+    /// If `sync` is true, the emulator will start back from the new PC value when going back to QEMU.
+    /// In that case, the architectural PC register is in sync with the actual execution flow of QEMU
+    /// Otherwise, the PC register is updated, but QEMU will finish the current translation block
+    /// before going to the new PC.
+    ///
+    /// Waring: having `sync` set to `true` in `cmp`, `read` or `write` hooks is not supported.
+    /// It will result in an error.
+    pub fn write_pc(&self, val: impl Into<GuestReg>, sync: bool) -> Result<(), QemuRWError> {
+        self.current_cpu()
+            .ok_or(QemuRWError::current_cpu_not_found(QemuRWErrorKind::Write))?
+            .write_pc(val, sync)
+    }
+
+    /// Write a value to a guest register.
+    ///
+    /// Warning: using [`Regs::Pc`] as register is an error.
+    /// Use [`Self::write_pc`] to write to PC instead.
     pub fn write_reg(
         &self,
         reg: impl Into<i32>,

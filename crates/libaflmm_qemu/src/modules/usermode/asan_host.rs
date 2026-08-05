@@ -1527,7 +1527,7 @@ pub unsafe fn asan_report(rt: &AsanGiovese, qemu: Qemu, pc: GuestAddr, err: &Asa
     }
 
     // fix pc in case it is not synced (in hooks)
-    qemu.write_reg(Regs::Pc, pc as GuestReg).unwrap();
+    qemu.write_pc(pc as GuestReg, false).unwrap();
     eprint!(
         "Context:\n{}",
         qemu.current_cpu().unwrap().display_context()

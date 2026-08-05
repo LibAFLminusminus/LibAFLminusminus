@@ -18,7 +18,7 @@ unsafe extern "C" fn new_pc_hook(target_new_pc: u64, _pc: GuestAddr) {
     println!("PC = {pc:#x}");
     println!("new PC = {target_new_pc:#x}");
 
-    qemu.write_reg(Regs::Pc, target_new_pc).unwrap();
+    qemu.write_pc(target_new_pc, true).unwrap();
 }
 
 #[test]
