@@ -350,25 +350,33 @@ impl CPU {
         }
     }
 
+    /// Write a value to a guest register.
+    ///
+    /// Note: writing to PC in cmp and read or write hooks is not supported.
+    /// Other cases should work as intended.
     pub fn write_reg(
         &self,
         reg: impl Into<i32>,
         val: impl Into<GuestReg>,
     ) -> Result<(), QemuRWError> {
         let reg_id: i32 = reg.into();
-
-        #[cfg(feature = "be")]
-        let val = GuestReg::to_be(val.into());
-        #[cfg(not(feature = "be"))]
-        let val = GuestReg::to_le(val.into());
-
+        let val = val.into();
         let pc_reg_id: i32 = Regs::Pc.into();
 
-        let success = if reg_id == pc_reg_id {
-            unsafe { libafl_qemu_set_pc(self.cpu_ptr, val as GuestVirtAddr) }
-        } else {
-            unsafe { libafl_qemu_write_reg(self.cpu_ptr, reg_id, &raw const val as *mut u8) }
-        };
+        if reg_id == pc_reg_id {
+            unsafe {
+                libafl_qemu_set_pc(self.cpu_ptr, val as GuestVirtAddr);
+            }
+            return Ok(());
+        }
+
+        #[cfg(feature = "be")]
+        let val = GuestReg::to_be(val);
+        #[cfg(not(feature = "be"))]
+        let val = GuestReg::to_le(val);
+
+        let success =
+            unsafe { libafl_qemu_write_reg(self.cpu_ptr, reg_id, &raw const val as *mut u8) };
 
         if success == 0 {
             Err(QemuRWError::wrong_reg(

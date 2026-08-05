@@ -61,7 +61,7 @@ where
 
             match qemu.fatal_signal() {
                 QemuFatalSignal::None => {
-                    // we did not run QEMU's signal handler, run it now
+                    // non-qemu related fatal signal
                     let si_addr = unsafe { info.si_addr() as usize };
                     log::error!(
                         "crash at addr: {si_addr:#x} outside of QEMU's signal handler. this is a fuzzer bug."

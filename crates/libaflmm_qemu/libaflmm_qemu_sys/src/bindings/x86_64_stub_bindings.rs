@@ -4068,6 +4068,8 @@ pub struct CPUNegativeOffsetState {
     pub plugin_cb_flags: i32,
     pub icount_decr: IcountDecr,
     pub can_do_io: bool,
+    #[doc = " --- Begin LibAFL code ---"]
+    pub libafl_loop_exit: bool,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
@@ -4089,6 +4091,8 @@ const _: () = {
         [::std::mem::offset_of!(CPUNegativeOffsetState, icount_decr) - 14316usize];
     ["Offset of field: CPUNegativeOffsetState::can_do_io"]
         [::std::mem::offset_of!(CPUNegativeOffsetState, can_do_io) - 14320usize];
+    ["Offset of field: CPUNegativeOffsetState::libafl_loop_exit"]
+        [::std::mem::offset_of!(CPUNegativeOffsetState, libafl_loop_exit) - 14321usize];
 };
 impl Default for CPUNegativeOffsetState {
     fn default() -> Self {
@@ -4103,8 +4107,8 @@ impl ::std::fmt::Debug for CPUNegativeOffsetState {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         write!(
             f,
-            "CPUNegativeOffsetState {{ tlb: {:?}, plugin_mem_cbs: {:?}, icount_decr: {:?}, can_do_io: {:?} }}",
-            self.tlb, self.plugin_mem_cbs, self.icount_decr, self.can_do_io
+            "CPUNegativeOffsetState {{ tlb: {:?}, plugin_mem_cbs: {:?}, icount_decr: {:?}, can_do_io: {:?}, libafl_loop_exit: {:?} }}",
+            self.tlb, self.plugin_mem_cbs, self.icount_decr, self.can_do_io, self.libafl_loop_exit
         )
     }
 }
@@ -7024,7 +7028,7 @@ unsafe extern "C" {
     ) -> ::std::os::raw::c_int;
 }
 unsafe extern "C" {
-    pub fn libafl_sigaction_fatal(
+    pub fn libafl_sigaction_forward(
         signum: ::std::os::raw::c_int,
         info: *mut siginfo_t,
         ucontext: *mut ::std::os::raw::c_void,
@@ -8289,7 +8293,7 @@ unsafe extern "C" {
     ) -> bool;
 }
 unsafe extern "C" {
-    pub fn libafl_qemu_set_pc(cpu: *mut CPUState, pc: vaddr) -> !;
+    pub fn libafl_qemu_set_pc(cpu: *mut CPUState, pc: vaddr);
 }
 unsafe extern "C" {
     pub fn libafl_page_from_addr(addr: vaddr) -> vaddr;

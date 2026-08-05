@@ -9,9 +9,7 @@ use libaflmm_qemu_sys::{
 };
 use libc::{c_uchar, strlen};
 use std::ptr::copy_nonoverlapping;
-use std::{
-    mem::MaybeUninit, ops::Range, slice::from_raw_parts_mut, str::from_utf8_unchecked_mut,
-};
+use std::{mem::MaybeUninit, ops::Range, slice::from_raw_parts_mut, str::from_utf8_unchecked_mut};
 
 #[cfg(feature = "python")]
 use pyo3::{IntoPyObject, Py, PyRef, PyRefMut, Python, pyclass, pymethods};
@@ -35,8 +33,6 @@ pub enum TargetSignalHandling {
     ReturnToHarness,
     /// Propagate target signal to host (following QEMU target to host signal translation) by
     /// raising the proper signal.
-    ///
-    /// Note: this only works for signals QEMU does not handle itself as QEMU installs its own signal handlers
     RaiseSignal,
 }
 
@@ -423,7 +419,9 @@ impl Qemu {
                 QemuFatalSignal::Target
             }
             _ => {
-                panic!("Unhandled kind: {kind:?}");
+                log::error!("Unhandled kind: {kind:?}");
+                // fallback to non-qemu host fatal signal
+                QemuFatalSignal::None
             }
         }
     }
