@@ -451,12 +451,12 @@ impl AsanHostModule {
     }
 
     /// Release the shadow address space reserved by the constructor.
-    /// This may be necessary if guest ASan and host ASan must cohabitate.
+    /// This may be necessary if guest `ASan` and host `ASan` must cohabitate.
     /// In that case they may try to reserve the same addresses.
     ///
     /// # Safety
     ///
-    /// No host ASan module may be constructed or used in this process.
+    /// No host `ASan` module may be constructed or used in this process.
     pub unsafe fn release_shadow() {
         RELEASE_ASAN_SHADOW.call_once(|| unsafe {
             munmap(

@@ -21,6 +21,7 @@ use crate::{qemu::CPU, qemu::QEMU_IS_RUNNING, qemu::Qemu};
 
 /// Choose how QEMU target signals should be handled.
 /// It's main use is to describe how crashes and timeouts should be treated.
+#[derive(Debug, Default)]
 pub enum TargetSignalHandling {
     /// Return to harness with the associated exit request on target crashing or timeout signal.
     /// The snapshot mechanism should make sure to recover correctly from the crash.
@@ -33,18 +34,13 @@ pub enum TargetSignalHandling {
     ReturnToHarness,
     /// Propagate target signal to host (following QEMU target to host signal translation) by
     /// raising the proper signal.
+    #[default]
     RaiseSignal,
 }
 
 pub struct QemuMappingsViewer<'a> {
     qemu: &'a Qemu,
     mappings: Vec<MapInfo>,
-}
-
-impl Default for TargetSignalHandling {
-    fn default() -> Self {
-        TargetSignalHandling::ReturnToHarness
-    }
 }
 
 impl<'a> QemuMappingsViewer<'a> {
