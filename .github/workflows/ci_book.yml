@@ -4,7 +4,7 @@ on:
 
 jobs:
   book:
-    runs-on: ${{ fromJSON(vars.RUNS_ON || '["self-hosted","linux"]') }}
+    runs-on: ubuntu-latest
     env:
       RUN_ON_CI: 1
     steps:
@@ -13,27 +13,20 @@ jobs:
       - name: Install vale
         shell: bash
         run: |
-          if ! command -v vale &>/dev/null; then
-            url=$(curl -fsSL https://api.github.com/repos/errata-ai/vale/releases/latest \
-              | grep -o 'https://[^"]*Linux_64-bit\.tar\.gz' | head -1)
-            curl -fsSL "$url" | sudo tar -xz -C /usr/local/bin vale
-          fi
+          url=$(curl -fsSL https://api.github.com/repos/errata-ai/vale/releases/latest \
+            | grep -o 'https://[^"]*Linux_64-bit\.tar\.gz' | head -1)
+          curl -fsSL "$url" | sudo tar -xz -C /usr/local/bin vale
       - name: Install drawio
         shell: bash
         run: |
-          APT_LOCK=/var/lock/github-apt.lock
-          if ! command -v drawio &>/dev/null; then
-            url=$(curl -fsSL https://api.github.com/repos/jgraph/drawio-desktop/releases/latest \
-              | grep -o 'https://[^"]*amd64[^"]*\.deb' | head -1)
-            curl -fsSL "$url" -o /tmp/drawio.deb
-            sudo flock --timeout 300 "$APT_LOCK" apt-get install -y /tmp/drawio.deb
-          fi
-          dpkg -s xvfb &>/dev/null || \
-            sudo flock --timeout 300 "$APT_LOCK" apt-get install -y --no-install-recommends xvfb
+          url=$(curl -fsSL https://api.github.com/repos/jgraph/drawio-desktop/releases/latest \
+            | grep -o 'https://[^"]*amd64[^"]*\.deb' | head -1)
+          curl -fsSL "$url" -o /tmp/drawio.deb
+          sudo apt-get install -y /tmp/drawio.deb
+          sudo apt-get install -y --no-install-recommends xvfb
       - uses: ./.github/actions/setup-rust
         with:
           cache-key: book
-          cache: ${{ vars.RUNS_ON != '' }}
           cargo-install: mdbook,lychee
           cargo-install-git: https://github.com/QBayLogic/mdbook-drawio
       - name: Build book
