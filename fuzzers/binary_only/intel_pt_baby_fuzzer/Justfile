@@ -1,0 +1,40 @@
+import "../../../just/libafl.just"
+FUZZER_NAME := "intel_pt_baby_fuzzer"
+
+build:
+    cargo build --locked --profile {{ PROFILE }}
+
+run: build
+    {{ FUZZER }}
+
+caps: build
+    sudo setcap cap_ipc_lock,cap_sys_ptrace,cap_sys_admin,cap_syslog=ep {{ FUZZER }}
+
+test: build
+    #!/bin/bash
+    set -eu
+
+    OUTPUT_FILE=$(mktemp)
+    trap 'rm -f "$OUTPUT_FILE"' EXIT
+
+    timeout 10s {{ FUZZER }} 2>&1 | tee "$OUTPUT_FILE" || true
+
+    if grep -q "Intel PT is not available" "$OUTPUT_FILE"; then
+        echo "{{ FUZZER_NAME }}: Intel PT is not available on this machine, skipping."
+        echo "Make sure you tried to enable the capabilities first ('just caps')."
+        exit 0
+    fi
+
+    STATS_FILE="./workdir/worker_0/fuzzer_stats"
+    if [ ! -f "$STATS_FILE" ]; then
+        echo "{{ FUZZER_NAME }}: Stats file not found at $STATS_FILE"
+        exit 1
+    fi
+
+    OBJECTIVES=$(jq '.objective' "$STATS_FILE")
+    if [ "$OBJECTIVES" -ge 1 ]; then
+        echo "{{ FUZZER_NAME }}: Found $OBJECTIVES objective(s)."
+    else
+        echo "{{ FUZZER_NAME }}: Fuzzer did not find the artificial bug (stats: $STATS_FILE)"
+        exit 1
+    fi

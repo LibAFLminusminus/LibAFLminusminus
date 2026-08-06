@@ -33,6 +33,10 @@ jobs:
     uses: ./.github/workflows/ci_lints.yml
 
   book:
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
     uses: ./.github/workflows/ci_book.yml
 
   fuzzers:

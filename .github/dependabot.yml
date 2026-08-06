@@ -16,7 +16,11 @@ updates:
       - "/fuzzers/baby/baby_corpus_sharing"
       - "/fuzzers/baby/baby_forkserver"
       - "/fuzzers/baby/baby_inprocess"
+
       - "/fuzzers/inprocess/sqlite"
+
+      - "/fuzzers/binary_only/frida_libpng"
+      - "/fuzzers/binary_only/intel_pt_baby_fuzzer"
     schedule:
       interval: "weekly"
     groups:
