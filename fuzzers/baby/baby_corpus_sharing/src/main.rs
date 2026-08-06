@@ -136,21 +136,17 @@ pub fn main() -> Result<()> {
 
             let executor = StdExecutor::new(state, target::target, tuple_list!(observer), None);
 
-            // this group only waits for testcases coming from the other group, so its
-            // scheduler is empty until something gets synchronized.
-            let mut fuzzer = StdFuzzerBuilder::new(executor)
+            // fuzzers can also be built with the builder
+            let mut fuzzer = StdFuzzer::builder(executor)
                 .feedback(feedback)
                 .objective_feedback(objective_feedback)
-                .allow_empty_scheduler(true)
                 .build(&mut stages, state, rt_handle)?;
 
-            // now fuzz and wait a bit between syncs to avoid wasting cpu cycles
             loop {
-                if let FuzzerOutcome::Idle =
-                    fuzzer.fuzz_one(&mut stages, &mut rand, state, rt_handle)?
-                {
-                    sleep(Duration::from_millis(100));
-                }
+                // fuzz until the fuzzer has nothing more to do
+                fuzzer.fuzz_loop_until_idle(&mut stages, &mut rand, state, rt_handle)?;
+                // sleep for a while, to limit CPU cycles
+                sleep(Duration::from_millis(100));
             }
         })?;
 

@@ -35,17 +35,40 @@ pub trait Fuzzer<E, I, R, S, ST, W> {
         rt_handle: &mut RuntimeHandle<S, W>,
     ) -> Result<FuzzerOutcome>;
 
-    /// Fuzz forever (or until stopped)
+    /// Fuzz forever
     fn fuzz_loop(
         &mut self,
         stages: &mut ST,
         rand: &mut R,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
-    ) -> Result<FuzzerOutcome> {
+    ) -> Result<()> {
         loop {
             if let FuzzerOutcome::Idle = self.fuzz_one(stages, rand, state, rt_handle)? {
-                return Ok(FuzzerOutcome::Idle);
+                return Err(empty!(
+                    "The scheduler is empty, which often indicates the target is incorrectly instrumented. \
+                    Set the `allow_empty_scheduler` option to allow this behaviour."
+                ));
+            }
+        }
+    }
+
+    /// Fuzz until the fuzzing loop gets idle.
+    ///
+    /// It typically happens when the scheduler is empty and no testcases remain to synchronize.
+    ///
+    /// It's more usual to use [`Self::fuzz_loop`] instead.
+    /// This variant makes sense if the fuzzer is not supposed to run indefinitely.
+    fn fuzz_loop_until_idle(
+        &mut self,
+        stages: &mut ST,
+        rand: &mut R,
+        state: &mut S,
+        rt_handle: &mut RuntimeHandle<S, W>,
+    ) -> Result<()> {
+        loop {
+            if let FuzzerOutcome::Idle = self.fuzz_one(stages, rand, state, rt_handle)? {
+                return Ok(());
             }
         }
     }

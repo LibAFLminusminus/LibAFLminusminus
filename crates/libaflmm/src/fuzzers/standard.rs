@@ -23,7 +23,7 @@ use crate::{
 use alloc::{boxed::Box, collections::VecDeque, rc::Rc};
 use core::{marker::PhantomPinned, mem, pin::Pin};
 use libaflmm_bolts::{current_time, impl_serdeany};
-use libaflmm_core::{Result, empty, illegal_state};
+use libaflmm_core::{Result, illegal_state};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tuple_list::tuple_list;
@@ -175,7 +175,6 @@ struct StdFuzzerInner<E, F, H, OF> {
     objective: OF,
     fuzzer_hooks: H,
     loading_stage: usize,
-    allow_empty_scheduler: bool,
     _pinned: PhantomPinned,
 }
 
@@ -190,7 +189,6 @@ pub struct StdFuzzerBuilder<E, F, H, OF> {
     objective_feedback: OF,
     /// the hooks to the fuzzer,
     hooks: H,
-    allow_empty_scheduler: bool,
 }
 
 /// A load
@@ -626,15 +624,8 @@ where
 
             // Get the next index from the scheduler
             let Some(testcase_id) = state.scheduler_mut().next()? else {
-                if inner.allow_empty_scheduler {
-                    inner.post_fuzz_one(state, rt_handle)?;
-                    return Ok(FuzzerOutcome::Idle);
-                }
-
-                return Err(empty!(
-                    "The scheduler is empty, which often indicates the target is incorrectly instrumented. \
-                     Set the `allow_empty_scheduler` option to allow this behaviour."
-                ));
+                inner.post_fuzz_one(state, rt_handle)?;
+                return Ok(FuzzerOutcome::Idle);
             };
 
             inner.fuzzer_hooks.pre_perform_all(
@@ -670,7 +661,6 @@ impl<E> StdFuzzerBuilder<E, (), (), ()> {
             feedback: (),
             objective_feedback: (),
             hooks: (),
-            allow_empty_scheduler: false,
         }
     }
 }
@@ -684,7 +674,6 @@ impl<E, F, H, OF> StdFuzzerBuilder<E, F, H, OF> {
             feedback,
             objective_feedback: self.objective_feedback,
             hooks: self.hooks,
-            allow_empty_scheduler: self.allow_empty_scheduler,
         }
     }
 
@@ -699,7 +688,6 @@ impl<E, F, H, OF> StdFuzzerBuilder<E, F, H, OF> {
             feedback: self.feedback,
             objective_feedback,
             hooks: self.hooks,
-            allow_empty_scheduler: self.allow_empty_scheduler,
         }
     }
 
@@ -711,7 +699,6 @@ impl<E, F, H, OF> StdFuzzerBuilder<E, F, H, OF> {
             feedback: self.feedback,
             objective_feedback: self.objective_feedback,
             hooks: self.hooks,
-            allow_empty_scheduler: self.allow_empty_scheduler,
         }
     }
 
@@ -723,18 +710,7 @@ impl<E, F, H, OF> StdFuzzerBuilder<E, F, H, OF> {
             feedback: self.feedback,
             objective_feedback: self.objective_feedback,
             hooks: fuzzer_hooks,
-            allow_empty_scheduler: self.allow_empty_scheduler,
         }
-    }
-
-    /// Allow an empty scheduler to fuzz.
-    ///
-    /// If true, the fuzzer will return [`FuzzerOutcome::Idle`] when the scheduler is empty.
-    /// Otherwise, it will error out if it ever happens
-    #[must_use]
-    pub fn allow_empty_scheduler(mut self, allow_empty_scheduler: bool) -> Self {
-        self.allow_empty_scheduler = allow_empty_scheduler;
-        self
     }
 
     /// Build a [`StdFuzzer`] from this builder.
@@ -761,7 +737,6 @@ impl<E, F, H, OF> StdFuzzerBuilder<E, F, H, OF> {
                 objective: self.objective_feedback,
                 fuzzer_hooks: self.hooks,
                 loading_stage: 0,
-                allow_empty_scheduler: self.allow_empty_scheduler,
                 _pinned: PhantomPinned,
             }),
         };
