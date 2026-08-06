@@ -43,6 +43,7 @@ jobs:
         with:
           components: clippy, rustfmt
           cache-key: ubuntu
+          cargo-install: cargo-hack
       - uses: ./.github/actions/cache-qemu-nyx
       - name: Check each feature
         env:
