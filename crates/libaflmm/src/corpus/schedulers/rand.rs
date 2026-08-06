@@ -39,9 +39,6 @@ where
 
             self.current = Some(id);
 
-            log::warn!(
-                "There was a call to set_current_scheduled here, what should we do? (cf comments below)"
-            );
             Ok(Some(id))
         }
     }
