@@ -1,5 +1,5 @@
 use crate::{fuzzer::profile::QemuProfile, harness::Harness, options::ReplayOptions};
-use libaflmm::{Result, prelude::*};
+use libaflmm::{Result, fuzzers::Loader, prelude::*};
 use libaflmm_qemu::prelude::*;
 
 pub struct QemuReplay;
@@ -71,14 +71,13 @@ impl QemuReplay {
                     rt_handle,
                 )?;
 
-                let input = BytesInput::from_file(&options.common.input)?;
-                let result = fuzzer.evaluate_input(state, rt_handle, &input)?;
-
-                println!(
-                    "Replay verdict: {:?} ({:?})",
-                    result.exit_kind(),
-                    result.vertict()
-                );
+                for loaded in fuzzer.load_file(&options.common.input, state, rt_handle)? {
+                    println!(
+                        "Replay verdict: {:?} ({})",
+                        loaded.result().exit_kind(),
+                        loaded.result().vertict()
+                    );
+                }
 
                 Ok(())
             })?;

@@ -160,10 +160,12 @@ pub fn main() -> Result<()> {
             )?;
 
             // Generate 8 initial inputs
-            state.generate_initial_inputs(&mut fuzzer, &mut generator, &mut rand, rt_handle, 8)?;
+            fuzzer.load_generator(&mut generator, &mut rand, 8, state, rt_handle)?;
 
             // Start the fuzzer
-            fuzzer.fuzz_loop(&mut stages, &mut rand, state, rt_handle)
+            fuzzer.fuzz_loop(&mut stages, &mut rand, state, rt_handle)?;
+
+            Ok(())
         })?;
 
     // Launch the fuzzer

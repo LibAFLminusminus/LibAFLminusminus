@@ -21,7 +21,7 @@ use crate::{qemu::CPU, qemu::QEMU_IS_RUNNING, qemu::Qemu};
 
 /// Choose how QEMU target signals should be handled.
 /// It's main use is to describe how crashes and timeouts should be treated.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub enum TargetSignalHandling {
     /// Return to harness with the associated exit request on target crashing or timeout signal.
     /// The snapshot mechanism should make sure to recover correctly from the crash.

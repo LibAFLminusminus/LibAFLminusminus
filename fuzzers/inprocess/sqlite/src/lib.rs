@@ -152,18 +152,13 @@ pub extern "C" fn libafl_main() {
             // However, you will lose a lot of performance that way.
             let iters = 1_000_000;
             let mut rand = StdRand::new();
-            // Generator of printable bytearrays of max size 32
-            // In case the corpus is empty (on first run), reset
-            if state.must_load_initial_inputs() {
-                state
-                    .load_initial_inputs(&mut fuzzer, rt_handle, opt.input.as_slice())
+            // Load the initial corpus. Already loaded inputs are skipped on restart.
+            for input_dir in &opt.input {
+                fuzzer
+                    .load_dir(input_dir, state, rt_handle)
                     .unwrap_or_else(|e| {
-                        panic!(
-                            "Failed to load initial corpus at {:?}: {e:?}",
-                            opt.input.as_slice()
-                        )
+                        panic!("Failed to load initial corpus at {input_dir:?}: {e:?}")
                     });
-                println!("We imported {} inputs from disk.", state.corpus().count());
             }
 
             fuzzer.fuzz_loop_for(&mut stages, &mut rand, state, rt_handle, iters)?;

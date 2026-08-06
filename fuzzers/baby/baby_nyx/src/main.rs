@@ -49,9 +49,11 @@ pub fn main() -> Result<()> {
                 StdFuzzer::new(executor, feedback, objective, &mut stages, state, rt_handle)?;
             // Generator of printable bytearrays of max size 32
             let mut generator = RandPrintablesGenerator::new(non_zero!(32));
-            state.generate_initial_inputs(&mut fuzzer, &mut generator, &mut rand, rt_handle, 8)?;
+            fuzzer.load_generator(&mut generator, &mut rand, 8, state, rt_handle)?;
             // start fuzz
-            fuzzer.fuzz_loop(&mut stages, &mut rand, state, rt_handle)
+            fuzzer.fuzz_loop(&mut stages, &mut rand, state, rt_handle)?;
+
+            Ok(())
         })?;
 
     // Launch the fuzzer

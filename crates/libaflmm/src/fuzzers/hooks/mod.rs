@@ -5,7 +5,7 @@ use crate::{
     Result,
     common::DependencyResolver,
     corpus::{TestcaseId, testcase::Testcase},
-    fuzzers::Verdict,
+    fuzzers::{Interest, Verdict},
     runtimes::RuntimeHandle,
 };
 
@@ -34,7 +34,7 @@ pub trait FuzzerHook<E, I, S, W>: DependencyResolver {
         _state: &mut S,
         _rt_handle: &mut RuntimeHandle<S, W>,
         _testcase: &mut Testcase<I>,
-        _verdict: Verdict,
+        _interest: Interest,
     ) -> Result<()> {
         Ok(())
     }
@@ -45,7 +45,6 @@ pub trait FuzzerHook<E, I, S, W>: DependencyResolver {
         _executor: &mut E,
         _state: &mut S,
         _rt_handle: &mut RuntimeHandle<S, W>,
-        _testcase_id: TestcaseId,
         _verdict: Verdict,
     ) -> Result<()> {
         Ok(())
@@ -82,7 +81,7 @@ pub trait FuzzerHooksTuple<E, I, S, W>: DependencyResolver {
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
         testcase: &mut Testcase<I>,
-        verdict: Verdict,
+        interest: Interest,
     ) -> Result<()>;
 
     /// run all [`FuzzerHook::post_add`]
@@ -91,7 +90,6 @@ pub trait FuzzerHooksTuple<E, I, S, W>: DependencyResolver {
         executor: &mut E,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
-        testcase_id: TestcaseId,
         verdict: Verdict,
     ) -> Result<()>;
 
@@ -137,7 +135,7 @@ impl<E, I, S, W> FuzzerHooksTuple<E, I, S, W> for () {
         _state: &mut S,
         _rt_handle: &mut RuntimeHandle<S, W>,
         _testcase: &mut Testcase<I>,
-        _verdict: Verdict,
+        _interest: Interest,
     ) -> Result<()> {
         Ok(())
     }
@@ -146,7 +144,6 @@ impl<E, I, S, W> FuzzerHooksTuple<E, I, S, W> for () {
         _executor: &mut E,
         _state: &mut S,
         _rt_handle: &mut RuntimeHandle<S, W>,
-        _testcase_id: TestcaseId,
         _verdict: Verdict,
     ) -> Result<()> {
         Ok(())
@@ -192,12 +189,12 @@ where
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
         testcase: &mut Testcase<I>,
-        verdict: Verdict,
+        interest: Interest,
     ) -> Result<()> {
         self.0
-            .pre_add(executor, state, rt_handle, testcase, verdict)?;
+            .pre_add(executor, state, rt_handle, testcase, interest)?;
         self.1
-            .pre_add_all(executor, state, rt_handle, testcase, verdict)
+            .pre_add_all(executor, state, rt_handle, testcase, interest)
     }
 
     fn post_add_all(
@@ -205,13 +202,10 @@ where
         executor: &mut E,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
-        testcase_id: TestcaseId,
         verdict: Verdict,
     ) -> Result<()> {
-        self.0
-            .post_add(executor, state, rt_handle, testcase_id, verdict)?;
-        self.1
-            .post_add_all(executor, state, rt_handle, testcase_id, verdict)
+        self.0.post_add(executor, state, rt_handle, verdict)?;
+        self.1.post_add_all(executor, state, rt_handle, verdict)
     }
 
     fn pre_perform_all(

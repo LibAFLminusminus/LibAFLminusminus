@@ -127,16 +127,11 @@ impl QemuFuzzer {
                     rt_handle,
                 )?;
 
-                if state.must_load_initial_inputs() {
-                    let corpus_dirs = [&options.common.input];
+                fuzzer.load_dir(&options.common.input, state, rt_handle)?;
 
-                    state
-                        .load_initial_inputs(&mut fuzzer, rt_handle, &corpus_dirs)
-                        .expect(&format!("Failed to load initial corpus at {corpus_dirs:?}"));
-                    println!("We imported {} inputs from disk.", state.corpus().count());
-                }
+                fuzzer.fuzz_loop(&mut stages, &mut rand, state, rt_handle)?;
 
-                fuzzer.fuzz_loop(&mut stages, &mut rand, state, rt_handle)
+                Ok(())
             })?;
 
         StdLauncher::builder()
