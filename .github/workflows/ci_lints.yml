@@ -27,7 +27,7 @@ jobs:
     strategy:
       matrix:
         # check CI_INSTANCES if you change that to match
-        instance_idx: ["0", "1"]
+        instance_idx: ["0", "1", "2", "3", "4", "5", "6", "7"]
       fail-fast: false
     steps:
       - uses: actions/checkout@v6
@@ -48,7 +48,7 @@ jobs:
       - name: Check each feature
         env:
           # check instance_idx if you change that to match
-          CI_INSTANCES: 4
+          CI_INSTANCES: 8
           LLVM_VERSION: ${{ vars.MAIN_LLVM_VERSION }}
         run: cargo run --locked --manifest-path utils/ci_splitter/Cargo.toml -- ${{ matrix.instance_idx }}
 
