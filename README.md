@@ -9,7 +9,7 @@ Finally, we decided to deliberately make important breaking changes, which means
 
 Since the changes we made are still quite early, we are unsure whether the community will prefer this version over the original design of `LibAFL`
 
-For all those reasons, we thought it was easier to fork the project completely to let the use choose which design they would prefer to use.
+For all those reasons, we thought it was easier to fork the project completely to let users choose which design they would prefer to use.
 We will keep these changes separated (at least for now), to have a clear comparison point between `LibAFL` and `LibAFL--`, allowing us to easily spot what works and what does not.
 
 ### I just want to know what changed compared with `LibAFL`
