@@ -68,6 +68,10 @@ jobs:
       - uses: ./.github/actions/cache-qemu-nyx
         with:
           target-dir: fuzzers/${{ matrix.fuzzer }}/target/debug
+      - uses: ./.github/actions/cache-qemu
+        with:
+          target-dir: fuzzers/${{ matrix.fuzzer }}/target/release
+          build-id: ${{ matrix.fuzzer }}
       - name: Run test
         shell: bash
         run: |
