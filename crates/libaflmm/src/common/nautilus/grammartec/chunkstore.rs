@@ -33,7 +33,7 @@ impl ChunkStoreWrapper {
 }
 
 /// A store for chunks of trees
-#[derive(Debug, Serialize, Deserialize, Default)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ChunkStore {
     nts_to_chunks: HashMap<NTermId, Vec<(usize, NodeId)>>,
     seen_outputs: HashSet<Vec<u8>>,

@@ -6,7 +6,7 @@ authors = [
   "Dominik Maier <domenukk@gmail.com>",
   "Romain Malmain <rmalmain@pm.me>",
 ]
-edition = "2021"
+edition = "2024"
 
 [features]
 default = ["std", "custom_insn", "arm"]

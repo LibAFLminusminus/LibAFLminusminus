@@ -5,7 +5,7 @@ authors = [
   "Andrea Fioraldi <andreafioraldi@gmail.com>",
   "Dominik Maier <domenukk@gmail.com>",
 ]
-edition = "2021"
+edition = "2024"
 
 [features]
 default = ["std"]
@@ -22,6 +22,8 @@ opt-level = 3
 debug = true
 
 [dependencies]
-libafl = { path = "../../../crates/libafl", features = ["default", "nautilus"] }
-libafl_bolts = { path = "../../../crates/libafl_bolts" }
+libaflmm = { path = "../../../crates/libaflmm", features = ["default", "nautilus"] }
+libaflmm_bolts = { path = "../../../crates/libaflmm_bolts" }
 log = { version = "0.4.22", features = ["release_max_level_info"] }
+
+env_logger = "0.11.7"
