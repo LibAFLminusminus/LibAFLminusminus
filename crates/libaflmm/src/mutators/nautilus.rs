@@ -16,7 +16,7 @@ use crate::{
         mutator::GrammarMutator as BackingMutator,
         tree::{Tree, TreeMutation},
     },
-    feedbacks::NautilusChunksMetadata,
+    feedbacks::{NAUTILUS_CHUNKS_METADATA_NAME, NautilusChunksMetadata},
     fuzzers::EvaluationResult,
     generators::nautilus::NautilusContext,
     inputs::nautilus::NautilusInput,
@@ -186,7 +186,10 @@ where
         let mut tmp = vec![];
         // Create a fast temp mutator to get around borrowing..
         let mut rand_cpy = { RomuDuoJrRand::with_seed(rand.next()) };
-        let meta = named_metadata::<NautilusChunksMetadata>(state.metadata_map(), self.name())?;
+        let meta = named_metadata::<NautilusChunksMetadata>(
+            state.metadata_map(),
+            NAUTILUS_CHUNKS_METADATA_NAME,
+        )?;
         self.mutator
             .mut_splice::<_, _>(
                 &mut rand_cpy,

@@ -6,6 +6,10 @@ use crate::{
     executors::{Executor, ExitKind, hooks::ExecutorHooksTuple},
     observers::ObserversTuple,
     runtimes::RuntimeHandle,
+    runtimes::{
+        inprocess::{CrashStatus, TimeoutStatus},
+        utils::OsTerminationParams,
+    },
 };
 use core::{marker::PhantomData, time::Duration};
 use libaflmm_bolts::{tuple_list, tuples::RefIndexable};
@@ -107,6 +111,32 @@ where
         self.hooks.post_exec_all(state, input);
 
         Ok(res)
+    }
+
+    unsafe fn handle_crash(
+        &mut self,
+        state: &mut S,
+        input: Option<&I>,
+        _params: &OsTerminationParams,
+    ) -> Result<CrashStatus> {
+        if let Some(input) = input {
+            self.hooks.post_exec_all(state, input);
+        }
+
+        Ok(CrashStatus::TargetCrash)
+    }
+
+    unsafe fn handle_timeout(
+        &mut self,
+        state: &mut S,
+        input: Option<&I>,
+        _params: &OsTerminationParams,
+    ) -> Result<TimeoutStatus> {
+        if let Some(input) = input {
+            self.hooks.post_exec_all(state, input);
+        }
+
+        Ok(TimeoutStatus::Exit)
     }
 
     fn observers(&self) -> RefIndexable<&Self::Observers, Self::Observers> {
