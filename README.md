@@ -1,9 +1,4 @@
-# `LibAFL--`, the unbloated fuzzer library
-
-Temporary README.
-
-Add temp stuff to `IDEAS.md`, this is useless atm.
-
+# `LibAFL--`, the unbloated fuzzer librar
 
 # Why `LibAFL--`?
 
