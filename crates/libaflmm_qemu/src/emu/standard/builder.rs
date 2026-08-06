@@ -2,6 +2,8 @@ use crate::Result;
 use crate::emu::NopInputWriter;
 use crate::emu::StdInputWriter;
 use crate::emu::snapshots::StdSnapshotManager;
+#[cfg(feature = "usermode")]
+use crate::qemu::TargetSignalHandling;
 #[cfg(doc)]
 use crate::qemu::config::QemuConfig;
 use crate::{
@@ -46,18 +48,23 @@ impl<C, I, S>
 {
     #[must_use]
     pub fn empty() -> Self {
-        Self {
+        let builder = Self {
             modules: tuple_list!(),
             snapshot_manager: NopSnapshotManager,
             command_manager: NopCommandManager,
             input_writer: NopInputWriter,
             qemu_parameters: None,
             phantom: PhantomData,
-        }
+        };
+
+        #[cfg(feature = "usermode")]
+        let builder = { builder.target_crash_handling(&TargetSignalHandling::default()) };
+
+        builder
     }
 }
 
-#[cfg(all(feature = "usermode", not(feature = "systemmode")))]
+#[cfg(feature = "usermode")]
 impl<C, I, S>
     StdEmulatorBuilder<
         C,
@@ -76,14 +83,15 @@ where
     #[must_use]
     #[expect(clippy::should_implement_trait)]
     pub fn default() -> Self {
-        Self {
+        let builder = Self {
             modules: tuple_list!(),
             command_manager: StdCommandManager::default(),
             snapshot_manager: StdSnapshotManager::default(),
             input_writer: StdInputWriter::default(),
             qemu_parameters: None,
             phantom: PhantomData,
-        }
+        };
+        builder.target_crash_handling(&TargetSignalHandling::default())
     }
 }
 
@@ -286,5 +294,16 @@ where
             snapshot_manager,
             self.qemu_parameters,
         )
+    }
+}
+
+#[cfg(feature = "usermode")]
+impl<C, CM, ET, QP, I, IW, S, SM> StdEmulatorBuilder<C, CM, ET, QP, I, IW, S, SM> {
+    #[must_use]
+    pub fn target_crash_handling(self, target_crash_handling: &TargetSignalHandling) -> Self {
+        unsafe {
+            Qemu::get_unchecked().set_target_crash_handling(target_crash_handling);
+        }
+        self
     }
 }

@@ -21,7 +21,7 @@ use libaflmm::{executors::ExitKind, observers::ObserversTuple};
 use libaflmm_bolts::os::unix_signals::Signal;
 use libaflmm_qemu_sys::{GuestAddr, GuestUlong, MapInfo};
 use meminterval::{Interval, IntervalTree};
-use nix::sys::mman::{MapFlags, ProtFlags, mmap_anonymous};
+use nix::sys::mman::{MapFlags, ProtFlags, mmap_anonymous, munmap};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use std::{
     env,
@@ -31,8 +31,9 @@ use std::{
     num::NonZeroUsize,
     path::PathBuf,
     pin::Pin,
+    ptr::NonNull,
     result,
-    sync::Mutex,
+    sync::{Mutex, Once},
 };
 
 #[ctor::ctor(unsafe)]
@@ -65,6 +66,8 @@ fn reserve_asan_shadow() {
         .expect(msg);
     }
 }
+
+static RELEASE_ASAN_SHADOW: Once = Once::new();
 
 // TODO at some point, merge parts with libaflmm_frida
 
@@ -447,6 +450,33 @@ impl AsanHostModule {
         }
     }
 
+    /// Release the shadow address space reserved by the constructor.
+    /// This may be necessary if guest `ASan` and host `ASan` must cohabitate.
+    /// In that case they may try to reserve the same addresses.
+    ///
+    /// # Safety
+    ///
+    /// No host `ASan` module may be constructed or used in this process.
+    pub unsafe fn release_shadow() {
+        RELEASE_ASAN_SHADOW.call_once(|| unsafe {
+            munmap(
+                NonNull::new(HIGH_SHADOW_ADDR.get() as *mut c_void).unwrap(),
+                HIGH_SHADOW_SIZE.get(),
+            )
+            .expect("Failed to release high ASan shadow");
+            munmap(
+                NonNull::new(LOW_SHADOW_ADDR.get() as *mut c_void).unwrap(),
+                LOW_SHADOW_SIZE.get(),
+            )
+            .expect("Failed to release low ASan shadow");
+            munmap(
+                NonNull::new(GAP_SHADOW_ADDR.get() as *mut c_void).unwrap(),
+                GAP_SHADOW_SIZE.get(),
+            )
+            .expect("Failed to release ASan shadow gap");
+        });
+    }
+
     #[must_use]
     pub fn must_instrument(&self, addr: GuestAddr) -> bool {
         self.filter.allowed(&addr)
@@ -536,16 +566,21 @@ impl AsanGiovese {
     #[allow(dead_code)]
     extern "C" fn fake_syscall(
         mut self: Pin<&mut Self>,
-        sys_num: i32,
-        a0: GuestUlong,
-        a1: GuestUlong,
-        a2: GuestUlong,
-        a3: GuestUlong,
-        _a4: GuestUlong,
-        _a5: GuestUlong,
-        _a6: GuestUlong,
-        _a7: GuestUlong,
+        sys_num: &mut i32,
+        a0: &mut GuestUlong,
+        a1: &mut GuestUlong,
+        a2: &mut GuestUlong,
+        a3: &mut GuestUlong,
+        _a4: &mut GuestUlong,
+        _a5: &mut GuestUlong,
+        _a6: &mut GuestUlong,
+        _a7: &mut GuestUlong,
     ) -> SyscallHookResult {
+        let sys_num = *sys_num;
+        let a0 = *a0;
+        let a1 = *a1;
+        let a2 = *a2;
+        let a3 = *a3;
         if sys_num == QASAN_FAKESYS_NR {
             let mut r = 0;
             let qemu = Qemu::get().unwrap();
@@ -1355,21 +1390,25 @@ pub fn qasan_fake_syscall<ET, I, S>(
     qemu: Qemu,
     emulator_modules: &mut EmulatorModules<ET, I, S>,
     _state: &mut S,
-    sys_num: i32,
-    a0: GuestUlong,
-    a1: GuestUlong,
-    a2: GuestUlong,
-    _a3: GuestUlong,
-    _a4: GuestUlong,
-    _a5: GuestUlong,
-    _a6: GuestUlong,
-    _a7: GuestUlong,
+    sys_num: &mut i32,
+    a0: &mut GuestUlong,
+    a1: &mut GuestUlong,
+    a2: &mut GuestUlong,
+    _a3: &mut GuestUlong,
+    _a4: &mut GuestUlong,
+    _a5: &mut GuestUlong,
+    _a6: &mut GuestUlong,
+    _a7: &mut GuestUlong,
 ) -> SyscallHookResult
 where
     ET: EmulatorModuleTuple<I, S>,
     I: Unpin,
     S: Unpin,
 {
+    let sys_num = *sys_num;
+    let a0 = *a0;
+    let a1 = *a1;
+    let a2 = *a2;
     if sys_num == QASAN_FAKESYS_NR {
         let h = emulator_modules.get_mut::<AsanHostModule>().unwrap();
         match QasanAction::try_from(a0).expect("Invalid QASan action number") {
@@ -1488,7 +1527,7 @@ pub unsafe fn asan_report(rt: &AsanGiovese, qemu: Qemu, pc: GuestAddr, err: &Asa
     }
 
     // fix pc in case it is not synced (in hooks)
-    qemu.write_reg(Regs::Pc, pc as GuestReg).unwrap();
+    qemu.write_pc(pc as GuestReg, false).unwrap();
     eprint!(
         "Context:\n{}",
         qemu.current_cpu().unwrap().display_context()

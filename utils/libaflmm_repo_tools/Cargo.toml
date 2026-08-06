@@ -14,9 +14,11 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
-project-root = "0.2"
 walkdir = "2.5"
 regex = { workspace = true }
+serde = { workspace = true, features = ["derive", "std"] }
+serde_json = { workspace = true, features = ["std"] }
+serde_yaml = { workspace = true }
 tokio = { version = "1.52", features = [
   "process",
   "rt",

@@ -1,11 +1,8 @@
 //! The queue corpus scheduler implements an AFL-like queue mechanism
 
 use crate::common::DependencyResolver;
-use crate::{
-    Error,
-    corpus::{Scheduler, testcase::TestcaseId},
-};
-use alloc::{borrow::ToOwned, vec::Vec};
+use crate::corpus::{Scheduler, testcase::TestcaseId};
+use alloc::vec::Vec;
 use libaflmm_core::Result;
 use serde::{Deserialize, Serialize};
 
@@ -30,9 +27,9 @@ impl Scheduler for QueueScheduler {
     }
 
     /// Gets the next entry in the queue
-    fn next(&mut self) -> Result<TestcaseId> {
+    fn next(&mut self) -> Result<Option<TestcaseId>> {
         if self.queue.is_empty() {
-            Err(Error::empty("Scheduler queue".to_owned()))
+            Ok(None)
         } else {
             let idx = if let Some(current) = self.current {
                 if self.queue.get(current + 1).is_some() {
@@ -44,7 +41,7 @@ impl Scheduler for QueueScheduler {
                 0
             };
             self.current = Some(idx);
-            Ok(self.queue[idx])
+            Ok(Some(self.queue[idx]))
         }
     }
 
@@ -130,13 +127,13 @@ mod tests {
 
         let mut state = StdState::new(context, q, ObjectiveInMemoryCorpus::new()).unwrap();
 
-        let next_id = state.corpus_mut().scheduler_mut().next().unwrap();
+        let next_id = state.corpus_mut().scheduler_mut().next().unwrap().unwrap();
         assert_eq!(next_id, id1);
 
-        let next_id = state.corpus_mut().scheduler_mut().next().unwrap();
+        let next_id = state.corpus_mut().scheduler_mut().next().unwrap().unwrap();
         assert_eq!(next_id, id2);
 
-        let next_id = state.corpus_mut().scheduler_mut().next().unwrap();
+        let next_id = state.corpus_mut().scheduler_mut().next().unwrap().unwrap();
         assert_eq!(next_id, id3);
     }
 }

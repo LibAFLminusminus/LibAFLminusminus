@@ -1,6 +1,6 @@
 use crate::emu::Emulator;
 #[cfg(feature = "usermode")]
-use crate::qemu::{Qemu, QemuSignalContext};
+use crate::qemu::{Qemu, QemuFatalSignal};
 #[cfg(feature = "usermode")]
 use libaflmm::runtimes::OsTerminationParams;
 #[cfg(feature = "usermode")]
@@ -38,7 +38,7 @@ where
     EMU: Emulator<I, S>,
     OT: ObserversTuple<S>,
 {
-    let (signal, mut info, mut context) = match params {
+    let (signal, info, context) = match params {
         OsTerminationParams::Signal {
             signal,
             siginfo,
@@ -59,24 +59,23 @@ where
             // QEMU is running, we must determine if we are coming from qemu's signal handler or not
             log::debug!("Signal has been triggered while QEMU was running");
 
-            match qemu.signal_ctx() {
-                QemuSignalContext::OutOfQemuSignalHandler => {
-                    // we did not run QEMU's signal handler, run it now
-                    log::debug!("It's a simple signal, let QEMU handle it first");
+            match qemu.fatal_signal() {
+                QemuFatalSignal::None => {
+                    // non-qemu related fatal signal
+                    let si_addr = unsafe { info.si_addr() as usize };
+                    log::error!(
+                        "crash at addr: {si_addr:#x} outside of QEMU's signal handler. this is a fuzzer bug."
+                    );
 
-                    unsafe {
-                        qemu.run_signal_handler(signal.into(), &mut info, context.as_mut());
-                    }
-
-                    panic!("QEMU should have handled the signal handler by now");
+                    Ok(CrashStatus::FuzzerCrash)
                 }
-                QemuSignalContext::InQemuSignalHandlerHost => {
-                    // we are running in a nested signal handling
-                    // and the signal is a host QEMU signal
+                QemuFatalSignal::Host => {
+                    // qemu escalated the signal as a real host fault.
+                    // this is a host bug in qemu-related code.
 
                     let si_addr = unsafe { info.si_addr() as usize };
                     log::error!(
-                        "QEMU Host crash crashed at addr 0x{si_addr:x}... Bug in QEMU or Emulator modules? Exiting.\n"
+                        "QEMU Host crash at addr 0x{si_addr:x}... Bug in QEMU or Emulator modules. Exiting.\n"
                     );
 
                     if let Some(cpu) = qemu.current_cpu() {
@@ -85,9 +84,9 @@ where
 
                     Ok(CrashStatus::FuzzerCrash)
                 }
-                QemuSignalContext::InQemuSignalHandlerTarget => {
-                    // we are running in a nested signal handler and the signal is a target signal.
-                    // run qemu hooks then report the crash.
+                QemuFatalSignal::Target => {
+                    // qemu escalated the signal as a guest fault
+                    // this is a guest crash
 
                     log::debug!(
                         "QEMU Target signal received that should be handled by host. It is a target crash."

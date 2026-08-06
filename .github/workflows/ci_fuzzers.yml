@@ -3,21 +3,28 @@ on:
   workflow_call: {}
 
 jobs:
+  matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      standard: ${{ steps.fuzzers.outputs.standard }}
+      qemu: ${{ steps.fuzzers.outputs.qemu }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Read fuzzer list
+        id: fuzzers
+        run: >-
+          cargo run --quiet --locked
+          --manifest-path utils/libaflmm_repo_tools/Cargo.toml
+          -- --fuzzer-matrix >> "$GITHUB_OUTPUT"
+
   fuzzers:
+    needs: matrix
     name: Testing ${{ matrix.fuzzer }}
     runs-on: ${{ fromJSON(vars.RUNS_ON || '["self-hosted","linux"]') }}
     strategy:
       fail-fast: false
       matrix:
-        fuzzer:
-          # Tutorial
-          - baby/baby_cmplog
-          - baby/baby_forkserver
-          - baby/baby_inprocess
-          - baby/baby_corpus_sharing
-
-          # In process
-          - inprocess/sqlite
+        fuzzer: ${{ fromJSON(needs.matrix.outputs.standard) }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -39,17 +46,13 @@ jobs:
           just test
 
   fuzzers-qemu:
+    needs: matrix
     name: Testing ${{ matrix.fuzzer }} (QEMU)
     runs-on: ${{ fromJSON(vars.RUNS_ON || '["self-hosted","linux"]') }}
     strategy:
       fail-fast: false
       matrix:
-        fuzzer:
-          # Tutorial
-          - baby/baby_nyx
-
-          # Full-system
-          - full_system/qemu_baremetal
+        fuzzer: ${{ fromJSON(needs.matrix.outputs.qemu) }}
     steps:
       - uses: actions/checkout@v6
         with:

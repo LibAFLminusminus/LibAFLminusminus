@@ -7,7 +7,7 @@ use crate::{
     Result,
     common::DependencyResolver,
     corpus::testcase::{Testcase, TestcaseFilenameFormat},
-    fuzzers::{FuzzerHook, Verdict},
+    fuzzers::{FuzzerHook, Interest},
     runtimes::RuntimeHandle,
 };
 
@@ -56,7 +56,7 @@ where
         state: &mut S,
         _rt_handle: &mut RuntimeHandle<S, W>,
         testcase: &mut Testcase<I>,
-        _verdict: Verdict,
+        _interest: Interest,
     ) -> Result<()> {
         let fmt = TestcaseFilenameFormat::Custom(self.name_generator.set_name(state, testcase)?);
         testcase.set_filename_fmt(fmt);

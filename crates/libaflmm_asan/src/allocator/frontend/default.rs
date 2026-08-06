@@ -36,6 +36,7 @@ struct Allocation {
     backend_addr: GuestAddr,
     backend_len: usize,
     backend_align: usize,
+    freed: bool,
 }
 
 pub struct DefaultFrontend<B: GlobalAlloc + Send, S: Shadow, T: Tracking> {
@@ -44,7 +45,7 @@ pub struct DefaultFrontend<B: GlobalAlloc + Send, S: Shadow, T: Tracking> {
     tracking: T,
     red_zone_size: usize,
     allocations: HashMap<GuestAddr, Allocation, Hasher>,
-    quarantine: VecDeque<Allocation>,
+    quarantine: VecDeque<GuestAddr>,
     quarantine_size: usize,
     quaratine_used: usize,
 }
@@ -57,15 +58,17 @@ impl<B: GlobalAlloc + Send, S: Shadow, T: Tracking> AllocatorFrontend for Defaul
         if !align.is_multiple_of(size_of::<GuestAddr>()) {
             Err(DefaultFrontendError::InvalidAlignment(align))?;
         }
-        let size = len + align;
-        let allocated_size = (self.red_zone_size * 2) + Self::align_up(size);
+
+        let allocated_size = len
+            .checked_add(align) // size
+            .and_then(Self::checked_align_up) // aligned size
+            .and_then(|size| size.checked_add(self.red_zone_size * 2)) // red zone space
+            .ok_or(DefaultFrontendError::AllocationTooLarge(len))?;
+
         assert!(allocated_size.is_multiple_of(Self::ALLOC_ALIGN_SIZE));
-        let ptr = unsafe {
-            self.backend.alloc(
-                Layout::from_size_align(allocated_size, Self::ALLOC_ALIGN_SIZE)
-                    .map_err(DefaultFrontendError::LayoutError)?,
-            )
-        };
+        let layout = Layout::from_size_align(allocated_size, Self::ALLOC_ALIGN_SIZE)
+            .map_err(|_| DefaultFrontendError::AllocationTooLarge(len))?;
+        let ptr = unsafe { self.backend.alloc(layout) };
 
         if ptr.is_null() {
             Err(DefaultFrontendError::AllocatorError)?;
@@ -94,6 +97,7 @@ impl<B: GlobalAlloc + Send, S: Shadow, T: Tracking> AllocatorFrontend for Defaul
                 backend_addr: orig,
                 backend_len: allocated_size,
                 backend_align: Self::ALLOC_ALIGN_SIZE,
+                freed: false,
             },
         );
 
@@ -124,22 +128,26 @@ impl<B: GlobalAlloc + Send, S: Shadow, T: Tracking> AllocatorFrontend for Defaul
             return Ok(());
         }
 
-        let alloc = self
-            .allocations
-            .remove(&addr)
-            .ok_or_else(|| DefaultFrontendError::InvalidAddress(addr))?;
+        let Some(alloc) = self.allocations.get_mut(&addr) else {
+            return Err(DefaultFrontendError::InvalidAddress(addr));
+        };
+
+        if alloc.freed {
+            return Err(DefaultFrontendError::DoubleFree(addr));
+        }
+        alloc.freed = true;
+
+        let backend_addr = alloc.backend_addr;
+        let backend_len = alloc.backend_len;
+
         self.shadow
-            .poison(
-                alloc.backend_addr,
-                alloc.backend_len,
-                PoisonType::AsanHeapFreed,
-            )
+            .poison(backend_addr, backend_len, PoisonType::AsanHeapFreed)
             .map_err(|e| DefaultFrontendError::ShadowError(e))?;
         self.tracking
             .untrack(addr)
             .map_err(|e| DefaultFrontendError::TrackingError(e))?;
-        self.quaratine_used += alloc.backend_len;
-        self.quarantine.push_back(alloc);
+        self.quaratine_used += backend_len;
+        self.quarantine.push_back(addr);
         self.purge_quarantine()?;
         Ok(())
     }
@@ -149,6 +157,7 @@ impl<B: GlobalAlloc + Send, S: Shadow, T: Tracking> AllocatorFrontend for Defaul
         let alloc = self
             .allocations
             .get(&addr)
+            .filter(|alloc| !alloc.freed)
             .ok_or_else(|| DefaultFrontendError::InvalidAddress(addr))?;
         Ok(alloc.frontend_len)
     }
@@ -174,6 +183,9 @@ impl<B: GlobalAlloc + Send, S: Shadow, T: Tracking> DefaultFrontend<B, S, T> {
         if !red_zone_size.is_multiple_of(Self::ALLOC_ALIGN_SIZE) {
             Err(DefaultFrontendError::InvalidRedZoneSize(red_zone_size))?;
         }
+        if red_zone_size.checked_mul(2).is_none() {
+            Err(DefaultFrontendError::InvalidRedZoneSize(red_zone_size))?;
+        }
         Ok(DefaultFrontend::<B, S, T> {
             backend,
             shadow,
@@ -188,9 +200,13 @@ impl<B: GlobalAlloc + Send, S: Shadow, T: Tracking> DefaultFrontend<B, S, T> {
 
     fn purge_quarantine(&mut self) -> Result<(), DefaultFrontendError<S, T>> {
         while self.quaratine_used > self.quarantine_size {
-            let alloc = self
+            let addr = self
                 .quarantine
                 .pop_front()
+                .ok_or(DefaultFrontendError::QuarantineCorruption)?;
+            let alloc = self
+                .allocations
+                .remove(&addr)
                 .ok_or(DefaultFrontendError::QuarantineCorruption)?;
             unsafe {
                 self.backend.dealloc(
@@ -204,10 +220,13 @@ impl<B: GlobalAlloc + Send, S: Shadow, T: Tracking> DefaultFrontend<B, S, T> {
         Ok(())
     }
 
+    fn checked_align_up(size: usize) -> Option<usize> {
+        let val = size.checked_add(Self::ALLOC_ALIGN_SIZE - 1)?;
+        Some(val & !(Self::ALLOC_ALIGN_SIZE - 1))
+    }
+
     fn align_up(size: usize) -> usize {
-        assert!(size <= GuestAddr::MAX - (Self::ALLOC_ALIGN_SIZE - 1));
-        let val = size + (Self::ALLOC_ALIGN_SIZE - 1);
-        val & !(Self::ALLOC_ALIGN_SIZE - 1)
+        Self::checked_align_up(size).expect("size overflows on align up")
     }
 
     pub fn shadow(&self) -> &S {
@@ -239,12 +258,16 @@ pub enum DefaultFrontendError<S: Shadow, T: Tracking> {
     InvalidAlignment(usize),
     #[error("Allocator error")]
     AllocatorError,
+    #[error("Allocation too large at {0:#x}")]
+    AllocationTooLarge(usize),
     #[error("Layout error: {0:?}")]
     LayoutError(LayoutError),
     #[error("Shadow error: {0:?}")]
     ShadowError(S::Error),
     #[error("Tracking error: {0:?}")]
     TrackingError(T::Error),
+    #[error("Double free of {0:#x}")]
+    DoubleFree(GuestAddr),
     #[error("Invalid address: {0:x}")]
     InvalidAddress(GuestAddr),
     #[error("Quarantine corruption")]

@@ -7,11 +7,9 @@ use libaflmm_qemu_sys::{
     libafl_get_initial_brk, libafl_load_addr, libafl_maps_first, libafl_maps_next, libafl_set_brk,
     mmap_next_start, pageflags_get_root, read_self_maps,
 };
-use libc::{c_int, c_uchar, siginfo_t, strlen, ucontext_t};
+use libc::{c_uchar, strlen};
 use std::ptr::copy_nonoverlapping;
-use std::{
-    mem::MaybeUninit, ops::Range, ptr, slice::from_raw_parts_mut, str::from_utf8_unchecked_mut,
-};
+use std::{mem::MaybeUninit, ops::Range, slice::from_raw_parts_mut, str::from_utf8_unchecked_mut};
 
 #[cfg(feature = "python")]
 use pyo3::{IntoPyObject, Py, PyRef, PyRefMut, Python, pyclass, pymethods};
@@ -23,6 +21,7 @@ use crate::{qemu::CPU, qemu::QEMU_IS_RUNNING, qemu::Qemu};
 
 /// Choose how QEMU target signals should be handled.
 /// It's main use is to describe how crashes and timeouts should be treated.
+#[derive(Debug, Default, Clone)]
 pub enum TargetSignalHandling {
     /// Return to harness with the associated exit request on target crashing or timeout signal.
     /// The snapshot mechanism should make sure to recover correctly from the crash.
@@ -35,22 +34,13 @@ pub enum TargetSignalHandling {
     ReturnToHarness,
     /// Propagate target signal to host (following QEMU target to host signal translation) by
     /// raising the proper signal.
-    /// This the safe policy, since the target is completely reset.
-    /// However, it could make the fuzzer much slower if many crashes are triggered during the
-    /// fuzzing campaign.
+    #[default]
     RaiseSignal,
 }
 
 pub struct QemuMappingsViewer<'a> {
     qemu: &'a Qemu,
     mappings: Vec<MapInfo>,
-}
-
-impl Default for TargetSignalHandling {
-    /// Historically, `LibAFL` QEMU raises the target signal to the host.
-    fn default() -> Self {
-        TargetSignalHandling::RaiseSignal
-    }
 }
 
 impl<'a> QemuMappingsViewer<'a> {
@@ -116,13 +106,13 @@ pub struct ImageInfo {
     pub exec_stack: bool,
 }
 
-pub enum QemuSignalContext {
-    /// We are not in QEMU's signal handler, no signal is being propagated.
-    OutOfQemuSignalHandler,
-    /// We are propagating a host signal from QEMU signal handler.
-    InQemuSignalHandlerHost,
-    /// We are propagating a target signal from QEMU signal handler
-    InQemuSignalHandlerTarget,
+pub enum QemuFatalSignal {
+    /// signal not propagated by QEMU. this is a native host signal
+    None,
+    /// qemu escalated the signal as host fault
+    Host,
+    /// qemu escalated the signal as target fault
+    Target,
 }
 
 // Consider a private new only for Emulator
@@ -411,46 +401,24 @@ impl Qemu {
     }
 
     #[must_use]
-    pub fn signal_ctx(&self) -> QemuSignalContext {
-        unsafe {
-            let qemu_signal_ctx = *libaflmm_qemu_sys::libafl_qemu_signal_context();
+    pub fn fatal_signal(&self) -> QemuFatalSignal {
+        let kind = unsafe { libaflmm_qemu_sys::libafl_qemu_fatal_signal() };
 
-            if qemu_signal_ctx.in_qemu_sig_hdlr {
-                if qemu_signal_ctx.is_target_signal {
-                    QemuSignalContext::InQemuSignalHandlerTarget
-                } else {
-                    QemuSignalContext::InQemuSignalHandlerHost
-                }
-            } else {
-                QemuSignalContext::OutOfQemuSignalHandler
+        match kind {
+            libaflmm_qemu_sys::libafl_qemu_fatal_signal_kind_LIBAFL_QEMU_FATAL_NONE => {
+                QemuFatalSignal::None
             }
-        }
-    }
-
-    /// Runs QEMU signal's handler
-    /// If it is already running, returns true.
-    /// In that case, it would most likely mean we are in a signal loop.
-    ///
-    /// # Safety
-    ///
-    /// Run QEMU's native signal handler.
-    ///
-    /// Needlessly to say, it should be used very carefully.
-    /// It will run QEMU's signal handler, and maybe propagate new signals.
-    pub(crate) unsafe fn run_signal_handler(
-        &self,
-        host_sig: c_int,
-        info: &mut siginfo_t,
-        puc: Option<&mut ucontext_t>,
-    ) {
-        let puc: *mut ucontext_t = if let Some(ctx) = puc {
-            ptr::from_mut(ctx)
-        } else {
-            ptr::null_mut()
-        };
-
-        unsafe {
-            libaflmm_qemu_sys::libafl_qemu_native_signal_handler(host_sig, info, puc.cast());
+            libaflmm_qemu_sys::libafl_qemu_fatal_signal_kind_LIBAFL_QEMU_FATAL_HOST => {
+                QemuFatalSignal::Host
+            }
+            libaflmm_qemu_sys::libafl_qemu_fatal_signal_kind_LIBAFL_QEMU_FATAL_TARGET => {
+                QemuFatalSignal::Target
+            }
+            _ => {
+                log::error!("Unhandled kind: {kind:?}");
+                // fallback to non-qemu host fatal signal
+                QemuFatalSignal::None
+            }
         }
     }
 
@@ -463,7 +431,6 @@ impl Qemu {
     pub unsafe fn target_signal(&self, signal: Signal) {
         unsafe {
             QEMU_IS_RUNNING = true;
-            libaflmm_qemu_sys::libafl_set_in_target_signal_ctx();
             libc::raise(signal.into());
         }
     }
@@ -511,20 +478,20 @@ pub mod pybind {
 
     extern "C" fn py_syscall_hook_wrapper(
         _data: u64,
-        sys_num: i32,
-        a0: GuestUlong,
-        a1: GuestUlong,
-        a2: GuestUlong,
-        a3: GuestUlong,
-        a4: GuestUlong,
-        a5: GuestUlong,
-        a6: GuestUlong,
-        a7: GuestUlong,
+        sys_num: &mut i32,
+        a0: &mut GuestUlong,
+        a1: &mut GuestUlong,
+        a2: &mut GuestUlong,
+        a3: &mut GuestUlong,
+        a4: &mut GuestUlong,
+        a5: &mut GuestUlong,
+        a6: &mut GuestUlong,
+        a7: &mut GuestUlong,
     ) -> hooks::SyscallHookResult {
         unsafe { (&raw const PY_SYSCALL_HOOK).read() }.map_or_else(
             || hooks::SyscallHookResult::Run,
             |obj| {
-                let args = (sys_num, a0, a1, a2, a3, a4, a5, a6, a7);
+                let args = (*sys_num, *a0, *a1, *a2, *a3, *a4, *a5, *a6, *a7);
                 Python::attach(|py| {
                     let ret = obj.call1(py, args).expect("Error in the syscall hook");
                     let any = ret.bind(py);

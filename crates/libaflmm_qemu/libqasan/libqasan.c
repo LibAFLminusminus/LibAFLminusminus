@@ -97,7 +97,7 @@ static void __libqasan_map_shadow(void *addr, void *limit) {
 
 const size_t ALLOC_ALIGN_POW = 3;
 const size_t ALLOC_ALIGN_SIZE = (1UL << ALLOC_ALIGN_POW);
-  #if defined(__x86_64__) || defined(__aarch64__)
+  #if UINTPTR_MAX == UINT64_MAX
     #define SHADOW_OFFSET (0x7fff8000)
   #else
     #define SHADOW_OFFSET (0x20000000)
@@ -127,7 +127,7 @@ __attribute__((constructor)) void __libqasan_init() {
 #ifdef ASAN_GUEST
   QASAN_DEBUG("QASAN - Debugging is enabled!!!\n");
   /* MMap our shadow and madvise to use huge pages */
-  #if defined(__x86_64__) || defined(__aarch64__)
+  #if UINTPTR_MAX == UINT64_MAX
   // [0x10007fff8000, 0x7fffffffffff] 	HighMem
   // [0x02008fff7000, 0x10007fff7fff] 	HighShadow
   // [0x00008fff7000, 0x02008fff6fff] 	ShadowGap

@@ -1,3 +1,7 @@
+# tested fuzzers are now stored here
+# mostly because there is no other way to provide this list to dependabot
+# but we can use it to infer the fuzzer list for the other parts of the CI
+
 version: 2
 updates:
   - package-ecosystem: "cargo"
@@ -7,10 +11,28 @@ updates:
 
   - package-ecosystem: "cargo"
     directories:
-      - "/fuzzers/**"
+      # normal fuzzers
+      - "/fuzzers/baby/baby_cmplog"
+      - "/fuzzers/baby/baby_corpus_sharing"
+      - "/fuzzers/baby/baby_forkserver"
+      - "/fuzzers/baby/baby_inprocess"
+      - "/fuzzers/inprocess/sqlite"
     schedule:
       interval: "weekly"
     groups:
-      fuzzers:
+      standard-fuzzers:
+        patterns:
+          - "*"
+
+  - package-ecosystem: "cargo"
+    directories:
+      # qemu fuzzers
+      - "/fuzzers/baby/baby_nyx"
+      - "/fuzzers/binary_only/qemu_launcher"
+      - "/fuzzers/full_system/qemu_baremetal"
+    schedule:
+      interval: "weekly"
+    groups:
+      qemu-fuzzers:
         patterns:
           - "*"

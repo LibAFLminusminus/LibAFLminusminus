@@ -6,7 +6,7 @@ use crate::{
     Error, Result,
     common::{DependencyResolver, PowerScheduleData, Registrator, TestcasePowerScheduleData},
     controllers::Worker,
-    corpus::{Corpus, ScheduledCorpus, Scheduler, Testcase, TestcaseId},
+    corpus::{Corpus, ScheduledCorpus, Scheduler, Testcase},
     executors::Executor,
     feedbacks::{HasObserverHandle, MapFeedbackMetadata},
     fuzzers::{ExitKind, FuzzerHook, Verdict},
@@ -162,9 +162,12 @@ where
         executor: &mut E,
         state: &mut S,
         rt_handle: &mut RuntimeHandle<S, W>,
-        testcase_id: TestcaseId,
-        _verdict: Verdict,
+        verdict: Verdict,
     ) -> Result<()> {
+        let Verdict::Corpus(testcase_id) = verdict else {
+            return Ok(());
+        };
+
         let testcase = state.corpus().get(&testcase_id)?;
 
         // first run

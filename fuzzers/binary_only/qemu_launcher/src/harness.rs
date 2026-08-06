@@ -138,7 +138,7 @@ impl Harness {
     ) -> Result<()> {
         let len = emu.max_input_size(state, input);
 
-        emu.write_reg(Regs::Pc, self.pc)
+        emu.write_pc(self.pc, true)
             .map_err(|e| runtime!("Failed to write PC: {e:?}"))?;
 
         emu.write_reg(Regs::Sp, self.stack_ptr)

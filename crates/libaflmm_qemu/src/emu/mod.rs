@@ -212,6 +212,12 @@ pub trait Emulator<I, S> {
 
             fn num_regs(&self) -> i32;
 
+            fn write_pc(
+                &self,
+                val: impl Into<GuestReg>,
+                sync: bool,
+            ) -> result::Result<(), QemuRWError>;
+
             fn write_reg(
                 &self,
                 reg: impl Into<i32>,

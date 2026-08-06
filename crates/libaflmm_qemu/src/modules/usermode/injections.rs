@@ -364,22 +364,25 @@ fn syscall_hook<ET, I, S>(
     emulator_modules: &mut EmulatorModules<ET, I, S>,
     _state: &mut S,
     // Syscall number
-    syscall: i32,
+    syscall: &mut i32,
     // Registers
-    x0: GuestUlong,
-    x1: GuestUlong,
-    _x2: GuestUlong,
-    _x3: GuestUlong,
-    _x4: GuestUlong,
-    _x5: GuestUlong,
-    _x6: GuestUlong,
-    _x7: GuestUlong,
+    x0: &mut GuestUlong,
+    x1: &mut GuestUlong,
+    _x2: &mut GuestUlong,
+    _x3: &mut GuestUlong,
+    _x4: &mut GuestUlong,
+    _x5: &mut GuestUlong,
+    _x6: &mut GuestUlong,
+    _x7: &mut GuestUlong,
 ) -> SyscallHookResult
 where
     ET: EmulatorModuleTuple<I, S>,
     I: Unpin,
     S: Unpin,
 {
+    let syscall = *syscall;
+    let x0 = *x0;
+    let x1 = *x1;
     log::trace!("syscall_hook {syscall} {SYS_execve}");
     debug_assert!(i32::try_from(SYS_execve).is_ok());
     if syscall == SYS_execve as i32 {
@@ -395,7 +398,6 @@ where
                 "fuzz",
                 "Found verified command injection!"
             );
-            //println!("CMD {}", cmd);
 
             let first_parameter = unsafe {
                 if (*c_array.add(1)).is_null() {

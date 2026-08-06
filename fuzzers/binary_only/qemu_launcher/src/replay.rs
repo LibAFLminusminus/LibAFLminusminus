@@ -1,40 +1,32 @@
-use libaflmm::prelude::*;
-
-use crate::options::{CommonOptions, ReplayOptions};
+use crate::{fuzzer::profile::QemuProfile, harness::Harness, options::ReplayOptions};
+use libaflmm::{Result, fuzzers::Loader, prelude::*};
+use libaflmm_qemu::prelude::*;
 
 pub struct QemuReplay;
 
 impl QemuReplay {
     pub fn launch(
-        options: &CommonOptions,
-        replay_options: &ReplayOptions,
-        env: &Vec<(String, String)>,
-        args: &Vec<String>,
+        options: ReplayOptions,
+        env: Vec<(String, String)>,
+        args: Vec<String>,
     ) -> Result<()> {
-        StdLauncher::builder()?
-            .timeout(None) // no timeout during replay.
+        let monitor = StdMonitor::new();
+        let controller = StdController::builder().overwrite(true).build()?;
+
+        let group = StdGroup::builder(&controller)
+            .timeout(None)
             .state_builder(|worker| {
-                let crash_dir = worker.workdir().create_dir("crashes")?;
+                let scheduler = QueueScheduler::new();
 
                 StdState::new(
-                    BytesContext::default(),
-                    // Corpus that will be evolved, we keep it in memory for performance
-                    InMemoryCorpus::builder()
-                        .root_dir(queue_dir.as_path())
-                        .scheduler(scheduler)
-                        .build()?,
-                    // Corpus in which we store solutions (crashes in this example),
-                    // on disk so the user can get them after stopping the fuzzer
-                    OnDiskCorpus::<BytesInput, NopScheduler>::builder()
-                        .root_dir(crash_dir.as_path())
-                        .build()?,
+                    BytesContext,
+                    InMemoryOnDiskCorpus::builder(worker, scheduler)?.build()?,
+                    ObjectiveOnDiskCorpus::builder(worker)?.build()?,
                 )
             })
-            .build_inprocess(|rt_handle, state| {
-                let core_id = rt_handle.worker().core_id();
-                let profile = QemuProfile::new(cli, core_id)?;
+            .build_inprocess(move |rt_handle, state| {
+                let profile = QemuProfile::replay(&options.common, &options)?;
 
-                // Create an observation channel using the coverage map
                 let mut edges_observer = unsafe {
                     HitcountsMapObserver::new(SizePtrMapObserver::from_mut_slice(
                         "edges",
@@ -46,46 +38,55 @@ impl QemuReplay {
                     ))
                 };
 
-                // Create an observation channel to keep track of the execution time
-                let time_observer = TimeObserver::new("time");
-
-                let map_feedback = StdMapFeedback::with_name("map_feedback", &edges_observer);
-                let map_objective = StdMapFeedback::with_name("map_objective", &edges_observer);
-
-                // Feedback to rate the interestingness of an input
-                // This one is composed by two Feedbacks in OR
-                let mut feedback = feedback_or!(
-                    // New maximization map feedback linked to the edges observer and the feedback state
-                    map_feedback,
-                    // Time feedback, this one does not need a feedback state
-                    TimeFeedback::new(&time_observer)
-                );
-
-                // A feedback to choose if an input is a solution or not
-                let mut objective = feedback_and_fast!(
-                    feedback_or_fast!(CrashFeedback::new(), TimeoutFeedback::new()),
-                    map_objective
-                );
-
-                let observers = tuple_list!(edges_observer, time_observer);
-
-                let mut tokens = Tokens::new();
-
-                for token in extra_tokens {
-                    let bytes = token.as_bytes().to_vec();
-                    let _ = tokens.add_token(&bytes);
-                }
-
-                if let Some(tokenfile) = &cli.tokens {
-                    tokens.add_from_file(tokenfile)?;
-                }
-
-                let executor = profile.get_executor(
-                    state, observers, input_addr, pc, stack_ptr, ret_addr, input_addr,
+                let injection_module = profile.injection_module(&options.common)?;
+                let modules = profile.get_modules(
+                    &options.common,
+                    None,
+                    &env,
+                    &mut edges_observer,
+                    injection_module,
                 )?;
 
+                let mut emulator = StdEmulator::builder()
+                    .qemu_parameters(args.clone())
+                    .modules(modules)
+                    .build()?;
+                let harness = Harness::init(&mut emulator, &options.common)?;
+
+                let executor = StdQemuExecutor::new(
+                    state,
+                    emulator,
+                    |state, input, emu| harness.pre_exec(state, input, emu),
+                    |_, _, _, _| Ok(()),
+                    tuple_list!(edges_observer),
+                )?;
+
+                let mut stages = tuple_list!();
+                let mut fuzzer = StdFuzzer::new(
+                    executor,
+                    ConstFeedback::new(false),
+                    CrashFeedback::new(),
+                    &mut stages,
+                    state,
+                    rt_handle,
+                )?;
+
+                for loaded in fuzzer.load_file(&options.common.input, state, rt_handle)? {
+                    println!(
+                        "Replay verdict: {:?} ({})",
+                        loaded.result().exit_kind(),
+                        loaded.result().vertict()
+                    );
+                }
+
                 Ok(())
-            })?
+            })?;
+
+        StdLauncher::builder()
+            .monitor(monitor)
+            .controller(controller)
+            .add_group(group)
+            .build()?
             .launch()
     }
 }
