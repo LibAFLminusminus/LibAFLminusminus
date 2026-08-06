@@ -68,5 +68,6 @@ runs:
       if: ${{ inputs.aflplusplus == 'true' }}
       shell: bash
       run: |
+        git -C "$GITHUB_WORKSPACE" submodule update --init --checkout --force AFLplusplus
         make -C "$GITHUB_WORKSPACE/AFLplusplus"
         sudo make -C "$GITHUB_WORKSPACE/AFLplusplus" install
