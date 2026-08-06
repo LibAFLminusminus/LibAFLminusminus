@@ -2,5 +2,4 @@ libpng-*
 corpus_discovered
 libafl_frida
 frida_libpng
-zlib*Cargo.lock
-Cargo.lock
+zlib*
