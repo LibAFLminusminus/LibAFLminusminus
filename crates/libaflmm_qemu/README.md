@@ -21,6 +21,11 @@ libaflmm_qemu = { version = "0.16.0", features = ["usermode", "x86_64"] }
 * `usermode`: Enables fuzzing of userspace binaries on Linux.
 * `systemmode`: Enables fuzzing of arbitrary operating systems with `QEMU` TCG. This is mutually exclusive with `usermode`.
 
+## Unit tests
+
+`libaflmm_qemu` exposes a simple API to create complex unit tests involving some guest code to work on.
+Check [the `set_pc` example](./tests/set_pc) to have an idea of how to use it in practice.
+
 ## Cite
 
 If you use `LibAFL QEMU` for your academic work, consider citing the following paper:

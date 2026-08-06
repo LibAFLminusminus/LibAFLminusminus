@@ -5,6 +5,8 @@ on:
 jobs:
   ubuntu:
     runs-on: ${{ fromjson(vars.runs_on || '["self-hosted","linux"]') }}
+    env:
+      CROSS_CC: gcc
     steps:
       - uses: actions/checkout@v6
         with:

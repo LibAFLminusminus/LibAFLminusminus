@@ -18,8 +18,8 @@ use libaflmm_qemu_sys::{
     libafl_get_exit_reason, libafl_page_from_addr, libafl_qemu_add_gdb_cmd, libafl_qemu_cpu_index,
     libafl_qemu_current_cpu, libafl_qemu_gdb_reply, libafl_qemu_get_cpu, libafl_qemu_init,
     libafl_qemu_num_cpus, libafl_qemu_num_regs, libafl_qemu_read_reg,
-    libafl_qemu_remove_breakpoint, libafl_qemu_set_breakpoint, libafl_qemu_trigger_breakpoint,
-    libafl_qemu_write_reg,
+    libafl_qemu_remove_breakpoint, libafl_qemu_set_breakpoint, libafl_qemu_set_pc,
+    libafl_qemu_trigger_breakpoint, libafl_qemu_write_reg,
 };
 use std::{
     ffi::{CString, c_void},
@@ -217,6 +217,15 @@ where
     }
 }
 
+impl<T, const N: usize> From<&[T; N]> for QemuParams
+where
+    T: AsRef<str>,
+{
+    fn from(cli: &[T; N]) -> Self {
+        cli.as_slice().into()
+    }
+}
+
 impl<T> From<&Vec<T>> for QemuParams
 where
     T: AsRef<str>,
@@ -341,20 +350,66 @@ impl CPU {
         }
     }
 
+    /// Overwrite the Program Counter (PC)
+    ///
+    /// `sync` tells whether the emulator should immediately sync with the new PC value.
+    /// If `sync` is true, the emulator will start back from the new PC value when going back to QEMU.
+    /// Otherwise, it's only writing to the "visible" PC register: in practice the register will be
+    /// overwritten when restarting QEMU execution, and will be discarded.
+    ///
+    /// Waring: having `sync` set to `true` in `cmp`, `read` or `write` hooks is not supported.
+    /// It will be discarded and won't change anything.
+    pub fn write_pc(&self, val: impl Into<GuestReg>, sync: bool) -> Result<(), QemuRWError> {
+        if sync {
+            let addr: GuestReg = val.into();
+            unsafe {
+                libafl_qemu_set_pc(self.cpu_ptr, addr as GuestVirtAddr);
+            }
+            Ok(())
+        } else {
+            self.write_reg_inner(Regs::Pc, val)
+        }
+    }
+
+    /// Write a value to a guest register.
+    ///
+    /// Warning: using [`Regs::Pc`] as register is an error.
+    /// Use [`Self::write_pc`] to write to PC instead.
     pub fn write_reg(
         &self,
         reg: impl Into<i32>,
         val: impl Into<GuestReg>,
     ) -> Result<(), QemuRWError> {
         let reg_id: i32 = reg.into();
+        let pc_reg_id: i32 = Regs::Pc.into();
+
+        if reg_id == pc_reg_id {
+            Err(QemuRWError::wrong_reg(
+                QemuRWErrorKind::Write,
+                Regs::Pc.into(),
+                Some(self.cpu_ptr),
+            ))
+        } else {
+            self.write_reg_inner(reg_id, val)
+        }
+    }
+
+    fn write_reg_inner(
+        &self,
+        reg: impl Into<i32>,
+        val: impl Into<GuestReg>,
+    ) -> Result<(), QemuRWError> {
+        let reg_id: i32 = reg.into();
+        let val = val.into();
 
         #[cfg(feature = "be")]
-        let val = GuestReg::to_be(val.into());
+        let val = GuestReg::to_be(val);
         #[cfg(not(feature = "be"))]
-        let val = GuestReg::to_le(val.into());
+        let val = GuestReg::to_le(val);
 
         let success =
             unsafe { libafl_qemu_write_reg(self.cpu_ptr, reg_id, &raw const val as *mut u8) };
+
         if success == 0 {
             Err(QemuRWError::wrong_reg(
                 QemuRWErrorKind::Write,
@@ -544,10 +599,7 @@ impl From<u8> for HookData {
 
 impl Qemu {
     #[expect(clippy::similar_names)]
-    pub fn init<T>(params: T) -> Result<Self, QemuInitError>
-    where
-        T: Into<QemuParams>,
-    {
+    pub fn init(params: impl Into<QemuParams>) -> Result<Self, QemuInitError> {
         let params: QemuParams = params.into();
 
         match &params {
@@ -593,13 +645,19 @@ impl Qemu {
             libafl_qemu_init(argc, argv.as_ptr() as *mut *mut ::std::os::raw::c_char);
         }
 
+        #[cfg(feature = "usermode")]
+        unsafe {
+            Qemu::get_unchecked().set_target_crash_handling(&TargetSignalHandling::default());
+        }
+
         #[cfg(feature = "systemmode")]
         unsafe {
             libaflmm_qemu_sys::syx_snapshot_init(true);
             libc::atexit(qemu_cleanup_atexit);
         }
 
-        Ok(Qemu { _private: () })
+        // Safe: QEMU has just been initialized above.
+        Ok(unsafe { Qemu::get_unchecked() })
     }
 
     #[must_use]
@@ -868,6 +926,26 @@ impl Qemu {
         self.current_cpu().unwrap().num_regs()
     }
 
+    /// Overwrite the Program Counter (PC)
+    ///
+    /// `sync` tells whether the emulator should immediately sync with the new PC value.
+    /// If `sync` is true, the emulator will start back from the new PC value when going back to QEMU.
+    /// In that case, the architectural PC register is in sync with the actual execution flow of QEMU
+    /// Otherwise, the PC register is updated, but QEMU will finish the current translation block
+    /// before going to the new PC.
+    ///
+    /// Waring: having `sync` set to `true` in `cmp`, `read` or `write` hooks is not supported.
+    /// It will result in an error.
+    pub fn write_pc(&self, val: impl Into<GuestReg>, sync: bool) -> Result<(), QemuRWError> {
+        self.current_cpu()
+            .ok_or(QemuRWError::current_cpu_not_found(QemuRWErrorKind::Write))?
+            .write_pc(val, sync)
+    }
+
+    /// Write a value to a guest register.
+    ///
+    /// Warning: using [`Regs::Pc`] as register is an error.
+    /// Use [`Self::write_pc`] to write to PC instead.
     pub fn write_reg(
         &self,
         reg: impl Into<i32>,

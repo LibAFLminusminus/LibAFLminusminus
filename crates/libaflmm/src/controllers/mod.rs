@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     fs::{self, File, OpenOptions},
     io::{stderr, stdout},
-    os::fd::{AsRawFd, BorrowedFd, FromRawFd},
+    os::fd::{AsFd, BorrowedFd},
     path::{Path, PathBuf},
 };
 
@@ -274,10 +274,10 @@ impl WorkdirFile {
                 *self = WorkdirFile::File(file);
             }
             WorkdirFile::Stdout => {
-                *self = WorkdirFile::File(unsafe { File::from_raw_fd(stdout().as_raw_fd()) });
+                *self = WorkdirFile::File(File::from(stdout().as_fd().try_clone_to_owned()?));
             }
             WorkdirFile::Stderr => {
-                *self = WorkdirFile::File(unsafe { File::from_raw_fd(stderr().as_raw_fd()) });
+                *self = WorkdirFile::File(File::from(stderr().as_fd().try_clone_to_owned()?));
             }
             WorkdirFile::Null => {
                 *self =

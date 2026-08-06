@@ -184,7 +184,7 @@ pub fn fuzz() {
         let reset = |qemu: Qemu, buf: &[u8], len: GuestReg| -> Result<(), QemuRWError> {
             unsafe {
                 qemu.write_mem(input_addr, buf)?;
-                qemu.write_reg(Regs::Pc, test_one_input_ptr as GuestReg)?;
+                qemu.write_pc(test_one_input_ptr as GuestReg, true)?;
                 qemu.write_reg(Regs::Sp, stack_ptr)?;
                 qemu.write_return_address(ret_addr)?;
                 qemu.write_function_argument(0, input_addr as GuestReg)?;

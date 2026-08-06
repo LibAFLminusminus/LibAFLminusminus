@@ -6,7 +6,7 @@ use libaflmm::{
     sync::{GraphOrchestrator, routers::graph::GraphRouter},
 };
 use libaflmm_bolts::{Cores, current_nanos, nonnull_raw_mut, rands::StdRand, tuples::tuple_list};
-use std::time::Duration;
+use std::{thread::sleep, time::Duration};
 
 mod target;
 
@@ -100,9 +100,11 @@ pub fn main() -> Result<()> {
             )?;
 
             // Generate 8 initial inputs
-            state.generate_initial_inputs(&mut fuzzer, &mut generator, &mut rand, rt_handle, 8)?;
+            fuzzer.load_generator(&mut generator, &mut rand, 8, state, rt_handle)?;
 
-            fuzzer.fuzz_loop(&mut stages, &mut rand, state, rt_handle)
+            fuzzer.fuzz_loop(&mut stages, &mut rand, state, rt_handle)?;
+
+            Ok(())
         })?;
 
     // The receiving group, which does nothing and synchronizes
@@ -130,22 +132,22 @@ pub fn main() -> Result<()> {
             let objective_feedback =
                 feedback_or_fast!(CrashFeedback::new(), TimeoutFeedback::new());
 
-            // Setup a single sleeping stage, which sleep for 100ms then returns
-            let mut stages = tuple_list!(NopStage::with_sleep(Duration::from_millis(100)));
+            let mut stages = tuple_list!();
 
             let executor = StdExecutor::new(state, target::target, tuple_list!(observer), None);
 
-            let mut fuzzer = StdFuzzer::new(
-                executor,
-                feedback,
-                objective_feedback,
-                &mut stages,
-                state,
-                rt_handle,
-            )?;
+            // fuzzers can also be built with the builder
+            let mut fuzzer = StdFuzzer::builder(executor)
+                .feedback(feedback)
+                .objective_feedback(objective_feedback)
+                .build(&mut stages, state, rt_handle)?;
 
-            // Run the sleeping stage
-            fuzzer.fuzz_loop(&mut stages, &mut rand, state, rt_handle)
+            loop {
+                // fuzz until the fuzzer has nothing more to do
+                fuzzer.fuzz_loop_until_idle(&mut stages, &mut rand, state, rt_handle)?;
+                // sleep for a while, to limit CPU cycles
+                sleep(Duration::from_millis(100));
+            }
         })?;
 
     // Final launcher setup.

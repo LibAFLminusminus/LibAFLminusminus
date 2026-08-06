@@ -225,14 +225,13 @@ where
     let mut fuzzer = StdFuzzer::new(executor, feedback, objective, &mut stages, state, rt_handle)?;
 
     let mut rand = StdRand::new();
-    // In case the corpus is empty (on first run), reset
-    if state.must_load_initial_inputs() {
-        state
-            .load_initial_inputs(&mut fuzzer, rt_handle, &options.input)
-            .unwrap();
-        println!("We imported {} inputs from disk.", state.corpus().count());
+
+    // load initial corpus
+    for input_dir in &options.input {
+        fuzzer.load_dir(input_dir, state, rt_handle)?;
     }
 
+    // fuzz
     fuzzer.fuzz_loop(&mut stages, &mut rand, state, rt_handle)?;
 
     Ok(())

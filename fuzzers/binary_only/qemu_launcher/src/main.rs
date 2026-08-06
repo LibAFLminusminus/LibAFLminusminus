@@ -3,6 +3,7 @@
 use crate::{
     fuzzer::QemuFuzzer,
     options::{Cli, Mode},
+    replay::QemuReplay,
 };
 use clap::Parser;
 use libaflmm::{Result, prelude::*};
@@ -11,7 +12,7 @@ use std::env;
 mod fuzzer;
 mod harness;
 mod options;
-// mod replay;
+mod replay;
 mod version;
 
 #[cfg(all(not(miri), debug_assertions))]
@@ -76,9 +77,6 @@ pub fn main() -> Result<()> {
 
     match cli.mode {
         Mode::Fuzz(fuzzer_options) => QemuFuzzer::launch(fuzzer_options, env, args),
-        Mode::Replay(_replay_options) => {
-            // QemuReplay::launch(&cli.common, &replay_options, &env, &args)
-            todo!()
-        }
+        Mode::Replay(replay_options) => QemuReplay::launch(replay_options, env, args),
     }
 }

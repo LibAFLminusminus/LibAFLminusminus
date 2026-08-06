@@ -101,7 +101,7 @@ pub mod prelude {
 
     pub use crate::fuzzers::{
         CalibrationHook, CustomNameHook, Evaluator, Fuzzer, FuzzerHook, FuzzerHooksTuple,
-        NopFuzzer, StdFuzzer,
+        FuzzerOutcome, Loader, NopFuzzer, StdFuzzer, StdFuzzerBuilder,
     };
 
     pub use crate::generators::{Generator, RandBytesGenerator, RandPrintablesGenerator};

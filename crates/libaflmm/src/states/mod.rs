@@ -1,5 +1,6 @@
 //! The fuzzer, and state are the core pieces of every good fuzzer
 
+use crate::monitors::perf_stats::PerfStats;
 use crate::{
     Error, Result,
     common::{DependencyResolver, Registrator},
@@ -7,17 +8,13 @@ use crate::{
         InMemoryCorpus, ObjectiveCorpus, ObjectiveInMemoryCorpus, ScheduledCorpus, Scheduler,
         Testcase, TestcaseFilenameFormat, schedulers::NopScheduler, testcase::TestcaseId,
     },
-    fuzzers::{EvaluationResult, Evaluator},
-    generators::Generator,
     inputs::{Input, InputContext, NopContext, NopInput},
     launchers::InstanceId,
-    runtimes::RuntimeHandle,
 };
 use alloc::{
     borrow::Cow,
     collections::VecDeque,
     string::{String, ToString},
-    vec::Vec,
 };
 use core::{
     fmt::{self, Debug},
@@ -27,20 +24,24 @@ use core::{
 use libaflmm_bolts::{
     NamedSerdeAnyMap, OwnedSlice, SerdeAny, SerdeAnyMap,
     anymap::{named_metadata, named_metadata_mut, unnamed_metadata, unnamed_metadata_mut},
-    rands::Rand,
 };
 use nix::fcntl::{Flock, FlockArg};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use std::{
     collections::HashMap,
-    fs::{self, File},
+    fs::File,
     io::{Seek, SeekFrom},
-    path::{Path, PathBuf},
 };
 use typed_builder::TypedBuilder;
 
-use crate::monitors::perf_stats::PerfStats;
+/// The maximum size of a [`Testcase`]
+pub const DEFAULT_MAX_SIZE: usize = 1_048_576;
+
+/// The name used in stats json file for the stability value
+pub static STAT_CALIBRATION: Cow<'static, str> = Cow::Borrowed("stability");
+/// The name used in stats json file for the coverage value
+pub static STAT_COVERAGE: Cow<'static, str> = Cow::Borrowed("coverage");
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 /// The stats the fuzzer produces at intervals.
@@ -63,10 +64,35 @@ pub struct Stats {
     pub(crate) perf: PerfStats,
 }
 
-/// The name used in stats json file for the stability value
-pub static STAT_CALIBRATION: Cow<'static, str> = Cow::Borrowed("stability");
-/// The name used in stats json file for the coverage value
-pub static STAT_COVERAGE: Cow<'static, str> = Cow::Borrowed("coverage");
+/// The state a fuzz run.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(bound = "
+        I: serde::Serialize + for<'a> serde::Deserialize<'a>,
+        CT: serde::Serialize + for<'a> serde::Deserialize<'a>,
+        C: serde::Serialize + for<'a> serde::Deserialize<'a>,
+        OC: serde::Serialize + for<'a> serde::Deserialize<'a>,
+    ")]
+pub struct StdState<C, CT, I, OC, SC> {
+    /// the [`InputContext`]. helper to transform [`Input`] into a byte slice
+    context: CT,
+    /// The [`Corpus`](crate::corpus::Corpus)
+    corpus: C,
+    // Objectives [`Corpus`](crate::corpus::Corpus)
+    objective_corpus: OC,
+    /// Metadata stored with names
+    named_metadata: NamedSerdeAnyMap,
+    /// Metadata stored for each corpus entry
+    testcase_metadata: HashMap<TestcaseId, TestcaseMetadata>,
+    /// `MaxSize` [`Testcase`] size for [`Mutator`] that appreciate it
+    max_size: usize,
+    /// Remaining initial [`Input`] to load, if any
+    metadata_initialized: bool,
+    /// Fuzzing stats
+    stats: Stats,
+    /// Testcases that remain to be sync'd
+    pending_testcases: VecDeque<Testcase<I>>,
+    phantom: PhantomData<SC>,
+}
 
 impl fmt::Display for Stats {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -280,52 +306,6 @@ pub trait State: DependencyResolver {
 
     /// Get the next testcase to evaluate
     fn next_pending_testcase(&mut self) -> Option<Testcase<Self::Input>>;
-}
-
-/// The maximum size of a [`Testcase`]
-pub const DEFAULT_MAX_SIZE: usize = 1_048_576;
-
-/// Struct that holds the options for input loading
-pub struct LoadConfig<'a, I, S, Z> {
-    /// Function to load input from a Path
-    loader: &'a mut dyn FnMut(&mut Z, &mut S, &Path) -> Result<I>,
-}
-
-impl<I, S, Z> Debug for LoadConfig<'_, I, S, Z> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "LoadConfig {{}}")
-    }
-}
-
-/// The state a fuzz run.
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(bound = "
-        I: serde::Serialize + for<'a> serde::Deserialize<'a>,
-        CT: serde::Serialize + for<'a> serde::Deserialize<'a>,
-        C: serde::Serialize + for<'a> serde::Deserialize<'a>,
-        OC: serde::Serialize + for<'a> serde::Deserialize<'a>,
-    ")]
-pub struct StdState<C, CT, I, OC, SC> {
-    /// the [`InputContext`]. helper to transform [`Input`] into a byte slice
-    context: CT,
-    /// The [`Corpus`](crate::corpus::Corpus)
-    corpus: C,
-    // Objectives [`Corpus`](crate::corpus::Corpus)
-    objective_corpus: OC,
-    /// Metadata stored with names
-    named_metadata: NamedSerdeAnyMap,
-    /// Metadata stored for each corpus entry
-    testcase_metadata: HashMap<TestcaseId, TestcaseMetadata>,
-    /// `MaxSize` [`Testcase`] size for [`Mutator`] that appreciate it
-    max_size: usize,
-    /// Remaining initial [`Input`] to load, if any
-    remaining_initial_files: Option<Vec<PathBuf>>,
-    /// symlinks we have already traversed when loading [`Self::remaining_initial_files`]
-    dont_reenter: Option<Vec<PathBuf>>,
-    metadata_initialized: bool,
-    stats: Stats,
-    pending_testcases: VecDeque<Testcase<I>>,
-    phantom: PhantomData<SC>,
 }
 
 /// The [[`Testcase`]] metadata.
@@ -608,182 +588,6 @@ where
 
 impl<C, CT, I, OC, SC> StdState<C, CT, I, OC, SC>
 where
-    C: ScheduledCorpus<I, SC>,
-    I: Input,
-{
-    /// Decide if the state must load the inputs
-    pub fn must_load_initial_inputs(&self) -> bool {
-        self.corpus.count() == 0
-            || (self.remaining_initial_files.is_some()
-                && !self.remaining_initial_files.as_ref().unwrap().is_empty())
-    }
-
-    /// List initial inputs from a directory.
-    fn next_file(&mut self) -> Result<PathBuf> {
-        loop {
-            if let Some(path) = self.remaining_initial_files.as_mut().and_then(Vec::pop) {
-                let attributes = fs::symlink_metadata(&path);
-
-                if attributes.is_err() {
-                    continue;
-                }
-
-                let attr = attributes?;
-
-                if attr.is_file() && attr.len() > 0 {
-                    return Ok(path);
-                } else if attr.is_dir() {
-                    let files = self.remaining_initial_files.as_mut().unwrap();
-                    path.read_dir()?
-                        .try_for_each(|entry| entry.map(|e| files.push(e.path())))?;
-                } else if attr.is_symlink() {
-                    let path = fs::canonicalize(path)?;
-                    let dont_reenter = self.dont_reenter.get_or_insert_with(Default::default);
-                    if dont_reenter.iter().any(|p| path.starts_with(p)) {
-                        continue;
-                    }
-                    if path.is_dir() {
-                        dont_reenter.push(path.clone());
-                    }
-                    let files = self.remaining_initial_files.as_mut().unwrap();
-                    files.push(path);
-                }
-            } else {
-                return Err(Error::iterator_end("No remaining files to load."));
-            }
-        }
-    }
-
-    /// Sets canonical paths for provided inputs
-    fn canonicalize_input_dirs(&mut self, in_dirs: &[impl AsRef<Path>]) -> Result<()> {
-        let files = in_dirs.iter().try_fold(Vec::new(), |mut res, file| {
-            file.as_ref().canonicalize().map(|canonicalized| {
-                res.push(canonicalized);
-                res
-            })
-        })?;
-        self.dont_reenter = Some(files.clone());
-        self.remaining_initial_files = Some(files);
-        Ok(())
-    }
-
-    fn evaluate_file<E, W, Z>(
-        &mut self,
-        path: &Path,
-        fuzzer: &mut Z,
-        rt_handle: &mut RuntimeHandle<Self, W>,
-        config: &mut LoadConfig<I, Self, Z>,
-    ) -> Result<EvaluationResult>
-    where
-        Z: Evaluator<E, I, Self, W>,
-    {
-        log::info!("Loading file {} ...", path.display());
-        let input = match (config.loader)(fuzzer, self, path) {
-            Ok(input) => input,
-            Err(err) => {
-                log::error!(
-                    "Skipping input that we could not load from {}: {err:?}",
-                    path.display()
-                );
-                return Ok(EvaluationResult::not_interesting());
-            }
-        };
-        let res = fuzzer.evaluate_input(self, rt_handle, &input)?;
-        Ok(res)
-    }
-
-    /// Loads initial inputs from the passed-in `in_dirs`.
-    /// This method takes a list of files and a `LoadConfig`
-    /// which specifies the special handling of initial inputs
-    fn drain_initial_files<E, W, Z>(
-        &mut self,
-        fuzzer: &mut Z,
-        rt_handle: &mut RuntimeHandle<Self, W>,
-        mut config: LoadConfig<I, Self, Z>,
-    ) -> Result<()>
-    where
-        Z: Evaluator<E, I, Self, W>,
-    {
-        loop {
-            match self.next_file() {
-                Ok(path) => {
-                    let res = self.evaluate_file(&path, fuzzer, rt_handle, &mut config)?;
-                    if res.is_objective_worthy() {
-                        return Err(Error::invalid_corpus(format!(
-                            "Input {} resulted in a objective.",
-                            path.display()
-                        )));
-                    }
-                }
-                Err(Error::IteratorEnd(_, _)) => break,
-                Err(e) => return Err(e),
-            }
-        }
-
-        Ok(())
-    }
-
-    /// Loads all initial inputs and evaluate them
-    pub fn load_initial_inputs<E, W, Z>(
-        &mut self,
-        fuzzer: &mut Z,
-        rt_handle: &mut RuntimeHandle<Self, W>,
-        in_dirs: &[impl AsRef<Path>],
-    ) -> Result<()>
-    where
-        Z: Evaluator<E, I, Self, W>,
-    {
-        self.canonicalize_input_dirs(in_dirs)?;
-        self.drain_initial_files(
-            fuzzer,
-            rt_handle,
-            LoadConfig {
-                loader: &mut |_, _, path| I::from_file(path),
-            },
-        )?;
-
-        // clean up
-        self.remaining_initial_files = None;
-        self.dont_reenter = None;
-        Ok(())
-    }
-}
-
-impl<C, CT, I, OC, SC> StdState<C, CT, I, OC, SC>
-where
-    I: Input,
-    CT: InputContext<Input = I>,
-{
-    /// Generate `num` initial inputs, using the passed-in generator.
-    pub fn generate_initial_inputs<G, E, R, W, Z>(
-        &mut self,
-        fuzzer: &mut Z,
-        generator: &mut G,
-        rand: &mut R,
-        rt_handle: &mut RuntimeHandle<Self, W>,
-        num: usize,
-    ) -> Result<usize>
-    where
-        R: Rand,
-        G: Generator<I, R, Self>,
-        Z: Evaluator<E, I, Self, W>,
-    {
-        let mut added = 0;
-
-        for _ in 0..num {
-            let input = generator.generate(rand, self)?;
-            let res = fuzzer.evaluate_input(self, rt_handle, &input)?;
-            if res.is_corpus_worthy() {
-                added += 1;
-            }
-        }
-
-        Ok(added)
-    }
-}
-
-impl<C, CT, I, OC, SC> StdState<C, CT, I, OC, SC>
-where
     I: Input,
     C: ScheduledCorpus<I, SC>,
     CT: InputContext<Input = I>,
@@ -811,8 +615,6 @@ where
             corpus,
             objective_corpus,
             max_size: DEFAULT_MAX_SIZE,
-            remaining_initial_files: None,
-            dont_reenter: None,
             testcase_metadata: HashMap::new(),
             metadata_initialized: false,
             pending_testcases: VecDeque::new(),

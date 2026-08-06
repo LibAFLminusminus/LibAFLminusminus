@@ -100,16 +100,15 @@ pub fn fuzz() -> Result<()> {
             let mut fuzzer =
                 StdFuzzer::new(executor, feedback, objective, &mut stages, state, rt_handle)?;
 
-            if state.must_load_initial_inputs() {
-                state
-                    .load_initial_inputs(&mut fuzzer, rt_handle, &[input_dir.clone()])
-                    .unwrap_or_else(|e| {
-                        panic!("Failed to load initial corpus in {:?}: {e:?}", &input_dir);
-                    });
-                println!("We imported {} inputs from disk.", state.corpus().count());
-            }
+            fuzzer
+                .load_dir(&input_dir, state, rt_handle)
+                .unwrap_or_else(|e| {
+                    panic!("Failed to load initial corpus in {:?}: {e:?}", &input_dir);
+                });
 
-            fuzzer.fuzz_loop(&mut stages, &mut rand, state, rt_handle)
+            fuzzer.fuzz_loop(&mut stages, &mut rand, state, rt_handle)?;
+
+            Ok(())
         })?;
 
     // Build and run a Launcher
