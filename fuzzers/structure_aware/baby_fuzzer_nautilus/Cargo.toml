@@ -22,7 +22,10 @@ opt-level = 3
 debug = true
 
 [dependencies]
-libaflmm = { path = "../../../crates/libaflmm", features = ["default", "nautilus"] }
+libaflmm = { path = "../../../crates/libaflmm", features = [
+  "default",
+  "nautilus",
+] }
 libaflmm_bolts = { path = "../../../crates/libaflmm_bolts" }
 log = { version = "0.4.22", features = ["release_max_level_info"] }
 
