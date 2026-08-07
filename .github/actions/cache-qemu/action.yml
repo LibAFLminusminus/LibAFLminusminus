@@ -1,0 +1,20 @@
+name: cache-qemu
+description: Cache libaflmm_qemu_sys
+
+inputs:
+  target-dir:
+    description: Cargo target directory for the qemu dir
+    required: false
+    default: target/release
+  build-id:
+    description: A unique repr for the build
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Restore the qemu directory
+      uses: actions/cache@v5
+      with:
+        path: ${{ inputs.target-dir }}/qemu-libafl-bridge
+        key: qemu-${{ inputs.build-id }}-${{ hashFiles('crates/libaflmm_qemu/libaflmm_qemu_build/src/build.rs') }}
