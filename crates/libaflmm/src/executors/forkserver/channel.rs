@@ -1,5 +1,6 @@
 use crate::executors::forkserver::ForkserverConfig;
 use crate::{Result, executors::Config};
+use core::mem::ManuallyDrop;
 use libaflmm_core::forkserver::{
     AFL_GCC_ONLY_FSRV_VAR, AFL_LLVM_ONLY_FSRV_VAR, AFL_MAP_SIZE_ENV_VAR,
 };
@@ -24,9 +25,9 @@ pub struct ForkserverChannel {
     /// The "actual" forkserver we spawned in the target
     fsrv_handle: Child,
     /// Status pipe
-    st_reader: PipeReader,
+    st_reader: ManuallyDrop<PipeReader>,
     /// Control pipe
-    ctl_writer: PipeWriter,
+    ctl_writer: ManuallyDrop<PipeWriter>,
     /// Pid of the current forked child (child of the forkserver) during execution
     child_pid: Option<Pid>,
     /// The last status reported to us by the in-target forkserver
@@ -54,6 +55,12 @@ impl Drop for ForkserverChannel {
         }
 
         let forkserver_pid = Pid::from_raw(self.fsrv_handle.id().try_into().unwrap());
+
+        unsafe {
+            ManuallyDrop::drop(&mut self.ctl_writer);
+            ManuallyDrop::drop(&mut self.st_reader);
+        }
+
         if let Err(err) = kill(forkserver_pid, self.kill_signal) {
             log::warn!(
                 "Failed to deliver {} signal to forkserver {}: {err} ({})",
@@ -207,8 +214,8 @@ impl ForkserverChannel {
 
         Ok(Self {
             fsrv_handle,
-            st_reader,
-            ctl_writer,
+            st_reader: ManuallyDrop::new(st_reader),
+            ctl_writer: ManuallyDrop::new(ctl_writer),
             child_pid: None,
             status: 0,
             last_run_timed_out: 0,

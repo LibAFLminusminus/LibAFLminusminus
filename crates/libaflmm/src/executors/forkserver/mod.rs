@@ -293,11 +293,6 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::ffi::OsString;
-
-    use libaflmm_bolts::{AsSliceMut, StdTargetArgs, SysVShm, tuples::tuple_list};
-    use serial_test::serial;
-
     use crate::{
         Error,
         executors::{
@@ -307,6 +302,9 @@ mod tests {
         runtimes::RuntimeHandle,
         states::NopState,
     };
+    use libaflmm_bolts::{AsSliceMut, StdTargetArgs, SysVShm, tuples::tuple_list};
+    use serial_test::serial;
+    use std::ffi::OsString;
 
     #[test]
     #[serial]
