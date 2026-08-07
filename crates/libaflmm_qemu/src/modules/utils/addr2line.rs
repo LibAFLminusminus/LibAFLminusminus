@@ -2,7 +2,7 @@
 //! Utils for addr2line
 
 use crate::qemu::Qemu;
-use addr2line::{Loader, fallible_iterator::FallibleIterator};
+use addr2line::{fallible_iterator::FallibleIterator, Loader};
 use goblin::elf::dynamic::{DF_1_PIE, DT_FLAGS_1};
 use hashbrown::HashMap;
 use libaflmm_qemu_sys::GuestAddr;
@@ -29,7 +29,7 @@ pub fn is_pie(file: object::File<'_>) -> bool {
             if let Ok(Some(d)) = dyn_sec {
                 let arr = d.0;
                 for v in arr {
-                    if v.d_tag.get(elf.endian()).cast_unsigned() == DT_FLAGS_1
+                    if v.d_tag.get(elf.endian()).0.cast_unsigned() == DT_FLAGS_1
                         && v.d_val.get(elf.endian()) & DF_1_PIE == DF_1_PIE
                     {
                         is_pie = true;
