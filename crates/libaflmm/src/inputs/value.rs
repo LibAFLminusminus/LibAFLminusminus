@@ -36,6 +36,9 @@ pub trait Numeric {
 
     /// Randomizes the value using the provided random number generator.
     fn randomize<R: Rand>(&mut self, rand: &mut R);
+
+    /// Returns the number of bits in the type.
+    fn bits(&self) -> usize;
 }
 
 /// A context for primitives of type [`ValueInput`].
@@ -176,6 +179,10 @@ macro_rules! impl_numeric_cast_randomize {
                 *self = rand.next() as $t;
             }
 
+            #[inline]
+            fn bits(&self) -> usize {
+                <$t>::BITS as usize
+            }
         }
     )*)
 }
@@ -225,6 +232,10 @@ where
     fn randomize<R: Rand>(&mut self, rand: &mut R) {
         self.as_mut().randomize(rand);
     }
+
+    fn bits(&self) -> usize {
+        self.as_ref().bits()
+    }
 }
 
 // Macro to implement the Numeric trait for multiple integer types a u64 cannot be cast to
@@ -262,6 +273,10 @@ macro_rules! impl_numeric_128_bits_randomize {
                 *self = (u128::from(rand.next()) << 64 | u128::from(rand.next())) as $t;
             }
 
+            #[inline]
+            fn bits(&self) -> usize {
+                <$t>::BITS as usize
+            }
         }
     )*)
 }
@@ -292,6 +307,10 @@ impl<I: Numeric> Numeric for &mut I {
 
     fn randomize<R: Rand>(&mut self, rand: &mut R) {
         (*self).randomize(rand);
+    }
+
+    fn bits(&self) -> usize {
+        (**self).bits()
     }
 }
 

@@ -86,8 +86,8 @@ where
     I: Numeric,
 {
     fn mutate(&mut self, input: &mut I, rand: &mut R, _state: &S) -> Result<MutationResult, Error> {
-        let offset = rand.choose(0..size_of::<I>()).unwrap();
-        input.flip_bit_at(offset * 8);
+        let offset = rand.choose(0..input.bits()).unwrap();
+        input.flip_bit_at(offset);
         Ok(MutationResult::Mutated)
     }
     #[inline]
@@ -337,6 +337,7 @@ mod tests {
     use alloc::rc::Rc;
 
     use libaflmm_bolts::{
+        StdRand,
         rands::{Rand, XkcdRand},
         tuples::IntoVec as _,
     };
@@ -348,11 +349,47 @@ mod tests {
             InMemoryCorpus, ObjectiveInMemoryCorpus, ScheduledCorpus, Testcase,
             schedulers::QueueScheduler,
         },
-        inputs::value::{I16Input, PrimitiveContext},
-        mutators::MutationResult,
+        inputs::value::{I16Input, PrimitiveContext, U32Input},
+        mutators::{MutationResult, Mutator, numeric::BitFlipMutator},
         states::StdState,
     };
 
+    #[test]
+    fn test_numeric_bits() {
+        assert_eq!(0_u8.bits(), 8);
+        assert_eq!(0_u16.bits(), 16);
+        assert_eq!(0_u32.bits(), 32);
+        assert_eq!(0_u64.bits(), 64);
+        assert_eq!(0_u128.bits(), 128);
+        assert_eq!(0_i8.bits(), 8);
+        assert_eq!(0_i16.bits(), 16);
+        assert_eq!(0_i32.bits(), 32);
+        assert_eq!(0_i64.bits(), 64);
+        assert_eq!(0_i128.bits(), 128);
+    }
+
+    #[test]
+    fn test_bit_flip_mutator_upper_bits() {
+        let state = StdState::nop();
+
+        let mut rand = StdRand::with_seed(0);
+        let mut mutator = BitFlipMutator;
+        let mut flipped_above_byte = false;
+
+        for _ in 0..100 {
+            let mut input = U32Input::new(0_u32);
+            mutator.mutate(&mut input, &mut rand, &state).unwrap();
+            if input.into_inner() >= 16 {
+                flipped_above_byte = true;
+                break;
+            }
+        }
+
+        assert!(
+            flipped_above_byte,
+            "BitFlipMutator never flipped a bit >= 4, check upper bound"
+        );
+    }
     #[test]
     fn randomized() {
         const RAND_NUM: u64 = 0xAAAAAAAAAAAAAAAA; // 0b10101010..
