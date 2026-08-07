@@ -14,24 +14,9 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Enable apt source repositories
+    - name: Update apt
       shell: bash
-      run: |
-        if [ -f /etc/apt/sources.list.d/ubuntu.sources ]; then
-          sudo sed -i 's/^Types: deb$/Types: deb deb-src/' /etc/apt/sources.list.d/ubuntu.sources
-        fi
-
-        if [ -f /etc/apt/sources.list ]; then
-          sudo sed -i 's/^# deb-src/deb-src/' /etc/apt/sources.list
-        fi
-
-        sudo apt-get update
-
-    - name: Cache apt archives
-      uses: actions/cache@v5
-      with:
-        path: /var/cache/apt/archives/*.deb
-        key: apt-ubuntu-24.04-${{ inputs.qemu == 'true' && 'qemu' || 'base' }}-v1
+      run: sudo apt-get update
 
     - name: Install base packages
       shell: bash
@@ -46,17 +31,12 @@ runs:
 
         sudo apt-get install -y --no-install-recommends "${packages[@]}"
 
-    - name: Install QEMU build dependencies
-      if: ${{ inputs.qemu == 'true' }}
-      shell: bash
-      run: |
-        sudo apt-get build-dep -y qemu
-
-    - name: Install QEMU runtime packages
+    - name: Install QEMU packages
       if: ${{ inputs.qemu == 'true' }}
       shell: bash
       run: |
         packages=(
+          ninja-build pkg-config libglib2.0-dev libpixman-1-dev python3-venv
           qemu-utils
           gcc-arm-none-eabi
           libnewlib-arm-none-eabi

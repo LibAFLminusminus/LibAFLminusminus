@@ -2,6 +2,9 @@ name: "CI - Fuzzers"
 on:
   workflow_call: {}
 
+env:
+  PROFILE: dev
+
 jobs:
   matrix:
     runs-on: ubuntu-latest
@@ -33,8 +36,6 @@ jobs:
         with:
           aflplusplus: true # useful for forkserver
       - uses: ./.github/actions/setup-llvm
-        with:
-          version: ${{ vars.MAIN_LLVM_VERSION }}
       - uses: ./.github/actions/setup-rust
         with:
           cache-key: ubuntu
@@ -60,17 +61,15 @@ jobs:
         with:
           qemu: true
       - uses: ./.github/actions/setup-llvm
-        with:
-          version: ${{ vars.MAIN_LLVM_VERSION }}
       - uses: ./.github/actions/setup-rust
         with:
           cache-key: ubuntu
       - uses: ./.github/actions/cache-qemu-nyx
         with:
-          target-dir: fuzzers/${{ matrix.fuzzer }}/target/debug
+          target-dir: fuzzers/${{ matrix.fuzzer }}/target/${{ env.PROFILE == 'dev' && 'debug' || 'release' }}
       - uses: ./.github/actions/cache-qemu
         with:
-          target-dir: fuzzers/${{ matrix.fuzzer }}/target/release
+          target-dir: fuzzers/${{ matrix.fuzzer }}/target/${{ env.PROFILE == 'dev' && 'debug' || 'release' }}
           build-id: ${{ matrix.fuzzer }}
       - name: Run test
         shell: bash
