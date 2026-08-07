@@ -5,9 +5,9 @@
 pub trait ExecutorHook<I, S> {
     /// Init this hook
     fn init(&mut self, state: &mut S);
-    /// The hook that runs before runs the target
+    /// The hook that runs before running the target
     fn pre_exec(&mut self, state: &mut S, input: &I);
-    /// The hook that runs before runs the target
+    /// The hook that runs after running the target
     fn post_exec(&mut self, state: &mut S, input: &I);
 }
 
@@ -15,9 +15,9 @@ pub trait ExecutorHook<I, S> {
 pub trait ExecutorHooksTuple<I, S> {
     /// Init these hooks
     fn init_all(&mut self, state: &mut S);
-    /// The hooks that runs before runs the target
+    /// The hooks that runs before running the target
     fn pre_exec_all(&mut self, state: &mut S, input: &I);
-    /// The hooks that runs after runs the target
+    /// The hooks that runs after running the target
     fn post_exec_all(&mut self, state: &mut S, input: &I);
 }
 

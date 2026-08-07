@@ -21,7 +21,7 @@ harness: lib
     clang++ -O3 harness.o libpng-1.6.37/.libs/libpng16.a -shared -lz -o libpng-harness.so
 
 build:
-    cargo build --profile {{ PROFILE }}
+    cargo build --locked --profile {{ PROFILE }}
 
 run: build harness
     {{ FUZZER }} -F LLVMFuzzerTestOneInput -H ./libpng-harness.so -l ./libpng-harness.so --input ./corpus

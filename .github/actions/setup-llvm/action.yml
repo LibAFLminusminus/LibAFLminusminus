@@ -18,19 +18,12 @@ runs:
         fi
         wget https://apt.llvm.org/llvm.sh
         chmod +x llvm.sh
-        sudo flock --timeout 300 /var/lock/github-apt.lock bash -c '
-          if command -v "clang-${{ inputs.version }}" &>/dev/null; then
-            echo "clang-${{ inputs.version }} installed by concurrent job, skipping."
-          else
-            ./llvm.sh "${{ inputs.version }}" all
-          fi
-        '
+        sudo ./llvm.sh "${{ inputs.version }}" all
 
     - name: Export LLVM env
       shell: bash
       run: |
         # add llvm version to github path.
-        # do not use update-alternative, as it is racey and would fail with concurrent jobs
         # requiring different llvm versions.
         {
           echo "/usr/lib/llvm-${{ inputs.version }}/bin"

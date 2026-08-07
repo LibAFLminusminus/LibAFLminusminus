@@ -17,11 +17,6 @@ inputs:
     description: write to the cache
     required: false
     default: true
-  cache:
-    description: >
-      Enable Swatinem/rust-cache. Set to false on persistent self-hosted runners.
-    required: false
-    default: "true"
   cargo-install:
     description: Comma-separated list of cargo binaries to install (e.g. cargo-hack,cargo-nextest).
     required: false
@@ -47,29 +42,21 @@ runs:
       run: |
         CARGO_BIN="${CARGO_HOME:-$HOME/.cargo}/bin"
 
-        # install rustup if not already present. locked for concurrent access.
+        # install rustup if not already present.
         if [[ ! -x "$CARGO_BIN/rustup" ]]; then
-          flock --timeout 300 /var/lock/github-rust.lock bash -c '
-            [[ -x "'"$CARGO_BIN"'/rustup" ]] && exit 0
-            curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs \
-              | sh -s -- -y --no-modify-path --default-toolchain none
-          '
+          curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs \
+            | sh -s -- -y --no-modify-path --default-toolchain none
         fi
 
         # make rustup available for the commands below.
         export PATH="$CARGO_BIN:$PATH"
 
-        flock --timeout 300 /var/lock/github-rust.lock bash -c '
-          set -eu
-          rustup toolchain install "$TOOLCHAIN" --no-self-update
-          for component in ${COMPONENTS//,/ }; do
-            rustup component add --toolchain "$TOOLCHAIN" "$component"
-          done
-        '
+        rustup toolchain install "$TOOLCHAIN" --no-self-update
+        for component in ${COMPONENTS//,/ }; do
+          rustup component add --toolchain "$TOOLCHAIN" "$component"
+        done
 
-        # set the rustup toolchain through the env.
-        # do NOT use rustup default <toolchain> as it would race with other jobs.
-        # use the toolchain directory to avoid any issue.
+        # set the rustup toolchain through the env, using the toolchain directory.
         TOOLCHAIN_FULL=$(rustup toolchain list 2>/dev/null \
           | grep "^${TOOLCHAIN}-" | awk '{print $1}' | head -1)
         TOOLCHAIN_BIN="$HOME/.rustup/toolchains/${TOOLCHAIN_FULL}/bin"
@@ -92,7 +79,6 @@ runs:
       uses: extractions/setup-just@v4
 
     - name: Rust cache
-      if: inputs.cache == 'true'
       uses: Swatinem/rust-cache@v2
       with:
         shared-key: ${{ inputs.cache-key }}
