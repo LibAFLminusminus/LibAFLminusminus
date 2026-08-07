@@ -4,18 +4,19 @@ use crate::{
     Result,
     corpus::Testcase,
     launchers::{InstanceId, groups::Group},
-    states::{Stats, sync_stats},
+    states::{Stats, read_stats_json, stats_to_json},
     sync::GroupId,
 };
+use alloc::sync::Arc;
 use core::time::Duration;
 use libaflmm_bolts::CoreId;
-use libaflmm_core::{Error, internal_bug};
+use libaflmm_core::Error;
 use nix::sys::signal::Signal;
 use quanta::{Clock, Instant};
 use serde::{Deserialize, Serialize};
 use std::{
     fs::{self, File, OpenOptions},
-    io::{stderr, stdout},
+    io::{Write, stderr, stdout},
     os::fd::{AsFd, BorrowedFd},
     path::{Path, PathBuf},
 };
@@ -215,14 +216,13 @@ pub struct Workdir {
 }
 
 /// A workdir file is an abstract representation of a file owned by a [`Workdir`].
-/// It enables to get a file as a [`File`] or a [`PathBuf`] transparently.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum WorkdirFile {
     /// File described as a [`PathBuf`].
     /// If a relative path is used, it's relative to the worker's [`Workdir`].
     Path(PathBuf),
-    /// File described as a [`File`].
-    File(File),
+    /// File described as an already opened [`File`].
+    File(Arc<File>),
     /// Stdout
     Stdout,
     /// Stderr
@@ -238,86 +238,62 @@ impl WorkerId {
     }
 }
 
-impl Clone for WorkdirFile {
-    fn clone(&self) -> Self {
-        match self {
-            WorkdirFile::Path(p) => WorkdirFile::Path(p.clone()),
-            WorkdirFile::File(f) => WorkdirFile::File(f.try_clone().unwrap()),
-            WorkdirFile::Stdout => WorkdirFile::Stdout,
-            WorkdirFile::Stderr => WorkdirFile::Stderr,
-            WorkdirFile::Null => WorkdirFile::Null,
-        }
-    }
-}
-
 impl WorkdirFile {
-    fn setup_fd(&mut self, root_dir: impl AsRef<Path>, is_write: bool) -> Result<()> {
-        match self {
-            WorkdirFile::File(_) => {}
-            WorkdirFile::Path(path) => {
-                let full_path = root_dir.as_ref().join(path.as_path());
-
-                let file = if is_write {
-                    OpenOptions::new()
-                        .write(true)
-                        .create(true)
-                        .truncate(true)
-                        .open(full_path)?
-                } else {
-                    if !full_path.exists() {
-                        return Ok(());
-                    }
-
-                    OpenOptions::new().read(true).open(full_path)?
-                };
-
-                *self = WorkdirFile::File(file);
-            }
-            WorkdirFile::Stdout => {
-                *self = WorkdirFile::File(File::from(stdout().as_fd().try_clone_to_owned()?));
-            }
-            WorkdirFile::Stderr => {
-                *self = WorkdirFile::File(File::from(stderr().as_fd().try_clone_to_owned()?));
-            }
-            WorkdirFile::Null => {
-                *self =
-                    WorkdirFile::File(File::open("/dev/null").expect("Could not open /dev/null"));
-            }
-        }
-
-        Ok(())
-    }
-
-    /// Open a [`File`] in read-only mode from its path.
-    ///
-    /// Returns [`None`] if the path does not exist.
-    pub fn get_file_rd(&mut self, root_dir: impl AsRef<Path>) -> Result<Option<File>> {
-        self.setup_fd(root_dir, false)?;
-
-        let file: &mut File = match self {
-            WorkdirFile::File(file) => file,
-            _ => return Ok(None),
-        };
-
-        Ok(Some(file.try_clone().unwrap()))
-    }
-
-    /// Open a [`File`] in write-only mode from its path.
+    /// Open a truncated [`File`] in write-only mode
     ///
     /// Creates the file if the path does not exist.
-    pub fn get_file_wr(&mut self, root_dir: impl AsRef<Path>) -> Result<File> {
-        self.setup_fd(root_dir, true)?;
+    pub fn open_write(&self, root_dir: impl AsRef<Path>) -> Result<File> {
+        Ok(match self {
+            WorkdirFile::Path(path) => OpenOptions::new()
+                .write(true)
+                .create(true)
+                .truncate(true)
+                .open(root_dir.as_ref().join(path))?,
+            WorkdirFile::File(file) => file.try_clone()?,
+            WorkdirFile::Stdout => File::from(stdout().as_fd().try_clone_to_owned()?),
+            WorkdirFile::Stderr => File::from(stderr().as_fd().try_clone_to_owned()?),
+            WorkdirFile::Null => OpenOptions::new().write(true).open("/dev/null")?,
+        })
+    }
 
-        let file: &mut File = match self {
-            WorkdirFile::File(file) => file,
-            _ => {
-                return Err(internal_bug!(
-                    "The workdir file should be a file at this point"
-                ));
+    /// Open a [`File`] in read-only mode.
+    ///
+    /// Returns [`None`] if there is nothing to read from.
+    pub fn open_read(&self, root_dir: impl AsRef<Path>) -> Result<Option<File>> {
+        Ok(match self {
+            WorkdirFile::Path(path) => {
+                let full_path = root_dir.as_ref().join(path);
+                if !full_path.exists() {
+                    return Ok(None);
+                }
+
+                Some(OpenOptions::new().read(true).open(full_path)?)
             }
-        };
+            WorkdirFile::File(file) => Some(file.try_clone()?),
+            WorkdirFile::Stdout | WorkdirFile::Stderr | WorkdirFile::Null => None,
+        })
+    }
 
-        Ok(file.try_clone().unwrap())
+    /// Replace the whole content of the file.
+    ///
+    /// If a path is used, the replacement is atomic.
+    /// Otherise, the file is simply truncated.
+    pub fn replace(&self, root_dir: impl AsRef<Path>, buf: &[u8]) -> Result<()> {
+        if let WorkdirFile::Path(path) = self {
+            let full_path = root_dir.as_ref().join(path);
+            let tmp_path = full_path.with_extension("tmp");
+
+            let mut tmp = File::create(&tmp_path)?;
+            tmp.write_all(buf)?;
+            tmp.sync_all()?;
+            fs::rename(tmp_path, full_path)?;
+
+            Ok(())
+        } else {
+            self.open_write(root_dir)?.write_all(buf)?;
+
+            Ok(())
+        }
     }
 }
 
@@ -355,18 +331,23 @@ impl Workdir {
     }
 
     /// Get the file associated with stdout for the [`Workdir`].
-    pub fn stdout(&mut self) -> Result<File> {
-        self.stdout.get_file_wr(self.root_dir.as_path())
+    pub fn stdout(&self) -> Result<File> {
+        self.stdout.open_write(self.root_dir.as_path())
     }
 
     /// Get the file associated with stderr for the [`Workdir`].
-    pub fn stderr(&mut self) -> Result<File> {
-        self.stderr.get_file_wr(self.root_dir.as_path())
+    pub fn stderr(&self) -> Result<File> {
+        self.stderr.open_write(self.root_dir.as_path())
     }
 
-    /// Get the [`Stats`] file of the [`Workdir`].
-    pub fn get_stats(&mut self) -> Result<Option<File>> {
-        self.stats.get_file_rd(self.root_dir.as_path())
+    /// Read the [`Stats`] of the [`Workdir`].
+    ///
+    /// Returns `None` if no stats have been reported yet.
+    pub fn read_stats(&self) -> Result<Option<Stats>> {
+        self.stats
+            .open_read(self.root_dir.as_path())?
+            .map(read_stats_json)
+            .transpose()
     }
 
     /// Create a new directory, relative to the [`Workdir`].
@@ -406,12 +387,10 @@ impl Workdir {
         full_path.is_file()
     }
 
-    /// Update the [`Stats`] of the [`Workdir`].
-    pub fn report_stats(&mut self, stats: &Stats) -> Result<()> {
-        let stats_ref = self.stats.get_file_wr(self.root_dir.as_path())?;
-        sync_stats(stats_ref, stats)?;
-
-        Ok(())
+    /// Update the [`Stats`] of the [`Workdir`] atomically.
+    pub fn report_stats(&self, stats: &Stats) -> Result<()> {
+        self.stats
+            .replace(self.root_dir.as_path(), &stats_to_json(stats)?)
     }
 
     /// report stats every once in a while.
