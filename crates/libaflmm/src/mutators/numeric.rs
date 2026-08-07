@@ -379,16 +379,13 @@ mod tests {
         for _ in 0..100 {
             let mut input = U32Input::new(0_u32);
             mutator.mutate(&mut input, &mut rand, &state).unwrap();
-            if input.into_inner() >= 16 {
+            if !input.into_inner().trailing_zeros().is_multiple_of(8) {
                 flipped_above_byte = true;
                 break;
             }
         }
 
-        assert!(
-            flipped_above_byte,
-            "BitFlipMutator never flipped a bit >= 4, check upper bound"
-        );
+        assert!(flipped_above_byte, "BitFlipMutator byte alignment error");
     }
     #[test]
     fn randomized() {
