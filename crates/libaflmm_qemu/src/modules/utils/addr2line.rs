@@ -2,7 +2,7 @@
 //! Utils for addr2line
 
 use crate::qemu::Qemu;
-use addr2line::{fallible_iterator::FallibleIterator, Loader};
+use addr2line::{Loader, fallible_iterator::FallibleIterator};
 use goblin::elf::dynamic::{DF_1_PIE, DT_FLAGS_1};
 use hashbrown::HashMap;
 use libaflmm_qemu_sys::GuestAddr;
