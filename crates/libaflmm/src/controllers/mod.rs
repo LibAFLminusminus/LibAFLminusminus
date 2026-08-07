@@ -7,6 +7,7 @@ use crate::{
     states::{Stats, read_stats_json, stats_to_json},
     sync::GroupId,
 };
+use alloc::sync::Arc;
 use core::time::Duration;
 use libaflmm_bolts::CoreId;
 use libaflmm_core::Error;
@@ -18,7 +19,6 @@ use std::{
     io::{Write, stderr, stdout},
     os::fd::{AsFd, BorrowedFd},
     path::{Path, PathBuf},
-    sync::Arc,
 };
 
 /// Default wait time between stats updates.

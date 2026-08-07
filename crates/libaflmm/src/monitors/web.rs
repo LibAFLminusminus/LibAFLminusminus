@@ -4,11 +4,7 @@
 //! But we are always looking for somebody who can help us design a better & maintainable beautiful web UI!
 
 use crate::{
-    Result,
-    controllers::Controller,
-    controllers::Descriptor,
-    monitors::Monitor,
-    states::Stats,
+    Result, controllers::Controller, controllers::Descriptor, monitors::Monitor, states::Stats,
 };
 use alloc::{
     string::{String, ToString},
