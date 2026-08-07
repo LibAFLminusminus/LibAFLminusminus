@@ -17,6 +17,7 @@ pub mod constants {
     include!(concat!(env!("OUT_DIR"), "/constants.rs"));
 }
 
+#[cfg(feature = "libfuzzer")]
 pub mod libfuzzer;
 
 pub mod exports;
@@ -59,6 +60,7 @@ pub mod prelude {
     #[cfg(feature = "coverage")]
     pub use crate::exports::{EDGES_MAP, EDGES_MAP_PTR, INPUT_LENGTH_PTR, INPUT_PTR, SHM_FUZZING};
 
+    #[cfg(feature = "libfuzzer")]
     pub use crate::libfuzzer::{libfuzzer_initialize, libfuzzer_test_one_input};
 
     pub use crate::sancov::{libafl_cmp_map, sancov_value_profile};
