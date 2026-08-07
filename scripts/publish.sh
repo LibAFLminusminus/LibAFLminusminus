@@ -33,4 +33,4 @@ if [ ${#EXCLUDE_ARGS[@]} -gt 0 ]; then
 fi
 
 echo "Running: cargo publish --workspace ${DRY_RUN_FLAG} ${EXCLUDE_ARGS[*]}"
-cargo publish --workspace ${DRY_RUN_FLAG} "${EXCLUDE_ARGS[@]}"
+cargo publish --locked --workspace ${DRY_RUN_FLAG} "${EXCLUDE_ARGS[@]}"
