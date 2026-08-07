@@ -13,11 +13,11 @@ use crate::{
 };
 
 #[cfg(windows)]
-unsafe extern "system" {
+unsafe extern "C" {
     fn memcpy(dst: *mut c_void, src: *const c_void, size: usize) -> *mut c_void;
 }
 #[cfg(windows)]
-unsafe extern "system" {
+unsafe extern "C" {
     fn memset(s: *mut c_void, c: i32, n: usize) -> *mut c_void;
 }
 
@@ -35,7 +35,7 @@ impl AsanRuntime {
     #[cfg(windows)]
     pub fn hook_NtGdiCreateCompatibleDC(
         &mut self,
-        _original: extern "C" fn(_hdc: *const c_void) -> *mut c_void,
+        _original: extern "system" fn(_hdc: *const c_void) -> *mut c_void,
         _hdc: *const c_void,
     ) -> *mut c_void {
         unsafe { self.allocator_mut().alloc(8, 8) }
@@ -46,7 +46,7 @@ impl AsanRuntime {
     #[cfg(windows)]
     pub fn hook_CreateThread(
         &mut self,
-        original: extern "C" fn(
+        original: extern "system" fn(
             thread_attributes: *const c_void,
             stack_size: usize,
             start_address: *const c_void,
@@ -75,7 +75,7 @@ impl AsanRuntime {
     #[cfg(windows)]
     pub fn hook_CreateFileMappingW(
         &mut self,
-        original: extern "C" fn(
+        original: extern "system" fn(
             file: usize,
             file_mapping_attributes: *const c_void,
             protect: i32,
@@ -105,7 +105,7 @@ impl AsanRuntime {
     #[cfg(windows)]
     pub fn hook_LdrLoadDll(
         &mut self,
-        original: extern "C" fn(
+        original: extern "system" fn(
             search_path: *const c_void,
             charecteristics: *const u32,
             dll_name: *const c_void,
@@ -128,7 +128,7 @@ impl AsanRuntime {
     #[cfg(windows)]
     pub fn hook_LdrpCallInitRoutine(
         &mut self,
-        _original: extern "C" fn(
+        _original: extern "system" fn(
             _base_address: *const c_void,
             _reason: usize,
             _base_address: *const c_void,
@@ -151,7 +151,7 @@ impl AsanRuntime {
     #[cfg(windows)]
     pub fn hook_LoadLibraryExW(
         &mut self,
-        original: extern "C" fn(path: *const c_void, file: usize, flags: i32) -> usize,
+        original: extern "system" fn(path: *const c_void, file: usize, flags: i32) -> usize,
         path: *const c_void,
         file: usize,
         flags: i32,
@@ -168,7 +168,7 @@ impl AsanRuntime {
     #[cfg(windows)]
     pub fn hook_RtlCreateHeap(
         &mut self,
-        _original: extern "C" fn(
+        _original: extern "system" fn(
             _flags: u32,
             _heap_base: *const c_void,
             _reserve_size: usize,
@@ -191,7 +191,7 @@ impl AsanRuntime {
     #[cfg(windows)]
     pub fn hook_RtlDestroyHeap(
         &mut self,
-        _original: extern "C" fn(_handle: *const c_void) -> *mut c_void,
+        _original: extern "system" fn(_handle: *const c_void) -> *mut c_void,
         _handle: *const c_void,
     ) -> *mut c_void {
         log::trace!("RtlDestroyHeap");
@@ -203,7 +203,7 @@ impl AsanRuntime {
     #[cfg(windows)]
     pub fn hook_HeapAlloc(
         &mut self,
-        _original: extern "C" fn(_handle: *mut c_void, flags: u32, size: usize) -> *mut c_void,
+        _original: extern "system" fn(_handle: *mut c_void, flags: u32, size: usize) -> *mut c_void,
         _handle: *mut c_void,
         flags: u32,
         size: usize,
@@ -228,7 +228,7 @@ impl AsanRuntime {
     #[cfg(windows)]
     pub fn hook_RtlAllocateHeap(
         &mut self,
-        _original: extern "C" fn(_handle: *mut c_void, flags: u32, size: usize) -> *mut c_void,
+        _original: extern "system" fn(_handle: *mut c_void, flags: u32, size: usize) -> *mut c_void,
         _handle: *mut c_void,
         flags: u32,
         size: usize,
@@ -253,7 +253,7 @@ impl AsanRuntime {
     #[cfg(windows)]
     pub fn hook_HeapReAlloc(
         &mut self,
-        original: extern "C" fn(
+        original: extern "system" fn(
             handle: *mut c_void,
             flags: u32,
             ptr: *mut c_void,
@@ -278,7 +278,7 @@ impl AsanRuntime {
         };
 
         if flags & 8 == 8 {
-            unsafe extern "system" {
+            unsafe extern "C" {
                 fn memset(s: *mut c_void, c: i32, n: usize) -> *mut c_void;
             }
             unsafe {
@@ -298,7 +298,7 @@ impl AsanRuntime {
     #[cfg(windows)]
     pub fn hook_RtlReAllocateHeap(
         &mut self,
-        original: extern "C" fn(
+        original: extern "system" fn(
             handle: *mut c_void,
             flags: u32,
             ptr: *mut c_void,
@@ -323,7 +323,7 @@ impl AsanRuntime {
         };
 
         if flags & 8 == 8 {
-            unsafe extern "system" {
+            unsafe extern "C" {
                 fn memset(s: *mut c_void, c: i32, n: usize) -> *mut c_void;
             }
             unsafe {
@@ -355,7 +355,7 @@ impl AsanRuntime {
     #[cfg(windows)]
     pub fn hook_RtlFreeHeap(
         &mut self,
-        _original: extern "C" fn(_handle: *mut c_void, _flags: u32, ptr: *mut c_void) -> usize,
+        _original: extern "system" fn(_handle: *mut c_void, _flags: u32, ptr: *mut c_void) -> usize,
         _handle: *mut c_void,
         _flags: u32,
         ptr: *mut c_void,
@@ -381,7 +381,7 @@ impl AsanRuntime {
     #[cfg(windows)]
     pub fn hook_HeapFree(
         &mut self,
-        _original: extern "C" fn(_handle: *mut c_void, _flags: u32, ptr: *mut c_void) -> bool,
+        _original: extern "system" fn(_handle: *mut c_void, _flags: u32, ptr: *mut c_void) -> bool,
         _handle: *mut c_void,
         _flags: u32,
         ptr: *mut c_void,
@@ -407,7 +407,7 @@ impl AsanRuntime {
     #[cfg(windows)]
     pub fn hook_HeapSize(
         &mut self,
-        _original: extern "C" fn(_handle: *mut c_void, _flags: u32, ptr: *mut c_void) -> usize,
+        _original: extern "system" fn(_handle: *mut c_void, _flags: u32, ptr: *mut c_void) -> usize,
         _handle: *mut c_void,
         _flags: u32,
         ptr: *mut c_void,
@@ -432,7 +432,7 @@ impl AsanRuntime {
     #[cfg(windows)]
     pub fn hook_RtlSizeHeap(
         &mut self,
-        _original: extern "C" fn(_handle: *mut c_void, _flags: u32, ptr: *mut c_void) -> usize,
+        _original: extern "system" fn(_handle: *mut c_void, _flags: u32, ptr: *mut c_void) -> usize,
         _handle: *mut c_void,
         _flags: u32,
         ptr: *mut c_void,
@@ -457,7 +457,7 @@ impl AsanRuntime {
     #[cfg(windows)]
     pub fn hook_RtlValidateHeap(
         &mut self,
-        _original: extern "C" fn(_handle: *mut c_void, _flags: u32, _ptr: *mut c_void) -> bool,
+        _original: extern "system" fn(_handle: *mut c_void, _flags: u32, _ptr: *mut c_void) -> bool,
         _handle: *mut c_void,
         _flags: u32,
         _ptr: *mut c_void,
@@ -470,7 +470,7 @@ impl AsanRuntime {
     #[cfg(windows)]
     pub fn hook_LocalAlloc(
         &mut self,
-        _original: extern "C" fn(flags: u32, size: usize) -> *mut c_void,
+        _original: extern "system" fn(flags: u32, size: usize) -> *mut c_void,
         flags: u32,
         size: usize,
     ) -> *mut c_void {
@@ -488,7 +488,7 @@ impl AsanRuntime {
     #[cfg(windows)]
     pub fn hook_LocalReAlloc(
         &mut self,
-        _original: extern "C" fn(mem: *mut c_void, size: usize, _flags: u32) -> *mut c_void,
+        _original: extern "system" fn(mem: *mut c_void, size: usize, _flags: u32) -> *mut c_void,
         mem: *mut c_void,
         size: usize,
         _flags: u32,
@@ -517,7 +517,7 @@ impl AsanRuntime {
     #[cfg(windows)]
     pub fn hook_LocalFree(
         &mut self,
-        _original: extern "C" fn(mem: *mut c_void) -> *mut c_void,
+        _original: extern "system" fn(mem: *mut c_void) -> *mut c_void,
         mem: *mut c_void,
     ) -> *mut c_void {
         log::trace!("hook_LocalFree");
@@ -535,7 +535,7 @@ impl AsanRuntime {
     #[cfg(windows)]
     pub fn hook_LocalHandle(
         &mut self,
-        _soriginal: extern "C" fn(mem: *mut c_void) -> *mut c_void,
+        _soriginal: extern "system" fn(mem: *mut c_void) -> *mut c_void,
         mem: *mut c_void,
     ) -> *mut c_void {
         log::trace!("hook_LocalHandle");
@@ -552,7 +552,7 @@ impl AsanRuntime {
     #[cfg(windows)]
     pub fn hook_LocalLock(
         &mut self,
-        _original: extern "C" fn(mem: *mut c_void) -> *mut c_void,
+        _original: extern "system" fn(mem: *mut c_void) -> *mut c_void,
         mem: *mut c_void,
     ) -> *mut c_void {
         log::trace!("hook_LocalLock");
@@ -568,7 +568,7 @@ impl AsanRuntime {
     #[cfg(windows)]
     pub fn hook_LocalUnlock(
         &mut self,
-        _original: extern "C" fn(_mem: *mut c_void) -> bool,
+        _original: extern "system" fn(_mem: *mut c_void) -> bool,
         _mem: *mut c_void,
     ) -> bool {
         log::trace!("hook_LocalUnlock");
@@ -584,7 +584,7 @@ impl AsanRuntime {
     #[cfg(windows)]
     pub fn hook_LocalSize(
         &mut self,
-        _original: extern "C" fn(mem: *mut c_void) -> usize,
+        _original: extern "system" fn(mem: *mut c_void) -> usize,
         mem: *mut c_void,
     ) -> usize {
         log::trace!("hook_LocalSize");
@@ -600,7 +600,7 @@ impl AsanRuntime {
     #[cfg(windows)]
     pub fn hook_LocalFlags(
         &mut self,
-        _original: extern "C" fn(_mem: *mut c_void) -> u32,
+        _original: extern "system" fn(_mem: *mut c_void) -> u32,
         _mem: *mut c_void,
     ) -> u32 {
         log::trace!("hook_LocalFlags");
@@ -611,7 +611,7 @@ impl AsanRuntime {
     #[cfg(windows)]
     pub fn hook_GlobalAlloc(
         &mut self,
-        _original: extern "C" fn(flags: u32, size: usize) -> *mut c_void,
+        _original: extern "system" fn(flags: u32, size: usize) -> *mut c_void,
         flags: u32,
         size: usize,
     ) -> *mut c_void {
@@ -619,7 +619,7 @@ impl AsanRuntime {
         let ret = unsafe { self.allocator_mut().alloc(size, 8) };
 
         if flags & 0x40 == 0x40 {
-            unsafe extern "system" {
+            unsafe extern "C" {
                 fn memset(s: *mut c_void, c: i32, n: usize) -> *mut c_void;
             }
             unsafe {
@@ -632,7 +632,7 @@ impl AsanRuntime {
     #[cfg(windows)]
     pub fn hook_GlobalReAlloc(
         &mut self,
-        _original: extern "C" fn(mem: *mut c_void, _flags: u32, size: usize) -> *mut c_void,
+        _original: extern "system" fn(mem: *mut c_void, _flags: u32, size: usize) -> *mut c_void,
         mem: *mut c_void,
         _flags: u32,
         size: usize,
@@ -659,7 +659,7 @@ impl AsanRuntime {
     #[cfg(windows)]
     pub fn hook_GlobalFree(
         &mut self,
-        _original: extern "C" fn(mem: *mut c_void) -> *mut c_void,
+        _original: extern "system" fn(mem: *mut c_void) -> *mut c_void,
         mem: *mut c_void,
     ) -> *mut c_void {
         log::trace!("hook_GlobalFree");
@@ -676,7 +676,7 @@ impl AsanRuntime {
     #[cfg(windows)]
     pub fn hook_GlobalHandle(
         &mut self,
-        _original: extern "C" fn(mem: *mut c_void) -> *mut c_void,
+        _original: extern "system" fn(mem: *mut c_void) -> *mut c_void,
         mem: *mut c_void,
     ) -> *mut c_void {
         log::trace!("hook_GlobalHandle");
@@ -692,7 +692,7 @@ impl AsanRuntime {
     #[cfg(windows)]
     pub fn hook_GlobalLock(
         &mut self,
-        _original: extern "C" fn(mem: *mut c_void) -> *mut c_void,
+        _original: extern "system" fn(mem: *mut c_void) -> *mut c_void,
         mem: *mut c_void,
     ) -> *mut c_void {
         log::trace!("hook_GlobalLock");
@@ -707,7 +707,7 @@ impl AsanRuntime {
     #[cfg(windows)]
     pub fn hook_GlobalUnlock(
         &mut self,
-        _original: extern "C" fn(_mem: *mut c_void) -> bool,
+        _original: extern "system" fn(_mem: *mut c_void) -> bool,
         _mem: *mut c_void,
     ) -> bool {
         log::trace!("hook_GlobalUnlock");
@@ -722,7 +722,7 @@ impl AsanRuntime {
     #[cfg(windows)]
     pub fn hook_GlobalSize(
         &mut self,
-        _original: extern "C" fn(mem: *mut c_void) -> usize,
+        _original: extern "system" fn(mem: *mut c_void) -> usize,
         mem: *mut c_void,
     ) -> usize {
         log::trace!("hook_GlobalSize");
@@ -737,7 +737,7 @@ impl AsanRuntime {
     #[cfg(windows)]
     pub fn hook_GlobalFlags(
         &mut self,
-        _original: extern "C" fn(mem: *mut c_void) -> u32,
+        _original: extern "system" fn(mem: *mut c_void) -> u32,
         _mem: *mut c_void,
     ) -> u32 {
         log::trace!("hook_GlobalFlags");
@@ -847,7 +847,7 @@ impl AsanRuntime {
         log::trace!("hook__Znwm");
         let result = unsafe { self.allocator_mut().alloc(size, 8) };
         if result.is_null() {
-            unsafe extern "system" {
+            unsafe extern "C" {
                 fn _ZSt17__throw_bad_allocv();
             }
 
@@ -885,7 +885,7 @@ impl AsanRuntime {
         log::trace!("hook__ZnwmSt11align_val_t");
         let result = unsafe { self.allocator_mut().alloc(size, alignment) };
         if result.is_null() {
-            unsafe extern "system" {
+            unsafe extern "C" {
                 fn _ZSt17__throw_bad_allocv();
             }
 
@@ -930,7 +930,7 @@ impl AsanRuntime {
         nmemb: usize,
         size: usize,
     ) -> *mut c_void {
-        unsafe extern "system" {
+        unsafe extern "C" {
             fn memset(s: *mut c_void, c: i32, n: usize) -> *mut c_void;
         }
         log::trace!("hook_calloc");
@@ -954,7 +954,7 @@ impl AsanRuntime {
         nmemb: usize,
         size: usize,
     ) -> *mut c_void {
-        unsafe extern "system" {
+        unsafe extern "C" {
             fn memset(s: *mut c_void, c: i32, n: usize) -> *mut c_void;
         }
         log::trace!("hook__o_calloc");
@@ -1299,7 +1299,7 @@ impl AsanRuntime {
     #[cfg(windows)]
     pub fn hook_MapViewOfFile(
         &mut self,
-        original: extern "C" fn(
+        original: extern "system" fn(
             handle: *const c_void,
             desired_access: u32,
             file_offset_high: u32,
@@ -1361,7 +1361,7 @@ impl AsanRuntime {
     #[cfg(windows)]
     pub fn hook_UnmapViewOfFile(
         &mut self,
-        original: extern "C" fn(ptr: *const c_void) -> bool,
+        original: extern "system" fn(ptr: *const c_void) -> bool,
         ptr: *const c_void,
     ) -> bool {
         log::info!("hook_UnmapViewOfFile {:p}", ptr);
@@ -2080,7 +2080,7 @@ impl AsanRuntime {
         s: *mut c_char,
         c: i32,
     ) -> *mut c_char {
-        unsafe extern "system" {
+        unsafe extern "C" {
 
             fn strlen(s: *const c_char) -> usize;
         }
@@ -2108,7 +2108,7 @@ impl AsanRuntime {
         s: *mut c_char,
         c: i32,
     ) -> *mut c_char {
-        unsafe extern "system" {
+        unsafe extern "C" {
             fn strlen(s: *const c_char) -> usize;
         }
         log::trace!("hook_strrchr");
@@ -2135,7 +2135,7 @@ impl AsanRuntime {
         s1: *const c_char,
         s2: *const c_char,
     ) -> i32 {
-        unsafe extern "system" {
+        unsafe extern "C" {
             fn strlen(s: *const c_char) -> usize;
         }
         log::trace!("hook_strcasecmp");
@@ -2209,7 +2209,7 @@ impl AsanRuntime {
         s1: *mut c_char,
         s2: *const c_char,
     ) -> *mut c_char {
-        unsafe extern "system" {
+        unsafe extern "C" {
             fn strlen(s: *const c_char) -> usize;
         }
         log::trace!("hook_strcat");
@@ -2249,7 +2249,7 @@ impl AsanRuntime {
         s1: *const c_char,
         s2: *const c_char,
     ) -> i32 {
-        unsafe extern "system" {
+        unsafe extern "C" {
             fn strlen(s: *const c_char) -> usize;
         }
         log::trace!("hook_strcmp");
@@ -2290,7 +2290,7 @@ impl AsanRuntime {
         s2: *const c_char,
         n: usize,
     ) -> i32 {
-        unsafe extern "system" {
+        unsafe extern "C" {
             fn strnlen(s: *const c_char, n: usize) -> usize;
         }
         log::trace!("hook_strncmp");
@@ -2330,7 +2330,7 @@ impl AsanRuntime {
         dest: *mut c_char,
         src: *const c_char,
     ) -> *mut c_char {
-        unsafe extern "system" {
+        unsafe extern "C" {
             fn strlen(s: *const c_char) -> usize;
         }
         log::trace!("hook_strcpy");
@@ -2371,7 +2371,7 @@ impl AsanRuntime {
         src: *const c_char,
         n: usize,
     ) -> *mut c_char {
-        unsafe extern "system" {
+        unsafe extern "C" {
             fn strlen(s: *const c_char) -> usize;
         }
         log::trace!("hook_strncpy");
@@ -2408,7 +2408,7 @@ impl AsanRuntime {
         dest: *mut c_char,
         src: *const c_char,
     ) -> *mut c_char {
-        unsafe extern "system" {
+        unsafe extern "C" {
             fn strlen(s: *const c_char) -> usize;
         }
         log::trace!("hook_stpcpy");
@@ -2457,7 +2457,7 @@ impl AsanRuntime {
         _original: extern "C" fn(s: *const c_char) -> *mut c_char,
         s: *const c_char,
     ) -> *mut c_char {
-        unsafe extern "system" {
+        unsafe extern "C" {
             fn strlen(s: *const c_char) -> usize;
             fn strcpy(dest: *mut c_char, src: *const c_char) -> *mut c_char;
         }
@@ -2534,7 +2534,7 @@ impl AsanRuntime {
         haystack: *const c_char,
         needle: *const c_char,
     ) -> *mut c_char {
-        unsafe extern "system" {
+        unsafe extern "C" {
             fn strlen(s: *const c_char) -> usize;
         }
         log::trace!("hook_strstr");
@@ -2574,7 +2574,7 @@ impl AsanRuntime {
         haystack: *const c_char,
         needle: *const c_char,
     ) -> *mut c_char {
-        unsafe extern "system" {
+        unsafe extern "C" {
             fn strlen(s: *const c_char) -> usize;
         }
         log::trace!("hook_strcasestr");
@@ -2613,7 +2613,7 @@ impl AsanRuntime {
         original: extern "C" fn(s: *const c_char) -> i32,
         s: *const c_char,
     ) -> i32 {
-        unsafe extern "system" {
+        unsafe extern "C" {
             fn strlen(s: *const c_char) -> usize;
         }
         log::trace!("hook_atoi");
@@ -2640,7 +2640,7 @@ impl AsanRuntime {
         original: extern "C" fn(s: *const c_char) -> i32,
         s: *const c_char,
     ) -> i32 {
-        unsafe extern "system" {
+        unsafe extern "C" {
             fn strlen(s: *const c_char) -> usize;
         }
         log::trace!("hook_atol");
@@ -2667,7 +2667,7 @@ impl AsanRuntime {
         original: extern "C" fn(s: *const c_char) -> i64,
         s: *const c_char,
     ) -> i64 {
-        unsafe extern "system" {
+        unsafe extern "C" {
             fn strlen(s: *const c_char) -> usize;
         }
         log::trace!("hook_atoll");
@@ -2720,7 +2720,7 @@ impl AsanRuntime {
         dest: *mut wchar_t,
         src: *const wchar_t,
     ) -> *mut wchar_t {
-        unsafe extern "system" {
+        unsafe extern "C" {
             fn wcslen(s: *const wchar_t) -> usize;
         }
         log::trace!("hook_wcscpy");
@@ -2761,7 +2761,7 @@ impl AsanRuntime {
         s1: *const wchar_t,
         s2: *const wchar_t,
     ) -> i32 {
-        unsafe extern "system" {
+        unsafe extern "C" {
             fn wcslen(s: *const wchar_t) -> usize;
         }
         log::trace!("hook_wcscmp");

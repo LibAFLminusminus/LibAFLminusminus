@@ -1,174 +1,120 @@
-use std::path::PathBuf;
-#[cfg(windows)]
-use std::ptr::write_volatile;
+use crate::target::SIGNALS;
+use libaflmm::{Result, prelude::*};
+use libaflmm_bolts::{FastTimer, nonnull_raw_mut, rands::StdRand, tuples::tuple_list};
+use std::{path::PathBuf, time::Duration};
 
-use libafl::{
-    corpus::{InMemoryCorpus, OnDiskCorpus},
-    events::SimpleEventManager,
-    executors::{inprocess::InProcessExecutor, ExitKind},
-    feedback_or,
-    feedbacks::{CrashFeedback, MaxMapFeedback, NautilusChunksMetadata, NautilusFeedback},
-    fuzzer::{Fuzzer, StdFuzzer},
-    generators::{NautilusContext, NautilusGenerator},
-    inputs::{NautilusBytesConverter, NautilusInput},
-    monitors::SimpleMonitor,
-    mutators::{
-        HavocScheduledMutator, NautilusRandomMutator, NautilusRecursionMutator,
-        NautilusSpliceMutator,
-    },
-    observers::StdMapObserver,
-    schedulers::QueueScheduler,
-    stages::{mutational::StdMutationalStage, DumpTargetBytesToDiskStage},
-    state::StdState,
-    HasMetadata,
-};
-use libafl_bolts::{rands::StdRand, tuples::tuple_list};
+mod target;
 
-/// Coverage map with explicit assignments due to the lack of instrumentation
-static mut SIGNALS: [u8; 16] = [0; 16];
-// TODO: This will break soon, fix me! See https://github.com/AFLplusplus/LibAFL/issues/2786
-#[allow(static_mut_refs)] // only a problem in nightly
-static mut SIGNALS_PTR: *mut u8 = unsafe { SIGNALS.as_mut_ptr() };
-/*
-/// Assign a signal to the signals map
-fn signals_set(idx: usize) {
-    unsafe { str::ptr::write(SIGNALS_PTR.add(idx), 1) };
-}
-*/
+/// The grammar the fuzzer generates its inputs from
+const GRAMMAR: &str = "grammar.json";
 
-pub fn main() {
-    let ctx = NautilusContext::from_file(15, "grammar.json").unwrap();
-    let mut bytes = vec![];
+/// The maximum depth of the generated trees
+const TREE_DEPTH: usize = 15;
 
-    // The closure that we want to fuzz
-    let mut harness = |input: &NautilusInput| {
-        input.unparse(&ctx, &mut bytes);
-        unsafe {
-            println!(">>> {}", std::str::from_utf8_unchecked(&bytes));
-        }
-        ExitKind::Ok
-    };
+pub fn main() -> Result<()> {
+    env_logger::init();
 
-    // Create an observation channel using the signals map
-    // TODO: This will break soon, fix me! See https://github.com/AFLplusplus/LibAFL/issues/2786
-    #[allow(static_mut_refs)] // only a problem in nightly
-    let observer = unsafe { StdMapObserver::from_mut_ptr("signals", SIGNALS_PTR, SIGNALS.len()) };
+    // The launcher supervises the fuzzer and communicates with the workers.
+    // The target prints every input it gets, keep it out of the terminal.
+    let controller = StdController::builder()
+        .worker_stdout(WorkdirFile::Path(PathBuf::from("stdout.log")))
+        .overwrite(true)
+        .build()?;
 
-    // Feedback to rate the interestingness of an input
-    let mut feedback = feedback_or!(MaxMapFeedback::new(&observer), NautilusFeedback::new(&ctx));
+    // The monitor tracks the fuzzing current status.
+    let monitor = StdMonitor::new();
 
-    // A feedback to choose if an input is a solution or not
-    let mut objective = CrashFeedback::new();
+    let group = StdGroup::builder(&controller)
+        .timeout(Some(Duration::from_secs(3)))
+        .timer(FastTimer::new())
+        .state_builder(|worker| {
+            // A scheduler following the queue policy
+            let scheduler = QueueScheduler::new();
 
-    // create a State from scratch
-    let mut state = StdState::new(
-        // RNG
-        StdRand::new(),
-        // Corpus that will be evolved, we keep it in memory for performance
-        InMemoryCorpus::new(),
-        // Corpus in which we store solutions (crashes in this example),
-        // on disk so the user can get them after stopping the fuzzer
-        OnDiskCorpus::new(PathBuf::from("./crashes")).unwrap(),
-        // States of the feedbacks.
-        // The feedbacks can report the data that should persist in the State.
-        &mut feedback,
-        // Same for objective feedbacks
-        &mut objective,
-    )
-    .unwrap();
+            // create a State from scratch.
+            // The context is the grammar, the state uses it to turn an input into the
+            // bytes the target consumes.
+            StdState::new(
+                NautilusContext::from_file(TREE_DEPTH, GRAMMAR)?,
+                // Corpus that will be evolved, we keep it in memory for performance
+                // It must have a scheduler
+                InMemoryCorpus::new(scheduler),
+                // Corpus in which we store solutions (crashes in this example),
+                // on disk so the user can get them after stopping the fuzzer
+                ObjectiveOnDiskCorpus::builder(worker)?.build()?,
+            )
+        })
+        .build_inprocess(|rt_handle, state| {
+            // The source of randomness
+            let mut rand = StdRand::new();
 
-    let _ = state.metadata_or_insert_with::<NautilusChunksMetadata>(|| {
-        NautilusChunksMetadata::new("/tmp/".into())
-    });
+            // The generator, the feedback and the mutators need the grammar as well.
+            // The state owns its own context, this one is theirs.
+            let ctx = NautilusContext::from_file(TREE_DEPTH, GRAMMAR)?;
 
-    // The Monitor trait define how the fuzzer stats are reported to the user
-    let monitor = SimpleMonitor::new(|s| println!("{s}"));
+            // Create an observation channel using the signals map
+            let observer =
+                unsafe { ConstMapObserver::from_mut_ptr("signals", nonnull_raw_mut!(SIGNALS)) };
 
-    // The event manager handle the various events generated during the fuzzing loop
-    // such as the notification of the addition of a new item to the corpus
-    let mut mgr = SimpleEventManager::new(monitor);
+            // Feedback to rate the interestingness of an input
+            // the nautilus feedback stores the chunks it collects in the worker's workdir
+            let feedback = feedback_or!(
+                StdFeedback::new(&observer),
+                NautilusFeedback::new(&ctx, rt_handle.worker())?
+            );
 
-    // A queue policy to get testcasess from the corpus
-    let scheduler = QueueScheduler::new();
+            // A feedback to choose if an input is a solution or not
+            let objective_feedback =
+                feedback_or_fast!(CrashFeedback::new(), TimeoutFeedback::new());
 
-    // A fuzzer with feedbacks and a corpus scheduler
-    let mut fuzzer = StdFuzzer::builder()
-        .scheduler(scheduler)
-        .feedback(feedback)
-        .objective(objective)
-        .target_bytes_converter(NautilusBytesConverter::new(&ctx))
-        .build();
+            // Setup a mutational stage with the grammar mutators
+            let mutator = HavocScheduledMutator::with_max_stack_pow(
+                tuple_list!(
+                    NautilusRandomMutator::new(&ctx),
+                    NautilusRandomMutator::new(&ctx),
+                    NautilusRandomMutator::new(&ctx),
+                    NautilusRandomMutator::new(&ctx),
+                    NautilusRandomMutator::new(&ctx),
+                    NautilusRandomMutator::new(&ctx),
+                    NautilusRecursionMutator::new(&ctx),
+                    NautilusSpliceMutator::new(&ctx),
+                    NautilusSpliceMutator::new(&ctx),
+                    NautilusSpliceMutator::new(&ctx),
+                ),
+                2,
+            );
+            let mut stages = tuple_list!(StdMutationalStage::new(mutator));
 
-    // Create the executor for an in-process function with just one observer
-    let mut executor = InProcessExecutor::new(
-        &mut harness,
-        tuple_list!(observer),
-        &mut fuzzer,
-        &mut state,
-        &mut mgr,
-    )
-    .expect("Failed to create the Executor");
+            // Create the executor for an in-process function with just one observer
+            let executor = StdExecutor::new(state, target::target, tuple_list!(observer), None);
 
-    let mut generator = NautilusGenerator::new(&ctx);
+            // Generator of inputs following the grammar
+            let mut generator = NautilusGenerator::new(&ctx);
 
-    // Use this code to profile the generator performance
-    /*
-    use libafl::generators::Generator;
-    use std::collections::hash_map::DefaultHasher;
-    use std::collections::HashSet;
-    use std::hash::{Hash, Hasher};
+            // A fuzzer with feedbacks and a corpus scheduler
+            let mut fuzzer = StdFuzzer::new(
+                executor,
+                feedback,
+                objective_feedback,
+                &mut stages,
+                state,
+                rt_handle,
+            )?;
 
-    fn calculate_hash<T: Hash>(t: &T) -> u64 {
-        let mut s = DefaultHasher::new();
-        t.hash(&mut s);
-        s.finish()
-    }
+            // Generate 8 initial inputs
+            fuzzer.load_generator(&mut generator, &mut rand, 8, state, rt_handle)?;
 
-    let mut set = HashSet::new();
-    let st = libafl_bolts::current_milliseconds();
-    let mut b = vec![];
-    let mut c = 0;
-    for _ in 0..100000 {
-        let i = generator.generate(&mut state).unwrap();
-        i.unparse(&context, &mut b);
-        set.insert(calculate_hash(&b));
-        c += b.len();
-    }
-    println!("{} / {}", c, libafl_bolts::current_milliseconds() - st);
-    println!("{} / 100000", set.len());
+            // Start the fuzzer
+            fuzzer.fuzz_loop(&mut stages, &mut rand, state, rt_handle)?;
 
-    return;
-    */
+            Ok(())
+        })?;
 
-    // Generate 8 initial inputs
-    if state.must_load_initial_inputs() {
-        state
-            .generate_initial_inputs_forced(&mut fuzzer, &mut executor, &mut generator, &mut mgr, 8)
-            .expect("Failed to generate the initial corpus");
-    }
-
-    // Setup a mutational stage with a basic bytes mutator
-    let mutator = HavocScheduledMutator::with_max_stack_pow(
-        tuple_list!(
-            NautilusRandomMutator::new(&ctx),
-            NautilusRandomMutator::new(&ctx),
-            NautilusRandomMutator::new(&ctx),
-            NautilusRandomMutator::new(&ctx),
-            NautilusRandomMutator::new(&ctx),
-            NautilusRandomMutator::new(&ctx),
-            NautilusRecursionMutator::new(&ctx),
-            NautilusSpliceMutator::new(&ctx),
-            NautilusSpliceMutator::new(&ctx),
-            NautilusSpliceMutator::new(&ctx),
-        ),
-        2,
-    );
-    let mut stages = tuple_list!(
-        DumpTargetBytesToDiskStage::new("./corpus_bytes", "./solution_bytes").unwrap(),
-        StdMutationalStage::new(mutator)
-    );
-
-    fuzzer
-        .fuzz_loop(&mut stages, &mut executor, &mut state, &mut mgr)
-        .expect("Error in the fuzzing loop");
+    // Launch the fuzzer
+    StdLauncher::builder()
+        .controller(controller)
+        .monitor(monitor)
+        .add_group(group)
+        .build()?
+        .launch()
 }

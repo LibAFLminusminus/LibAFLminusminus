@@ -39,7 +39,7 @@ fn handle_objective_in_termination_handler<E, F, H, I, OF, S, W>(
     fuzzer: &mut StdFuzzerInner<E, F, H, OF>,
     rt_handle: &mut RuntimeHandle<S, W>,
     exit_kind: ExitKind,
-) -> Result<()>
+) -> Result<EvaluationResult>
 where
     E: Executor<I, S>,
     F: Feedback<I, E::Observers, S>,
@@ -60,7 +60,7 @@ where
         loader_md.record_result(result)?;
     }
 
-    Ok(())
+    Ok(result)
 }
 
 /// Crash signals will end up there, if it happens during a fuzzing run.
@@ -99,13 +99,17 @@ where
 
     if let CrashStatus::TargetCrash = status {
         // if it is a target crash, handle crash termination as target objective.
-        handle_objective_in_termination_handler(
+        let result = handle_objective_in_termination_handler(
             state,
             &input.unwrap(), // since it is a target crash, it must be during fuzzing.
             fuzzer,
             rt_handle,
             ExitKind::Crash,
         )?;
+
+        if !result.is_objective_worthy() {
+            return Ok(CrashStatus::DuplicateTargetCrash);
+        }
     }
 
     Ok(status)

@@ -38,6 +38,22 @@ pub enum CrashStatus {
     /// The crash is caused by the target, it's a target bug
     #[default]
     TargetCrash,
+    /// The crash is caused by the target, but it did not lead to a new objective
+    DuplicateTargetCrash,
+}
+
+impl CrashStatus {
+    /// Is the target responsible for the crash?
+    #[must_use]
+    pub fn is_target_crash(&self) -> bool {
+        matches!(self, Self::TargetCrash | Self::DuplicateTargetCrash)
+    }
+
+    /// Should the crash be reported?
+    #[must_use]
+    pub fn should_report(&self) -> bool {
+        !matches!(self, Self::DuplicateTargetCrash)
+    }
 }
 
 /// The status of a timeout

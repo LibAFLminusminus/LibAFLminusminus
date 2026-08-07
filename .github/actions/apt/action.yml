@@ -14,39 +14,9 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Enable apt source repositories
+    - name: Update apt
       shell: bash
-      run: |
-        APT_LOCK=/var/lock/github-apt.lock
-        NEEDS_UPDATE=false
-
-        if [ -f /etc/apt/sources.list.d/ubuntu.sources ]; then
-          if ! grep -q 'Types: deb deb-src' /etc/apt/sources.list.d/ubuntu.sources; then
-            sudo flock --timeout 300 "$APT_LOCK" \
-              sed -i 's/^Types: deb$/Types: deb deb-src/' /etc/apt/sources.list.d/ubuntu.sources
-            NEEDS_UPDATE=true
-          fi
-        fi
-
-        if [ -f /etc/apt/sources.list ]; then
-          if grep -q '^# deb-src' /etc/apt/sources.list; then
-            sudo flock --timeout 300 "$APT_LOCK" \
-              sed -i 's/^# deb-src/deb-src/' /etc/apt/sources.list
-            NEEDS_UPDATE=true
-          fi
-        fi
-
-        cache_age=$(( $(date +%s) - $(stat -c %Y /var/cache/apt/pkgcache.bin 2>/dev/null || echo 0) ))
-        if [ "$NEEDS_UPDATE" = true ] || [ ! -f /var/cache/apt/pkgcache.bin ] || [ "$cache_age" -gt 3600 ]; then
-          sudo flock --timeout 300 "$APT_LOCK" apt-get update
-        fi
-
-    - name: Cache apt archives
-      if: runner.environment == 'github-hosted'
-      uses: actions/cache@v5
-      with:
-        path: /var/cache/apt/archives/*.deb
-        key: apt-ubuntu-24.04-${{ inputs.qemu == 'true' && 'qemu' || 'base' }}-v1
+      run: sudo apt-get update
 
     - name: Install base packages
       shell: bash
@@ -59,43 +29,25 @@ runs:
           clang llvm llvm-dev lld
         )
 
-        if ! dpkg -s "${packages[@]}" &>/dev/null; then
-          sudo flock --timeout 300 /var/lock/github-apt.lock \
-            apt-get install -y --no-install-recommends "${packages[@]}"
-        fi
+        sudo apt-get install -y --no-install-recommends "${packages[@]}"
 
-    - name: Install QEMU build dependencies
-      if: ${{ inputs.qemu == 'true' }}
-      shell: bash
-      run: |
-        # use a manual sentinel to make sure it's working correctly
-        sentinel=/var/lib/github-runner-sentinel/qemu-build-dep
-        if [ ! -f "$sentinel" ]; then
-          sudo flock --timeout 300 /var/lock/github-apt.lock apt-get build-dep -y qemu
-          sudo mkdir -p "$(dirname "$sentinel")"
-          sudo touch "$sentinel"
-        fi
-
-    - name: Install QEMU runtime packages
+    - name: Install QEMU packages
       if: ${{ inputs.qemu == 'true' }}
       shell: bash
       run: |
         packages=(
+          ninja-build pkg-config libglib2.0-dev libpixman-1-dev python3-venv
           qemu-utils
           gcc-arm-none-eabi
           libnewlib-arm-none-eabi
         )
 
-        if ! dpkg -s "${packages[@]}" &>/dev/null; then
-          sudo flock --timeout 300 /var/lock/github-apt.lock \
-            apt-get install -y --no-install-recommends "${packages[@]}"
-        fi
+        sudo apt-get install -y --no-install-recommends "${packages[@]}"
 
     - name: Build and install AFLplusplus
       if: ${{ inputs.aflplusplus == 'true' }}
       shell: bash
       run: |
-        if ! command -v afl-cc &>/dev/null; then
-          make -C "$GITHUB_WORKSPACE/AFLplusplus"
-          sudo make -C "$GITHUB_WORKSPACE/AFLplusplus" install
-        fi
+        git -C "$GITHUB_WORKSPACE" submodule update --init --checkout --force AFLplusplus
+        make -C "$GITHUB_WORKSPACE/AFLplusplus"
+        sudo make -C "$GITHUB_WORKSPACE/AFLplusplus" install

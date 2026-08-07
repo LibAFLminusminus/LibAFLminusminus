@@ -5,6 +5,7 @@ use crate::{
         DependencyResolver, Registrator,
         nautilus::grammartec::{chunkstore::ChunkStore, context::Context},
     },
+    controllers::Worker,
     corpus::{Corpus, TestcaseId},
     feedbacks::Feedback,
     generators::NautilusContext,
@@ -16,10 +17,12 @@ use core::fmt::Debug;
 use libaflmm_bolts::{Named, anymap::named_metadata_mut};
 use libaflmm_core::Result;
 use serde::{Deserialize, Serialize};
-use std::fs::create_dir_all;
+use std::{fs::create_dir_all, path::PathBuf};
+
+pub static NAUTILUS_CHUNKS_METADATA_NAME: &str = "NautilusChunksMetadata";
 
 /// Metadata for Nautilus grammar mutator chunks
-#[derive(Serialize, Deserialize, Default)]
+#[derive(Serialize, Deserialize)]
 pub struct NautilusChunksMetadata {
     /// the chunk store
     pub cks: ChunkStore,
@@ -53,13 +56,16 @@ impl NautilusChunksMetadata {
 #[derive(Debug)]
 pub struct NautilusFeedback<'a> {
     ctx: &'a Context,
+    chunks_dir: PathBuf,
 }
 
 impl<'a> NautilusFeedback<'a> {
     /// Create a new [`NautilusFeedback`]
-    #[must_use]
-    pub fn new(context: &'a NautilusContext) -> Self {
-        Self { ctx: &context.ctx }
+    pub fn new<W: Worker>(context: &'a NautilusContext, worker: &W) -> Result<Self> {
+        Ok(Self {
+            ctx: &context.ctx,
+            chunks_dir: worker.workdir().create_dir("nautilus_chunks")?,
+        })
     }
 }
 
@@ -72,7 +78,11 @@ impl Named for NautilusFeedback<'_> {
 
 impl DependencyResolver for NautilusFeedback<'_> {
     fn register_md(&mut self, registrator: &mut Registrator) -> Result<()> {
-        registrator.register_md_default::<NautilusChunksMetadata>(self.name());
+        registrator.register_md(
+            NAUTILUS_CHUNKS_METADATA_NAME,
+            NautilusChunksMetadata::new(self.chunks_dir.to_string_lossy().into_owned()),
+        );
+
         Ok(())
     }
 }
@@ -88,8 +98,10 @@ where
         testcase_id: &TestcaseId,
     ) -> Result<()> {
         let input = state.corpus().get(testcase_id)?;
-        let meta =
-            named_metadata_mut::<NautilusChunksMetadata>(state.metadata_map_mut(), self.name())?;
+        let meta = named_metadata_mut::<NautilusChunksMetadata>(
+            state.metadata_map_mut(),
+            NAUTILUS_CHUNKS_METADATA_NAME,
+        )?;
         meta.cks.add_tree(input.input().tree.clone(), self.ctx);
         Ok(())
     }

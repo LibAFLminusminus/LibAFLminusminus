@@ -21,7 +21,7 @@ harness: lib
     clang++ -O3 harness.o libpng-1.6.37/.libs/libpng16.a -shared -lz -o libpng-harness.so
 
 build:
-    cargo build --profile {{ PROFILE }}
+    cargo build --locked --profile {{ PROFILE }}
 
 run: build harness
     {{ FUZZER }} -F LLVMFuzzerTestOneInput -H ./libpng-harness.so -l ./libpng-harness.so --input ./corpus
@@ -29,7 +29,7 @@ run: build harness
 test: build harness
     #!/bin/bash
 
-    timeout 30s {{ FUZZER }} -F LLVMFuzzerTestOneInput -H ./libpng-harness.so -l ./libpng-harness.so 2>/dev/null || true
+    timeout 60s {{ FUZZER }} -F LLVMFuzzerTestOneInput -H ./libpng-harness.so -l ./libpng-harness.so 2>/dev/null || true
     STATS_FILE="./workdir/worker_0/fuzzer_stats"
 
     if [ ! -f "$STATS_FILE" ]; then
