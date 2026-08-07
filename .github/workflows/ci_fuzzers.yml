@@ -33,8 +33,6 @@ jobs:
         with:
           aflplusplus: true # useful for forkserver
       - uses: ./.github/actions/setup-llvm
-        with:
-          version: ${{ vars.MAIN_LLVM_VERSION }}
       - uses: ./.github/actions/setup-rust
         with:
           cache-key: ubuntu
@@ -60,8 +58,6 @@ jobs:
         with:
           qemu: true
       - uses: ./.github/actions/setup-llvm
-        with:
-          version: ${{ vars.MAIN_LLVM_VERSION }}
       - uses: ./.github/actions/setup-rust
         with:
           cache-key: ubuntu
