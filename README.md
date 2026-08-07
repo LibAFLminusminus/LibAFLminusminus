@@ -110,10 +110,13 @@ Your fuzzer doesn't work as expected? Try reading [DEBUGGING.md](./book/src/debu
 
 ## License
 
-`LibAFL--` is licensed under the [Mozilla Public License Version 2.0](LICENSE-MPL).
+`LibAFL--` is licensed under the [Mozilla Public License Version 2.0](LICENSE).
 
 This project is a fork of [LibAFL](https://github.com/AFLplusplus/LibAFL),
 which is dual-licensed under [Apache-2.0](LICENSE-APACHE) and [MIT](LICENSE-MIT).
 The original LibAFL code remains available under those terms from the upstream
 project. The combined work in this repository, including all modifications and
 additions, is distributed under MPL-2.0.
+
+[NOTICE.md](NOTICE.md) details the upstream grants, the per-crate licenses and the
+carve-outs, notably the example fuzzers in `fuzzers`, licensed as MIT.

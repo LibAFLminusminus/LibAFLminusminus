@@ -11,8 +11,6 @@ jobs:
           submodules: true
       - uses: ./.github/actions/apt
       - uses: ./.github/actions/setup-llvm
-        with:
-          version: ${{ vars.MAIN_LLVM_VERSION }}
       - uses: ./.github/actions/setup-rust
         with:
           toolchain: nightly
