@@ -8,7 +8,7 @@ use crate::{
     controllers::Controller,
     controllers::Descriptor,
     monitors::Monitor,
-    states::{Stats, read_stats_json},
+    states::Stats,
 };
 use alloc::{
     string::{String, ToString},
@@ -156,8 +156,8 @@ impl Monitor for WebMonitor {
         let mut all_stats: Vec<Stats> = Vec::new();
 
         for desc in controller.worker_descriptors_mut() {
-            if let Some(stats_file) = desc.workdir_mut().get_stats()? {
-                all_stats.push(read_stats_json(stats_file)?);
+            if let Some(stats) = desc.workdir().read_stats()? {
+                all_stats.push(stats);
             }
         }
 
