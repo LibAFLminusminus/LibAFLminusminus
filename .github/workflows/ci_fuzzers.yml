@@ -2,6 +2,9 @@ name: "CI - Fuzzers"
 on:
   workflow_call: {}
 
+env:
+  PROFILE: dev
+
 jobs:
   matrix:
     runs-on: ubuntu-latest
@@ -63,10 +66,10 @@ jobs:
           cache-key: ubuntu
       - uses: ./.github/actions/cache-qemu-nyx
         with:
-          target-dir: fuzzers/${{ matrix.fuzzer }}/target/debug
+          target-dir: fuzzers/${{ matrix.fuzzer }}/target/${{ env.PROFILE == 'dev' && 'debug' || 'release' }}
       - uses: ./.github/actions/cache-qemu
         with:
-          target-dir: fuzzers/${{ matrix.fuzzer }}/target/release
+          target-dir: fuzzers/${{ matrix.fuzzer }}/target/${{ env.PROFILE == 'dev' && 'debug' || 'release' }}
           build-id: ${{ matrix.fuzzer }}
       - name: Run test
         shell: bash
