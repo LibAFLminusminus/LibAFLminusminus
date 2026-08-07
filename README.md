@@ -9,7 +9,7 @@ Finally, we decided to deliberately make important breaking changes, which means
 
 Since the changes we made are still quite early, we are unsure whether the community will prefer this version over the original design of `LibAFL`
 
-For all those reasons, we thought it was easier to fork the project completely to let the use choose which design they would prefer to use.
+For all those reasons, we thought it was easier to fork the project completely to let users choose which design they would prefer to use.
 We will keep these changes separated (at least for now), to have a clear comparison point between `LibAFL` and `LibAFL--`, allowing us to easily spot what works and what does not.
 
 ### I just want to know what changed compared with `LibAFL`
@@ -110,10 +110,13 @@ Your fuzzer doesn't work as expected? Try reading [DEBUGGING.md](./book/src/debu
 
 ## License
 
-`LibAFL--` is licensed under the [Mozilla Public License Version 2.0](LICENSE-MPL).
+`LibAFL--` is licensed under the [Mozilla Public License Version 2.0](LICENSE).
 
 This project is a fork of [LibAFL](https://github.com/AFLplusplus/LibAFL),
 which is dual-licensed under [Apache-2.0](LICENSE-APACHE) and [MIT](LICENSE-MIT).
 The original LibAFL code remains available under those terms from the upstream
 project. The combined work in this repository, including all modifications and
 additions, is distributed under MPL-2.0.
+
+[NOTICE.md](NOTICE.md) details the upstream grants, the per-crate licenses and the
+carve-outs, notably the example fuzzers in `fuzzers`, licensed as MIT.

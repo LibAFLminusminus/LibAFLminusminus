@@ -1,6 +1,6 @@
 [package]
 name = "baby_corpus_sharing"
-version = "0.14.1"
+version = "0.16.0"
 authors = ["Romain Malmain <rmalmain@pm.me>"]
 edition = "2024"
 

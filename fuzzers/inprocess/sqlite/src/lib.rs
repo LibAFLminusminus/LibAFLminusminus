@@ -1,11 +1,11 @@
 use clap::{self, Parser};
 use core::time::Duration;
-use libaflmm::{prelude::*, Result};
+use libaflmm::{Result, prelude::*};
 use libaflmm_bolts::{
     core_affinity::Cores,
     rands::StdRand,
     timers::FastTimer,
-    tuples::{tuple_list, Merge},
+    tuples::{Merge, tuple_list},
 };
 use libaflmm_targets::prelude::*;
 use mimalloc::MiMalloc;
@@ -58,7 +58,7 @@ fn timeout_from_millis_str(time: &str) -> Result<Duration> {
 }
 
 /// The main fn, `no_mangle` as it is a C symbol
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn libafl_main() {
     env_logger::init();
     let opt = Opt::parse();

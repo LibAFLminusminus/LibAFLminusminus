@@ -1,8 +1,8 @@
 //! A fuzzer using qemu in systemmode for binary-only coverage of kernels
 
-use libaflmm::{prelude::*, Result};
+use libaflmm::{Result, prelude::*};
 use libaflmm_bolts::{
-    core_affinity::Cores, ownedref::OwnedMutSlice, rands::StdRand, tuples::tuple_list, AsSlice,
+    AsSlice, core_affinity::Cores, ownedref::OwnedMutSlice, rands::StdRand, tuples::tuple_list,
 };
 use libaflmm_qemu::prelude::*;
 use std::{env, path::PathBuf, result, time::Duration};
@@ -101,9 +101,11 @@ pub fn fuzz() -> Result<()> {
                 .start_cpu(false)
                 .build();
 
-            let emulator_modules = tuple_list!(StdEdgeCoverageModule::builder()
-                .map_observer(edges_observer.as_mut())
-                .build()?);
+            let emulator_modules = tuple_list!(
+                StdEdgeCoverageModule::builder()
+                    .map_observer(edges_observer.as_mut())
+                    .build()?
+            );
 
             let emulator = StdEmulator::empty()
                 .qemu_parameters(qemu_config)

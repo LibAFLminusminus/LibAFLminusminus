@@ -2,7 +2,7 @@
 
 use crate::monitors::perf_stats::PerfStats;
 use crate::{
-    Error, Result,
+    Result,
     common::{DependencyResolver, Registrator},
     corpus::{
         InMemoryCorpus, ObjectiveCorpus, ObjectiveInMemoryCorpus, ScheduledCorpus, Scheduler,
@@ -25,14 +25,10 @@ use libaflmm_bolts::{
     NamedSerdeAnyMap, OwnedSlice, SerdeAny, SerdeAnyMap,
     anymap::{named_metadata, named_metadata_mut, unnamed_metadata, unnamed_metadata_mut},
 };
-use nix::fcntl::{Flock, FlockArg};
+use libaflmm_core::runtime;
 use num_traits::Zero;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
-use std::{
-    collections::HashMap,
-    fs::File,
-    io::{Seek, SeekFrom},
-};
+use std::{collections::HashMap, fs::File};
 use typed_builder::TypedBuilder;
 
 /// The maximum size of a [`Testcase`]
@@ -143,21 +139,12 @@ impl Stats {
 
 /// Read the [`Stats`]
 pub fn read_stats_json(file: File) -> Result<Stats> {
-    let mut locked =
-        Flock::lock(file, FlockArg::LockShared).map_err(|(_, e)| nix::Error::from(e))?;
-    locked.seek(SeekFrom::Start(0))?;
-    serde_json::from_reader(&mut *locked)
-        .map_err(|_| Error::runtime("Failed to read the stats from a file"))
+    serde_json::from_reader(file).map_err(|_| runtime!("Failed to read the stats from a file"))
 }
 
-/// Put the [`Stats`] into the file
-pub fn sync_stats(file: File, stats: &Stats) -> Result<()> {
-    let mut locked =
-        Flock::lock(file, FlockArg::LockExclusive).map_err(|(_, e)| nix::Error::from(e))?;
-    locked.set_len(0)?;
-    locked.seek(SeekFrom::Start(0))?;
-    serde_json::to_writer_pretty(&mut *locked, stats)
-        .map_err(|_| Error::runtime("Failed to dump the stats to a file"))
+/// Serialize the [`Stats`]
+pub fn stats_to_json(stats: &Stats) -> Result<Vec<u8>> {
+    serde_json::to_vec_pretty(stats).map_err(|_| runtime!("Failed to dump the stats"))
 }
 
 /// The trait containing all the stuff that [`StdState`] implements. It's rather a shortcut for typing all the traits

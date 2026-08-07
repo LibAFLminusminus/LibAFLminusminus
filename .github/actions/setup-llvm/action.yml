@@ -4,7 +4,8 @@ description: Setup LLVM
 inputs:
   version:
     description: LLVM version to install
-    required: true
+    required: false
+    default: "22"
 
 runs:
   using: composite
@@ -12,25 +13,23 @@ runs:
     - name: Install LLVM ${{ inputs.version }}
       shell: bash
       run: |
+        if [ -z "${{ inputs.version }}" ]; then
+            echo "error: LLVM 'version' input is empty"
+            exit 1
+        fi
+
         if command -v "clang-${{ inputs.version }}" &>/dev/null; then
           echo "clang-${{ inputs.version }} already present, skipping install."
           exit 0
         fi
         wget https://apt.llvm.org/llvm.sh
         chmod +x llvm.sh
-        sudo flock --timeout 300 /var/lock/github-apt.lock bash -c '
-          if command -v "clang-${{ inputs.version }}" &>/dev/null; then
-            echo "clang-${{ inputs.version }} installed by concurrent job, skipping."
-          else
-            ./llvm.sh "${{ inputs.version }}" all
-          fi
-        '
+        sudo ./llvm.sh "${{ inputs.version }}" all
 
     - name: Export LLVM env
       shell: bash
       run: |
         # add llvm version to github path.
-        # do not use update-alternative, as it is racey and would fail with concurrent jobs
         # requiring different llvm versions.
         {
           echo "/usr/lib/llvm-${{ inputs.version }}/bin"
@@ -38,6 +37,7 @@ runs:
 
         # now, set the compiler-related env variables.
         {
+          echo "LLVM_VERSION=${{ inputs.version }}"
           echo "LLVM_CONFIG=llvm-config-${{ inputs.version }}"
           echo "LLVM_CONFIG_PATH=/usr/lib/llvm-${{ inputs.version }}/bin/llvm-config"
           echo "LIBCLANG_PATH=/usr/lib/llvm-${{ inputs.version }}/lib"

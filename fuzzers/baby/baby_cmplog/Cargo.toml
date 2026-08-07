@@ -1,6 +1,6 @@
 [package]
 name = "baby_cmplog"
-version = "0.14.1"
+version = "0.16.0"
 authors = ["Dongjia Zhang <tokazerkje@outlook.jp>"]
 edition = "2024"
 

@@ -16,7 +16,13 @@ updates:
       - "/fuzzers/baby/baby_corpus_sharing"
       - "/fuzzers/baby/baby_forkserver"
       - "/fuzzers/baby/baby_inprocess"
+
       - "/fuzzers/inprocess/sqlite"
+
+      - "/fuzzers/binary_only/frida_libpng"
+      - "/fuzzers/binary_only/intel_pt_baby_fuzzer"
+
+      - "/fuzzers/structure_aware/baby_fuzzer_nautilus"
     schedule:
       interval: "weekly"
     groups:
@@ -28,7 +34,9 @@ updates:
     directories:
       # qemu fuzzers
       - "/fuzzers/baby/baby_nyx"
+
       - "/fuzzers/binary_only/qemu_launcher"
+
       - "/fuzzers/full_system/qemu_baremetal"
     schedule:
       interval: "weekly"

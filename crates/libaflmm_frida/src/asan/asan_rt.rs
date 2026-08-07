@@ -643,18 +643,18 @@ impl AsanRuntime {
     pub unsafe fn register_hooks(&mut self, gum: &Gum) {
         let mut interceptor = Interceptor::obtain(gum);
         let process = Process::obtain(gum);
-        macro_rules! hook_func {
-            ($name:ident, ($($param:ident : $param_type:ty),*), $return_type:ty) => {
+        macro_rules! hook_func_abi {
+            ($abi:literal, $name:ident, ($($param:ident : $param_type:ty),*), $return_type:ty) => {
                 paste::paste! {
                     let target_function = Module::find_global_export_by_name(stringify!($name)).expect("Failed to find function");
                     log::warn!("Hooking {} = {:?}", stringify!($name), target_function.0);
 
-                    static [<$name:snake:upper _PTR>]: std::sync::OnceLock<extern "C" fn($($param: $param_type),*) -> $return_type> = std::sync::OnceLock::new();
+                    static [<$name:snake:upper _PTR>]: std::sync::OnceLock<extern $abi fn($($param: $param_type),*) -> $return_type> = std::sync::OnceLock::new();
 
-                    let _ = [<$name:snake:upper _PTR>].set(unsafe {core::mem::transmute::<*const c_void, extern "C" fn($($param: $param_type),*) -> $return_type>(target_function.0)}).unwrap();
+                    let _ = [<$name:snake:upper _PTR>].set(unsafe {core::mem::transmute::<*const c_void, extern $abi fn($($param: $param_type),*) -> $return_type>(target_function.0)}).unwrap();
 
                     #[allow(non_snake_case)]
-                    unsafe extern "C" fn [<replacement_ $name>]($($param: $param_type),*) -> $return_type {
+                    unsafe extern $abi fn [<replacement_ $name>]($($param: $param_type),*) -> $return_type {
                         unsafe {
                         let _last_error_guard = LastErrorGuard::new();
                         let mut invocation = Interceptor::current_invocation();
@@ -692,19 +692,19 @@ impl AsanRuntime {
                 }
             };
             //Library specific macro rule. lib and lib_ident are both needed because we need to generate a unique static variable and only name is insufficient. In addition, the lib name could contain invalid characters (i.e., lib.so is an invalid name)
-            ($lib:literal, $lib_ident:ident, $name:ident, ($($param:ident : $param_type:ty),*), $return_type:ty) => {
+            ($abi:literal, $lib:literal, $lib_ident:ident, $name:ident, ($($param:ident : $param_type:ty),*), $return_type:ty) => {
                 paste::paste! {
 
                     log::warn!("Hooking {}:{}", $lib, stringify!($name));
                     let target_function = process.find_module_by_name($lib).expect("Failed to find module").find_export_by_name(stringify!($name)).expect("Failed to find function");
                     log::warn!("Hooking {}:{} = {:?}", $lib, stringify!($name), target_function.0);
 
-                    static [<$lib_ident:snake:upper _ $name:snake:upper _PTR>]: std::sync::OnceLock<extern "C" fn($($param: $param_type),*) -> $return_type> = std::sync::OnceLock::new();
+                    static [<$lib_ident:snake:upper _ $name:snake:upper _PTR>]: std::sync::OnceLock<extern $abi fn($($param: $param_type),*) -> $return_type> = std::sync::OnceLock::new();
 
-                    let _ = [<$lib_ident:snake:upper _ $name:snake:upper _PTR>].set(unsafe {core::mem::transmute::<*const c_void, extern "C" fn($($param: $param_type),*) -> $return_type>(target_function.0)}).unwrap();
+                    let _ = [<$lib_ident:snake:upper _ $name:snake:upper _PTR>].set(unsafe {core::mem::transmute::<*const c_void, extern $abi fn($($param: $param_type),*) -> $return_type>(target_function.0)}).unwrap();
 
                     #[allow(non_snake_case)]
-                    unsafe extern "C" fn [<replacement_ $name>]($($param: $param_type),*) -> $return_type {
+                    unsafe extern $abi fn [<replacement_ $name>]($($param: $param_type),*) -> $return_type {
                         unsafe {
                         let _last_error_guard = LastErrorGuard::new();
                         let mut invocation = Interceptor::current_invocation();
@@ -737,20 +737,20 @@ impl AsanRuntime {
         }
 
         #[allow(unused_macro_rules)]
-        macro_rules! hook_func_with_check {
+        macro_rules! hook_func_with_check_abi {
             //No library case
-            ($name:ident, ($($param:ident : $param_type:ty),*), $return_type:ty, $always_enabled:expr ) => {
+            ($abi:literal, $name:ident, ($($param:ident : $param_type:ty),*), $return_type:ty, $always_enabled:expr ) => {
                 paste::paste! {
                     let target_function = Module::find_global_export_by_name(stringify!($name)).expect("Failed to find function");
 
                     log::warn!("Hooking {} = {:?}", stringify!($name), target_function.0);
-                    static [<$name:snake:upper _PTR>]: std::sync::OnceLock<extern "C" fn($($param: $param_type),*) -> $return_type> = std::sync::OnceLock::new();
+                    static [<$name:snake:upper _PTR>]: std::sync::OnceLock<extern $abi fn($($param: $param_type),*) -> $return_type> = std::sync::OnceLock::new();
 
-                    let _ = [<$name:snake:upper _PTR>].set(unsafe {core::mem::transmute::<*const c_void, extern "C" fn($($param: $param_type),*) -> $return_type>(target_function.0)}).unwrap_or_else(|e| println!("{:?}", e));
+                    let _ = [<$name:snake:upper _PTR>].set(unsafe {core::mem::transmute::<*const c_void, extern $abi fn($($param: $param_type),*) -> $return_type>(target_function.0)}).unwrap_or_else(|e| println!("{:?}", e));
 
                     #[allow(non_snake_case)] // depends on the values the macro is invoked with
                     #[allow(clippy::redundant_else)]
-                    unsafe extern "C" fn [<replacement_ $name>]($($param: $param_type),*) -> $return_type {
+                    unsafe extern $abi fn [<replacement_ $name>]($($param: $param_type),*) -> $return_type {
                         unsafe {
                         let _last_error_guard = LastErrorGuard::new();
                         let mut invocation = Interceptor::current_invocation();
@@ -799,18 +799,18 @@ impl AsanRuntime {
                 }
             };
             //Library specific macro rule. lib and lib_ident are both needed because we need to generate a unique static variable and only name is insufficient. In addition, the lib name could contain invalid characters (i.e., lib.so is an invalid name)
-            ($lib:literal, $lib_ident:ident, $name:ident, ($($param:ident : $param_type:ty),*), $return_type:ty, $always_enabled:expr ) => {
+            ($abi:literal, $lib:literal, $lib_ident:ident, $name:ident, ($($param:ident : $param_type:ty),*), $return_type:ty, $always_enabled:expr ) => {
                 paste::paste! {
                     let target_function = process.find_module_by_name($lib).expect("Failed to find module").find_export_by_name(stringify!($name)).expect("Failed to find function");
 
                     log::warn!("Hooking {}:{} = {:?}", $lib, stringify!($name), target_function.0);
-                    static [<$lib_ident:snake:upper _ $name:snake:upper _PTR>]: std::sync::OnceLock<extern "C" fn($($param: $param_type),*) -> $return_type> = std::sync::OnceLock::new();
+                    static [<$lib_ident:snake:upper _ $name:snake:upper _PTR>]: std::sync::OnceLock<extern $abi fn($($param: $param_type),*) -> $return_type> = std::sync::OnceLock::new();
 
                     let _ = [<$lib_ident:snake:upper _ $name:snake:upper _PTR>].set(unsafe {std::mem::transmute::<*const c_void, extern "C" fn($($param: $param_type),*) -> $return_type>(target_function.0)}).unwrap_or_else(|e| println!("{:?}", e));
 
                     #[allow(non_snake_case)]
                     #[allow(clippy::redundant_else)]
-                    unsafe extern "C" fn [<replacement_ $name>]($($param: $param_type),*) -> $return_type {
+                    unsafe extern $abi fn [<replacement_ $name>]($($param: $param_type),*) -> $return_type {
                         let _last_error_guard = LastErrorGuard::new();
                         let mut invocation = Interceptor::current_invocation();
                         let this = unsafe { &mut *(invocation.replacement_data().unwrap().0 as *mut AsanRuntime) };
@@ -853,12 +853,19 @@ impl AsanRuntime {
             };
             // Default case without check_enabled parameter
             ($name:ident, ($($param:ident : $param_type:ty),*), $return_type:ty) => {
-                hook_func_with_check!($name, ($($param: $param_type),*), $return_type, false);
+                hook_func_with_check_abi!($abi, $name, ($($param: $param_type),*), $return_type, false);
             };
-            ($lib:literal, $lib_ident:ident, $name:ident, ($($param:ident : $param_type:ty),*), $return_type:ty) => {
-                hook_func_with_check!($lib, $lib_ident, $name, ($($param: $param_type),*), $return_type, false);
+            ($abi:literal, $lib:literal, $lib_ident:ident, $name:ident, ($($param:ident : $param_type:ty),*), $return_type:ty) => {
+                hook_func_with_check_abi!($abi, $lib, $lib_ident, $name, ($($param: $param_type),*), $return_type, false);
             };
         }
+        macro_rules! hook_func {
+            ($($tt:tt)*) => { hook_func_abi!("C", $($tt)*) };
+        }
+        macro_rules! hook_func_with_check {
+            ($($tt:tt)*) => { hook_func_with_check_abi!("C", $($tt)*) };
+        }
+
         // Hook the memory allocator functions
 
         #[cfg(not(windows))]
@@ -938,37 +945,37 @@ impl AsanRuntime {
                 // log::trace!("- {}", export.name);
                 match &export.name[..] {
                     "NtGdiCreateCompatibleDC" => {
-                        hook_func!($libname, $lib_ident, NtGdiCreateCompatibleDC, (hdc: *const c_void), *mut c_void);
+                        hook_func_abi!("system", $libname, $lib_ident, NtGdiCreateCompatibleDC, (hdc: *const c_void), *mut c_void);
                     }
                     "RtlCreateHeap" => {
-                        hook_func!($libname, $lib_ident, RtlCreateHeap, (flags: u32, heap_base: *const c_void, reserve_size: usize, commit_size: usize, lock: *const c_void, parameters: *const c_void), *mut c_void);
+                        hook_func_abi!("system", $libname, $lib_ident, RtlCreateHeap, (flags: u32, heap_base: *const c_void, reserve_size: usize, commit_size: usize, lock: *const c_void, parameters: *const c_void), *mut c_void);
                     }
                     "RtlDestroyHeap" => {
-                        hook_func!($libname, $lib_ident, RtlDestroyHeap, (handle: *const c_void), *mut c_void);
+                        hook_func_abi!("system", $libname, $lib_ident, RtlDestroyHeap, (handle: *const c_void), *mut c_void);
                     }
                     "HeapAlloc" => {
-                        hook_func!($libname, $lib_ident, HeapAlloc, (handle: *mut c_void, flags: u32, bytes: usize), *mut c_void);
+                        hook_func_abi!("system", $libname, $lib_ident, HeapAlloc, (handle: *mut c_void, flags: u32, bytes: usize), *mut c_void);
                     }
                     "RtlAllocateHeap" => {
-                        hook_func!($libname, $lib_ident, RtlAllocateHeap, (handle: *mut c_void, flags: u32, bytes: usize), *mut c_void);
+                        hook_func_abi!("system", $libname, $lib_ident, RtlAllocateHeap, (handle: *mut c_void, flags: u32, bytes: usize), *mut c_void);
                     }
                     "HeapFree" => {
-                        hook_func_with_check!($libname, $lib_ident, HeapFree, (handle: *mut c_void, flags: u32, mem: *mut c_void), bool, true);
+                        hook_func_with_check_abi!("system", $libname, $lib_ident, HeapFree, (handle: *mut c_void, flags: u32, mem: *mut c_void), bool, true);
                     }
                     // NOTE: we call it with always_enabled, because on Windows, some COM memory deallocation occurs later in the process
                     // after we have completed the run
                     "RtlFreeHeap" => {
-                        hook_func_with_check!($libname, $lib_ident, RtlFreeHeap, (handle: *mut c_void, flags: u32, mem: *mut c_void), usize, true);
+                        hook_func_with_check_abi!("system", $libname, $lib_ident, RtlFreeHeap, (handle: *mut c_void, flags: u32, mem: *mut c_void), usize, true);
                     }
                     "HeapSize" => {
-                        hook_func_with_check!($libname, $lib_ident, HeapSize, (handle: *mut c_void, flags: u32, mem: *mut c_void), usize, false);
+                        hook_func_with_check_abi!("system", $libname, $lib_ident, HeapSize, (handle: *mut c_void, flags: u32, mem: *mut c_void), usize, false);
                     }
                     "RtlSizeHeap" => {
-                        hook_func_with_check!($libname, $lib_ident, RtlSizeHeap , (handle: *mut c_void, flags: u32, mem: *mut c_void), usize, false);
+                        hook_func_with_check_abi!("system", $libname, $lib_ident, RtlSizeHeap , (handle: *mut c_void, flags: u32, mem: *mut c_void), usize, false);
                     }
                     "RtlReAllocateHeap" => {
-                        hook_func!(
-                            $libname, $lib_ident,
+                        hook_func_abi!(
+                            "system", $libname, $lib_ident,
                             RtlReAllocateHeap,
                             (
                                 handle: *mut c_void,
@@ -980,8 +987,8 @@ impl AsanRuntime {
                         );
                     }
                     "HeapReAlloc" => {
-                        hook_func!(
-                            $libname, $lib_ident,
+                        hook_func_abi!(
+                            "system", $libname, $lib_ident,
                             HeapReAlloc,
                             (
                                 handle: *mut c_void,
@@ -993,52 +1000,52 @@ impl AsanRuntime {
                         );
                     }
                     "LocalAlloc" => {
-                        hook_func!($libname, $lib_ident, LocalAlloc, (flags: u32, size: usize), *mut c_void);
+                        hook_func_abi!("system", $libname, $lib_ident, LocalAlloc, (flags: u32, size: usize), *mut c_void);
                     }
                     "LocalReAlloc" => {
-                        hook_func!($libname, $lib_ident, LocalReAlloc, (mem: *mut c_void, size: usize, flags: u32), *mut c_void);
+                        hook_func_abi!("system", $libname, $lib_ident, LocalReAlloc, (mem: *mut c_void, size: usize, flags: u32), *mut c_void);
                     }
                     "LocalHandle" => {
-                        hook_func_with_check!($libname, $lib_ident, LocalHandle, (mem: *mut c_void), *mut c_void, false);
+                        hook_func_with_check_abi!("system", $libname, $lib_ident, LocalHandle, (mem: *mut c_void), *mut c_void, false);
                     }
                     "LocalLock" => {
-                        hook_func_with_check!($libname, $lib_ident, LocalLock, (mem: *mut c_void), *mut c_void, false);
+                        hook_func_with_check_abi!("system", $libname, $lib_ident, LocalLock, (mem: *mut c_void), *mut c_void, false);
                     }
                     "LocalUnlock" => {
-                        hook_func_with_check!($libname, $lib_ident, LocalUnlock, (mem: *mut c_void), bool, false);
+                        hook_func_with_check_abi!("system", $libname, $lib_ident, LocalUnlock, (mem: *mut c_void), bool, false);
                     }
                     "LocalSize" => {
-                        hook_func_with_check!($libname, $lib_ident, LocalSize, (mem: *mut c_void),usize, false);
+                        hook_func_with_check_abi!("system", $libname, $lib_ident, LocalSize, (mem: *mut c_void),usize, false);
                     }
                     "LocalFree" => {
-                        hook_func_with_check!($libname, $lib_ident, LocalFree, (mem: *mut c_void), *mut c_void, true);
+                        hook_func_with_check_abi!("system", $libname, $lib_ident, LocalFree, (mem: *mut c_void), *mut c_void, true);
                     }
                     "LocalFlags" => {
-                        hook_func_with_check!($libname, $lib_ident, LocalFlags, (mem: *mut c_void),u32, false);
+                        hook_func_with_check_abi!("system", $libname, $lib_ident, LocalFlags, (mem: *mut c_void),u32, false);
                     }
                     "GlobalAlloc" => {
-                        hook_func!($libname, $lib_ident, GlobalAlloc, (flags: u32, size: usize), *mut c_void);
+                        hook_func_abi!("system", $libname, $lib_ident, GlobalAlloc, (flags: u32, size: usize), *mut c_void);
                     }
                     "GlobalReAlloc" => {
-                        hook_func!($libname, $lib_ident, GlobalReAlloc, (mem: *mut c_void, flags: u32, size: usize), *mut c_void);
+                        hook_func_abi!("system", $libname, $lib_ident, GlobalReAlloc, (mem: *mut c_void, flags: u32, size: usize), *mut c_void);
                     }
                     "GlobalHandle" => {
-                        hook_func_with_check!($libname, $lib_ident, GlobalHandle, (mem: *mut c_void), *mut c_void, false);
+                        hook_func_with_check_abi!("system", $libname, $lib_ident, GlobalHandle, (mem: *mut c_void), *mut c_void, false);
                     }
                     "GlobalLock" => {
-                        hook_func_with_check!($libname, $lib_ident, GlobalLock, (mem: *mut c_void), *mut c_void, false);
+                        hook_func_with_check_abi!("system", $libname, $lib_ident, GlobalLock, (mem: *mut c_void), *mut c_void, false);
                     }
                     "GlobalUnlock" => {
-                        hook_func_with_check!($libname, $lib_ident, GlobalUnlock, (mem: *mut c_void), bool, false);
+                        hook_func_with_check_abi!("system", $libname, $lib_ident, GlobalUnlock, (mem: *mut c_void), bool, false);
                     }
                     "GlobalSize" => {
-                        hook_func_with_check!($libname, $lib_ident, GlobalSize, (mem: *mut c_void),usize, false);
+                        hook_func_with_check_abi!("system", $libname, $lib_ident, GlobalSize, (mem: *mut c_void),usize, false);
                     }
                     "GlobalFree" => {
-                        hook_func_with_check!($libname, $lib_ident, GlobalFree, (mem: *mut c_void), *mut c_void, true);
+                        hook_func_with_check_abi!("system", $libname, $lib_ident, GlobalFree, (mem: *mut c_void), *mut c_void, true);
                     }
                     "GlobalFlags" => {
-                        hook_func_with_check!($libname, $lib_ident, GlobalFlags, (mem: *mut c_void),u32, false);
+                        hook_func_with_check_abi!("system", $libname, $lib_ident, GlobalFlags, (mem: *mut c_void),u32, false);
                     }
                     "memmove" => {
                         hook_func!(
@@ -1097,32 +1104,32 @@ impl AsanRuntime {
                         );
                     }
                     "MapViewOfFile" => {
-                        hook_func!(
-                            $libname, $lib_ident,
+                        hook_func_abi!(
+                            "system", $libname, $lib_ident,
                             MapViewOfFile,
                             (handle: *const c_void, desired_access: u32, file_offset_high: u32, file_offset_low: u32, size: usize),
                             *const c_void
                         );
                     }
                     "UnmapViewOfFile" => {
-                        hook_func!(
-                            $libname, $lib_ident,
+                        hook_func_abi!(
+                            "system", $libname, $lib_ident,
                             UnmapViewOfFile,
                             (ptr: *const c_void),
                             bool
                         );
                     }
                     "LoadLibraryExW" => {
-                        hook_func!(
-                            $libname, $lib_ident,
+                        hook_func_abi!(
+                            "system", $libname, $lib_ident,
                             LoadLibraryExW,
                             (path: *const c_void, file: usize, flags: i32),
                             usize
                         );
                     }
                     "LdrLoadDll" => {
-                        hook_func!(
-                            $libname, $lib_ident,
+                        hook_func_abi!(
+                            "system", $libname, $lib_ident,
                             LdrLoadDll,
                             (search_path: *const c_void, charecteristics: *const u32, dll_name: *const c_void, base_address: *mut *const c_void),
                             usize

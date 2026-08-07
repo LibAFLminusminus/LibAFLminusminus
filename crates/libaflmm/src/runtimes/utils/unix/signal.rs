@@ -176,7 +176,7 @@ where
                         .expect("Error while handling crash handler");
 
                 match status {
-                    CrashStatus::TargetCrash => {
+                    CrashStatus::TargetCrash | CrashStatus::DuplicateTargetCrash => {
                         log::info!("target crashed  with signal: {signal}");
                     }
                     CrashStatus::FuzzerCrash => {
@@ -184,7 +184,7 @@ where
                     }
                 }
 
-                {
+                if status.should_report() {
                     let mut bsod = Vec::new();
                     {
                         let mut writer = std::io::BufWriter::new(&mut bsod);
@@ -205,7 +205,7 @@ where
                     }
                 }
 
-                if let CrashStatus::TargetCrash = status {
+                if status.is_target_crash() {
                     // target crash -> restart
                     exit(LIBAFLMM_EXIT_RESTART);
                 }
@@ -268,14 +268,17 @@ where
 
             // fuzzing in progress: print our own backtrace, skip the default hook
             log::error!("Target panicked: {panic_info}");
-            let backtrace = Backtrace::force_capture();
-            eprintln!("stack backtrace:\n{backtrace}");
 
-            (signal_handler.inner.crash_handler)(
+            let status = (signal_handler.inner.crash_handler)(
                 &mut signal_handler.inner.termination_data,
                 &signal_params,
             )
             .expect("Error in panic handler");
+
+            if status.should_report() {
+                let backtrace = Backtrace::force_capture();
+                eprintln!("stack backtrace:\n{backtrace}");
+            }
 
             exit(LIBAFLMM_EXIT_RESTART);
         }));

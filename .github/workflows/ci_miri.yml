@@ -4,20 +4,17 @@ on:
 
 jobs:
   ubuntu-miri:
-    runs-on: ${{ fromJSON(vars.RUNS_ON || '["self-hosted","linux"]') }}
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
         with:
           submodules: true
       - uses: ./.github/actions/apt
       - uses: ./.github/actions/setup-llvm
-        with:
-          version: ${{ vars.MAIN_LLVM_VERSION }}
       - uses: ./.github/actions/setup-rust
         with:
           toolchain: nightly
           components: miri
           cache-key: ubuntu-miri
-          cache: ${{ vars.RUNS_ON != '' }}
       - name: Run miri tests
         run: RUST_BACKTRACE=1 MIRIFLAGS="-Zmiri-disable-isolation" cargo miri test --locked
