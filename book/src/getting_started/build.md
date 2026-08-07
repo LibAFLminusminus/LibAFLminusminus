@@ -17,7 +17,7 @@ Calling `cargo build` from the root directory will compile all crates in the wor
 
 The best starting point for experienced rustaceans is to read through, and adapt, the example fuzzers.
 
-We group these fuzzers in the [`./fuzzers`](https://github.com/AFLplusplus/LibAFL/tree/main/fuzzers) directory of the LibAFL repository.
+We group these fuzzers in the [`./fuzzers`](https://github.com/LibAFLminusminus/LibAFLminusminus/tree/main/fuzzers) directory of the LibAFL repository.
 The directory contains a set of crates that are not part of the workspace.
 
 Each of these example fuzzers uses particular features of LibAFL, sometimes combined with different instrumentation backends (for example, [SanitizerCoverage](https://clang.llvm.org/docs/SanitizerCoverage.html), [Frida](https://frida.re/), ...).
