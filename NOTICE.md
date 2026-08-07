@@ -1,5 +1,5 @@
 LibAFL-- (LibAFLminusminus) is primarily licensed under the
-Mozilla Public License, Version 2.0. See LICENSE-MPL or
+Mozilla Public License, Version 2.0. See LICENSE or
 https://www.mozilla.org/MPL/2.0/.
 
 ## Historical grants from upstream LibAFL
