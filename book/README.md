@@ -8,10 +8,14 @@ For the API documentation instead, run `cargo doc` in the `LibAFlminusminus` roo
 
 ## Installation
 
-To build the book, you will need to install `mdbook-drawio`:
+To build the book, it is first needed to install `drawio-desktop`.
+It is usually available in most ditributions.
+
+Then, install `mdbook-drawio`, `lychee` and `mdbook`:
 ```bash
 cargo install --git https://github.com/QBayLogic/mdbook-drawio
 cargo install lychee
+cargo install mdbook
 ```
 
 ## Usage
