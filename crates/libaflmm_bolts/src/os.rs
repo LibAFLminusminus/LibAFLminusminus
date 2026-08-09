@@ -2,7 +2,11 @@
 
 use crate::Error;
 #[cfg(unix)]
+use alloc::ffi::Cstring;
+#[cfg(unix)]
 use libc::pid_t;
+#[cfg(unix)]
+use std::os::fd::RawFd;
 use std::{env, process::Command};
 
 /// Child Process Handle

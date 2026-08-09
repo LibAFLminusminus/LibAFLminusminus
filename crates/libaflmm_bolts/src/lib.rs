@@ -11,9 +11,9 @@ use core::hash::{Hash, Hasher};
 use std::{
     fs::File,
     io::Write,
+    mem,
     os::fd::{FromRawFd, RawFd},
     panic,
-    time::SystemTime,
 };
 #[cfg(feature = "xxh3")]
 use xxhash_rust::xxh3::xxh3_64;
