@@ -2,7 +2,7 @@
 
 use crate::Error;
 #[cfg(unix)]
-use alloc::ffi::Cstring;
+use alloc::ffi::CString;
 #[cfg(unix)]
 use libc::pid_t;
 #[cfg(unix)]
