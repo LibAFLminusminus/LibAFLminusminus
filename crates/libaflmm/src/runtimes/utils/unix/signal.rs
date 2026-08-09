@@ -11,16 +11,14 @@ use crate::{
 };
 use alloc::{boxed::Box, vec::Vec};
 use core::pin::Pin;
-use libaflmm_bolts::os::{
-    exit,
-    unix_signals::{Signal, SignalHandler, setup_signal_handler},
-};
+use libaflmm_bolts::exceptions::unix_signals::{Signal, SignalHandler, setup_signal_handler};
 use libaflmm_core::Result;
 use libc::{SIGABRT, siginfo_t, ucontext_t};
 use std::{
     backtrace::Backtrace,
     io::Write,
     panic::{self, PanicHookInfo},
+    process::exit,
 };
 
 /// Unix termination (signal) handler.
