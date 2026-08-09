@@ -28,6 +28,7 @@ ALL_PROJECTS = [
 # do not use --all-features
 NO_ALL_FEATURES = ["crates/libaflmm_qemu"]
 
+
 def run(cmd, cwd, env=None):
     print(" ".join(cmd))
     if subprocess.run(cmd, cwd=cwd, env=env, check=False).returncode != 0:

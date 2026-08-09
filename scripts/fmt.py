@@ -7,6 +7,7 @@ from pathlib import Path
 
 LIBAFLMM_DIR = Path(__file__).resolve().parent.parent
 
+
 def run(cmd):
     return subprocess.run(cmd, cwd=LIBAFLMM_DIR, check=False).returncode
 
@@ -16,10 +17,37 @@ def main():
     repo_tools = LIBAFLMM_DIR / "utils" / "libaflmm_repo_tools" / "Cargo.toml"
 
     if mode == "check":
-        if run(["cargo", "run", "--manifest-path", str(repo_tools), "--release", "--", "-c", "--verbose"]) != 0:
+        if (
+            run(
+                [
+                    "cargo",
+                    "run",
+                    "--manifest-path",
+                    str(repo_tools),
+                    "--release",
+                    "--",
+                    "-c",
+                    "--verbose",
+                ]
+            )
+            != 0
+        ):
             sys.exit(1)
     elif mode is None:
-        if run(["cargo", "run", "--manifest-path", str(repo_tools), "--release", "--", "--verbose"]) != 0:
+        if (
+            run(
+                [
+                    "cargo",
+                    "run",
+                    "--manifest-path",
+                    str(repo_tools),
+                    "--release",
+                    "--",
+                    "--verbose",
+                ]
+            )
+            != 0
+        ):
             sys.exit(1)
     else:
         print("Error: invalid command.", file=sys.stderr)
@@ -28,8 +56,15 @@ def main():
         sys.exit(1)
 
     black_command = None
-    if subprocess.run([sys.executable, "-m", "black", "--version"],
-                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False).returncode == 0:
+    if (
+        subprocess.run(
+            [sys.executable, "-m", "black", "--version"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        ).returncode
+        == 0
+    ):
         black_command = [sys.executable, "-m", "black"]
     elif shutil.which("black"):
         black_command = ["black"]
@@ -52,10 +87,28 @@ def main():
         print("[*] Formatting Justfiles")
         for justfile in sorted(LIBAFLMM_DIR.rglob("Justfile")):
             if mode == "check":
-                if run(["just", "--unstable", "--fmt", "--check", "--justfile", str(justfile)]) != 0:
+                if (
+                    run(
+                        [
+                            "just",
+                            "--unstable",
+                            "--fmt",
+                            "--check",
+                            "--justfile",
+                            str(justfile),
+                        ]
+                    )
+                    != 0
+                ):
                     sys.exit(1)
             else:
-                if run(["just", "-q", "--justfile", str(justfile), "_check"]) != 0 and run(["just", "--unstable", "--fmt", "--justfile", str(justfile)]) != 0:
+                if (
+                    run(["just", "-q", "--justfile", str(justfile), "_check"]) != 0
+                    and run(
+                        ["just", "--unstable", "--fmt", "--justfile", str(justfile)]
+                    )
+                    != 0
+                ):
                     sys.exit(1)
 
     print("[*] Done :)")
