@@ -4,7 +4,9 @@ use core::time::Duration;
 
 use libaflmm_core::Result;
 
+#[cfg(unix)]
 pub mod fast;
+#[cfg(unix)]
 pub use fast::FastTimer;
 
 pub mod standard;

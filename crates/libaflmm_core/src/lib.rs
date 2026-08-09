@@ -23,6 +23,11 @@ pub mod forkserver;
 
 pub mod nonzero_macros;
 
+#[cfg(unix)]
+pub mod unix;
+#[cfg(unix)]
+pub use unix::*;
+
 pub extern crate alloc;
 
 #[cfg(feature = "errors_backtrace")]
@@ -493,12 +498,6 @@ impl From<BorrowMutError> for Error {
 impl From<postcard::Error> for Error {
     fn from(err: postcard::Error) -> Self {
         crate::serialize!("{err:?}")
-    }
-}
-
-impl From<nix::Error> for Error {
-    fn from(err: nix::Error) -> Self {
-        crate::unknown!("Unix error: {err:?}")
     }
 }
 

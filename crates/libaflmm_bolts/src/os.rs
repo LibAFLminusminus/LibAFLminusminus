@@ -1,26 +1,9 @@
 //! Operating System specific abstractions
 
-use alloc::{borrow::Cow, ffi::CString};
-use core::ffi::CStr;
-use std::io::{stderr, stdout};
-use std::{env, process::Command};
-use std::{
-    fs::File,
-    os::fd::{AsRawFd, RawFd},
-    sync::OnceLock,
-};
-
-pub use crate::exceptions::unix_signals;
-#[cfg(windows)]
-pub use exceptional::windows_exceptions;
-// Allow a few extra features we need for the whole module
+use crate::Error;
 #[cfg(unix)]
 use libc::pid_t;
-
-use crate::Error;
-
-/// A file that we keep open, pointing to /dev/null
-static NULL_FILE: OnceLock<File> = OnceLock::new();
+use std::{env, process::Command};
 
 /// Child Process Handle
 #[cfg(unix)]
@@ -83,106 +66,10 @@ pub fn startable_self() -> Result<Command, Error> {
 ///
 /// # Safety
 /// The fd need to be a legal fd.
+#[cfg(unix)]
 pub unsafe fn dup(fd: RawFd) -> Result<RawFd, Error> {
     match unsafe { libc::dup(fd) } {
         -1 => Err(Error::last_os_error(format!("Error calling dup({fd})"))),
         new_fd => Ok(new_fd),
-    }
-}
-
-// Derived from https://github.com/RustPython/RustPython/blob/7996a10116681e9f85eda03413d5011b805e577f/stdlib/src/resource.rs#L113
-// LICENSE: MIT https://github.com/RustPython/RustPython/commit/37355d612a451fba7fef8f13a1b9fdd51310b37e
-/// Get the peak rss (Resident Set Size) of the all child processes
-/// that have terminated and been waited for
-pub fn peak_rss_mb_child_processes() -> Result<i64, Error> {
-    use core::mem;
-    use std::io;
-
-    use libc::{RUSAGE_CHILDREN, rusage};
-
-    let rss = unsafe {
-        let mut rusage = mem::MaybeUninit::<rusage>::uninit();
-        if libc::getrusage(RUSAGE_CHILDREN, rusage.as_mut_ptr()) == -1 {
-            Err(io::Error::last_os_error())
-        } else {
-            Ok(rusage.assume_init())
-        }
-    }?;
-    let result = rss.ru_maxrss >> 10;
-    // on 32 bit pointer size, we need to convert the result.
-    #[cfg(target_pointer_width = "32")]
-    let result = result.into();
-    Ok(result)
-}
-
-/// "Safe" wrapper around dup2
-///
-/// # Safety
-/// The fds need to be legal fds.
-pub unsafe fn dup2(fd: RawFd, device: RawFd) -> Result<(), Error> {
-    match unsafe { libc::dup2(fd, device) } {
-        -1 => Err(Error::last_os_error(format!(
-            "Error calling dup2({fd}, {device})"
-        ))),
-        _ => Ok(()),
-    }
-}
-
-/// Closes `stdout` and `stderr` and returns a new `stdout` and `stderr`
-/// to be used in the fuzzer for further logging.
-///
-/// # Safety
-/// The function in itiself is safe, but it might have undesirable side effects since it closes `stdout` and `stderr`.
-#[expect(unused_qualifications)]
-pub unsafe fn dup_and_mute_outputs() -> Result<(RawFd, RawFd), Error> {
-    let old_stdout = stdout().as_raw_fd();
-    let old_stderr = stderr().as_raw_fd();
-    let null_fd = crate::os::null_fd()?;
-
-    // # Safety
-    // Duplicates the corect file descriptors.
-    unsafe {
-        let new_stdout = crate::os::dup(old_stdout)?;
-        let new_stderr = crate::os::dup(old_stderr)?;
-
-        crate::os::dup2(null_fd, old_stdout)?;
-        crate::os::dup2(null_fd, old_stderr)?;
-
-        Ok((new_stdout, new_stderr))
-    }
-}
-
-/// Gets the stringified version of the last `errno`.
-/// This is roughly equivalent to `strerror(errno)` in C.
-#[must_use]
-pub fn last_error_str<'a>() -> Option<Cow<'a, str>> {
-    std::io::Error::last_os_error().raw_os_error().map(|errno| {
-        // # Safety
-        //
-        // Calling the `strerror` libc functions with the correct `errno`
-        unsafe { CStr::from_ptr(libc::strerror(errno)).to_string_lossy() }
-    })
-}
-
-/// Get a file descriptor ([`RawFd`]) pointing to "/dev/null"
-pub fn null_fd() -> Result<RawFd, Error> {
-    // We don't care about opening the file twice here - races are ok.
-    if let Some(file) = NULL_FILE.get() {
-        Ok(file.as_raw_fd())
-    } else {
-        let null_file = File::open("/dev/null")?;
-        Ok(NULL_FILE.get_or_init(move || null_file).as_raw_fd())
-    }
-}
-
-/// A cross-platform exit function that uses the safest method for the current OS.
-/// On Linux, it uses `SYS_exit_group` to bypass potential deadlocks (like with Frida).
-/// On other Unix systems, it uses `libc::_exit`.
-/// On Windows, it uses `ExitProcess`.
-pub fn exit(code: i32) -> ! {
-    unsafe {
-        libc::syscall(libc::SYS_exit_group, code);
-        // This should be unreachable, but just in case
-        libc::_exit(code);
     }
 }

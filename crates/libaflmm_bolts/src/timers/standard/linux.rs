@@ -1,4 +1,5 @@
-//! The struct `TimerStruct` will absorb all the difference in timeout implementation in various system.
+//! The linux-specific code for stardard timers
+
 use crate::timers::Timer;
 use core::time::Duration;
 use libaflmm_core::Result;
@@ -11,8 +12,7 @@ use nix::{
     time::ClockId,
 };
 
-/// The struct about all the internals of the timer.
-/// This struct absorb all platform specific differences about timer.
+/// A standard os-specific timer
 #[derive(Debug)]
 pub struct StdTimer {
     timer: Option<(timer::Timer, Expiration)>,
@@ -40,7 +40,7 @@ impl Default for StdTimer {
 }
 
 impl StdTimer {
-    /// Create a `TimerStruct` with the specified timeout.
+    /// Create a [`StdTimer`]
     #[must_use]
     pub fn new() -> Self {
         Self::default()

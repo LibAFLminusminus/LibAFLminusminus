@@ -7,9 +7,6 @@
 
 #[cfg(feature = "xxh3")]
 use core::hash::{Hash, Hasher};
-use core::mem;
-#[cfg(unix)]
-use log::{Metadata, Record};
 #[cfg(unix)]
 use std::{
     fs::File,
@@ -39,10 +36,9 @@ pub use libaflmm_core::{
 };
 
 pub mod shm;
-pub use shm::{
-    AnonShmBuilder, AnonShmReceiver, AnonShmSender, EmptyShmHeader, SharedMemory, ShmHeader,
-    SysVShm,
-};
+#[cfg(unix)]
+pub use shm::{AnonShmBuilder, AnonShmReceiver, AnonShmSender, SysVShm};
+pub use shm::{EmptyShmHeader, SharedMemory, ShmHeader};
 
 pub mod fs;
 
@@ -70,7 +66,9 @@ pub mod time;
 pub use time::{current_milliseconds, current_nanos, current_time};
 
 pub mod timers;
-pub use timers::{FastTimer, StdTimer};
+#[cfg(unix)]
+pub use timers::FastTimer;
+pub use timers::StdTimer;
 
 pub mod core_affinity;
 pub use core_affinity::{CoreId, Cores};
@@ -94,7 +92,9 @@ pub use ownedref::{
     OwnedPtr, OwnedRef, OwnedRefMut, OwnedSlice, UnsafeMarker, subrange,
 };
 
+#[cfg(unix)]
 pub mod connection;
+#[cfg(unix)]
 pub use connection::Connection;
 
 pub use ctor;
@@ -217,39 +217,6 @@ pub fn format_big_number(val: u64) -> String {
     format!("{short} ({long})")
 }
 
-/// Stdout logger
-pub static LIBAFLMM_STDOUT_LOGGER: SimpleStdoutLogger = SimpleStdoutLogger::new();
-
-/// Stderr logger
-pub static LIBAFLMM_STDERR_LOGGER: SimpleStderrLogger = SimpleStderrLogger::new();
-
-/// A logger we can use log to raw fds.
-static mut LIBAFLMM_RAWFD_LOGGER: SimpleFdLogger = unsafe { SimpleFdLogger::new(1) };
-
-/// A simple logger struct that logs to stdout when used with [`log::set_logger`].
-#[derive(Debug)]
-pub struct SimpleStdoutLogger;
-
-impl Default for SimpleStdoutLogger {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl SimpleStdoutLogger {
-    /// Create a new [`log::Log`] logger that will write log to stdout
-    #[must_use]
-    pub const fn new() -> Self {
-        Self {}
-    }
-
-    /// register stdout logger
-    pub fn set_logger() -> Result<()> {
-        log::set_logger(&LIBAFLMM_STDOUT_LOGGER)
-            .map_err(|err| Error::illegal_state(format!("Failed to set logger: {err:?}")))
-    }
-}
-
 #[cfg(target_os = "windows")]
 #[allow(clippy::cast_ptr_alignment)]
 #[must_use]
@@ -290,211 +257,6 @@ pub fn get_thread_id() -> u64 {
     // Fallback for other platforms
     let thread_id = std::thread::current().id();
     unsafe { mem::transmute::<_, u64>(thread_id) }
-}
-
-#[cfg(target_os = "windows")]
-mod windows_logging {
-    use core::ptr;
-    use std::sync::OnceLock;
-
-    use winapi::um::{
-        fileapi::WriteFile, handleapi::INVALID_HANDLE_VALUE, processenv::GetStdHandle,
-        winbase::STD_OUTPUT_HANDLE, winnt::HANDLE,
-    };
-
-    // Safe wrapper around HANDLE
-    struct StdOutHandle(HANDLE);
-
-    // Implement Send and Sync for StdOutHandle, assuming it's safe to share
-    unsafe impl Send for StdOutHandle {}
-    unsafe impl Sync for StdOutHandle {}
-
-    static H_STDOUT: OnceLock<StdOutHandle> = OnceLock::new();
-
-    fn get_stdout_handle() -> HANDLE {
-        H_STDOUT
-            .get_or_init(|| {
-                let handle = unsafe { GetStdHandle(STD_OUTPUT_HANDLE) };
-                StdOutHandle(handle)
-            })
-            .0
-    }
-    /// A function that writes directly to stdout using `WinAPI`.
-    /// Works much faster than println and does not need TLS
-    pub fn direct_log(message: &str) {
-        // Get the handle to standard output
-        let h_stdout: HANDLE = get_stdout_handle();
-
-        if ptr::addr_eq(h_stdout, INVALID_HANDLE_VALUE) {
-            eprintln!("Failed to get standard output handle");
-            return;
-        }
-
-        let bytes = message.as_bytes();
-        let mut bytes_written = 0;
-
-        // Write the message to standard output
-        let result = unsafe {
-            WriteFile(
-                h_stdout,
-                bytes.as_ptr() as *const _,
-                bytes.len() as u32,
-                &raw mut bytes_written,
-                ptr::null_mut(),
-            )
-        };
-
-        if result == 0 {
-            eprintln!("Failed to write to standard output");
-        }
-    }
-}
-
-impl log::Log for SimpleStdoutLogger {
-    #[inline]
-    fn enabled(&self, _metadata: &Metadata) -> bool {
-        true
-    }
-
-    #[cfg(not(target_os = "windows"))]
-    fn log(&self, record: &Record) {
-        println!(
-            "[{:?}, {:?}:{:?}] {}: {}",
-            SystemTime::now(),
-            std::process::id(),
-            get_thread_id(),
-            record.level(),
-            record.args()
-        );
-    }
-
-    #[cfg(target_os = "windows")]
-    fn log(&self, record: &Record) {
-        // println is not safe in TLS-less environment
-        let msg = format!(
-            "[{:?}, {:?}:{:?}] {}: {}\n",
-            current_time(),
-            std::process::id(),
-            get_thread_id(),
-            record.level(),
-            record.args()
-        );
-        windows_logging::direct_log(msg.as_str());
-    }
-
-    fn flush(&self) {}
-}
-
-/// A simple logger struct that logs to stderr when used with [`log::set_logger`].
-#[derive(Debug)]
-pub struct SimpleStderrLogger {}
-
-impl Default for SimpleStderrLogger {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl SimpleStderrLogger {
-    /// Create a new [`log::Log`] logger that will write log to stdout
-    #[must_use]
-    pub const fn new() -> Self {
-        Self {}
-    }
-
-    /// register stderr logger
-    pub fn set_logger() -> Result<()> {
-        log::set_logger(&LIBAFLMM_STDERR_LOGGER)
-            .map_err(|err| Error::illegal_state(format!("Could not set logger: {err:?}")))
-    }
-}
-
-impl log::Log for SimpleStderrLogger {
-    #[inline]
-    fn enabled(&self, _metadata: &Metadata) -> bool {
-        true
-    }
-
-    fn log(&self, record: &Record) {
-        eprintln!(
-            "[{:?}, {:?}] {}: {}",
-            SystemTime::now(),
-            std::process::id(),
-            record.level(),
-            record.args()
-        );
-    }
-
-    fn flush(&self) {}
-}
-
-/// A simple logger struct that logs to a `RawFd` when used with [`log::set_logger`].
-#[cfg(unix)]
-#[derive(Debug)]
-pub struct SimpleFdLogger {
-    fd: RawFd,
-}
-
-#[cfg(unix)]
-impl SimpleFdLogger {
-    /// Create a new [`log::Log`] logger that will write the log to the given `fd`
-    ///
-    /// # Safety
-    /// Needs a valid raw file descriptor opened for writing.
-    #[must_use]
-    pub const unsafe fn new(fd: RawFd) -> Self {
-        Self { fd }
-    }
-
-    /// Sets the `fd` this logger will write to
-    ///
-    /// # Safety
-    /// Needs a valid raw file descriptor opened for writing.
-    pub unsafe fn set_fd(&mut self, fd: RawFd) {
-        self.fd = fd;
-    }
-
-    /// Register this logger, logging to the given `fd`
-    ///
-    /// # Safety
-    /// This function may not be called multiple times concurrently.
-    /// The passed-in `fd` has to be a legal file descriptor to log to.
-    pub unsafe fn set_logger(log_fd: RawFd) -> Result<()> {
-        // # Safety
-        // The passed-in `fd` has to be a legal file descriptor to log to.
-        // We also access a shared variable here.
-        let logger = &raw mut LIBAFLMM_RAWFD_LOGGER;
-        unsafe {
-            let logger = &mut *logger;
-            logger.set_fd(log_fd);
-            log::set_logger(logger)
-                .map_err(|err| Error::illegal_state(format!("Could not set logger: {err:?}")))
-        }
-    }
-}
-
-#[cfg(unix)]
-impl log::Log for SimpleFdLogger {
-    #[inline]
-    fn enabled(&self, _metadata: &Metadata) -> bool {
-        true
-    }
-
-    fn log(&self, record: &Record) {
-        let mut f = unsafe { File::from_raw_fd(self.fd) };
-        writeln!(
-            f,
-            "[{:?}, {:#?}] {}: {}",
-            SystemTime::now(),
-            std::process::id(),
-            record.level(),
-            record.args()
-        )
-        .unwrap_or_else(|err| println!("Failed to log to fd {}: {err}", self.fd));
-        mem::forget(f);
-    }
-
-    fn flush(&self) {}
 }
 
 /// Set up an error print hook that will
