@@ -27,8 +27,8 @@ In short, use it as an addition source of feedbacks, not the final review.
 Even though we will gladly assist you in finishing up your PR, try to:
 
 - keep all the crates compiling with *stable* rust (hide the eventual non-stable code under [`cfg`s](https://github.com/AFLplusplus/LibAFL/blob/main/crates/libafl/build.rs#L26))
-- run `scripts/fmt.sh` on your code before pushing
-- check the output of `./scripts/check.sh` (On windows use `.\scripts\check.ps1`)
+- run `scripts/fmt.py` on your code before pushing
+- check the output of `./scripts/check.py`
 - Please add and describe your changes to MIGRATION.md if you change the APIs.
 
 You can also run ./scripts/precommit.sh to execute checks that will be performed on a PR.

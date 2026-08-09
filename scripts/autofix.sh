@@ -29,4 +29,4 @@ echo "[+] Done fixing clippy"
 echo
 
 echo "Formatting all"
-"$SCRIPT_DIR/fmt.sh"
+python3 "$SCRIPT_DIR/fmt.py"
