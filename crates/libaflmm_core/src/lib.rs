@@ -25,8 +25,6 @@ pub mod nonzero_macros;
 
 #[cfg(unix)]
 pub mod unix;
-#[cfg(unix)]
-pub use unix::*;
 
 pub extern crate alloc;
 
