@@ -1,4 +1,8 @@
-# `LibAFL--`, the unbloated fuzzer librar
+# `LibAFL--`, the unbloated fuzzer library
+
+`LibAFL--` aims to be a stable, preformant and modular fuzzing library.
+Contrarily to `LibAFL`, `LibAFL--` deliberately tries to minimize the amount of code getting integrated in the core library.
+The idea is to only keep the interfaces, and the most used implementations, while keeping in separated crates niche components.
 
 # Why `LibAFL--`?
 
