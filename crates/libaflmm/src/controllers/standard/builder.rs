@@ -8,7 +8,7 @@ use crate::{
     sync::{InputHandleBackendFactory, Orchestrator, StdOrchestrator, Transfer},
 };
 
-/// Builder for the [`StdController`].
+/// Builder for the [`StdController`](crate::controllers::StdController).
 #[derive(Debug)]
 pub struct StdControllerBuilder<I, O> {
     orchestrator: O,
@@ -86,7 +86,7 @@ impl<I, O> StdControllerBuilder<I, O> {
 }
 
 impl<HBF, I, R, T> StdControllerBuilder<I, Orchestrator<HBF, R, T>> {
-    /// Build a [`StdController`].
+    /// Build a [`StdController`](crate::controllers::StdController).
     pub fn build(self) -> Result<GenericController<HBF, I, R, T>>
     where
         HBF: InputHandleBackendFactory<StdDescriptor, I>,

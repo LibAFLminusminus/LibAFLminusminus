@@ -188,7 +188,7 @@ pub trait MessagingWorker<U>: Worker {
 
     /// Drain the received custom payloads.
     ///
-    /// It will only take into account requests since the last call to [`Self::poll`].
+    /// It will only take into account requests since the last call to [`Worker::poll`].
     /// Any commands received after that would not be considered.
     fn recv_custom(&mut self) -> Result<impl Iterator<Item = U>>;
 }
