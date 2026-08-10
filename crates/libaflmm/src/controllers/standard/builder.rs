@@ -1,12 +1,12 @@
-use crate::{
-    controllers::{StdController, StdDescriptor, WorkdirFile, standard::controller::HandleOf},
-    sync::{Orchestrator, StdCommand, StdNotification, StdOrchestrator},
-};
 use core::{fmt::Debug, marker::PhantomData};
-use libaflmm_core::Result;
 use std::path::PathBuf;
 
-pub struct ControllerBuilder;
+use libaflmm_core::Result;
+
+use crate::{
+    controllers::{GenericController, StdDescriptor, WorkdirFile, standard::controller::HandleOf},
+    sync::{InputHandleBackendFactory, Orchestrator, StdOrchestrator, Transfer},
+};
 
 /// Builder for the [`StdController`].
 #[derive(Debug)]
@@ -83,19 +83,17 @@ impl<I, O> StdControllerBuilder<I, O> {
         self.worker_stats = file_output;
         self
     }
+}
 
+impl<HBF, I, R, T> StdControllerBuilder<I, Orchestrator<HBF, R, T>> {
     /// Build a [`StdController`].
-    pub fn build(self) -> Result<StdController<I, O>>
+    pub fn build(self) -> Result<GenericController<HBF, I, R, T>>
     where
+        HBF: InputHandleBackendFactory<StdDescriptor, I>,
         I: Debug,
-        O: Orchestrator<
-                StdDescriptor,
-                I,
-                Command = StdCommand<HandleOf<I, O>>,
-                Notification = StdNotification<HandleOf<I, O>>,
-            >,
+        T: Transfer<StdDescriptor, HandleOf<HBF, I>>,
     {
-        StdController::new(
+        GenericController::new(
             self.orchestrator,
             self.root_dir,
             self.worker_stdout,

@@ -5,13 +5,8 @@ use libaflmm_nyx::{executor::NyxExecutor, helper::NyxHelper, settings::NyxSettin
 pub fn main() -> Result<()> {
     env_logger::init();
 
-    // The launcher supervises the fuzzer and communicates with the workers.
-    let controller = StdController::builder().overwrite(true).build()?;
-
-    // The monitor tracks the fuzzing current status.
-    let monitor = SimpleMonitor::new();
-
-    let group = StdGroup::builder(&controller)
+    // Launch the fuzzer
+    StdLauncher::builder()
         .state_builder(|worker| {
             // A queue policy to get testcasess from the corpus
             let scheduler = QueueScheduler::new();
@@ -26,7 +21,7 @@ pub fn main() -> Result<()> {
                 ObjectiveOnDiskCorpus::builder(worker)?.build()?,
             )
         })
-        .build_forkserver(|rt_handle, state| {
+        .launch_inprocess(|rt_handle, state| {
             // nyx stuff
             let settings = NyxSettings::builder().cpu_id(0).parent_cpu_id(None).build();
             let helper = NyxHelper::new("/tmp/nyx_libxml2/", settings).unwrap();
@@ -54,13 +49,5 @@ pub fn main() -> Result<()> {
             fuzzer.fuzz_loop(&mut stages, &mut rand, state, rt_handle)?;
 
             Ok(())
-        })?;
-
-    // Launch the fuzzer
-    StdLauncher::builder()
-        .controller(controller)
-        .monitor(monitor)
-        .add_group(group)
-        .build()?
-        .launch()
+        })
 }

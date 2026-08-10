@@ -1,10 +1,5 @@
 use crate::target::SIGNALS;
-use libaflmm::{
-    Result,
-    launchers::groups::WorkerLayout,
-    prelude::*,
-    sync::{GraphOrchestrator, routers::graph::GraphRouter},
-};
+use libaflmm::{Result, prelude::*};
 use libaflmm_bolts::{Cores, current_nanos, nonnull_raw_mut, rands::StdRand, tuples::tuple_list};
 use std::{thread::sleep, time::Duration};
 
@@ -32,7 +27,7 @@ pub fn main() -> Result<()> {
     // Which set of commands / notifications to use, the way inputs get exchanged, etc...
     //
     // We attach the newly built router to the orchestrator.
-    let orchestrator = GraphOrchestrator::new(router);
+    let orchestrator = GraphOrchestrator::<Groups>::new(router);
 
     // The monitor tracks the fuzzing current status.
     let monitor = StdMonitor::new();
@@ -152,7 +147,7 @@ pub fn main() -> Result<()> {
 
     // Final launcher setup.
     // This is where we bind our group identifier to the actual groups that will be launched.
-    StdLauncher::builder()
+    StdLauncher::empty()
         .controller(controller)
         .monitor(monitor)
         .add_group_with(fuzzing_group, Groups::Fuzzer)

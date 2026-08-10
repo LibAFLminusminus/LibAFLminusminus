@@ -1,21 +1,27 @@
-use crate::controllers::{Descriptor, WorkerId};
-use crate::sync::transfers::WaitResult;
-use crate::sync::{Transfer, Transferable, WorkerSync};
-use crate::{Result, sync::ControllerSync};
 use core::time::Duration;
-use libaflmm_bolts::Connection;
-use libaflmm_bolts::connection::SendResult;
+use std::{collections::HashMap, os::fd::BorrowedFd};
+
+use libaflmm_bolts::{Connection, connection::SendResult};
 use libaflmm_core::{illegal_argument, illegal_state, runtime};
-use nix::errno::Errno;
-use nix::poll::{PollFd, PollFlags, PollTimeout, poll};
-use std::collections::HashMap;
-use std::os::fd::BorrowedFd;
+
+use crate::{
+    Result,
+    controllers::{Descriptor, WorkerId},
+    sync::{
+        ControllerSync, GenericCommand, GenericNotification, Transfer, Transferable, WorkerSync,
+        transfers::{WaitResult, wait_readable},
+    },
+};
+
+/// The connections the controller keeps, one per worker.
+type ControllerConns<H, U> =
+    HashMap<WorkerId, Connection<GenericNotification<H, U>, GenericCommand<H, U>>>;
 
 /// socket-based transfer between controller and workers.
 #[derive(Debug)]
-pub struct DirectTransfer<CMD, NOTIF> {
+pub struct DirectTransfer<H, U = ()> {
     send_buf_bytes: Option<usize>,
-    controller_conns: Option<HashMap<WorkerId, Connection<NOTIF, CMD>>>,
+    controller_conns: Option<ControllerConns<H, U>>,
 }
 
 #[derive(Debug)]
@@ -29,7 +35,7 @@ pub struct SocketControllerSync<CMD, NOTIF> {
     pending_notifs: Vec<(NOTIF, WorkerId)>,
 }
 
-impl<CMD, NOTIF> Default for DirectTransfer<CMD, NOTIF> {
+impl<H, U> Default for DirectTransfer<H, U> {
     fn default() -> Self {
         Self {
             controller_conns: Some(HashMap::new()),
@@ -101,19 +107,13 @@ where
     }
 
     fn wait(&mut self, wake_fds: &[BorrowedFd<'_>], timeout: Duration) -> Result<WaitResult> {
-        let mut fds: Vec<PollFd> = self
-            .workers
-            .values()
-            .map(|conn| conn.as_fd())
-            .chain(wake_fds.iter().copied())
-            .map(|fd| PollFd::new(fd, PollFlags::POLLIN))
-            .collect();
-
-        match poll(&mut fds, PollTimeout::try_from(timeout).unwrap()) {
-            Ok(0) | Err(Errno::EINTR) => Ok(WaitResult::Timeout),
-            Ok(_) => Ok(WaitResult::Event),
-            Err(e) => Err(e.into()),
-        }
+        wait_readable(
+            self.workers
+                .values()
+                .map(|conn| conn.as_fd())
+                .chain(wake_fds.iter().copied()),
+            timeout,
+        )
     }
 
     fn poll(&mut self) -> Result<impl Iterator<Item = (NOTIF, WorkerId)>> {
@@ -128,14 +128,15 @@ where
     }
 }
 
-impl<CMD, D, NOTIF> Transfer<CMD, D, NOTIF> for DirectTransfer<CMD, NOTIF>
+impl<D, H, U> Transfer<D, H> for DirectTransfer<H, U>
 where
-    CMD: Transferable,
     D: Descriptor,
-    NOTIF: Transferable,
+    H: Transferable,
+    U: Transferable,
 {
-    type ControllerSync = SocketControllerSync<CMD, NOTIF>;
-    type WorkerSync = SocketWorkerSync<CMD, NOTIF>;
+    type Custom = U;
+    type ControllerSync = SocketControllerSync<GenericCommand<H, U>, GenericNotification<H, U>>;
+    type WorkerSync = SocketWorkerSync<GenericCommand<H, U>, GenericNotification<H, U>>;
 
     fn create_worker_sync<'a>(
         &mut self,

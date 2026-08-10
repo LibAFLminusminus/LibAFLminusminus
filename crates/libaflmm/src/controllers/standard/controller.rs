@@ -1,21 +1,4 @@
-use crate::{
-    controllers::{
-        Controller, Descriptor, StdDescriptor, StdWorker, WorkdirFile, WorkerId,
-        standard::builder::StdControllerBuilder,
-    },
-    launchers::{
-        InstanceId,
-        groups::{Group, WorkerLayout},
-    },
-    sync::{
-        ControllerSync, Exchange, GroupId, InputHandleBackend, Orchestrator, Router, StdCommand,
-        StdNotification, StdOrchestrator, Transfer,
-        transfers::{InputHandleBackendFactory, WaitResult},
-    },
-};
-use core::{fmt::Debug, marker::PhantomData, mem, time::Duration};
-use libaflmm_bolts::CoreId;
-use libaflmm_core::{Result, illegal_argument, illegal_state};
+use core::{fmt::Debug, mem, time::Duration};
 use std::{
     collections::{HashMap, HashSet, hash_map::Entry},
     fs,
@@ -23,41 +6,42 @@ use std::{
     path::{self, Path, PathBuf},
 };
 
-// get the synchronizer type out of a pair of <Input, Orchestrator>
-pub(crate) type TransferOf<I, O> = <O as Orchestrator<StdDescriptor, I>>::Transfer;
-pub(crate) type InputReprOf<I, O> = <O as Orchestrator<StdDescriptor, I>>::Provider;
-pub(crate) type HandleOf<I, O> = <InputReprOf<I, O> as InputHandleBackend<I>>::Handle;
-pub(crate) type CommandOf<I, O> = <O as Orchestrator<StdDescriptor, I>>::Command;
-pub(crate) type NotificationOf<I, O> = <O as Orchestrator<StdDescriptor, I>>::Notification;
+use libaflmm_bolts::CoreId;
+use libaflmm_core::{Result, illegal_argument, illegal_state};
 
-pub(crate) type ControllerSyncOf<I, O> = <TransferOf<I, O> as Transfer<
-    CommandOf<I, O>,
-    StdDescriptor,
-    NotificationOf<I, O>,
->>::ControllerSync;
-// pub(crate) type WorkerSyncOf<I, O> = <TransportOf<I, O> as Transport<
-//     CommandOf<I, O>,
-//     StdDescriptor,
-//     NotificationOf<I, O>,
-// >>::WorkerSync;
+use crate::{
+    controllers::{
+        Controller, Descriptor, GenericWorker, StdDescriptor, WorkdirFile, WorkerId,
+        standard::builder::StdControllerBuilder,
+    },
+    launchers::{
+        InstanceId,
+        groups::{Group, WorkerLayout},
+    },
+    sync::{
+        ControllerSync, GenericCommand, GenericNotification, GroupId, InputHandleBackend,
+        Orchestrator, Router, StdInputHandleBackendFactory, StdOrchestrator, StdRouter,
+        StdTransfer, Transfer,
+        transfers::{InputHandleBackendFactory, WaitResult},
+    },
+};
+
+pub(crate) type BackendOf<HBF, I> = <HBF as InputHandleBackendFactory<StdDescriptor, I>>::Backend;
+pub(crate) type HandleOf<HBF, I> = <BackendOf<HBF, I> as InputHandleBackend<I>>::Handle;
 
 /// The standard controller.
 #[derive(Debug)]
 #[expect(clippy::type_complexity)]
-pub struct StdController<I, O>
+pub struct GenericController<HBF, I, R, T>
 where
+    HBF: InputHandleBackendFactory<StdDescriptor, I>,
     I: Debug,
-    O: Orchestrator<
-            StdDescriptor,
-            I,
-            Command = StdCommand<HandleOf<I, O>>,
-            Notification = StdNotification<HandleOf<I, O>>,
-        >,
+    T: Transfer<StdDescriptor, HandleOf<HBF, I>>,
 {
-    orchestrator: O,
-    controller_sync: Option<ControllerSyncOf<I, O>>,
+    orchestrator: Orchestrator<HBF, R, T>,
+    controller_sync: Option<T::ControllerSync>,
     descriptors: HashMap<WorkerId, StdDescriptor>,
-    workers: HashMap<GroupId, Vec<StdWorker<O::Provider, I, O::WorkerSync>>>,
+    workers: HashMap<GroupId, Vec<GenericWorker<HBF::Backend, I, T::Custom, T::WorkerSync>>>,
     root_dir: PathBuf,
     finalized: bool,
 
@@ -65,27 +49,22 @@ where
     used_cores: HashSet<CoreId>,
 
     // buffers
-    pending_notifications: Vec<(StdNotification<HandleOf<I, O>>, WorkerId)>,
+    pending_notifications: Vec<(GenericNotification<HandleOf<HBF, I>, T::Custom>, WorkerId)>,
 
     worker_stdout: WorkdirFile,
     worker_stderr: WorkdirFile,
     worker_stats: WorkdirFile,
-
-    phantom: PhantomData<I>,
 }
 
-impl<I, O> Controller for StdController<I, O>
+impl<HBF, I, R, T> Controller for GenericController<HBF, I, R, T>
 where
+    HBF: InputHandleBackendFactory<StdDescriptor, I>,
     I: Debug,
-    O: Orchestrator<
-            StdDescriptor,
-            I,
-            Command = StdCommand<HandleOf<I, O>>,
-            Notification = StdNotification<HandleOf<I, O>>,
-        >,
+    R: Router<GenericCommand<HandleOf<HBF, I>, T::Custom>, StdDescriptor>,
+    T: Transfer<StdDescriptor, HandleOf<HBF, I>>,
 {
-    type Worker = StdWorker<O::Provider, I, O::WorkerSync>;
-    type GroupConfig = <O::Router as Router<CommandOf<I, O>, StdDescriptor>>::GroupConfig;
+    type Worker = GenericWorker<HBF::Backend, I, T::Custom, T::WorkerSync>;
+    type GroupConfig = R::GroupConfig;
 
     fn register_group<G>(&mut self, config: Self::GroupConfig, group: &mut G) -> Result<GroupId>
     where
@@ -97,7 +76,7 @@ where
             ));
         }
 
-        let group_id = self.orchestrator.router_mut().register_group(config)?;
+        let group_id = self.orchestrator.router.register_group(config)?;
         let cores = group.cores().clone();
 
         for core_id in &cores {
@@ -119,7 +98,7 @@ where
                 core_id,
             )?;
 
-            self.orchestrator.router_mut().register_worker(&desc)?;
+            self.orchestrator.router.register_worker(&desc)?;
 
             self.descriptors.insert(worker_id, desc);
         }
@@ -134,29 +113,30 @@ where
             ));
         }
 
-        self.orchestrator.router_mut().finalize()?;
+        self.orchestrator.router.finalize()?;
 
         for (wid, desc) in &self.descriptors {
-            let source_wids: Vec<WorkerId> = self.orchestrator.router().sources(*wid).collect();
+            let source_wids: Vec<WorkerId> = self.orchestrator.router.sources(*wid).collect();
 
             let sources: Vec<&StdDescriptor> = source_wids
                 .into_iter()
                 .map(|src_wid| self.descriptors.get(&src_wid).unwrap())
                 .collect();
 
-            let handle_provider = self
+            let handle_backend = self
                 .orchestrator
-                .handle_provider_factory_mut()
+                .handle_backend_factory
                 .create(desc, sources.iter().copied())?;
 
             let worker_sync = self
                 .orchestrator
-                .transfer_mut()
+                .transfer
                 .create_worker_sync(desc, sources.iter().copied())?;
 
-            let should_report = self.orchestrator.router().has_destinations(*wid);
+            let should_report = self.orchestrator.router.has_destinations(*wid);
 
-            let worker = StdWorker::new(desc.clone(), handle_provider, worker_sync, should_report);
+            let worker =
+                GenericWorker::new(desc.clone(), handle_backend, worker_sync, should_report);
 
             match self.workers.entry(desc.group_id()) {
                 Entry::Occupied(mut entry) => entry.get_mut().push(worker),
@@ -166,8 +146,8 @@ where
             }
         }
 
-        self.orchestrator.handle_provider_factory_mut().finalize()?;
-        self.controller_sync = Some(self.orchestrator.transfer_mut().create_controller_sync()?);
+        self.orchestrator.handle_backend_factory.finalize()?;
+        self.controller_sync = Some(self.orchestrator.transfer.create_controller_sync()?);
 
         Ok(())
     }
@@ -225,25 +205,20 @@ where
             // notification ready to be handled
             self.pending_notifications.extend(sync.poll()?);
 
-            for (notification, source) in self.pending_notifications.drain(..) {
+            let mut pending = mem::take(&mut self.pending_notifications);
+            for (notification, source) in pending.drain(..) {
                 let src_desc = self.descriptors.get(&source).unwrap();
-
-                // self.on_notification(src_desc, &notification)?;
-
-                let Some(command) = self
-                    .orchestrator
-                    .exchange_mut()
-                    .notif_to_command(src_desc, notification)?
-                else {
+                let Some(command) = notification.into_command(src_desc.group_id())? else {
                     continue;
                 };
 
-                let destinations = self.orchestrator.router_mut().route(source, &command)?;
+                let destinations = self.orchestrator.router.route(source, &command)?;
                 let sync = self.controller_sync.as_mut().unwrap();
 
                 log::debug!("routing command from worker {source:?}");
                 sync.send(destinations, &command)?;
             }
+            self.pending_notifications = pending;
         }
 
         Ok(())
@@ -257,19 +232,15 @@ where
         self.controller_sync
             .as_mut()
             .unwrap()
-            .send_to(worker, &StdCommand::Shutdown)
+            .send_to(worker, &GenericCommand::Shutdown)
     }
 }
 
-impl<I, O> StdController<I, O>
+impl<HBF, I, R, T> GenericController<HBF, I, R, T>
 where
+    HBF: InputHandleBackendFactory<StdDescriptor, I>,
     I: Debug,
-    O: Orchestrator<
-            StdDescriptor,
-            I,
-            Command = StdCommand<HandleOf<I, O>>,
-            Notification = StdNotification<HandleOf<I, O>>,
-        >,
+    T: Transfer<StdDescriptor, HandleOf<HBF, I>>,
 {
     fn resolve_worker_layout(&self, layout: &WorkerLayout) -> Result<PathBuf> {
         let path = layout.workdir();
@@ -353,22 +324,11 @@ where
             group_id,
         )
     }
-}
 
-impl<I, O> StdController<I, O>
-where
-    I: Debug,
-    O: Orchestrator<
-            StdDescriptor,
-            I,
-            Command = StdCommand<HandleOf<I, O>>,
-            Notification = StdNotification<HandleOf<I, O>>,
-        >,
-{
-    /// Create a new [`StdController`] using `root_dir` as the root directory.
+    /// Create a new [`GenericController`] using `root_dir` as the root directory.
     /// If overwrite is true, the `root_dir` will be removed before being created again.
     pub fn new(
-        orchestrator: O,
+        orchestrator: Orchestrator<HBF, R, T>,
         root_dir: PathBuf,
         worker_stdout: WorkdirFile,
         worker_stderr: WorkdirFile,
@@ -401,16 +361,15 @@ where
             pending_notifications: Vec::new(),
             worker_id_ctr: 0,
             finalized: false,
-            phantom: PhantomData,
         })
     }
 }
 
-impl<I> StdController<I, StdOrchestrator>
+impl<I> GenericController<StdInputHandleBackendFactory, I, StdRouter, StdTransfer>
 where
     I: Debug,
 {
-    /// Get a [`StdControllerBuilder`], to build a [`StdController`].
+    /// Get a [`StdControllerBuilder`], to build a [`StdController`](crate::controllers::StdController).
     #[must_use]
     pub fn builder() -> StdControllerBuilder<I, StdOrchestrator> {
         StdControllerBuilder::default()
