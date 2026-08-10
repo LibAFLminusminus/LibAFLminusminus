@@ -1,9 +1,9 @@
 use crate::target::{MAP, MAP_PTR, MAP_SIZE};
-use libaflmm::{prelude::*, Result};
+use libaflmm::{Result, prelude::*};
 use libaflmm_bolts::{
-    current_nanos, nonnull_raw_mut, rands::StdRand, tuples::tuple_list, FastTimer,
+    FastTimer, current_nanos, nonnull_raw_mut, rands::StdRand, tuples::tuple_list,
 };
-use libaflmm_intelpt::{availability, IntelPT, IntelPTHook, PtImage};
+use libaflmm_intelpt::{IntelPT, IntelPTHook, PtImage, availability};
 use proc_maps::get_process_maps;
 use std::{path::PathBuf, process, ptr::copy_nonoverlapping, time::Duration};
 

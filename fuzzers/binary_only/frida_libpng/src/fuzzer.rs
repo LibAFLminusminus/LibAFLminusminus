@@ -5,7 +5,7 @@ use core::time::Duration;
 use frida_gum::Gum;
 use libaflmm::{
     controllers::Worker,
-    corpus::{schedulers::QueueScheduler, InMemoryCorpus, ObjectiveOnDiskCorpus},
+    corpus::{InMemoryCorpus, ObjectiveOnDiskCorpus, schedulers::QueueScheduler},
     executors::ExitKind,
     feedback_or, feedback_or_fast,
     feedbacks::{CrashFeedback, MaxMapFeedback, TimeFeedback, TimeoutFeedback},
@@ -15,20 +15,20 @@ use libaflmm::{
     monitors::WebMonitor,
     mutators::{
         havoc_mutations::havoc_mutations,
-        scheduled::{tokens_mutations, HavocScheduledMutator},
+        scheduled::{HavocScheduledMutator, tokens_mutations},
         token_mutations::I2SRandReplace,
     },
     observers::{CmpLogObserver, HitcountsMapObserver, StdMapObserver, TimeObserver},
     stages::{
-        cmplog_post_hook, cmplog_pre_hook, constrain, IfElseStage, SingleRunStage,
-        StdMutationalStage,
+        IfElseStage, SingleRunStage, StdMutationalStage, cmplog_post_hook, cmplog_pre_hook,
+        constrain,
     },
     states::{State, StdState},
 };
 use libaflmm_bolts::{
-    rands::StdRand,
-    tuples::{tuple_list, Merge},
     FastTimer, Result,
+    rands::StdRand,
+    tuples::{Merge, tuple_list},
 };
 use libaflmm_frida::{
     asan::{
