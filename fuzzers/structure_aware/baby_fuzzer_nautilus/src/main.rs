@@ -111,7 +111,7 @@ pub fn main() -> Result<()> {
         })?;
 
     // Launch the fuzzer
-    StdLauncher::builder()
+    StdLauncher::empty()
         .controller(controller)
         .monitor(monitor)
         .add_group(group)

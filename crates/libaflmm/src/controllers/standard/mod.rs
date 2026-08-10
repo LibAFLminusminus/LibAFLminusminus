@@ -8,12 +8,12 @@ pub mod builder;
 pub use builder::StdControllerBuilder;
 
 pub mod controller;
-pub use controller::StdController;
+pub use controller::GenericController;
 
 pub mod worker;
-pub use worker::{StdWorker, StdWorkerRepr};
+pub use worker::{GenericWorker, StdWorkerRepr};
 
-/// A Std descriptor for a [`StdWorker`].
+/// A Std descriptor for a [`StdWorker`](crate::controllers::StdWorker).
 #[derive(Debug, Clone)]
 pub struct StdDescriptor {
     name: String,

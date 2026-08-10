@@ -4,14 +4,14 @@
 use core::time::Duration;
 use frida_gum::Gum;
 use libaflmm::{
-    controllers::{StdController, Worker},
+    controllers::Worker,
     corpus::{InMemoryCorpus, ObjectiveOnDiskCorpus, schedulers::QueueScheduler},
     executors::ExitKind,
     feedback_or, feedback_or_fast,
     feedbacks::{CrashFeedback, MaxMapFeedback, TimeFeedback, TimeoutFeedback},
     fuzzers::{Fuzzer, Loader, StdFuzzer},
     inputs::{BytesContext, BytesInput, InputContext},
-    launchers::{StdLauncher, groups::StdGroup},
+    launchers::StdLauncher,
     monitors::WebMonitor,
     mutators::{
         havoc_mutations::havoc_mutations,
@@ -56,17 +56,15 @@ pub fn main() -> Result<()> {
 
     let options = parse_args();
 
-    // The launcher supervises the fuzzer and communicates with the workers.
-    let controller = StdController::builder().overwrite(true).build()?;
-
     // The monitor tracks the fuzzing current status.
-    let monitor = WebMonitor::new("frida_libpng", &controller);
+    let monitor = WebMonitor::new("frida_libpng");
 
-    let group = StdGroup::builder(&controller)
+    // Launch the fuzzer
+    StdLauncher::builder()
         .cores(options.cores.clone())
         .timeout(Some(Duration::from_secs(3)))
-        // A fast timer, much faster than classic OS timers.
         .timer(FastTimer::new())
+        .monitor(monitor)
         .state_builder(|worker| {
             // A scheduler following the queue policy
             let scheduler = QueueScheduler::new();
@@ -82,7 +80,7 @@ pub fn main() -> Result<()> {
                 ObjectiveOnDiskCorpus::builder(worker)?.build()?,
             )
         })
-        .build_inprocess(move |rt_handle, state| {
+        .launch_inprocess(move |rt_handle, state| {
             // 'While the stats are state, they are usually used in the broker - which is likely never restarted
             let core_id = rt_handle
                 .worker()
@@ -206,13 +204,5 @@ pub fn main() -> Result<()> {
             fuzzer.fuzz_loop(&mut stages, &mut rand, state, rt_handle)?;
 
             Ok(())
-        })?;
-
-    // Launch the fuzzer
-    StdLauncher::builder()
-        .controller(controller)
-        .monitor(monitor)
-        .add_group(group)
-        .build()?
-        .launch()
+        })
 }

@@ -12,10 +12,7 @@ impl QemuFuzzer {
         env: Vec<(String, String)>,
         args: Vec<String>,
     ) -> Result<()> {
-        // let monitor = WebMonitor::new("qemu_launcher");
-        let monitor = StdMonitor::new();
-        let controller = StdController::builder().overwrite(true).build()?;
-        let group = StdGroup::builder(&controller)
+        StdLauncher::builder()
             .cores(options.cores.clone())
             .timeout(Some(options.timeout))
             .state_builder(move |worker| {
@@ -30,7 +27,7 @@ impl QemuFuzzer {
                     ObjectiveOnDiskCorpus::builder(worker)?.build()?,
                 )
             })
-            .build_inprocess(move |rt_handle, state| {
+            .launch_inprocess(move |rt_handle, state| {
                 let core_id = rt_handle
                     .worker()
                     .core_id()
@@ -132,13 +129,6 @@ impl QemuFuzzer {
                 fuzzer.fuzz_loop(&mut stages, &mut rand, state, rt_handle)?;
 
                 Ok(())
-            })?;
-
-        StdLauncher::builder()
-            .monitor(monitor)
-            .controller(controller)
-            .add_group(group)
-            .build()?
-            .launch()
+            })
     }
 }

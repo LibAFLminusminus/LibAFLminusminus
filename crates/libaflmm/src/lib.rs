@@ -66,8 +66,8 @@ pub mod prelude {
     };
 
     pub use crate::controllers::{
-        Controller, Descriptor, StdController, StdDescriptor, StdWorker, Workdir, WorkdirFile,
-        Worker,
+        Controller, Descriptor, GenericController, GenericWorker, MessagingWorker, StdController,
+        StdDescriptor, StdWorker, Workdir, WorkdirFile, Worker,
     };
 
     pub use crate::corpus::{
@@ -118,7 +118,8 @@ pub mod prelude {
     pub use crate::inputs::NautilusInput;
 
     pub use crate::launchers::{
-        Instance, InstanceId, Instances, StdGroup, StdGroupBuilder, StdLauncher,
+        GenericGroupBuilder, Group, GroupTuple, Instance, InstanceId, Instances, StdGroup,
+        StdGroupBuilder, StdLauncher, WorkerLayout,
     };
 
     pub use crate::monitors::{Monitor, PerfStats, SimpleMonitor, StdMonitor};
@@ -157,6 +158,17 @@ pub mod prelude {
     };
 
     pub use crate::states::{NopState, State, StdState};
+
+    pub use crate::sync::{
+        ControllerSync, DefaultInputHandleBackendFactory, DirectTransfer, GenericCommand,
+        GenericNotification, GraphOrchestrator, GraphRouter, GraphRouterBuilder, GroupId,
+        InputHandleBackend, InputHandleBackendFactory, NopControllerSync, NopRouter, NopTransfer,
+        NopWorkerSync, Orchestrator, Router, SerializedInputHandleBackend,
+        SerializedInputHandleBackendFactory, SocketControllerSync, SocketWorkerSync, StdCommand,
+        StdInputHandleBackend, StdInputHandleBackendFactory, StdNotification, StdOrchestrator,
+        StdRouter, StdTransfer, StdWorkerSync, Transfer, UnreachableInputHandleBackend,
+        UnreachableInputHandleBackendFactory, WaitResult, WorkerSync,
+    };
 }
 
 // TODO: adapt this test...

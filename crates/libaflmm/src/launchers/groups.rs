@@ -76,7 +76,7 @@ pub struct WorkerLayout {
 }
 
 #[derive(Debug)]
-pub struct StdGroupBuilder<L, RT, S, SB, TM, W> {
+pub struct GenericGroupBuilder<L, RT, S, SB, TM, W> {
     layout_fn: L,
     cores: Cores,
     state_builder: SB,
@@ -87,7 +87,7 @@ pub struct StdGroupBuilder<L, RT, S, SB, TM, W> {
     phantom: PhantomData<(S, W)>,
 }
 
-impl<L, RT, S, SB, TM, W> Clone for StdGroupBuilder<L, RT, S, SB, TM, W>
+impl<L, RT, S, SB, TM, W> Clone for GenericGroupBuilder<L, RT, S, SB, TM, W>
 where
     L: Clone,
     RT: Clone,
@@ -174,7 +174,7 @@ impl
     #[expect(clippy::type_complexity)]
     pub fn builder<CT>(
         _controller: &CT,
-    ) -> StdGroupBuilder<
+    ) -> GenericGroupBuilder<
         fn(GroupId, WorkerId) -> Result<WorkerLayout>,
         NopRuntime,
         NopState,
@@ -185,13 +185,23 @@ impl
     where
         CT: Controller,
     {
-        let runtime = NopRuntime;
-        let cores = Cores::one();
+        Self::builder_for()
+    }
 
-        StdGroupBuilder {
+    #[must_use]
+    #[expect(clippy::type_complexity)]
+    pub fn builder_for<W>() -> GenericGroupBuilder<
+        fn(GroupId, WorkerId) -> Result<WorkerLayout>,
+        NopRuntime,
+        NopState,
+        fn(&W) -> Result<NopState>,
+        StdTimer,
+        W,
+    > {
+        GenericGroupBuilder {
             layout_fn: |_, wid| WorkerLayout::flat(format!("worker_{:}", wid.id())),
-            runtime,
-            cores,
+            runtime: NopRuntime,
+            cores: Cores::one(),
             state_builder: |_| NopState::nop(),
             max_state_size_per_client: None,
             timeout: Some(DEFAULT_TIMEOUT),
@@ -201,11 +211,11 @@ impl
     }
 }
 
-impl<L, RT, S, SB, TM, W> StdGroupBuilder<L, RT, S, SB, TM, W> {
-    /// Set the [`Runtime`].
+impl<L, RT, S, SB, TM, W> GenericGroupBuilder<L, RT, S, SB, TM, W> {
+    /// Set the worker layout closure.
     #[must_use]
-    pub fn worker_layout_fn<L2>(self, layout_fn: L2) -> StdGroupBuilder<L2, RT, S, SB, TM, W> {
-        StdGroupBuilder {
+    pub fn worker_layout_fn<L2>(self, layout_fn: L2) -> GenericGroupBuilder<L2, RT, S, SB, TM, W> {
+        GenericGroupBuilder {
             layout_fn,
             runtime: self.runtime,
             cores: self.cores,
@@ -226,8 +236,8 @@ impl<L, RT, S, SB, TM, W> StdGroupBuilder<L, RT, S, SB, TM, W> {
 
     /// Set the [`Runtime`].
     #[must_use]
-    pub fn runtime<RT2>(self, runtime: RT2) -> StdGroupBuilder<L, RT2, S, SB, TM, W> {
-        StdGroupBuilder {
+    pub fn runtime<RT2>(self, runtime: RT2) -> GenericGroupBuilder<L, RT2, S, SB, TM, W> {
+        GenericGroupBuilder {
             layout_fn: self.layout_fn,
             runtime,
             cores: self.cores,
@@ -244,11 +254,11 @@ impl<L, RT, S, SB, TM, W> StdGroupBuilder<L, RT, S, SB, TM, W> {
     pub fn state_builder<S2, SB2>(
         self,
         state_builder: SB2,
-    ) -> StdGroupBuilder<L, RT, S2, SB2, TM, W>
+    ) -> GenericGroupBuilder<L, RT, S2, SB2, TM, W>
     where
         SB2: FnMut(&W) -> Result<S2>,
     {
-        StdGroupBuilder {
+        GenericGroupBuilder {
             layout_fn: self.layout_fn,
             runtime: self.runtime,
             cores: self.cores,
@@ -262,8 +272,8 @@ impl<L, RT, S, SB, TM, W> StdGroupBuilder<L, RT, S, SB, TM, W> {
 
     /// Set the timer used by the runtime built with [`Self::build_inprocess`].
     #[must_use]
-    pub fn timer<TM2>(self, timer: TM2) -> StdGroupBuilder<L, RT, S, SB, TM2, W> {
-        StdGroupBuilder {
+    pub fn timer<TM2>(self, timer: TM2) -> GenericGroupBuilder<L, RT, S, SB, TM2, W> {
+        GenericGroupBuilder {
             layout_fn: self.layout_fn,
             cores: self.cores,
             runtime: self.runtime,

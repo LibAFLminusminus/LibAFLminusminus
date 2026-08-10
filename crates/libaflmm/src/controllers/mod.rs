@@ -5,7 +5,10 @@ use crate::{
     corpus::Testcase,
     launchers::{InstanceId, groups::Group},
     states::{Stats, read_stats_json, stats_to_json},
-    sync::GroupId,
+    sync::{
+        GroupId, StdInputHandleBackend, StdInputHandleBackendFactory, StdRouter, StdTransfer,
+        StdWorkerSync,
+    },
 };
 use alloc::sync::Arc;
 use core::time::Duration;
@@ -25,10 +28,19 @@ use std::{
 const STATS_UPDATE_INTERVAL: Duration = Duration::from_secs(5);
 
 pub mod standard;
-pub use standard::{StdController, StdControllerBuilder, StdDescriptor, StdWorker, StdWorkerRepr};
+pub use standard::{
+    GenericController, GenericWorker, StdControllerBuilder, StdDescriptor, StdWorkerRepr,
+};
 
 pub mod nop;
 pub use nop::{NopController, NopDescriptor, NopWorker};
+
+/// The standard [`Controller`]
+pub type StdController<I> =
+    GenericController<StdInputHandleBackendFactory, I, StdRouter, StdTransfer>;
+
+/// The standard [`Worker`]
+pub type StdWorker<I> = GenericWorker<StdInputHandleBackend, I, (), StdWorkerSync>;
 
 /// A controller is the glue between multiple [`Worker`]s.
 ///
@@ -91,13 +103,6 @@ pub trait Controller {
     ) -> Result<()> {
         Ok(())
     }
-
-    // /// Send a command to a given [`Worker`].
-    // fn send_command(
-    //     &mut self,
-    //     command: <Self::Worker as Worker>::Command,
-    //     _worker_id: WorkerId,
-    // ) -> Result<()>;
 
     /// Wait for events sent by the [`Worker`]s.
     /// The function returns after a notification is received or the given timeout value has elapsed.
@@ -174,6 +179,18 @@ pub trait SharingWorker<I>: Worker {
     ///
     /// Pending testcases are returned and guaranteed to be removed from the worker buffer.
     fn recv_testcases(&mut self) -> Result<impl Iterator<Item = Testcase<I>>>;
+}
+
+/// A [`Worker`] able to exchange user-defined messages.
+pub trait MessagingWorker<U>: Worker {
+    /// Send a custom `payload`, routed like a new testcase.
+    fn send_custom(&mut self, payload: U) -> Result<()>;
+
+    /// Drain the received custom payloads.
+    ///
+    /// It will only take into account requests since the last call to [`Worker::poll`].
+    /// Any commands received after that would not be considered.
+    fn recv_custom(&mut self) -> Result<impl Iterator<Item = U>>;
 }
 
 /// A descriptor describes a [`Worker`].

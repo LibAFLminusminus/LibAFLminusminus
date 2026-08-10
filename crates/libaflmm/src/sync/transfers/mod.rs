@@ -1,16 +1,21 @@
-use crate::{Result, controllers::WorkerId};
-use core::fmt::Debug;
-use core::time::Duration;
+use core::{fmt::Debug, marker::PhantomData, time::Duration};
+use std::os::fd::BorrowedFd;
+
 use nix::{
     errno::Errno,
     poll::{PollFd, PollFlags, PollTimeout, poll},
 };
-use std::os::fd::BorrowedFd;
 
-pub mod handle_providers;
-pub use handle_providers::{
+use crate::{
+    Result,
+    controllers::WorkerId,
+    sync::{GenericCommand, GenericNotification, Transferable},
+};
+
+pub mod handle_backends;
+pub use handle_backends::{
     DefaultInputHandleBackendFactory, InputHandleBackend, InputHandleBackendFactory,
-    SerializedInputHandleBackendFactory, SerializedInputhandleBackend,
+    SerializedInputHandleBackend, SerializedInputHandleBackendFactory,
     UnreachableInputHandleBackend, UnreachableInputHandleBackendFactory,
 };
 
@@ -18,11 +23,14 @@ pub mod socket;
 pub use socket::{DirectTransfer, SocketControllerSync, SocketWorkerSync};
 
 /// The transfer mechanism for commands and notifications
-pub trait Transfer<CMD, D, NOTIF>: Debug {
+pub trait Transfer<D, H>: Debug {
+    /// The custom user type
+    type Custom: Transferable;
+
     /// Controller side of the sync mechanism
-    type ControllerSync: ControllerSync<NOTIF, CMD>;
+    type ControllerSync: ControllerSync<GenericNotification<H, Self::Custom>, GenericCommand<H, Self::Custom>>;
     /// Worker side of the sync mechanism
-    type WorkerSync: WorkerSync<CMD, NOTIF>;
+    type WorkerSync: WorkerSync<GenericCommand<H, Self::Custom>, GenericNotification<H, Self::Custom>>;
 
     /// Create a new worker synchronizer for the worker using a given descriptor
     fn create_worker_sync<'a>(
@@ -72,8 +80,27 @@ pub enum WaitResult {
     Timeout,
 }
 
-#[derive(Debug, Default)]
-pub struct NopTransfer;
+fn wait_readable<'a>(
+    fds: impl Iterator<Item = BorrowedFd<'a>>,
+    timeout: Duration,
+) -> Result<WaitResult> {
+    let mut fds: Vec<PollFd> = fds.map(|fd| PollFd::new(fd, PollFlags::POLLIN)).collect();
+
+    match poll(&mut fds, PollTimeout::try_from(timeout).unwrap()) {
+        Ok(0) | Err(Errno::EINTR) => Ok(WaitResult::Timeout),
+        Ok(_) => Ok(WaitResult::Event),
+        Err(e) => Err(e.into()),
+    }
+}
+
+#[derive(Debug)]
+pub struct NopTransfer<U = ()>(PhantomData<U>);
+
+impl<U> Default for NopTransfer<U> {
+    fn default() -> Self {
+        Self(PhantomData)
+    }
+}
 
 #[derive(Debug, Default)]
 pub struct NopControllerSync;
@@ -81,7 +108,11 @@ pub struct NopControllerSync;
 #[derive(Debug, Default)]
 pub struct NopWorkerSync;
 
-impl<CMD, D, NOTIF> Transfer<CMD, D, NOTIF> for NopTransfer {
+impl<D, H, U> Transfer<D, H> for NopTransfer<U>
+where
+    U: Transferable,
+{
+    type Custom = U;
     type ControllerSync = NopControllerSync;
     type WorkerSync = NopWorkerSync;
 
@@ -108,18 +139,7 @@ impl<RCV, SD> ControllerSync<RCV, SD> for NopControllerSync {
     }
 
     fn wait(&mut self, wake_fds: &[BorrowedFd<'_>], timeout: Duration) -> Result<WaitResult> {
-        let timeout = PollTimeout::try_from(timeout).unwrap();
-
-        let mut fds: Vec<PollFd> = wake_fds
-            .iter()
-            .map(|fd| PollFd::new(*fd, PollFlags::POLLIN))
-            .collect();
-
-        match poll(&mut fds, timeout) {
-            Ok(0) | Err(Errno::EINTR) => Ok(WaitResult::Timeout),
-            Ok(_) => Ok(WaitResult::Event),
-            Err(e) => Err(e.into()),
-        }
+        wait_readable(wake_fds.iter().copied(), timeout)
     }
 
     fn poll(&mut self) -> Result<impl Iterator<Item = (RCV, WorkerId)>> {
