@@ -18,7 +18,7 @@ pub mod standard;
 pub use standard::{StdFuzzer, StdFuzzerBuilder};
 
 pub mod hooks;
-pub use hooks::{CalibrationHook, CustomNameHook, FuzzerHook, FuzzerHooksTuple};
+pub use hooks::{CalibrationHook, FuzzerHook, FuzzerHooksTuple};
 
 /// The main fuzzer trait.
 pub trait Fuzzer<E, I, R, S, ST, W> {
