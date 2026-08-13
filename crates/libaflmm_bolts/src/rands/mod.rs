@@ -11,26 +11,6 @@ use serde::{Deserialize, Serialize};
 pub mod loaded_dice;
 pub use loaded_dice::LoadedDiceSampler;
 
-/// Return a pseudo-random seed. For `no_std` environments, a single deterministic sequence is used.
-#[must_use]
-#[allow(unreachable_code)] // cfg dependent
-pub fn random_seed() -> u64 {
-    random_seed_from_random_state()
-    // return random_seed_deterministic();
-}
-
-// #[cfg(all(not(feature = "std"), target_has_atomic = "ptr"))]
-// fn random_seed_deterministic() -> u64 {
-//     let mut seed = SEED_COUNTER.fetch_add(1, Ordering::Relaxed) as u64;
-//     splitmix64(&mut seed)
-// }
-
-fn random_seed_from_random_state() -> u64 {
-    use core::hash::{BuildHasher, Hasher};
-    use std::collections::hash_map::RandomState;
-    RandomState::new().build_hasher().finish()
-}
-
 // https://prng.di.unimi.it/splitmix64.c
 fn splitmix64(x: &mut u64) -> u64 {
     *x = x.wrapping_add(0x9e3779b97f4a7c15);
@@ -230,7 +210,8 @@ macro_rules! impl_default_new {
         impl Default for $rand {
             /// Creates a generator seeded with [`random_seed`].
             fn default() -> Self {
-                Self::with_seed(random_seed())
+                let cur = crate::current_time().as_nanos() as u64;
+                Self::with_seed(cur)
             }
         }
 
@@ -238,7 +219,8 @@ macro_rules! impl_default_new {
             /// Creates a generator seeded with [`random_seed`].
             #[must_use]
             pub fn new() -> Self {
-                Self::with_seed(random_seed())
+                let cur = crate::current_time().as_nanos() as u64;
+                Self::with_seed(cur)
             }
         }
     };
@@ -554,7 +536,7 @@ pub mod pybind {
     use pyo3::prelude::*;
     use serde::{Deserialize, Serialize};
 
-    use super::{Rand, StdRand, random_seed};
+    use super::{Rand, StdRand};
 
     #[pyclass(unsendable, from_py_object, name = "StdRand")]
     #[expect(clippy::unsafe_derive_deserialize)]
@@ -567,13 +549,6 @@ pub mod pybind {
 
     #[pymethods]
     impl PythonStdRand {
-        #[staticmethod]
-        fn with_random_seed() -> Self {
-            Self {
-                inner: StdRand::with_seed(random_seed()),
-            }
-        }
-
         #[staticmethod]
         fn with_seed(seed: u64) -> Self {
             Self {
