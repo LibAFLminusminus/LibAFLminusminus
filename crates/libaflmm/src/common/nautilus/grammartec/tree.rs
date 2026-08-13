@@ -2,7 +2,7 @@
 
 use alloc::vec::Vec;
 use core::{cmp, marker::Sized};
-use std::io::{Cursor, Write, stdout};
+use std::io::{Write, stdout};
 
 use hashbrown::HashSet;
 use libaflmm_bolts::rands::Rand;
