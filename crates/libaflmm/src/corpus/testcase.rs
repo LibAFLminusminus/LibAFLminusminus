@@ -106,10 +106,7 @@ where
     pub fn new(input: Rc<I>) -> Self {
         let id = Self::compute_id(&input);
 
-        Self {
-            input,
-            id,
-        }
+        Self { input, id }
     }
 
     /// Get the unique ID associated to an input.

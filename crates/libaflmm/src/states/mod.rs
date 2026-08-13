@@ -11,11 +11,7 @@ use crate::{
     inputs::{Input, InputContext, NopContext, NopInput},
     launchers::InstanceId,
 };
-use alloc::{
-    borrow::Cow,
-    collections::VecDeque,
-    string::String,
-};
+use alloc::{borrow::Cow, collections::VecDeque, string::String};
 use core::{
     fmt::{self, Debug},
     marker::PhantomData,
