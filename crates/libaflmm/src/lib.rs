@@ -100,7 +100,7 @@ pub mod prelude {
     pub use crate::feedbacks::NautilusFeedback;
 
     pub use crate::fuzzers::{
-        CalibrationHook, CustomNameHook, Evaluator, Fuzzer, FuzzerHook, FuzzerHooksTuple,
+        CalibrationHook, Evaluator, Fuzzer, FuzzerHook, FuzzerHooksTuple,
         FuzzerOutcome, Loader, NopFuzzer, StdFuzzer, StdFuzzerBuilder,
     };
 

@@ -17,8 +17,6 @@ pub enum TestcaseFilenameFormat {
     Id,
     /// Use a prefix before the id
     Prefix(String),
-    /// Use a custom name.
-    Custom(String),
 }
 
 /// A [`Testcase`] identifier.
@@ -47,9 +45,6 @@ impl<I> Borrow<TestcaseId> for Testcase<I> {
 pub struct Testcase<I> {
     /// The [`Input`] of this [`Testcase`], or `None`, if it is not currently in memory
     input: Rc<I>,
-
-    filename_fmt: TestcaseFilenameFormat,
-
     /// The unique id for [`Testcase`].
     /// It should uniquely identify the input.
     id: TestcaseId,
@@ -64,7 +59,6 @@ impl TestcaseFilenameFormat {
             TestcaseFilenameFormat::Prefix(prefix) => {
                 format!("{prefix}-{id}")
             }
-            TestcaseFilenameFormat::Custom(custom_name) => custom_name.clone(),
         }
     }
 }
@@ -74,7 +68,6 @@ impl<I> Clone for Testcase<I> {
         Self {
             input: self.input.clone(),
             id: self.id,
-            filename_fmt: self.filename_fmt.clone(),
         }
     }
 }
@@ -91,11 +84,6 @@ impl<I> Testcase<I> {
     #[must_use]
     pub fn id(&self) -> &TestcaseId {
         &self.id
-    }
-
-    /// Set the file name according to the `fmt`.
-    pub fn set_filename_fmt(&mut self, fmt: TestcaseFilenameFormat) {
-        self.filename_fmt = fmt;
     }
 }
 
@@ -121,17 +109,7 @@ where
         Self {
             input,
             id,
-            filename_fmt: TestcaseFilenameFormat::default(),
         }
-    }
-
-    /// Create a new [`Testcase`] from an [`Input`] reference with the given file name.
-    pub fn with_filename(input: Rc<I>, filename: String) -> Self {
-        let mut tc = Self::new(input);
-
-        tc.filename_fmt = TestcaseFilenameFormat::Custom(filename);
-
-        tc
     }
 
     /// Get the unique ID associated to an input.
