@@ -661,8 +661,7 @@
                 "rgb(128,203,196)",
                 "rgb(255,245,157)",
             ];
-            // Keys whose value is [covered, len] — plotted as two series on one chart.
-            const STAT_COVERAGE = "coverage";
+            const STAT_COVERAGE_PREFIX = "coverage-";
             const COVERAGE_SERIES = ["covered", "max"];
             const COVERAGE_COLORS = ["rgb(79,195,247)", "rgb(255,138,101)"];
 
@@ -801,9 +800,10 @@
                 });
             }
 
-            function rebuildUserMapCharts(keys) {
+            function rebuildUserMapCharts(entries) {
                 Object.values(userMapCharts).forEach((c) => c.destroy());
                 userMapCharts = {};
+                const keys = entries.map(([key]) => key);
                 const body = document.getElementById("userMapBody");
                 const tabsEl = document.getElementById("userMapTabs");
                 body.innerHTML = "";
@@ -816,11 +816,13 @@
                 }
                 if (!keys.includes(selectedUserMapKey))
                     selectedUserMapKey = keys[0];
-                keys.forEach((key, idx) => {
+                entries.forEach(([key, kind], idx) => {
                     const tab = document.createElement("button");
                     tab.className =
                         "tab" + (key === selectedUserMapKey ? " active" : "");
-                    tab.textContent = key;
+                    tab.textContent = key.startsWith(STAT_COVERAGE_PREFIX)
+                        ? key.slice(STAT_COVERAGE_PREFIX.length)
+                        : key;
                     tab.dataset.key = key;
                     tab.onclick = () => selectUserMapTab(key);
                     tabsEl.appendChild(tab);
@@ -836,7 +838,7 @@
                     body.appendChild(wrap);
 
                     let datasets, scales;
-                    if (key === STAT_COVERAGE) {
+                    if (kind === "coverage") {
                         datasets = COVERAGE_SERIES.map((label, j) => ({
                             label,
                             data: [],
@@ -874,19 +876,26 @@
 
             function updateUserMapPanel(history) {
                 const i = selectedWorker;
-                const plottableKeys = new Set();
+                const plottableKeys = new Map();
                 history.forEach((s) => {
                     const w = s.stats[i];
                     if (w?.user_map) {
                         Object.entries(w.user_map).forEach(([k, raw]) => {
                             const v = parseUserMapValue(raw);
-                            if (typeof v === "number") plottableKeys.add(k);
-                            else if (k === STAT_COVERAGE && isCoveragePair(v))
-                                plottableKeys.add(k);
+                            if (k.startsWith(STAT_COVERAGE_PREFIX)) {
+                                if (isCoveragePair(v))
+                                    plottableKeys.set(k, "coverage");
+                            } else if (
+                                typeof v === "number" &&
+                                !plottableKeys.has(k)
+                            )
+                                plottableKeys.set(k, "number");
                         });
                     }
                 });
-                const keysArr = Array.from(plottableKeys).sort();
+                const keysArr = Array.from(plottableKeys.entries()).sort(
+                    (a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0),
+                );
                 if (JSON.stringify(keysArr) !== JSON.stringify(userMapKeys)) {
                     userMapKeys = keysArr;
                     rebuildUserMapCharts(keysArr);
@@ -896,11 +905,11 @@
                 const labels = history.map((s) =>
                     hhmmss(s.timestamp_secs - startTs),
                 );
-                keysArr.forEach((key) => {
+                keysArr.forEach(([key, kind]) => {
                     const chart = userMapCharts[key];
                     if (!chart) return;
                     chart.data.labels = labels;
-                    if (key === STAT_COVERAGE) {
+                    if (kind === "coverage") {
                         COVERAGE_SERIES.forEach((_, j) => {
                             chart.data.datasets[j].data = history.map((s) => {
                                 const v = parseUserMapValue(
