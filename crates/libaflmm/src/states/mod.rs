@@ -107,6 +107,46 @@ impl fmt::Display for Stats {
 }
 
 impl Stats {
+    #[must_use]
+    pub fn pid(&self) -> InstanceId {
+        self.pid
+    }
+
+    #[must_use]
+    pub fn executions(&self) -> u64 {
+        self.executions
+    }
+
+    #[must_use]
+    pub fn start_time(&self) -> Duration {
+        self.start_time
+    }
+
+    #[must_use]
+    pub fn corpus(&self) -> usize {
+        self.corpus
+    }
+
+    #[must_use]
+    pub fn objective(&self) -> usize {
+        self.objective
+    }
+
+    #[must_use]
+    pub fn last_found_time(&self) -> Duration {
+        self.last_found_time
+    }
+
+    #[must_use]
+    pub fn user_map(&self) -> &HashMap<String, String> {
+        &self.user_map
+    }
+
+    #[must_use]
+    pub fn perf(&self) -> &PerfStats {
+        &self.perf
+    }
+
     /// Update the counter of items in [`Corpus`](crate::corpus::Corpus).
     pub fn update_corpus(&mut self, corpus: usize) {
         self.corpus = corpus;

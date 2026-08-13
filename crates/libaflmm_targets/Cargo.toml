@@ -65,6 +65,9 @@ sancov_cmplog = ["common"]
 ## This is an alias for `sancov_pcguard_hitcounts`, enabling hitcounts coverage by default.
 sancov_pcguard = ["sancov_pcguard_hitcounts"]
 
+# for enabling sancov cov pc table. necessary for libfuzzer shim?
+sancov_pcs = []
+
 ## Compile common C code defining sanitizer options and cross-platform intrinsics.
 ## This feature compiles `common.c` and `common.h`, which are used by many other features.
 common = []
