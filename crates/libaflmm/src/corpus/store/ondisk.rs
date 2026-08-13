@@ -24,7 +24,6 @@ use crate::{
 /// the same root directory.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OnDiskStore<I, M> {
-    filename_format: TestcaseFilenameFormat,
     disk_mgr: Rc<DiskMgr<I>>,
     enabled_map: M,
     disabled_map: M,
@@ -139,10 +138,9 @@ where
 {
     /// Create a new [`OnDiskStore`]
     pub fn new(root: impl AsRef<Path>, filename_format: TestcaseFilenameFormat) -> Result<Self> {
-        let disk_mgr = Rc::new(DiskMgr::new(root)?);
+        let disk_mgr = Rc::new(DiskMgr::new_with_format(root, filename_format)?);
 
         Ok(Self {
-            filename_format,
             disk_mgr,
             enabled_map: M::default(),
             disabled_map: M::default(),
