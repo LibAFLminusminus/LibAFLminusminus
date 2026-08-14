@@ -9,9 +9,6 @@ use crate::{
     runtimes::RuntimeHandle,
 };
 
-pub mod custom_name;
-pub use custom_name::CustomNameHook;
-
 pub mod calibration;
 pub use calibration::CalibrationHook;
 

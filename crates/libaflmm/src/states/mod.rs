@@ -11,11 +11,7 @@ use crate::{
     inputs::{Input, InputContext, NopContext, NopInput},
     launchers::InstanceId,
 };
-use alloc::{
-    borrow::Cow,
-    collections::VecDeque,
-    string::{String, ToString},
-};
+use alloc::{borrow::Cow, collections::VecDeque, string::String};
 use core::{
     fmt::{self, Debug},
     marker::PhantomData,
@@ -441,21 +437,6 @@ impl TestcaseMetadata {
     pub fn found_objective(&mut self) {
         let count = self.objectives_found.saturating_add(1);
         self.objectives_found = count;
-    }
-
-    /// Get the filename
-    #[must_use]
-    pub fn get_filename(&self, id: &str) -> String {
-        match &self.filename_format {
-            TestcaseFilenameFormat::Id => id.to_string(),
-            TestcaseFilenameFormat::Prefix(prefix) => format!("{prefix}-{id}"),
-            TestcaseFilenameFormat::Custom(custom_name) => custom_name.clone(),
-        }
-    }
-
-    /// Set the filename of this [`Testcase`]
-    pub fn set_filename(&mut self, filename: TestcaseFilenameFormat) {
-        self.filename_format = filename;
     }
 
     #[must_use]
