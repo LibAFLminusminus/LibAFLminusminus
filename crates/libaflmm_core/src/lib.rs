@@ -418,7 +418,7 @@ impl Display for Error {
                 display_error_backtrace(f, b)
             }
             Self::Empty(s, b) => {
-                write!(f, "No items in {s}")?;
+                write!(f, "No items - {s}")?;
                 display_error_backtrace(f, b)
             }
             Self::IteratorEnd(s, b) => {

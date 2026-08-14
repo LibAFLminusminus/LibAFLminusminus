@@ -393,10 +393,9 @@ where
         let covered = map_state.num_covered_map_indexes;
         let stat_json = serde_json::json!([covered, map_len]).to_string();
 
-        state
-            .stats_mut()
-            .user_map
-            .insert(STAT_COVERAGE.to_string(), stat_json);
+        let stats_name = format!("{}-{}", STAT_COVERAGE, self.name());
+
+        state.stats_mut().user_map.insert(stats_name, stat_json);
 
         Ok(())
     }

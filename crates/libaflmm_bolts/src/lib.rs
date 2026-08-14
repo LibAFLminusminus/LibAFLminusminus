@@ -82,7 +82,7 @@ pub mod exceptions;
 pub mod rands;
 pub use rands::{
     Lehmer64Rand, LoadedDiceSampler, Rand, RomuDuoJrRand, RomuTrioRand, Sfc64Rand, StdRand,
-    XkcdRand, XorShift64Rand, Xoshiro256PlusPlusRand, choose, fast_bound, random_seed,
+    XkcdRand, XorShift64Rand, Xoshiro256PlusPlusRand, choose, fast_bound,
 };
 
 pub mod tuples;
