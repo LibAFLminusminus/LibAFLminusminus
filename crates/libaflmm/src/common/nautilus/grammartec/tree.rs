@@ -1,10 +1,9 @@
 #![cfg_attr(test, allow(unfulfilled_lint_expectations))]
+#![expect(clippy::std_instead_of_core)]
 
 use alloc::vec::Vec;
 use core::{cmp, marker::Sized};
 use std::io::{Write, stdout};
-
-#![expect(clippy::std_instead_of_core)]
 use std::io::Cursor;
 
 use hashbrown::HashSet;
