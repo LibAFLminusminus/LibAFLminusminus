@@ -208,7 +208,7 @@ where
 macro_rules! impl_default_new {
     ($rand:ty) => {
         impl Default for $rand {
-            /// Creates a generator seeded with [`random_seed`].
+            /// Creates a generator seeded with the current time
             fn default() -> Self {
                 let cur = crate::current_time().as_nanos() as u64;
                 Self::with_seed(cur)
@@ -216,7 +216,7 @@ macro_rules! impl_default_new {
         }
 
         impl $rand {
-            /// Creates a generator seeded with [`random_seed`].
+            /// Creates a generator seeded with the current time
             #[must_use]
             pub fn new() -> Self {
                 let cur = crate::current_time().as_nanos() as u64;
