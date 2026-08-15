@@ -60,6 +60,7 @@ impl CrashStatus {
 #[derive(Debug, Default)]
 pub enum TimeoutStatus {
     /// Resume on timeout
+    /// Note: does not work on windows
     Resume,
     /// Exit with timeout error code on timeout
     #[default]

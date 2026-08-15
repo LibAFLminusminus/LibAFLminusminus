@@ -16,10 +16,14 @@ use core::{
 use libaflmm_core::{Result, runtime};
 use num_traits::{Bounded, NumCast};
 
+#[cfg(unix)]
 pub mod anonymous;
+#[cfg(unix)]
 pub use anonymous::{AnonShmBuilder, AnonShmReceiver, AnonShmSender};
 
+#[cfg(unix)]
 pub mod sysv;
+#[cfg(unix)]
 pub use sysv::SysVShm;
 
 /// The invalid marker for a given memory region.

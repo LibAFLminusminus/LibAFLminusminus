@@ -17,7 +17,7 @@ use ::std::path::PathBuf;
 use alloc::vec::Vec;
 use core::{fmt::Debug, time::Duration};
 #[cfg(unix)]
-use libaflmm_bolts::os::unix_signals::Signal;
+use libaflmm_bolts::exceptions::unix_signals::Signal;
 use libaflmm_bolts::tuples::RefIndexable;
 use libaflmm_bolts::{core_affinity::CoreId, tuples::Handle};
 use serde::{Deserialize, Serialize};

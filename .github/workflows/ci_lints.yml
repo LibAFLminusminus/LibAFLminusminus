@@ -18,7 +18,7 @@ jobs:
           cache-key: ubuntu
       - uses: ./.github/actions/cache-qemu-nyx
       - name: Check repository
-        run: ./scripts/check.sh
+        run: python3 scripts/check.py
 
   ubuntu-check:
     runs-on: ubuntu-latest
@@ -61,7 +61,7 @@ jobs:
       - name: Installing python3 black
         run: command -v black &>/dev/null || pipx install black
       - name: Check formatting
-        run: ./scripts/fmt.sh check
+        run: python3 scripts/fmt.py check
 
   check-md-links:
     runs-on: ubuntu-latest
