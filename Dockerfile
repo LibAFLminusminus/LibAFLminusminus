@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM rust:1.91.0 AS libafl
+FROM rust:1.97.0 AS libafl
 LABEL "maintainer"="Romain Malmain <rmalmain@pm.me>"
 LABEL "about"="LibAFL-- Docker image"
 
