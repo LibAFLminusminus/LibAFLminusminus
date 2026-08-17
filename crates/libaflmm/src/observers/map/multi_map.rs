@@ -4,12 +4,13 @@ use alloc::{borrow::Cow, vec::Vec};
 use core::{
     fmt::Debug,
     hash::{Hash, Hasher},
-    iter::Flatten,
+    iter::{Flatten, Map},
     slice::{Iter, IterMut},
 };
 
 use libaflmm_bolts::{
-    AsIter, AsIterMut, AsSlice, AsSliceMut, HasLen, Named, ownedref::OwnedMutSlice,
+    AsChunks, AsChunksMut, AsIter, AsIterMut, AsSlice, AsSliceMut, HasLen, Named,
+    ownedref::OwnedMutSlice,
 };
 use meminterval::IntervalTree;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
@@ -234,5 +235,33 @@ where
 
     fn as_iter_mut(&'it mut self) -> Self::IntoIterMut {
         self.maps.iter_mut().flatten()
+    }
+}
+
+impl<'a, 'it, T> AsChunks<'it> for MultiMapObserver<'a, T>
+where
+    T: 'a,
+    'a: 'it,
+{
+    type Entry = T;
+    type SliceRef = &'it [T];
+    type Chunks = Map<Iter<'it, OwnedMutSlice<'a, T>>, fn(&'it OwnedMutSlice<'a, T>) -> &'it [T]>;
+
+    fn as_chunks(&'it self) -> Self::Chunks {
+        self.maps.iter().map(|map| &**map)
+    }
+}
+
+impl<'a, 'it, T> AsChunksMut<'it> for MultiMapObserver<'a, T>
+where
+    T: 'a,
+    'a: 'it,
+{
+    type SliceRefMut = &'it mut [T];
+    type ChunksMut =
+        Map<IterMut<'it, OwnedMutSlice<'a, T>>, fn(&'it mut OwnedMutSlice<'a, T>) -> &'it mut [T]>;
+
+    fn as_chunks_mut(&'it mut self) -> Self::ChunksMut {
+        self.maps.iter_mut().map(|map| &mut **map)
     }
 }

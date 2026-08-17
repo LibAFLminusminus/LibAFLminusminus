@@ -9,6 +9,7 @@ use alloc::{borrow::Cow, vec::Vec};
 use core::{
     array::TryFromSliceError,
     fmt::{self, Display},
+    iter::{Once, once},
     num::{ParseIntError, TryFromIntError},
     ops::{Deref, DerefMut},
 };
@@ -673,6 +674,50 @@ where
 
     fn as_sized_slice_mut(&'a mut self) -> Self::SliceRefMut {
         &mut *self
+    }
+}
+
+pub trait AsChunks<'a> {
+    type Entry: 'a;
+    type SliceRef: Deref<Target = [Self::Entry]>;
+    type Chunks: Iterator<Item = Self::SliceRef>;
+
+    fn as_chunks(&'a self) -> Self::Chunks;
+}
+
+// blanket impl for any non-multi single-element(?) class
+impl<'a, T, R: ?Sized> AsChunks<'a> for R
+where
+    T: 'a,
+    R: Deref<Target = [T]>,
+{
+    type Entry = T;
+    type SliceRef = &'a [T];
+    type Chunks = Once<&'a [T]>;
+
+    fn as_chunks(&'a self) -> Self::Chunks {
+        once(self)
+    }
+}
+
+// mut version
+pub trait AsChunksMut<'a>: AsChunks<'a> {
+    type SliceRefMut: DerefMut<Target = [Self::Entry]>;
+    type ChunksMut: Iterator<Item = Self::SliceRefMut>;
+
+    fn as_chunks_mut(&'a mut self) -> Self::ChunksMut;
+}
+
+impl<'a, T, R: ?Sized> AsChunksMut<'a> for R
+where
+    T: 'a,
+    R: DerefMut<Target = [T]>,
+{
+    type SliceRefMut = &'a mut [T];
+    type ChunksMut = Once<&'a mut [T]>;
+
+    fn as_chunks_mut(&'a mut self) -> Self::ChunksMut {
+        once(&mut *self)
     }
 }
 

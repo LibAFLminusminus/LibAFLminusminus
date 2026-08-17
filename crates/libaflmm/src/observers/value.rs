@@ -5,10 +5,14 @@ use core::{
     cell::{Ref, RefCell, RefMut},
     fmt::Debug,
     hash::{Hash, Hasher},
+    iter::{Once, once},
     ops::{Deref, DerefMut},
 };
 
-use libaflmm_bolts::{AsIter, AsIterMut, AsSlice, AsSliceMut, HasLen, Named, ownedref::OwnedRef};
+use libaflmm_bolts::{
+    AsChunks, AsChunksMut, AsIter, AsIterMut, AsSlice, AsSliceMut, HasLen, Named,
+    ownedref::OwnedRef,
+};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use crate::{
@@ -168,6 +172,25 @@ impl<'it, T: 'it, A: DerefMut<Target = [T]>> AsSliceMut<'it> for RefCellValueObs
 
     fn as_slice_mut(&'it mut self) -> Self::SliceRefMut {
         RefMut::map(self.value.as_ref().borrow_mut(), |s| &mut **s)
+    }
+}
+
+impl<'it, T: 'it, A: Deref<Target = [T]>> AsChunks<'it> for RefCellValueObserver<'_, A> {
+    type Entry = T;
+    type SliceRef = Ref<'it, [T]>;
+    type Chunks = Once<Ref<'it, [T]>>;
+
+    fn as_chunks(&'it self) -> Self::Chunks {
+        once(self.as_slice())
+    }
+}
+
+impl<'it, T: 'it, A: DerefMut<Target = [T]>> AsChunksMut<'it> for RefCellValueObserver<'_, A> {
+    type SliceRefMut = RefMut<'it, [T]>;
+    type ChunksMut = Once<RefMut<'it, [T]>>;
+
+    fn as_chunks_mut(&'it mut self) -> Self::ChunksMut {
+        once(self.as_slice_mut())
     }
 }
 

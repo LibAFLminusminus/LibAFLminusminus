@@ -24,7 +24,6 @@ impl PcTableEntry {
     }
 }
 
-
 /// Returns an iterator over the PC tables. If no tables were registered, this will be empty.
 pub fn sanitizer_cov_pc_table<'a>() -> impl Iterator<Item = &'a [PcTableEntry]> {
     // SAFETY: Once PCS_BEG and PCS_END have been initialized, will not be written to again. So
@@ -35,7 +34,6 @@ pub fn sanitizer_cov_pc_table<'a>() -> impl Iterator<Item = &'a [PcTableEntry]> 
         pc_tables.iter().copied()
     }
 }
-
 
 #[unsafe(no_mangle)]
 unsafe extern "C" fn __sanitizer_cov_pcs_init(pcs_beg: *const usize, pcs_end: *const usize) {
@@ -57,6 +55,9 @@ unsafe extern "C" fn __sanitizer_cov_pcs_init(pcs_beg: *const usize, pcs_end: *c
 
         let pc_tables_ptr = &raw mut PC_TABLES;
         let pc_tables = &mut *pc_tables_ptr;
-        pc_tables.push(core::slice::from_raw_parts(pcs_beg as *const PcTableEntry, len));
+        pc_tables.push(core::slice::from_raw_parts(
+            pcs_beg as *const PcTableEntry,
+            len,
+        ));
     }
 }

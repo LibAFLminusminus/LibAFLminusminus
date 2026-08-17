@@ -8,7 +8,7 @@ use core::{
 };
 
 use libaflmm_bolts::{
-    AsIter, AsSlice, Named,
+    AsChunks, AsIter, Named,
     simd::{Reducer, SimdReducer, VectorType, covmap_is_interesting_simd},
     tuples::{Handle, MatchName, MatchNameRef},
 };
@@ -38,7 +38,7 @@ where
 
 impl<C, O, R, V> SimdMapFeedback<C, O, R, V>
 where
-    O: MapObserver<Entry = u8> + for<'a> AsSlice<'a, Entry = u8> + for<'a> AsIter<'a, Item = u8>,
+    O: MapObserver<Entry = u8> + for<'a> AsChunks<'a, Entry = u8> + for<'a> AsIter<'a, Item = u8>,
     C: AsRef<O>,
     R: SimdReducer<V>,
     V: VectorType + Copy + Eq,
@@ -61,12 +61,24 @@ where
             map_state.history_map.resize(len, u8::default());
         }
 
-        let map = observer.as_slice();
-        debug_assert!(map.len() >= size);
-
         let history_map = map_state.history_map.as_slice();
+        debug_assert!(history_map.len() >= size);
 
-        unsafe { covmap_is_interesting_simd::<R, V>(history_map, &map) }
+        let mut offset = 0;
+        for chunk in observer.as_chunks() {
+            let chunk: &[u8] = &chunk;
+            let history = &history_map[offset..offset + chunk.len()];
+
+            if unsafe { covmap_is_interesting_simd::<R, V>(history, chunk) } {
+                return true;
+            }
+
+            offset += chunk.len();
+        }
+
+        debug_assert_eq!(offset, len);
+
+        false
     }
 }
 
@@ -94,7 +106,7 @@ impl<C, O, R, V> SimdMapFeedback<C, O, R, V>
 where
     R: SimdReducer<V>,
     C: AsRef<O> + Named,
-    O: MapObserver<Entry = u8> + for<'a> AsSlice<'a, Entry = u8> + for<'a> AsIter<'a, Item = u8>,
+    O: MapObserver<Entry = u8> + for<'a> AsChunks<'a, Entry = u8> + for<'a> AsIter<'a, Item = u8>,
 {
     /// Mock [`MapFeedback::new`]. If you are getting bound errors, your entry is probably not
     /// `u8` and you should use [`MapFeedback`] instead.
@@ -175,7 +187,7 @@ where
 impl<C, O, I, OT, S, R, V> Feedback<I, OT, S> for SimdMapFeedback<C, O, R, V>
 where
     C: AsRef<O>,
-    O: MapObserver<Entry = u8> + for<'a> AsSlice<'a, Entry = u8> + for<'a> AsIter<'a, Item = u8>,
+    O: MapObserver<Entry = u8> + for<'a> AsChunks<'a, Entry = u8> + for<'a> AsIter<'a, Item = u8>,
     OT: MatchName,
     R: SimdReducer<V>,
     S: State<Input = I>,
