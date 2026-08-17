@@ -10,10 +10,7 @@ impl QemuReplay {
         env: Vec<(String, String)>,
         args: Vec<String>,
     ) -> Result<()> {
-        let monitor = StdMonitor::new();
-        let controller = StdController::builder().overwrite(true).build()?;
-
-        let group = StdGroup::builder(&controller)
+        StdLauncher::builder()
             .timeout(None)
             .state_builder(|worker| {
                 let scheduler = QueueScheduler::new();
@@ -24,7 +21,7 @@ impl QemuReplay {
                     ObjectiveOnDiskCorpus::builder(worker)?.build()?,
                 )
             })
-            .build_inprocess(move |rt_handle, state| {
+            .launch_inprocess(move |rt_handle, state| {
                 let profile = QemuProfile::replay(&options.common, &options)?;
 
                 let mut edges_observer = unsafe {
@@ -80,13 +77,6 @@ impl QemuReplay {
                 }
 
                 Ok(())
-            })?;
-
-        StdLauncher::builder()
-            .monitor(monitor)
-            .controller(controller)
-            .add_group(group)
-            .build()?
-            .launch()
+            })
     }
 }

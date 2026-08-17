@@ -15,5 +15,10 @@ pub mod sancov_pcguard;
 #[cfg(any(feature = "sancov_pcguard_edges", feature = "sancov_pcguard_hitcounts",))]
 pub use sancov_pcguard::*;
 
+#[cfg(feature = "sancov_pcs")]
+pub mod sancov_pcs;
+#[cfg(feature = "sancov_pcs")]
+pub use sancov_pcs::*;
+
 pub mod sancov_value_profile;
 pub use sancov_value_profile::*;

@@ -253,7 +253,7 @@ impl VectorType for wide::u8x16 {
     }
 
     fn select(self, if_true: Self, if_false: Self) -> Self {
-        self.blend(if_true, if_false)
+        self.select(if_true, if_false)
     }
 
     fn simd_eq(self, rhs: Self) -> Self {
@@ -298,7 +298,7 @@ impl VectorType for wide::u8x32 {
     }
 
     fn select(self, if_true: Self, if_false: Self) -> Self {
-        self.blend(if_true, if_false)
+        self.select(if_true, if_false)
     }
 
     fn simd_eq(self, rhs: Self) -> Self {

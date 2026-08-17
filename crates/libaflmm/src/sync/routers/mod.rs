@@ -2,6 +2,7 @@ use crate::{Result, controllers::WorkerId, sync::GroupId};
 use core::fmt::Debug;
 
 pub mod graph;
+pub use graph::{GraphRouter, GraphRouterBuilder};
 
 /// The sharing policy implementation.
 ///

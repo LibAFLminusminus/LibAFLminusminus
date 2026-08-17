@@ -37,15 +37,8 @@ pub fn main() -> Result<()> {
         return Ok(());
     }
 
-    let controller = StdController::builder()
-        .worker_stderr(WorkdirFile::Path(PathBuf::from("stderr.log")))
-        .overwrite(true)
-        .build()?;
-
-    // The monitor tracks the fuzzing current status.
-    let monitor = StdMonitor::new();
-
-    let group = StdGroup::builder(&controller)
+    // Launch the fuzzer
+    StdLauncher::builder()
         .timeout(Some(Duration::from_secs(5)))
         .timer(FastTimer::new())
         .state_builder(|worker| {
@@ -63,7 +56,7 @@ pub fn main() -> Result<()> {
                 ObjectiveOnDiskCorpus::builder(worker)?.build()?,
             )
         })
-        .build_inprocess(|rt_handle, state| {
+        .launch_inprocess(|rt_handle, state| {
             // The source of randomness
             let mut rand = StdRand::with_seed(current_nanos());
 
@@ -129,13 +122,5 @@ pub fn main() -> Result<()> {
             fuzzer.fuzz_loop(&mut stages, &mut rand, state, rt_handle)?;
 
             Ok(())
-        })?;
-
-    // Launch the fuzzer
-    StdLauncher::builder()
-        .controller(controller)
-        .monitor(monitor)
-        .add_group(group)
-        .build()?
-        .launch()
+        })
 }

@@ -51,13 +51,8 @@ pub fn fuzz() -> Result<()> {
         .expect("Symbol or env BREAKPOINT not found");
     println!("Breakpoint address = {breakpoint:#x}");
 
-    // The monitor
-    let monitor = StdMonitor::new();
-
-    // The launcher supervises the fuzzer and communicates with the workers.
-    let controller = StdController::builder().overwrite(true).build()?;
-
-    let group = StdGroup::builder(&controller)
+    // Build and run a Launcher
+    StdLauncher::builder()
         .cores(cores)
         .timeout(Some(timeout))
         .state_builder(|worker| {
@@ -72,7 +67,7 @@ pub fn fuzz() -> Result<()> {
                 ObjectiveOnDiskCorpus::builder(worker)?.build()?,
             )
         })
-        .build_inprocess(move |rt_handle, state| {
+        .launch_inprocess(move |rt_handle, state| {
             let target_dir = env::var("TARGET_DIR").expect("TARGET_DIR env not set");
             let mut rand = StdRand::new();
 
@@ -223,13 +218,5 @@ pub fn fuzz() -> Result<()> {
             fuzzer.fuzz_loop(&mut stages, &mut rand, state, rt_handle)?;
 
             Ok(())
-        })?;
-
-    // Build and run a Launcher
-    StdLauncher::builder()
-        .controller(controller)
-        .monitor(monitor)
-        .add_group(group)
-        .build()?
-        .launch()
+        })
 }

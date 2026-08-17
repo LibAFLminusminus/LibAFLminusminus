@@ -1,4 +1,8 @@
-# `LibAFL--`, the unbloated fuzzer librar
+# `LibAFL--`, the unbloated fuzzer library
+
+`LibAFL--` aims to be a stable, preformant and modular fuzzing library.
+Contrarily to `LibAFL`, `LibAFL--` deliberately tries to minimize the amount of code getting integrated in the core library.
+The idea is to only keep the interfaces, and the most used implementations, while keeping in separated crates niche components.
 
 # Why `LibAFL--`?
 
@@ -14,11 +18,13 @@ We will keep these changes separated (at least for now), to have a clear compari
 
 ### I just want to know what changed compared with `LibAFL`
 
-Everything have been carefully documented in the [`LibAFL--` book](./book).
+Everything have been carefully documented in the [`LibAFL--` book](https://libaflminusminus.github.io/LibAFLminusminus/).
 We strongly suggest you to take a look there first.
 Some concepts are similar, new components have been others, while others have been removed.
 
-There is a section of the book dedicated to documenting the main differences with `LibAFL`, which should be helpful if you are already familiar with it.
+There is [a section of the book](https://libaflminusminus.github.io/LibAFLminusminus/libafl_migration.html) dedicated to documenting the main differences with `LibAFL`, which should be helpful if you are already familiar with it.
+
+If you wish to build the book yourself, please check [the book directory](./book).
 
 ### `AFL++` dependency
 

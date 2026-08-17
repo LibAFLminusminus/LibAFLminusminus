@@ -11,11 +11,7 @@ use crate::{
     inputs::{Input, InputContext, NopContext, NopInput},
     launchers::InstanceId,
 };
-use alloc::{
-    borrow::Cow,
-    collections::VecDeque,
-    string::{String, ToString},
-};
+use alloc::{borrow::Cow, collections::VecDeque, string::String};
 use core::{
     fmt::{self, Debug},
     marker::PhantomData,
@@ -111,6 +107,46 @@ impl fmt::Display for Stats {
 }
 
 impl Stats {
+    #[must_use]
+    pub fn pid(&self) -> InstanceId {
+        self.pid
+    }
+
+    #[must_use]
+    pub fn executions(&self) -> u64 {
+        self.executions
+    }
+
+    #[must_use]
+    pub fn start_time(&self) -> Duration {
+        self.start_time
+    }
+
+    #[must_use]
+    pub fn corpus(&self) -> usize {
+        self.corpus
+    }
+
+    #[must_use]
+    pub fn objective(&self) -> usize {
+        self.objective
+    }
+
+    #[must_use]
+    pub fn last_found_time(&self) -> Duration {
+        self.last_found_time
+    }
+
+    #[must_use]
+    pub fn user_map(&self) -> &HashMap<String, String> {
+        &self.user_map
+    }
+
+    #[must_use]
+    pub fn perf(&self) -> &PerfStats {
+        &self.perf
+    }
+
     /// Update the counter of items in [`Corpus`](crate::corpus::Corpus).
     pub fn update_corpus(&mut self, corpus: usize) {
         self.corpus = corpus;
@@ -401,21 +437,6 @@ impl TestcaseMetadata {
     pub fn found_objective(&mut self) {
         let count = self.objectives_found.saturating_add(1);
         self.objectives_found = count;
-    }
-
-    /// Get the filename
-    #[must_use]
-    pub fn get_filename(&self, id: &str) -> String {
-        match &self.filename_format {
-            TestcaseFilenameFormat::Id => id.to_string(),
-            TestcaseFilenameFormat::Prefix(prefix) => format!("{prefix}-{id}"),
-            TestcaseFilenameFormat::Custom(custom_name) => custom_name.clone(),
-        }
-    }
-
-    /// Set the filename of this [`Testcase`]
-    pub fn set_filename(&mut self, filename: TestcaseFilenameFormat) {
-        self.filename_format = filename;
     }
 
     #[must_use]
