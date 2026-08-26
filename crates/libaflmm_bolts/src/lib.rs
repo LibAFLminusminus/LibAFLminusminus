@@ -75,7 +75,7 @@ pub use core_affinity::{CoreId, Cores};
 
 pub mod build_id;
 
-pub mod exceptions;
+pub mod terminations;
 
 pub mod rands;
 pub use rands::{

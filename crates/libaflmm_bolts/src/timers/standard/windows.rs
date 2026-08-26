@@ -1,7 +1,7 @@
 //! The windows specific code for standard timers.
 
 use crate::{
-    exceptions::windows_exceptions::{ExceptionCode, raise_exception},
+    terminations::windows::{ExceptionCode, raise_exception},
     timers::Timer,
 };
 use core::{ffi::c_void, ptr, time::Duration};
