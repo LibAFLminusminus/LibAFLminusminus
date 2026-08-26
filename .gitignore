@@ -77,3 +77,6 @@ rustc-ice-*
 
 # example fuzzers workdirs
 workdir
+
+# target code
+libxml2

@@ -60,13 +60,8 @@ struct Opt {
 pub fn main() -> Result<()> {
     env_logger::init();
 
-    // The launcher supervises the fuzzer and communicates with the workers.
-    let controller = StdController::builder().overwrite(true).build()?;
-
-    // The monitor tracks the fuzzing current status.
-    let monitor = SimpleMonitor::new();
-
-    let group = StdGroup::builder(&controller)
+    // Setup and launch the fuzzer
+    StdLauncher::builder()
         .state_builder(|worker| {
             // A queue policy to get testcasess from the corpus
             let scheduler = QueueScheduler::new();
@@ -81,7 +76,7 @@ pub fn main() -> Result<()> {
                 ObjectiveOnDiskCorpus::builder(worker)?.build()?,
             )
         })
-        .build_forkserver(|rt_handle, state| {
+        .launch_forkserver(|rt_handle, state| {
             const MAP_SIZE: usize = 65536;
             let opt = Opt::parse();
             // The source of randomness
@@ -145,13 +140,5 @@ pub fn main() -> Result<()> {
             }
 
             Ok(())
-        })?;
-
-    // Launch the fuzzer
-    StdLauncher::builder()
-        .controller(controller)
-        .monitor(monitor)
-        .add_group(group)
-        .build()?
-        .launch()
+        })
 }

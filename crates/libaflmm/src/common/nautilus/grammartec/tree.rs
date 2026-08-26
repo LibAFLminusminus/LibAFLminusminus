@@ -1,9 +1,10 @@
-#![expect(clippy::std_instead_of_core)] // Cursor is still unstable in core::io, must be removed later on
 #![cfg_attr(test, allow(unfulfilled_lint_expectations))]
+#![expect(clippy::std_instead_of_core)]
 
 use alloc::vec::Vec;
 use core::{cmp, marker::Sized};
-use std::io::{Cursor, Write, stdout};
+use std::io::Cursor;
+use std::io::{Write, stdout};
 
 use hashbrown::HashSet;
 use libaflmm_bolts::rands::Rand;

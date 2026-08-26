@@ -3,12 +3,12 @@ use alloc::{borrow::Cow, vec::Vec};
 use core::{
     fmt::Debug,
     hash::Hash,
-    mem::size_of,
     ops::{Deref, DerefMut},
-    slice,
 };
 
-use libaflmm_bolts::{AsIter, AsIterMut, AsSlice, AsSliceMut, HasLen, Named, Truncate};
+use libaflmm_bolts::{
+    AsChunks, AsChunksMut, AsIter, AsIterMut, AsSlice, AsSliceMut, HasLen, Named, Truncate,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -53,40 +53,18 @@ static COUNT_CLASS_LOOKUP_16: [u16; 256 * 256] = {
 
 /// AFL-style classify counts
 #[inline]
-#[expect(clippy::cast_ptr_alignment)]
 pub(crate) fn classify_counts(map: &mut [u8]) {
-    let mut len = map.len();
-    let align_offset = map.as_ptr().align_offset(size_of::<u16>());
+    let (prefix, map16, suffix) = unsafe { map.align_to_mut::<u16>() };
 
-    // if len == 1, the next branch will already do this lookup
-    if len > 1 && align_offset != 0 {
-        debug_assert_eq!(
-            align_offset, 1,
-            "Aligning u8 to u16 should always be offset of 1?"
-        );
+    for item in prefix.iter_mut().chain(suffix) {
         unsafe {
-            *map.get_unchecked_mut(0) =
-                *COUNT_CLASS_LOOKUP.get_unchecked(*map.get_unchecked(0) as usize);
-        }
-        len -= 1;
-    }
-
-    // Fix the last element
-    if (len & 1) != 0 {
-        unsafe {
-            *map.get_unchecked_mut(len - 1) =
-                *COUNT_CLASS_LOOKUP.get_unchecked(*map.get_unchecked(len - 1) as usize);
+            *item = *COUNT_CLASS_LOOKUP.get_unchecked(*item as usize);
         }
     }
 
-    let cnt = len / 2;
-
-    let map16 =
-        unsafe { slice::from_raw_parts_mut(map.as_mut_ptr().add(align_offset) as *mut u16, cnt) };
-
-    for item in &mut map16[0..cnt] {
+    for item in map16 {
         unsafe {
-            *item = *(COUNT_CLASS_LOOKUP_16).get_unchecked(*item as usize);
+            *item = *COUNT_CLASS_LOOKUP_16.get_unchecked(*item as usize);
         }
     }
 }
@@ -284,6 +262,33 @@ where
     }
 }
 
+impl<'a, M> AsChunks<'a> for HitcountsMapObserver<M>
+where
+    M: AsChunks<'a>,
+{
+    type Entry = <M as AsChunks<'a>>::Entry;
+    type SliceRef = <M as AsChunks<'a>>::SliceRef;
+    type Chunks = <M as AsChunks<'a>>::Chunks;
+
+    #[inline]
+    fn as_chunks(&'a self) -> Self::Chunks {
+        self.base.as_chunks()
+    }
+}
+
+impl<'a, M> AsChunksMut<'a> for HitcountsMapObserver<M>
+where
+    M: AsChunksMut<'a>,
+{
+    type SliceRefMut = <M as AsChunksMut<'a>>::SliceRefMut;
+    type ChunksMut = <M as AsChunksMut<'a>>::ChunksMut;
+
+    #[inline]
+    fn as_chunks_mut(&'a mut self) -> Self::ChunksMut {
+        self.base.as_chunks_mut()
+    }
+}
+
 /// Map observer with hitcounts postprocessing
 /// Less optimized version for non-slice iterators.
 /// Slice-backed observers should use a [`HitcountsMapObserver`].
@@ -310,7 +315,7 @@ impl<M> DependencyResolver for HitcountsIterableMapObserver<M> {}
 
 impl<S, M> Observer<S> for HitcountsIterableMapObserver<M>
 where
-    M: MapObserver<Entry = u8> + Observer<S> + for<'it> AsIterMut<'it, Item = u8>,
+    M: MapObserver<Entry = u8> + Observer<S> + for<'it> AsChunksMut<'it, Entry = u8>,
 {
     #[inline]
     fn pre_exec(&mut self, state: &mut S) -> Result<(), Error> {
@@ -319,8 +324,8 @@ where
 
     #[inline]
     fn post_exec(&mut self, state: &mut S, exit_kind: &ExitKind) -> Result<(), Error> {
-        for mut item in self.as_iter_mut() {
-            *item = unsafe { *COUNT_CLASS_LOOKUP.get_unchecked((*item) as usize) };
+        for mut chunk in self.base.as_chunks_mut() {
+            classify_counts(&mut chunk);
         }
 
         self.base.post_exec(state, exit_kind)
@@ -443,5 +448,30 @@ where
 
     fn as_iter_mut(&'it mut self) -> Self::IntoIterMut {
         self.base.as_iter_mut()
+    }
+}
+
+impl<'it, M> AsChunks<'it> for HitcountsIterableMapObserver<M>
+where
+    M: AsChunks<'it>,
+{
+    type Entry = <M as AsChunks<'it>>::Entry;
+    type SliceRef = <M as AsChunks<'it>>::SliceRef;
+    type Chunks = <M as AsChunks<'it>>::Chunks;
+
+    fn as_chunks(&'it self) -> Self::Chunks {
+        self.base.as_chunks()
+    }
+}
+
+impl<'it, M> AsChunksMut<'it> for HitcountsIterableMapObserver<M>
+where
+    M: AsChunksMut<'it>,
+{
+    type SliceRefMut = <M as AsChunksMut<'it>>::SliceRefMut;
+    type ChunksMut = <M as AsChunksMut<'it>>::ChunksMut;
+
+    fn as_chunks_mut(&'it mut self) -> Self::ChunksMut {
+        self.base.as_chunks_mut()
     }
 }

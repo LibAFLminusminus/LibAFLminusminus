@@ -69,12 +69,15 @@ pub extern "C" fn libafl_main() {
         .expect("Failed to build the SimpleController");
 
     // The monitor tracks the fuzzing current status.
-    let monitor = WebMonitor::new("sqlite3", &controller);
+    let monitor = WebMonitor::new("sqlite3");
 
     // Use the new fast timer
     let fast_timer = FastTimer::new();
 
-    let group = StdGroup::builder(&controller)
+    // Launch the fuzzer
+    StdLauncher::builder()
+        .controller(controller)
+        .monitor(monitor)
         .timer(fast_timer)
         .timeout(Some(opt.timeout))
         .cores(opt.cores)
@@ -92,7 +95,7 @@ pub extern "C" fn libafl_main() {
                 ObjectiveOnDiskCorpus::builder(worker)?.build()?,
             )
         })
-        .build_inprocess(move |rt_handle, state| {
+        .launch_inprocess(move |rt_handle, state| {
             let map = unsafe { StdMapObserver::from_mut_slice("edges", edges_map_mut_slice()) };
 
             // Create an observation channel using the coverage map
@@ -166,15 +169,5 @@ pub extern "C" fn libafl_main() {
             // Restart the runtime after fuzzer have completed all iterations
             unsafe { rt_handle.restart(state) }
         })
-        .unwrap();
-
-    // Launch the fuzzer
-    StdLauncher::builder()
-        .controller(controller)
-        .monitor(monitor)
-        .add_group(group)
-        .build()
-        .unwrap()
-        .launch()
         .unwrap()
 }

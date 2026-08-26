@@ -49,7 +49,7 @@ struct WebMonitorConfig {
 /// `WebUI` gathers data from fuzzers and show stats to users through a web interface
 #[derive(Debug)]
 pub struct WebMonitor {
-    history_path: PathBuf,
+    history_path: Option<PathBuf>,
     shared: Arc<RwLock<SharedState>>,
     config: Option<WebMonitorConfig>,
 }
@@ -57,32 +57,20 @@ pub struct WebMonitor {
 impl WebMonitor {
     /// constructor for [`struct@WebMonitor`]; `name` is displayed as the page title.
     #[must_use]
-    pub fn new<CT: Controller>(name: &str, controller: &CT) -> Self {
-        Self::with_port(name, DEFAULT_PORT, controller)
+    pub fn new(name: &str) -> Self {
+        Self::with_port(name, DEFAULT_PORT)
     }
 
     /// constructor for [`struct@WebMonitor`] specifying an opening port
     #[must_use]
-    pub fn with_port<CT: Controller>(name: &str, port: u16, controller: &CT) -> Self {
-        let root_dir = controller.root_dir();
-
-        let root_dir = if root_dir.is_absolute() {
-            root_dir.to_path_buf()
-        } else {
-            let cwd = std::env::current_dir().unwrap();
-            cwd.join(root_dir)
-        };
-
-        let filename = format!("{WEBUI_PREFIX}.json");
-        let history_path = root_dir.join(filename);
-        let _ = std::fs::remove_file(&history_path);
+    pub fn with_port(name: &str, port: u16) -> Self {
         let shared = Arc::new(RwLock::new(SharedState {
             history: Vec::new(),
         }));
         let html = FRONTEND_HTML.replace(NAME_PLACEHOLDER, name);
 
         WebMonitor {
-            history_path,
+            history_path: None,
             shared,
             config: Some(WebMonitorConfig { port, html }),
         }
@@ -143,7 +131,19 @@ async fn serve(shared: Arc<RwLock<SharedState>>, port: u16, html: String) {
 }
 
 impl Monitor for WebMonitor {
-    fn start<CT: Controller>(&mut self, _controller: &mut CT) -> Result<()> {
+    fn start<CT: Controller>(&mut self, controller: &mut CT) -> Result<()> {
+        let root_dir = controller.root_dir();
+
+        let root_dir = if root_dir.is_absolute() {
+            root_dir.to_path_buf()
+        } else {
+            std::env::current_dir()?.join(root_dir)
+        };
+
+        let history_path = root_dir.join(format!("{WEBUI_PREFIX}.json"));
+        let _ = std::fs::remove_file(&history_path);
+        self.history_path = Some(history_path);
+
         self.start_server();
         Ok(())
     }
@@ -166,7 +166,8 @@ impl Monitor for WebMonitor {
         };
 
         let snapshot_value = serde_json::to_value(&snapshot).unwrap_or(Value::Null);
-        Self::append_to_file(&self.history_path, &snapshot_value.to_string());
+        let history_path = self.history_path.as_ref().unwrap();
+        Self::append_to_file(history_path, &snapshot_value.to_string());
 
         let mut state = self.shared.write().unwrap();
         state.history.push(snapshot_value);

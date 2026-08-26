@@ -3,6 +3,8 @@
 `LibAFL--`, as most of the Rust projects, can be built using `cargo` from the root directory of the project with:
 
 ```sh
+$ git clone https://github.com/LibAFLminusminus/LibAFLminusminus
+$ cd LibAFLminusminus
 $ cargo build --release
 ```
 
