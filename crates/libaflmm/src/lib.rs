@@ -85,7 +85,7 @@ pub mod prelude {
 
     pub use crate::executors::{
         DiffExitKind, Executor, ExecutorsTuple, ExitKind, ForkserverChannel, ForkserverExecutor,
-        NopExecutor, StdChildArgs, StdExecutor, common_signals,
+        NopExecutor, StdChildArgs, StdExecutor,
     };
 
     pub use crate::feedbacks::{

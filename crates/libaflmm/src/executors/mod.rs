@@ -13,14 +13,12 @@ use crate::{
     },
     states::State,
 };
-use ::std::path::PathBuf;
 use alloc::vec::Vec;
 use core::{fmt::Debug, time::Duration};
-#[cfg(unix)]
-use libaflmm_bolts::exceptions::unix_signals::Signal;
 use libaflmm_bolts::tuples::RefIndexable;
 use libaflmm_bolts::{core_affinity::CoreId, tuples::Handle};
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 
 pub mod hooks;
 pub use hooks::{ExecutorHook, ExecutorHooksTuple};
@@ -186,25 +184,6 @@ pub trait ExecutorsTuple<EM, I, S, Z> {
         mgr: &mut EM,
         input: &I,
     ) -> Result<ExitKind>;
-}
-
-/// The common signals we want to handle
-#[cfg(unix)]
-#[inline]
-#[must_use]
-pub fn common_signals() -> Vec<Signal> {
-    vec![
-        Signal::SigAlarm,
-        Signal::SigUser2,
-        Signal::SigAbort,
-        Signal::SigBus,
-        #[cfg(feature = "handle_sigpipe")]
-        Signal::SigPipe,
-        Signal::SigFloatingPointException,
-        Signal::SigIllegalInstruction,
-        Signal::SigSegmentationFault,
-        Signal::SigTrap,
-    ]
 }
 
 /// The inner shared members of [`StdChildArgs`]

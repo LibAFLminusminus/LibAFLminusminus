@@ -1,13 +1,10 @@
 //! Unix signal handling
 
-use crate::{
-    executors::common_signals,
-    runtimes::{
-        LIBAFLMM_EXIT_TERMINATION_INFINITE_RECURSION,
-        inprocess::{CrashStatus, TimeoutStatus},
-        restarting::LIBAFLMM_EXIT_RESTART,
-        utils::{IntoTerminationHandlerData, PinnedPtr, TerminationHandler},
-    },
+use crate::runtimes::{
+    LIBAFLMM_EXIT_TERMINATION_INFINITE_RECURSION,
+    inprocess::{CrashStatus, TimeoutStatus},
+    restarting::LIBAFLMM_EXIT_RESTART,
+    utils::{IntoTerminationHandlerData, PinnedPtr, TerminationHandler},
 };
 use alloc::{boxed::Box, vec::Vec};
 use core::pin::Pin;
@@ -332,6 +329,17 @@ where
     }
 
     fn signals(&self) -> Vec<Signal> {
-        common_signals()
+        vec![
+            Signal::SigAlarm,
+            Signal::SigUser2,
+            Signal::SigAbort,
+            Signal::SigBus,
+            #[cfg(feature = "handle_sigpipe")]
+            Signal::SigPipe,
+            Signal::SigFloatingPointException,
+            Signal::SigIllegalInstruction,
+            Signal::SigSegmentationFault,
+            Signal::SigTrap,
+        ]
     }
 }
