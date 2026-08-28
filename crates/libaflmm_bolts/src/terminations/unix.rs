@@ -34,7 +34,7 @@ use libc::{
 use nix::errno::Errno;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
-pub type TerminationCode = nix::sys::signal::Signal;
+pub type OsTerminationCode = nix::sys::signal::Signal;
 
 /// ARMv7-specific representation of a saved context
 #[cfg(target_arch = "arm")]

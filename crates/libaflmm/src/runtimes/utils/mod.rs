@@ -1,13 +1,12 @@
 //! Os-specific utilities to manage some [`Runtime`](crate::runtimes::Runtime)s.
-
-#[cfg(unix)]
-pub mod unix;
 use core::{
     ops::{Deref, DerefMut},
     pin::Pin,
     ptr::NonNull,
 };
 
+#[cfg(unix)]
+pub mod unix;
 #[cfg(unix)]
 pub use unix::{OsTerminationHandler, OsTerminationParams};
 

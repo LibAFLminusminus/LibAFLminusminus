@@ -56,7 +56,7 @@ pub const SIGABRT_COMPAT: i32 = 6;
 pub const SIGBREAK: i32 = 21;
 pub const SIGABRT2: i32 = SIGABRT;
 
-pub type TerminationCode = ExceptionCode;
+pub type OsTerminationCode = ExceptionCode;
 
 // not part of the windows crate
 const EXCEPTION_RO_ORIGINATEERROR: NTSTATUS = NTSTATUS(0x4008_0201_u32.cast_signed());
