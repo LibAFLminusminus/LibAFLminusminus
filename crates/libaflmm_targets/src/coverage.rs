@@ -27,15 +27,15 @@ unsafe extern "C" {
     pub static mut __afl_acc_memop_ptr: *mut u32;
 
     /// Start of libafl token section
-    #[cfg(any(target_os = "linux", target_vendor = "apple"))]
+    #[cfg(target_os = "linux")]
     pub static __token_start: *const u8;
 
     /// End of libafl token section
-    #[cfg(any(target_os = "linux", target_vendor = "apple"))]
+    #[cfg(target_os = "linux")]
     pub static __token_stop: *const u8;
 }
 /// Check if we have enabled autotokens
-#[cfg(any(target_os = "linux", target_vendor = "apple"))]
+#[cfg(target_os = "linux")]
 pub(crate) fn has_autotokens() -> bool {
     unsafe {
         !__token_start.is_null()
@@ -45,8 +45,8 @@ pub(crate) fn has_autotokens() -> bool {
 }
 
 /// Return Tokens from the compile-time token section
-#[cfg(any(target_os = "linux", target_vendor = "apple"))]
 #[must_use]
+#[cfg(target_os = "linux")]
 pub fn autotokens() -> Option<(*const u8, *const u8)> {
     // # Safety
     // All values are checked before dereferencing.

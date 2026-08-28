@@ -7,206 +7,149 @@ use core::{
     ptr::{self, write_volatile},
     sync::atomic::{Ordering, compiler_fence},
 };
-use std::os::raw::{c_long, c_void};
-
 use libaflmm_core::Error;
+use libc::SIGABRT;
 use num_enum::FromPrimitive;
-pub use windows::Win32::{
-    Foundation::NTSTATUS,
-    System::{
-        Console::{CTRL_BREAK_EVENT, CTRL_C_EVENT, PHANDLER_ROUTINE, SetConsoleCtrlHandler},
-        Diagnostics::Debug::{
-            AddVectoredExceptionHandler, EXCEPTION_POINTERS, UnhandledExceptionFilter,
+use windows::{
+    Win32::{
+        Foundation::{
+            DBG_COMMAND_EXCEPTION, DBG_CONTROL_BREAK, DBG_CONTROL_C, DBG_EXCEPTION_NOT_HANDLED,
+            DBG_PRINTEXCEPTION_C, DBG_PRINTEXCEPTION_WIDE_C, DBG_RIPEXCEPTION,
+            DBG_TERMINATE_PROCESS, DBG_TERMINATE_THREAD, EXCEPTION_POSSIBLE_DEADLOCK, NTSTATUS,
+            STATUS_ABANDONED_WAIT_0, STATUS_ACCESS_VIOLATION, STATUS_ARRAY_BOUNDS_EXCEEDED,
+            STATUS_ASSERTION_FAILURE, STATUS_BREAKPOINT, STATUS_CONTROL_C_EXIT,
+            STATUS_DATATYPE_MISALIGNMENT, STATUS_DATATYPE_MISALIGNMENT_ERROR,
+            STATUS_DLL_INIT_FAILED, STATUS_DLL_NOT_FOUND, STATUS_ENTRYPOINT_NOT_FOUND,
+            STATUS_FATAL_APP_EXIT, STATUS_FATAL_USER_CALLBACK_EXCEPTION,
+            STATUS_FLOAT_DENORMAL_OPERAND, STATUS_FLOAT_DIVIDE_BY_ZERO,
+            STATUS_FLOAT_INEXACT_RESULT, STATUS_FLOAT_INVALID_OPERATION,
+            STATUS_FLOAT_MULTIPLE_FAULTS, STATUS_FLOAT_MULTIPLE_TRAPS, STATUS_FLOAT_OVERFLOW,
+            STATUS_FLOAT_STACK_CHECK, STATUS_FLOAT_UNDERFLOW, STATUS_GUARD_PAGE_VIOLATION,
+            STATUS_HEAP_CORRUPTION, STATUS_ILLEGAL_FLOAT_CONTEXT, STATUS_ILLEGAL_INSTRUCTION,
+            STATUS_IN_PAGE_ERROR, STATUS_INTEGER_DIVIDE_BY_ZERO, STATUS_INTEGER_OVERFLOW,
+            STATUS_INVALID_CRUNTIME_PARAMETER, STATUS_INVALID_DISPOSITION,
+            STATUS_INVALID_EXCEPTION_HANDLER, STATUS_INVALID_HANDLE, STATUS_INVALID_PARAMETER,
+            STATUS_LONGJUMP, STATUS_NO_MEMORY, STATUS_NONCONTINUABLE_EXCEPTION,
+            STATUS_NOT_IMPLEMENTED, STATUS_ORDINAL_NOT_FOUND, STATUS_PENDING,
+            STATUS_PRIVILEGED_INSTRUCTION, STATUS_REG_NAT_CONSUMPTION, STATUS_SEGMENT_NOTIFICATION,
+            STATUS_SINGLE_STEP, STATUS_STACK_BUFFER_OVERRUN, STATUS_STACK_OVERFLOW,
+            STATUS_SXS_EARLY_DEACTIVATION, STATUS_SXS_INVALID_DEACTIVATION, STATUS_TIMEOUT,
+            STATUS_UNWIND_CONSOLIDATE, STATUS_USER_APC, STATUS_WAIT_0, STATUS_WX86_BREAKPOINT,
+            STATUS_WX86_CONTINUE, STATUS_WX86_CREATEWX86TIB, STATUS_WX86_EXCEPTION_CHAIN,
+            STATUS_WX86_EXCEPTION_CONTINUE, STATUS_WX86_EXCEPTION_LASTCHANCE,
+            STATUS_WX86_SINGLE_STEP, STATUS_WX86_UNSIMULATE,
         },
-        Threading::{IsProcessorFeaturePresent, PROCESSOR_FEATURE_ID},
+        System::{
+            Console::SetConsoleCtrlHandler,
+            Diagnostics::Debug::{AddVectoredExceptionHandler, EXCEPTION_POINTERS},
+            Diagnostics::Debug::{EXCEPTION_CONTINUE_EXECUTION, EXCEPTION_CONTINUE_SEARCH},
+        },
     },
+    core::BOOL,
 };
-pub use windows_core::BOOL;
 
 /// The special exit code when the target exited through ctrl-c
-pub const CTRL_C_EXIT: i32 = -1073741510;
+pub const CTRL_C_EXIT: i32 = STATUS_CONTROL_C_EXIT.0;
 
-/// For VEH
-const EXCEPTION_CONTINUE_EXECUTION: c_long = -1;
-
-/// For VEH
-const EXCEPTION_CONTINUE_SEARCH: c_long = 0;
-
-// For SEH
-// const EXCEPTION_EXECUTE_HANDLER: c_long = 1;
-
-pub const SIGINT: i32 = 2;
-pub const SIGILL: i32 = 4;
+// not exposed by libc for windows
 pub const SIGABRT_COMPAT: i32 = 6;
-pub const SIGFPE: i32 = 8;
-pub const SIGSEGV: i32 = 11;
-pub const SIGTERM: i32 = 15;
 pub const SIGBREAK: i32 = 21;
-pub const SIGABRT: i32 = 22;
-pub const SIGABRT2: i32 = 22;
+pub const SIGABRT2: i32 = SIGABRT;
 
-pub const STATUS_WAIT_0: i32 = 0x00000000;
-pub const STATUS_ABANDONED_WAIT_0: i32 = 0x00000080;
-pub const STATUS_USER_APC: i32 = 0x000000C0;
-pub const STATUS_TIMEOUT: i32 = 0x00000102;
-pub const STATUS_PENDING: i32 = 0x00000103;
-pub const STATUS_SEGMENT_NOTIFICATION: i32 = 0x40000005;
-pub const STATUS_FATAL_APP_EXIT: i32 = 0x40000015;
-pub const STATUS_GUARD_PAGE_VIOLATION: i32 = 0x80000001;
-pub const STATUS_DATATYPE_MISALIGNMENT: i32 = 0x80000002;
-pub const STATUS_BREAKPOINT: i32 = 0x80000003;
-pub const STATUS_SINGLE_STEP: i32 = 0x80000004;
-pub const STATUS_LONGJUMP: i32 = 0x80000026;
-pub const STATUS_UNWIND_CONSOLIDATE: i32 = 0x80000029;
-pub const STATUS_ACCESS_VIOLATION: i32 = 0xC0000005;
-pub const STATUS_IN_PAGE_ERROR: i32 = 0xC0000006;
-pub const STATUS_INVALID_HANDLE: i32 = 0xC0000008;
-pub const STATUS_NO_MEMORY: i32 = 0xC0000017;
-pub const STATUS_ILLEGAL_INSTRUCTION: i32 = 0xC000001D;
-pub const STATUS_NONCONTINUABLE_EXCEPTION: i32 = 0xC0000025;
-pub const STATUS_INVALID_DISPOSITION: i32 = 0xC0000026;
-pub const STATUS_ARRAY_BOUNDS_EXCEEDED: i32 = 0xC000008C;
-pub const STATUS_FLOAT_DENORMAL_OPERAND: i32 = 0xC000008D;
-pub const STATUS_FLOAT_DIVIDE_BY_ZERO: i32 = 0xC000008E;
-pub const STATUS_FLOAT_INEXACT_RESULT: i32 = 0xC000008F;
-pub const STATUS_FLOAT_INVALID_OPERATION: i32 = 0xC0000090;
-pub const STATUS_FLOAT_OVERFLOW: i32 = 0xC0000091;
-pub const STATUS_FLOAT_STACK_CHECK: i32 = 0xC0000092;
-pub const STATUS_FLOAT_UNDERFLOW: i32 = 0xC0000093;
-pub const STATUS_INTEGER_DIVIDE_BY_ZERO: i32 = 0xC0000094;
-pub const STATUS_INTEGER_OVERFLOW: i32 = 0xC0000095;
-pub const STATUS_PRIVILEGED_INSTRUCTION: i32 = 0xC0000096;
-pub const STATUS_STACK_OVERFLOW: i32 = 0xC00000FD;
-pub const STATUS_DLL_NOT_FOUND: i32 = 0xC0000135;
-pub const STATUS_ORDINAL_NOT_FOUND: i32 = 0xC0000138;
-pub const STATUS_ENTRYPOINT_NOT_FOUND: i32 = 0xC0000139;
-pub const STATUS_CONTROL_C_EXIT: i32 = 0xC000013A;
-pub const STATUS_DLL_INIT_FAILED: i32 = 0xC0000142;
-pub const STATUS_FLOAT_MULTIPLE_FAULTS: i32 = 0xC00002B4;
-pub const STATUS_FLOAT_MULTIPLE_TRAPS: i32 = 0xC00002B5;
-pub const STATUS_REG_NAT_CONSUMPTION: i32 = 0xC00002C9;
-pub const STATUS_HEAP_CORRUPTION: i32 = 0xC0000374;
-pub const STATUS_STACK_BUFFER_OVERRUN: i32 = 0xC0000409;
-pub const STATUS_INVALID_CRUNTIME_PARAMETER: i32 = 0xC0000417;
-pub const STATUS_ASSERTION_FAILURE: i32 = 0xC0000420;
-pub const STATUS_SXS_EARLY_DEACTIVATION: i32 = 0xC015000F;
-pub const STATUS_SXS_INVALID_DEACTIVATION: i32 = 0xC0150010;
-pub const STATUS_NOT_IMPLEMENTED: i32 = 0xC0000002;
+pub type OsTerminationCode = ExceptionCode;
 
-pub const STATUS_WX86_UNSIMULATE: i32 = 0x4000001C;
-pub const STATUS_WX86_CONTINUE: i32 = 0x4000001D;
-pub const STATUS_WX86_SINGLE_STEP: i32 = 0x4000001E;
-pub const STATUS_WX86_BREAKPOINT: i32 = 0x4000001F;
-pub const STATUS_WX86_EXCEPTION_CONTINUE: i32 = 0x40000020;
-pub const STATUS_WX86_EXCEPTION_LASTCHANCE: i32 = 0x40000021;
-pub const STATUS_WX86_EXCEPTION_CHAIN: i32 = 0x40000022;
-pub const STATUS_WX86_CREATEWX86TIB: i32 = 0x40000028;
-pub const DBG_TERMINATE_THREAD: i32 = 0x40010003;
-pub const DBG_TERMINATE_PROCESS: i32 = 0x40010004;
-pub const DBG_CONTROL_C: i32 = 0x40010005;
-pub const DBG_PRINTEXCEPTION_C: i32 = 0x40010006;
-pub const DBG_RIPEXCEPTION: i32 = 0x40010007;
-pub const DBG_CONTROL_BREAK: i32 = 0x40010008;
-pub const DBG_COMMAND_EXCEPTION: i32 = 0x40010009;
-pub const DBG_PRINTEXCEPTION_WIDE_C: i32 = 0x4001000A;
-pub const EXCEPTION_RO_ORIGINATEERROR: i32 = 0x40080201;
-pub const EXCEPTION_RO_TRANSFORMERROR: i32 = 0x40080202;
-pub const MS_VC_EXCEPTION: i32 = 0x406D1388;
-pub const DBG_EXCEPTION_NOT_HANDLED: i32 = 0x80010001;
-pub const STATUS_INVALID_PARAMETER: i32 = 0xC000000D;
-pub const STATUS_ILLEGAL_FLOAT_CONTEXT: i32 = 0xC000014A;
-pub const EXCEPTION_POSSIBLE_DEADLOCK: i32 = 0xC0000194;
-pub const STATUS_INVALID_EXCEPTION_HANDLER: i32 = 0xC00001A5;
-pub const STATUS_DATATYPE_MISALIGNMENT_ERROR: i32 = 0xC00002C5;
-pub const STATUS_USER_CALLBACK: i32 = 0xC000041D;
-pub const CLR_EXCEPTION: i32 = 0xE0434352;
-pub const CPP_EH_EXCEPTION: i32 = 0xE06D7363;
-pub const VCPP_EXCEPTION_ERROR_INVALID_PARAMETER: i32 = 0xC06D0057;
-pub const VCPP_EXCEPTION_ERROR_MOD_NOT_FOUND: i32 = 0xC06D007E;
-pub const VCPP_EXCEPTION_ERROR_PROC_NOT_FOUND: i32 = 0xC06D007F;
+// not part of the windows crate
+const EXCEPTION_RO_ORIGINATEERROR: NTSTATUS = NTSTATUS(0x4008_0201_u32.cast_signed());
+const EXCEPTION_RO_TRANSFORMERROR: NTSTATUS = NTSTATUS(0x4008_0202_u32.cast_signed());
+const MS_VC_EXCEPTION: NTSTATUS = NTSTATUS(0x406D_1388_u32.cast_signed());
+const VCPP_EXCEPTION_ERROR_INVALID_PARAMETER: NTSTATUS = NTSTATUS(0xC06D_0057_u32.cast_signed());
+const VCPP_EXCEPTION_ERROR_MOD_NOT_FOUND: NTSTATUS = NTSTATUS(0xC06D_007E_u32.cast_signed());
+const VCPP_EXCEPTION_ERROR_PROC_NOT_FOUND: NTSTATUS = NTSTATUS(0xC06D_007F_u32.cast_signed());
+const CLR_EXCEPTION: NTSTATUS = NTSTATUS(0xE043_4352_u32.cast_signed());
+const CPP_EH_EXCEPTION: NTSTATUS = NTSTATUS(0xE06D_7363_u32.cast_signed());
 
 #[derive(Debug, FromPrimitive, Copy, Clone)]
 #[repr(i32)]
 pub enum ExceptionCode {
-    WaitZero = STATUS_WAIT_0,
-    AbandonedWaitZero = STATUS_ABANDONED_WAIT_0,
-    UserApc = STATUS_USER_APC,
-    Timeout = STATUS_TIMEOUT,
-    Pending = STATUS_PENDING,
-    SegmentNotification = STATUS_SEGMENT_NOTIFICATION,
-    FatalAppExit = STATUS_FATAL_APP_EXIT,
-    GuardPageViolation = STATUS_GUARD_PAGE_VIOLATION,
-    DatatypeMisalignment = STATUS_DATATYPE_MISALIGNMENT,
-    Breakpoint = STATUS_BREAKPOINT,
-    SingleStep = STATUS_SINGLE_STEP,
-    Longjump = STATUS_LONGJUMP,
-    UnwindConsolidate = STATUS_UNWIND_CONSOLIDATE,
-    AccessViolation = STATUS_ACCESS_VIOLATION,
-    InPageError = STATUS_IN_PAGE_ERROR,
-    InvalidHandle = STATUS_INVALID_HANDLE,
-    NoMemory = STATUS_NO_MEMORY,
-    IllegalInstruction = STATUS_ILLEGAL_INSTRUCTION,
-    NoncontinuableException = STATUS_NONCONTINUABLE_EXCEPTION,
-    InvalidDisposition = STATUS_INVALID_DISPOSITION,
-    ArrayBoundsExceeded = STATUS_ARRAY_BOUNDS_EXCEEDED,
-    FloatDenormalOperand = STATUS_FLOAT_DENORMAL_OPERAND,
-    FloatDivideByZero = STATUS_FLOAT_DIVIDE_BY_ZERO,
-    FloatInexactResult = STATUS_FLOAT_INEXACT_RESULT,
-    FloatInvalidOperation = STATUS_FLOAT_INVALID_OPERATION,
-    FloatOverflow = STATUS_FLOAT_OVERFLOW,
-    FloatStackCheck = STATUS_FLOAT_STACK_CHECK,
-    FloatUnderflow = STATUS_FLOAT_UNDERFLOW,
-    IntegerDivideByZero = STATUS_INTEGER_DIVIDE_BY_ZERO,
-    IntegerOverflow = STATUS_INTEGER_OVERFLOW,
-    PrivilegedInstruction = STATUS_PRIVILEGED_INSTRUCTION,
-    StackOverflow = STATUS_STACK_OVERFLOW,
-    DllNotFound = STATUS_DLL_NOT_FOUND,
-    OrdinalNotFound = STATUS_ORDINAL_NOT_FOUND,
-    EntrypointNotFound = STATUS_ENTRYPOINT_NOT_FOUND,
-    ControlCExit = STATUS_CONTROL_C_EXIT,
-    DllInitFailed = STATUS_DLL_INIT_FAILED,
-    FloatMultipleFaults = STATUS_FLOAT_MULTIPLE_FAULTS,
-    FloatMultipleTraps = STATUS_FLOAT_MULTIPLE_TRAPS,
-    RegNatConsumption = STATUS_REG_NAT_CONSUMPTION,
-    HeapCorruption = STATUS_HEAP_CORRUPTION,
-    StackBufferOverrun = STATUS_STACK_BUFFER_OVERRUN,
-    InvalidCruntimeParameter = STATUS_INVALID_CRUNTIME_PARAMETER,
-    AssertionFailure = STATUS_ASSERTION_FAILURE,
-    SxsEarlyDeactivation = STATUS_SXS_EARLY_DEACTIVATION,
-    SxsInvalidDeactivation = STATUS_SXS_INVALID_DEACTIVATION,
-    NotImplemented = STATUS_NOT_IMPLEMENTED,
+    WaitZero = STATUS_WAIT_0.0,
+    AbandonedWaitZero = STATUS_ABANDONED_WAIT_0.0,
+    UserApc = STATUS_USER_APC.0,
+    Timeout = STATUS_TIMEOUT.0,
+    Pending = STATUS_PENDING.0,
+    SegmentNotification = STATUS_SEGMENT_NOTIFICATION.0,
+    FatalAppExit = STATUS_FATAL_APP_EXIT.0,
+    GuardPageViolation = STATUS_GUARD_PAGE_VIOLATION.0,
+    DatatypeMisalignment = STATUS_DATATYPE_MISALIGNMENT.0,
+    Breakpoint = STATUS_BREAKPOINT.0,
+    SingleStep = STATUS_SINGLE_STEP.0,
+    Longjump = STATUS_LONGJUMP.0,
+    UnwindConsolidate = STATUS_UNWIND_CONSOLIDATE.0,
+    AccessViolation = STATUS_ACCESS_VIOLATION.0,
+    InPageError = STATUS_IN_PAGE_ERROR.0,
+    InvalidHandle = STATUS_INVALID_HANDLE.0,
+    NoMemory = STATUS_NO_MEMORY.0,
+    IllegalInstruction = STATUS_ILLEGAL_INSTRUCTION.0,
+    NoncontinuableException = STATUS_NONCONTINUABLE_EXCEPTION.0,
+    InvalidDisposition = STATUS_INVALID_DISPOSITION.0,
+    ArrayBoundsExceeded = STATUS_ARRAY_BOUNDS_EXCEEDED.0,
+    FloatDenormalOperand = STATUS_FLOAT_DENORMAL_OPERAND.0,
+    FloatDivideByZero = STATUS_FLOAT_DIVIDE_BY_ZERO.0,
+    FloatInexactResult = STATUS_FLOAT_INEXACT_RESULT.0,
+    FloatInvalidOperation = STATUS_FLOAT_INVALID_OPERATION.0,
+    FloatOverflow = STATUS_FLOAT_OVERFLOW.0,
+    FloatStackCheck = STATUS_FLOAT_STACK_CHECK.0,
+    FloatUnderflow = STATUS_FLOAT_UNDERFLOW.0,
+    IntegerDivideByZero = STATUS_INTEGER_DIVIDE_BY_ZERO.0,
+    IntegerOverflow = STATUS_INTEGER_OVERFLOW.0,
+    PrivilegedInstruction = STATUS_PRIVILEGED_INSTRUCTION.0,
+    StackOverflow = STATUS_STACK_OVERFLOW.0,
+    DllNotFound = STATUS_DLL_NOT_FOUND.0,
+    OrdinalNotFound = STATUS_ORDINAL_NOT_FOUND.0,
+    EntrypointNotFound = STATUS_ENTRYPOINT_NOT_FOUND.0,
+    ControlCExit = STATUS_CONTROL_C_EXIT.0,
+    DllInitFailed = STATUS_DLL_INIT_FAILED.0,
+    FloatMultipleFaults = STATUS_FLOAT_MULTIPLE_FAULTS.0,
+    FloatMultipleTraps = STATUS_FLOAT_MULTIPLE_TRAPS.0,
+    RegNatConsumption = STATUS_REG_NAT_CONSUMPTION.0,
+    HeapCorruption = STATUS_HEAP_CORRUPTION.0,
+    StackBufferOverrun = STATUS_STACK_BUFFER_OVERRUN.0,
+    InvalidCruntimeParameter = STATUS_INVALID_CRUNTIME_PARAMETER.0,
+    AssertionFailure = STATUS_ASSERTION_FAILURE.0,
+    SxsEarlyDeactivation = STATUS_SXS_EARLY_DEACTIVATION.0,
+    SxsInvalidDeactivation = STATUS_SXS_INVALID_DEACTIVATION.0,
+    NotImplemented = STATUS_NOT_IMPLEMENTED.0,
 
-    Wx86Unsimulate = STATUS_WX86_UNSIMULATE,
-    Wx86Continue = STATUS_WX86_CONTINUE,
-    Wx86SingleStep = STATUS_WX86_SINGLE_STEP,
-    Wx86Breakpoint = STATUS_WX86_BREAKPOINT,
-    Wx86ExceptionContinue = STATUS_WX86_EXCEPTION_CONTINUE,
-    Wx86ExceptionLastchance = STATUS_WX86_EXCEPTION_LASTCHANCE,
-    Wx86ExceptionChain = STATUS_WX86_EXCEPTION_CHAIN,
-    Wx86Createwx86Tib = STATUS_WX86_CREATEWX86TIB,
-    DbgTerminateThread = DBG_TERMINATE_THREAD,
-    DbgTerminateProcess = DBG_TERMINATE_PROCESS,
-    DbgControlC = DBG_CONTROL_C,
-    DbgPrintexceptionC = DBG_PRINTEXCEPTION_C,
-    DbgRipexception = DBG_RIPEXCEPTION,
-    DbgControlBreak = DBG_CONTROL_BREAK,
-    DbgCommandException = DBG_COMMAND_EXCEPTION,
-    DbgPrintexceptionWideC = DBG_PRINTEXCEPTION_WIDE_C,
-    ExceptionRoOriginateError = EXCEPTION_RO_ORIGINATEERROR,
-    ExceptionRoTransformError = EXCEPTION_RO_TRANSFORMERROR,
-    MsVcException = MS_VC_EXCEPTION,
-    DbgExceptionNotHandled = DBG_EXCEPTION_NOT_HANDLED,
-    InvalidParameter = STATUS_INVALID_PARAMETER,
-    IllegalFloatContext = STATUS_ILLEGAL_FLOAT_CONTEXT,
-    ExceptionPossibleDeadlock = EXCEPTION_POSSIBLE_DEADLOCK,
-    InvalidExceptionHandler = STATUS_INVALID_EXCEPTION_HANDLER,
-    DatatypeMisalignmentError = STATUS_DATATYPE_MISALIGNMENT_ERROR,
-    UserCallback = STATUS_USER_CALLBACK,
-    ClrException = CLR_EXCEPTION,
-    CppEhException = CPP_EH_EXCEPTION,
-    VcppExceptionErrorInvalidParameter = VCPP_EXCEPTION_ERROR_INVALID_PARAMETER,
-    VcppExceptionErrorModNotFound = VCPP_EXCEPTION_ERROR_MOD_NOT_FOUND,
-    VcppExceptionErrorProcNotFound = VCPP_EXCEPTION_ERROR_PROC_NOT_FOUND,
+    Wx86Unsimulate = STATUS_WX86_UNSIMULATE.0,
+    Wx86Continue = STATUS_WX86_CONTINUE.0,
+    Wx86SingleStep = STATUS_WX86_SINGLE_STEP.0,
+    Wx86Breakpoint = STATUS_WX86_BREAKPOINT.0,
+    Wx86ExceptionContinue = STATUS_WX86_EXCEPTION_CONTINUE.0,
+    Wx86ExceptionLastchance = STATUS_WX86_EXCEPTION_LASTCHANCE.0,
+    Wx86ExceptionChain = STATUS_WX86_EXCEPTION_CHAIN.0,
+    Wx86Createwx86Tib = STATUS_WX86_CREATEWX86TIB.0,
+    DbgTerminateThread = DBG_TERMINATE_THREAD.0,
+    DbgTerminateProcess = DBG_TERMINATE_PROCESS.0,
+    DbgControlC = DBG_CONTROL_C.0,
+    DbgPrintexceptionC = DBG_PRINTEXCEPTION_C.0,
+    DbgRipexception = DBG_RIPEXCEPTION.0,
+    DbgControlBreak = DBG_CONTROL_BREAK.0,
+    DbgCommandException = DBG_COMMAND_EXCEPTION.0,
+    DbgPrintexceptionWideC = DBG_PRINTEXCEPTION_WIDE_C.0,
+    ExceptionRoOriginateError = EXCEPTION_RO_ORIGINATEERROR.0,
+    ExceptionRoTransformError = EXCEPTION_RO_TRANSFORMERROR.0,
+    MsVcException = MS_VC_EXCEPTION.0,
+    DbgExceptionNotHandled = DBG_EXCEPTION_NOT_HANDLED.0,
+    InvalidParameter = STATUS_INVALID_PARAMETER.0,
+    IllegalFloatContext = STATUS_ILLEGAL_FLOAT_CONTEXT.0,
+    ExceptionPossibleDeadlock = EXCEPTION_POSSIBLE_DEADLOCK.0,
+    InvalidExceptionHandler = STATUS_INVALID_EXCEPTION_HANDLER.0,
+    DatatypeMisalignmentError = STATUS_DATATYPE_MISALIGNMENT_ERROR.0,
+    UserCallback = STATUS_FATAL_USER_CALLBACK_EXCEPTION.0,
+    ClrException = CLR_EXCEPTION.0,
+    CppEhException = CPP_EH_EXCEPTION.0,
+    VcppExceptionErrorInvalidParameter = VCPP_EXCEPTION_ERROR_INVALID_PARAMETER.0,
+    VcppExceptionErrorModNotFound = VCPP_EXCEPTION_ERROR_MOD_NOT_FOUND.0,
+    VcppExceptionErrorProcNotFound = VCPP_EXCEPTION_ERROR_PROC_NOT_FOUND.0,
     #[default]
     Others,
 }
@@ -235,8 +178,6 @@ impl PartialEq for ExceptionCode {
 }
 
 impl Eq for ExceptionCode {}
-
-unsafe impl Sync for ExceptionCode {}
 
 impl Display for ExceptionCode {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
@@ -475,23 +416,35 @@ unsafe fn internal_handle_exception(
             exception_code
         );
         // Go to Default one
-        let handler_holder = unsafe { &EXCEPTION_HANDLERS[EXCEPTION_HANDLERS_SIZE - 1] }
-            .as_ref()
-            .unwrap();
-        let handler = unsafe { &mut **handler_holder.handler.get() };
-        unsafe {
-            handler.handle(exception_code, exception_pointers);
+        if let Some(handler_holder) = unsafe { &EXCEPTION_HANDLERS[EXCEPTION_HANDLERS_SIZE - 1] } {
+            let handler = unsafe { &mut **handler_holder.handler.get() };
+            unsafe {
+                handler.handle(exception_code, exception_pointers);
+            }
         }
         EXCEPTION_CONTINUE_SEARCH
+    }
+}
+
+/// Raise an exception following our exception handlers.
+/// Convenient when it's an exception triggered by the library directly.
+///
+/// # Safety
+///
+/// `exception_pointers` but be NULL or a valid pointer.
+pub unsafe fn raise_exception(
+    exception_code: ExceptionCode,
+    exception_pointers: *mut EXCEPTION_POINTERS,
+) {
+    unsafe {
+        internal_handle_exception(exception_code, exception_pointers);
     }
 }
 
 /// Function that is being called whenever an exception arrives (stdcall).
 /// # Safety
 /// This function is unsafe because it is called by the OS
-pub unsafe extern "system" fn handle_exception(
-    exception_pointers: *mut EXCEPTION_POINTERS,
-) -> c_long {
+pub unsafe extern "system" fn handle_exception(exception_pointers: *mut EXCEPTION_POINTERS) -> i32 {
     let code = unsafe {
         exception_pointers
             .as_mut()
@@ -504,20 +457,6 @@ pub unsafe extern "system" fn handle_exception(
     let exception_code = From::from(code.0);
     log::info!("Received exception; code: {exception_code}");
     unsafe { internal_handle_exception(exception_code, exception_pointers) }
-}
-
-/// Return `SIGIGN` this is 1 (when represented as u64)
-/// Check `https://github.com/ziglang/zig/blob/956f53beb09c07925970453d4c178c6feb53ba70/lib/libc/include/any-windows-any/signal.h#L51`
-/// # Safety
-/// It is just casting into another type, nothing unsafe.
-#[must_use]
-pub const unsafe fn sig_ign() -> NativeSignalHandlerType {
-    unsafe { core::mem::transmute(1_usize) }
-}
-
-type NativeSignalHandlerType = unsafe extern "C" fn(i32);
-unsafe extern "C" {
-    pub fn signal(signum: i32, func: NativeSignalHandlerType) -> *const c_void;
 }
 
 unsafe extern "C" fn handle_signal(_signum: i32) {
@@ -565,19 +504,13 @@ pub unsafe fn setup_exception_handler<T: 'static + ExceptionHandler>(
     compiler_fence(Ordering::SeqCst);
     if catch_assertions {
         unsafe {
-            signal(SIGABRT, handle_signal);
+            libc::signal(SIGABRT, handle_signal as *const () as libc::sighandler_t);
         }
     }
     // SetUnhandledFilter does not work with frida since the stack is changed and exception handler is lost with Stalker enabled.
     // See https://github.com/AFLplusplus/LibAFL/pull/403
     unsafe {
-        AddVectoredExceptionHandler(
-            0,
-            Some(core::mem::transmute::<
-                *const core::ffi::c_void,
-                unsafe extern "system" fn(*mut EXCEPTION_POINTERS) -> i32,
-            >(handle_exception as *const c_void)),
-        );
+        AddVectoredExceptionHandler(0, Some(handle_exception));
     }
     Ok(())
 }

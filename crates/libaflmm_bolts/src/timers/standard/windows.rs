@@ -1,329 +1,220 @@
-//! The struct `TimerStruct` will absorb all the difference in timeout implementation in various system.
-use core::time::Duration;
-use core::{
-    ffi::c_void,
-    ptr::write_volatile,
-    sync::atomic::{Ordering, compiler_fence},
+//! The windows specific code for standard timers.
+
+use crate::{
+    terminations::windows::{ExceptionCode, raise_exception},
+    timers::Timer,
 };
-use windows::Win32::{
-    Foundation::FILETIME,
-    System::Threading::{
-        CRITICAL_SECTION, CreateThreadpoolTimer, EnterCriticalSection, InitializeCriticalSection,
-        LeaveCriticalSection, PTP_CALLBACK_INSTANCE, PTP_TIMER, SetThreadpoolTimer,
-        TP_CALLBACK_ENVIRON_V3,
+use core::{ffi::c_void, ptr, time::Duration};
+use libaflmm_core::Result;
+use windows::{
+    Win32::{
+        Foundation::{DUPLICATE_SAME_ACCESS, DuplicateHandle, FILETIME, HANDLE, STATUS_TIMEOUT},
+        System::{
+            Diagnostics::Debug::{
+                CONTEXT, CONTEXT_FULL_AMD64, CONTEXT_FULL_ARM64, CONTEXT_FULL_X86,
+                EXCEPTION_POINTERS, EXCEPTION_RECORD, GetThreadContext,
+            },
+            Threading::{
+                CloseThreadpoolTimer, CreateThreadpoolTimer, GetCurrentProcess, GetCurrentThread,
+                PTP_CALLBACK_INSTANCE, PTP_TIMER, ResumeThread, SetThreadpoolTimer, SuspendThread,
+                WaitForThreadpoolTimerCallbacks,
+            },
+        },
     },
+    core::Owned,
 };
 
-use crate::executors::hooks::inprocess::GLOBAL_STATE;
+/// Convert a [`Duration`] into a [`FILETIME`]
+fn duration_to_filetime(duration: Duration) -> Result<FILETIME> {
+    let due_time = (-i64::try_from(duration.as_nanos() / 100)?).cast_unsigned();
 
-fn duration_to_itimerspec(duration: Duration) -> libc::itimerspec {
-    let milli_sec = duration.as_millis();
+    Ok(FILETIME {
+        dwLowDateTime: due_time as u32,
+        dwHighDateTime: (due_time >> 32) as u32,
+    })
+}
 
-    let it_value = libc::timespec {
-        tv_sec: (milli_sec / 1000) as _,
-        tv_nsec: ((milli_sec % 1000) * 1000 * 1000) as _,
-    };
+/// The aligned version of [`CONTEXT`].
+/// See <https://stackoverflow.com/questions/4696543/getthreadcontext-fails-after-a-successful-suspendthread-in-windows-7>
+#[derive(Default)]
+#[repr(align(16))]
+struct AlignedContext {
+    ctx: CONTEXT,
+}
 
-    let it_interval = libc::timespec {
-        tv_sec: 0,
-        tv_nsec: 0,
-    };
+impl AlignedContext {
+    fn new() -> Self {
+        let mut context = Self::default();
 
-    libc::itimerspec {
-        it_interval,
-        it_value,
+        if cfg!(target_arch = "x86") {
+            context.ctx.ContextFlags = CONTEXT_FULL_X86;
+        } else if cfg!(any(target_arch = "x86_64", target_arch = "arm64ec")) {
+            context.ctx.ContextFlags = CONTEXT_FULL_AMD64;
+        } else if cfg!(target_arch = "aarch64") {
+            context.ctx.ContextFlags = CONTEXT_FULL_ARM64;
+        }
+
+        context
+    }
+
+    fn instruction_pointer(&self) -> *mut c_void {
+        #[cfg(target_arch = "x86")]
+        let instruction_pointer = self.ctx.Eip as usize;
+        #[cfg(any(target_arch = "x86_64", target_arch = "arm64ec"))]
+        let instruction_pointer = self.ctx.Rip as usize;
+        #[cfg(target_arch = "aarch64")]
+        let instruction_pointer = self.ctx.Pc as usize;
+
+        instruction_pointer as *mut c_void
     }
 }
 
-#[repr(C)]
-#[cfg(all(unix, not(target_os = "linux")))]
-#[derive(Copy, Clone)]
-pub(crate) struct Timeval {
-    pub tv_sec: i64,
-    pub tv_usec: i64,
+// get the context of the timed out thread, then raise the exception
+unsafe extern "system" fn timeout_callback(
+    _instance: PTP_CALLBACK_INSTANCE,
+    target_thread: *mut c_void,
+    _timer: PTP_TIMER,
+) {
+    let target_thread = HANDLE(target_thread);
+
+    let mut context = AlignedContext::new();
+
+    unsafe { SuspendThread(target_thread) };
+    let context_result = unsafe { GetThreadContext(target_thread, &raw mut context.ctx) };
+    unsafe { ResumeThread(target_thread) };
+
+    if let Err(err) = context_result {
+        log::error!("error while getting context: {err:?}");
+    }
+
+    let mut exception_record = EXCEPTION_RECORD {
+        ExceptionCode: STATUS_TIMEOUT,
+        ExceptionAddress: context.instruction_pointer(),
+        ..Default::default()
+    };
+
+    let mut exception_pointers = EXCEPTION_POINTERS {
+        ExceptionRecord: &raw mut exception_record,
+        ContextRecord: &raw mut context.ctx,
+    };
+
+    unsafe { raise_exception(ExceptionCode::Timeout, &raw mut exception_pointers) };
+
+    panic!("timeout cannot resume on windows");
 }
 
-#[cfg(all(unix, not(target_os = "linux")))]
-impl core::fmt::Debug for Timeval {
-    #[expect(clippy::cast_sign_loss)]
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(
-            f,
-            "Timeval {{ tv_sec: {:?}, tv_usec: {:?} (tv: {:?}) }}",
-            self.tv_sec,
-            self.tv_usec,
-            Duration::new(self.tv_sec as _, (self.tv_usec * 1000) as _)
-        )
+/// Owned Win32 threadpool timer.
+/// Check out <https://learn.microsoft.com/en-us/windows/win32/api/threadpoolapiset/>
+#[derive(Debug)]
+struct ThreadpoolTimer {
+    timer: PTP_TIMER,
+    _target_thread: Owned<HANDLE>,
+}
+
+impl ThreadpoolTimer {
+    fn new() -> Result<Self> {
+        let target_thread = unsafe {
+            let mut target_thread = HANDLE::default();
+
+            DuplicateHandle(
+                GetCurrentProcess(),
+                GetCurrentThread(),
+                GetCurrentProcess(),
+                &raw mut target_thread,
+                0,
+                false,
+                DUPLICATE_SAME_ACCESS,
+            )?;
+
+            Owned::new(target_thread)
+        };
+
+        let timer = unsafe {
+            CreateThreadpoolTimer(Some(timeout_callback), Some((*target_thread).0), None)
+        }?;
+
+        Ok(Self {
+            timer,
+            _target_thread: target_thread,
+        })
+    }
+
+    fn set(&self, expiration: Option<&FILETIME>) {
+        unsafe { SetThreadpoolTimer(self.timer, expiration.map(ptr::from_ref), 0, None) };
+    }
+
+    fn wait_callbacks(&self) {
+        unsafe { WaitForThreadpoolTimerCallbacks(self.timer, true) };
     }
 }
 
-#[repr(C)]
-#[cfg(all(unix, not(target_os = "linux")))]
-#[derive(Debug, Copy, Clone)]
-pub(crate) struct Itimerval {
-    pub it_interval: Timeval,
-    pub it_value: Timeval,
+impl Drop for ThreadpoolTimer {
+    fn drop(&mut self) {
+        self.set(None);
+        self.wait_callbacks();
+
+        unsafe { CloseThreadpoolTimer(self.timer) };
+    }
 }
 
-#[cfg(all(unix, not(target_os = "linux")))]
-unsafe extern "C" {
-    pub(crate) fn setitimer(
-        which: libc::c_int,
-        new_value: *mut Itimerval,
-        old_value: *mut Itimerval,
-    ) -> libc::c_int;
+/// A standard os-specific timer
+#[derive(Debug, Default)]
+pub struct StdTimer {
+    timer: Option<(ThreadpoolTimer, FILETIME)>,
+    disable: Option<FILETIME>,
 }
 
-/// The strcut about all the internals of the timer.
-/// This struct absorb all platform specific differences about timer.
-#[expect(missing_debug_implementations)]
-pub struct TimerStruct {
-    // timeout time (windows)
-    milli_sec: i64,
-    ptp_timer: PTP_TIMER,
-    critical: CRITICAL_SECTION,
-    #[cfg(all(unix, not(target_os = "linux")))]
-    itimerval: Itimerval,
-    #[cfg(target_os = "linux")]
-    pub(crate) timerid: libc::timer_t,
-    #[cfg(target_os = "linux")]
-    pub(crate) itimerspec: libc::itimerspec,
-}
-
-impl Clone for TimerStruct {
+impl Clone for StdTimer {
     fn clone(&self) -> Self {
         Self {
-            // timeout time (windows)
-            milli_sec: self.milli_sec.clone(),
-            ptp_timer: PTP_TIMER,
-            critical: CRITICAL_SECTION,
-            #[cfg(all(unix, not(target_os = "linux")))]
-            itimerval: self.itimerval.clone(),
-            #[cfg(target_os = "linux")]
-            timerid: null_mut(),
-            #[cfg(target_os = "linux")]
-            itimerspec: self.itimerspec.clone(),
+            timer: None,
+            disable: self.disable,
         }
     }
 }
 
-#[expect(non_camel_case_types)]
-type PTP_TIMER_CALLBACK = unsafe extern "system" fn(
-    param0: PTP_CALLBACK_INSTANCE,
-    param1: *mut c_void,
-    param2: PTP_TIMER,
-);
-
-impl TimerStruct {
-    /// Timeout value in milli seconds
+impl StdTimer {
+    /// Create an [`StdTimer`]
     #[must_use]
-    pub fn milli_sec(&self) -> i64 {
-        self.milli_sec
+    pub fn new() -> Self {
+        Self::default()
     }
+}
 
-    /// Timeout value in milli seconds (mut ref)
-    pub fn milli_sec_mut(&mut self) -> &mut i64 {
-        &mut self.milli_sec
-    }
-
-    /// The timer object for windows
-    #[must_use]
-    pub fn ptp_timer(&self) -> &PTP_TIMER {
-        &self.ptp_timer
-    }
-
-    /// The timer object for windows
-    pub fn ptp_timer_mut(&mut self) -> &mut PTP_TIMER {
-        &mut self.ptp_timer
-    }
-
-    /// The critical section, we need to use critical section to access the globals
-    #[must_use]
-    pub fn critical(&self) -> &CRITICAL_SECTION {
-        &self.critical
-    }
-
-    /// The critical section (mut ref), we need to use critical section to access the globals
-    pub fn critical_mut(&mut self) -> &mut CRITICAL_SECTION {
-        &mut self.critical
-    }
-
-    /// Create a `TimerStruct` with the specified timeout
-    #[cfg(all(unix, not(target_os = "linux")))]
-    #[must_use]
-    pub fn new(exec_tmout: Duration) -> Self {
-        let milli_sec = exec_tmout.as_millis();
-        let it_value = Timeval {
-            tv_sec: (milli_sec / 1000) as i64,
-            tv_usec: (milli_sec % 1000) as i64,
-        };
-        let it_interval = Timeval {
-            tv_sec: 0,
-            tv_usec: 0,
-        };
-        let itimerval = Itimerval {
-            it_interval,
-            it_value,
-        };
-        Self { itimerval }
-    }
-
-    /// Constructor
-    /// # Safety
-    /// This function calls transmute to setup the timeout handler for windows
-    #[must_use]
-    pub unsafe fn new(exec_tmout: Duration, timeout_handler: *const c_void) -> Self {
-        let milli_sec = exec_tmout.as_millis() as i64;
-
-        let timeout_handler: PTP_TIMER_CALLBACK = unsafe { core::mem::transmute(timeout_handler) };
-        let ptp_timer = unsafe {
-            CreateThreadpoolTimer(
-                Some(timeout_handler),
-                Some(&raw mut GLOBAL_STATE as *mut c_void),
-                Some(&TP_CALLBACK_ENVIRON_V3::default()),
-            )
-        }
-        .expect("CreateThreadpoolTimer failed!");
-
-        let mut critical = CRITICAL_SECTION::default();
-        unsafe {
-            InitializeCriticalSection(&raw mut critical);
-        }
-        Self {
-            milli_sec,
-            ptp_timer,
-            critical,
-        }
-    }
-
-    #[cfg(target_os = "linux")]
-    #[must_use]
-    /// Create a `TimerStruct` with the specified timeout.
-    ///
-    /// # Safety
-    ///
-    /// It must be created in the process in which the fuzzer will run.
-    pub unsafe fn new() -> Self {
-        let timerid: libc::timer_t = null_mut();
-        let itimerspec = libc::itimerspec {
-            it_interval: libc::timespec {
-                ..Default::default()
-            },
-            it_value: libc::timespec {
-                ..Default::default()
-            },
-        };
-
-        Self {
-            itimerspec,
-            timerid,
-        }
-    }
-
-    #[cfg(all(unix, not(target_os = "linux")))]
-    /// Set up timer
-    pub fn set_timer(&mut self) {
-        #[cfg(not(miri))]
-        unsafe {
-            // creates a new per-process interval timer
-            libc::timer_create(libc::CLOCK_MONOTONIC, null_mut(), &raw mut timerid);
+impl Timer for StdTimer {
+    /// On windows, it must be called from the thread that will run the target.
+    fn create_timer(&mut self, timeout: Duration) -> Result<()> {
+        if self.timer.is_some() {
+            self.delete_timer()?;
         }
 
-        // # Safety
-        // Safe because the variables are all alive at this time and don't contain pointers.
-        unsafe {
-            setitimer(ITIMER_REAL, &raw mut self.itimerval, core::ptr::null_mut());
-        }
+        let expiration = duration_to_filetime(timeout)?;
+
+        self.timer = Some((ThreadpoolTimer::new()?, expiration));
+
+        Ok(())
     }
 
-    #[expect(clippy::cast_sign_loss)]
-    /// Set timer
-    pub fn set_timer(&mut self) {
-        unsafe {
-            let data = &raw mut GLOBAL_STATE;
-
-            write_volatile(&raw mut (*data).ptp_timer, Some(*self.ptp_timer()));
-            write_volatile(
-                &raw mut (*data).critical,
-                &raw mut (*self.critical_mut()) as *mut c_void,
-            );
-            let tm: i64 = -self.milli_sec() * 10 * 1000;
-            let ft = FILETIME {
-                dwLowDateTime: (tm & 0xffffffff) as u32,
-                dwHighDateTime: (tm >> 32) as u32,
-            };
-
-            // enter critical section then set timer
-            compiler_fence(Ordering::SeqCst);
-            EnterCriticalSection(self.critical_mut());
-            compiler_fence(Ordering::SeqCst);
-            (*data).in_target = 1;
-            compiler_fence(Ordering::SeqCst);
-            LeaveCriticalSection(self.critical_mut());
-            compiler_fence(Ordering::SeqCst);
-
-            SetThreadpoolTimer(*self.ptp_timer(), Some(&raw const ft), 0, None);
+    unsafe fn arm_timer(&mut self) -> Result<()> {
+        if let Some((timer, expiration)) = &mut self.timer {
+            timer.set(Some(expiration));
         }
+
+        Ok(())
     }
 
-    /// Set up timer
-    #[cfg(target_os = "linux")]
-    pub fn set_timer(&mut self, timeout: Duration) {
-        let spec = duration_to_itimerspec(timeout);
-        self.itimerspec = spec;
-
-        #[cfg(not(miri))]
-        unsafe {
-            // creates a new per-process interval timer
-            libc::timer_create(libc::CLOCK_MONOTONIC, null_mut(), &raw mut self.timerid);
+    unsafe fn disarm_timer(&mut self) -> Result<()> {
+        if let Some((timer, _)) = &mut self.timer {
+            timer.set(self.disable.as_ref());
+            timer.wait_callbacks();
         }
 
-        #[cfg(not(miri))]
-        unsafe {
-            libc::timer_settime(self.timerid, 0, &raw mut self.itimerspec, null_mut());
-        }
+        Ok(())
     }
 
-    #[cfg(all(unix, not(target_os = "linux")))]
-    /// Disable the timer
-    pub fn unset_timer(&mut self) {
-        // # Safety
-        // No user-provided values.
-        unsafe {
-            let mut itimerval_zero: Itimerval = core::mem::zeroed();
-            setitimer(ITIMER_REAL, &raw mut itimerval_zero, core::ptr::null_mut());
-        }
-    }
+    fn delete_timer(&mut self) -> Result<()> {
+        self.timer.take();
 
-    /// Disable the timer
-    #[cfg(target_os = "linux")]
-    pub fn unset_timer(&mut self) {
-        // # Safety
-        // Just API calls, no user-provided inputs
-        unsafe {
-            let disarmed: libc::itimerspec = zeroed();
-            libc::timer_settime(self.timerid, 0, &raw const disarmed, null_mut());
-        }
-    }
-
-    /// Disable the timer
-    pub fn unset_timer(&mut self) {
-        // # Safety
-        // The value accesses are guarded by a critical section.
-        unsafe {
-            let data = &raw mut GLOBAL_STATE;
-
-            compiler_fence(Ordering::SeqCst);
-            EnterCriticalSection(self.critical_mut());
-            compiler_fence(Ordering::SeqCst);
-            // Timeout handler will do nothing after we increment in_target value.
-            (*data).in_target = 0;
-            compiler_fence(Ordering::SeqCst);
-            LeaveCriticalSection(self.critical_mut());
-            compiler_fence(Ordering::SeqCst);
-
-            // previously this wa post_run_reset
-            SetThreadpoolTimer(*self.ptp_timer(), None, 0, None);
-        }
+        Ok(())
     }
 }

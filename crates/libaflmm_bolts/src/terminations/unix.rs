@@ -2,7 +2,7 @@
 use alloc::ffi::CString;
 use core::cell::UnsafeCell;
 use core::ffi::c_void;
-#[cfg(all(target_vendor = "apple", target_arch = "aarch64"))]
+#[cfg(target_arch = "aarch64")]
 use core::mem::size_of;
 use core::ptr::{self, write_volatile};
 use core::result;
@@ -13,8 +13,10 @@ use core::{
 };
 use libaflmm_core::Result;
 use libaflmm_core::{illegal_argument, unknown};
+#[cfg(target_arch = "arm")]
+use libc::c_ulong;
 use libc::siginfo_t;
-#[cfg(all(target_vendor = "apple", target_arch = "aarch64"))]
+#[cfg(target_arch = "aarch64")]
 use libc::ssize_t;
 use libc::ucontext_t;
 #[cfg(not(any(
@@ -29,12 +31,10 @@ use libc::{
     SIGABRT, SIGALRM, SIGBUS, SIGFPE, SIGHUP, SIGILL, SIGINT, SIGKILL, SIGPIPE, SIGQUIT, SIGSEGV,
     SIGTERM, SIGTRAP, SIGUSR2, c_int,
 };
+use nix::errno::Errno;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
-/// armv7 `libc` does not feature a `uncontext_t` implementation
-#[cfg(target_arch = "arm")]
-pub use libc::c_ulong;
-use nix::errno::Errno;
+pub type OsTerminationCode = nix::sys::signal::Signal;
 
 /// ARMv7-specific representation of a saved context
 #[cfg(target_arch = "arm")]

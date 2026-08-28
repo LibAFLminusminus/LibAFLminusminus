@@ -43,8 +43,10 @@ pub mod prelude {
         CMPLOG_KIND_INS, CMPLOG_KIND_RTN, CMPLOG_MAP_RTN_H, CMPLOG_MAP_SIZE, CMPLOG_RTN_LEN,
     };
 
+    #[cfg(all(feature = "coverage", target_os = "linux"))]
+    pub use crate::coverage::autotokens;
     #[cfg(feature = "coverage")]
-    pub use crate::coverage::{MAX_EDGES_FOUND, autotokens, edges_map_mut_ptr};
+    pub use crate::coverage::{MAX_EDGES_FOUND, edges_map_mut_ptr};
 
     #[cfg(all(
         feature = "coverage",
@@ -64,7 +66,4 @@ pub mod prelude {
     pub use crate::libfuzzer::{libfuzzer_initialize, libfuzzer_test_one_input};
 
     pub use crate::sancov::{libafl_cmp_map, sancov_value_profile};
-
-    #[cfg(all(windows, feature = "windows_asan"))]
-    pub use crate::windows_asan::setup_asan_callback;
 }

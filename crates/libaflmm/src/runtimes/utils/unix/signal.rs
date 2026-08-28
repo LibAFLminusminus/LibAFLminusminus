@@ -1,26 +1,21 @@
 //! Unix signal handling
 
-use crate::{
-    executors::common_signals,
-    runtimes::{
-        LIBAFLMM_EXIT_TERMINATION_INFINITE_RECURSION,
-        inprocess::{CrashStatus, TimeoutStatus},
-        restarting::LIBAFLMM_EXIT_RESTART,
-        utils::{IntoTerminationHandlerData, PinnedPtr, TerminationHandler},
-    },
+use crate::runtimes::{
+    LIBAFLMM_EXIT_TERMINATION_INFINITE_RECURSION,
+    inprocess::{CrashStatus, TimeoutStatus},
+    restarting::LIBAFLMM_EXIT_RESTART,
+    utils::{IntoTerminationHandlerData, PinnedPtr, TerminationHandler},
 };
 use alloc::{boxed::Box, vec::Vec};
 use core::pin::Pin;
-use libaflmm_bolts::os::{
-    exit,
-    unix_signals::{Signal, SignalHandler, setup_signal_handler},
-};
+use libaflmm_bolts::exceptions::unix_signals::{Signal, SignalHandler, setup_signal_handler};
 use libaflmm_core::Result;
 use libc::{SIGABRT, siginfo_t, ucontext_t};
 use std::{
     backtrace::Backtrace,
     io::Write,
     panic::{self, PanicHookInfo},
+    process::exit,
 };
 
 /// Unix termination (signal) handler.
@@ -334,6 +329,17 @@ where
     }
 
     fn signals(&self) -> Vec<Signal> {
-        common_signals()
+        vec![
+            Signal::SigAlarm,
+            Signal::SigUser2,
+            Signal::SigAbort,
+            Signal::SigBus,
+            #[cfg(feature = "handle_sigpipe")]
+            Signal::SigPipe,
+            Signal::SigFloatingPointException,
+            Signal::SigIllegalInstruction,
+            Signal::SigSegmentationFault,
+            Signal::SigTrap,
+        ]
     }
 }

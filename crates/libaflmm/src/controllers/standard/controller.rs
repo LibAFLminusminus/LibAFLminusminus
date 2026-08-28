@@ -6,7 +6,7 @@ use std::{
     path::{self, Path, PathBuf},
 };
 
-use libaflmm_bolts::CoreId;
+use libaflmm_bolts::{CoreId, terminations::OsTerminationCode};
 use libaflmm_core::{Result, illegal_argument, illegal_state};
 
 use crate::{
@@ -189,7 +189,7 @@ where
     fn on_worker_termination(
         &mut self,
         descriptor: &StdDescriptor,
-        _termination_code: nix::sys::signal::Signal,
+        _termination_code: OsTerminationCode,
     ) -> Result<()> {
         log::info!("Terminated worker {:?}", descriptor.worker_id);
         self.controller_sync

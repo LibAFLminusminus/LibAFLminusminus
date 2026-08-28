@@ -85,6 +85,10 @@ fn project_root() -> &'static Path {
         .expect("repo tools must be located in utils/libaflmm_repo_tools")
 }
 
+fn path_str(path: &Path) -> String {
+    path.to_string_lossy().replace('\\', "/")
+}
+
 fn is_workspace_toml(path: &Path) -> bool {
     for line in read_to_string(path).unwrap().lines() {
         if line.eq("[workspace]") {
@@ -367,7 +371,7 @@ async fn main() -> io::Result<()> {
     let rust_projects_to_handle: Vec<PathBuf> = WalkDir::new(libafl_root_dir)
         .into_iter()
         .filter_map(Result::ok)
-        .filter(|e| !rust_excluded_directories.is_match(e.path().as_os_str().to_str().unwrap()))
+        .filter(|e| !rust_excluded_directories.is_match(&path_str(e.path())))
         .filter(|e| e.file_name() == "Cargo.toml")
         .map(DirEntry::into_path)
         .collect();
@@ -458,9 +462,7 @@ async fn main() -> io::Result<()> {
             let c_files_to_fmt: Vec<PathBuf> = WalkDir::new(libafl_root_dir)
                 .into_iter()
                 .filter_map(Result::ok)
-                .filter(|e| {
-                    !c_excluded_directories.is_match(e.path().as_os_str().to_str().unwrap())
-                })
+                .filter(|e| !c_excluded_directories.is_match(&path_str(e.path())))
                 .filter(|e| e.file_type().is_file())
                 .filter(|e| c_file_to_format.is_match(e.file_name().to_str().unwrap()))
                 .map(DirEntry::into_path)

@@ -624,7 +624,7 @@ fn get_affinity_helper() -> Result<Option<CoreId>> {
 #[cfg(target_os = "windows")]
 mod windows {
     use alloc::vec::Vec;
-
+    use libaflmm_core::Result;
     use windows::Win32::System::{
         SystemInformation::GROUP_AFFINITY,
         Threading::{GetCurrentThread, SetThreadGroupAffinity},
