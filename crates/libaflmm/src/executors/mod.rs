@@ -13,7 +13,6 @@ use crate::{
     },
     states::State,
 };
-use alloc::vec::Vec;
 use core::{fmt::Debug, time::Duration};
 use libaflmm_bolts::tuples::RefIndexable;
 use libaflmm_bolts::{core_affinity::CoreId, tuples::Handle};

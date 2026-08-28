@@ -4,9 +4,11 @@ use core::{
     mem::{size_of, zeroed},
     ops::Index,
 };
-use libaflmm_bolts::OwnedRefMut;
+use libaflmm_bolts::Error;
+
+#[cfg(unix)]
 use libaflmm_bolts::{
-    Error,
+    OwnedRefMut,
     shm::{EmptyShmHeader, SysVShm},
 };
 
@@ -340,6 +342,7 @@ where
     H: CmpLogHeader,
 {
     /// turn a sysv shared memory region as a cmplog map
+    #[cfg(unix)]
     pub fn from_shm(shm: &mut SysVShm<EmptyShmHeader>) -> Result<OwnedRefMut<'_, Self>, Error> {
         let needed = size_of::<Self>();
         let available = shm.max_data_len();
