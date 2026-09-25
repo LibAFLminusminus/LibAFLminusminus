@@ -221,7 +221,7 @@ impl Error {
         Error::OsError(err, msg.into(), ErrorBacktrace::capture())
     }
 
-    /// OS error from [`io::Error::last_os_error`] with additional message
+    /// OS error from `last_os_error` with additional message
     #[must_use]
     pub fn last_os_error<S>(msg: S) -> Self
     where
@@ -373,7 +373,7 @@ macro_rules! os_error {
     ($err:expr, $($arg:tt)*) => { $crate::Error::os_error($err, format!($($arg)*)) };
 }
 
-/// build an [`Error::OsError`] from [`io::Error::last_os_error`].
+/// build an [`Error::OsError`] from `last_os_error`.
 #[macro_export]
 macro_rules! last_os_error {
     ($($arg:tt)*) => { $crate::Error::last_os_error(format!($($arg)*)) };
