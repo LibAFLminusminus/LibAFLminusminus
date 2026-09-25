@@ -1,6 +1,3 @@
-#![cfg_attr(test, allow(unfulfilled_lint_expectations))]
-#![expect(clippy::std_instead_of_core)]
-
 use alloc::vec::Vec;
 use core::{cmp, marker::Sized};
 use std::io::Cursor;
@@ -340,9 +337,8 @@ impl Tree {
 
     fn calc_sizes(&mut self) {
         //Initiate with 1
-        for size in &mut self.sizes {
-            *size = 1;
-        }
+        self.sizes.fill(1);
+
         for i in (1..self.size()).rev() {
             self.sizes[self.parents[i].to_i()] += self.sizes[i];
         }

@@ -149,19 +149,19 @@ pub const LIBAFL_CC_LLVM_VERSION: Option<usize> = None;
             .expect("Could not execute llvm-config --bindir")
     };
 
-    let clang;
-    let clangcpp;
-    let llvm_ar;
+    let (clang, clangcpp, llvm_ar) = if cfg!(windows) {
+        let clang = bindir_path.join("clang.exe");
+        let clangcpp = bindir_path.join("clang++.exe");
+        let llvm_ar = Path::new(&llvm_ar_path).join("llvm-ar.exe");
 
-    if cfg!(windows) {
-        clang = bindir_path.join("clang.exe");
-        clangcpp = bindir_path.join("clang++.exe");
-        llvm_ar = Path::new(&llvm_ar_path).join("llvm-ar.exe");
+        (clang, clangcpp, llvm_ar)
     } else {
-        clang = bindir_path.join("clang");
-        clangcpp = bindir_path.join("clang++");
-        llvm_ar = Path::new(&llvm_ar_path).join("llvm-ar");
-    }
+        let clang = bindir_path.join("clang");
+        let clangcpp = bindir_path.join("clang++");
+        let llvm_ar = Path::new(&llvm_ar_path).join("llvm-ar");
+
+        (clang, clangcpp, llvm_ar)
+    };
 
     let mut found = true;
 
